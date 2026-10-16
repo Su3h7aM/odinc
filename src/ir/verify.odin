@@ -70,6 +70,8 @@ value_bits :: proc(type: Value_Type) -> int {
 		return 32
 	case .I64, .F64, .Ptr:
 		return 64
+	case .V128:
+		return 128
 	}
 	return 0
 }

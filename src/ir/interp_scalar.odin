@@ -17,6 +17,8 @@ interp_width :: proc(type: Value_Type) -> int {
 		return 32
 	case .I64, .F64, .Ptr:
 		return 64
+	case .V128:
+		return 128
 	}
 	return 0
 }
@@ -158,11 +160,28 @@ interp_compute :: proc(s: ^Interp_State, id: Node_Id) -> (value: u64, ok: bool) 
 interp_projection :: proc(s: ^Interp_State, id: Node_Id) -> (value: u64, ok: bool) {
 	source := node_input(s.fn, id, 0)
 	index := s.fn.nodes.data[id].index
-	if s.fn.nodes.kind[source] == .Load_Ordered || s.fn.nodes.kind[source] == .Call || s.fn.nodes.kind[source] == .Syscall {
+	#partial switch s.fn.nodes.kind[source] {
+	case .Load_Ordered, .Call, .Syscall, .Atomic_Rmw:
 		if index == 0 {
 			return 0, true
 		}
 		return interp_evaluate(s, source)
+	case .Atomic_Cas:
+		switch index {
+		case 0:
+			return 0, true
+		case 1:
+			return interp_evaluate(s, source)
+		case 2:
+			return interp_cas_success(s, source)
+		}
+	case .Target_Op:
+		if index == 0 {
+			return 0, true
+		}
+		if s.stamps[id] != 0 {
+			return s.values[id], true
+		}
 	}
 	if s.fn.nodes.kind[source] == .Start {
 		switch {

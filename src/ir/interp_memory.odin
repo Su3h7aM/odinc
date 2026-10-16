@@ -156,6 +156,10 @@ interp_memory_execute :: proc(s: ^Interp_State, id: Node_Id) -> (value: u64, ok:
 		return 0, interp_set(s, id, destination, byte_value, size)
 	case .Fence:
 		return 0, true
+	case .Atomic_Rmw:
+		return interp_atomic_rmw(s, id)
+	case .Atomic_Cas:
+		return interp_atomic_cas(s, id)
 	}
 	interp_fail(s, .Unsupported, id)
 	return 0, false
@@ -164,7 +168,7 @@ interp_memory_execute :: proc(s: ^Interp_State, id: Node_Id) -> (value: u64, ok:
 @(private = "file")
 interp_access_width :: proc(type: Value_Type) -> (int, bool) {
 	width := interp_width(type)
-	if width < 8 {
+	if width < 8 || width > 64 {
 		return 0, false
 	}
 	return width / 8, true
@@ -271,4 +275,61 @@ interp_write :: proc(bytes: []u8, value: u64) {
 	for i in 0 ..< len(bytes) {
 		bytes[i] = u8(value >> u64(8 * i))
 	}
+}
+
+@(private = "file")
+interp_atomic_rmw :: proc(s: ^Interp_State, id: Node_Id) -> (value: u64, ok: bool) {
+	fn := s.fn
+	type := fn.nodes.type[node_input(fn, id, 3)]
+	operand := interp_operand(s, id, 3) or_return
+	address := interp_operand(s, id, 2) or_return
+	old := interp_load(s, id, type) or_return
+	if !interp_store(s, id, address, interp_rmw(node_access(fn, id).rmw, type, old, operand), type) {
+		return 0, false
+	}
+	return old, true
+}
+
+@(private = "file")
+interp_rmw :: proc(op: Rmw_Op, type: Value_Type, old, operand: u64) -> u64 {
+	switch op {
+	case .Add:
+		return interp_canonical(type, old + operand)
+	case .Sub:
+		return interp_canonical(type, old - operand)
+	case .And:
+		return old & operand
+	case .Nand:
+		return interp_canonical(type, ~(old & operand))
+	case .Or:
+		return old | operand
+	case .Xor:
+		return old ~ operand
+	case .Xchg:
+		return operand
+	}
+	return operand
+}
+
+@(private = "file")
+interp_atomic_cas :: proc(s: ^Interp_State, id: Node_Id) -> (value: u64, ok: bool) {
+	fn := s.fn
+	type := fn.nodes.type[node_input(fn, id, 3)]
+	address := interp_operand(s, id, 2) or_return
+	expected := interp_canonical(type, interp_operand(s, id, 3) or_return)
+	desired := interp_operand(s, id, 4) or_return
+	old := interp_load(s, id, type) or_return
+	if old == expected && !interp_store(s, id, address, desired, type) {
+		return 0, false
+	}
+	return old, true
+}
+
+// The success flag is recomputed from the old value and `expected`, which are both still available.
+interp_cas_success :: proc(s: ^Interp_State, cas: Node_Id) -> (value: u64, ok: bool) {
+	fn := s.fn
+	type := fn.nodes.type[node_input(fn, cas, 3)]
+	old := interp_evaluate(s, cas) or_return
+	expected := interp_operand(s, cas, 3) or_return
+	return u64(old == interp_canonical(type, expected)), true
 }

@@ -30,6 +30,7 @@ Value_Type :: enum u8 {
 	F32,
 	F64,
 	Ptr,
+	V128,
 }
 
 Type_Set :: bit_set[Value_Type;u16]

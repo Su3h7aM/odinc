@@ -34,6 +34,7 @@ VALUE_TYPE_NAMES := [Value_Type]string {
 	.F16     = "f16",
 	.F32     = "f32",
 	.F64     = "f64",
+	.V128    = "v128",
 	.Ptr     = "ptr",
 }
 

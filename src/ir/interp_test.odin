@@ -361,3 +361,66 @@ interp_calls :: proc(t: ^testing.T) {
 	testing.expect_value(t, err, nil)
 	testing.expectf(t, result.outcome == .Value && result.value == 148, "calls: got %v %v", result.outcome, result.value)
 }
+
+@(private = "file")
+atomic_op :: proc(fn: ^Function, kind: Node_Kind, inputs: []Node_Id, access: Access_Info) -> Node_Id {
+	return add_node(fn, kind, .Tuple, inputs, {access = access})
+}
+
+@(private = "file")
+widen_to_i64 :: proc(fn: ^Function, value: Node_Id) -> Node_Id {
+	if fn.nodes.type[value] == .I64 {
+		return value
+	}
+	return convert(fn, .Zext, value, .I64)
+}
+
+@(test)
+interp_atomics_and_target_ops :: proc(t: ^testing.T) {
+	module: Module
+	testing.expect_value(t, module_init(&module), nil)
+	defer module_destroy(&module)
+
+	fn, entry := memory_function(t, .I64)
+	control := entry.control
+	slot := stack_slot(fn, control, 4, 4)
+	m0 := store(fn, control, entry.memory, slot, const_int(fn, .I32, 5), 2)
+	access := Access_Info {
+		align_log2 = 2,
+		order      = .Seq_Cst,
+		rmw        = .Add,
+	}
+	add := atomic_op(fn, .Atomic_Rmw, {control, m0, slot, const_int(fn, .I32, 3)}, access)
+	m1, old_add := call_results(fn, add, .I32)
+	access.rmw = .Xchg
+	xchg := atomic_op(fn, .Atomic_Rmw, {control, m1, slot, const_int(fn, .I32, 0x20)}, access)
+	m2, old_xchg := call_results(fn, xchg, .I32)
+	access.failure_order = .Seq_Cst
+	hit := atomic_op(fn, .Atomic_Cas, {control, m2, slot, const_int(fn, .I32, 0x20), const_int(fn, .I32, 0x40)}, access)
+	m3, old_hit := call_results(fn, hit, .I32)
+	hit_success := add_node(fn, .Proj, .Bool, {hit}, {index = 2})
+	miss := atomic_op(fn, .Atomic_Cas, {control, m3, slot, const_int(fn, .I32, 0x20), const_int(fn, .I32, 0x50)}, access)
+	m4, old_miss := call_results(fn, miss, .I32)
+	miss_success := add_node(fn, .Proj, .Bool, {miss}, {index = 2})
+	access.rmw = .Nand
+	nand := atomic_op(fn, .Atomic_Rmw, {control, m4, slot, const_int(fn, .I32, 0xFF)}, access)
+	m5, old_nand := call_results(fn, nand, .I32)
+	final := load(fn, control, m5, slot, .I32, 2)
+	cpuid := add_node(fn, .Target_Op, .Tuple, {control, m5, const_int(fn, .I32, 0), const_int(fn, .I32, 0)}, {index = u32(Target_Op.Cpuid)})
+	m6 := add_node(fn, .Proj, .Memory, {cpuid}, {index = 0})
+	cpuid_eax := add_node(fn, .Proj, .I32, {cpuid}, {index = 1})
+	xgetbv := add_node(fn, .Target_Op, .Tuple, {control, m6, const_int(fn, .I32, 0)}, {index = u32(Target_Op.Xgetbv)})
+	m7 := add_node(fn, .Proj, .Memory, {xgetbv}, {index = 0})
+	xgetbv_eax := add_node(fn, .Proj, .I32, {xgetbv}, {index = 1})
+	rdtsc := add_node(fn, .Target_Op, .Tuple, {control, m7}, {index = u32(Target_Op.Rdtsc)})
+	m8 := add_node(fn, .Proj, .Memory, {rdtsc}, {index = 0})
+	rdtsc_value := add_node(fn, .Proj, .I64, {rdtsc}, {index = 1})
+
+	terms := [?]Node_Id{old_add, old_xchg, old_hit, hit_success, old_miss, miss_success, old_nand, final, cpuid_eax, xgetbv_eax, rdtsc_value}
+	total := widen_to_i64(fn, terms[0])
+	for term in terms[1:] {
+		total = binary(fn, .Add, total, widen_to_i64(fn, term))
+	}
+	result := memory_finish(t, &module, fn, control, m8, total)
+	testing.expectf(t, result.outcome == .Value && result.value == 4294967410, "atomics and target ops: got %v %v", result.outcome, result.value)
+}

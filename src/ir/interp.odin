@@ -34,6 +34,7 @@ Interp_Machine :: struct {
 	stack_end:          u64,
 	depth:              int,
 	fuel:               int,
+	time_stamp_counter: u64,
 	output:             [dynamic]byte,
 	allocator:          runtime.Allocator,
 	err:                runtime.Allocator_Error,
@@ -117,6 +118,10 @@ interp_fail :: proc(s: ^Interp_State, outcome: Interp_Outcome, node: Node_Id) {
 // Pinned nodes read the value stored when the walk executed them; Stack_Slot is a constant address.
 interp_evaluate :: proc(s: ^Interp_State, id: Node_Id) -> (u64, bool) {
 	kind := s.fn.nodes.kind[id]
+	if s.fn.nodes.type[id] == .V128 {
+		interp_fail(s, .Unsupported, id)
+		return 0, false
+	}
 	if kind == .Phi {
 		return s.values[id], true
 	}
@@ -177,7 +182,22 @@ interp_block :: proc(s: ^Interp_State, head: Node_Id) -> (Node_Id, bool) {
 	pending_count := 0
 	for use in uses_of(s.uses, head) {
 		#partial switch fn.nodes.kind[use.user] {
-		case .SDiv, .UDiv, .SRem, .URem, .Load, .Load_Ordered, .Store, .Mem_Copy, .Mem_Set, .Fence, .Call, .Syscall, .Stack_Alloc:
+		case .SDiv,
+		     .UDiv,
+		     .SRem,
+		     .URem,
+		     .Load,
+		     .Load_Ordered,
+		     .Store,
+		     .Mem_Copy,
+		     .Mem_Set,
+		     .Fence,
+		     .Call,
+		     .Syscall,
+		     .Stack_Alloc,
+		     .Atomic_Rmw,
+		     .Atomic_Cas,
+		     .Target_Op:
 			s.pending[pending_count] = use.user
 			pending_count += 1
 		case .If, .Switch, .Return, .Unreachable, .Trap, .Region, .Loop:
@@ -264,6 +284,10 @@ interp_run_pending :: proc(s: ^Interp_State, pending: []Node_Id) -> bool {
 
 @(private = "file")
 interp_execute_pinned :: proc(s: ^Interp_State, id: Node_Id) -> bool {
+	if s.fn.nodes.type[id] == .V128 {
+		interp_fail(s, .Unsupported, id)
+		return false
+	}
 	value: u64
 	ok: bool
 	#partial switch s.fn.nodes.kind[id] {
@@ -273,6 +297,8 @@ interp_execute_pinned :: proc(s: ^Interp_State, id: Node_Id) -> bool {
 		value, ok = interp_call(s, id)
 	case .Syscall:
 		value, ok = interp_syscall(s, id)
+	case .Target_Op:
+		ok = interp_target_op(s, id)
 	case .Stack_Alloc:
 		value, ok = interp_stack_alloc_node(s, id)
 	case:
@@ -315,7 +341,7 @@ interp_memory_ready :: proc(s: ^Interp_State, pending: []Node_Id, id: Node_Id) -
 @(private = "file")
 interp_takes_memory :: proc(kind: Node_Kind) -> bool {
 	#partial switch kind {
-	case .Load, .Load_Ordered, .Store, .Mem_Copy, .Mem_Set, .Fence, .Call, .Syscall:
+	case .Load, .Load_Ordered, .Store, .Mem_Copy, .Mem_Set, .Fence, .Call, .Syscall, .Atomic_Rmw, .Atomic_Cas, .Target_Op:
 		return true
 	}
 	return false
@@ -324,7 +350,7 @@ interp_takes_memory :: proc(kind: Node_Kind) -> bool {
 @(private = "file")
 interp_produces_memory :: proc(kind: Node_Kind) -> bool {
 	#partial switch kind {
-	case .Load_Ordered, .Store, .Mem_Copy, .Mem_Set, .Fence, .Call, .Syscall:
+	case .Load_Ordered, .Store, .Mem_Copy, .Mem_Set, .Fence, .Call, .Syscall, .Atomic_Rmw, .Atomic_Cas, .Target_Op:
 		return true
 	}
 	return false

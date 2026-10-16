@@ -214,7 +214,11 @@ ARITH_FLOATS :: Type_Set{.F32, .F64}
 @(private = "file")
 SCALARS :: INTS + FLOATS + BOOL + PTR
 @(private = "file")
-STORABLE :: INTS + FLOATS + PTR
+VECTOR :: Type_Set{.V128}
+
+ABI_VALUES :: SCALARS + VECTOR
+
+STORABLE :: INTS + FLOATS + PTR + VECTOR
 @(private = "file")
 BITCASTABLE :: INTS + FLOATS + PTR
 @(private = "file")
@@ -241,7 +245,15 @@ KIND_TABLE :: [Node_Kind]Kind_Info {
 	},
 	.Switch = {name = "switch", class = .Branch, min_inputs = 2, max_inputs = 2, slots = {CONTROL, INTS, {}, {}, {}}, result = TUPLE, tuple = .Open},
 	.Proj = {name = "proj", class = .Projection, min_inputs = 1, max_inputs = 1, slots = {TUPLE, {}, {}, {}, {}}, result = CONTROL + MEMORY + SCALARS},
-	.Return = {name = "return", class = .Terminator, min_inputs = 2, max_inputs = 4, slots = {CONTROL, MEMORY, {}, {}, {}}, tail = SCALARS, result = NOTHING},
+	.Return = {
+		name = "return",
+		class = .Terminator,
+		min_inputs = 2,
+		max_inputs = 4,
+		slots = {CONTROL, MEMORY, {}, {}, {}},
+		tail = ABI_VALUES,
+		result = NOTHING,
+	},
 	.Unreachable = {name = "unreachable", class = .Terminator, min_inputs = 2, max_inputs = 2, slots = {CONTROL, MEMORY, {}, {}, {}}, result = NOTHING},
 	.Trap = {name = "trap", class = .Terminator, min_inputs = 2, max_inputs = 2, slots = {CONTROL, MEMORY, {}, {}, {}}, result = NOTHING},
 	.Const_Int = {name = "const_int", class = .Pure, flags = {.Rematerialize}, result = BOOL_INTS + PTR},
@@ -368,7 +380,7 @@ KIND_TABLE :: [Node_Kind]Kind_Info {
 		min_inputs = 3,
 		max_inputs = INPUTS_UNBOUNDED,
 		slots = {CONTROL, MEMORY, PTR, {}, {}},
-		tail = SCALARS,
+		tail = ABI_VALUES,
 		result = TUPLE,
 		tuple = .Open,
 		members = {.Memory, .None},

@@ -60,7 +60,7 @@ Package layout (`src/ir`): `ids.odin`, `kinds.odin`, `graph.odin`, `module.odin`
 Node_Id :: distinct u32
 NODE_NONE :: Node_Id(0)            // node 0 is reserved: kind .Invalid
 
-Value_Type :: enum u8 { None, Control, Memory, Tuple, Bool, I8, I16, I32, I64, F16, F32, F64, Ptr }
+Value_Type :: enum u8 { None, Control, Memory, Tuple, Bool, I8, I16, I32, I64, F16, F32, F64, Ptr, V128 }
 Node_Flags :: bit_set[Node_Flag; u8]
 Node_Flag  :: enum u8 { Cold, Rematerialize }
 
@@ -114,10 +114,12 @@ Data_Reloc :: struct { offset: u32, target: Symbol_Ref, addend: i64 }   // absol
 Calling_Convention :: enum u8 { Odin, Contextless, C }                  // C = SysV
 Extension  :: enum u8 { None, Sign, Zero }
 Param_Attr :: enum u8 { Direct, Indirect, By_Value, Struct_Return, Context }
-Param  :: struct { type: Value_Type, attr: Param_Attr, ext: Extension, size: u32, align: u16 }   // size/align: By_Value object, or stack alignment of a Direct piece (16 for the low half of an i128)
-Result :: struct { type: Value_Type, ext: Extension }
+Param  :: struct { type: Value_Type, attr: Param_Attr, ext: Extension, size: u32, align: u16 }   // size: bytes of a By_Value object, or significant bytes of an odd-size Direct piece; align: By_Value alignment, or stack alignment of a Direct piece (16 for the low half of an i128)
+Result :: struct { type: Value_Type, ext: Extension, size: u32 }   // size: significant bytes of an odd-size piece
 Signature :: struct { cc: Calling_Convention, variadic: bool, params: []Param, results: []Result }  // 0..2 results
 ```
+
+**V128** (decision 1) is a `Value_Type` for ABI pieces and memory: `Load`, `Store`, `Call`, `Return` and `Start` pieces may carry it. The interpreter returns `Unsupported` at the first node that produces or consumes a V128 value (`node` = that node). No node holds a two-word value. `lower` scalarizes `#simd` values, so V128 appears only at ABI boundaries.
 
 `Indirect` is a plain pointer to a caller-owned copy (Odin MEMORY-class arguments); `By_Value` is the C `byval` object copied by `x64` into the outgoing stack area. They are different ABIs (section 6).
 
@@ -219,7 +221,7 @@ Builder surface for control (sticky error): `start`, `if_(ctrl, cond) → (true_
 | Aggregate classified into registers. | 1-2 `Direct` pieces, consecutive in the parameter list, assigned by `x64` sequentially, register by register, as LLVM's calling-convention lowering of the final parameter list does. The planner's counters decide `Direct` versus `By_Value`; hidden pointers are not in the counters, so a straddle between the last register and the stack is reproduced, not corrected (open question 5). Odd-size aggregates follow `llreg`/`classify_source`. |
 | `i128` (computation uses `I64` pairs). | Two `Direct` `I64` pieces; the low piece has `align = 16` for stack placement; classified `Int,Int`. A struct containing it follows the aggregate rules, not "two scalars". |
 | Small integer (<4 bytes), `bool`. | `ext` = `Sign` (signed integers, enums), `Zero` (unsigned, `bool`, `b8`..): `lb_integer_extension_attribute` (`:437-456`). The caller extends arguments to 32 bits, the callee extends results to 32 bits. The same on `Result`. |
-| Results ≤16 bytes, classified. | 1-2 `Result` pieces (`rax:rdx`, `xmm0:xmm1`, mixed). |
+| Results ≤16 bytes, classified. | 1-2 `Result` pieces (`rax:rdx`, `xmm0:xmm1`, mixed); an odd-size piece sets `size`. |
 | Larger results. | First parameter `Struct_Return`. |
 | `Odin` convention, tuple results. | Results 0..n-2 are `Ptr` parameters (`Direct`, appended after the regular parameters, before `context`); result n-1 is the return value (`:394-418, 2754-2775`). |
 | `Odin` convention. | Last parameter `Context`. `Contextless` and `C` have none. A procedure of those conventions that needs a context builds a default one in a local (`lb_find_or_generate_context_ptr`, `lb_emit_init_context`). |
@@ -229,6 +231,8 @@ Builder surface for control (sticky error): `start`, `if_(ctrl, cond) → (true_
 Parameter order of an `Odin` function: `[Struct_Return] regular… split-result-pointers… Context`. `Start`, `Call` and `Return` carry exactly these pieces; `verify` checks types, `attr` and `ext` against the signature. Assigning registers, stack offsets, `rsp` alignment, callee-saved registers and the red zone belong to `x64`.
 
 Calls to module functions are `Call` with a `Symbol_Addr` callee. Calls that never return (`-> !`) are followed by `Unreachable(ctrl, mem)` consuming the call's memory.
+
+A `Return` with two results (decision 2) is not interpreted: the interpreter returns `Unsupported` at the Return node, and no two-result outcome exists.
 
 **Validation** of the planner is bidirectional: a matrix of signatures compiled by the fork's Odin and by Clang, compared piece by piece with the plan (register exhaustion, MEMORY aggregates, mixed Int/SSE, odd sizes, signed/unsigned small returns, `i128`, split returns, `context`).
 
@@ -361,7 +365,7 @@ func f0 "main.add_or_zero" sig=s0 {
 **Interpreter** (the differential oracle; Simple chapters 8 and 18). Built in three layers so each is testable: (1) scalar and control evaluation of one function; (2) flat memory, globals with relocations, stack slots, loads/stores/copies, atomics as sequential operations; (3) calls and recursion with the ABI plan applied (pieces, `Indirect`, `By_Value`, extension), then a host table for externs and a small syscall whitelist.
 - Memory is one flat byte array from base `0x10000`; null faults. Pointers are `u64`.
 - Pure nodes are evaluated on demand and memoized by a generation counter bumped whenever a pinned node produces a value or a phi updates; pinned nodes run in the order of the four rules of section 7; all phis of a region read before any is written.
-- Results and failures are typed: value, `Trap`, `Unreachable`, `Arith_Trap` (hardware divide fault), `Out_of_Fuel`, fault address. Signal and exit-code distinctions are preserved so `Trap` (`ud2`) and a divide fault are different outcomes, as in the official binary.
+- Results and failures are typed: value, `Trap`, `Unreachable`, `Arith_Trap` (hardware divide fault), `Out_of_Fuel`, `Fault` (address), `Unsupported` (node), `Exit` (exit code), `Stack_Overflow`. Signal and exit-code distinctions are preserved so `Trap` (`ud2`) and a divide fault are different outcomes, as in the official binary.
 - It runs the unscheduled graph with the local rules only, and a second mode runs a `sched` schedule. The two share the effect rules, so agreement does not prove the rules; the official compiler's native output is the oracle for source-visible effects (writes, defer order, context, errors, ABI), compared on the same program.
 
 ## 11. Peepholes and GVN

@@ -38,6 +38,7 @@ Param :: struct {
 Result :: struct {
 	type: Value_Type,
 	ext:  Extension,
+	size: u32,
 }
 
 Signature :: struct {
