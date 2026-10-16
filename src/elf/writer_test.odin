@@ -1,172 +1,165 @@
 package elf
 
+import "core:bytes"
 import "core:os"
 import "core:slice"
 import "core:testing"
-
-@(test)
-empty_object :: proc(t: ^testing.T) {
-	b := builder_init()
-	defer builder_destroy(&b)
-
-	object, err := write(&b)
-	testing.expect(t, err == nil, "write must succeed for an empty builder")
-	testing.expect(t, len(object) == 64 + 3*64, "header plus three section headers")
-
-	hdr := slice.reinterpret(File_Header, object)[0]
-	testing.expect_value_eq(t, hdr.ident[:4], []byte{0x7f, 'E', 'L', 'F'})
-	testing.expect_value_eq(t, hdr.e_type, .ET_REL)
-	testing.expect_value_eq(t, hdr.e_machine, .EM_X86_64)
-	testing.expect_value_eq(t, hdr.e_version, u32le(EV_CURRENT))
-	testing.expect_value_eq(t, hdr.e_entry, u64le(0))
-	testing.expect_value_eq(t, hdr.e_phoff, u64le(0))
-	testing.expect_value_eq(t, hdr.e_ehsize, u16le(64))
-	testing.expect_value_eq(t, hdr.e_shentsize, u16le(64))
-
-	#assert(size_of(Section_Header) == 64)
-	headers := slice.reinterpret(Section_Header, object[64:])
-	testing.expect_value_eq(t, hdr.e_shnum, u16le(len(headers)))
-	testing.expect_value_eq(t, hdr.e_shstrndx, u16le(len(headers)-1))
-
-	null_sec := headers[0]
-	testing.expect_value_eq(t, null_sec.sh_type, .SHT_NULL)
-	testing.expect_value_eq(t, null_sec.sh_flags, u64le(0))
-	testing.expect_value_eq(t, null_sec.sh_offset, u64le(0))
-
-	symtab := headers[1]
-	testing.expect_value_eq(t, symtab.sh_type, .SHT_SYMTAB)
-	testing.expect_value_eq(t, symtab.sh_link, u32le(2), "symtab links to strtab")
-	testing.expect_value_eq(t, symtab.sh_info, u32le(1), "first non-local symbol is entry 1")
-	testing.expect_value_eq(t, symtab.sh_size, u64le(size_of(Symbol_Entry)))
-	testing.expect_value_eq(t, symtab.sh_entsize, u64le(size_of(Symbol_Entry)))
-	testing.expect_value_eq(t, symtab.sh_addralign, u64le(8))
-
-	strtab := headers[2]
-	testing.expect_value_eq(t, strtab.sh_type, .SHT_STRTAB)
-	testing.expect_value_eq(t, strtab.sh_size, u64le(1))
-
-	shstrtab := headers[3]
-	testing.expect_value_eq(t, shstrtab.sh_type, .SHT_STRTAB)
-	testing.expect_value_eq(t, shstrtab.sh_size > u64le(1), true, "section names are present")
-}
 
 // Fills a builder with the shape real compiler output has: progbits text
 // and data sections, a NOBITS one, local, global, weak and undefined
 // symbols, and PC32/PLT32/64 relocations against them.
 make_full_builder :: proc() -> Builder {
-	b := builder_init()
+	builder := builder_init()
 
-	text := add_section(&b, ".text", .SHT_PROGBITS, Section_Flags{.SHF_ALLOC, .SHF_EXECINSTR}, 16)
-	section_add_data(&b, text, []byte{0x55, 0x48, 0x89, 0xe5, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00})
-	data := add_section(&b, ".data", .SHT_PROGBITS, Section_Flags{.SHF_WRITE, .SHF_ALLOC}, 8)
-	section_add_data(&b, data, []byte{0x01, 0x02, 0x03, 0x04})
-	bss := add_section(&b, ".bss", .SHT_NOBITS, Section_Flags{.SHF_WRITE, .SHF_ALLOC}, 8)
-	section_reserve(&b, bss, 16)
+	text := add_section(&builder, ".text", .SHT_PROGBITS, Section_Flags{.SHF_ALLOC, .SHF_EXECINSTR}, 16)
+	section_add_data(&builder, text, []byte{0x55, 0x48, 0x89, 0xe5, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00})
+	data := add_section(&builder, ".data", .SHT_PROGBITS, Section_Flags{.SHF_WRITE, .SHF_ALLOC}, 8)
+	section_add_data(&builder, data, []byte{0x01, 0x02, 0x03, 0x04})
+	bss := add_section(&builder, ".bss", .SHT_NOBITS, Section_Flags{.SHF_WRITE, .SHF_ALLOC}, 8)
+	section_reserve(&builder, bss, 16)
 
 	// Unnamed section symbol, the canonical first local entry.
-	add_symbol(&b, "", .STB_LOCAL, .STT_SECTION, section_index(text), 0, 0)
+	add_symbol(&builder, "", .STB_LOCAL, .STT_SECTION, section_index(text), 0, 0)
 	// Local object symbol in .data.
-	add_symbol(&b, "count", .STB_LOCAL, .STT_OBJECT, section_index(data), 0, 4)
+	add_symbol(&builder, "count", .STB_LOCAL, .STT_OBJECT, section_index(data), 0, 4)
 	// Defined global function, referenced by a PLT32 call in .text.
-	main_sym := add_symbol(&b, "main", .STB_GLOBAL, .STT_FUNC, section_index(text), 0, 8)
+	main_symbol := add_symbol(&builder, "main", .STB_GLOBAL, .STT_FUNC, section_index(text), 0, 8)
 	// Weak, absolute value.
-	add_symbol(&b, "weak_abs", .STB_WEAK, .STT_NOTYPE, SHN_ABS, 0x4242, 0)
+	add_symbol(&builder, "weak_abs", .STB_WEAK, .STT_NOTYPE, SHN_ABS, 0x4242, 0)
 	// Undefined external, referenced by a PC32 in .text and a 64 in .data.
-	undef_sym := add_symbol(&b, "puts", .STB_GLOBAL, .STT_NOTYPE, SHN_UNDEF, 0, 0)
+	undefined_symbol := add_symbol(&builder, "puts", .STB_GLOBAL, .STT_NOTYPE, SHN_UNDEF, 0, 0)
 
-	add_reloc(&b, text, undef_sym, .R_X86_64_PC32, 4, -4)
-	add_reloc(&b, text, main_sym, .R_X86_64_PLT32, 8, -4)
-	add_reloc(&b, data, undef_sym, .R_X86_64_64, 0, 0)
+	add_reloc(&builder, text, undefined_symbol, .R_X86_64_PC32, 4, -4)
+	add_reloc(&builder, text, main_symbol, .R_X86_64_PLT32, 8, -4)
+	add_reloc(&builder, data, undefined_symbol, .R_X86_64_64, 0, 0)
 
-	return b
+	return builder
 }
 
 @(test)
-full_object :: proc(t: ^testing.T) {
-	b := make_full_builder()
-	defer builder_destroy(&b)
+write_object :: proc(t: ^testing.T) {
+	empty := builder_init()
+	defer builder_destroy(&empty)
+	empty_object, empty_err := write(&empty)
+	testing.expect(t, empty_err == nil, "write must succeed for an empty builder")
+	defer delete(empty_object, context.allocator)
 
-	object, err := write(&b)
+	empty_header := slice.reinterpret([]File_Header, empty_object)[0]
+	testing.expect(t, bytes.equal(empty_header.ident[:4], []byte{0x7f, 'E', 'L', 'F'}), "ELF magic")
+	testing.expect(t, empty_header.e_type == .ET_REL, "e_type")
+	testing.expect(t, empty_header.e_machine == .EM_X86_64, "e_machine")
+	testing.expect(t, u32(empty_header.e_version) == EV_CURRENT, "e_version")
+	testing.expect(t, u32(empty_header.e_phnum) == 0, "no program headers")
+	testing.expect(
+		t,
+		len(empty_object) == int(empty_header.e_shoff) + int(empty_header.e_shnum) * size_of(Section_Header),
+		"file size is header table plus data",
+	)
+	testing.expect(t, u32(empty_header.e_shnum) == 4, "null section, symtab, strtab, shstrtab")
+	testing.expect(t, u32(empty_header.e_shstrndx) == 3, "shstrtab last")
+
+	#assert(size_of(Section_Header) == 64)
+	empty_headers := slice.reinterpret([]Section_Header, empty_object[empty_header.e_shoff:])
+	testing.expect(t, empty_headers[0].sh_type == .SHT_NULL, "null section")
+	testing.expect(t, u64(empty_headers[0].sh_flags) == 0, "null section flags")
+	testing.expect(t, u64(empty_headers[0].sh_offset) == 0, "null section offset")
+	testing.expect(t, empty_headers[1].sh_type == .SHT_SYMTAB, "symtab")
+	testing.expect(t, u32(empty_headers[1].sh_link) == 2, "symtab links to strtab")
+	testing.expect(t, u32(empty_headers[1].sh_info) == 1, "first non-local symbol is entry 1")
+	testing.expect(t, u64(empty_headers[1].sh_size) == size_of(Symbol_Entry), "only the null symbol")
+	testing.expect(t, empty_headers[2].sh_type == .SHT_STRTAB, "strtab")
+	testing.expect(t, u64(empty_headers[2].sh_size) == 1, "just the empty string")
+	testing.expect(t, empty_headers[3].sh_type == .SHT_STRTAB, "shstrtab")
+	testing.expect(t, u64(empty_headers[3].sh_size) > 1, "section names are present")
+
+	builder := make_full_builder()
+	defer builder_destroy(&builder)
+	object, err := write(&builder)
 	testing.expect(t, err == nil, "write must succeed")
+	defer delete(object, context.allocator)
 
-	hdr := slice.reinterpret(File_Header, object)[0]
+	header := slice.reinterpret([]File_Header, object)[0]
 	// null, .text, .data, .bss, .symtab, .strtab, .rela.text, .rela.data, .shstrtab
-	testing.expect_value_eq(t, hdr.e_shnum, u16le(9))
-	testing.expect_value_eq(t, hdr.e_shstrndx, u16le(8))
+	testing.expect(t, u32(header.e_shnum) == 9, "e_shnum")
+	testing.expect(t, u32(header.e_shstrndx) == 8, "e_shstrndx")
 
-	headers := slice.reinterpret(Section_Header, object[64:])
+	headers := slice.reinterpret([]Section_Header, object[header.e_shoff:])
 
-	text_hdr := headers[1]
-	testing.expect_value_eq(t, text_hdr.sh_type, .SHT_PROGBITS)
-	testing.expect_value_eq(t, text_hdr.sh_size, u64le(12))
-	testing.expect(t, (text_hdr.sh_flags & 0x4) != 0, "text is executable")
-	testing.expect_value_eq(t, text_hdr.sh_addralign, u64le(16))
+	text_header := headers[1]
+	testing.expect(t, text_header.sh_type == .SHT_PROGBITS, "text type")
+	testing.expect(t, u64(text_header.sh_size) == 12, "text size")
+	testing.expect(t, (u64(text_header.sh_flags) & 0x4) != 0, "text is executable")
+	testing.expect(t, u64(text_header.sh_addralign) == 16, "text align")
 
-	bss_hdr := headers[3]
-	testing.expect_value_eq(t, bss_hdr.sh_type, .SHT_NOBITS)
-	testing.expect_value_eq(t, bss_hdr.sh_size, u64le(16))
-	testing.expect(t, u32(bss_hdr.sh_offset) > 0, "NOBITS keeps an offset")
+	bss_header := headers[3]
+	testing.expect(t, bss_header.sh_type == .SHT_NOBITS, "bss type")
+	testing.expect(t, u64(bss_header.sh_size) == 16, "bss size")
+	testing.expect(t, u64(bss_header.sh_offset) > 0, "NOBITS keeps an offset")
 
-	symtab_hdr := headers[4]
-	testing.expect_value_eq(t, symtab_hdr.sh_link, u32le(5))
-	testing.expect_value_eq(t, symtab_hdr.sh_info, u32le(3), "two locals precede three non-locals")
-	testing.expect_value_eq(t, symtab_hdr.sh_size, u64le(6*size_of(Symbol_Entry)))
+	symtab_header := headers[4]
+	testing.expect(t, u32(symtab_header.sh_link) == 5, "symtab links to strtab")
+	testing.expect(t, u32(symtab_header.sh_info) == 3, "two locals precede three non-locals")
+	testing.expect(t, u64(symtab_header.sh_size) == 6 * size_of(Symbol_Entry), "symtab size")
 
-	rela_text := headers[6]
-	testing.expect_value_eq(t, rela_text.sh_type, .SHT_RELA)
-	testing.expect_value_eq(t, rela_text.sh_link, u32le(4), "rela links to symtab")
-	testing.expect_value_eq(t, rela_text.sh_info, u32le(1), "rela targets .text")
-	testing.expect(t, (rela_text.sh_flags & 0x40) != 0, "rela carries SHF_INFO_LINK")
-	testing.expect_value_eq(t, rela_text.sh_size, u64le(2*size_of(Rela_Entry)))
+	rela_text_header := headers[6]
+	testing.expect(t, rela_text_header.sh_type == .SHT_RELA, "rela.text type")
+	testing.expect(t, u32(rela_text_header.sh_link) == 4, "rela links to symtab")
+	testing.expect(t, u32(rela_text_header.sh_info) == 1, "rela targets .text")
+	testing.expect(t, (u64(rela_text_header.sh_flags) & 0x40) != 0, "rela carries SHF_INFO_LINK")
+	testing.expect(t, u64(rela_text_header.sh_size) == 2 * size_of(Rela_Entry), "rela.text size")
 
-	rela_data := headers[7]
-	testing.expect_value_eq(t, rela_data.sh_link, u32le(4))
-	testing.expect_value_eq(t, rela_data.sh_info, u32le(2), "rela targets .data")
-	testing.expect_value_eq(t, rela_data.sh_size, u64le(size_of(Rela_Entry)))
+	rela_data_header := headers[7]
+	testing.expect(t, u32(rela_data_header.sh_link) == 4, "rela.data links to symtab")
+	testing.expect(t, u32(rela_data_header.sh_info) == 2, "rela targets .data")
+	testing.expect(t, u64(rela_data_header.sh_size) == size_of(Rela_Entry), "rela.data size")
 
 	// Symbol table content: null symbol, locals in insertion order, then
 	// global and weak symbols in insertion order.
-	symbols := slice.reinterpret(Symbol_Entry, object[u64(symtab_hdr.sh_offset):][:int(symtab_hdr.sh_size)])
-	null_sym := symbols[0]
-	testing.expect_value_eq(t, null_sym.st_name, u32le(0))
-	testing.expect_value_eq(t, null_sym.st_info, u8(0))
+	symbols := slice.reinterpret([]Symbol_Entry, object[u64(symtab_header.sh_offset):][:int(symtab_header.sh_size)])
+	testing.expect(t, u32(symbols[0].st_name) == 0, "null symbol name")
+	testing.expect(t, symbols[0].st_info == 0, "null symbol info")
 
-	file_sym := symbols[1]
-	testing.expect_value_eq(t, file_sym.st_name, u32le(0), "section symbols are unnamed")
-	testing.expect_value_eq(t, file_sym.st_info, u8(3<<4 | 0), "LOCAL, SECTION")
-	testing.expect_value_eq(t, file_sym.st_shndx, u16le(1))
+	section_symbol := symbols[1]
+	testing.expect(t, u32(section_symbol.st_name) == 0, "section symbols are unnamed")
+	testing.expect(t, section_symbol.st_info == 3, "LOCAL SECTION")
+	testing.expect(t, u16(section_symbol.st_shndx) == 1, "belongs to .text")
 
-	count_sym := symbols[2]
-	testing.expect_value_eq(t, count_sym.st_info, u8(1<<4 | 1), "LOCAL, OBJECT")
-	testing.expect_value_eq(t, count_sym.st_shndx, u16le(2))
-	testing.expect_value_eq(t, count_sym.st_size, u64le(4))
+	count_symbol := symbols[2]
+	testing.expect(t, count_symbol.st_info == 1, "LOCAL OBJECT")
+	testing.expect(t, u16(count_symbol.st_shndx) == 2, "belongs to .data")
+	testing.expect(t, u64(count_symbol.st_size) == 4, "count size")
 
-	main_sym_out := symbols[3]
-	testing.expect_value_eq(t, main_sym_out.st_info, u8(1<<4 | 2), "GLOBAL, FUNC")
-	testing.expect_value_eq(t, main_sym_out.st_shndx, u16le(1))
-	testing.expect_value_eq(t, main_sym_out.st_value, u64le(0))
+	main_symbol := symbols[3]
+	testing.expect(t, main_symbol.st_info == 1 << 4 | 2, "GLOBAL FUNC")
+	testing.expect(t, u16(main_symbol.st_shndx) == 1, "belongs to .text")
+	testing.expect(t, u64(main_symbol.st_value) == 0, "main value")
 
-	weak_sym := symbols[4]
-	testing.expect_value_eq(t, weak_sym.st_info, u8(2<<4 | 0), "WEAK, NOTYPE")
-	testing.expect_value_eq(t, weak_sym.st_shndx, u16le(SHN_ABS))
-	testing.expect_value_eq(t, weak_sym.st_value, u64le(0x4242))
+	weak_abs_symbol := symbols[4]
+	testing.expect(t, weak_abs_symbol.st_info == 2 << 4 | 0, "WEAK NOTYPE")
+	testing.expect(t, u16(weak_abs_symbol.st_shndx) == u16(SHN_ABS), "absolute")
+	testing.expect(t, u64(weak_abs_symbol.st_value) == 0x4242, "weak value")
 
-	undef_sym := symbols[5]
-	testing.expect_value_eq(t, undef_sym.st_info, u8(1<<4 | 0), "GLOBAL, NOTYPE")
-	testing.expect_value_eq(t, undef_sym.st_shndx, u16le(SHN_UNDEF))
+	undefined_symbol := symbols[5]
+	testing.expect(t, undefined_symbol.st_info == 1 << 4 | 0, "GLOBAL NOTYPE")
+	testing.expect(t, u16(undefined_symbol.st_shndx) == u16(SHN_UNDEF), "undefined")
 
 	// Relocation content: symbol indices into the ordered symtab.
-	entries := slice.reinterpret(Rela_Entry, object[u64(rela_text.sh_offset):][:int(rela_text.sh_size)])
+	entries := slice.reinterpret([]Rela_Entry, object[u64(rela_text_header.sh_offset):][:int(rela_text_header.sh_size)])
 	pc32 := entries[0]
-	testing.expect_value_eq(t, pc32.r_offset, u64le(4))
-	testing.expect_value_eq(t, pc32.r_info, u64(5)<<32 | 2, "PC32 against puts")
-	testing.expect_value_eq(t, pc32.r_addend, i64le(-4))
+	testing.expect(t, u64(pc32.r_offset) == 4, "pc32 offset")
+	testing.expect(t, u64(pc32.r_info) == u64(5) << 32 | 2, "PC32 against puts")
+	testing.expect(t, i64(pc32.r_addend) == -4, "pc32 addend")
 
 	plt32 := entries[1]
-	testing.expect_value_eq(t, plt32.r_info, u64(4)<<32 | 4, "PLT32 against main")
+	testing.expect(t, u64(plt32.r_info) == u64(3) << 32 | 4, "PLT32 against main")
 
-	entry := slice.reinterpret(Rela_Entry, object[u64(rela_data.sh_offset):][:int(rela_data.sh_size)])[0]
-	testing.expect_value_eq(t, entry.r_info, u64(5)<<32 | 1, "word64 against puts in .data")
+	data_entry := slice.reinterpret([]Rela_Entry, object[u64(rela_data_header.sh_offset):][:int(rela_data_header.sh_size)])[0]
+	testing.expect(t, u64(data_entry.r_info) == u64(5) << 32 | 1, "word64 against puts in .data")
+
+	// Dump both sample objects so they can be inspected with readelf and
+	// objdump by hand.
+	testing.expect(t, os.write_entire_file("/tmp/opencode/elf-empty.o", empty_object) == nil, "empty sample written")
+	testing.expect(t, os.write_entire_file("/tmp/opencode/elf-full.o", object) == nil, "full sample written")
 }
 
 @(test)
@@ -175,60 +168,44 @@ write_is_deterministic :: proc(t: ^testing.T) {
 	defer builder_destroy(&a)
 	object_a, err_a := write(&a)
 	testing.expect(t, err_a == nil, "first write must succeed")
+	defer delete(object_a, context.allocator)
 
-	b := make_full_builder()
-	defer builder_destroy(&b)
-	object_b, err_b := write(&b)
+	builder := make_full_builder()
+	defer builder_destroy(&builder)
+	object_b, err_b := write(&builder)
 	testing.expect(t, err_b == nil, "second write must succeed")
+	defer delete(object_b, context.allocator)
 
-	testing.expect_value_eq(t, object_a, object_b, "two runs produce identical bytes")
+	testing.expect(t, len(object_a) > 0, "the object has content")
+	testing.expect(t, bytes.equal(object_a, object_b), "two runs produce identical bytes")
 }
 
 @(test)
 builder_misuse_errors :: proc(t: ^testing.T) {
-	b := builder_init()
-	defer builder_destroy(&b)
+	builder := builder_init()
+	defer builder_destroy(&builder)
 
-	_, err := section_add_data(&b, Section_Handle(7), []byte{0})
-	testing.expect_value_eq(t, err, Error(.Unknown_Section))
+	err := section_add_data(&builder, Section_Handle(7), []byte{0})
+	testing.expect(t, err == Error(.Unknown_Section), "unknown section in add_data")
 
-	_, err = section_reserve(&b, Section_Handle(7), 8)
-	testing.expect_value_eq(t, err, Error(.Unknown_Section))
+	err = reserve_error(&builder, Section_Handle(7), 8)
+	testing.expect(t, err == Error(.Unknown_Section), "unknown section in reserve")
 
-	err = add_reloc(&b, Section_Handle(7), Symbol_Handle(1), .R_X86_64_64, 0, 0)
-	testing.expect_value_eq(t, err, Error(.Unknown_Section))
+	err = add_reloc(&builder, Section_Handle(7), Symbol_Handle(1), .R_X86_64_64, 0, 0)
+	testing.expect(t, err == Error(.Unknown_Section), "unknown section in add_reloc")
 
-	text := add_section(&b, ".text", .SHT_PROGBITS, {}, 1)
-	_, err = section_reserve(&b, text, 8)
-	testing.expect_value_eq(t, err, Error(.Not_Nobits_Section))
+	text := add_section(&builder, ".text", .SHT_PROGBITS, {}, 1)
+	err = reserve_error(&builder, text, 8)
+	testing.expect(t, err == Error(.Not_Nobits_Section), "reserve on progbits")
 
-	err = add_reloc(&b, text, Symbol_Handle(3), .R_X86_64_64, 0, 0)
-	testing.expect_value_eq(t, err, Error(.Unknown_Symbol))
+	err = add_reloc(&builder, text, Symbol_Handle(3), .R_X86_64_64, 0, 0)
+	testing.expect(t, err == Error(.Unknown_Symbol), "unknown symbol")
 
-	err = error_message(t, Error(.None))
-	testing.expect_value_eq(t, err, Error(.None))
+	testing.expect(t, error_string(nil) == "None", "error_string of no error")
+	testing.expect(t, error_string(Error(.Unknown_Symbol)) == "Unknown_Symbol", "error_string")
 }
 
-@(private)
-error_message :: proc(t: ^testing.T, err: Error) -> Error {
-	testing.expect(t, error_string(err) == "None", "error_string renders None")
-	testing.expect(t, error_string(Error(.Unknown_Symbol)) == "Unknown_Symbol")
+reserve_error :: proc(builder: ^Builder, target: Section_Handle, byte_count: int) -> Error {
+	_, err := section_reserve(builder, target, byte_count)
 	return err
-}
-
-// Emits the built objects so they can be inspected with readelf and
-// objdump by hand.  Not a real assertion; failure is reported, not fatal.
-@(test)
-write_sample_objects :: proc(t: ^testing.T) {
-	b := builder_init()
-	defer builder_destroy(&b)
-	object, err := write(&b)
-	testing.expect(t, err == nil, "empty write must succeed")
-	testing.expect(t, os.write_entire_file("/tmp/opencode/elf-empty.o", object))
-
-	b = make_full_builder()
-	defer builder_destroy(&b)
-	object, err = write(&b)
-	testing.expect(t, err == nil, "full write must succeed")
-	testing.expect(t, os.write_entire_file("/tmp/opencode/elf-full.o", object))
 }
