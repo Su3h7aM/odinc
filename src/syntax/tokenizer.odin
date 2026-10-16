@@ -1,4 +1,3 @@
-// Single-pass tokenizer for Odin source.
 package syntax
 
 import "core:mem"
@@ -19,10 +18,10 @@ Tokenizer :: struct {
 	// comments receives skipped comments in scan order when non-nil.
 	comments: ^[dynamic]Comment,
 
-	ch:          rune, // current rune
-	offset:      u32,  // byte offset of `ch`
-	read_offset: u32,  // byte offset just past `ch`
-	line:        u32,  // 1-based line of `ch`
+	current_rune:   rune,
+	current_offset: u32,
+	next_offset:    u32,
+	current_line:   u32,
 
 	insert_semicolon: bool,
 }
@@ -33,17 +32,17 @@ Tokenizer :: struct {
 // Pass nil for either to discard it; both sinks must use the caller's chosen
 // allocator. A UTF-8 BOM at the start of the source is skipped.
 init :: proc(source: []byte, errors: ^[dynamic]Error = nil, comments: ^[dynamic]Comment = nil) -> Tokenizer {
-	t := Tokenizer {
-		source   = source,
-		errors   = errors,
-		comments = comments,
-		line     = 1,
+	tokenizer := Tokenizer {
+		source       = source,
+		errors       = errors,
+		comments     = comments,
+		current_line = 1,
 	}
-	advance_rune(&t)
-	if t.ch == utf8.RUNE_BOM {
-		advance_rune(&t)
+	advance_rune(&tokenizer)
+	if tokenizer.current_rune == utf8.RUNE_BOM {
+		advance_rune(&tokenizer)
 	}
-	return t
+	return tokenizer
 }
 
 // next returns the next token and advances the tokenizer.
@@ -51,131 +50,127 @@ init :: proc(source: []byte, errors: ^[dynamic]Error = nil, comments: ^[dynamic]
 // Comments are skipped and recorded in the comment sink when one is set.
 // Automatic semicolon insertion emits a `Semicolon` token whose `start == end`.
 // Once the source is exhausted, `next` returns `EOF` forever.
-next :: proc(t: ^Tokenizer) -> Token {
+next :: proc(tokenizer: ^Tokenizer) -> Token {
 	had_backslash := false
 	backslash_line := u32(0)
 
 	for {
-		skip_whitespace(t)
-		start := t.offset
-		start_line := t.line
+		skip_whitespace(tokenizer)
+		start := tokenizer.current_offset
+		start_line := tokenizer.current_line
 
-		// Comments are skipped but recorded.
-		if t.ch == '/' && (peek_byte(t, 0) == '/' || peek_byte(t, 0) == '*') {
-			scan_comment(t, start)
+		if tokenizer.current_rune == '/' && (peek_byte(tokenizer, 0) == '/' || peek_byte(tokenizer, 0) == '*') {
+			scan_comment(tokenizer, start)
 			continue
 		}
-		if t.ch == '#' && peek_byte(t, 0) == '!' {
-			scan_line_comment(t, start)
+		if tokenizer.current_rune == '#' && peek_byte(tokenizer, 0) == '!' {
+			scan_line_comment(tokenizer, start)
 			continue
 		}
 
-		// A backslash continues a logical line: the next token must begin on a
-		// later line than the backslash.
-		if t.ch == '\\' {
+		if tokenizer.current_rune == '\\' {
 			had_backslash = true
 			backslash_line = start_line
-			advance_rune(t)
-			t.insert_semicolon = false
+			advance_rune(tokenizer)
+			tokenizer.insert_semicolon = false
 			continue
 		}
 
-		tok := scan_token(t, start)
+		token := scan_token(tokenizer, start)
 		if had_backslash && start_line == backslash_line {
-			push_error(t, .Expected_Newline_After_Backslash, start)
+			push_error(tokenizer, .Expected_Newline_After_Backslash, start)
 		}
-		return tok
+		return token
 	}
 }
 
 @(private)
-push_error :: proc(t: ^Tokenizer, kind: Error_Kind, offset: u32) {
-	if t.errors != nil {
-		append(t.errors, Error{kind = kind, offset = offset})
+push_error :: proc(tokenizer: ^Tokenizer, kind: Error_Kind, offset: u32) {
+	if tokenizer.errors != nil {
+		append(tokenizer.errors, Error{kind = kind, offset = offset})
 	}
 }
 
 @(private)
-push_comment :: proc(t: ^Tokenizer, kind: Comment_Kind, start, end: u32) {
-	if t.comments != nil {
-		append(t.comments, Comment{start = start, end = end, kind = kind})
+push_comment :: proc(tokenizer: ^Tokenizer, kind: Comment_Kind, start, end: u32) {
+	if tokenizer.comments != nil {
+		append(tokenizer.comments, Comment{start = start, end = end, kind = kind})
 	}
 }
 
 @(private)
-advance_rune :: proc(t: ^Tokenizer) {
-	if t.read_offset < u32(len(t.source)) {
-		if t.ch == '\n' {
-			t.line += 1
+advance_rune :: proc(tokenizer: ^Tokenizer) {
+	if tokenizer.next_offset < u32(len(tokenizer.source)) {
+		if tokenizer.current_rune == '\n' {
+			tokenizer.current_line += 1
 		}
-		t.offset = t.read_offset
-		r, w := utf8.decode_rune_in_bytes(t.source[t.read_offset:])
-		t.read_offset += u32(w)
-		t.ch = r
+		tokenizer.current_offset = tokenizer.next_offset
+		next_rune, width := utf8.decode_rune_in_bytes(tokenizer.source[tokenizer.next_offset:])
+		tokenizer.next_offset += u32(width)
+		tokenizer.current_rune = next_rune
 
 		switch {
-		case r == 0:
-			push_error(t, .Nul_Byte, t.offset)
-		case r == utf8.RUNE_ERROR && w == 1:
-			push_error(t, .Illegal_Utf8, t.offset)
-		case r == utf8.RUNE_BOM && t.offset > 0:
-			push_error(t, .Illegal_Bom, t.offset)
+		case next_rune == 0:
+			push_error(tokenizer, .Nul_Byte, tokenizer.current_offset)
+		case next_rune == utf8.RUNE_ERROR && width == 1:
+			push_error(tokenizer, .Illegal_Utf8, tokenizer.current_offset)
+		case next_rune == utf8.RUNE_BOM && tokenizer.current_offset > 0:
+			push_error(tokenizer, .Illegal_Bom, tokenizer.current_offset)
 		}
 	} else {
-		if t.ch == '\n' {
-			t.line += 1
+		if tokenizer.current_rune == '\n' {
+			tokenizer.current_line += 1
 		}
-		t.offset = u32(len(t.source))
-		t.ch = utf8.RUNE_EOF
+		tokenizer.current_offset = u32(len(tokenizer.source))
+		tokenizer.current_rune = utf8.RUNE_EOF
 	}
 }
 
 @(private)
-peek_byte :: proc(t: ^Tokenizer, n: u32 = 0) -> byte {
-	i := t.read_offset + n
-	if i < u32(len(t.source)) {
-		return t.source[i]
+peek_byte :: proc(tokenizer: ^Tokenizer, ahead: u32 = 0) -> byte {
+	index := tokenizer.next_offset + ahead
+	if index < u32(len(tokenizer.source)) {
+		return tokenizer.source[index]
 	}
 	return 0
 }
 
 @(private)
-peek_rune :: proc(t: ^Tokenizer, n: u32 = 0) -> rune {
-	i := t.read_offset
-	for _ in 0 ..< n {
-		if i >= u32(len(t.source)) {
+peek_rune :: proc(tokenizer: ^Tokenizer, ahead: u32 = 0) -> rune {
+	index := tokenizer.next_offset
+	for _ in 0 ..< ahead {
+		if index >= u32(len(tokenizer.source)) {
 			return utf8.RUNE_EOF
 		}
-		_, w := utf8.decode_rune_in_bytes(t.source[i:])
-		if w == 0 {
+		_, width := utf8.decode_rune_in_bytes(tokenizer.source[index:])
+		if width == 0 {
 			return utf8.RUNE_EOF
 		}
-		i += u32(w)
+		index += u32(width)
 	}
-	if i >= u32(len(t.source)) {
+	if index >= u32(len(tokenizer.source)) {
 		return utf8.RUNE_EOF
 	}
-	r, _ := utf8.decode_rune_in_bytes(t.source[i:])
-	return r
+	next_rune, _ := utf8.decode_rune_in_bytes(tokenizer.source[index:])
+	return next_rune
 }
 
 @(private)
-skip_whitespace :: proc(t: ^Tokenizer) {
-	if t.insert_semicolon {
-		// A pending semicolon is emitted at the newline, so stop there.
+skip_whitespace :: proc(tokenizer: ^Tokenizer) {
+	if tokenizer.insert_semicolon {
 		for {
-			switch t.ch {
+			switch tokenizer.current_rune {
 			case ' ', '\t', '\r':
-				advance_rune(t)
+				advance_rune(tokenizer)
 			case:
 				return
 			}
 		}
 	} else {
 		for {
-			switch t.ch {
+			switch tokenizer.current_rune {
 			case ' ', '\t', '\r', '\n':
-				advance_rune(t)
+				advance_rune(tokenizer)
 			case:
 				return
 			}
@@ -184,9 +179,9 @@ skip_whitespace :: proc(t: ^Tokenizer) {
 }
 
 @(private)
-is_letter :: proc(r: rune) -> bool {
-	if r < utf8.RUNE_SELF {
-		switch r {
+is_letter :: proc(character: rune) -> bool {
+	if character < utf8.RUNE_SELF {
+		switch character {
 		case '_':
 			return true
 		case 'A' ..= 'Z', 'a' ..= 'z':
@@ -194,122 +189,121 @@ is_letter :: proc(r: rune) -> bool {
 		}
 		return false
 	}
-	return unicode.is_letter(r)
+	return unicode.is_letter(character)
 }
 
 @(private)
-is_digit :: proc(r: rune) -> bool {
-	if '0' <= r && r <= '9' {
+is_digit :: proc(character: rune) -> bool {
+	if '0' <= character && character <= '9' {
 		return true
 	}
-	if r < utf8.RUNE_SELF {
+	if character < utf8.RUNE_SELF {
 		return false
 	}
-	return unicode.is_digit(r)
+	return unicode.is_digit(character)
 }
 
 @(private)
-digit_val :: proc(r: rune) -> int {
-	switch r {
+digit_value :: proc(character: rune) -> int {
+	switch character {
 	case '0' ..= '9':
-		return int(r - '0')
+		return int(character - '0')
 	case 'A' ..= 'F':
-		return int(r - 'A' + 10)
+		return int(character - 'A' + 10)
 	case 'a' ..= 'f':
-		return int(r - 'a' + 10)
+		return int(character - 'a' + 10)
 	}
 	return 16
 }
 
 @(private)
-scan_comment :: proc(t: ^Tokenizer, start: u32) {
-	if peek_byte(t, 0) == '/' {
-		scan_line_comment(t, start)
+scan_comment :: proc(tokenizer: ^Tokenizer, start: u32) {
+	if peek_byte(tokenizer, 0) == '/' {
+		scan_line_comment(tokenizer, start)
 		return
 	}
 
-	// A nestable block comment.
-	advance_rune(t) // '/'
-	advance_rune(t) // '*'
-	nest := 1
-	for t.ch != utf8.RUNE_EOF {
-		if t.ch == '/' && peek_byte(t, 0) == '*' {
-			advance_rune(t)
-			advance_rune(t)
-			nest += 1
+	advance_rune(tokenizer)
+	advance_rune(tokenizer)
+	depth := 1
+	for tokenizer.current_rune != utf8.RUNE_EOF {
+		if tokenizer.current_rune == '/' && peek_byte(tokenizer, 0) == '*' {
+			advance_rune(tokenizer)
+			advance_rune(tokenizer)
+			depth += 1
 			continue
 		}
-		if t.ch == '*' && peek_byte(t, 0) == '/' {
-			advance_rune(t)
-			advance_rune(t)
-			nest -= 1
-			if nest == 0 {
+		if tokenizer.current_rune == '*' && peek_byte(tokenizer, 0) == '/' {
+			advance_rune(tokenizer)
+			advance_rune(tokenizer)
+			depth -= 1
+			if depth == 0 {
 				break
 			}
 			continue
 		}
-		advance_rune(t)
+		advance_rune(tokenizer)
 	}
-	if nest != 0 {
-		push_error(t, .Comment_Not_Terminated, start)
+	if depth != 0 {
+		push_error(tokenizer, .Comment_Not_Terminated, start)
 	}
-	push_comment(t, .Block, start, t.offset)
+	push_comment(tokenizer, .Block, start, tokenizer.current_offset)
 }
 
 @(private)
-scan_line_comment :: proc(t: ^Tokenizer, start: u32) {
-	for t.ch != '\n' && t.ch != utf8.RUNE_EOF {
-		advance_rune(t)
+scan_line_comment :: proc(tokenizer: ^Tokenizer, start: u32) {
+	for tokenizer.current_rune != '\n' && tokenizer.current_rune != utf8.RUNE_EOF {
+		advance_rune(tokenizer)
 	}
-	push_comment(t, .Line, start, t.offset)
+	push_comment(tokenizer, .Line, start, tokenizer.current_offset)
 }
 
 @(private)
-scan_token :: proc(t: ^Tokenizer, start: u32) -> Token {
-	ch := t.ch
+scan_token :: proc(tokenizer: ^Tokenizer, start: u32) -> Token {
+	first_rune := tokenizer.current_rune
 	kind := Token_Kind.Invalid
 
 	handled := false
-	if is_letter(ch) {
-		kind = scan_identifier(t)
+	if is_letter(first_rune) {
+		kind = scan_identifier(tokenizer)
 		handled = true
-	} else if '0' <= ch && ch <= '9' {
-		kind = scan_number(t, false)
+	} else if '0' <= first_rune && first_rune <= '9' {
+		kind = scan_number(tokenizer, false)
 		handled = true
 	}
 
 	if !handled {
-		advance_rune(t)
-		switch ch {
+		advance_rune(tokenizer)
+		switch first_rune {
 		case utf8.RUNE_EOF:
-			if t.insert_semicolon {
-				t.insert_semicolon = false
+			if tokenizer.insert_semicolon {
+				tokenizer.insert_semicolon = false
 				return Token{kind = .Semicolon, start = start, end = start}
 			}
 			kind = .EOF
 		case '\n':
-			t.insert_semicolon = false
+			tokenizer.insert_semicolon = false
 			return Token{kind = .Semicolon, start = start, end = start}
 		case '\'':
 			kind = .Rune
-			scan_rune(t, start)
+			scan_rune(tokenizer, start)
 		case '`', '"':
-			kind = scan_string(t, start, ch)
+			kind = scan_string(tokenizer, start, first_rune)
 		case '.':
 			kind = .Period
-			if t.ch == '.' {
-				advance_rune(t)
+			if tokenizer.current_rune == '.' {
+				advance_rune(tokenizer)
 				kind = .Ellipsis
-				switch t.ch {
+				switch tokenizer.current_rune {
 				case '<':
-					advance_rune(t)
+					advance_rune(tokenizer)
 					kind = .Range_Half
 				case '=':
-					advance_rune(t)
+					advance_rune(tokenizer)
 					kind = .Range_Full
 				}
-			} else if '0' <= t.ch && t.ch <= '9' {
-				kind = scan_number(t, true)
+			} else if '0' <= tokenizer.current_rune && tokenizer.current_rune <= '9' {
+				kind = scan_number(tokenizer, true)
 			}
 		case '@':
 			kind = .At
@@ -339,218 +333,213 @@ scan_token :: proc(t: ^Tokenizer, start: u32) -> Token {
 			kind = .Close_Brace
 		case '%':
 			kind = .Mod
-			switch t.ch {
+			switch tokenizer.current_rune {
 			case '=':
-				advance_rune(t)
+				advance_rune(tokenizer)
 				kind = .Mod_Eq
 			case '%':
-				advance_rune(t)
+				advance_rune(tokenizer)
 				kind = .Mod_Mod
-				if t.ch == '=' {
-					advance_rune(t)
+				if tokenizer.current_rune == '=' {
+					advance_rune(tokenizer)
 					kind = .Mod_Mod_Eq
 				}
 			}
 		case '*':
 			kind = .Mul
-			if t.ch == '=' {
-				advance_rune(t)
+			if tokenizer.current_rune == '=' {
+				advance_rune(tokenizer)
 				kind = .Mul_Eq
-			} else if t.ch == '*' {
-				advance_rune(t)
+			} else if tokenizer.current_rune == '*' {
+				advance_rune(tokenizer)
 				kind = .Mul_Mul
 			}
 		case '=':
 			kind = .Eq
-			if t.ch == '=' {
-				advance_rune(t)
+			if tokenizer.current_rune == '=' {
+				advance_rune(tokenizer)
 				kind = .Cmp_Eq
 			}
 		case '~':
 			kind = .Xor
-			if t.ch == '=' {
-				advance_rune(t)
+			if tokenizer.current_rune == '=' {
+				advance_rune(tokenizer)
 				kind = .Xor_Eq
 			}
 		case '!':
 			kind = .Not
-			if t.ch == '=' {
-				advance_rune(t)
+			if tokenizer.current_rune == '=' {
+				advance_rune(tokenizer)
 				kind = .Not_Eq
 			}
 		case '+':
 			kind = .Add
-			switch t.ch {
+			switch tokenizer.current_rune {
 			case '=':
-				advance_rune(t)
+				advance_rune(tokenizer)
 				kind = .Add_Eq
 			case '+':
-				advance_rune(t)
+				advance_rune(tokenizer)
 				kind = .Increment
 			}
 		case '-':
 			kind = .Sub
-			switch t.ch {
+			switch tokenizer.current_rune {
 			case '=':
-				advance_rune(t)
+				advance_rune(tokenizer)
 				kind = .Sub_Eq
 			case '-':
-				advance_rune(t)
+				advance_rune(tokenizer)
 				kind = .Decrement
-				if t.ch == '-' {
-					advance_rune(t)
+				if tokenizer.current_rune == '-' {
+					advance_rune(tokenizer)
 					kind = .Undef
 				}
 			case '>':
-				advance_rune(t)
+				advance_rune(tokenizer)
 				kind = .Arrow_Right
 			}
 		case '#':
-			kind = scan_directive(t)
+			kind = scan_directive(tokenizer)
 		case '/':
 			kind = .Quo
-			if t.ch == '=' {
-				advance_rune(t)
+			if tokenizer.current_rune == '=' {
+				advance_rune(tokenizer)
 				kind = .Quo_Eq
 			}
 		case '<':
 			kind = .Lt
-			switch t.ch {
+			switch tokenizer.current_rune {
 			case '=':
-				advance_rune(t)
+				advance_rune(tokenizer)
 				kind = .Lt_Eq
 			case '<':
-				advance_rune(t)
+				advance_rune(tokenizer)
 				kind = .Shl
-				if t.ch == '=' {
-					advance_rune(t)
+				if tokenizer.current_rune == '=' {
+					advance_rune(tokenizer)
 					kind = .Shl_Eq
 				}
 			}
 		case '>':
 			kind = .Gt
-			switch t.ch {
+			switch tokenizer.current_rune {
 			case '=':
-				advance_rune(t)
+				advance_rune(tokenizer)
 				kind = .Gt_Eq
 			case '>':
-				advance_rune(t)
+				advance_rune(tokenizer)
 				kind = .Shr
-				if t.ch == '=' {
-					advance_rune(t)
+				if tokenizer.current_rune == '=' {
+					advance_rune(tokenizer)
 					kind = .Shr_Eq
 				}
 			}
 		case '&':
 			kind = .And
-			switch t.ch {
+			switch tokenizer.current_rune {
 			case '~':
-				advance_rune(t)
+				advance_rune(tokenizer)
 				kind = .And_Not
-				if t.ch == '=' {
-					advance_rune(t)
+				if tokenizer.current_rune == '=' {
+					advance_rune(tokenizer)
 					kind = .And_Not_Eq
 				}
 			case '=':
-				advance_rune(t)
+				advance_rune(tokenizer)
 				kind = .And_Eq
 			case '&':
-				advance_rune(t)
+				advance_rune(tokenizer)
 				kind = .Cmp_And
-				if t.ch == '=' {
-					advance_rune(t)
+				if tokenizer.current_rune == '=' {
+					advance_rune(tokenizer)
 					kind = .Cmp_And_Eq
 				}
 			}
 		case '|':
 			kind = .Or
-			switch t.ch {
+			switch tokenizer.current_rune {
 			case '=':
-				advance_rune(t)
+				advance_rune(tokenizer)
 				kind = .Or_Eq
 			case '|':
-				advance_rune(t)
+				advance_rune(tokenizer)
 				kind = .Cmp_Or
-				if t.ch == '=' {
-					advance_rune(t)
+				if tokenizer.current_rune == '=' {
+					advance_rune(tokenizer)
 					kind = .Cmp_Or_Eq
 				}
 			}
 		case:
-			// A BOM at the start is skipped by `init`; any other BOM is invalid.
-			if ch != utf8.RUNE_BOM {
-				push_error(t, .Unknown_Character, start)
+			// A leading BOM is skipped by `init`, so one here was already reported.
+			if first_rune != utf8.RUNE_BOM {
+				push_error(tokenizer, .Unknown_Character, start)
 			}
 			kind = .Invalid
 		}
 	}
 
-	apply_semicolon(t, kind, start)
-	return Token{kind = kind, start = start, end = t.offset}
+	apply_semicolon(tokenizer, kind, start)
+	return Token{kind = kind, start = start, end = tokenizer.current_offset}
 }
 
 @(private)
-scan_directive :: proc(t: ^Tokenizer) -> Token_Kind {
-	// The leading '#' has already been consumed; `t.ch` is the rune after it.
-	if t.ch == '+' {
-		// A file tag such as `#+build` or `#+private`: runs to the end of the
-		// line or to the start of a comment.
-		for t.ch != utf8.RUNE_EOF {
-			if t.ch == '\n' {
+scan_directive :: proc(tokenizer: ^Tokenizer) -> Token_Kind {
+	if tokenizer.current_rune == '+' {
+		for tokenizer.current_rune != utf8.RUNE_EOF {
+			if tokenizer.current_rune == '\n' {
 				break
 			}
-			if t.ch == '/' {
-				next := peek_byte(t, 0)
-				if next == '/' || next == '*' {
+			if tokenizer.current_rune == '/' {
+				following := peek_byte(tokenizer, 0)
+				if following == '/' || following == '*' {
 					break
 				}
 			}
-			advance_rune(t)
+			advance_rune(tokenizer)
 		}
 		return .Directive
 	}
-	if is_letter(t.ch) {
-		for is_letter(t.ch) || is_digit(t.ch) {
-			advance_rune(t)
+	if is_letter(tokenizer.current_rune) {
+		for is_letter(tokenizer.current_rune) || is_digit(tokenizer.current_rune) {
+			advance_rune(tokenizer)
 		}
 	}
 	return .Directive
 }
 
 @(private)
-apply_semicolon :: proc(t: ^Tokenizer, kind: Token_Kind, start: u32) {
+apply_semicolon :: proc(tokenizer: ^Tokenizer, kind: Token_Kind, start: u32) {
 	#partial switch kind {
 	case .Invalid:
-		// Preserve the pending semicolon, as the reference tokenizer does.
 	case .Directive:
-		// `#name` ends in an identifier and triggers insertion; `#+...` file tags
-		// and a lone `#` do not.
+		// File tags and a lone '#' do not trigger insertion.
 		trigger := false
-		if start + 1 < u32(len(t.source)) {
-			b := t.source[start + 1]
-			if b == '_' || ('a' <= b && b <= 'z') || ('A' <= b && b <= 'Z') {
+		if start + 1 < u32(len(tokenizer.source)) {
+			following := tokenizer.source[start + 1]
+			if following == '_' || ('a' <= following && following <= 'z') || ('A' <= following && following <= 'Z') {
 				trigger = true
 			}
 		}
-		t.insert_semicolon = trigger
+		tokenizer.insert_semicolon = trigger
 	case .Ident, .Context, .Typeid, .Break, .Continue, .Fallthrough, .Return,
 	     .Integer, .Float, .Imag, .Rune, .String, .Raw_String, .Undef,
 	     .Question, .Pointer, .Close_Paren, .Close_Bracket, .Close_Brace,
 	     .Increment, .Decrement, .Not,
 	     .Or_Return, .Or_Break, .Or_Continue:
-		t.insert_semicolon = true
+		tokenizer.insert_semicolon = true
 	case:
-		t.insert_semicolon = false
+		tokenizer.insert_semicolon = false
 	}
 }
 
 @(private)
-scan_identifier :: proc(t: ^Tokenizer) -> Token_Kind {
-	start := t.offset
-	for is_letter(t.ch) || is_digit(t.ch) {
-		advance_rune(t)
+scan_identifier :: proc(tokenizer: ^Tokenizer) -> Token_Kind {
+	start := tokenizer.current_offset
+	for is_letter(tokenizer.current_rune) || is_digit(tokenizer.current_rune) {
+		advance_rune(tokenizer)
 	}
-	if kind, ok := keyword_kind(t.source[start:t.offset]); ok {
+	if kind, ok := keyword_kind(tokenizer.source[start:tokenizer.current_offset]); ok {
 		return kind
 	}
 	return .Ident
@@ -558,7 +547,7 @@ scan_identifier :: proc(t: ^Tokenizer) -> Token_Kind {
 
 @(private)
 keyword_kind :: proc(name: []byte) -> (Token_Kind, bool) {
-	// Odin keywords are 2..11 bytes; the longest is `fallthrough`.
+	// `fallthrough` is the longest keyword at 11 bytes.
 	if len(name) < 2 || len(name) > 11 {
 		return .Ident, false
 	}
@@ -646,38 +635,38 @@ keyword_kind :: proc(name: []byte) -> (Token_Kind, bool) {
 }
 
 @(private)
-scan_mantissa :: proc(t: ^Tokenizer, base: int) {
-	for digit_val(t.ch) < base || t.ch == '_' {
-		advance_rune(t)
+scan_mantissa :: proc(tokenizer: ^Tokenizer, base: int) {
+	for digit_value(tokenizer.current_rune) < base || tokenizer.current_rune == '_' {
+		advance_rune(tokenizer)
 	}
 }
 
 @(private)
-scan_base_int :: proc(t: ^Tokenizer, base: int, error_kind: Error_Kind) -> Token_Kind {
-	prev := t.offset
-	advance_rune(t) // the base letter
-	scan_mantissa(t, base)
-	if t.offset - prev <= 1 {
-		push_error(t, error_kind, t.offset)
+scan_base_int :: proc(tokenizer: ^Tokenizer, base: int, error_kind: Error_Kind) -> Token_Kind {
+	previous_offset := tokenizer.current_offset
+	advance_rune(tokenizer)
+	scan_mantissa(tokenizer, base)
+	if tokenizer.current_offset - previous_offset <= 1 {
+		push_error(tokenizer, error_kind, tokenizer.current_offset)
 		return .Invalid
 	}
 	return .Integer
 }
 
 @(private)
-scan_hex_float :: proc(t: ^Tokenizer) -> Token_Kind {
-	prev := t.offset
-	advance_rune(t) // 'h'
-	scan_mantissa(t, 16)
-	if t.offset - prev <= 1 {
-		push_error(t, .Invalid_Hexadecimal_Float, t.offset)
+scan_hex_float :: proc(tokenizer: ^Tokenizer) -> Token_Kind {
+	previous_offset := tokenizer.current_offset
+	advance_rune(tokenizer)
+	scan_mantissa(tokenizer, 16)
+	if tokenizer.current_offset - previous_offset <= 1 {
+		push_error(tokenizer, .Invalid_Hexadecimal_Float, tokenizer.current_offset)
 		return .Invalid
 	}
 
 	digit_count := 0
-	i := prev + 1
-	for i < t.offset {
-		if t.source[i] != '_' {
+	i := previous_offset + 1
+	for i < tokenizer.current_offset {
+		if tokenizer.source[i] != '_' {
 			digit_count += 1
 		}
 		i += 1
@@ -685,238 +674,235 @@ scan_hex_float :: proc(t: ^Tokenizer) -> Token_Kind {
 	switch digit_count {
 	case 4, 8, 16:
 	case:
-		push_error(t, .Invalid_Hexadecimal_Float, t.offset)
+		push_error(tokenizer, .Invalid_Hexadecimal_Float, tokenizer.current_offset)
 	}
 	return .Float
 }
 
 @(private)
-scan_fraction :: proc(t: ^Tokenizer, kind: ^Token_Kind) -> bool {
-	if t.ch == '.' && peek_byte(t, 0) == '.' {
+scan_fraction :: proc(tokenizer: ^Tokenizer, kind: ^Token_Kind) -> bool {
+	if tokenizer.current_rune == '.' && peek_byte(tokenizer, 0) == '.' {
 		return true
 	}
-	if t.ch == '.' {
+	if tokenizer.current_rune == '.' {
 		kind^ = .Float
-		advance_rune(t)
-		scan_mantissa(t, 10)
+		advance_rune(tokenizer)
+		scan_mantissa(tokenizer, 10)
 	}
 	return false
 }
 
 @(private)
-scan_exponent :: proc(t: ^Tokenizer, kind: ^Token_Kind) {
-	if t.ch == 'e' || t.ch == 'E' {
+scan_exponent :: proc(tokenizer: ^Tokenizer, kind: ^Token_Kind) {
+	if tokenizer.current_rune == 'e' || tokenizer.current_rune == 'E' {
 		kind^ = .Float
-		advance_rune(t)
-		if t.ch == '-' || t.ch == '+' {
-			advance_rune(t)
+		advance_rune(tokenizer)
+		if tokenizer.current_rune == '-' || tokenizer.current_rune == '+' {
+			advance_rune(tokenizer)
 		}
-		if digit_val(t.ch) < 10 {
-			scan_mantissa(t, 10)
+		if digit_value(tokenizer.current_rune) < 10 {
+			scan_mantissa(tokenizer, 10)
 		} else {
-			push_error(t, .Invalid_Float_Exponent, t.offset)
+			push_error(tokenizer, .Invalid_Float_Exponent, tokenizer.current_offset)
 		}
 	}
-	switch t.ch {
+	switch tokenizer.current_rune {
 	case 'i', 'j', 'k':
 		kind^ = .Imag
-		advance_rune(t)
+		advance_rune(tokenizer)
 	}
 }
 
 @(private)
-scan_number :: proc(t: ^Tokenizer, seen_decimal_point: bool) -> Token_Kind {
+scan_number :: proc(tokenizer: ^Tokenizer, seen_decimal_point: bool) -> Token_Kind {
 	kind := Token_Kind.Integer
 
 	if seen_decimal_point {
 		kind = .Float
-		scan_mantissa(t, 10)
-		scan_exponent(t, &kind)
+		scan_mantissa(tokenizer, 10)
+		scan_exponent(tokenizer, &kind)
 		return kind
 	}
 
-	if t.ch == '0' {
-		advance_rune(t)
-		switch t.ch {
+	if tokenizer.current_rune == '0' {
+		advance_rune(tokenizer)
+		switch tokenizer.current_rune {
 		case 'b':
-			kind = scan_base_int(t, 2, .Invalid_Binary_Integer)
+			kind = scan_base_int(tokenizer, 2, .Invalid_Binary_Integer)
 		case 'o':
-			kind = scan_base_int(t, 8, .Invalid_Octal_Integer)
+			kind = scan_base_int(tokenizer, 8, .Invalid_Octal_Integer)
 		case 'd':
-			kind = scan_base_int(t, 10, .Invalid_Decimal_Integer)
+			kind = scan_base_int(tokenizer, 10, .Invalid_Decimal_Integer)
 		case 'z':
-			kind = scan_base_int(t, 12, .Invalid_Dozenal_Integer)
+			kind = scan_base_int(tokenizer, 12, .Invalid_Dozenal_Integer)
 		case 'x':
-			kind = scan_base_int(t, 16, .Invalid_Hexadecimal_Integer)
+			kind = scan_base_int(tokenizer, 16, .Invalid_Hexadecimal_Integer)
 		case 'h':
-			kind = scan_hex_float(t)
+			kind = scan_hex_float(tokenizer)
 		case:
-			scan_mantissa(t, 10)
-			if scan_fraction(t, &kind) {
+			scan_mantissa(tokenizer, 10)
+			if scan_fraction(tokenizer, &kind) {
 				return kind
 			}
-			scan_exponent(t, &kind)
+			scan_exponent(tokenizer, &kind)
 			return kind
 		}
 	}
 
-	scan_mantissa(t, 10)
-	if scan_fraction(t, &kind) {
+	scan_mantissa(tokenizer, 10)
+	if scan_fraction(tokenizer, &kind) {
 		return kind
 	}
-	scan_exponent(t, &kind)
+	scan_exponent(tokenizer, &kind)
 	return kind
 }
 
 @(private)
-scan_escape :: proc(t: ^Tokenizer, at: u32) -> bool {
-	n: int
-	base, max: u32
-	switch t.ch {
+scan_escape :: proc(tokenizer: ^Tokenizer, escape_offset: u32) -> bool {
+	remaining: int
+	base, maximum: u32
+	switch tokenizer.current_rune {
 	case 'a', 'b', 'e', 'f', 'n', 't', 'v', 'r', '\\', '\'', '\"':
-		advance_rune(t)
+		advance_rune(tokenizer)
 		return true
 	case '0' ..= '7':
-		n, base, max = 3, 8, 255
+		remaining, base, maximum = 3, 8, 255
 	case 'x':
-		advance_rune(t)
-		n, base, max = 2, 16, 255
+		advance_rune(tokenizer)
+		remaining, base, maximum = 2, 16, 255
 	case 'u':
-		advance_rune(t)
-		n, base, max = 4, 16, utf8.MAX_RUNE
+		advance_rune(tokenizer)
+		remaining, base, maximum = 4, 16, utf8.MAX_RUNE
 	case 'U':
-		advance_rune(t)
-		n, base, max = 8, 16, utf8.MAX_RUNE
+		advance_rune(tokenizer)
+		remaining, base, maximum = 8, 16, utf8.MAX_RUNE
 	case:
-		if t.ch < 0 {
-			push_error(t, .Escape_Not_Terminated, at)
+		if tokenizer.current_rune < 0 {
+			push_error(tokenizer, .Escape_Not_Terminated, escape_offset)
 		} else {
-			push_error(t, .Unknown_Escape_Sequence, at)
+			push_error(tokenizer, .Unknown_Escape_Sequence, escape_offset)
 		}
 		return false
 	}
 
-	x: u32
-	for n > 0 {
-		d := u32(digit_val(t.ch))
-		if d >= base {
-			if t.ch < 0 {
-				push_error(t, .Escape_Not_Terminated, t.offset)
+	value: u32
+	for remaining > 0 {
+		digit := u32(digit_value(tokenizer.current_rune))
+		if digit >= base {
+			if tokenizer.current_rune < 0 {
+				push_error(tokenizer, .Escape_Not_Terminated, tokenizer.current_offset)
 			} else {
-				push_error(t, .Illegal_Escape_Character, t.offset)
+				push_error(tokenizer, .Illegal_Escape_Character, tokenizer.current_offset)
 			}
 			return false
 		}
-		x = x * base + d
-		advance_rune(t)
-		n -= 1
+		value = value * base + digit
+		advance_rune(tokenizer)
+		remaining -= 1
 	}
-	if x > max || (0xd800 <= x && x <= 0xdfff) {
-		push_error(t, .Invalid_Unicode_Code_Point, at)
+	if value > maximum || (0xd800 <= value && value <= 0xdfff) {
+		push_error(tokenizer, .Invalid_Unicode_Code_Point, escape_offset)
 		return false
 	}
 	return true
 }
 
 @(private)
-scan_rune :: proc(t: ^Tokenizer, start: u32) {
-	// `t.ch` is the rune after the opening quote.
+scan_rune :: proc(tokenizer: ^Tokenizer, start: u32) {
 	valid := true
-	n := 0
+	rune_count := 0
 	for {
-		ch := t.ch
-		if ch == '\n' || ch < 0 {
+		current := tokenizer.current_rune
+		if current == '\n' || current < 0 {
 			if valid {
-				push_error(t, .Rune_Not_Terminated, start)
+				push_error(tokenizer, .Rune_Not_Terminated, start)
 				valid = false
 			}
 			break
 		}
-		advance_rune(t)
-		if ch == '\'' {
+		advance_rune(tokenizer)
+		if current == '\'' {
 			break
 		}
-		n += 1
-		if ch == '\\' {
-			if !scan_escape(t, t.offset) {
+		rune_count += 1
+		if current == '\\' {
+			if !scan_escape(tokenizer, tokenizer.current_offset) {
 				valid = false
 			}
 		}
 	}
-	if valid && n != 1 {
-		push_error(t, .Invalid_Rune_Literal, start)
+	if valid && rune_count != 1 {
+		push_error(tokenizer, .Invalid_Rune_Literal, start)
 	}
 }
 
 @(private)
-scan_string :: proc(t: ^Tokenizer, start: u32, quote: rune) -> Token_Kind {
-	// `t.ch` is the rune after the opening quote.
+scan_string :: proc(tokenizer: ^Tokenizer, start: u32, quote: rune) -> Token_Kind {
 	if quote == '"' {
-		if t.ch == '"' && peek_rune(t, 0) == '"' {
-			advance_rune(t) // the second opening quote
-			advance_rune(t) // the third opening quote
+		if tokenizer.current_rune == '"' && peek_rune(tokenizer, 0) == '"' {
+			advance_rune(tokenizer)
+			advance_rune(tokenizer)
 			for {
-				r := t.ch
-				if r < 0 {
-					push_error(t, .Triple_String_Not_Terminated, start)
+				current := tokenizer.current_rune
+				if current < 0 {
+					push_error(tokenizer, .Triple_String_Not_Terminated, start)
 					break
 				}
-				advance_rune(t)
-				if r == quote && t.ch == '"' && peek_rune(t, 0) == '"' {
-					advance_rune(t)
-					advance_rune(t)
+				advance_rune(tokenizer)
+				if current == quote && tokenizer.current_rune == '"' && peek_rune(tokenizer, 0) == '"' {
+					advance_rune(tokenizer)
+					advance_rune(tokenizer)
 					break
 				}
-				if r == '\\' {
-					scan_escape(t, t.offset)
+				if current == '\\' {
+					scan_escape(tokenizer, tokenizer.current_offset)
 				}
 			}
 			return .String
 		}
 		for {
-			r := t.ch
-			if r == '\n' || r < 0 {
-				push_error(t, .String_Not_Terminated, start)
+			current := tokenizer.current_rune
+			if current == '\n' || current < 0 {
+				push_error(tokenizer, .String_Not_Terminated, start)
 				break
 			}
-			advance_rune(t)
-			if r == quote {
+			advance_rune(tokenizer)
+			if current == quote {
 				break
 			}
-			if r == '\\' {
-				scan_escape(t, t.offset)
+			if current == '\\' {
+				scan_escape(tokenizer, tokenizer.current_offset)
 			}
 		}
 		return .String
 	}
 
-	// A raw (backtick) string; escapes are not processed.
-	if t.ch == '`' && peek_rune(t, 0) == '`' {
-		advance_rune(t)
-		advance_rune(t)
+	if tokenizer.current_rune == '`' && peek_rune(tokenizer, 0) == '`' {
+		advance_rune(tokenizer)
+		advance_rune(tokenizer)
 		for {
-			r := t.ch
-			if r < 0 {
-				push_error(t, .Triple_String_Not_Terminated, start)
+			current := tokenizer.current_rune
+			if current < 0 {
+				push_error(tokenizer, .Triple_String_Not_Terminated, start)
 				break
 			}
-			advance_rune(t)
-			if r == quote && t.ch == '`' && peek_rune(t, 0) == '`' {
-				advance_rune(t)
-				advance_rune(t)
+			advance_rune(tokenizer)
+			if current == quote && tokenizer.current_rune == '`' && peek_rune(tokenizer, 0) == '`' {
+				advance_rune(tokenizer)
+				advance_rune(tokenizer)
 				break
 			}
 		}
 		return .Raw_String
 	}
 	for {
-		r := t.ch
-		if r < 0 {
-			push_error(t, .Raw_String_Not_Terminated, start)
+		current := tokenizer.current_rune
+		if current < 0 {
+			push_error(tokenizer, .Raw_String_Not_Terminated, start)
 			break
 		}
-		advance_rune(t)
-		if r == quote {
+		advance_rune(tokenizer)
+		if current == quote {
 			break
 		}
 	}
@@ -928,7 +914,6 @@ scan_string :: proc(t: ^Tokenizer, start: u32, quote: rune) -> Token_Kind {
 // Build one with `make_line_table` and release it with `destroy_line_table`. A
 // zero Line_Table holds no memory; `destroy_line_table` on it is a no-op.
 Line_Table :: struct {
-	// starts[i] is the byte offset of the first byte of line i+1; starts[0] == 0.
 	starts:    []u32,
 	allocator: mem.Allocator,
 }
@@ -940,16 +925,16 @@ Line_Table :: struct {
 // owns that slice and must be released with `destroy_line_table`.
 make_line_table :: proc(source: []byte, allocator: mem.Allocator) -> (table: Line_Table, err: mem.Allocator_Error) #optional_allocator_error {
 	count := 1
-	for b in source {
-		if b == '\n' {
+	for current_byte in source {
+		if current_byte == '\n' {
 			count += 1
 		}
 	}
 	starts := make([]u32, count, allocator) or_return
 	starts[0] = 0
 	i := 1
-	for b, offset in source {
-		if b == '\n' {
+	for current_byte, offset in source {
+		if current_byte == '\n' {
 			starts[i] = u32(offset) + 1
 			i += 1
 		}
@@ -977,17 +962,16 @@ line_col :: proc(table: Line_Table, offset: u32) -> (line: u32, column: u32) {
 		return 1, offset + 1
 	}
 
-	// Find the greatest i with starts[i] <= offset.
-	lo := 0
-	hi := len(starts)
-	for lo < hi {
-		mid := (lo + hi) / 2
-		if starts[mid] <= offset {
-			lo = mid + 1
+	low := 0
+	high := len(starts)
+	for low < high {
+		middle := (low + high) / 2
+		if starts[middle] <= offset {
+			low = middle + 1
 		} else {
-			hi = mid
+			high = middle
 		}
 	}
-	index := lo - 1
+	index := low - 1
 	return u32(index) + 1, offset - starts[index] + 1
 }

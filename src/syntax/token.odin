@@ -62,7 +62,6 @@ Token_Kind :: enum u16 {
 		Or_Return, Or_Break, Or_Continue, Asm, Matrix,
 	B_Keyword_End,
 
-	// COUNT is one past the last token kind.
 	COUNT,
 }
 
@@ -167,10 +166,10 @@ is_keyword :: proc(kind: Token_Kind) -> bool {
 	return Token_Kind.B_Keyword_Begin < kind && kind < Token_Kind.B_Keyword_End
 }
 
-// token_text returns the source text of `tok` as a borrowed string view. Nothing
+// token_text returns the source text of `token` as a borrowed string view. Nothing
 // is allocated; `source` must be the buffer the token was scanned from.
 //
 // An inserted semicolon has an empty text.
-token_text :: proc(source: []byte, tok: Token) -> string {
-	return string(source[tok.start:tok.end])
+token_text :: proc(source: []byte, token: Token) -> string {
+	return string(source[token.start:token.end])
 }

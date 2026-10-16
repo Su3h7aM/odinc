@@ -16,5 +16,7 @@
 //   - `make_line_table` and `line_col` give `O(log n)` line/column lookup for an
 //     offset.
 //
-// The package depends only on `core`.
+// The package depends only on `core`. Lexical rules and semicolon insertion
+// follow `core:odin/tokenizer` in our Odin fork; the comparison test pins the
+// two together.
 package syntax

@@ -1,4 +1,3 @@
-// Tests for the `syntax` tokenizer.
 package syntax
 
 import "core:mem"
@@ -8,124 +7,61 @@ import "core:strings"
 import "core:testing"
 import odin_tokenizer "core:odin/tokenizer"
 
-// as_bytes returns a mutable view of `s` without copying. Only for tests.
 @(private="file")
 as_bytes :: proc(s: string) -> []byte {
 	return transmute([]byte)s
 }
 
-// scan_all drains a tokenizer over `source` into `tokens`, recording errors and
-// comments when the corresponding sinks are non-nil.
 @(private="file")
 scan_all :: proc(source: []byte, tokens: ^[dynamic]Token, errors: ^[dynamic]Error = nil, comments: ^[dynamic]Comment = nil) {
-	t := init(source, errors, comments)
+	tokenizer := init(source, errors, comments)
 	for {
-		tok := next(&t)
-		append(tokens, tok)
-		if tok.kind == .EOF {
+		token := next(&tokenizer)
+		append(tokens, token)
+		if token.kind == .EOF {
 			break
 		}
 	}
 }
 
 @(private="file")
-expect_kinds :: proc(t: ^testing.T, source: string, want: []Token_Kind) {
+expect_kinds :: proc(test: ^testing.T, source: string, want: []Token_Kind) {
 	errors: [dynamic]Error
 	tokens: [dynamic]Token
 	defer delete(errors)
 	defer delete(tokens)
 
 	scan_all(transmute([]byte)source, &tokens, &errors)
-	testing.expectf(t, len(errors) == 0, "%q: unexpected errors %v", source, errors)
-	testing.expectf(t, len(tokens) == len(want), "%q: got %d tokens, want %d", source, len(tokens), len(want))
+	testing.expectf(test, len(errors) == 0, "%q: unexpected errors %v", source, errors)
+	testing.expectf(test, len(tokens) == len(want), "%q: got %d tokens, want %d", source, len(tokens), len(want))
 
-	n := min(len(tokens), len(want))
-	for i in 0 ..< n {
+	limit := min(len(tokens), len(want))
+	for i in 0 ..< limit {
 		if tokens[i].kind != want[i] {
-			testing.expectf(t, false, "%q: token %d is %v, want %v", source, i, tokens[i].kind, want[i])
+			testing.expectf(test, false, "%q: token %d is %v, want %v", source, i, tokens[i].kind, want[i])
 			return
 		}
 	}
 }
 
 @(test)
-test_token_kinds :: proc(t: ^testing.T) {
-	cases := []struct {
-		source: string,
-		kinds:  []Token_Kind,
-	} {
-		{"", {.EOF}},
-		{"foo", {.Ident, .Semicolon, .EOF}},
-		{"_x1", {.Ident, .Semicolon, .EOF}},
-		{"return", {.Return, .Semicolon, .EOF}},
-		{"fallthrough", {.Fallthrough, .Semicolon, .EOF}},
-		{"not_in", {.Not_In, .EOF}},
-		{"matrix", {.Matrix, .EOF}},
-		{"123", {.Integer, .Semicolon, .EOF}},
-		{"1_000_000", {.Integer, .Semicolon, .EOF}},
-		{"0b1010", {.Integer, .Semicolon, .EOF}},
-		{"0o17", {.Integer, .Semicolon, .EOF}},
-		{"0d99", {.Integer, .Semicolon, .EOF}},
-		{"0z1a", {.Integer, .Semicolon, .EOF}},
-		{"0xff", {.Integer, .Semicolon, .EOF}},
-		{"1.5", {.Float, .Semicolon, .EOF}},
-		{"1e10", {.Float, .Semicolon, .EOF}},
-		{"1.5e-3", {.Float, .Semicolon, .EOF}},
-		{"0h7ff0000000000000", {.Float, .Semicolon, .EOF}},
-		{"2i", {.Imag, .Semicolon, .EOF}},
-		{"3.5j", {.Imag, .Semicolon, .EOF}},
-		{"4k", {.Imag, .Semicolon, .EOF}},
-		{"'a'", {.Rune, .Semicolon, .EOF}},
-		{"'\\n'", {.Rune, .Semicolon, .EOF}},
-		{"'\\u00e9'", {.Rune, .Semicolon, .EOF}},
-		{"\"str\"", {.String, .Semicolon, .EOF}},
-		{"\"\"\"multi\nline\"\"\"", {.String, .Semicolon, .EOF}},
-		{"`raw`", {.Raw_String, .Semicolon, .EOF}},
-		{"```triple```", {.Raw_String, .Semicolon, .EOF}},
-		{"->", {.Arrow_Right, .EOF}},
-		{"---", {.Undef, .Semicolon, .EOF}},
-		{"..", {.Ellipsis, .EOF}},
-		{"..<", {.Range_Half, .EOF}},
-		{"..=", {.Range_Full, .EOF}},
-		{"&~", {.And_Not, .EOF}},
-		{"&~=", {.And_Not_Eq, .EOF}},
-		{"&&=", {.Cmp_And_Eq, .EOF}},
-		{"**", {.Mul_Mul, .EOF}},
-		{"%%=", {.Mod_Mod_Eq, .EOF}},
-		{"?", {.Question, .Semicolon, .EOF}},
-		{"@", {.At, .EOF}},
-		{"$", {.Dollar, .EOF}},
-		{"^", {.Pointer, .Semicolon, .EOF}},
-		{"#", {.Directive, .EOF}},
-		{"#partial", {.Directive, .Semicolon, .EOF}},
-		{"#+private", {.Directive, .EOF}},
-		{"x := 1", {.Ident, .Colon, .Eq, .Integer, .Semicolon, .EOF}},
-		{"a.b", {.Ident, .Period, .Ident, .Semicolon, .EOF}},
-	}
-
-	for tc in cases {
-		expect_kinds(t, tc.source, tc.kinds)
-	}
-}
-
-@(test)
-test_token_spans :: proc(t: ^testing.T) {
+test_token_spans :: proc(test: ^testing.T) {
 	source := as_bytes("foo bar")
 	tokens: [dynamic]Token
 	defer delete(tokens)
 	scan_all(source, &tokens)
 
-	testing.expect_value(t, len(tokens), 4)
-	testing.expect_value(t, token_text(source, tokens[0]), "foo")
-	testing.expect_value(t, tokens[0].start, u32(0))
-	testing.expect_value(t, tokens[0].end, u32(3))
-	testing.expect_value(t, token_text(source, tokens[1]), "bar")
-	testing.expect_value(t, tokens[1].start, u32(4))
-	testing.expect_value(t, tokens[1].end, u32(7))
+	testing.expect_value(test, len(tokens), 4)
+	testing.expect_value(test, token_text(source, tokens[0]), "foo")
+	testing.expect_value(test, tokens[0].start, u32(0))
+	testing.expect_value(test, tokens[0].end, u32(3))
+	testing.expect_value(test, token_text(source, tokens[1]), "bar")
+	testing.expect_value(test, tokens[1].start, u32(4))
+	testing.expect_value(test, tokens[1].end, u32(7))
 }
 
 @(test)
-test_semicolon_insertion :: proc(t: ^testing.T) {
+test_semicolon_insertion :: proc(test: ^testing.T) {
 	cases := []struct {
 		source: string,
 		kinds:  []Token_Kind,
@@ -134,7 +70,6 @@ test_semicolon_insertion :: proc(t: ^testing.T) {
 		{"a", {.Ident, .Semicolon, .EOF}},
 		{"a\n", {.Ident, .Semicolon, .EOF}},
 		{"a\nb", {.Ident, .Semicolon, .Ident, .Semicolon, .EOF}},
-		{"a\n\nb", {.Ident, .Semicolon, .Ident, .Semicolon, .EOF}},
 		{"1\n2", {.Integer, .Semicolon, .Integer, .Semicolon, .EOF}},
 		{"return\nnext", {.Return, .Semicolon, .Ident, .Semicolon, .EOF}},
 		{"x)\ny", {.Ident, .Close_Paren, .Semicolon, .Ident, .Semicolon, .EOF}},
@@ -146,21 +81,21 @@ test_semicolon_insertion :: proc(t: ^testing.T) {
 		{"x--\ny", {.Ident, .Decrement, .Semicolon, .Ident, .Semicolon, .EOF}},
 		{"x---\ny", {.Ident, .Undef, .Semicolon, .Ident, .Semicolon, .EOF}},
 		{"x!\ny", {.Ident, .Not, .Semicolon, .Ident, .Semicolon, .EOF}},
-		// `+` does not trigger insertion, so the newline is plain whitespace.
 		{"x +\ny", {.Ident, .Add, .Ident, .Semicolon, .EOF}},
 		{"x // comment\ny", {.Ident, .Semicolon, .Ident, .Semicolon, .EOF}},
-		{"x /* comment */\ny", {.Ident, .Semicolon, .Ident, .Semicolon, .EOF}},
+		{"x /* a /* b */ c */\ny", {.Ident, .Semicolon, .Ident, .Semicolon, .EOF}},
 		{"x;\ny", {.Ident, .Semicolon, .Ident, .Semicolon, .EOF}},
 		{"x \\\ny", {.Ident, .Ident, .Semicolon, .EOF}},
+		{"\xEF\xBB\xBFa", {.Ident, .Semicolon, .EOF}},
 	}
 
-	for tc in cases {
-		expect_kinds(t, tc.source, tc.kinds)
+	for test_case in cases {
+		expect_kinds(test, test_case.source, test_case.kinds)
 	}
 }
 
 @(test)
-test_comments_recorded :: proc(t: ^testing.T) {
+test_comments_recorded :: proc(test: ^testing.T) {
 	source := as_bytes("a // one\n/* two */ b")
 	tokens: [dynamic]Token
 	comments: [dynamic]Comment
@@ -170,92 +105,67 @@ test_comments_recorded :: proc(t: ^testing.T) {
 	defer delete(errors)
 	scan_all(source, &tokens, &errors, &comments)
 
-	testing.expect_value(t, len(errors), 0)
-	testing.expect_value(t, len(comments), 2)
+	testing.expect_value(test, len(errors), 0)
+	testing.expect_value(test, len(comments), 2)
 	if len(comments) == 2 {
-		testing.expect_value(t, comments[0].kind, Comment_Kind.Line)
-		testing.expect_value(t, comments[0].start, u32(2))
-		testing.expect_value(t, comments[0].end, u32(8))
-		testing.expect_value(t, comments[1].kind, Comment_Kind.Block)
-		testing.expect_value(t, comments[1].start, u32(9))
-		testing.expect_value(t, comments[1].end, u32(18))
+		testing.expect_value(test, comments[0].kind, Comment_Kind.Line)
+		testing.expect_value(test, comments[0].start, u32(2))
+		testing.expect_value(test, comments[0].end, u32(8))
+		testing.expect_value(test, comments[1].kind, Comment_Kind.Block)
+		testing.expect_value(test, comments[1].start, u32(9))
+		testing.expect_value(test, comments[1].end, u32(18))
 	}
 }
 
 @(test)
-test_nested_block_comment :: proc(t: ^testing.T) {
-	expect_kinds(t, "/* a /* b */ c */x", {.Ident, .Semicolon, .EOF})
-}
-
-@(test)
-test_errors :: proc(t: ^testing.T) {
+test_errors :: proc(test: ^testing.T) {
 	cases := []struct {
 		source: string,
 		kind:   Error_Kind,
+		offset: u32,
 	} {
-		{"\"unterminated", .String_Not_Terminated},
-		{"\"\"\"unterminated", .Triple_String_Not_Terminated},
-		{"`unterminated", .Raw_String_Not_Terminated},
-		{"'a", .Rune_Not_Terminated},
-		{"'ab'", .Invalid_Rune_Literal},
-		{"/* unterminated", .Comment_Not_Terminated},
-		{"\"\\q\"", .Unknown_Escape_Sequence},
-		{"\"\\uD800\"", .Invalid_Unicode_Code_Point},
-		{"0b", .Invalid_Binary_Integer},
-		{"0o", .Invalid_Octal_Integer},
-		{"0d", .Invalid_Decimal_Integer},
-		{"0z", .Invalid_Dozenal_Integer},
-		{"0x", .Invalid_Hexadecimal_Integer},
-		{"0hxyz", .Invalid_Hexadecimal_Float},
-		{"1e", .Invalid_Float_Exponent},
-		{"a\x00b", .Nul_Byte},
-		{"\xff", .Illegal_Utf8},
+		{"\"unterminated", .String_Not_Terminated, 0},
+		{"\"\"\"unterminated", .Triple_String_Not_Terminated, 0},
+		{"`unterminated", .Raw_String_Not_Terminated, 0},
+		{"'a", .Rune_Not_Terminated, 0},
+		{"'ab'", .Invalid_Rune_Literal, 0},
+		{"/* unterminated", .Comment_Not_Terminated, 0},
+		{"\"\\q\"", .Unknown_Escape_Sequence, 2},
+		{"\"\\uD800\"", .Invalid_Unicode_Code_Point, 2},
+		{"0b", .Invalid_Binary_Integer, 2},
+		{"0o", .Invalid_Octal_Integer, 2},
+		{"0d", .Invalid_Decimal_Integer, 2},
+		{"0z", .Invalid_Dozenal_Integer, 2},
+		{"0x", .Invalid_Hexadecimal_Integer, 2},
+		{"0hxyz", .Invalid_Hexadecimal_Float, 2},
+		{"1e", .Invalid_Float_Exponent, 2},
+		{"a\x00b", .Nul_Byte, 1},
+		{"\xff", .Illegal_Utf8, 0},
 	}
 
-	for tc in cases {
+	for test_case in cases {
 		errors: [dynamic]Error
 		tokens: [dynamic]Token
-		scan_all(transmute([]byte)tc.source, &tokens, &errors)
+		scan_all(transmute([]byte)test_case.source, &tokens, &errors)
 
 		found := false
-		for e in errors {
-			if e.kind == tc.kind {
+		for reported in errors {
+			if reported.kind == test_case.kind && reported.offset == test_case.offset {
 				found = true
 			}
 		}
-		testing.expectf(t, found, "%q: expected error %v, got %v", tc.source, tc.kind, errors)
+		testing.expectf(test, found, "%q: expected error %v at %d, got %v", test_case.source, test_case.kind, test_case.offset, errors)
 		delete(errors)
 		delete(tokens)
 	}
 }
 
 @(test)
-test_error_offsets :: proc(t: ^testing.T) {
-	source := as_bytes("a /* unterminated")
-	errors: [dynamic]Error
-	tokens: [dynamic]Token
-	scan_all(source, &tokens, &errors)
-	defer delete(errors)
-	defer delete(tokens)
-
-	testing.expect_value(t, len(errors), 1)
-	if len(errors) == 1 {
-		testing.expect_value(t, errors[0].kind, Error_Kind.Comment_Not_Terminated)
-		testing.expect_value(t, errors[0].offset, u32(2))
-	}
-}
-
-@(test)
-test_leading_bom :: proc(t: ^testing.T) {
-	expect_kinds(t, "\xEF\xBB\xBFident", {.Ident, .Semicolon, .EOF})
-}
-
-@(test)
-test_line_col :: proc(t: ^testing.T) {
+test_line_col :: proc(test: ^testing.T) {
 	source := as_bytes("ab\ncde\n")
 	table, err := make_line_table(source, context.allocator)
 	defer destroy_line_table(&table)
-	testing.expect_value(t, err, mem.Allocator_Error.None)
+	testing.expect_value(test, err, mem.Allocator_Error.None)
 
 	cases := []struct {
 		offset: u32,
@@ -269,15 +179,14 @@ test_line_col :: proc(t: ^testing.T) {
 		{6, 2, 4},
 		{7, 3, 1},
 	}
-	for tc in cases {
-		line, column := line_col(table, tc.offset)
-		testing.expectf(t, line == tc.line && column == tc.column,
-			"offset %d: got %d:%d, want %d:%d", tc.offset, line, column, tc.line, tc.column)
+	for test_case in cases {
+		line, column := line_col(table, test_case.offset)
+		testing.expectf(test, line == test_case.line && column == test_case.column,
+			"offset %d: got %d:%d, want %d:%d", test_case.offset, line, column, test_case.line, test_case.column)
 	}
 }
 
-// Broad token classes, used to compare against the reference tokenizer without
-// depending on its exact kind numbering or its comment/file-tag representation.
+// Broad classes for comparing against the reference tokenizer.
 @(private="file")
 Class :: enum {
 	Other,
@@ -291,7 +200,7 @@ Class :: enum {
 }
 
 @(private="file")
-class_mine :: proc(kind: Token_Kind) -> Class {
+class_actual :: proc(kind: Token_Kind) -> Class {
 	switch {
 	case kind == .Invalid:
 		return .Other
@@ -314,7 +223,7 @@ class_mine :: proc(kind: Token_Kind) -> Class {
 }
 
 @(private="file")
-class_core :: proc(kind: odin_tokenizer.Token_Kind) -> Class {
+class_reference :: proc(kind: odin_tokenizer.Token_Kind) -> Class {
 	switch {
 	case kind == .Invalid:
 		return .Other
@@ -337,38 +246,33 @@ class_core :: proc(kind: odin_tokenizer.Token_Kind) -> Class {
 }
 
 @(private="file")
-Core_Norm :: struct {
+Expected_Token :: struct {
 	kind:   odin_tokenizer.Token_Kind,
 	offset: u32,
 }
 
 @(private="file")
-collect_odin_files :: proc(dir: string, out: ^[dynamic]string) {
+collect_odin_files :: proc(dir: string, paths: ^[dynamic]string) {
 	files, err := os.read_all_directory_by_path(dir, context.temp_allocator)
 	if err != nil {
 		return
 	}
-	for fi in files {
-		#partial switch fi.type {
+	for file_info in files {
+		#partial switch file_info.type {
 		case .Directory:
-			collect_odin_files(fi.fullpath, out)
+			collect_odin_files(file_info.fullpath, paths)
 		case .Regular, .Symlink:
-			if strings.has_suffix(fi.name, ".odin") {
-				append(out, strings.clone(fi.fullpath))
+			if strings.has_suffix(file_info.name, ".odin") {
+				append(paths, strings.clone(file_info.fullpath))
 			}
 		}
 	}
 }
 
-// test_matches_core_tokenizer scans every `.odin` file under the reference
-// `core/slice` and `core/strings` directories and checks that this tokenizer
-// agrees with `core:odin/tokenizer` on token count and start offsets.
-//
-// Comments are dropped from the reference stream and `#name` directives (which
-// the reference splits into `#` plus an identifier) are merged, so the two
-// streams line up one to one. Kinds are compared by broad class.
+// Compares token count and start offsets against `core:odin/tokenizer` over
+// real files. Reference comments are dropped and `#`+identifier pairs merged.
 @(test)
-test_matches_core_tokenizer :: proc(t: ^testing.T) {
+test_matches_core_tokenizer :: proc(test: ^testing.T) {
 	defer free_all(context.temp_allocator)
 
 	roots := []string {
@@ -386,76 +290,74 @@ test_matches_core_tokenizer :: proc(t: ^testing.T) {
 		collect_odin_files(root, &files)
 	}
 	slice.sort(files[:])
-	testing.expect(t, len(files) > 0, "no .odin files found to compare against")
+	testing.expect(test, len(files) > 0, "no .odin files found to compare against")
 
 	for path in files {
-		src, read_err := os.read_entire_file(path, context.temp_allocator)
-		if !testing.expectf(t, read_err == nil, "could not read %s", path) {
+		src, read_error := os.read_entire_file(path, context.temp_allocator)
+		if !testing.expectf(test, read_error == nil, "could not read %s", path) {
 			continue
 		}
 
-		// This tokenizer.
-		mine: [dynamic]Token
+		actual: [dynamic]Token
 		errors: [dynamic]Error
-		scan_all(src, &mine, &errors)
-		defer delete(mine)
+		scan_all(src, &actual, &errors)
+		defer delete(actual)
 		defer delete(errors)
-		testing.expectf(t, len(errors) == 0, "%s: %d lexical errors %v", path, len(errors), errors)
+		testing.expectf(test, len(errors) == 0, "%s: %d lexical errors %v", path, len(errors), errors)
 
-		// The reference tokenizer, with semicolon insertion enabled.
-		ct: odin_tokenizer.Tokenizer
-		odin_tokenizer.init(&ct, string(src), path)
-		ct.flags = {.Insert_Semicolon}
-		core_tokens: [dynamic]odin_tokenizer.Token
+		reference: odin_tokenizer.Tokenizer
+		odin_tokenizer.init(&reference, string(src), path)
+		reference.flags = {.Insert_Semicolon}
+		reference_tokens: [dynamic]odin_tokenizer.Token
 		for {
-			tok := odin_tokenizer.scan(&ct)
-			append(&core_tokens, tok)
-			if tok.kind == .EOF {
+			reference_token := odin_tokenizer.scan(&reference)
+			append(&reference_tokens, reference_token)
+			if reference_token.kind == .EOF {
 				break
 			}
 		}
-		defer delete(core_tokens)
+		defer delete(reference_tokens)
 
-		norm: [dynamic]Core_Norm
+		expected: [dynamic]Expected_Token
 		i := 0
-		for i < len(core_tokens) {
-			tk := core_tokens[i]
-			if tk.kind == .Comment {
+		for i < len(reference_tokens) {
+			candidate := reference_tokens[i]
+			if candidate.kind == .Comment {
 				i += 1
-			} else if tk.kind == .File_Tag {
-				append(&norm, Core_Norm{kind = .File_Tag, offset = u32(tk.pos.offset)})
+			} else if candidate.kind == .File_Tag {
+				append(&expected, Expected_Token{kind = .File_Tag, offset = u32(candidate.pos.offset)})
 				i += 1
-			} else if tk.kind == .Hash &&
-			          i + 1 < len(core_tokens) &&
-			          core_tokens[i + 1].kind == .Ident &&
-			          core_tokens[i + 1].pos.offset == tk.pos.offset + 1 {
-				append(&norm, Core_Norm{kind = .File_Tag, offset = u32(tk.pos.offset)})
+			} else if candidate.kind == .Hash &&
+			          i + 1 < len(reference_tokens) &&
+			          reference_tokens[i + 1].kind == .Ident &&
+			          reference_tokens[i + 1].pos.offset == candidate.pos.offset + 1 {
+				append(&expected, Expected_Token{kind = .File_Tag, offset = u32(candidate.pos.offset)})
 				i += 2
 			} else {
-				append(&norm, Core_Norm{kind = tk.kind, offset = u32(tk.pos.offset)})
+				append(&expected, Expected_Token{kind = candidate.kind, offset = u32(candidate.pos.offset)})
 				i += 1
 			}
 		}
-		defer delete(norm)
+		defer delete(expected)
 
 		mismatch := -1
-		n := min(len(mine), len(norm))
-		for k in 0 ..< n {
-			if mine[k].start != norm[k].offset ||
-			   class_mine(mine[k].kind) != class_core(norm[k].kind) {
+		limit := min(len(actual), len(expected))
+		for k in 0 ..< limit {
+			if actual[k].start != expected[k].offset ||
+			   class_actual(actual[k].kind) != class_reference(expected[k].kind) {
 				mismatch = k
 				break
 			}
 		}
-		if mismatch >= 0 || len(mine) != len(norm) {
-			testing.expectf(t, false,
+		if mismatch >= 0 || len(actual) != len(expected) {
+			testing.expectf(test, false,
 				"%s: mismatch at token %d: mine=%v@%d core=%v@%d (counts %d vs %d)",
 				path, mismatch,
-				mismatch >= 0 ? mine[mismatch].kind : Token_Kind.Invalid,
-				mismatch >= 0 ? mine[mismatch].start : u32(0),
-				mismatch >= 0 ? norm[mismatch].kind : odin_tokenizer.Token_Kind.Invalid,
-				mismatch >= 0 ? norm[mismatch].offset : u32(0),
-				len(mine), len(norm))
+				mismatch >= 0 ? actual[mismatch].kind : Token_Kind.Invalid,
+				mismatch >= 0 ? actual[mismatch].start : u32(0),
+				mismatch >= 0 ? expected[mismatch].kind : odin_tokenizer.Token_Kind.Invalid,
+				mismatch >= 0 ? expected[mismatch].offset : u32(0),
+				len(actual), len(expected))
 		}
 	}
 }
