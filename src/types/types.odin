@@ -1,8 +1,10 @@
 package types
 
-// Type_Id is a stable index into Store.types. Zero denotes no type.
+// Type_Id is a stable index into Store.types. Zero denotes no type; TYPE_POISON
+// is the reserved error-recovery type whose layout is always an error.
 Type_Id :: distinct u32
 TYPE_NONE :: Type_Id(0)
+TYPE_POISON :: Type_Id(1)
 
 Kind :: enum u8 {
 	Invalid,
@@ -38,6 +40,7 @@ Kind :: enum u8 {
 	Simd_Vector,
 	Soa_Pointer,
 	Named,
+	Poison,
 }
 
 Endian :: enum u8 {
@@ -81,6 +84,7 @@ Layout_Error :: enum u8 {
 	Invalid_Type,
 	Incomplete_Type,
 	Recursive_Value,
+	Poison,
 }
 
 Type_Field :: struct {
@@ -121,7 +125,7 @@ Type :: struct {
 Layout_Config :: struct {
 	int_size, ptr_size, max_align, max_simd_align: i64,
 }
-DEFAULT_LAYOUT :: Layout_Config{8, 8, 16, 16}
+DEFAULT_LAYOUT :: Layout_Config{8, 8, 16, 512}
 
 Store :: struct {
 	types: [dynamic]Type,
@@ -129,8 +133,15 @@ Store :: struct {
 
 init :: proc() -> Store {
 	store := Store{}
-	append(&store.types, Type{})
+	reserve_slots(&store)
 	return store
+}
+
+reserve_slots :: proc(store: ^Store) {
+	if len(store.types) == 0 {
+		append(&store.types, Type{})
+		append(&store.types, Type{kind = .Poison})
+	}
 }
 
 destroy :: proc(store: ^Store) {
@@ -141,7 +152,7 @@ destroy :: proc(store: ^Store) {
 // Intern returns a deterministic id, reusing a structurally identical descriptor.
 intern :: proc(store: ^Store, descriptor: Type) -> Type_Id {
 	assert(descriptor.kind != .Invalid)
-	if len(store.types) == 0 { append(&store.types, Type{}) }
+	reserve_slots(store)
 	for i in 0 ..< len(store.types) {
 		if descriptors_equal(store.types[i], descriptor) { return Type_Id(i) }
 	}
@@ -158,7 +169,7 @@ get :: proc(store: ^Store, id: Type_Id) -> ^Type {
 // reserve_nominal assigns an identity before a nominal type's members are known.
 reserve_nominal :: proc(store: ^Store, kind: Kind, name: string) -> Type_Id {
 	assert(kind == .Struct || kind == .Union || kind == .Enum || kind == .Procedure)
-	if len(store.types) == 0 { append(&store.types, Type{}) }
+	reserve_slots(store)
 	append(&store.types, Type{kind = kind, name = name, is_nominal = true})
 	return Type_Id(len(store.types) - 1)
 }
@@ -228,6 +239,7 @@ reset_layout_states :: proc(store: ^Store) {
 validate_layout :: proc(store: ^Store, id: Type_Id) -> Layout_Error {
 	if id == TYPE_NONE || int(id) >= len(store.types) { return .Invalid_Type }
 	t := get(store, id)
+	if t.kind == .Poison { return .Poison }
 	if t.layout_state == .Done { return .None }
 	if t.layout_state == .In_Progress { return .Recursive_Value }
 	if t.is_nominal && !t.is_complete { return .Incomplete_Type }
@@ -258,7 +270,7 @@ layout_internal :: proc(store: ^Store, id: Type_Id, config: Layout_Config, depth
 	t := get(store, id)
 	ptr, word := config.ptr_size, config.int_size
 	switch t.kind {
-	case .Invalid:
+	case .Invalid, .Poison:
 		return 0, 1
 	case .Bool:
 		return 1, 1

@@ -15,9 +15,18 @@ Reg_Class :: enum u8 {
 
 MAX_CLASS_EIGHTBYTES :: 8
 
+// Sse_Shape records what an SSE eightbyte holds: one scalar of element_bytes
+// (half, float, double) or a vector of lanes of that width filling the eightbyte.
+Sse_Shape :: struct {
+	element_bytes: u8,
+	vector:        bool,
+}
+
 // Classification holds one class per eightbyte. count is 0 for zero-sized types.
+// shapes is meaningful only where the class is SSE.
 Classification :: struct {
 	classes: [MAX_CLASS_EIGHTBYTES]Reg_Class,
+	shapes:  [MAX_CLASS_EIGHTBYTES]Sse_Shape,
 	count:   u8,
 }
 
@@ -26,8 +35,10 @@ Classification :: struct {
 // type; anything else (tagged unions, maps, complex numbers, #packed and #soa
 // structs, SIMD vectors, ...) is walked as the compiler's lowered LLVM type,
 // where padding is INTEGER and a #raw_union is one opaque integer blob.
+// use_source = false forces the lowered walk, which the official compiler does
+// for the last value of a split multiple-result return.
 // Register counting and argument planning are not part of this procedure.
-classify :: proc(store: ^Store, id: Type_Id, config := DEFAULT_LAYOUT) -> (result: Classification, err: Layout_Error) {
+classify :: proc(store: ^Store, id: Type_Id, config := DEFAULT_LAYOUT, use_source := true) -> (result: Classification, err: Layout_Error) {
 	err = validate_layout(store, id)
 	if err != .None {
 		reset_layout_states(store)
@@ -44,7 +55,7 @@ classify :: proc(store: ^Store, id: Type_Id, config := DEFAULT_LAYOUT) -> (resul
 		return result, .None
 	}
 	result.count = u8(words)
-	from_source := source_classifiable(store, root)
+	from_source := use_source && source_classifiable(store, root)
 	classify_at(store, root, 0, &result, config, !from_source)
 	fixup(&result)
 	if from_source {
@@ -150,18 +161,31 @@ classify_at :: proc(store: ^Store, type_id: Type_Id, offset: i64, result: ^Class
 		for i in 0 ..< t.count {
 			class := Reg_Class.SSE_Up
 			if i == 0 { class = .SSE }
-			unify(result, int((offset + i * elem_size) / 8), class)
+			unify(result, int((offset + i * elem_size) / 8), class, Sse_Shape{u8(elem_size), true})
 		}
 	case .Float:
-		unify(result, int(offset / 8), .SSE)
+		classify_float(result, offset, size)
 	case .Complex, .Quaternion:
 		component_count := i64(2) if t.kind == .Complex else 4
 		for i in 0 ..< component_count {
-			unify(result, int((offset + i * size / component_count) / 8), .SSE)
+			classify_float(result, offset + i * size / component_count, size / component_count)
 		}
 	case:
 		classify_integer_range(result, offset, size)
 	}
+}
+
+// A float or half placed in the upper half of its eightbyte is a vector lane,
+// as in the official classify_with/classify_source.
+classify_float :: proc(result: ^Classification, offset, size: i64) {
+	vector := false
+	switch size {
+	case 2:
+		vector = offset % 8 != 0
+	case 4:
+		vector = offset % 8 == 4
+	}
+	unify(result, int(offset / 8), .SSE, Sse_Shape{u8(min(size, 8)), vector})
 }
 
 // The lowered tagged union is a packed {block, tag, padding} record; the block
@@ -246,13 +270,16 @@ fill_memory :: proc(result: ^Classification) {
 
 // unify merges a field class into an eightbyte (psABI 3.2.3 rules a-f). An
 // SSE_Up never overrides an SSE head.
-unify :: proc(result: ^Classification, index: int, incoming: Reg_Class) {
+unify :: proc(result: ^Classification, index: int, incoming: Reg_Class, shape := Sse_Shape{}) {
 	if index < 0 || index >= int(result.count) { return }
 	current := result.classes[index]
 	switch {
+	case current == .SSE && incoming == .SSE:
+		if shape_width(result.shapes[index]) <= shape_width(shape) { result.shapes[index] = shape }
 	case current == incoming || incoming == .No_Class:
 	case current == .No_Class:
 		result.classes[index] = incoming
+		result.shapes[index] = shape
 	case current == .Memory || incoming == .Memory:
 		result.classes[index] = .Memory
 	case current == .Integer || incoming == .Integer:
@@ -262,7 +289,14 @@ unify :: proc(result: ^Classification, index: int, incoming: Reg_Class) {
 	case incoming == .SSE_Up && current == .SSE:
 	case:
 		result.classes[index] = incoming
+		result.shapes[index] = shape
 	}
+}
+
+// The overlapping members of a union keep the wider SSE class (the official
+// sse_class_width): scalar half and float are narrower than an eightbyte.
+shape_width :: proc(shape: Sse_Shape) -> u8 {
+	return 8 if shape.vector else shape.element_bytes
 }
 
 is_x87 :: proc(class: Reg_Class) -> bool {
@@ -294,6 +328,7 @@ fixup :: proc(result: ^Classification) {
 		case .SSE_Up:
 			if i == 0 || (result.classes[i - 1] != .SSE && result.classes[i - 1] != .SSE_Up) {
 				result.classes[i] = .SSE
+				result.shapes[i] = Sse_Shape{8, true}
 			}
 		}
 	}

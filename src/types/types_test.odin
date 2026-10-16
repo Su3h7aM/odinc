@@ -146,4 +146,6 @@ layout_matches_target :: proc(t: ^testing.T) {
 	complete_nominal(&store, cycle_id, Type{kind = .Struct, name = "Cycle", fields = []Type_Field{{"self", cycle_id}}})
 	_, _, cycle_err := layout(&store, cycle_id)
 	testing.expect(t, cycle_err == .Recursive_Value, "by-value recursive record returns layout error")
+	_, _, poison_err := layout(&store, TYPE_POISON)
+	testing.expect(t, poison_err == .Poison, "poison type has no layout")
 }
