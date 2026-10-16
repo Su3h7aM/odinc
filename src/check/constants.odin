@@ -1,0 +1,121 @@
+package check
+
+import "base:runtime"
+import "core:math/big"
+import "core:mem"
+import "core:strconv"
+import "core:strings"
+import "oc:types"
+
+Constant_Pool_Error :: enum u8 {
+	None,
+	Uninitialized,
+	Handle_Limit,
+}
+Constant_Error :: union #shared_nil {
+	Constant_Pool_Error,
+	runtime.Allocator_Error,
+	big.Error,
+}
+
+// Owns interned integer/rational limbs, key bytes and table storage in one arena.
+// Borrowed constants returned by constant_pool_get remain valid until destruction.
+// The phase coordinator keeps this pool alive while its Checked_Program view is used.
+Constant_Pool :: struct {
+	arena:     mem.Dynamic_Arena,
+	allocator: mem.Allocator,
+	values:    [dynamic]Constant,
+	keys:      map[string]Const_Id,
+}
+
+@(require_results)
+constant_pool_init :: proc(pool: ^Constant_Pool, allocator: mem.Allocator) -> (err: runtime.Allocator_Error) {
+	assert(
+		pool != nil && len(pool.values) == 0 && pool.allocator.procedure == nil && pool.arena.block_allocator.procedure == nil && allocator.procedure != nil,
+	)
+	mem.dynamic_arena_init(&pool.arena, block_allocator = allocator, array_allocator = allocator)
+	pool.allocator = mem.dynamic_arena_allocator(&pool.arena)
+	pool.values.allocator = pool.allocator
+	pool.keys = make(map[string]Const_Id, pool.allocator)
+	defer if err != nil { constant_pool_destroy(pool) }
+	append(&pool.values, Constant{}) or_return
+	return nil
+}
+
+constant_pool_destroy :: proc(pool: ^Constant_Pool) {
+	if pool == nil { return }
+	delete(pool.keys)
+	delete(pool.values)
+	mem.dynamic_arena_destroy(&pool.arena)
+	pool^ = {}
+}
+
+// Interns an immutable copy. The source integer is borrowed and may be changed afterward.
+@(require_results)
+constant_pool_intern_integer :: proc(pool: ^Constant_Pool, value: ^big.Int, type: types.Type_Id = 0) -> (id: Const_Id, err: Constant_Error) {
+	if !constant_pool_ready(pool) { return 0, Constant_Pool_Error.Uninitialized }
+	if value == nil { return 0, big.Error.Invalid_Pointer }
+	key, key_error := constant_pool_integer_key(pool, type, value)
+	if key_error != nil { return 0, key_error }
+	if existing, found := pool.keys[key]; found { return existing, nil }
+	if u64(len(pool.values)) > u64(max(u32)) { return 0, Constant_Pool_Error.Handle_Limit }
+	stored: big.Int
+	big.int_copy(&stored, value, allocator = pool.allocator) or_return
+	id = Const_Id(len(pool.values))
+	append(&pool.values, Constant{type = type, value = stored}) or_return
+	pool.keys[key] = id
+	return id, nil
+}
+
+// Interns a reduced rational copy. Numerator and denominator storage is arena-owned.
+@(require_results)
+constant_pool_intern_rational :: proc(pool: ^Constant_Pool, value: ^big.Rat, type: types.Type_Id = 0) -> (id: Const_Id, err: Constant_Error) {
+	if !constant_pool_ready(pool) { return 0, Constant_Pool_Error.Uninitialized }
+	if value == nil { return 0, big.Error.Invalid_Pointer }
+	denominator_is_zero, denominator_error := big.is_zero(&value.b, allocator = pool.allocator)
+	if denominator_error != nil { return 0, denominator_error }
+	if denominator_is_zero { return 0, big.Error.Division_by_Zero }
+	stored: big.Rat
+	big.rat_copy(&stored, value, allocator = pool.allocator) or_return
+	key, key_error := constant_pool_rational_key(pool, type, &stored)
+	if key_error != nil { return 0, key_error }
+	if existing, found := pool.keys[key]; found { return existing, nil }
+	if u64(len(pool.values)) > u64(max(u32)) { return 0, Constant_Pool_Error.Handle_Limit }
+	id = Const_Id(len(pool.values))
+	append(&pool.values, Constant{type = type, value = stored}) or_return
+	pool.keys[key] = id
+	return id, nil
+}
+
+constant_pool_get :: proc(pool: ^Constant_Pool, id: Const_Id) -> ^Constant {
+	if !constant_pool_ready(pool) || id == 0 || u64(id) >= u64(len(pool.values)) { return nil }
+	return &pool.values[id]
+}
+
+@(private = "file")
+constant_pool_ready :: proc(pool: ^Constant_Pool) -> bool {
+	return pool != nil && pool.arena.block_allocator.procedure != nil && len(pool.values) > 0
+}
+
+@(private = "file")
+constant_pool_integer_key :: proc(pool: ^Constant_Pool, type: types.Type_Id, value: ^big.Int) -> (key: string, err: Constant_Error) {
+	text, conversion_error := big.int_to_string(value, 10, allocator = pool.allocator)
+	if conversion_error != nil { return "", conversion_error }
+	type_buffer: [11]byte
+	type_text := strconv.write_bits(type_buffer[:], u64(type), 10, false, 32, strconv.digits, {})
+	segments := [4]string{"i:", type_text, ":", text}
+	return strings.concatenate(segments[:], allocator = pool.allocator)
+}
+
+@(private = "file")
+constant_pool_rational_key :: proc(pool: ^Constant_Pool, type: types.Type_Id, value: ^big.Rat) -> (key: string, err: Constant_Error) {
+	numerator, conversion_error := big.int_to_string(&value.a, 10, allocator = pool.allocator)
+	if conversion_error != nil { return "", conversion_error }
+	denominator: string
+	denominator, conversion_error = big.int_to_string(&value.b, 10, allocator = pool.allocator)
+	if conversion_error != nil { return "", conversion_error }
+	type_buffer: [11]byte
+	type_text := strconv.write_bits(type_buffer[:], u64(type), 10, false, 32, strconv.digits, {})
+	segments := [6]string{"r:", type_text, ":", numerator, "/", denominator}
+	return strings.concatenate(segments[:], allocator = pool.allocator)
+}
