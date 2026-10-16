@@ -4,14 +4,17 @@ import "base:runtime"
 import "core:mem/virtual"
 import "core:slice"
 
-@(private = "file")
 Verifier :: struct {
-	fn:      ^Function,
-	module:  ^Module,
-	scratch: runtime.Allocator,
-	errors:  [dynamic]Verify_Error,
-	failure: runtime.Allocator_Error,
-	entry:   Node_Id,
+	fn:          ^Function,
+	module:      ^Module,
+	scratch:     runtime.Allocator,
+	errors:      [dynamic]Verify_Error,
+	failure:     runtime.Allocator_Error,
+	entry:       Node_Id,
+	// The initial memory state: `Proj 1` of `Start`.
+	start_state: Node_Id,
+	// The memory `Phi` of each `Region` and `Loop`, by node id.
+	memory_phi:  []Node_Id,
 }
 
 // Checks S1-S7 and C1-C3 of section 9. Edge rules run first; everything else is skipped while
@@ -44,15 +47,13 @@ verify :: proc(fn: ^Function, allocator: runtime.Allocator, module: ^Module = ni
 	return v.errors[:], nil
 }
 
-@(private = "file")
-report :: proc(v: ^Verifier, node, other: Node_Id, code: Verify_Code) {
+report_error :: proc(v: ^Verifier, node, other: Node_Id, code: Verify_Code) {
 	if _, err := append(&v.errors, Verify_Error{node = node, other = other, code = code}); err != nil {
 		v.failure = err
 	}
 }
 
-@(private = "file")
-type_of :: proc(v: ^Verifier, id: Node_Id) -> Value_Type {
+node_type :: proc(v: ^Verifier, id: Node_Id) -> Value_Type {
 	return v.fn.nodes.type[id]
 }
 
@@ -78,7 +79,7 @@ value_bits :: proc(type: Value_Type) -> int {
 check_edges :: proc(v: ^Verifier) {
 	fn := v.fn
 	if fn.nodes.kind[0] != .Invalid {
-		report(v, 0, NODE_NONE, .Invalid_Anchor)
+		report_error(v, 0, NODE_NONE, .Invalid_Anchor)
 	}
 	for index in 1 ..< len(fn.nodes) {
 		id := Node_Id(index)
@@ -86,27 +87,27 @@ check_edges :: proc(v: ^Verifier) {
 		count := int(fn.nodes.input_count[id])
 		if kind == .Removed {
 			if count != 0 {
-				report(v, id, NODE_NONE, .Removed_Node_Linked)
+				report_error(v, id, NODE_NONE, .Removed_Node_Linked)
 			}
 			continue
 		}
 		if kind == .Invalid {
-			report(v, id, NODE_NONE, .Invalid_Anchor)
+			report_error(v, id, NODE_NONE, .Invalid_Anchor)
 			continue
 		}
 		if int(fn.nodes.first_input[id]) + count > len(fn.edges) {
-			report(v, id, NODE_NONE, .Bad_Arity)
+			report_error(v, id, NODE_NONE, .Bad_Arity)
 			continue
 		}
 		info := &kind_info[kind]
 		if count < int(info.min_inputs) || count > int(info.max_inputs) {
-			report(v, id, NODE_NONE, .Bad_Arity)
+			report_error(v, id, NODE_NONE, .Bad_Arity)
 		}
 		for input in node_inputs(fn, id) {
 			if input == NODE_NONE || int(input) >= len(fn.nodes) {
-				report(v, id, input, .Bad_Input_Id)
+				report_error(v, id, input, .Bad_Input_Id)
 			} else if fn.nodes.kind[input] == .Removed {
-				report(v, id, input, .Removed_Node_Linked)
+				report_error(v, id, input, .Removed_Node_Linked)
 			}
 		}
 	}
@@ -123,32 +124,36 @@ check_anchors :: proc(v: ^Verifier) {
 		case .Start:
 			start_count += 1
 			if id != fn.start {
-				report(v, id, fn.start, .Invalid_Anchor)
+				report_error(v, id, fn.start, .Invalid_Anchor)
 			}
 		case .Stop:
 			stop_count += 1
 			if id != fn.stop {
-				report(v, id, fn.stop, .Invalid_Anchor)
+				report_error(v, id, fn.stop, .Invalid_Anchor)
 			}
 		case .Proj:
-			if fn.nodes.type[id] == .Control && node_input(fn, id, 0) == fn.start && fn.nodes.data[id].index == 0 {
-				v.entry = id
+			if node_input(fn, id, 0) == fn.start {
+				if fn.nodes.type[id] == .Control && fn.nodes.data[id].index == 0 {
+					v.entry = id
+				} else if fn.nodes.type[id] == .Memory && fn.nodes.data[id].index == 1 {
+					v.start_state = id
+				}
 			}
 		}
 	}
 	if start_count != 1 || stop_count != 1 {
-		report(v, fn.start, fn.stop, .Invalid_Anchor)
+		report_error(v, fn.start, fn.stop, .Invalid_Anchor)
 		return
 	}
 	if int(fn.signature) >= len(fn.signatures) {
-		report(v, fn.start, NODE_NONE, .Bad_Node_Data)
+		report_error(v, fn.start, NODE_NONE, .Bad_Node_Data)
 	}
 
 	is_stop_input := make([]bool, len(fn.nodes), v.scratch)
 	for input in node_inputs(fn, fn.stop) {
 		kind := fn.nodes.kind[input]
 		if (kind != .Return && kind != .Unreachable && kind != .Trap) || is_stop_input[input] {
-			report(v, fn.stop, input, .Invalid_Anchor)
+			report_error(v, fn.stop, input, .Invalid_Anchor)
 		}
 		is_stop_input[input] = true
 	}
@@ -156,7 +161,7 @@ check_anchors :: proc(v: ^Verifier) {
 		#partial switch fn.nodes.kind[index] {
 		case .Return, .Unreachable, .Trap:
 			if !is_stop_input[index] {
-				report(v, fn.stop, Node_Id(index), .Invalid_Anchor)
+				report_error(v, fn.stop, Node_Id(index), .Invalid_Anchor)
 			}
 		}
 	}
@@ -172,11 +177,11 @@ check_nodes :: proc(v: ^Verifier) {
 			continue
 		}
 		if fn.nodes.type[id] not_in kind_info[kind].result {
-			report(v, id, NODE_NONE, .Bad_Type)
+			report_error(v, id, NODE_NONE, .Bad_Type)
 		}
 		for input, slot in node_inputs(fn, id) {
-			if type_of(v, input) not_in input_types(kind, slot) {
-				report(v, id, input, .Bad_Type)
+			if node_type(v, input) not_in input_types(kind, slot) {
+				report_error(v, id, input, .Bad_Type)
 			}
 		}
 		check_operand_relations(v, id)
@@ -189,53 +194,53 @@ check_nodes :: proc(v: ^Verifier) {
 check_operand_relations :: proc(v: ^Verifier, id: Node_Id) {
 	fn := v.fn
 	inputs := node_inputs(fn, id)
-	type := type_of(v, id)
+	type := node_type(v, id)
 	#partial switch fn.nodes.kind[id] {
 	case .Add, .Sub, .Mul, .And, .Or, .Xor, .FAdd, .FSub, .FMul, .FDiv, .Mul_Hi_S, .Mul_Hi_U:
-		if type_of(v, inputs[0]) != type_of(v, inputs[1]) || type != type_of(v, inputs[0]) {
-			report(v, id, inputs[1], .Bad_Type)
+		if node_type(v, inputs[0]) != node_type(v, inputs[1]) || type != node_type(v, inputs[0]) {
+			report_error(v, id, inputs[1], .Bad_Type)
 		}
 	case .SDiv, .UDiv, .SRem, .URem:
-		if type_of(v, inputs[1]) != type_of(v, inputs[2]) || type != type_of(v, inputs[1]) {
-			report(v, id, inputs[2], .Bad_Type)
+		if node_type(v, inputs[1]) != node_type(v, inputs[2]) || type != node_type(v, inputs[1]) {
+			report_error(v, id, inputs[2], .Bad_Type)
 		}
 	case .Shl, .Shr, .Sar, .FNeg, .FSqrt, .Popcnt, .Clz, .Ctz, .Bswap:
-		if type != type_of(v, inputs[0]) {
-			report(v, id, inputs[0], .Bad_Type)
+		if type != node_type(v, inputs[0]) {
+			report_error(v, id, inputs[0], .Bad_Type)
 		}
 	case .Eq, .Ne, .SLt, .SLe, .ULt, .ULe, .FEq, .FLt, .FLe, .FNe:
-		if type_of(v, inputs[0]) != type_of(v, inputs[1]) {
-			report(v, id, inputs[1], .Bad_Type)
+		if node_type(v, inputs[0]) != node_type(v, inputs[1]) {
+			report_error(v, id, inputs[1], .Bad_Type)
 		}
 	case .Select:
-		if type_of(v, inputs[1]) != type_of(v, inputs[2]) || type != type_of(v, inputs[1]) {
-			report(v, id, inputs[2], .Bad_Type)
+		if node_type(v, inputs[1]) != node_type(v, inputs[2]) || type != node_type(v, inputs[1]) {
+			report_error(v, id, inputs[2], .Bad_Type)
 		}
 	case .Trunc, .Float_Trunc:
-		if value_bits(type) >= value_bits(type_of(v, inputs[0])) {
-			report(v, id, inputs[0], .Bad_Type)
+		if value_bits(type) >= value_bits(node_type(v, inputs[0])) {
+			report_error(v, id, inputs[0], .Bad_Type)
 		}
 	case .Zext, .Sext, .Float_Ext:
-		if value_bits(type) <= value_bits(type_of(v, inputs[0])) {
-			report(v, id, inputs[0], .Bad_Type)
+		if value_bits(type) <= value_bits(node_type(v, inputs[0])) {
+			report_error(v, id, inputs[0], .Bad_Type)
 		}
 	case .Bitcast:
-		source := type_of(v, inputs[0])
+		source := node_type(v, inputs[0])
 		pointer_pairs_with_i64 := (source == .Ptr && type != .I64) || (type == .Ptr && source != .I64)
 		if value_bits(type) != value_bits(source) || pointer_pairs_with_i64 {
-			report(v, id, inputs[0], .Bad_Type)
+			report_error(v, id, inputs[0], .Bad_Type)
 		}
 	case .Phi:
 		for value in inputs[1:] {
-			if type_of(v, value) != type {
-				report(v, id, value, .Bad_Type)
+			if node_type(v, value) != type {
+				report_error(v, id, value, .Bad_Type)
 			}
 		}
 		merge := inputs[0]
 		if fn.nodes.kind[merge] != .Region && fn.nodes.kind[merge] != .Loop {
-			report(v, id, merge, .Bad_Phi)
+			report_error(v, id, merge, .Bad_Phi)
 		} else if len(inputs) != int(fn.nodes.input_count[merge]) + 1 {
-			report(v, id, merge, .Bad_Arity)
+			report_error(v, id, merge, .Bad_Arity)
 		}
 	case .Const_Int:
 		value := fn.nodes.data[id].int_value
@@ -251,12 +256,12 @@ check_operand_relations :: proc(v: ^Verifier, id: Node_Id) {
 			in_range = value == i64(i32(value))
 		}
 		if !in_range {
-			report(v, id, NODE_NONE, .Bad_Type)
+			report_error(v, id, NODE_NONE, .Bad_Type)
 		}
 	case .Const_Float:
 		bits := fn.nodes.data[id].float_bits
 		if value_bits(type) < 64 && bits >> uint(value_bits(type)) != 0 {
-			report(v, id, NODE_NONE, .Bad_Type)
+			report_error(v, id, NODE_NONE, .Bad_Type)
 		}
 	}
 }
@@ -271,7 +276,7 @@ check_node_data :: proc(v: ^Verifier, id: Node_Id) {
 	case .Stack_Slot:
 		slot := data.slot
 		if slot.size == 0 || slot.align == 0 || slot.align & (slot.align - 1) != 0 || inputs[0] != v.entry {
-			report(v, id, inputs[0], .Bad_Node_Data)
+			report_error(v, id, inputs[0], .Bad_Node_Data)
 		}
 	case .Symbol_Addr:
 		check_symbol(v, id, data.symbol, false)
@@ -279,7 +284,7 @@ check_node_data :: proc(v: ^Verifier, id: Node_Id) {
 		check_symbol(v, id, data.symbol, true)
 	case .Switch:
 		if int(data.index) >= len(fn.tables) {
-			report(v, id, NODE_NONE, .Bad_Node_Data)
+			report_error(v, id, NODE_NONE, .Bad_Node_Data)
 			return
 		}
 		sorted, err := slice.clone(fn.tables[data.index], v.scratch)
@@ -290,27 +295,27 @@ check_node_data :: proc(v: ^Verifier, id: Node_Id) {
 		slice.sort(sorted)
 		for case_index in 1 ..< len(sorted) {
 			if sorted[case_index] == sorted[case_index - 1] {
-				report(v, id, NODE_NONE, .Bad_Node_Data)
+				report_error(v, id, NODE_NONE, .Bad_Node_Data)
 				break
 			}
 		}
 	case .Load_Ordered:
 		if data.access.value_type not_in input_types(.Store, 3) {
-			report(v, id, NODE_NONE, .Bad_Node_Data)
+			report_error(v, id, NODE_NONE, .Bad_Node_Data)
 		}
 	case .Call:
 		if int(data.index) >= len(fn.signatures) {
-			report(v, id, NODE_NONE, .Bad_Node_Data)
+			report_error(v, id, NODE_NONE, .Bad_Node_Data)
 			return
 		}
 		params := fn.signatures[data.index].params
 		if len(inputs) - 3 != len(params) {
-			report(v, id, NODE_NONE, .Bad_Node_Data)
+			report_error(v, id, NODE_NONE, .Bad_Node_Data)
 			return
 		}
 		for param, index in params {
-			if type_of(v, inputs[3 + index]) != param.type {
-				report(v, id, inputs[3 + index], .Bad_Node_Data)
+			if node_type(v, inputs[3 + index]) != param.type {
+				report_error(v, id, inputs[3 + index], .Bad_Node_Data)
 			}
 		}
 	case .Return:
@@ -319,27 +324,27 @@ check_node_data :: proc(v: ^Verifier, id: Node_Id) {
 		}
 		results := fn.signatures[fn.signature].results
 		if len(inputs) - 2 != len(results) {
-			report(v, id, NODE_NONE, .Bad_Node_Data)
+			report_error(v, id, NODE_NONE, .Bad_Node_Data)
 			return
 		}
 		for result, index in results {
-			if type_of(v, inputs[2 + index]) != result.type {
-				report(v, id, inputs[2 + index], .Bad_Node_Data)
+			if node_type(v, inputs[2 + index]) != result.type {
+				report_error(v, id, inputs[2 + index], .Bad_Node_Data)
 			}
 		}
 	case .Target_Op:
 		if int(data.index) >= len(Target_Op) {
-			report(v, id, NODE_NONE, .Bad_Node_Data)
+			report_error(v, id, NODE_NONE, .Bad_Node_Data)
 			return
 		}
 		info := &target_op_info[Target_Op(data.index)]
 		if len(inputs) - 2 != int(info.arg_count) {
-			report(v, id, NODE_NONE, .Bad_Node_Data)
+			report_error(v, id, NODE_NONE, .Bad_Node_Data)
 			return
 		}
 		for arg_type, index in info.args[:info.arg_count] {
-			if type_of(v, inputs[2 + index]) != arg_type {
-				report(v, id, inputs[2 + index], .Bad_Node_Data)
+			if node_type(v, inputs[2 + index]) != arg_type {
+				report_error(v, id, inputs[2 + index], .Bad_Node_Data)
 			}
 		}
 	}
@@ -361,7 +366,7 @@ check_symbol :: proc(v: ^Verifier, id: Node_Id, symbol: Symbol_Ref, thread_local
 		valid = module == nil || (int(symbol.index) < len(module.globals) && module.globals[symbol.index].tls == thread_local)
 	}
 	if !valid {
-		report(v, id, NODE_NONE, .Bad_Node_Data)
+		report_error(v, id, NODE_NONE, .Bad_Node_Data)
 	}
 }
 
@@ -394,14 +399,14 @@ tuple_member :: proc(v: ^Verifier, tuple: Node_Id, index: int) -> (type: Value_T
 		}
 	case .Atomic_Rmw:
 		if index < 2 {
-			return .Memory if index == 0 else type_of(v, node_input(fn, tuple, 3)), true
+			return .Memory if index == 0 else node_type(v, node_input(fn, tuple, 3)), true
 		}
 	case .Atomic_Cas:
 		switch index {
 		case 0:
 			return .Memory, true
 		case 1:
-			return type_of(v, node_input(fn, tuple, 3)), true
+			return node_type(v, node_input(fn, tuple, 3)), true
 		case 2:
 			return .Bool, true
 		}
@@ -444,8 +449,8 @@ check_projections :: proc(v: ^Verifier) {
 		}
 		tuple := node_input(fn, id, 0)
 		member, found := tuple_member(v, tuple, int(fn.nodes.data[id].index))
-		if !found || type_of(v, id) != member {
-			report(v, id, tuple, .Bad_Projection)
+		if !found || node_type(v, id) != member {
+			report_error(v, id, tuple, .Bad_Projection)
 		}
 	}
 
@@ -476,12 +481,12 @@ check_projections :: proc(v: ^Verifier) {
 				continue
 			}
 			if seen[member] {
-				report(v, id, use.user, .Bad_Projection)
+				report_error(v, id, use.user, .Bad_Projection)
 			}
 			seen[member] = true
 		}
 		if slice.contains(seen, false) {
-			report(v, id, NODE_NONE, .Bad_Projection)
+			report_error(v, id, NODE_NONE, .Bad_Projection)
 		}
 	}
 }
@@ -496,11 +501,11 @@ check_control :: proc(v: ^Verifier) {
 		if kind == .Region || kind == .Loop {
 			for input in node_inputs(fn, id) {
 				if !is_block_head(fn, input) {
-					report(v, id, input, .Control_Not_Head)
+					report_error(v, id, input, .Control_Not_Head)
 				}
 			}
 		} else if is_pinned(kind) && !is_block_head(fn, node_input(fn, id, 0)) {
-			report(v, id, node_input(fn, id, 0), .Control_Not_Head)
+			report_error(v, id, node_input(fn, id, 0), .Control_Not_Head)
 		}
 	}
 
@@ -511,13 +516,19 @@ check_control :: proc(v: ^Verifier) {
 	}
 	for exit_count, block in cfg.exit_counts {
 		if exit_count != 1 {
-			report(v, cfg.heads[block], NODE_NONE, .Head_Exit_Count)
+			report_error(v, cfg.heads[block], NODE_NONE, .Head_Exit_Count)
 		}
 	}
 	for index in 1 ..< len(fn.nodes) {
 		id := Node_Id(index)
 		if is_block_head(fn, id) && (int(id) >= len(cfg.block_of) || cfg.block_of[id] == BLOCK_NONE) {
-			report(v, id, NODE_NONE, .Unreachable_Head)
+			report_error(v, id, NODE_NONE, .Unreachable_Head)
 		}
 	}
+
+	check_loops(v, cfg)
+	check_phis(v)
+	check_control_classes(v)
+	check_placement(v, cfg)
+	check_memory(v, cfg)
 }
