@@ -11,6 +11,15 @@ Before building anything, look for an existing reference: documentation, a speci
 - The compiler must not change the language. The same Odin program must behave identically under this compiler and the official LLVM one: same syntax, same semantics. Only the implementation underneath changes.
 - Record in the commit message or the relevant doc which references informed the work.
 
+## No third-party dependencies
+
+The compiler is written entirely in Odin and depends only on the Odin language and its packages. It never links libc, glibc, musl or any other external library. A pure-Odin program compiled by it needs none either.
+
+- Talk to the kernel directly through syscalls (`core:sys/linux` first; add missing syscalls there in the same style). Linux is the kernel; we implement what we need on top of it.
+- Threads, memory, files, time and the rest are built from syscalls and Odin code. No `foreign import` of C libraries in the compiler or its runtime.
+- Process entry (`_start`), the runtime startup and the syscall ABI are ours.
+- Support for `foreign import` of user C libraries (for example SQLite) comes later. A libc dependency pulled in by such a library belongs to that library, not to Odin code.
+
 ## Naming
 
 Follow Odin's naming conventions and best practices. Use clear, descriptive, self-explanatory names. Avoid unnecessary abstractions and names that don't clearly describe what something is or does.
