@@ -1,5 +1,6 @@
 [env]
-ODIN_ROOT = "{{env.HOME}}/Projects/Odin"
+# Bootstrap compiler: the Odin fork's binary. Its libraries come from this repository.
+ODIN_BIN = "{{env.HOME}}/Projects/Odin/odin"
 
 [task_config]
 includes = ["scripts"]

@@ -4,9 +4,9 @@
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-ODIN="${ODIN_ROOT:?ODIN_ROOT must name the Odin fork checkout}/odin"
+ODIN="${ODIN_BIN:?ODIN_BIN must name the bootstrap odin binary}"
 [[ -x "$ODIN" ]] || { printf 'error: %s is not executable\n' "$ODIN" >&2; exit 1; }
-export ODIN_ROOT
+export ODIN_ROOT="$PROJECT_ROOT"
 
 COLLECTION="-collection:oc=$PROJECT_ROOT/src"
 

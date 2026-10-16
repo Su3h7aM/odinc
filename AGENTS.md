@@ -6,19 +6,19 @@ Rules for every contributor and agent working in this repository. Also read `doc
 
 Before building anything, look for an existing reference: documentation, a specification, or an implementation that already solves the problem. Study it, understand its logic and organization, then adapt the ideas into simple, idiomatic Odin. Never translate a C or Rust implementation line by line.
 
-- Reuse our Odin fork (`/home/su3h7am/Projects/Odin`) first. Copy and adapt `core`, `base`, `core:odin/{tokenizer,ast,parser}` and other existing Odin code rather than rewriting it. Adaptation is fine; blind duplication is not.
+- Reuse our Odin fork (`/home/su3h7am/Projects/Odin`) first. `base/` and `core/` are already copied here; adapt them in place. Also adapt `core:odin/{tokenizer,ast,parser}` and other existing Odin code rather than rewriting it. Adaptation is fine; blind duplication is not.
 - Reference material lives in `/home/su3h7am/Projects/refs`: `Odin-upstream`, `alloc/llvm-project`, `go/src` (compiler, linker, ELF), `zig`, `musl`, `relibc`, `rfcs/linux` (kernel docs, man pages), and others. Check it before designing.
 - The compiler must not change the language. The same Odin program must behave identically under this compiler and the official LLVM one: same syntax, same semantics. Only the implementation underneath changes.
 - Record in the commit message or the relevant doc which references informed the work.
 
-## No third-party dependencies
+## Dependencies and platforms
 
-The compiler is written entirely in Odin and depends only on the Odin language and its packages. It never links libc, glibc, musl or any other external library. A pure-Odin program compiled by it needs none either.
+The compiler is written entirely in Odin. We implement the language, not a subset of it: syntax, semantics, ABI and the standard library stay compatible with the official compiler, and every platform the official compiler supports stays supported.
 
-- Talk to the kernel directly through syscalls (`core:sys/linux` first; add missing syscalls there in the same style). Linux is the kernel; we implement what we need on top of it.
-- Threads, memory, files, time and the rest are built from syscalls and Odin code. No `foreign import` of C libraries in the compiler or its runtime.
-- Process entry (`_start`), the runtime startup and the syscall ABI are ours.
-- Support for `foreign import` of user C libraries (for example SQLite) comes later. A libc dependency pulled in by such a library belongs to that library, not to Odin code.
+- On Linux there is no first-party C library, so Linux code talks to the kernel through syscalls (`core:sys/linux` first; add missing syscalls there in the same style). Never depend on glibc, musl or any other third-party libc on Linux. Process entry (`_start`), runtime startup and the syscall ABI are ours.
+- Windows, macOS and the BSDs ship first-party system libraries. Their code may use those libraries, including their libc, through `foreign import` as the official library does. `core:sys/posix` stays; it is the portable layer over those systems.
+- The standard library (`base/`, `core/`) is copied into this repository from the Odin fork and adapted when needed. Keep every platform's code in it, including platforms we do not target yet. Only Linux x64 is built and tested for now; failures of other platforms' code are ignored until we enable them one at a time.
+- `foreign import` of user C libraries (for example SQLite) is supported later. A libc pulled in by such a library belongs to that library, not to Odin code.
 
 ## Naming
 
@@ -47,6 +47,6 @@ Keep the number of tests to the minimum necessary. Write only tests that provide
 ## Workflow
 
 - Version control is Jujutsu (`jj`) only. Agents do not run `jj` or `git`; the orchestrator commits.
-- Every task (build, check, test, format, anything else) runs through Mise: `mise run <task>`. Tasks are executable Bash scripts in `scripts/` with `#MISE` headers, never inline TOML tasks. `scripts/_lib.sh` holds shared helpers and is not executable. Config is `.mise/config.toml`, which sets `ODIN_ROOT` to our Odin fork.
+- Every task (build, check, test, format, anything else) runs through Mise: `mise run <task>`. Tasks are executable Bash scripts in `scripts/` with `#MISE` headers, never inline TOML tasks. `scripts/_lib.sh` holds shared helpers and is not executable. Config is `.mise/config.toml`, which names the bootstrap `odin` binary (`ODIN_BIN`, from the fork); the scripts set `ODIN_ROOT` to this repository so `base/` and `core/` come from here.
 - Available now: `mise run check [package]`, `mise run test [package]`, `mise run fmt [--check]`. A new kind of task becomes a new script.
 - Run code through these tasks, not by calling `odin` by hand. Run `mise run fmt` and `mise run check` before reporting work done.
