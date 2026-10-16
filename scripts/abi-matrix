@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+#MISE description="Compare the System V plan of package types with clang and the official Odin compiler"
+#USAGE flag "--keep" help="Keep the generated sources and LLVM IR (path is printed)"
+set -euo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
+
+work="$(mktemp -d)"
+if [[ "${usage_keep:-false}" == true || "${1:-}" == --keep ]]; then
+	printf 'work directory: %s\n' "$work" >&2
+else
+	trap 'rm -rf "$work"' EXIT
+fi
+
+"$ODIN" build "$PROJECT_ROOT/src/types/tools/abi_matrix" -out:"$work/abi_matrix" "$COLLECTION" \
+	-vet -strict-style -vet-tabs -disallow-do -warnings-as-errors
+"$work/abi_matrix" emit "$work"
+
+clang --target=x86_64-unknown-linux-gnu -O0 -w -S -emit-llvm "$work/cases.c" -o "$work/clang.ll"
+mkdir "$work/fork.ll"
+"$ODIN" build "$work/cases.odin" -file -build-mode:llvm-ir -out:"$work/fork.ll" -no-entry-point
+
+"$work/abi_matrix" compare "$work"
