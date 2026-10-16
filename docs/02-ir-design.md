@@ -236,6 +236,17 @@ A `Return` with two results (decision 2) is not interpreted: the interpreter ret
 
 **Validation** of the planner is bidirectional: a matrix of signatures compiled by the fork's Odin and by Clang, compared piece by piece with the plan (register exhaustion, MEMORY aggregates, mixed Int/SSE, odd sizes, signed/unsigned small returns, `i128`, split returns, `context`).
 
+**Known ABI differences.** `mise run abi-matrix` compares 215 `C` signatures: 196 agree among the plan, Clang and the fork; the other 19 match the fork and differ from Clang. The decision is language ABI parity: the plan matches the fork. Evidence is the IR from both compilers (`mise run abi-matrix --keep`).
+
+| Case | Signatures | Clang | Fork and plan | Effect |
+|---|---|---|---|---|
+| Last eightbyte only partly filled | 14 | `i8`/`i32` piece | full `i64` piece | Same register. |
+| `struct{3×f16}` (6 bytes) | 3 | `<4 x half>` | `<3 x half>` | Same register. |
+| `struct{f32}` after the 8 SSE registers are used | 1 | `byval align 8` | plain `float` | Both use an 8-byte stack slot. |
+| `struct{u128}` | 1 | `i128` | `{i64, i64}` | Same registers; the stack case is `By_Value` in both. |
+
+Clang also puts `zeroext`/`signext` on small results; the fork never attaches the result extension (only `sret`). The plan records the intended `ext` on single results, so `x64` extends results itself (decision in `docs/04-x64-design.md`).
+
 ## 7. Memory model
 
 **v0: one memory chain per function** (Simple chapter 10).
