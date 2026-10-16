@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+#MISE description="Format the whole project, verify formatting, then jj commit"
+#USAGE arg "<message>" help="Commit message"
+#USAGE arg "[paths]" var=#true help="Paths to commit; omit for the whole working copy"
+set -euo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
+cd "$PROJECT_ROOT"
+
+message="${1:?usage: mise run commit <message> [paths...]}"
+shift
+
+step "format"
+"$PROJECT_ROOT/scripts/fmt"
+"$PROJECT_ROOT/scripts/fmt" --check
+
+step "commit"
+jj commit -m "$message" "$@"

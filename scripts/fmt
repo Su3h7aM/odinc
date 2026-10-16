@@ -33,7 +33,13 @@ if [[ "$check" == true ]]; then
 		die "${#unformatted[@]} file(s) need formatting"
 	fi
 else
+	failed=()
 	for file in "${sources[@]}"; do
-		odinfmt -w "$file" > /dev/null
+		odinfmt -w "$file" > /dev/null || failed+=("$file")
 	done
+	if ((${#failed[@]})); then
+		printf 'could not format:\n'
+		printf '  %s\n' "${failed[@]}"
+		die "${#failed[@]} file(s) failed to format"
+	fi
 fi
