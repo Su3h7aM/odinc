@@ -147,6 +147,7 @@ interp_arithmetic_edges :: proc(t: ^testing.T) {
 		// Clz and Ctz of zero give the width.
 		{kind = .Clz, type = .I32, a = 0, outcome = .Value, value = 32},
 		{kind = .Ctz, type = .I8, a = 0, outcome = .Value, value = 8},
+		{kind = .Popcnt, type = .I8, a = 0xFF, outcome = .Value, value = 8},
 		// F32 addition rounds to 32 bits: 2^24 + 1 is 2^24.
 		{kind = .FAdd, type = .F32, a = 0x4B800000, b = 0x3F800000, outcome = .Value, value = 0x4B800000},
 	}

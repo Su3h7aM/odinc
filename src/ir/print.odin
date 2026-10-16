@@ -101,7 +101,7 @@ print_function :: proc(w: io.Writer, function: ^Function, options := DEFAULT_PRI
 		if function.nodes.kind[id] == .Removed {
 			continue
 		}
-		print_node(w, function, Node_Id(id), options) or_return
+		print_node_line(w, function, Node_Id(id), options) or_return
 	}
 	put(w, "}\n") or_return
 	return nil
@@ -249,8 +249,7 @@ print_relocs :: proc(w: io.Writer, relocs: []Data_Reloc, depth: int, options: Pr
 	return nil
 }
 
-@(private = "file")
-print_node :: proc(w: io.Writer, function: ^Function, id: Node_Id, options: Print_Options) -> io.Error {
+print_node_line :: proc(w: io.Writer, function: ^Function, id: Node_Id, options := DEFAULT_PRINT_OPTIONS) -> io.Error {
 	kind := function.nodes.kind[id]
 	write_indent(w, 1, options) or_return
 	put(w, options.value_prefix) or_return

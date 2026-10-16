@@ -346,7 +346,7 @@ nodeline    = NID "=" KIND "." vtype [ ref { "," ref } ] { attr } ;
 ref         = NID | "_" ;                          (* "_" = NODE_NONE, unsealed loop only *)
 attr        = ("value"|"bits"|"index"|"offset"|"stride"|"size"|"align"|"order"|"failure"|"op") "=" (INT|HEX|IDENT)
             | "sym" "=" symref | "sig" "=" SID | "table" "=" TID | "weak" | "cold" ;
-vtype       = "none"|"ctrl"|"mem"|"tuple"|"bool"|"i8"|"i16"|"i32"|"i64"|"f16"|"f32"|"f64"|"ptr" ;
+vtype       = "none"|"ctrl"|"mem"|"tuple"|"bool"|"i8"|"i16"|"i32"|"i64"|"f16"|"f32"|"f64"|"ptr"|"v128" ;
 ```
 
 `sched` also prints blocks (`block b2 head=n12 depth=1 preds=[b1,b4]: …`); print-only, used for golden tests. Example (`add_or_zero(a, b: i64, c: bool) -> i64`):
@@ -500,6 +500,7 @@ The ~600-line figure is a review-size preference; estimates below include tests 
 | E2 | `regalloc`: whole-life linear scan, spill-everywhere, `verify` | ~600 | E1 | constraints, clobbers |
 | E3 | `regalloc`: parallel copies | ~400 | E1 | cycle cases |
 | F1-F6 | `x64`: call/ABI lowering; integer selection; float selection; memory/atomics; control expansion; frame/emit/layout | ~600 each | D2, E2, B3 | run natively (separate doc) |
+| G0 | `lower`: module pass, symbol table, procedure job pool, parameter binding, implicit return, error type, `lower_program` | – | A5, B3 | a procedure returning a constant, built and verified |
 | G1-G6 | `lower`: expressions; control and `defer`; calls/ABI use; aggregates, slices, bounds; unions/`any`/`typeid`/type tables; maps/`#soa` | ~600 each | A5, B3 | against the fork (separate doc) |
 | H1 | TLS end to end: `tls` globals, `.tdata/.tbss`, `PT_TLS`, `R_X86_64_TPOFF32`, `Tls_Addr`, startup (`arch_prctl(ARCH_SET_FS)`) | ~600 | A3, F4 | thread-local test |
 | H2 | atomics, fences, ordered accesses in `x64` | ~500 | F4, C4 | per-op tests |

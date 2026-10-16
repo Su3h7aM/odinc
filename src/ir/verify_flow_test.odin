@@ -31,6 +31,17 @@ expect_codes :: proc(t: ^testing.T, fn: ^Function, label: string, expected: ..Ve
 }
 
 @(test)
+verify_rejects_three_results :: proc(t: ^testing.T) {
+	fn, err := function_make(context.allocator, 0, "three_results", 0)
+	testing.expect_value(t, err, nil)
+	defer function_destroy(fn)
+	add_signature(fn, Signature{cc = .C, results = []Result{{type = .I64}, {type = .I64}, {type = .I64}}})
+	entry := start(fn)
+	trap(fn, entry.control, entry.memory)
+	expect_codes(t, fn, "three results", .Bad_Node_Data)
+}
+
+@(test)
 verify_control_rejects_broken_graphs :: proc(t: ^testing.T) {
 	{
 		// C4: the "back edge" comes from a sibling arm the loop does not dominate.

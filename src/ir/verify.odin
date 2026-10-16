@@ -150,6 +150,11 @@ check_anchors :: proc(v: ^Verifier) {
 	if int(fn.signature) >= len(fn.signatures) {
 		report_error(v, fn.start, NODE_NONE, .Bad_Node_Data)
 	}
+	for signature in fn.signatures {
+		if len(signature.results) > 2 {
+			report_error(v, fn.start, NODE_NONE, .Bad_Node_Data)
+		}
+	}
 
 	is_stop_input := make([]bool, len(fn.nodes), v.scratch)
 	for input in node_inputs(fn, fn.stop) {
