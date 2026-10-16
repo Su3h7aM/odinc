@@ -2,6 +2,14 @@
 
 Rules for every contributor and agent working in this repository. Also read `docs/01-architecture.md`.
 
+## Orchestration
+
+The orchestrator coordinates; it does not do routine work. It decides architecture, keeps the design aligned with the goals, and delegates research, implementation, test runs, checks and local investigations to sub-agents. It does not run tests itself: a sub-agent runs `mise run check`, `mise run test` and `mise run fmt` and reports only whether everything passed or, on failure, the specific reason. It reads code only for critical decisions that cannot reasonably be delegated.
+
+- Tasks are small, with a well-defined scope and disjoint files. Never give a sub-agent a broad goal.
+- Each prompt begins with the prior-art check below.
+- No two running agents share a model, and no two agents edit the same files.
+
 ## Prior-art check before every task
 
 The orchestrator puts this at the top of every task it delegates, and no agent writes code until it is done. We already lost time having an agent write an x86-64 encoder that `core:rexcode/isa/x86` provides.
