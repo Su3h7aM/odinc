@@ -1,0 +1,108 @@
+package lower
+
+import "base:runtime"
+import "core:mem"
+import "core:mem/virtual"
+import "core:thread"
+import "oc:check"
+import "oc:ir"
+import "oc:types"
+
+@(private)
+Procedure_Job :: struct {
+	program:          ^check.Checked_Program,
+	procedure:        check.Checked_Procedure,
+	function:         ^ir.Function,
+	symbols:          []ir.Symbol_Ref,
+	parameters:       []types.Abi_Param,
+	layouts:          []Type_Layout,
+	errors:           [dynamic]Lower_Error,
+	allocation_error: runtime.Allocator_Error,
+}
+
+// Initializes module in place; do not move it. The caller destroys it with ir.module_destroy
+// and deletes errors with allocator. Allocation failure destroys the partial module.
+// A nonempty error list means the module must not be used for code generation.
+lower_program :: proc(
+	program: ^check.Checked_Program,
+	module: ^ir.Module,
+	allocator := context.allocator,
+	worker_count := 1,
+) -> (
+	errors: []Lower_Error,
+	err: runtime.Allocator_Error,
+) {
+	assert(program != nil && module != nil && check.type_store(program) != nil)
+	assert(len(module.functions) == 0 && len(module.globals) == 0 && len(module.externs) == 0)
+	ir.module_init(module) or_return
+	defer if err != nil {
+		ir.module_destroy(module)
+		delete(errors, allocator)
+		errors = nil
+	}
+	scratch: virtual.Arena
+	virtual.arena_init_growing(&scratch) or_return
+	defer virtual.arena_destroy(&scratch)
+	scratch_allocator := virtual.arena_allocator(&scratch)
+	collected := make([dynamic]Lower_Error, scratch_allocator) or_return
+	symbols := declare_symbols(program, module, allocator) or_return
+	fill_globals(program, module, symbols, &collected) or_return
+	runtime_requirements := check.runtime_requirements(program)
+	if len(runtime_requirements.type_info) != 0 || runtime_requirements.type_table != 0 {
+		append(&collected, Lower_Error{code = .Unsupported, feature = .Runtime_Type_Info}) or_return
+	}
+	if runtime_requirements.entry_point != 0 ||
+	   len(runtime_requirements.global_init_order) != 0 ||
+	   len(runtime_requirements.init_procedures) != 0 ||
+	   len(runtime_requirements.fini_procedures) != 0 ||
+	   len(runtime_requirements.tests) != 0 {
+		append(&collected, Lower_Error{code = .Unsupported, feature = .Startup}) or_return
+	}
+	jobs := make([]Procedure_Job, len(module.functions), scratch_allocator) or_return
+	layouts := prepare_layouts(check.type_store(program), scratch_allocator) or_return
+	for procedure in check.procedures(program) {
+		assert(int(procedure.symbol) > 0 && int(procedure.symbol) < len(symbols))
+		symbol := symbols[procedure.symbol]
+		assert(symbol.space == .Function)
+		job := &jobs[symbol.index]
+		assert(job.program == nil, "duplicate checked procedure")
+		job^ = Procedure_Job {
+			program   = program,
+			procedure = procedure,
+			function  = module.functions[symbol.index],
+			symbols   = symbols,
+			layouts   = layouts,
+			errors    = make([dynamic]Lower_Error, virtual.arena_allocator(&module.functions[symbol.index].arena)) or_return,
+		}
+		prepare_procedure(job, scratch_allocator) or_return
+	}
+	for &job in jobs {
+		assert(job.program != nil, "missing checked procedure")
+	}
+	if len(jobs) > 0 {
+		locked_allocator: mem.Mutex_Allocator
+		mem.mutex_allocator_init(&locked_allocator, allocator)
+		worker_allocator := mem.mutex_allocator(&locked_allocator)
+		pool: thread.Pool
+		thread.pool_init(&pool, worker_allocator, min(max(worker_count, 1), len(jobs)))
+		for &job in jobs {
+			job.function.allocator = worker_allocator
+			thread.pool_add_task(&pool, worker_allocator, run_procedure, &job)
+		}
+		thread.pool_start(&pool)
+		thread.pool_finish(&pool)
+		thread.pool_destroy(&pool)
+		for &job in jobs {
+			job.function.allocator = allocator
+		}
+	}
+	for &job in jobs {
+		if job.allocation_error != nil { return nil, job.allocation_error }
+		append(&collected, ..job.errors[:]) or_return
+	}
+	_, merge_error := ir.blob_merge(module)
+	if merge_error != nil { return nil, merge_error }
+	errors = make([]Lower_Error, len(collected), allocator) or_return
+	copy(errors, collected[:])
+	return errors, nil
+}
