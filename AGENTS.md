@@ -2,6 +2,15 @@
 
 Rules for every contributor and agent working in this repository. Also read `docs/01-architecture.md`.
 
+## Do not reinvent the wheel
+
+Before building anything, look for an existing reference: documentation, a specification, or an implementation that already solves the problem. Study it, understand its logic and organization, then adapt the ideas into simple, idiomatic Odin. Never translate a C or Rust implementation line by line.
+
+- Reuse our Odin fork (`/home/su3h7am/Projects/Odin`) first. Copy and adapt `core`, `base`, `core:odin/{tokenizer,ast,parser}` and other existing Odin code rather than rewriting it. Adaptation is fine; blind duplication is not.
+- Reference material lives in `/home/su3h7am/Projects/refs`: `Odin-upstream`, `alloc/llvm-project`, `go/src` (compiler, linker, ELF), `zig`, `musl`, `relibc`, `rfcs/linux` (kernel docs, man pages), and others. Check it before designing.
+- The compiler must not change the language. The same Odin program must behave identically under this compiler and the official LLVM one: same syntax, same semantics. Only the implementation underneath changes.
+- Record in the commit message or the relevant doc which references informed the work.
+
 ## Naming
 
 Follow Odin's naming conventions and best practices. Use clear, descriptive, self-explanatory names. Avoid unnecessary abstractions and names that don't clearly describe what something is or does.
