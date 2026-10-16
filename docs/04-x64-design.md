@@ -289,8 +289,8 @@ Section_Kind :: enum u8 { Text, Rodata, Data, Bss, Tdata, Tbss }
 Atom :: struct { section: Section_Kind, align: u32, bytes: []byte, size: u64, relocs: []Relocation, unwind: Unwind_Info, lines: []Line_Row }   // size > len(bytes) only for Bss/Tbss
 Symbol :: struct { name: string, atom: u32, offset: u64, size: u64, binding: Binding, kind: Symbol_Kind }   // atom = ATOM_UNDEFINED for externs
 Relocation :: struct { offset: u32, symbol: u32, kind: elf.R_X86_64, addend: i64 }
-Input :: struct { atoms: []Atom, symbols: []Symbol, entry: string }
-link :: proc(input: Input, allocator: mem.Allocator) -> (image: []byte, err: Link_Error)
+Input :: struct { atoms: []Atom, symbols: []Symbol }
+link :: proc(inputs: []Input, entry: string, allocator: mem.Allocator) -> (image: []byte, err: Link_Error)
 ```
 
 **What a `Module` lowers to** (`x64.compile_module(module, schedules, config) -> (link.Input, Error)`):
@@ -310,6 +310,10 @@ link :: proc(input: Input, allocator: mem.Allocator) -> (image: []byte, err: Lin
 **Steps:** (1) place atoms; (2) build the name table (a duplicate defined name is `Duplicate_Symbol`); (3) resolve each relocation (`Undefined_Symbol` if the target has no atom); (4) apply: `R_X86_64_64`: `S + A`; `PC32`/`PLT32`: `S + A − P`; `TPOFF32`: `tpoff(S) + A`; 32-bit results must fit `i32` (`Relocation_Overflow{symbol, atom, offset, value}`), which is the "fail loudly beyond ±2 GiB" rule; (5) `executable_write`. No dynamic section, no GOT/PLT (PLT32 resolves directly), no `gc-sections` in this stage (the checker already lowers only reachable procedures; per-function atoms make the later pass a reachability walk).
 
 `elf` additions this needs (owner of `src/elf`, not this document): `PT_TLS` support in `Executable_Builder` (`executable_set_tls(vaddr, file_data, memsz, align)`, the header emitted before `PT_GNU_STACK`) and `R_X86_64_TPOFF32 = 23`.
+
+Implementation note (L1 extension). `link` takes a list of inputs; defined symbols bind by name across inputs. `TPOFF32` is local-exec: `S + A - tp`, with `tp = align_up(rw_start + tls_size, tls_align)` (x86-64 TLS variant II, the block ends at `tp`). `R_X86_64_32` requires `0 <= value < 2^32`; `32S` and `TPOFF32` require `i32`. `PT_TLS` `p_align` is the TLS alignment; `executable_write` keeps the page only for the file offset.
+
+References: `refs/mold` is a Rust tree; paths below are relative to it. `elf/tls.rs` (`tp_addr` = `align_to(p_vaddr + p_memsz, p_align)` on x86-64), `elf/arch/x86_64.rs` (TPOFF32 as `S + A - tp_addr`; `32` and `32S` write and range paths), `elf/chunks/mod.rs` (PT_TLS creation), `elf/elf_consts.rs` (`PT_TLS = 7`, `R_X86_64_TPOFF32 = 23`).
 
 ## 13. Debug-info hooks (stage 1: line table, `docs/research/09`)
 

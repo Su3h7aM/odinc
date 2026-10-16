@@ -225,7 +225,7 @@ executable_write :: proc(builder: ^Executable_Builder, allocator := context.allo
 				p_paddr = u64le(segment.vaddr),
 				p_filesz = u64le(u64(len(segment.data))),
 				p_memsz = u64le(memsz),
-				p_align = u64le(alignment),
+				p_align = u64le(segment.tls ? max(segment.alignment, 1) : alignment),
 			},
 		)
 		cursor = file_offset + u64(len(segment.data))

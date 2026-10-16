@@ -25,14 +25,14 @@ Atom :: struct {
 	relocs:  []Relocation,
 }
 
-// `atom` is an index into `Input.atoms`, or `ATOM_UNDEFINED` for an extern.
+// `atom` is an index into the `atoms` of the same `Input`, or `ATOM_UNDEFINED` for an extern.
 Symbol :: struct {
 	name:   string,
 	atom:   u32,
 	offset: u64,
 }
 
-// `offset` is the place within the atom, `symbol` an index into `Input.symbols`.
+// `offset` is the place within the atom, `symbol` an index into the `symbols` of the same `Input`.
 Relocation :: struct {
 	offset: u32,
 	symbol: u32,
@@ -43,7 +43,13 @@ Relocation :: struct {
 Input :: struct {
 	atoms:   []Atom,
 	symbols: []Symbol,
-	entry:   string,
+}
+
+// A symbol after name binding: a defined symbol of any input, or the extern it names.
+Resolved_Symbol :: struct {
+	address: u64,
+	section: Section_Kind,
+	defined: bool,
 }
 
 Duplicate_Symbol :: struct {
@@ -56,6 +62,7 @@ Missing_Entry :: struct {
 	name: string,
 }
 Relocation_Out_Of_Atom :: struct {
+	input:  u32,
 	symbol: u32,
 	atom:   u32,
 	offset: u32,
@@ -64,10 +71,17 @@ Unsupported_Relocation :: struct {
 	kind: elf.R_X86_64,
 }
 Relocation_Overflow :: struct {
+	input:  u32,
 	symbol: u32,
 	atom:   u32,
 	offset: u32,
 	value:  i64,
+}
+Relocation_Not_Thread_Local :: struct {
+	input:  u32,
+	symbol: u32,
+	atom:   u32,
+	offset: u32,
 }
 
 Link_Error :: union {
@@ -77,6 +91,7 @@ Link_Error :: union {
 	Relocation_Out_Of_Atom,
 	Unsupported_Relocation,
 	Relocation_Overflow,
+	Relocation_Not_Thread_Local,
 	elf.Error,
 	mem.Allocator_Error,
 }
@@ -95,40 +110,64 @@ Layout :: struct {
 }
 
 /*
-	Lays out, relocates and writes a static ET_EXEC image. The result is
-	owned by the caller and freed with `allocator`. Errors: the
-	`Link_Error` variants, `Relocation_Overflow` for a 32-bit field that
-	does not fit `i32`.
+	Lays out, relocates and writes a static ET_EXEC image from one or more
+	inputs. Defined symbols bind by name across all inputs; `entry` names
+	the start symbol. The result is owned by the caller and freed with
+	`allocator`.
 */
-link :: proc(input: Input, allocator: mem.Allocator) -> (image: []byte, err: Link_Error) {
-	atom_addresses := make([]u64, len(input.atoms), allocator) or_return
-	defer delete(atom_addresses, allocator)
-	symbol_addresses := make([]u64, len(input.symbols), allocator) or_return
-	defer delete(symbol_addresses, allocator)
-
-	layout := place_atoms(input.atoms, atom_addresses)
-
-	defined := make(map[string]u32, allocator = allocator)
-	defer delete(defined)
-	for symbol, index in input.symbols {
-		if symbol.atom == ATOM_UNDEFINED { continue }
-		if symbol.name in defined { return nil, Duplicate_Symbol{name = symbol.name} }
-		defined[symbol.name] = u32(index)
-		symbol_addresses[index] = atom_addresses[symbol.atom] + symbol.offset
+link :: proc(inputs: []Input, entry: string, allocator: mem.Allocator) -> (image: []byte, err: Link_Error) {
+	atom_addresses := make([][]u64, len(inputs), allocator) or_return
+	defer {
+		for addresses in atom_addresses { delete(addresses, allocator) }
+		delete(atom_addresses, allocator)
 	}
-	entry_index, has_entry := defined[input.entry]
-	if !has_entry { return nil, Missing_Entry{name = input.entry} }
+	for input, index in inputs {
+		atom_addresses[index] = make([]u64, len(input.atoms), allocator) or_return
+	}
+
+	layout := place_atoms(inputs, atom_addresses)
+
+	defined := make(map[string]Resolved_Symbol, allocator = allocator)
+	defer delete(defined)
+	for input, input_index in inputs {
+		for symbol in input.symbols {
+			if symbol.atom == ATOM_UNDEFINED { continue }
+			if symbol.name in defined { return nil, Duplicate_Symbol{name = symbol.name} }
+			atom := input.atoms[symbol.atom]
+			defined[symbol.name] = Resolved_Symbol {
+				address = atom_addresses[input_index][symbol.atom] + symbol.offset,
+				section = atom.section,
+				defined = true,
+			}
+		}
+	}
+	entry_symbol, has_entry := defined[entry]
+	if !has_entry { return nil, Missing_Entry{name = entry} }
+
+	symbols := make([][]Resolved_Symbol, len(inputs), allocator) or_return
+	defer {
+		for resolved in symbols { delete(resolved, allocator) }
+		delete(symbols, allocator)
+	}
+	for input, index in inputs {
+		symbols[index] = make([]Resolved_Symbol, len(input.symbols), allocator) or_return
+		for symbol, symbol_index in input.symbols {
+			symbols[index][symbol_index] = defined[symbol.name] or_else Resolved_Symbol{}
+		}
+	}
 
 	// Atoms with file bytes: text, rodata, tdata and data. Bss and Tbss take address space only.
 	load_bytes := make([]byte, layout.data_end - layout.text_start, allocator) or_return
 	defer delete(load_bytes, allocator)
-	for atom, index in input.atoms {
-		if len(atom.bytes) == 0 { continue }
-		start := atom_addresses[index] - layout.text_start
-		copy(load_bytes[start:], atom.bytes)
+	for input, input_index in inputs {
+		for atom, atom_index in input.atoms {
+			if len(atom.bytes) == 0 { continue }
+			start := atom_addresses[input_index][atom_index] - layout.text_start
+			copy(load_bytes[start:], atom.bytes)
+		}
 	}
 
-	apply_relocations(input, atom_addresses, symbol_addresses, load_bytes, layout.text_start) or_return
+	apply_relocations(inputs, atom_addresses, symbols, load_bytes, layout) or_return
 
 	builder := elf.executable_builder_init(allocator)
 	defer elf.executable_builder_destroy(&builder)
@@ -150,40 +189,44 @@ link :: proc(input: Input, allocator: mem.Allocator) -> (image: []byte, err: Lin
 		_, tls_err := elf.executable_add_tls_segment(&builder, layout.rw_start, template, layout.tls_size, {.PF_R}, layout.tls_align)
 		if tls_err != nil { return nil, tls_err }
 	}
-	elf.executable_set_entry(&builder, symbol_addresses[entry_index])
+	elf.executable_set_entry(&builder, entry_symbol.address)
 
 	object, write_err := elf.executable_write(&builder, allocator)
 	if write_err != nil { return nil, write_err }
 	return object, nil
 }
 
-place_atoms :: proc(atoms: []Atom, addresses: []u64) -> (layout: Layout) {
+// Tbss addresses are virtual: the TLS block offset of an address is `address - rw_start`.
+place_atoms :: proc(inputs: []Input, addresses: [][]u64) -> (layout: Layout) {
 	layout.text_start = BASE + PAGE_SIZE
-	layout.text_end = place_section(atoms, addresses, .Text, layout.text_start)
+	layout.text_end = place_section(inputs, addresses, .Text, layout.text_start)
 	layout.rodata_start = align_up(layout.text_end, PAGE_SIZE)
-	layout.rodata_end = place_section(atoms, addresses, .Rodata, layout.rodata_start)
+	layout.rodata_end = place_section(inputs, addresses, .Rodata, layout.rodata_start)
 	layout.rw_start = align_up(layout.rodata_end, PAGE_SIZE)
-	layout.tdata_end = place_section(atoms, addresses, .Tdata, layout.rw_start)
-	layout.data_end = place_section(atoms, addresses, .Data, layout.tdata_end)
-	layout.bss_end = place_section(atoms, addresses, .Bss, layout.data_end)
-	// Tbss addresses are offsets inside the TLS block, which starts at `rw_start`.
-	layout.tls_size = place_section(atoms, addresses, .Tbss, layout.tdata_end - layout.rw_start)
+	layout.tdata_end = place_section(inputs, addresses, .Tdata, layout.rw_start)
+	layout.data_end = place_section(inputs, addresses, .Data, layout.tdata_end)
+	layout.bss_end = place_section(inputs, addresses, .Bss, layout.data_end)
+	layout.tls_size = place_section(inputs, addresses, .Tbss, layout.tdata_end) - layout.rw_start
 	layout.tls_align = 1
-	for atom in atoms {
-		if atom.section == .Tdata || atom.section == .Tbss {
-			layout.tls_align = max(layout.tls_align, u64(atom.align))
+	for input in inputs {
+		for atom in input.atoms {
+			if atom.section == .Tdata || atom.section == .Tbss {
+				layout.tls_align = max(layout.tls_align, u64(atom.align))
+			}
 		}
 	}
 	return
 }
 
-place_section :: proc(atoms: []Atom, addresses: []u64, section: Section_Kind, cursor: u64) -> u64 {
+place_section :: proc(inputs: []Input, addresses: [][]u64, section: Section_Kind, cursor: u64) -> u64 {
 	position := cursor
-	for atom, index in atoms {
-		if atom.section != section { continue }
-		position = align_up(position, u64(max(atom.align, 1)))
-		addresses[index] = position
-		position += max(atom.size, u64(len(atom.bytes)))
+	for input, input_index in inputs {
+		for atom, atom_index in input.atoms {
+			if atom.section != section { continue }
+			position = align_up(position, u64(max(atom.align, 1)))
+			addresses[input_index][atom_index] = position
+			position += max(atom.size, u64(len(atom.bytes)))
+		}
 	}
 	return position
 }
@@ -198,40 +241,61 @@ add_load_segment :: proc(builder: ^elf.Executable_Builder, vaddr: u64, data: []b
 	return nil
 }
 
-apply_relocations :: proc(input: Input, atom_addresses, symbol_addresses: []u64, load_bytes: []byte, load_base: u64) -> Link_Error {
-	for atom, atom_index in input.atoms {
-		for reloc in atom.relocs {
-			field_size: int
-			#partial switch reloc.kind {
-			case .R_X86_64_64:
-				field_size = 8
-			case .R_X86_64_PC32, .R_X86_64_PLT32, .R_X86_64_32S:
-				field_size = 4
-			case:
-				return Unsupported_Relocation{kind = reloc.kind}
-			}
-			if u64(reloc.offset) + u64(field_size) > u64(len(atom.bytes)) {
-				return Relocation_Out_Of_Atom{symbol = reloc.symbol, atom = u32(atom_index), offset = reloc.offset}
-			}
-			if input.symbols[reloc.symbol].atom == ATOM_UNDEFINED {
-				return Undefined_Symbol{name = input.symbols[reloc.symbol].name}
-			}
+apply_relocations :: proc(inputs: []Input, atom_addresses: [][]u64, symbols: [][]Resolved_Symbol, load_bytes: []byte, layout: Layout) -> Link_Error {
+	thread_pointer := align_up(layout.rw_start + layout.tls_size, layout.tls_align)
+	for input, input_index in inputs {
+		for atom, atom_index in input.atoms {
+			for reloc in atom.relocs {
+				field_size: int
+				#partial switch reloc.kind {
+				case .R_X86_64_64:
+					field_size = 8
+				case .R_X86_64_PC32, .R_X86_64_PLT32, .R_X86_64_32, .R_X86_64_32S, .R_X86_64_TPOFF32:
+					field_size = 4
+				case:
+					return Unsupported_Relocation{kind = reloc.kind}
+				}
+				if u64(reloc.offset) + u64(field_size) > u64(len(atom.bytes)) {
+					return Relocation_Out_Of_Atom{input = u32(input_index), symbol = reloc.symbol, atom = u32(atom_index), offset = reloc.offset}
+				}
+				target_symbol := symbols[input_index][reloc.symbol]
+				if !target_symbol.defined {
+					return Undefined_Symbol{name = input.symbols[reloc.symbol].name}
+				}
 
-			target := i64(symbol_addresses[reloc.symbol]) + reloc.addend
-			place := i64(atom_addresses[atom_index]) + i64(reloc.offset)
-			value := target
-			if reloc.kind == .R_X86_64_PC32 || reloc.kind == .R_X86_64_PLT32 {
-				value = target - place
-			}
-			if field_size == 4 && i64(i32(value)) != value {
-				return Relocation_Overflow{symbol = reloc.symbol, atom = u32(atom_index), offset = reloc.offset, value = value}
-			}
+				target := i64(target_symbol.address) + reloc.addend
+				place := i64(atom_addresses[input_index][atom_index]) + i64(reloc.offset)
+				value := target
+				#partial switch reloc.kind {
+				case .R_X86_64_PC32, .R_X86_64_PLT32:
+					value = target - place
+				case .R_X86_64_TPOFF32:
+					if target_symbol.section != .Tdata && target_symbol.section != .Tbss {
+						return Relocation_Not_Thread_Local{input = u32(input_index), symbol = reloc.symbol, atom = u32(atom_index), offset = reloc.offset}
+					}
+					value = target - i64(thread_pointer)
+				}
+				if !fits_field(reloc.kind, value) {
+					return Relocation_Overflow{input = u32(input_index), symbol = reloc.symbol, atom = u32(atom_index), offset = reloc.offset, value = value}
+				}
 
-			field_start := place - i64(load_base)
-			store_little_endian(load_bytes[field_start:field_start + i64(field_size)], u64(value))
+				field_start := place - i64(layout.text_start)
+				store_little_endian(load_bytes[field_start:field_start + i64(field_size)], u64(value))
+			}
 		}
 	}
 	return nil
+}
+
+fits_field :: proc(kind: elf.R_X86_64, value: i64) -> bool {
+	#partial switch kind {
+	case .R_X86_64_64:
+		return true
+	case .R_X86_64_32:
+		return value >= 0 && value <= i64(max(u32))
+	case:
+		return i64(i32(value)) == value
+	}
 }
 
 store_little_endian :: proc(field: []byte, value: u64) {
