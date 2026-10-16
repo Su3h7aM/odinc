@@ -6,6 +6,16 @@ Type_Id :: distinct u32
 TYPE_NONE :: Type_Id(0)
 TYPE_POISON :: Type_Id(1)
 
+// Canonical untyped ids are fixed immediately after TYPE_POISON.
+TYPE_UNTYPED_BOOL :: Type_Id(2)
+TYPE_UNTYPED_INTEGER :: Type_Id(3)
+TYPE_UNTYPED_RUNE :: Type_Id(4)
+TYPE_UNTYPED_FLOAT :: Type_Id(5)
+TYPE_UNTYPED_COMPLEX :: Type_Id(6)
+TYPE_UNTYPED_QUATERNION :: Type_Id(7)
+TYPE_UNTYPED_STRING :: Type_Id(8)
+TYPE_UNTYPED_NIL :: Type_Id(9)
+
 Kind :: enum u8 {
 	Invalid,
 	Bool,
@@ -41,6 +51,14 @@ Kind :: enum u8 {
 	Soa_Pointer,
 	Named,
 	Poison,
+	Untyped_Bool,
+	Untyped_Integer,
+	Untyped_Rune,
+	Untyped_Float,
+	Untyped_Complex,
+	Untyped_Quaternion,
+	Untyped_String,
+	Untyped_Nil,
 }
 
 Endian :: enum u8 {
@@ -141,6 +159,14 @@ reserve_slots :: proc(store: ^Store) {
 	if len(store.types) == 0 {
 		append(&store.types, Type{})
 		append(&store.types, Type{kind = .Poison})
+		append(&store.types, Type{kind = .Untyped_Bool})
+		append(&store.types, Type{kind = .Untyped_Integer})
+		append(&store.types, Type{kind = .Untyped_Rune})
+		append(&store.types, Type{kind = .Untyped_Float})
+		append(&store.types, Type{kind = .Untyped_Complex})
+		append(&store.types, Type{kind = .Untyped_Quaternion})
+		append(&store.types, Type{kind = .Untyped_String})
+		append(&store.types, Type{kind = .Untyped_Nil})
 	}
 }
 
@@ -166,15 +192,64 @@ get :: proc(store: ^Store, id: Type_Id) -> ^Type {
 	return &store.types[index]
 }
 
-// reserve_nominal assigns an identity before a nominal type's members are known.
+is_untyped :: proc(store: ^Store, id: Type_Id) -> bool {
+	if store == nil || id == TYPE_NONE || u64(id) >= u64(len(store.types)) { return false }
+	type_id := id
+	for _ in 0 ..< len(store.types) {
+		descriptor := get(store, type_id)
+		#partial switch descriptor.kind {
+		case .Named:
+			type_id = descriptor.elem
+			if type_id == TYPE_NONE || u64(type_id) >= u64(len(store.types)) { return false }
+		case .Untyped_Bool, .Untyped_Integer, .Untyped_Rune, .Untyped_Float, .Untyped_Complex, .Untyped_Quaternion, .Untyped_String, .Untyped_Nil:
+			return true
+		case:
+			return false
+		}
+	}
+	return false
+}
+
+default_type_of_untyped :: proc(store: ^Store, id: Type_Id) -> Type_Id {
+	if !is_untyped(store, id) { return id }
+	type_id := id
+	descriptor := get(store, type_id)
+	for _ in 0 ..< len(store.types) {
+		if descriptor.kind != .Named { break }
+		type_id = descriptor.elem
+		if type_id == TYPE_NONE || u64(type_id) >= u64(len(store.types)) { return type_id }
+		descriptor = get(store, type_id)
+	}
+	#partial switch descriptor.kind {
+	case .Untyped_Bool:
+		return intern(store, Type{kind = .Bool})
+	case .Untyped_Integer:
+		return intern(store, Type{kind = .Integer, count = DEFAULT_LAYOUT.int_size, signed = true})
+	case .Untyped_Rune:
+		return intern(store, Type{kind = .Rune, count = 4, signed = true})
+	case .Untyped_Float:
+		return intern(store, Type{kind = .Float, count = 8})
+	case .Untyped_Complex:
+		return intern(store, Type{kind = .Complex, count = 16})
+	case .Untyped_Quaternion:
+		return intern(store, Type{kind = .Quaternion, count = 32})
+	case .Untyped_String:
+		return intern(store, Type{kind = .String})
+	case .Untyped_Nil:
+		return type_id
+	}
+	return type_id
+}
+
+// reserve_nominal assigns an identity before a nominal type's base or members are known.
 reserve_nominal :: proc(store: ^Store, kind: Kind, name: string) -> Type_Id {
-	assert(kind == .Struct || kind == .Union || kind == .Enum || kind == .Procedure)
+	assert(kind == .Named || kind == .Struct || kind == .Union || kind == .Enum || kind == .Procedure)
 	reserve_slots(store)
 	append(&store.types, Type{kind = kind, name = name, is_nominal = true})
 	return Type_Id(len(store.types) - 1)
 }
 
-// complete_nominal fills a reserved descriptor once without changing its id.
+// complete_nominal fills a reserved nominal, including a named type's base, without changing its id.
 complete_nominal :: proc(store: ^Store, id: Type_Id, descriptor: Type) {
 	reserved := get(store, id)
 	assert(reserved.is_nominal && !reserved.is_complete)
@@ -238,6 +313,7 @@ reset_layout_states :: proc(store: ^Store) {
 
 validate_layout :: proc(store: ^Store, id: Type_Id) -> Layout_Error {
 	if id == TYPE_NONE || int(id) >= len(store.types) { return .Invalid_Type }
+	if is_untyped(store, id) { return .Invalid_Type }
 	t := get(store, id)
 	if t.kind == .Poison { return .Poison }
 	if t.layout_state == .Done { return .None }
@@ -271,6 +347,8 @@ layout_internal :: proc(store: ^Store, id: Type_Id, config: Layout_Config, depth
 	ptr, word := config.ptr_size, config.int_size
 	switch t.kind {
 	case .Invalid, .Poison:
+		return 0, 1
+	case .Untyped_Bool, .Untyped_Integer, .Untyped_Rune, .Untyped_Float, .Untyped_Complex, .Untyped_Quaternion, .Untyped_String, .Untyped_Nil:
 		return 0, 1
 	case .Bool:
 		return 1, 1

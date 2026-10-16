@@ -7,6 +7,13 @@ Layout_Case :: struct {
 	size, alignment: i64,
 }
 
+Untyped_Default_Case :: struct {
+	source: Type_Id,
+	kind:   Kind,
+	count:  i64,
+	signed: bool,
+}
+
 @(test)
 layout_matches_target :: proc(t: ^testing.T) {
 	Node :: struct {
@@ -15,11 +22,52 @@ layout_matches_target :: proc(t: ^testing.T) {
 	store := init()
 	defer destroy(&store)
 	testing.expect(t, TYPE_NONE == Type_Id(0), "zero type id is inert")
+	testing.expect(
+		t,
+		TYPE_UNTYPED_BOOL == Type_Id(2) &&
+		TYPE_UNTYPED_INTEGER == Type_Id(3) &&
+		TYPE_UNTYPED_RUNE == Type_Id(4) &&
+		TYPE_UNTYPED_FLOAT == Type_Id(5) &&
+		TYPE_UNTYPED_COMPLEX == Type_Id(6) &&
+		TYPE_UNTYPED_QUATERNION == Type_Id(7) &&
+		TYPE_UNTYPED_STRING == Type_Id(8) &&
+		TYPE_UNTYPED_NIL == Type_Id(9),
+		"untyped type ids are stable",
+	)
+	default_cases := []Untyped_Default_Case {
+		{TYPE_UNTYPED_BOOL, .Bool, 0, false},
+		{TYPE_UNTYPED_INTEGER, .Integer, DEFAULT_LAYOUT.int_size, true},
+		{TYPE_UNTYPED_RUNE, .Rune, 4, true},
+		{TYPE_UNTYPED_FLOAT, .Float, 8, false},
+		{TYPE_UNTYPED_COMPLEX, .Complex, 16, false},
+		{TYPE_UNTYPED_QUATERNION, .Quaternion, 32, false},
+		{TYPE_UNTYPED_STRING, .String, 0, false},
+	}
+	for test_case in default_cases {
+		default_id := default_type_of_untyped(&store, test_case.source)
+		default_descriptor := get(&store, default_id)
+		testing.expect(
+			t,
+			default_descriptor.kind == test_case.kind &&
+			default_descriptor.count == test_case.count &&
+			default_descriptor.signed == test_case.signed &&
+			!is_untyped(&store, default_id),
+			"untyped value has its default typed type",
+		)
+	}
+	testing.expect(
+		t,
+		is_untyped(&store, TYPE_UNTYPED_NIL) && default_type_of_untyped(&store, TYPE_UNTYPED_NIL) == TYPE_UNTYPED_NIL,
+		"untyped nil stays untyped",
+	)
+	untyped_size, _, untyped_layout_err := layout(&store, TYPE_UNTYPED_FLOAT)
+	testing.expect(t, untyped_layout_err == .Invalid_Type && untyped_size == 0, "untyped type has no layout")
 	id_i8 := intern(&store, Type{kind = .Integer, count = 1, signed = true})
 	id_u8 := intern(&store, Type{kind = .Integer, count = 1})
 	id_u16 := intern(&store, Type{kind = .Integer, count = 2})
 	id_u32 := intern(&store, Type{kind = .Integer, count = 4})
 	id_u64 := intern(&store, Type{kind = .Integer, count = 8})
+	id_int := intern(&store, Type{kind = .Integer, count = DEFAULT_LAYOUT.int_size, signed = true})
 	id_f64 := intern(&store, Type{kind = .Float, count = 8})
 	id_rune := intern(&store, Type{kind = .Rune, count = 4})
 	id_complex := intern(&store, Type{kind = .Complex, count = 8})
@@ -139,6 +187,15 @@ layout_matches_target :: proc(t: ^testing.T) {
 	complete_nominal(&store, node_id, Type{kind = .Struct, name = "Node", fields = []Type_Field{{"next", node_pointer}}})
 	node_size, node_align, node_err := layout(&store, node_id)
 	testing.expect(t, node_err == .None && node_size == size_of(Node) && node_align == align_of(Node), "recursive pointer record lays out")
+	distinct_id := reserve_nominal(&store, .Named, "Distinct_Int")
+	distinct_pointer := intern(&store, Type{kind = .Pointer, elem = distinct_id})
+	complete_nominal(&store, distinct_id, Type{kind = .Named, name = "Distinct_Int", elem = id_int})
+	distinct_size, distinct_align, distinct_err := layout(&store, distinct_id)
+	testing.expect(
+		t,
+		distinct_err == .None && distinct_size == size_of(int) && distinct_align == align_of(int) && get(&store, distinct_pointer).elem == distinct_id,
+		"forward-reserved named type keeps its id and lays out its base",
+	)
 	incomplete_id := reserve_nominal(&store, .Struct, "Incomplete")
 	_, _, incomplete_err := layout(&store, incomplete_id)
 	testing.expect(t, incomplete_err == .Incomplete_Type, "incomplete nominal type returns layout error")
