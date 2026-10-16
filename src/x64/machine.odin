@@ -53,31 +53,9 @@ INT_SCRATCH :: regalloc.Register_Set{int(Gpr.R10), int(Gpr.R11)}
 FLOAT_ALLOCATABLE :: regalloc.Register_Set{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13}
 FLOAT_SCRATCH :: regalloc.Register_Set{14, 15}
 
-// `regalloc.Instruction.clobbers` carries no register class, so `x64` packs both
-// banks into it: `Int` registers at their numbers, `Float` registers shifted up by this.
-FLOAT_CLOBBER_SHIFT :: 16
-CALL_CLOBBERS :: regalloc.Register_Set {
-	int(Gpr.RAX),
-	int(Gpr.RCX),
-	int(Gpr.RDX),
-	int(Gpr.RSI),
-	int(Gpr.RDI),
-	int(Gpr.R8),
-	int(Gpr.R9),
-	FLOAT_CLOBBER_SHIFT + 0,
-	FLOAT_CLOBBER_SHIFT + 1,
-	FLOAT_CLOBBER_SHIFT + 2,
-	FLOAT_CLOBBER_SHIFT + 3,
-	FLOAT_CLOBBER_SHIFT + 4,
-	FLOAT_CLOBBER_SHIFT + 5,
-	FLOAT_CLOBBER_SHIFT + 6,
-	FLOAT_CLOBBER_SHIFT + 7,
-	FLOAT_CLOBBER_SHIFT + 8,
-	FLOAT_CLOBBER_SHIFT + 9,
-	FLOAT_CLOBBER_SHIFT + 10,
-	FLOAT_CLOBBER_SHIFT + 11,
-	FLOAT_CLOBBER_SHIFT + 12,
-	FLOAT_CLOBBER_SHIFT + 13,
+CALL_CLOBBERS :: [Register_Class]regalloc.Register_Set {
+	.Int   = {int(Gpr.RAX), int(Gpr.RCX), int(Gpr.RDX), int(Gpr.RSI), int(Gpr.RDI), int(Gpr.R8), int(Gpr.R9)},
+	.Float = FLOAT_ALLOCATABLE,
 }
 
 allocatable_registers :: proc(class: Register_Class) -> regalloc.Register_Set {
@@ -158,7 +136,7 @@ Machine_Instruction :: struct {
 	explicit_count: u8,
 	rep:            bool,
 	operands:       []Machine_Operand,
-	clobbers:       regalloc.Register_Set,
+	clobbers:       [Register_Class]regalloc.Register_Set,
 }
 
 Machine_Block :: struct {
@@ -168,12 +146,18 @@ Machine_Block :: struct {
 	cold:         bool,
 }
 
+Frame_Slot :: struct {
+	size:  u32,
+	align: u32,
+}
+
 // A Machine_Function owns everything it references in its arena, so it must not be
 // moved after `machine_function_init`.
 Machine_Function :: struct {
 	name:           string,
 	blocks:         [dynamic]Machine_Block,
 	vreg_classes:   [dynamic]Register_Class,
+	frame_slots:    [dynamic]Frame_Slot,
 	outgoing_bytes: u32,
 	arena:          virtual.Arena,
 }
@@ -188,6 +172,7 @@ machine_function_init :: proc(function: ^Machine_Function, name: string) -> (err
 	function.name = strings.clone(name, allocator) or_return
 	function.blocks = make([dynamic]Machine_Block, allocator) or_return
 	function.vreg_classes = make([dynamic]Register_Class, allocator) or_return
+	function.frame_slots = make([dynamic]Frame_Slot, allocator) or_return
 	return nil
 }
 
@@ -200,6 +185,13 @@ new_vreg :: proc(function: ^Machine_Function, class: Register_Class) -> (Vreg, r
 	vreg := Vreg(len(function.vreg_classes))
 	_, err := append(&function.vreg_classes, class)
 	return vreg, err
+}
+
+// Adds a `Frame_Object{.Slot, index}` object; `align` is at most 16.
+add_frame_slot :: proc(function: ^Machine_Function, size, align: u32) -> (index: u32, err: runtime.Allocator_Error) {
+	index = u32(len(function.frame_slots))
+	_, err = append(&function.frame_slots, Frame_Slot{size, align})
+	return index, err
 }
 
 add_block :: proc(function: ^Machine_Function) -> (index: u32, err: runtime.Allocator_Error) {

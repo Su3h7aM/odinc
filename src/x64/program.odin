@@ -26,9 +26,13 @@ build_program :: proc(function: ^Machine_Function, allocator: mem.Allocator) -> 
 	}
 	program.blocks = blocks
 	program.classes = function.vreg_classes[:]
-	program.allocatable[int(Register_Class.Int)] = INT_ALLOCATABLE
-	program.allocatable[int(Register_Class.Float)] = FLOAT_ALLOCATABLE
-	program.callee_saved[int(Register_Class.Int)] = INT_CALLEE_SAVED
+	program.allocatable = {
+		.Int   = INT_ALLOCATABLE,
+		.Float = FLOAT_ALLOCATABLE,
+	}
+	program.callee_saved = #partial {
+		.Int = INT_CALLEE_SAVED,
+	}
 	return program, nil
 }
 
@@ -43,7 +47,7 @@ translate_instruction :: proc(instruction: Machine_Instruction, allocator: mem.A
 			if access == .Def {
 				reuse := u8(0)
 				constraint := regalloc.Constraint.Any
-				if index == 0 && info.two_address && !(info.reuse_unless_immediate && is_immediate(instruction.operands[len(instruction.operands) - 1])) {
+				if index == 0 && reuses_first_input(instruction, info) {
 					constraint = .Reuse_Input
 					reuse = 1
 				}
@@ -74,6 +78,15 @@ translate_instruction :: proc(instruction: Machine_Instruction, allocator: mem.A
 		is_move  = instruction.pseudo == .Copy,
 	}
 	return result, nil
+}
+
+// A two-address instruction runs as `dst = src1; op dst, src2` unless `reuse_unless_immediate`
+// applies and its last operand is an immediate.
+reuses_first_input :: proc(instruction: Machine_Instruction, info: Op_Info) -> bool {
+	if !info.two_address || len(instruction.operands) == 0 {
+		return false
+	}
+	return !(info.reuse_unless_immediate && is_immediate(instruction.operands[len(instruction.operands) - 1]))
 }
 
 // Access of a plain virtual register operand of a pseudo instruction.
