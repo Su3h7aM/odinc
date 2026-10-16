@@ -37,6 +37,7 @@ Writer_Error :: enum {
 	None,
 	Unknown_Section,
 	Unknown_Symbol,
+	Invalid_Segment,
 	Not_Nobits_Section,
 	Too_Many_Sections,
 }
@@ -58,6 +59,8 @@ error_string :: proc(err: Error) -> string {
 			return "Unknown_Section"
 		case .Unknown_Symbol:
 			return "Unknown_Symbol"
+		case .Invalid_Segment:
+			return "Invalid_Segment"
 		case .Not_Nobits_Section:
 			return "Not_Nobits_Section"
 		case .Too_Many_Sections:
