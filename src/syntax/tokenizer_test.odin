@@ -1,18 +1,18 @@
 package syntax
 
 import "core:mem"
+import odin_tokenizer "core:odin/tokenizer"
 import "core:os"
 import "core:slice"
 import "core:strings"
 import "core:testing"
-import odin_tokenizer "core:odin/tokenizer"
 
-@(private="file")
+@(private = "file")
 as_bytes :: proc(s: string) -> []byte {
 	return transmute([]byte)s
 }
 
-@(private="file")
+@(private = "file")
 scan_all :: proc(source: []byte, tokens: ^[dynamic]Token, errors: ^[dynamic]Error = nil, comments: ^[dynamic]Comment = nil) {
 	tokenizer := init(source, errors, comments)
 	for {
@@ -24,7 +24,7 @@ scan_all :: proc(source: []byte, tokens: ^[dynamic]Token, errors: ^[dynamic]Erro
 	}
 }
 
-@(private="file")
+@(private = "file")
 expect_kinds :: proc(test: ^testing.T, source: string, want: []Token_Kind) {
 	errors: [dynamic]Error
 	tokens: [dynamic]Token
@@ -171,23 +171,24 @@ test_line_col :: proc(test: ^testing.T) {
 		offset: u32,
 		line:   u32,
 		column: u32,
-	} {
-		{0, 1, 1},
-		{1, 1, 2},
-		{3, 2, 1},
-		{5, 2, 3},
-		{6, 2, 4},
-		{7, 3, 1},
-	}
+	}{{0, 1, 1}, {1, 1, 2}, {3, 2, 1}, {5, 2, 3}, {6, 2, 4}, {7, 3, 1}}
 	for test_case in cases {
 		line, column := line_col(table, test_case.offset)
-		testing.expectf(test, line == test_case.line && column == test_case.column,
-			"offset %d: got %d:%d, want %d:%d", test_case.offset, line, column, test_case.line, test_case.column)
+		testing.expectf(
+			test,
+			line == test_case.line && column == test_case.column,
+			"offset %d: got %d:%d, want %d:%d",
+			test_case.offset,
+			line,
+			column,
+			test_case.line,
+			test_case.column,
+		)
 	}
 }
 
 // Broad classes for comparing against the reference tokenizer.
-@(private="file")
+@(private = "file")
 Class :: enum {
 	Other,
 	EOF,
@@ -199,7 +200,7 @@ Class :: enum {
 	Semicolon,
 }
 
-@(private="file")
+@(private = "file")
 class_actual :: proc(kind: Token_Kind) -> Class {
 	switch {
 	case kind == .Invalid:
@@ -222,7 +223,7 @@ class_actual :: proc(kind: Token_Kind) -> Class {
 	return .Other
 }
 
-@(private="file")
+@(private = "file")
 class_reference :: proc(kind: odin_tokenizer.Token_Kind) -> Class {
 	switch {
 	case kind == .Invalid:
@@ -245,13 +246,13 @@ class_reference :: proc(kind: odin_tokenizer.Token_Kind) -> Class {
 	return .Other
 }
 
-@(private="file")
+@(private = "file")
 Expected_Token :: struct {
 	kind:   odin_tokenizer.Token_Kind,
 	offset: u32,
 }
 
-@(private="file")
+@(private = "file")
 collect_odin_files :: proc(dir: string, paths: ^[dynamic]string) {
 	files, err := os.read_all_directory_by_path(dir, context.temp_allocator)
 	if err != nil {
@@ -275,10 +276,7 @@ collect_odin_files :: proc(dir: string, paths: ^[dynamic]string) {
 test_matches_core_tokenizer :: proc(test: ^testing.T) {
 	defer free_all(context.temp_allocator)
 
-	roots := []string {
-		"/home/su3h7am/Projects/Odin/core/slice",
-		"/home/su3h7am/Projects/Odin/core/strings",
-	}
+	roots := []string{"/home/su3h7am/Projects/Odin/core/slice", "/home/su3h7am/Projects/Odin/core/strings"}
 	files: [dynamic]string
 	defer {
 		for f in files {
@@ -328,9 +326,9 @@ test_matches_core_tokenizer :: proc(test: ^testing.T) {
 				append(&expected, Expected_Token{kind = .File_Tag, offset = u32(candidate.pos.offset)})
 				i += 1
 			} else if candidate.kind == .Hash &&
-			          i + 1 < len(reference_tokens) &&
-			          reference_tokens[i + 1].kind == .Ident &&
-			          reference_tokens[i + 1].pos.offset == candidate.pos.offset + 1 {
+			   i + 1 < len(reference_tokens) &&
+			   reference_tokens[i + 1].kind == .Ident &&
+			   reference_tokens[i + 1].pos.offset == candidate.pos.offset + 1 {
 				append(&expected, Expected_Token{kind = .File_Tag, offset = u32(candidate.pos.offset)})
 				i += 2
 			} else {
@@ -343,21 +341,25 @@ test_matches_core_tokenizer :: proc(test: ^testing.T) {
 		mismatch := -1
 		limit := min(len(actual), len(expected))
 		for k in 0 ..< limit {
-			if actual[k].start != expected[k].offset ||
-			   class_actual(actual[k].kind) != class_reference(expected[k].kind) {
+			if actual[k].start != expected[k].offset || class_actual(actual[k].kind) != class_reference(expected[k].kind) {
 				mismatch = k
 				break
 			}
 		}
 		if mismatch >= 0 || len(actual) != len(expected) {
-			testing.expectf(test, false,
+			testing.expectf(
+				test,
+				false,
 				"%s: mismatch at token %d: mine=%v@%d core=%v@%d (counts %d vs %d)",
-				path, mismatch,
+				path,
+				mismatch,
 				mismatch >= 0 ? actual[mismatch].kind : Token_Kind.Invalid,
 				mismatch >= 0 ? actual[mismatch].start : u32(0),
 				mismatch >= 0 ? expected[mismatch].kind : odin_tokenizer.Token_Kind.Invalid,
 				mismatch >= 0 ? expected[mismatch].offset : u32(0),
-				len(actual), len(expected))
+				len(actual),
+				len(expected),
+			)
 		}
 	}
 }

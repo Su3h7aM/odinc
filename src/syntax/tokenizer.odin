@@ -11,18 +11,16 @@ import "core:unicode/utf8"
 // one with `init`.
 Tokenizer :: struct {
 	// source is the buffer being scanned. It must outlive the tokenizer.
-	source: []byte,
+	source:           []byte,
 
 	// errors receives lexical errors in scan order when non-nil.
-	errors: ^[dynamic]Error,
+	errors:           ^[dynamic]Error,
 	// comments receives skipped comments in scan order when non-nil.
-	comments: ^[dynamic]Comment,
-
-	current_rune:   rune,
-	current_offset: u32,
-	next_offset:    u32,
-	current_line:   u32,
-
+	comments:         ^[dynamic]Comment,
+	current_rune:     rune,
+	current_offset:   u32,
+	next_offset:      u32,
+	current_line:     u32,
 	insert_semicolon: bool,
 }
 
@@ -522,11 +520,31 @@ apply_semicolon :: proc(tokenizer: ^Tokenizer, kind: Token_Kind, start: u32) {
 			}
 		}
 		tokenizer.insert_semicolon = trigger
-	case .Ident, .Context, .Typeid, .Break, .Continue, .Fallthrough, .Return,
-	     .Integer, .Float, .Imag, .Rune, .String, .Raw_String, .Undef,
-	     .Question, .Pointer, .Close_Paren, .Close_Bracket, .Close_Brace,
-	     .Increment, .Decrement, .Not,
-	     .Or_Return, .Or_Break, .Or_Continue:
+	case .Ident,
+	     .Context,
+	     .Typeid,
+	     .Break,
+	     .Continue,
+	     .Fallthrough,
+	     .Return,
+	     .Integer,
+	     .Float,
+	     .Imag,
+	     .Rune,
+	     .String,
+	     .Raw_String,
+	     .Undef,
+	     .Question,
+	     .Pointer,
+	     .Close_Paren,
+	     .Close_Bracket,
+	     .Close_Brace,
+	     .Increment,
+	     .Decrement,
+	     .Not,
+	     .Or_Return,
+	     .Or_Break,
+	     .Or_Continue:
 		tokenizer.insert_semicolon = true
 	case:
 		tokenizer.insert_semicolon = false

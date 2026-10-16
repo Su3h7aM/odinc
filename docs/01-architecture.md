@@ -26,7 +26,7 @@ All packages sit under `src/` and are imported with `-collection:oc=src`, as `im
 | `check` | name resolution, type checking, constants, polymorphism, `defer`/`context` semantics | syntax, types |
 | `ir` | Sea of Nodes graph, builder, verifier, printer | support, types |
 | `sched` | global code motion, scheduling to linear blocks | ir |
-| `x64` | instruction encoder, instruction selection, register allocation | ir, sched |
+| `x64` | instruction selection and register allocation; encoding is `core:rexcode/isa/x86` imported directly | ir, sched |
 | `elf` | ELF64 relocatable and executable writer, symbols, relocations | support |
 | `link` | built-in static linker | elf |
 | `driver` | CLI, package loading, pipeline, deterministic output | all |
