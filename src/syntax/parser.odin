@@ -37,7 +37,11 @@ Parse_Error_Kind :: enum u8 {
 	Invalid_Attribute_Target,
 	Invalid_Foreign_Declaration,
 	Invalid_Unroll_Loop,
-	Unsupported_Construct,
+	Invalid_Asm_Operand,
+	Invalid_Asm_Instruction,
+	Invalid_Asm_Clobber,
+	Invalid_Asm_Specification,
+	Missing_Asm_Body,
 }
 
 // Parse_Error is a syntax error at a byte offset; `expected` is set for Expected_Token.
@@ -202,11 +206,13 @@ parse_file :: proc(p: ^Parser) -> Node_Index {
 		}
 	}
 
-	file := add_node(p, .File, 0, u32(len(p.tokenizer.source)), File{
-		tags         = ast_add_list(p.ast, tags[:]),
-		package_decl = package_decl,
-		decls        = ast_add_list(p.ast, decls[:]),
-	})
+	file := add_node(
+		p,
+		.File,
+		0,
+		u32(len(p.tokenizer.source)),
+		File{tags = ast_add_list(p.ast, tags[:]), package_decl = package_decl, decls = ast_add_list(p.ast, decls[:])},
+	)
 	p.ast.root = file
 	return file
 }
@@ -220,9 +226,5 @@ parse_body :: proc(p: ^Parser) -> Node_Index {
 	stmts := parse_stmt_list(p)
 	close := expect_token(p, .Close_Brace)
 
-	return add_node(p, .Block_Stmt, open.start, p.prev.end, Block_Stmt{
-		open  = open.start,
-		stmts = stmts,
-		close = close.start,
-	})
+	return add_node(p, .Block_Stmt, open.start, p.prev.end, Block_Stmt{open = open.start, stmts = stmts, close = close.start})
 }

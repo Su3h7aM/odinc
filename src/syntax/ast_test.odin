@@ -17,11 +17,13 @@ test_ast_dump_binary_value_decl :: proc(test: ^testing.T) {
 	two := ast_add_node(&ast, .Basic_Lit, 13, 14, Basic_Lit{kind = .Integer})
 	mul := ast_add_node(&ast, .Binary_Expr, 9, 14, Binary_Expr{left = b, op = Token{kind = .Mul, start = 11, end = 12}, right = two})
 	add := ast_add_node(&ast, .Binary_Expr, 5, 14, Binary_Expr{left = a, op = Token{kind = .Add, start = 7, end = 8}, right = mul})
-	ast.root = ast_add_node(&ast, .Value_Decl, 0, 14, Value_Decl{
-		names      = ast_add_list(&ast, []Node_Index{x}),
-		values     = ast_add_list(&ast, []Node_Index{add}),
-		is_mutable = true,
-	})
+	ast.root = ast_add_node(
+		&ast,
+		.Value_Decl,
+		0,
+		14,
+		Value_Decl{names = ast_add_list(&ast, []Node_Index{x}), values = ast_add_list(&ast, []Node_Index{add}), is_mutable = true},
+	)
 
 	dump: strings.Builder
 	defer strings.builder_destroy(&dump)

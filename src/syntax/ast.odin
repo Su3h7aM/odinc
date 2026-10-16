@@ -26,7 +26,7 @@ Node_Flag :: enum u8 {
 	Type_Assert,
 	No_Type_Assert,
 }
-Node_Flags :: distinct bit_set[Node_Flag; u8]
+Node_Flags :: distinct bit_set[Node_Flag;u8]
 
 Node :: struct {
 	kind:    Node_Kind,
@@ -60,7 +60,10 @@ ast_add_node :: proc(ast: ^Ast, kind: Node_Kind, start, end: u32, payload: Node_
 }
 
 ast_add_list :: proc(ast: ^Ast, children: []Node_Index) -> Node_Range {
-	range := Node_Range{first = u32(len(ast.extra)), count = u32(len(children))}
+	range := Node_Range {
+		first = u32(len(ast.extra)),
+		count = u32(len(children)),
+	}
 	append(&ast.extra, ..children)
 	return range
 }
@@ -142,7 +145,7 @@ Proc_Tag :: enum u8 {
 	Optional_Ok,
 	Optional_Allocator_Error,
 }
-Proc_Tags :: distinct bit_set[Proc_Tag; u8]
+Proc_Tags :: distinct bit_set[Proc_Tag;u8]
 
 Proc_Inlining :: enum u8 {
 	None,
@@ -169,7 +172,7 @@ Struct_Flag :: enum u8 {
 	All_Or_None,
 	Simple,
 }
-Struct_Flags :: distinct bit_set[Struct_Flag; u8]
+Struct_Flags :: distinct bit_set[Struct_Flag;u8]
 
 Field_Flag :: enum u16 {
 	Ellipsis,
@@ -187,7 +190,7 @@ Field_Flag :: enum u16 {
 	Default_Parameters,
 	Typeid_Token,
 }
-Field_Flags :: distinct bit_set[Field_Flag; u16]
+Field_Flags :: distinct bit_set[Field_Flag;u16]
 
 Asm_Memory_Operand_Kind :: enum u8 {
 	Default,
@@ -767,7 +770,6 @@ Asm_Directive :: struct {
 
 Node_Kind :: enum u8 {
 	Invalid,
-
 	Bad_Expr,
 	Ident,
 	Implicit,
@@ -799,7 +801,6 @@ Node_Kind :: enum u8 {
 	Type_Cast,
 	Auto_Cast,
 	Proc_Group,
-
 	Typeid_Type,
 	Helper_Type,
 	Distinct_Type,
@@ -818,7 +819,6 @@ Node_Kind :: enum u8 {
 	Relative_Type,
 	Matrix_Type,
 	Bit_Field_Type,
-
 	Bad_Stmt,
 	Empty_Stmt,
 	Expr_Stmt,
@@ -837,21 +837,18 @@ Node_Kind :: enum u8 {
 	Type_Switch_Stmt,
 	Branch_Stmt,
 	Using_Stmt,
-
 	Bad_Decl,
 	Value_Decl,
 	Package_Decl,
 	Import_Decl,
 	Foreign_Block_Decl,
 	Foreign_Import_Decl,
-
 	File,
 	File_Tag,
 	Attribute,
 	Field,
 	Field_List,
 	Bit_Field_Field,
-
 	Asm_Template,
 	Asm_Spec,
 	Asm_Register,

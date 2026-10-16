@@ -48,12 +48,33 @@ expect_spans_nested :: proc(t: ^testing.T, ast: ^Ast, source_length: int, file_p
 	defer delete(children)
 	for index in 1 ..< len(ast.nodes) {
 		node := ast.nodes[index]
-		testing.expectf(t, node.start <= node.end && int(node.end) <= source_length, "%s: node %d %v span %d..%d outside source of %d bytes", file_path, index, node.kind, node.start, node.end, source_length)
+		testing.expectf(
+			t,
+			node.start <= node.end && int(node.end) <= source_length,
+			"%s: node %d %v span %d..%d outside source of %d bytes",
+			file_path,
+			index,
+			node.kind,
+			node.start,
+			node.end,
+			source_length,
+		)
 		clear(&children)
 		collect_child_indices(ast, Node_Index(index), &children)
 		for child in children {
 			child_node := ast.nodes[child]
-			testing.expectf(t, child_node.start >= node.start && child_node.end <= node.end, "%s: %v %d..%d does not contain child %v %d..%d", file_path, node.kind, node.start, node.end, child_node.kind, child_node.start, child_node.end)
+			testing.expectf(
+				t,
+				child_node.start >= node.start && child_node.end <= node.end,
+				"%s: %v %d..%d does not contain child %v %d..%d",
+				file_path,
+				node.kind,
+				node.start,
+				node.end,
+				child_node.kind,
+				child_node.start,
+				child_node.end,
+			)
 		}
 	}
 }
@@ -88,7 +109,7 @@ test_parse_corpus_without_errors :: proc(t: ^testing.T) {
 
 @(test)
 test_ast_dump_statements_and_expressions :: proc(t: ^testing.T) {
-	expression_sources := [?]string{
+	expression_sources := [?]string {
 		"([^]byte)(raw_data(slice))[:size]",
 		"make([]byte, len(s), allocator, loc=loc) or_return",
 		"_reader_read_new_chunk(b) or_return",
@@ -118,13 +139,23 @@ test_ast_dump_statements_and_expressions :: proc(t: ^testing.T) {
 		"proc(v: $T, err: Decode_Error) -> (T, Unmarshal_Error)",
 		"proc(s: string, flags: Decoder_Flags = {}, allocator := context.allocator) -> (v: Value, err: Decode_Error)",
 		"proc(stream: ^FILE, format: cstring, arg: ^va_list) -> int",
+		"asm(a: i8) -> (r: i16) { movsx r, a; }",
+		"#force_inline(gt(y, x)) ~ 1",
+		"proc(v: Foo(..))",
 	}
 	for source in expression_sources {
 		ast: Ast
 		ast_init(&ast)
 		p: Parser
 		parse_expression_for_test(&p, &ast, source)
-		testing.expectf(t, len(p.errors) == 0 && len(p.lex_errors) == 0 && p.curr.kind == .EOF, "%q: parse errors %v, lexical errors %v", source, p.errors, p.lex_errors)
+		testing.expectf(
+			t,
+			len(p.errors) == 0 && len(p.lex_errors) == 0 && p.curr.kind == .EOF,
+			"%q: parse errors %v, lexical errors %v",
+			source,
+			p.errors,
+			p.lex_errors,
+		)
 		parser_destroy(&p)
 		ast_destroy(&ast)
 	}
@@ -132,8 +163,10 @@ test_ast_dump_statements_and_expressions :: proc(t: ^testing.T) {
 	expression_dump_cases := [?]struct {
 		source:   string,
 		expected: string,
-	}{
-		{"make([]byte, len(s), allocator, loc=loc) or_return", `Or_Return_Expr 0..50 token=Or_Return
+	} {
+		{
+			"make([]byte, len(s), allocator, loc=loc) or_return",
+			`Or_Return_Expr 0..50 token=Or_Return
   expr: Call_Expr 0..40 "make([]byte, len(s), allocator, loc=loc)" inlining=None tailing=None open=4 ellipsis=Invalid close=39
     expr: Ident 0..4 "make"
     args[0]: Array_Type 5..11 "[]byte" open=5 close=6
@@ -145,7 +178,8 @@ test_ast_dump_statements_and_expressions :: proc(t: ^testing.T) {
     args[3]: Field_Value 32..39 "loc=loc" sep=35
       field: Ident 32..35 "loc"
       value: Ident 36..39 "loc"
-`},
+`,
+		},
 	}
 	for dump_case in expression_dump_cases {
 		ast: Ast
@@ -176,7 +210,10 @@ test_ast_dump_statements_and_expressions :: proc(t: ^testing.T) {
 
 	dump: strings.Builder
 	ast_dump(&ast, p.tokenizer.source, &dump)
-	testing.expect_value(t, strings.to_string(dump), `Block_Stmt 0..93 open=0 close=92 uses_do=false
+	testing.expect_value(
+		t,
+		strings.to_string(dump),
+		`Block_Stmt 0..93 open=0 close=92 uses_do=false
   stmts[0]: Value_Decl 3..9 "x := 1" is_using=false is_mutable=true
     names[0]: Ident 3..4 "x"
     values[0]: Basic_Lit 8..9 "1" kind=Integer
@@ -201,7 +238,8 @@ test_ast_dump_statements_and_expressions :: proc(t: ^testing.T) {
       stmts[0]: Defer_Stmt 67..81 "defer continue"
         stmt: Branch_Stmt 73..81 "continue" token=Continue
   stmts[3]: Return_Stmt 85..91 "return"
-`)
+`,
+	)
 
 	strings.builder_destroy(&dump)
 	parser_destroy(&p)
@@ -213,12 +251,7 @@ test_parse_errors_recover :: proc(t: ^testing.T) {
 	expression_cases := [?]struct {
 		source:      string,
 		first_error: Parse_Error_Kind,
-	}{
-		{"f(a b)", .Expected_Token},
-		{"a +", .Expected_Operand},
-		{"a->", .Expected_Selector},
-		{"proc(", .Expected_Token},
-	}
+	}{{"f(a b)", .Expected_Token}, {"a +", .Expected_Operand}, {"a->", .Expected_Selector}, {"proc(", .Expected_Token}}
 	for test_case in expression_cases {
 		ast: Ast
 		ast_init(&ast)
@@ -232,11 +265,7 @@ test_parse_errors_recover :: proc(t: ^testing.T) {
 	statement_cases := [?]struct {
 		source:      string,
 		first_error: Parse_Error_Kind,
-	}{
-		{"{ x := 1 2 }", .Expected_Token},
-		{"{ x = }", .Expected_Operand},
-		{"{ import \"core:fmt\" }", .Misplaced_Statement},
-	}
+	}{{"{ x := 1 2 }", .Expected_Token}, {"{ x = }", .Expected_Operand}, {"{ import \"core:fmt\" }", .Misplaced_Statement}}
 	for test_case in statement_cases {
 		ast: Ast
 		ast_init(&ast)

@@ -27,13 +27,7 @@ parse_unary_expr :: proc(p: ^Parser, lhs: bool) -> Node_Index {
 		type := parse_type(p)
 		close := expect_closing(p, .Close_Paren)
 		expr := parse_unary_expr(p, lhs)
-		return add_node(p, .Type_Cast, tok.start, p.prev.end, Type_Cast{
-			token = tok,
-			open  = open.start,
-			type  = type,
-			close = close.start,
-			expr  = expr,
-		})
+		return add_node(p, .Type_Cast, tok.start, p.prev.end, Type_Cast{token = tok, open = open.start, type = type, close = close.start, expr = expr})
 
 	case .Auto_Cast:
 		op := advance_token(p)
@@ -88,26 +82,14 @@ parse_binary_expr :: proc(p: ^Parser, lhs: bool, prec_in: int) -> Node_Index {
 				x := parse_expr(p, lhs)
 				colon := expect_token(p, .Colon)
 				y := parse_expr(p, lhs)
-				expr = add_node(p, .Ternary_If_Expr, start, p.prev.end, Ternary_Expr{
-					x    = x,
-					op1  = op,
-					cond = cond,
-					op2  = colon,
-					y    = y,
-				})
+				expr = add_node(p, .Ternary_If_Expr, start, p.prev.end, Ternary_Expr{x = x, op1 = op, cond = cond, op2 = colon, y = y})
 
 			case .If:
 				x := expr
 				cond := parse_expr(p, lhs)
 				else_tok := expect_token(p, .Else)
 				y := parse_expr(p, lhs)
-				expr = add_node(p, .Ternary_If_Expr, start, p.prev.end, Ternary_Expr{
-					x    = x,
-					op1  = op,
-					cond = cond,
-					op2  = else_tok,
-					y    = y,
-				})
+				expr = add_node(p, .Ternary_If_Expr, start, p.prev.end, Ternary_Expr{x = x, op1 = op, cond = cond, op2 = else_tok, y = y})
 
 			case .When:
 				x := expr
@@ -115,13 +97,7 @@ parse_binary_expr :: proc(p: ^Parser, lhs: bool, prec_in: int) -> Node_Index {
 				skip_possible_newline(p)
 				else_tok := expect_token(p, .Else)
 				y := parse_expr(p, lhs)
-				expr = add_node(p, .Ternary_When_Expr, start, p.prev.end, Ternary_Expr{
-					x    = x,
-					op1  = op,
-					cond = cond,
-					op2  = else_tok,
-					y    = y,
-				})
+				expr = add_node(p, .Ternary_When_Expr, start, p.prev.end, Ternary_Expr{x = x, op1 = op, cond = cond, op2 = else_tok, y = y})
 
 			case .Or_Else:
 				x := expr
@@ -210,9 +186,20 @@ unparen :: proc(p: ^Parser, index: Node_Index) -> Node_Index {
 
 is_literal_type :: proc(p: ^Parser, index: Node_Index) -> bool {
 	#partial switch p.ast.nodes[unparen(p, index)].kind {
-	case .Bad_Expr, .Ident, .Selector_Expr, .Array_Type, .Struct_Type, .Union_Type, .Enum_Type,
-	     .Dynamic_Array_Type, .Fixed_Capacity_Dynamic_Array_Type, .Map_Type, .Bit_Set_Type,
-	     .Matrix_Type, .Call_Expr, .Bit_Field_Type:
+	case .Bad_Expr,
+	     .Ident,
+	     .Selector_Expr,
+	     .Array_Type,
+	     .Struct_Type,
+	     .Union_Type,
+	     .Enum_Type,
+	     .Dynamic_Array_Type,
+	     .Fixed_Capacity_Dynamic_Array_Type,
+	     .Map_Type,
+	     .Bit_Set_Type,
+	     .Matrix_Type,
+	     .Call_Expr,
+	     .Bit_Field_Type:
 		return true
 	}
 	return false
@@ -327,6 +314,13 @@ parse_call_expr :: proc(p: ^Parser, operand: Node_Index) -> Node_Index {
 			prefix_ellipsis = true
 			ellipsis = expect_token(p, .Ellipsis)
 		}
+		if prefix_ellipsis && p.allow_type && (p.curr.kind == .Close_Paren || p.curr.kind == .Comma) {
+			seen_ellipsis = true
+			if !allow_token(p, .Comma) {
+				break
+			}
+			continue
+		}
 
 		arg := parse_expr(p, false)
 		if p.curr.kind == .Eq {
@@ -352,13 +346,13 @@ parse_call_expr :: proc(p: ^Parser, operand: Node_Index) -> Node_Index {
 	p.expr_level = prev_expr_level
 	close := expect_closing_token(p, .Close_Paren)
 
-	call := add_node(p, .Call_Expr, start_of(p, operand), close.end, Call_Expr{
-		expr     = operand,
-		open     = open.start,
-		args     = ast_add_list(p.ast, args[:]),
-		ellipsis = ellipsis,
-		close    = close.start,
-	})
+	call := add_node(
+		p,
+		.Call_Expr,
+		start_of(p, operand),
+		close.end,
+		Call_Expr{expr = operand, open = open.start, args = ast_add_list(p.ast, args[:]), ellipsis = ellipsis, close = close.start},
+	)
 
 	callee := unparen(p, operand)
 	if p.ast.nodes[callee].kind == .Selector_Expr && node_payload(p.ast, callee, Selector_Expr).op.kind == .Arrow_Right {
@@ -416,22 +410,21 @@ parse_atom_expr :: proc(p: ^Parser, value: Node_Index, lhs: bool) -> Node_Index 
 				if indices[0] == 0 || indices[1] == 0 {
 					report(p, .Missing_Matrix_Index, close.start)
 				}
-				operand = add_node(p, .Matrix_Index_Expr, start, close.end, Matrix_Index_Expr{
-					expr         = operand,
-					open         = open.start,
-					row_index    = indices[0],
-					column_index = indices[1],
-					close        = close.start,
-				})
+				operand = add_node(
+					p,
+					.Matrix_Index_Expr,
+					start,
+					close.end,
+					Matrix_Index_Expr{expr = operand, open = open.start, row_index = indices[0], column_index = indices[1], close = close.start},
+				)
 			} else {
-				operand = add_node(p, .Slice_Expr, start, close.end, Slice_Expr{
-					expr     = operand,
-					open     = open.start,
-					low      = indices[0],
-					interval = interval,
-					high     = indices[1],
-					close    = close.start,
-				})
+				operand = add_node(
+					p,
+					.Slice_Expr,
+					start,
+					close.end,
+					Slice_Expr{expr = operand, open = open.start, low = indices[0], interval = interval, high = indices[1], close = close.start},
+				)
 			}
 
 		case .Period:
@@ -441,22 +434,18 @@ parse_atom_expr :: proc(p: ^Parser, value: Node_Index, lhs: bool) -> Node_Index 
 				open := expect_token(p, .Open_Paren)
 				type := parse_type(p)
 				close := expect_closing(p, .Close_Paren)
-				operand = add_node(p, .Type_Assertion, start_of(p, operand), close.end, Type_Assertion{
-					expr  = operand,
-					dot   = tok.start,
-					open  = open.start,
-					type  = type,
-					close = close.start,
-				})
+				operand = add_node(
+					p,
+					.Type_Assertion,
+					start_of(p, operand),
+					close.end,
+					Type_Assertion{expr = operand, dot = tok.start, open = open.start, type = type, close = close.start},
+				)
 
 			case .Question:
 				question := expect_token(p, .Question)
 				type := add_node(p, .Unary_Expr, question.start, question.end, Unary_Expr{op = question})
-				operand = add_node(p, .Type_Assertion, start_of(p, operand), question.end, Type_Assertion{
-					expr = operand,
-					dot  = tok.start,
-					type = type,
-				})
+				operand = add_node(p, .Type_Assertion, start_of(p, operand), question.end, Type_Assertion{expr = operand, dot = tok.start, type = type})
 
 			case:
 				operand = parse_field_selector(p, operand, tok)
@@ -599,9 +588,10 @@ parse_operand :: proc(p: ^Parser, lhs: bool) -> Node_Index {
 		return parse_bit_field_type(p)
 
 	case .Asm:
-		tok := advance_token(p)
-		report(p, .Unsupported_Construct, tok.start)
-		return add_node(p, .Bad_Expr, tok.start, tok.end, Bad_Expr{})
+		if peek_token(p, 0).kind == .Open_Brace {
+			return parse_proc_group(p, expect_token(p, .Asm))
+		}
+		return parse_asm_template(p)
 	}
 	report(p, .Expected_Operand, p.curr.start)
 	return add_node(p, .Bad_Expr, p.curr.start, p.curr.start, Bad_Expr{})
@@ -706,9 +696,9 @@ parse_inlining_or_tailing_operand :: proc(p: ^Parser, lhs: bool, tok: Token) -> 
 		inlining = .No_Inline
 	}
 
-	target := expr
+	target := unparen(p, expr)
 	if p.ast.nodes[target].kind == .Or_Return_Expr {
-		target = node_payload(p.ast, target, Or_Return_Expr).expr
+		target = unparen(p, node_payload(p.ast, target, Or_Return_Expr).expr)
 	}
 
 	#partial switch p.ast.nodes[target].kind {

@@ -1,15 +1,26 @@
 #!/usr/bin/env bash
 #MISE description="Format Odin sources with odinfmt"
 #MISE alias="f"
+#USAGE arg "[package]" help="Package to format; omit for all"
 #USAGE flag "--check" help="Report unformatted files and exit non-zero; write nothing"
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 cd "$PROJECT_ROOT"
 
 check="${usage_check:-false}"
-if [[ "${1:-}" == "--check" ]]; then check=true; fi
+target="${usage_package:-}"
+for argument in "$@"; do
+	case "$argument" in
+		--check) check=true ;;
+		-*) die "unknown flag: $argument" ;;
+		*) target="$argument" ;;
+	esac
+done
 
 mapfile -t sources < <(owned_sources)
+if [[ -n "$target" ]]; then
+	mapfile -t sources < <(printf '%s\n' "${sources[@]}" | grep "/src/$target/")
+fi
 
 if [[ "$check" == true ]]; then
 	unformatted=()

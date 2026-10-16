@@ -18,12 +18,12 @@ PF :: enum u8 {
 	PF_R = 2, // 0x4: segment is readable
 }
 
-Program_Flags :: bit_set[PF; u32]
+Program_Flags :: bit_set[PF;u32]
 
 // Program header (`p_type`) values; the GNU ones are in the OS range.
-PT_NULL       :: 0x00000000
-PT_LOAD       :: 0x00000001
-PT_GNU_STACK  :: 0x6474e551
+PT_NULL :: 0x00000000
+PT_LOAD :: 0x00000001
+PT_GNU_STACK :: 0x6474e551
 
 /*
 	The kernel maps at page granularity and requires
@@ -98,12 +98,27 @@ executable_builder_destroy :: proc(builder: ^Executable_Builder) {
 	may not fall below the data length.  `alignment` is the value written
 	to `p_align`; zero means the page size.
 */
-executable_add_segment :: proc(builder: ^Executable_Builder, vaddr: u64, data: []byte, memsz: u64, flags: Program_Flags, alignment: u64) -> (Segment_Handle, Error) {
+executable_add_segment :: proc(
+	builder: ^Executable_Builder,
+	vaddr: u64,
+	data: []byte,
+	memsz: u64,
+	flags: Program_Flags,
+	alignment: u64,
+) -> (
+	Segment_Handle,
+	Error,
+) {
 	if memsz != 0 && memsz < u64(len(data)) {
 		return 0, Error(.Invalid_Segment)
 	}
 
-	segment := Executable_Segment{vaddr = vaddr, memsz = memsz, flags = flags, alignment = alignment}
+	segment := Executable_Segment {
+		vaddr     = vaddr,
+		memsz     = memsz,
+		flags     = flags,
+		alignment = alignment,
+	}
 	if len(data) > 0 {
 		segment.data = make([dynamic]u8, 0, builder.allocator)
 		append(&segment.data, ..data)
@@ -151,7 +166,7 @@ executable_write :: proc(builder: ^Executable_Builder, allocator := context.allo
 	// addresses stay in insertion order.
 	order := make([dynamic]int, len(builder.segments), allocator)
 	defer free_dynamic(order)
-	for index in 0..<len(order) {
+	for index in 0 ..< len(order) {
 		order[index] = index
 	}
 	for position := 1; position < len(order); position += 1 {
@@ -179,26 +194,28 @@ executable_write :: proc(builder: ^Executable_Builder, allocator := context.allo
 		}
 
 		file_offset := align_congruent(cursor, segment.vaddr, alignment)
-		append(&segment_headers, Program_Header{
-			p_type   = u32le(PT_LOAD),
-			p_flags  = u32le(program_flags_mask(segment.flags)),
-			p_offset = u64le(file_offset),
-			p_vaddr  = u64le(segment.vaddr),
-			p_paddr  = u64le(segment.vaddr),
-			p_filesz = u64le(u64(len(segment.data))),
-			p_memsz  = u64le(memsz),
-			p_align  = u64le(alignment),
-		})
+		append(
+			&segment_headers,
+			Program_Header {
+				p_type = u32le(PT_LOAD),
+				p_flags = u32le(program_flags_mask(segment.flags)),
+				p_offset = u64le(file_offset),
+				p_vaddr = u64le(segment.vaddr),
+				p_paddr = u64le(segment.vaddr),
+				p_filesz = u64le(u64(len(segment.data))),
+				p_memsz = u64le(memsz),
+				p_align = u64le(alignment),
+			},
+		)
 		cursor = file_offset + u64(len(segment.data))
 	}
 
 	// The last PT_GNU_STACK defines stack executability: this one makes
 	// stacks non-executable.
-	append(&segment_headers, Program_Header{
-		p_type   = u32le(PT_GNU_STACK),
-		p_flags  = u32le(program_flags_mask(Program_Flags{.PF_W, .PF_R})),
-		p_align  = u64le(16),
-	})
+	append(
+		&segment_headers,
+		Program_Header{p_type = u32le(PT_GNU_STACK), p_flags = u32le(program_flags_mask(Program_Flags{.PF_W, .PF_R})), p_align = u64le(16)},
+	)
 
 	total_size := cursor
 	data, alloc_err := mem.alloc_bytes(int(total_size), allocator = allocator)
@@ -224,17 +241,21 @@ executable_write :: proc(builder: ^Executable_Builder, allocator := context.allo
 		sorted_position += 1
 	}
 
-	blit(object, 0, File_Header{
-		ident       = IDENTITY,
-		e_type      = .ET_EXEC,
-		e_machine   = .EM_X86_64,
-		e_version   = u32le(EV_CURRENT),
-		e_entry     = u64le(builder.entry),
-		e_phoff     = u64le(FILE_HEADER_SIZE),
-		e_ehsize    = u16le(FILE_HEADER_SIZE),
-		e_phentsize = u16le(PROGRAM_HEADER_SIZE),
-		e_phnum     = u16le(len(segment_headers)),
-	})
+	blit(
+		object,
+		0,
+		File_Header {
+			ident = IDENTITY,
+			e_type = .ET_EXEC,
+			e_machine = .EM_X86_64,
+			e_version = u32le(EV_CURRENT),
+			e_entry = u64le(builder.entry),
+			e_phoff = u64le(FILE_HEADER_SIZE),
+			e_ehsize = u16le(FILE_HEADER_SIZE),
+			e_phentsize = u16le(PROGRAM_HEADER_SIZE),
+			e_phnum = u16le(len(segment_headers)),
+		},
+	)
 
 	return object, nil
 }

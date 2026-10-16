@@ -64,4 +64,3 @@ executable_runs_and_exits_42 :: proc(t: ^testing.T) {
 bytes_at :: proc "contextless" (data: []byte, offset: int, length: int) -> []byte {
 	return data[offset:offset + length]
 }
-

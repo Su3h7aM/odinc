@@ -37,12 +37,7 @@ parse_value_decl :: proc(p: ^Parser, names: Node_Range) -> Node_Index {
 	}
 
 	start, _ := range_span(p, names)
-	return add_node(p, .Value_Decl, start, p.prev.end, Value_Decl{
-		names      = names,
-		type       = type,
-		values     = values,
-		is_mutable = is_mutable,
-	})
+	return add_node(p, .Value_Decl, start, p.prev.end, Value_Decl{names = names, type = type, values = values, is_mutable = is_mutable})
 }
 
 parse_import_decl :: proc(p: ^Parser, is_using: bool) -> Node_Index {
@@ -58,12 +53,13 @@ parse_import_decl :: proc(p: ^Parser, is_using: bool) -> Node_Index {
 		report(p, .Misplaced_Statement, import_tok.start)
 	}
 
-	decl := add_node(p, .Import_Decl, import_tok.start, path.end, Import_Decl{
-		is_using   = is_using,
-		import_pos = import_tok.start,
-		name       = name,
-		relpath    = relpath,
-	})
+	decl := add_node(
+		p,
+		.Import_Decl,
+		import_tok.start,
+		path.end,
+		Import_Decl{is_using = is_using, import_pos = import_tok.start, name = name, relpath = relpath},
+	)
 	expect_semicolon(p, decl)
 	return decl
 }
@@ -95,11 +91,7 @@ parse_attribute :: proc(p: ^Parser, at_tok: Token) -> Node_Index {
 		close = expect_closing(p, .Close_Paren).start
 	}
 
-	attribute := add_node(p, .Attribute, at_tok.start, p.prev.end, Attribute{
-		open  = open,
-		elems = ast_add_list(p.ast, elems[:]),
-		close = close,
-	})
+	attribute := add_node(p, .Attribute, at_tok.start, p.prev.end, Attribute{open = open, elems = ast_add_list(p.ast, elems[:]), close = close})
 	skip_possible_newline(p)
 	decl := parse_stmt(p)
 	if !attach_attribute(p, decl, attribute) {
@@ -179,16 +171,8 @@ parse_foreign_block :: proc(p: ^Parser, tok: Token) -> Node_Index {
 	}
 	close := expect_token(p, .Close_Brace)
 
-	body := add_node(p, .Block_Stmt, open.start, close.end, Block_Stmt{
-		open  = open.start,
-		stmts = ast_add_list(p.ast, decls[:]),
-		close = close.start,
-	})
-	return add_node(p, .Foreign_Block_Decl, tok.start, close.end, Foreign_Block_Decl{
-		foreign_pos     = tok.start,
-		foreign_library = foreign_library,
-		body            = body,
-	})
+	body := add_node(p, .Block_Stmt, open.start, close.end, Block_Stmt{open = open.start, stmts = ast_add_list(p.ast, decls[:]), close = close.start})
+	return add_node(p, .Foreign_Block_Decl, tok.start, close.end, Foreign_Block_Decl{foreign_pos = tok.start, foreign_library = foreign_library, body = body})
 }
 
 parse_foreign_decl :: proc(p: ^Parser) -> Node_Index {
@@ -225,12 +209,13 @@ parse_foreign_decl :: proc(p: ^Parser) -> Node_Index {
 			report(p, .Invalid_Foreign_Declaration, import_tok.start)
 		}
 
-		decl := add_node(p, .Foreign_Import_Decl, tok.start, p.prev.end, Foreign_Import_Decl{
-			foreign_pos = tok.start,
-			import_pos  = import_tok.start,
-			name        = name,
-			fullpaths   = ast_add_list(p.ast, paths[:]),
-		})
+		decl := add_node(
+			p,
+			.Foreign_Import_Decl,
+			tok.start,
+			p.prev.end,
+			Foreign_Import_Decl{foreign_pos = tok.start, import_pos = import_tok.start, name = name, fullpaths = ast_add_list(p.ast, paths[:])},
+		)
 		expect_semicolon(p, decl)
 		return decl
 	}

@@ -82,5 +82,6 @@ Keep the number of tests to the minimum necessary. Write only tests that provide
 
 - Version control is Jujutsu (`jj`) only. Agents do not run `jj` or `git`; the orchestrator commits.
 - Every task (build, check, test, format, anything else) runs through Mise: `mise run <task>`. Tasks are executable Bash scripts in `scripts/` with `#MISE` headers, never inline TOML tasks. `scripts/_lib.sh` holds shared helpers and is not executable. Config is `.mise/config.toml`, which names the bootstrap `odin` binary (`ODIN_BIN`, from the fork); the scripts set `ODIN_ROOT` to this repository so `base/` and `core/` come from here.
-- Available now: `mise run check [package]`, `mise run test [package]`, `mise run fmt [--check]`. A new kind of task becomes a new script.
+- Available now: `mise run check [package]`, `mise run test [package]`, `mise run fmt [package] [--check]`. A new kind of task becomes a new script.
+- Every commit is preceded by `mise run fmt <package>` and `mise run check <package>` for the packages it touches. An agent whose work on a package is final for its task runs both before reporting.
 - Run code through these tasks, not by calling `odin` by hand. Run `mise run fmt` and `mise run check` before reporting work done.

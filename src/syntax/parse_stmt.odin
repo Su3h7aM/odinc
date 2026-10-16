@@ -5,12 +5,11 @@ Stmt_Allow_Flag :: enum u8 {
 	In,
 }
 
-Stmt_Allow_Flags :: distinct bit_set[Stmt_Allow_Flag; u8]
+Stmt_Allow_Flags :: distinct bit_set[Stmt_Allow_Flag;u8]
 
 is_assignment_operator :: proc(kind: Token_Kind) -> bool {
 	#partial switch kind {
-	case .Eq, .Add_Eq, .Sub_Eq, .Mul_Eq, .Quo_Eq, .Mod_Eq, .Mod_Mod_Eq, .And_Eq, .Or_Eq, .Xor_Eq,
-	     .And_Not_Eq, .Shl_Eq, .Shr_Eq, .Cmp_And_Eq, .Cmp_Or_Eq:
+	case .Eq, .Add_Eq, .Sub_Eq, .Mul_Eq, .Quo_Eq, .Mod_Eq, .Mod_Mod_Eq, .And_Eq, .Or_Eq, .Xor_Eq, .And_Not_Eq, .Shl_Eq, .Shr_Eq, .Cmp_And_Eq, .Cmp_Or_Eq:
 		return true
 	}
 	return false
@@ -29,8 +28,19 @@ is_semicolon_optional_for_node :: proc(p: ^Parser, node: Node_Index) -> bool {
 		return false
 	}
 	#partial switch p.ast.nodes[node].kind {
-	case .Empty_Stmt, .Block_Stmt, .If_Stmt, .When_Stmt, .For_Stmt, .Range_Stmt, .Unroll_Range_Stmt,
-	     .Switch_Stmt, .Type_Switch_Stmt, .Proc_Lit, .Package_Decl, .Import_Decl, .Foreign_Import_Decl:
+	case .Empty_Stmt,
+	     .Block_Stmt,
+	     .If_Stmt,
+	     .When_Stmt,
+	     .For_Stmt,
+	     .Range_Stmt,
+	     .Unroll_Range_Stmt,
+	     .Switch_Stmt,
+	     .Type_Switch_Stmt,
+	     .Proc_Lit,
+	     .Package_Decl,
+	     .Import_Decl,
+	     .Foreign_Import_Decl:
 		return true
 	case .Helper_Type:
 		return is_semicolon_optional_for_node(p, node_payload(p.ast, node, Helper_Type).type)
@@ -60,8 +70,7 @@ fix_advance_to_next_stmt :: proc(p: ^Parser) {
 		#partial switch p.curr.kind {
 		case .EOF, .Semicolon:
 			return
-		case .Package, .Foreign, .Import, .If, .For, .When, .Return, .Switch, .Defer, .Using,
-		     .Break, .Continue, .Fallthrough, .Directive:
+		case .Package, .Foreign, .Import, .If, .For, .When, .Return, .Switch, .Defer, .Using, .Break, .Continue, .Fallthrough, .Directive:
 			return
 		}
 		advance_token(p)
@@ -153,12 +162,7 @@ convert_stmt_to_body :: proc(p: ^Parser, stmt: Node_Index) -> Node_Index {
 		report(p, .Misplaced_Statement, start)
 	}
 	stmts := ast_add_list(p.ast, []Node_Index{stmt})
-	return add_node(p, .Block_Stmt, start, end, Block_Stmt{
-		open    = start,
-		stmts   = stmts,
-		close   = end,
-		uses_do = true,
-	})
+	return add_node(p, .Block_Stmt, start, end, Block_Stmt{open = start, stmts = stmts, close = end, uses_do = true})
 }
 
 convert_stmt_to_expr :: proc(p: ^Parser, stmt: Node_Index) -> Node_Index {
@@ -212,12 +216,7 @@ parse_when_stmt :: proc(p: ^Parser) -> Node_Index {
 		}
 	}
 
-	return add_node(p, .When_Stmt, when_tok.start, p.prev.end, When_Stmt{
-		when_pos  = when_tok.start,
-		cond      = cond,
-		body      = body,
-		else_stmt = else_stmt,
-	})
+	return add_node(p, .When_Stmt, when_tok.start, p.prev.end, When_Stmt{when_pos = when_tok.start, cond = cond, body = body, else_stmt = else_stmt})
 }
 
 parse_if_stmt :: proc(p: ^Parser) -> Node_Index {
@@ -268,14 +267,13 @@ parse_if_stmt :: proc(p: ^Parser) -> Node_Index {
 		}
 	}
 
-	return add_node(p, .If_Stmt, if_tok.start, p.prev.end, If_Stmt{
-		if_pos    = if_tok.start,
-		init      = init,
-		cond      = cond,
-		body      = body,
-		else_pos  = else_pos,
-		else_stmt = else_stmt,
-	})
+	return add_node(
+		p,
+		.If_Stmt,
+		if_tok.start,
+		p.prev.end,
+		If_Stmt{if_pos = if_tok.start, init = init, cond = cond, body = body, else_pos = else_pos, else_stmt = else_stmt},
+	)
 }
 
 is_in_assignment :: proc(p: ^Parser, stmt: Node_Index) -> bool {
@@ -301,12 +299,7 @@ parse_for_stmt :: proc(p: ^Parser) -> Node_Index {
 			p.allow_range = prev_allow_range
 			p.expr_level = prev_level
 			body := parse_loop_body(p, for_tok.end)
-			return add_node(p, .Range_Stmt, for_tok.start, p.prev.end, Range_Stmt{
-				for_pos = for_tok.start,
-				in_pos  = in_tok.start,
-				expr    = expr,
-				body    = body,
-			})
+			return add_node(p, .Range_Stmt, for_tok.start, p.prev.end, Range_Stmt{for_pos = for_tok.start, in_pos = in_tok.start, expr = expr, body = body})
 		}
 
 		if p.curr.kind != .Semicolon {
@@ -343,22 +336,21 @@ parse_for_stmt :: proc(p: ^Parser) -> Node_Index {
 	body := parse_loop_body(p, for_tok.end)
 	if is_range {
 		assign := node_payload(p.ast, cond_stmt, Assign_Stmt)
-		return add_node(p, .Range_Stmt, for_tok.start, p.prev.end, Range_Stmt{
-			init    = init,
-			for_pos = for_tok.start,
-			vals    = assign.lhs,
-			in_pos  = assign.op.start,
-			expr    = node_list(p.ast, assign.rhs)[0],
-			body    = body,
-		})
+		return add_node(
+			p,
+			.Range_Stmt,
+			for_tok.start,
+			p.prev.end,
+			Range_Stmt{init = init, for_pos = for_tok.start, vals = assign.lhs, in_pos = assign.op.start, expr = node_list(p.ast, assign.rhs)[0], body = body},
+		)
 	}
-	return add_node(p, .For_Stmt, for_tok.start, p.prev.end, For_Stmt{
-		for_pos = for_tok.start,
-		init    = init,
-		cond    = convert_stmt_to_expr(p, cond_stmt),
-		post    = post,
-		body    = body,
-	})
+	return add_node(
+		p,
+		.For_Stmt,
+		for_tok.start,
+		p.prev.end,
+		For_Stmt{for_pos = for_tok.start, init = init, cond = convert_stmt_to_expr(p, cond_stmt), post = post, body = body},
+	)
 }
 
 parse_case_clause :: proc(p: ^Parser, is_type_switch: bool) -> Node_Index {
@@ -378,12 +370,7 @@ parse_case_clause :: proc(p: ^Parser, is_type_switch: bool) -> Node_Index {
 	}
 	body := parse_stmt_list(p)
 
-	return add_node(p, .Case_Clause, case_tok.start, p.prev.end, Case_Clause{
-		case_pos   = case_tok.start,
-		list       = list,
-		terminator = terminator,
-		body       = body,
-	})
+	return add_node(p, .Case_Clause, case_tok.start, p.prev.end, Case_Clause{case_pos = case_tok.start, list = list, terminator = terminator, body = body})
 }
 
 parse_switch_stmt :: proc(p: ^Parser) -> Node_Index {
@@ -399,11 +386,13 @@ parse_switch_stmt :: proc(p: ^Parser) -> Node_Index {
 			is_type_switch = true
 			blank := add_node(p, .Ident, in_tok.start, in_tok.start, Ident{})
 			subject := parse_expr(p, true)
-			tag = add_node(p, .Assign_Stmt, in_tok.start, p.prev.end, Assign_Stmt{
-				lhs = ast_add_list(p.ast, []Node_Index{blank}),
-				op  = in_tok,
-				rhs = ast_add_list(p.ast, []Node_Index{subject}),
-			})
+			tag = add_node(
+				p,
+				.Assign_Stmt,
+				in_tok.start,
+				p.prev.end,
+				Assign_Stmt{lhs = ast_add_list(p.ast, []Node_Index{blank}), op = in_tok, rhs = ast_add_list(p.ast, []Node_Index{subject})},
+			)
 		} else {
 			tag = parse_simple_stmt(p, {.In})
 			if is_in_assignment(p, tag) {
@@ -435,11 +424,7 @@ parse_switch_stmt :: proc(p: ^Parser) -> Node_Index {
 			append(&clauses, parse_case_clause(p, is_type_switch))
 		}
 		close := expect_token(p, .Close_Brace)
-		body = add_node(p, .Block_Stmt, open.start, close.end, Block_Stmt{
-			open  = open.start,
-			stmts = ast_add_list(p.ast, clauses[:]),
-			close = close.start,
-		})
+		body = add_node(p, .Block_Stmt, open.start, close.end, Block_Stmt{open = open.start, stmts = ast_add_list(p.ast, clauses[:]), close = close.start})
 	} else {
 		report(p, .Expected_Token, p.curr.start, .Open_Brace)
 		body = add_node(p, .Block_Stmt, p.curr.start, p.curr.start, Block_Stmt{open = p.curr.start, close = p.curr.start})
@@ -447,19 +432,21 @@ parse_switch_stmt :: proc(p: ^Parser) -> Node_Index {
 
 	if is_type_switch {
 		subject := node_list(p.ast, node_payload(p.ast, tag, Assign_Stmt).rhs)[0]
-		return add_node(p, .Type_Switch_Stmt, switch_tok.start, p.prev.end, Type_Switch_Stmt{
-			switch_pos = switch_tok.start,
-			tag        = tag,
-			expr       = subject,
-			body       = body,
-		})
+		return add_node(
+			p,
+			.Type_Switch_Stmt,
+			switch_tok.start,
+			p.prev.end,
+			Type_Switch_Stmt{switch_pos = switch_tok.start, tag = tag, expr = subject, body = body},
+		)
 	}
-	return add_node(p, .Switch_Stmt, switch_tok.start, p.prev.end, Switch_Stmt{
-		switch_pos = switch_tok.start,
-		init       = init,
-		cond       = convert_stmt_to_expr(p, tag),
-		body       = body,
-	})
+	return add_node(
+		p,
+		.Switch_Stmt,
+		switch_tok.start,
+		p.prev.end,
+		Switch_Stmt{switch_pos = switch_tok.start, init = init, cond = convert_stmt_to_expr(p, tag), body = body},
+	)
 }
 
 parse_unrolled_for_loop :: proc(p: ^Parser, tag: Token) -> Node_Index {
@@ -522,22 +509,45 @@ parse_unrolled_for_loop :: proc(p: ^Parser, tag: Token) -> Node_Index {
 	if bad_stmt {
 		return add_node(p, .Bad_Stmt, tag.start, p.prev.end, Bad_Stmt{})
 	}
-	return add_node(p, .Unroll_Range_Stmt, tag.start, p.prev.end, Unroll_Range_Stmt{
-		unroll_pos = tag.start,
-		args       = ast_add_list(p.ast, args[:]),
-		for_pos    = for_tok.start,
-		val0       = val0,
-		val1       = val1,
-		in_pos     = in_tok.start,
-		expr       = expr,
-		body       = body,
-	})
+	return add_node(
+		p,
+		.Unroll_Range_Stmt,
+		tag.start,
+		p.prev.end,
+		Unroll_Range_Stmt {
+			unroll_pos = tag.start,
+			args = ast_add_list(p.ast, args[:]),
+			for_pos = for_tok.start,
+			val0 = val0,
+			val1 = val1,
+			in_pos = in_tok.start,
+			expr = expr,
+			body = body,
+		},
+	)
 }
 
 parse_stmt :: proc(p: ^Parser) -> Node_Index {
 	#partial switch p.curr.kind {
-	case .Context, .Proc, .Ident, .Integer, .Float, .Imag, .Rune, .String, .Raw_String,
-	     .Open_Paren, .Pointer, .Asm, .Add, .Sub, .Xor, .Not, .And, .Increment, .Decrement:
+	case .Context,
+	     .Proc,
+	     .Ident,
+	     .Integer,
+	     .Float,
+	     .Imag,
+	     .Rune,
+	     .String,
+	     .Raw_String,
+	     .Open_Paren,
+	     .Pointer,
+	     .Asm,
+	     .Add,
+	     .Sub,
+	     .Xor,
+	     .Not,
+	     .And,
+	     .Increment,
+	     .Decrement:
 		stmt := parse_simple_stmt(p, {.Label})
 		expect_semicolon(p, stmt)
 		return stmt
@@ -784,11 +794,7 @@ parse_simple_stmt :: proc(p: ^Parser, flags: Stmt_Allow_Flags) -> Node_Index {
 		p.allow_range = true
 		expr := parse_expr(p, false)
 		p.allow_range = prev_allow_range
-		return add_node(p, .Assign_Stmt, start, p.prev.end, Assign_Stmt{
-			lhs = lhs,
-			op  = op,
-			rhs = ast_add_list(p.ast, []Node_Index{expr}),
-		})
+		return add_node(p, .Assign_Stmt, start, p.prev.end, Assign_Stmt{lhs = lhs, op = op, rhs = ast_add_list(p.ast, []Node_Index{expr})})
 	case op.kind == .Colon:
 		expect_token(p, .Colon)
 		if .Label in flags && lhs.count == 1 {

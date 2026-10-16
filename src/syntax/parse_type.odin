@@ -10,18 +10,8 @@ Field_Prefix_Entry :: struct {
 
 field_flags_struct :: Field_Flags{.Using, .Tags, .Subtype}
 field_flags_record_poly_params :: Field_Flags{.Typeid_Token, .Default_Parameters}
-field_flags_signature_results :: Field_Flags{
-	.Ellipsis,
-	.Using,
-	.No_Alias,
-	.C_Vararg,
-	.Const,
-	.Any_Int,
-	.By_Ptr,
-	.No_Broadcast,
-	.Default_Parameters,
-}
-field_flags_signature_params :: Field_Flags{
+field_flags_signature_results :: Field_Flags{.Ellipsis, .Using, .No_Alias, .C_Vararg, .Const, .Any_Int, .By_Ptr, .No_Broadcast, .Default_Parameters}
+field_flags_signature_params :: Field_Flags {
 	.Ellipsis,
 	.Using,
 	.No_Alias,
@@ -222,13 +212,7 @@ expect_field_separator :: proc(p: ^Parser) -> bool {
 }
 
 add_field :: proc(p: ^Parser, start: u32, names: Node_Range, type, default_value, tag: Node_Index, flags: Field_Flags) -> Node_Index {
-	return add_node(p, .Field, start, p.prev.end, Field{
-		names         = names,
-		type          = type,
-		default_value = default_value,
-		tag           = tag,
-		flags         = flags,
-	})
+	return add_node(p, .Field, start, p.prev.end, Field{names = names, type = type, default_value = default_value, tag = tag, flags = flags})
 }
 
 handle_field :: proc(p: ^Parser, seen_ellipsis: ^bool, fields: ^[dynamic]Node_Index, names: Node_Range, allowed_flags, set_flags: Field_Flags) -> bool {
@@ -351,11 +335,7 @@ parse_field_list :: proc(p: ^Parser, closing: Token_Kind, allowed_flags: Field_F
 		}
 	}
 
-	list = add_node(p, .Field_List, start, p.curr.start, Field_List{
-		open  = start,
-		list  = ast_add_list(p.ast, fields[:]),
-		close = p.curr.start,
-	})
+	list = add_node(p, .Field_List, start, p.curr.start, Field_List{open = start, list = ast_add_list(p.ast, fields[:]), close = p.curr.start})
 	return
 }
 
@@ -375,11 +355,7 @@ parse_results :: proc(p: ^Parser) -> (list: Node_Index, diverging: bool) {
 		start := p.curr.start
 		type := parse_type(p)
 		field := add_field(p, start, {}, type, 0, 0, {})
-		list = add_node(p, .Field_List, start, p.prev.end, Field_List{
-			open  = start,
-			list  = ast_add_list(p.ast, []Node_Index{field}),
-			close = p.prev.end,
-		})
+		list = add_node(p, .Field_List, start, p.prev.end, Field_List{open = start, list = ast_add_list(p.ast, []Node_Index{field}), close = p.prev.end})
 		return
 	}
 
@@ -499,46 +475,57 @@ parse_proc_type :: proc(p: ^Parser, tok: Token) -> Node_Index {
 		is_generic = is_field_list_generic(p, results, false)
 	}
 
-	return add_node(p, .Proc_Type, tok.start, p.prev.end, Proc_Type{
-		proc_pos           = tok.start,
-		calling_convention = calling_convention,
-		foreign_default    = foreign_default,
-		params             = params,
-		results            = results,
-		generic            = is_generic,
-		diverging          = diverging,
-	})
+	return add_node(
+		p,
+		.Proc_Type,
+		tok.start,
+		p.prev.end,
+		Proc_Type {
+			proc_pos = tok.start,
+			calling_convention = calling_convention,
+			foreign_default = foreign_default,
+			params = params,
+			results = results,
+			generic = is_generic,
+			diverging = diverging,
+		},
+	)
+}
+
+parse_proc_group :: proc(p: ^Parser, group_tok: Token) -> Node_Index {
+	open := expect_token(p, .Open_Brace)
+	args := make([dynamic]Node_Index, 0, 4, p.allocator)
+	defer delete(args)
+	for p.curr.kind != .Close_Brace && p.curr.kind != .EOF {
+		elem := parse_expr(p, false)
+		if p.curr.kind == .Where {
+			where_tok := expect_token(p, .Where)
+			cond := parse_expr(p, false)
+			elem = add_node(p, .Binary_Expr, p.ast.nodes[elem].start, p.prev.end, Binary_Expr{left = elem, op = where_tok, right = cond})
+		}
+		append(&args, elem)
+		if !allow_token(p, .Comma) {
+			break
+		}
+	}
+	close := expect_closing_token(p, .Close_Brace)
+	if len(args) == 0 {
+		report(p, .Expected_Operand, group_tok.start)
+	}
+	return add_node(
+		p,
+		.Proc_Group,
+		group_tok.start,
+		close.end,
+		Proc_Group{proc_pos = group_tok.start, open = open.start, args = ast_add_list(p.ast, args[:]), close = close.start},
+	)
 }
 
 parse_proc_expr :: proc(p: ^Parser) -> Node_Index {
 	tok := expect_token(p, .Proc)
 
 	if p.curr.kind == .Open_Brace {
-		open := expect_token(p, .Open_Brace)
-		args := make([dynamic]Node_Index, 0, 4, p.allocator)
-		defer delete(args)
-		for p.curr.kind != .Close_Brace && p.curr.kind != .EOF {
-			elem := parse_expr(p, false)
-			if p.curr.kind == .Where {
-				where_tok := expect_token(p, .Where)
-				cond := parse_expr(p, false)
-				elem = add_node(p, .Binary_Expr, p.ast.nodes[elem].start, p.prev.end, Binary_Expr{left = elem, op = where_tok, right = cond})
-			}
-			append(&args, elem)
-			if !allow_token(p, .Comma) {
-				break
-			}
-		}
-		close := expect_closing_token(p, .Close_Brace)
-		if len(args) == 0 {
-			report(p, .Expected_Operand, tok.start)
-		}
-		return add_node(p, .Proc_Group, tok.start, close.end, Proc_Group{
-			proc_pos = tok.start,
-			open     = open.start,
-			args     = ast_add_list(p.ast, args[:]),
-			close    = close.start,
-		})
+		return parse_proc_group(p, tok)
 	}
 
 	type := parse_proc_type(p, tok)
@@ -575,13 +562,7 @@ parse_proc_expr :: proc(p: ^Parser) -> Node_Index {
 		return type
 	}
 
-	return add_node(p, .Proc_Lit, tok.start, p.prev.end, Proc_Lit{
-		type          = type,
-		body          = body,
-		tags          = tags,
-		where_pos     = where_pos,
-		where_clauses = where_clauses,
-	})
+	return add_node(p, .Proc_Lit, tok.start, p.prev.end, Proc_Lit{type = type, body = body, tags = tags, where_pos = where_pos, where_clauses = where_clauses})
 }
 
 parse_bracket_type :: proc(p: ^Parser) -> Node_Index {
@@ -592,12 +573,13 @@ parse_bracket_type :: proc(p: ^Parser) -> Node_Index {
 		tok := expect_token(p, .Pointer)
 		close := expect_closing(p, .Close_Bracket)
 		elem := parse_type(p)
-		return add_node(p, .Multi_Pointer_Type, open.start, p.prev.end, Multi_Pointer_Type{
-			open    = open.start,
-			pointer = tok.start,
-			close   = close.start,
-			elem    = elem,
-		})
+		return add_node(
+			p,
+			.Multi_Pointer_Type,
+			open.start,
+			p.prev.end,
+			Multi_Pointer_Type{open = open.start, pointer = tok.start, close = close.start, elem = elem},
+		)
 
 	case .Dynamic:
 		tok := expect_token(p, .Dynamic)
@@ -605,22 +587,23 @@ parse_bracket_type :: proc(p: ^Parser) -> Node_Index {
 			capacity := parse_expr(p, false)
 			close := expect_closing(p, .Close_Bracket)
 			elem := parse_type(p)
-			return add_node(p, .Fixed_Capacity_Dynamic_Array_Type, open.start, p.prev.end, Fixed_Capacity_Dynamic_Array_Type{
-				open        = open.start,
-				dynamic_pos = tok.start,
-				capacity    = capacity,
-				close       = close.start,
-				elem        = elem,
-			})
+			return add_node(
+				p,
+				.Fixed_Capacity_Dynamic_Array_Type,
+				open.start,
+				p.prev.end,
+				Fixed_Capacity_Dynamic_Array_Type{open = open.start, dynamic_pos = tok.start, capacity = capacity, close = close.start, elem = elem},
+			)
 		}
 		close := expect_closing(p, .Close_Bracket)
 		elem := parse_type(p)
-		return add_node(p, .Dynamic_Array_Type, open.start, p.prev.end, Dynamic_Array_Type{
-			open        = open.start,
-			dynamic_pos = tok.start,
-			close       = close.start,
-			elem        = elem,
-		})
+		return add_node(
+			p,
+			.Dynamic_Array_Type,
+			open.start,
+			p.prev.end,
+			Dynamic_Array_Type{open = open.start, dynamic_pos = tok.start, close = close.start, elem = elem},
+		)
 
 	case .Question:
 		tok := expect_token(p, .Question)
@@ -636,12 +619,7 @@ parse_bracket_type :: proc(p: ^Parser) -> Node_Index {
 
 	close := expect_closing(p, .Close_Bracket)
 	elem := parse_type(p)
-	return add_node(p, .Array_Type, open.start, p.prev.end, Array_Type{
-		open  = open.start,
-		len   = count,
-		close = close.start,
-		elem  = elem,
-	})
+	return add_node(p, .Array_Type, open.start, p.prev.end, Array_Type{open = open.start, len = count, close = close.start, elem = elem})
 }
 
 parse_map_type :: proc(p: ^Parser) -> Node_Index {
@@ -734,18 +712,24 @@ parse_struct_type :: proc(p: ^Parser) -> Node_Index {
 	fields, name_count := parse_field_list(p, .Close_Brace, field_flags_struct)
 	close := expect_closing_token(p, .Close_Brace)
 
-	return add_node(p, .Struct_Type, tok.start, close.end, Struct_Type{
-		tok_pos          = tok.start,
-		poly_params      = poly_params,
-		align            = align,
-		min_field_align  = min_field_align,
-		max_field_align  = max_field_align,
-		where_pos        = where_pos,
-		where_clauses   = where_clauses,
-		fields           = fields,
-		name_count       = u32(name_count),
-		flags            = flags,
-	})
+	return add_node(
+		p,
+		.Struct_Type,
+		tok.start,
+		close.end,
+		Struct_Type {
+			tok_pos = tok.start,
+			poly_params = poly_params,
+			align = align,
+			min_field_align = min_field_align,
+			max_field_align = max_field_align,
+			where_pos = where_pos,
+			where_clauses = where_clauses,
+			fields = fields,
+			name_count = u32(name_count),
+			flags = flags,
+		},
+	)
 }
 
 parse_union_type :: proc(p: ^Parser) -> Node_Index {
@@ -808,15 +792,21 @@ parse_union_type :: proc(p: ^Parser) -> Node_Index {
 	}
 	close := expect_closing_token(p, .Close_Brace)
 
-	return add_node(p, .Union_Type, tok.start, close.end, Union_Type{
-		tok_pos       = tok.start,
-		poly_params   = poly_params,
-		align         = align,
-		kind          = kind,
-		where_pos     = where_pos,
-		where_clauses = where_clauses,
-		variants      = ast_add_list(p.ast, variants[:]),
-	})
+	return add_node(
+		p,
+		.Union_Type,
+		tok.start,
+		close.end,
+		Union_Type {
+			tok_pos = tok.start,
+			poly_params = poly_params,
+			align = align,
+			kind = kind,
+			where_pos = where_pos,
+			where_clauses = where_clauses,
+			variants = ast_add_list(p.ast, variants[:]),
+		},
+	)
 }
 
 parse_enum_type :: proc(p: ^Parser) -> Node_Index {
@@ -831,13 +821,13 @@ parse_enum_type :: proc(p: ^Parser) -> Node_Index {
 	fields := parse_elem_list(p)
 	close := expect_closing_token(p, .Close_Brace)
 
-	return add_node(p, .Enum_Type, tok.start, close.end, Enum_Type{
-		tok_pos   = tok.start,
-		base_type = base_type,
-		open      = open.start,
-		fields    = fields,
-		close     = close.start,
-	})
+	return add_node(
+		p,
+		.Enum_Type,
+		tok.start,
+		close.end,
+		Enum_Type{tok_pos = tok.start, base_type = base_type, open = open.start, fields = fields, close = close.start},
+	)
 }
 
 parse_bit_set_type :: proc(p: ^Parser) -> Node_Index {
@@ -855,13 +845,13 @@ parse_bit_set_type :: proc(p: ^Parser) -> Node_Index {
 	}
 
 	close := expect_closing(p, .Close_Bracket)
-	return add_node(p, .Bit_Set_Type, tok.start, close.end, Bit_Set_Type{
-		tok_pos    = tok.start,
-		open       = open.start,
-		elem       = elem,
-		underlying = underlying,
-		close      = close.start,
-	})
+	return add_node(
+		p,
+		.Bit_Set_Type,
+		tok.start,
+		close.end,
+		Bit_Set_Type{tok_pos = tok.start, open = open.start, elem = elem, underlying = underlying, close = close.start},
+	)
 }
 
 parse_matrix_type :: proc(p: ^Parser) -> Node_Index {
@@ -872,12 +862,7 @@ parse_matrix_type :: proc(p: ^Parser) -> Node_Index {
 	column_count := parse_expr(p, false)
 	expect_closing(p, .Close_Bracket)
 	elem := parse_type(p)
-	return add_node(p, .Matrix_Type, tok.start, p.prev.end, Matrix_Type{
-		tok_pos      = tok.start,
-		row_count    = row_count,
-		column_count = column_count,
-		elem         = elem,
-	})
+	return add_node(p, .Matrix_Type, tok.start, p.prev.end, Matrix_Type{tok_pos = tok.start, row_count = row_count, column_count = column_count, elem = elem})
 }
 
 parse_bit_field_type :: proc(p: ^Parser) -> Node_Index {
@@ -899,22 +884,18 @@ parse_bit_field_type :: proc(p: ^Parser) -> Node_Index {
 			advance_token(p)
 		}
 		more := allow_token(p, .Comma)
-		append(&fields, add_node(p, .Bit_Field_Field, p.ast.nodes[name].start, p.prev.end, Bit_Field_Field{
-			name     = name,
-			type     = type,
-			bit_size = bit_size,
-		}))
+		append(&fields, add_node(p, .Bit_Field_Field, p.ast.nodes[name].start, p.prev.end, Bit_Field_Field{name = name, type = type, bit_size = bit_size}))
 		if !more {
 			break
 		}
 	}
 	close := expect_closing_token(p, .Close_Brace)
 
-	return add_node(p, .Bit_Field_Type, tok.start, close.end, Bit_Field_Type{
-		tok_pos      = tok.start,
-		backing_type = backing_type,
-		open         = open.start,
-		fields       = ast_add_list(p.ast, fields[:]),
-		close        = close.start,
-	})
+	return add_node(
+		p,
+		.Bit_Field_Type,
+		tok.start,
+		close.end,
+		Bit_Field_Type{tok_pos = tok.start, backing_type = backing_type, open = open.start, fields = ast_add_list(p.ast, fields[:]), close = close.start},
+	)
 }
