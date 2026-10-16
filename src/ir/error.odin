@@ -14,7 +14,7 @@ Verify_Code :: enum u8 {
 	Bad_Arity, // S3
 	Bad_Type, // S4
 	Bad_Projection, // S5
-	Bad_Signature_Use, // S6
+	Bad_Node_Data, // S6
 	Removed_Node_Linked, // S7
 	Control_Not_Head, // C1
 	Head_Exit_Count, // C2
