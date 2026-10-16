@@ -1,355 +1,344 @@
 # Design of package `ir`: a Sea of Nodes IR for Odin
 
-Status: design for review. Scope: package `ir` (graph, builder, verifier, printer, parser, interpreter), plus the interfaces to `sched`, `x64` and `regalloc`. Linux x64 only.
+Status: revision 2, after the adversarial review `docs/research/10-ir-design-review.md` (responses at the end). Scope: package `ir` (graph, builder, verifier, printer, interpreter) and the interfaces to `sched`, `x64` and `regalloc`. Linux x64 only. Behaviour reference is the fork `/home/su3h7am/Projects/Odin/src`; where this document says "the fork" it means those files.
 
 ## 1. Prior art and what is reused
 
-Prior-art check (`AGENTS.md`), done before writing:
+Prior-art check (`AGENTS.md`):
 
 | Question | Finding | Consequence |
 |---|---|---|
-| Existing Odin package? | `core/rexcode/ir` (`refs`, `types`, `status`, `print`, `module`) is a structured `Module→Function→Block→Operation` contract for wasm/spirv/llvm codecs (`core/rexcode/docs/ir_design.md` §2-3). It has no effect or control edges. | Reuse vocabulary only (table below). Not a Sea of Nodes. |
+| Existing Odin package? | `core/rexcode/ir` is a structured `Module→Function→Block→Operation` contract for wasm/spirv/llvm codecs (`core/rexcode/docs/ir_design.md` §2-3). No effect or control edges. | Reuse vocabulary only (table below). Not a Sea of Nodes. |
 | Sea of Nodes in `refs`? | None (`docs/research/04-reuse-survey.md:28,558`). | Graph, verifier, scheduler are ours. |
-| Reference designs | Click's Simple tutorial (chapters 5-13, 18-20), V8 post-mortem and Cranelift (`docs/research/02`), Tilde Backend `tb.h` node list, `ASimpleReply.md`. | Adopt the node/edge model of Simple; adopt V8 lessons as constraints (section 13). |
-| PR #7850 | `docs/research/06`, `07`: good ideas (deterministic index-order merge, scalars in vregs and aggregates in memory, caller-saved-first allocation, remat); bad shape (fat overloaded `xbInstr`, three hand-kept opcode switches, shared module state plus replay log, `setjmp`). | Adopt the ideas listed in section 13; reject the shape. |
-| Vision check | `docs/research/01`: "Sea of Nodes based" is the stated direction; simplest efficient solution; no language change. | See section 2 for how "simplest" is applied. |
+| Reference designs | Click's Simple (chapters 5-13, 18-20), V8 post-mortem, Cranelift (`docs/research/02`), Tilde `tb.h`, `ASimpleReply.md`. | Simple's node/edge model; V8 lessons as constraints (section 13). |
+| PR #7850 | `docs/research/06`, `07`: deterministic index-order merge, scalars in vregs, caller-saved-first allocation, remat are worth keeping; the fat overloaded record, parallel hand-kept `switch`es, shared module state plus replay log and `setjmp` are not. | Section 13. |
+| Official behaviour | The fork's lowering is the specification for ABI, numerics, slicing, defer, unions, reflection (sections 6 and 8). | Every such rule below cites the fork function. |
+| Vision | `docs/research/01`: "Sea of Nodes based", simplest efficient solution, no language change. | Owner rulings, section 17. |
 
 Vocabulary taken from `core/rexcode/ir`:
 
 | rexcode | Here | Change |
 |---|---|---|
 | `Id`, `ID_NONE=0xFFFFFFFF` | `Node_Id`, `NODE_NONE = 0` | Zero value is inert (node 0 is reserved). |
-| `Ref_Space`, `Ref` | `Symbol_Space`, `Symbol_Ref` | Only function/global/extern/local-data spaces. |
+| `Ref_Space`, `Ref` | `Symbol_Space`, `Symbol_Ref` | Function/global/extern/local-blob only. |
 | `Type_Kind`, `Type_Ref` | `Value_Type` | Scalar classes only; aggregates are memory (section 6). |
-| `Error {location, code}` | `Error :: union #shared_nil` (as in `src/elf/writer.odin:28`) | Errors as typed values. |
-| `Print_Options`, `Token_Kind` | `Print_Options` | `value_prefix`, `indent`, same names; token spans deferred. |
-| `Module`, `Function`, `Global` | same names | `Function` owns an arena and SoA arrays instead of `[]Block`. |
-| `Operand`, `Block`, `Operation` | not reused | Nodes replace operations; blocks are derived by `sched`. |
-
-Other facts the design relies on, all checked in the Odin sources under `refs/Odin-upstream/src`:
-- `ProcCC_Odin` passes the context pointer as the last parameter (`llvm_backend_proc.cpp:520-526`, `llvm_abi.cpp:2769-2775`); the callee uses it directly as the address of `context` (`llvm_backend.cpp:225-247`).
-- Odin multiple returns: all results except the last are returned through pointer parameters appended after the regular parameters; the last is returned directly (`llvm_abi.cpp:394-418`).
-- Shifts: a count `>=` width gives 0, and signed `>>` clamps the count to `width-1` (`llvm_backend_expr.cpp:2089-2128`).
-- `or_return` is an `if has_value` with a return block (`llvm_backend_utility.cpp:634-680`).
+| `Error {location, code}` | `Error :: union #shared_nil` (as `src/elf/writer.odin:28`) | Typed error values. |
+| `Print_Options` | `Print_Options` | Same field names (`value_prefix`, `indent`). |
+| `Module`, `Function`, `Global` | same names | `Function` owns an arena and SoA arrays. |
+| `Operand`, `Block`, `Operation` | not reused | Nodes replace operations; blocks are derived. |
 
 ## 2. Decisions
 
-1. **True Sea of Nodes, honest about what floats.** Every value is a node; edges are use-def inputs. In v0 only pure nodes float (arithmetic, compares, casts, address computation, constants, `Phi` stays bound to its region). Every node that touches memory or can trap carries a control input and is pinned to a block. This is Cranelift's "CFG skeleton, floating pure operators" with Click's graph model. Floating loads are deferred (section 11).
+1. **Sea of Nodes with pinned effects.** Every value is a node; edges are inputs. Only pure nodes float. Every node that touches memory, can trap, or is ordered (loads, stores, calls, division, atomics, volatile accesses, syscalls) has a control input and stays in its block. This is Cranelift's split with Click's graph model. Floating loads are deferred (section 11).
 2. **One memory chain per function** (section 7). Alias classes deferred.
-3. **Scalar-only values.** Aggregates live in memory (stack slots), moved with `Load`/`Store`/`Mem_Copy`. This is the PR #7850 rule "scalars in vregs, everything else by address" and the Tilde rule (TB's Odin backend had `param_nodes` = "parameters, pointers to return values, and context ptr").
-4. **ABI-explicit calls.** The IR already contains the SysV/Odin-CC lowering of aggregates (pieces, byval, sret, split returns, context). `x64` only assigns registers.
-5. **No control flow is created after `lower`** except by `x64` after scheduling. IR passes never create blocks (V8 problem 11).
-6. **Structured, reducible control flow by construction.** Odin has no `goto`. Every loop is a `Loop` node with exactly two inputs.
-7. **One table for node properties** (`kind_info`), used by builder, verifier, printer, parser, peepholes and `sched`. No hand-kept parallel `switch`es (PR #7850 failure, doc 06 section 1.3).
-8. **`ir` does not depend on `types`.** `docs/01-architecture.md` lists `ir → support, types`. The IR is type-erased to scalars, so the dependency is unnecessary and `ir` tests need no checker. `lower` depends on both. Open question 1.
-9. **Instruction selection happens after scheduling, inside `x64`**, on linear blocks (the order is the reverse of Simple chapter 19, which selects before GCM). It keeps `sched` machine-independent and lets folding of single-use loads check "same block, no intervening store".
+3. **Scalar-only values.** Aggregates live in memory (stack slots) and move with `Load`/`Store`/`Mem_Copy`. Same rule as PR #7850 ("scalars in vregs, the rest by address") and as Tilde's Odin backend (`param_nodes`: "parameters, pointers to return values, and context ptr").
+4. **ABI-explicit calls.** The IR contains the result of the Odin/SysV argument planning (section 6); `x64` only assigns registers.
+5. **No control flow is created after `lower`** except by `x64` after scheduling, and the allocator sees that final CFG (section 12).
+6. **Structured control flow.** Odin has no `goto`; labeled `break`/`continue`, `fallthrough` and `defer` expansion do not enter a loop's interior. Every loop has one `Loop` header with exactly two inputs (section 5).
+7. **One table for declarative node properties** (`kind_info`: name, arity, slot types, purity, pinning, tuple shape). Typing rules that depend on context, tuple projections, interpretation and selection are explicit procedures, not table entries.
+8. **`ir` does not depend on `types`.** It is type-erased to scalars. `lower` depends on both.
+9. **Selection after scheduling**, inside `x64`, on linear blocks (the reverse of Simple chapter 19). `sched` stays machine independent.
+10. **Total, Odin-exact scalar semantics in the IR.** Shifts, signed remainder and conversions are defined for all inputs the way the fork defines them (sections 4, 8); `lower` does not rely on poison or undefined results.
 
 Rejected, briefly:
 
 | Alternative | Reason |
 |---|---|
-| CFG SSA with block params (`docs/research/00`) | Owner decision is Sea of Nodes (`docs/01-architecture.md`). We keep its good parts: pinned effects, a CFG skeleton, per-block linear order from `sched`. |
-| Alias classes in v0 (Simple ch. 11: `MemMerge`, `MemPhi`, `BulkMemPhi`) | Click's "free from the type system" argument does not hold in Odin: `rawptr`, `transmute`, `cast`, unions and `#raw_union` defeat type-based classes. Needs three extra node kinds and non-local worklist dependencies. |
-| Tagged `union` per node payload | Duplicates the tag already in `kinds[]`; 16 bytes per node. We use an 8-byte `#raw_union` indexed by kind. |
-| Def-use lists maintained incrementally | Cost on every edit and V8-style stale state. v0 builds a CSR `Use_Table` on demand. |
-| Click's lazy loop phis and edge-locked GVN | Needs unlock/relock on every edit. We pre-scan assigned variables per loop and make interned nodes immutable (section 11). |
-| `Never`/`forceExit` for infinite loops | Not needed: roots are all pinned nodes, not "reachable from `Stop`". |
-| Graph viewer | Click himself says ASCII dumps win (`ASimpleReply.md`). Text dump only. |
+| CFG SSA with block params | Owner chose Sea of Nodes. Its good parts are kept: pinned effects, a CFG skeleton, per-block linear order from `sched`. |
+| Alias classes in v0 (Simple ch. 11) | Odin's `rawptr`, `transmute`, unions and `#raw_union` defeat type-based classes; needs `MemMerge`/`MemPhi`/`BulkMemPhi` and non-local worklists. |
+| Tagged `union` payload per node | Duplicates the tag in `kinds[]`; 16 B per node. An 8-byte `#raw_union` read through per-kind accessors instead. |
+| Incrementally maintained def-use lists | Cost on every edit. A CSR `Use_Table` is built on demand. |
+| Click's lazy loop phis, edge-locked GVN | Needs unlock/relock on edits. Loop phis come from a pre-scan; interned nodes are immutable. |
+| General text parser in v0 | Not needed by any runnable milestone; the printer is kept (section 10). |
+| Graph viewer | Click: "ASCII dumps rule" (`ASimpleReply.md`). |
 
 ## 3. Data structures
 
-Package layout (`src/ir`): `ids.odin`, `kinds.odin`, `graph.odin`, `module.odin`, `builder.odin`, `fold.odin`, `cfg.odin`, `verify.odin`, `print.odin`, `parse.odin`, `interp.odin`. Imports: `support`, `base:runtime`, `core:mem`, `core:mem/virtual`.
+Package layout (`src/ir`): `ids.odin`, `kinds.odin`, `graph.odin`, `module.odin`, `builder.odin`, `cfg.odin`, `verify_graph.odin`, `verify_control.odin`, `verify_memory.odin`, `print.odin`, `interp_*.odin`, later `fold.odin`, `gvn.odin`. Imports: `support`, `base:runtime`, `core:mem`, `core:mem/virtual`.
 
 ```odin
 Node_Id :: distinct u32
 NODE_NONE :: Node_Id(0)            // node 0 is reserved: kind .Invalid
 
-Value_Type :: enum u8 { None, Control, Memory, Tuple, Bool, I8, I16, I32, I64, F32, F64, Ptr }
-
+Value_Type :: enum u8 { None, Control, Memory, Tuple, Bool, I8, I16, I32, I64, F16, F32, F64, Ptr }
 Node_Flags :: bit_set[Node_Flag; u8]
-Node_Flag :: enum u8 { Volatile, Cold, Rematerialize }
+Node_Flag  :: enum u8 { Cold, Rematerialize }
 
+Memory_Order :: enum u8 { Plain, Volatile, Relaxed, Acquire, Release, Acq_Rel, Seq_Cst }  // Odin consume = Acquire (llvm_atomic_ordering_from_odin)
+Access_Info :: struct { align_log2: u8, order, failure_order: Memory_Order, rmw: Rmw_Op, weak, signal: bool }
 Node_Data :: struct #raw_union {      // meaning given by kind; accessors assert the kind
 	int_value:  i64,                  // Const_Int (sign-extended from its width), Ptr_Offset
-	float_bits: u64,                  // Const_Float
-	index:      u32,                  // Proj index, signature/table/slot id
-	symbol:     Symbol_Ref,           // Symbol_Addr
-	memory:     Memory_Info,          // Load/Store/Mem_*: align (log2), flags
+	float_bits: u64,                  // Const_Float (F16 in the low 16 bits)
+	index:      u32,                  // Proj index, signature/table/slot id, Target_Op, stride
+	symbol:     Symbol_Ref,           // Symbol_Addr, Tls_Addr
+	access:     Access_Info,          // Load*/Store/Atomic_*/Fence
 	slot:       Slot_Info,            // Stack_Slot: size, align
 }
-
-Node :: struct {                       // stored as #soa[dynamic]Node: one array per field
-	kind:        Node_Kind,
-	type:        Value_Type,
-	flags:       Node_Flags,
-	input_count: u16,
-	first_input: u32,                 // index into Function.edges
-	data:        Node_Data,
+Node :: struct {                       // stored as #soa[dynamic]Node
+	kind: Node_Kind, type: Value_Type, flags: Node_Flags,
+	input_count: u16, first_input: u32, data: Node_Data,
 }
-
 Function :: struct {
-	id:         Function_Id,
-	name:       string,
-	signature:  Signature_Id,         // into signatures (function-local table)
-	nodes:      #soa[dynamic]Node,    // index = Node_Id; ids are creation order, never reused
+	id: Function_Id, name: string, signature: Signature_Id,
+	nodes:      #soa[dynamic]Node,    // index = Node_Id; creation order; never reused
 	edges:      [dynamic]Node_Id,     // all inputs of all nodes, one arena
-	signatures: [dynamic]Signature,
+	signatures: [dynamic]Signature,   // function-local
 	tables:     [dynamic][]i64,       // switch case values
-	blobs:      [dynamic]Data_Blob,   // function-local read-only data (string literals, constant arrays)
-	gvn:        Gvn_Table,
+	blobs:      [dynamic]Data_Blob,   // function-local read-only data
+	gvn:        Gvn_Table,            // best-effort cache (section 11)
 	start, stop: Node_Id,
 	arena:      virtual.Arena,        // owns every allocation above
 	error:      runtime.Allocator_Error, // sticky; first failure wins
 }
-
 Use :: struct { user: Node_Id, slot: u16 }
-Use_Table :: struct { first: []u32, uses: []Use }   // CSR, built by uses_build; order = (user id, slot)
+Use_Table :: struct { first: []u32, uses: []Use }   // CSR from uses_build; order = (user id, slot)
 ```
 
 Rules:
-- Inputs of a node are `edges[first_input : first_input+input_count]`. **Arity is fixed at creation.** The slice is valid until the next node is added. Region and Phi arity is known when the lowerer has collected its predecessors; a `Loop` is created with `[entry, NODE_NONE]` and its back edge set once (`loop_set_back_edge`). Shrinking a node (`region_remove_input`) is in place and keeps the Phis in lockstep. There is no growth, so no dead edge ranges.
-- Nodes are never freed: `remove_node` sets kind `.Removed`, clears inputs. Ids are stable, so dumps are diffable.
-- Estimated cost: kind, type, flags (3 B) + count (2 B) + first_input (4 B) + data (8 B) = 17 B per node plus 4 B per edge; about 27 B per node on average.
-- One `virtual.Arena` per function (`core/mem/virtual`, as already chosen in `docs/research/04-reuse-survey.md:491`). Functions are built on different threads without sharing anything mutable (section 14).
-- Errors: the builder is sticky-error: allocation failure sets `Function.error`; later calls return `NODE_NONE`; `function_finish` returns it. Programmer misuse (wrong arity or type) is caught by `assert` in the builder and by `verify` in all builds; user-input problems (unsupported feature) never reach `ir`, `lower` reports them with a source position.
+- Inputs of a node are `edges[first_input : first_input+input_count]`; the slice is valid until the next node is added. **Arity is fixed at creation.** A `Loop` is created with `[entry, NODE_NONE]` and sealed once. Pending-exit collection (section 5) gives `Region`/`Phi` their arity before creation. Shrinking (`region_remove_input`, `loop_collapse`) is in place and keeps phis in lockstep.
+- Nodes are never freed: `remove_node` sets kind `.Removed` and clears inputs; ids are stable and dumps diffable. Memory per node is 17 B plus 4 B per edge, about 27 B on average.
+- One `virtual.Arena` per function. Sticky-error builder: an allocation failure is recorded and later calls return `NODE_NONE`; `function_finish` returns it. Wrong arity or type from `lower` is a programmer error: `assert` in the builder and a `Verify_Error` from the verifier.
 
 ```odin
-Error :: union #shared_nil { Parse_Error, Verify_Error, runtime.Allocator_Error }
-
-Module :: struct {
-	functions: [dynamic]Function,     // index = Function_Id = declaration order from `check`
-	globals:   [dynamic]Global,       // index = Global_Id
-	externs:   [dynamic]Extern,       // index = Extern_Id (name only; resolved by the linker)
-	arena:     virtual.Arena,
-}
-
+Error :: union #shared_nil { Verify_Error, runtime.Allocator_Error }   // Parse_Error returns with the parser (section 10)
+Module :: struct { functions: [dynamic]Function, globals: [dynamic]Global, externs: [dynamic]Extern, arena: virtual.Arena }
 Symbol_Space :: enum u8 { Function, Global, Extern, Local_Blob }
-Symbol_Ref :: struct { space: Symbol_Space, index: u32 }
-
+Symbol_Ref   :: struct { space: Symbol_Space, index: u32 }
 Global :: struct {
-	name: string, size, align: u32, mutable: bool,
-	bytes:  []byte,                   // nil means zero-initialized (.bss)
+	name: string, size, align: u32, mutable, tls: bool,
+	bytes: []byte,                    // nil = zero-initialized (.bss / .tbss)
 	relocs: []Data_Reloc,
 }
 Data_Reloc :: struct { offset: u32, target: Symbol_Ref, addend: i64 }   // absolute 64-bit only
 
-Calling_Convention :: enum u8 { Odin, Contextless, C }       // C = SysV
-Param_Attr :: enum u8 { None, By_Value, Struct_Return, Sign_Extend, Zero_Extend, Context }
-Param :: struct { type: Value_Type, attr: Param_Attr, size: u32, align: u16 }  // size/align for By_Value
-Signature :: struct { cc: Calling_Convention, variadic: bool, params: []Param, results: []Value_Type } // 0..2 results
+Calling_Convention :: enum u8 { Odin, Contextless, C }                  // C = SysV
+Extension  :: enum u8 { None, Sign, Zero }
+Param_Attr :: enum u8 { Direct, Indirect, By_Value, Struct_Return, Context }
+Param  :: struct { type: Value_Type, attr: Param_Attr, ext: Extension, size: u32, align: u16 }   // size/align: By_Value object, or stack alignment of a Direct piece (16 for the low half of an i128)
+Result :: struct { type: Value_Type, ext: Extension }
+Signature :: struct { cc: Calling_Convention, variadic: bool, params: []Param, results: []Result }  // 0..2 results
 ```
 
-Only `Module.globals`, `externs` and function names are declared (by `lower`, single-threaded, in `check` order) before any function body is built. During the parallel build, workers only read them. Function-local `Local_Blob` entries are merged into the module in function-index order at the end, deduplicating by content (section 14).
+`Indirect` is a plain pointer to a caller-owned copy (Odin MEMORY-class arguments); `By_Value` is the C `byval` object copied by `x64` into the outgoing stack area. They are different ABIs (section 6).
+
+Module symbols (functions, globals, externs) are declared by `lower` in `check` order before any body is built; workers read them. `Local_Blob` ids stay function-local through the whole pipeline: nothing rewrites `Symbol_Addr` nodes. The emitter keeps `blob_symbol[function][blob]`, filled by a deterministic merge in function-index order that deduplicates blobs only when bytes, alignment, and every relocation (offset, final target, addend) are equal (section 14).
 
 ## 4. Node kinds (v0)
 
-Every node has one output value of type `Value_Type`. Multi-output nodes have type `Tuple`; members are read with `Proj(tuple)` (index in `data.index`), as in Simple and TB. Integer types carry no signedness: the operation does. Integers wrap (two's complement); `Const_Int` is stored sign-extended from its width, so equal constants are equal nodes.
+Every node has one output of type `Value_Type`. Multi-output nodes have type `Tuple`; members are read with `Proj(tuple)` (index in `data.index`). Integer types carry no signedness: the operation does. Integers wrap (two's complement); `Const_Int` is stored sign-extended from its width.
 
-"Pinned" means the node has a control input (slot 0 = the head of its block, section 5) and `sched` never moves it out of that block. Everything else is "pure": no control input, immutable, hash-consed (section 11), free to float.
+"Pinned" = control input in slot 0 (a block head, section 5); `sched` never moves the node out of its block. "Pure" = no control input, immutable, free to float. Loads and stores exist for `I8..I64`, `F16`, `F32`, `F64`, `Ptr` only; `Bool` is never stored (`lower` uses `I8` plus `Trunc`/`Zext`).
 
 | Kind | Inputs | Output | Class | Notes |
 |---|---|---|---|---|
-| `Start` | none | Tuple(ctrl, mem, params…) | control | Params are `Proj` 2..n, in signature order, incl. sret pointers, split-return pointers and the context pointer. |
-| `Stop` | terminators… | none | control | Root for traversals; one per function. |
-| `Region` | ctrl heads (≥2) | Control | control | Merge point; block head. |
-| `Loop` | entry, back edge | Control | control | Exactly 2 inputs; block head; marks loop nesting. |
-| `If` | ctrl, cond:Bool | Tuple(ctrl, ctrl) | control | `Proj 0` = true, `Proj 1` = false; each projection heads its own block (no critical edges). `Cold` flag on a `Proj` marks panic paths. |
-| `Switch` | ctrl, value | Tuple(ctrl × (cases+1)) | control | `data.index` = case table; `Proj k` for `k < n` is case k, `Proj n` is default. |
-| `Proj` | tuple | member type | control or pure | Projection of a control tuple is a block head. |
-| `Return` | ctrl, mem, results… | none | terminator | 0-2 scalar results matching the signature. |
-| `Unreachable` | ctrl, mem | none | terminator | Optimizer may assume it is never executed; `x64` emits `ud2`. |
-| `Trap` | ctrl, mem | none | terminator | `intrinsics.trap()`; executes `ud2`. |
-| `Const_Int` | none | Bool/I8..I64/Ptr | pure, remat | `data.int_value`. `Ptr` constant is the null pointer or an absolute address. |
-| `Const_Float` | none | F32/F64 | pure, remat | Raw bits. |
-| `Undef` | none | any scalar | pure | `---` and phi arms with no value. Interpreter yields 0. |
-| `Symbol_Addr` | none | Ptr | pure, remat | `data.symbol`: function, global, extern or local blob. |
-| `Stack_Slot` | ctrl (=`Start`) | Ptr | pinned to entry | `data.slot` size/align. Unique, never interned. Frame layout is `x64`'s. |
-| `Phi` | region, values… | any incl. Memory | bound to region | One value per region input, same order. |
-| `Add Sub Mul And Or Xor` | a, b | I8..I64 | pure | `Bool` allowed for `And Or Xor`. Commutative ones sort inputs by id. |
-| `Shl Shr Sar` | a, count | same as a | pure | Count `< width` only; larger is undefined. `lower` emits the Odin rule (section 8). `count` has the type of `a`. |
-| `SDiv UDiv SRem URem` | ctrl, a, b | I8..I64 | **pinned** | Can trap (÷0, `MIN/-1`); must not float above a guard. Not on the memory chain. |
-| `Eq Ne SLt SLe ULt ULe` | a, b | Bool | pure | `>` and `>=` are canonicalized by swapping. `Eq/Ne` also on `Ptr`, `Bool`. |
-| `FEq FLt FLe FNe` | a, b | Bool | pure | Ordered, except `FNe` which is true on NaN (Odin and C semantics). |
-| `FAdd FSub FMul FDiv FNeg` | a[, b] | F32/F64 | pure | IEEE; no fast-math. |
-| `Select` | cond, a, b | type of a | pure | Only for operands that are already evaluated (shift clamp, `min`, `max`). Never for `x if c else y` with effects. |
-| `Trunc Zext Sext` | a | I8..I64/Bool | pure | `Trunc` to `Bool` keeps bit 0 (`i8 → i1`, as LLVM does for Odin `bool`). |
-| `Bitcast` | a | same size | pure | int↔float, int↔`Ptr`. |
-| `Sint_To_Float Uint_To_Float Float_To_Sint Float_To_Uint Float_Ext Float_Trunc` | a | F32/F64/int | pure | `x64` expands `u64↔float` after scheduling (it needs a branch). |
-| `Ptr_Offset` | base | Ptr | pure | `base + data.int_value`. Field access. |
-| `Ptr_Index` | base, index:I64 | Ptr | pure | `base + index * data.index` (stride). Array and slice element access. |
-| `Load` | ctrl, mem, ptr | scalar | pinned | `Volatile` flag; align in data. Result unused and non-volatile: removable. |
-| `Store` | ctrl, mem, ptr, value | Memory | pinned | |
-| `Mem_Copy` | ctrl, mem, dst, src, size:I64 | Memory | pinned | Overlap allowed (memmove semantics). `x64` expands inline; no libc. |
-| `Mem_Set` | ctrl, mem, dst, byte:I8, size:I64 | Memory | pinned | |
-| `Call` | ctrl, mem, callee:Ptr, args… | Tuple(mem, r0[, r1]) | pinned | `data.index` = function-local signature id. Direct call = `callee` is a `Symbol_Addr`. |
-| `Syscall` | ctrl, mem, number, args (≤6) | Tuple(mem, I64) | pinned | `intrinsics.syscall`; needed by `core:sys/linux`. Clobbers `rcx`, `r11`. |
+| `Start` | none | Tuple(ctrl, mem, params…) | control | `Proj 0` is the entry head; `Proj 1` the initial state; `Proj 2..` the parameters in signature order (sret, regular pieces, split-result pointers, context). |
+| `Stop` | terminators… | none | control | Dump/verifier summary; not a traversal root. |
+| `Region` | heads (≥2) | Control | head | Merge. |
+| `Loop` | entry, back edge | Control | head | Exactly 2 inputs. |
+| `If` | ctrl, cond:Bool | Tuple(ctrl, ctrl) | control | `Proj 0` true, `Proj 1` false; each projection heads its own block. `Cold` on a `Proj` marks panic paths. |
+| `Switch` | ctrl, value | Tuple(ctrl × (n+1)) | control | `data.index` = case table; `Proj k<n` case k, `Proj n` default. |
+| `Proj` | tuple | member type | head if control, else pure | |
+| `Return` | ctrl, mem, results… | none | terminator | Operands match the signature (section 6). |
+| `Unreachable` `Trap` | ctrl, mem | none | terminator | `Trap` executes `ud2`; `Unreachable` is `ud2` for `x64`, assumption for optimizers. |
+| `Const_Int` `Const_Float` | none | Bool/I8..I64/Ptr; F16/F32/F64 | pure, remat | |
+| `Undef` | none | any scalar | pure | One stable arbitrary value per node (`---` only). Interpreter: 0. Never used to fill a missing phi arm. |
+| `Symbol_Addr` | none | Ptr | pure, remat | Function, global, extern or local blob. |
+| `Tls_Addr` | none | Ptr | pure, remat | Local-exec address of a `tls` global: `fs:0 + tpoff`. |
+| `Stack_Slot` | entry head | Ptr | pinned (entry) | `data.slot`. Unique; never interned. |
+| `Stack_Alloc` | ctrl, size:I64 | Ptr | pinned | `intrinsics.alloca`; `data.index` = alignment. Lives until return; forces a frame pointer. |
+| `Phi` | region, values… | any, incl. Memory | bound to region | One value per region input, same order. |
+| `Add Sub Mul And Or Xor` | a, b | I8..I64 (`Bool` for And/Or/Xor) | pure | Commutative ones sort inputs by id. |
+| `Shl Shr Sar` | a, count | type of a | pure | `count` is any int type, read **unsigned in its own width**. Total: `count ≥ width(a)` gives 0 (`Shl`, `Shr`) or sign fill (`Sar`), as `llvm_backend_expr.cpp:2093-2125`. `x64` expands the clamp unless the count is a constant `< width`. |
+| `SDiv UDiv SRem URem` | ctrl, a, b | I8..I64 | pinned | Hardware semantics: trap on divisor 0 and on `MIN/-1`. `lower` adds the official guards (section 8). Not on the memory chain. Unused result: removable. |
+| `Eq Ne SLt SLe ULt ULe` | a, b | Bool | pure | `>`/`>=` canonicalized by swapping. `Eq/Ne` also on `Ptr`, `Bool`. |
+| `FEq FLt FLe FNe` | a, b | Bool | pure | Ordered, except `FNe` (true on NaN). Not defined on `F16`. |
+| `FAdd FSub FMul FDiv FNeg FSqrt` | a[, b] | F32/F64 | pure | IEEE; `FSqrt` is `sqrtsd`/`sqrtss`. `F16` arithmetic is `Float_Ext`, op, `Float_Trunc` per operation (the LLVM promotion the fork gets). |
+| `Select` | cond, a, b | type of a | pure | Operands already evaluated; never for effectful `x if c else y`. |
+| `Trunc Zext Sext` | a | I8..I64/Bool | pure | `Trunc` to `Bool` keeps bit 0. |
+| `Bitcast` | a | same size | pure | int↔float, int↔`Ptr`, `I16`↔`F16`. Not for `Bool`. |
+| `Sint_To_Float Uint_To_Float Float_To_Sint Float_To_Uint Float_Ext Float_Trunc` | a | F16/F32/F64/int | pure | `F16` ends use the runtime software routines (`f16_to_f32`, `f32_to_f16`, same rounding as the libcalls the fork emits); `x64` expands `u64↔float` after scheduling. |
+| `Popcnt Clz Ctz Bswap` | a | I8..I64 | pure | `Clz`/`Ctz` of 0 give the width (`llvm.ctlz/cttz` with `is_zero_poison = false`, `llvm_backend_proc.cpp:3851-3870`). `x64` expands at baseline x86-64 (`bsr/bsf` guards, SWAR popcount; no `popcnt`/`lzcnt` assumed). |
+| `Mul_Hi_S Mul_Hi_U` | a, b | I64 | pure | High half of the 128-bit product; narrower overflow tests widen to 64 first. |
+| `Ptr_Offset` | base | Ptr | pure | `base + data.int_value`. |
+| `Ptr_Index` | base, index:I64 | Ptr | pure | `base + index * data.index`. Not an `#soa` element address (section 8). |
+| `Load` | ctrl, mem, ptr | scalar | pinned | Plain, non-atomic; state-consuming only. `data.access.align_log2`. |
+| `Load_Ordered` | ctrl, mem, ptr | Tuple(mem, value) | pinned | Volatile and atomic loads (`order` ≠ `Plain`). Produces a state, so order against other ordered operations is a graph edge. |
+| `Store` | ctrl, mem, ptr, value | Memory | pinned | `order`: `Plain`, `Volatile`, or atomic (`Relaxed`, `Release`, `Seq_Cst`). |
+| `Atomic_Rmw` | ctrl, mem, ptr, value | Tuple(mem, old) | pinned | `rmw` ∈ add, sub, and, nand, or, xor, xchg; order per `data`. Widths 1, 2, 4, 8. |
+| `Atomic_Cas` | ctrl, mem, ptr, expected, desired | Tuple(mem, old, Bool) | pinned | Success and failure orders, `weak`. Floats compare by bits (`bitcast` in `lower`). |
+| `Fence` | ctrl, mem | Memory | pinned | Scope is the `signal` flag (thread otherwise); `order` in `data.access`. |
+| `Mem_Copy` `Mem_Set` | ctrl, mem, dst, src/byte, size:I64 | Memory | pinned | `Mem_Copy` has `memmove` semantics. Expanded inline; no libc. |
+| `Call` | ctrl, mem, callee:Ptr, args… | Tuple(mem, r0[, r1]) | pinned | `data.index` = function-local signature. Direct call: callee is a `Symbol_Addr`. |
+| `Syscall` | ctrl, mem, number, args (≤6) | Tuple(mem, I64) | pinned | `intrinsics.syscall`: registers `rax rdi rsi rdx r10 r8 r9`, clobbers `rcx r11` and memory (`llvm_backend_proc.cpp:4446-4542`). Not a fence substitute. |
+| `Target_Op` | ctrl, mem, args… | Tuple(mem, results…) | pinned | Closed enum in `data.index`: `Cpuid` (leaf, subleaf → eax, ebx, ecx, edx), `Xgetbv`, `Pause` (`cpu_relax`), `Rdtsc`. One table `target_op_info` gives arity and types. |
 
-Total: 63 kinds plus `Invalid` and `Removed`.
+Total: 77 kinds plus `Invalid` and `Removed`. Atomic stores are `Store` with an order; `Odin` `atomic_*_explicit` orders map as `relaxed→Relaxed`, `consume/acquire→Acquire`.
 
-Deferred (the checker or `lower` must report `Unsupported(feature, position)`, never emit something approximate):
+x64 mapping of the atomic family (stronger than required is allowed; non-atomic is not): loads of any order are `mov`; `Seq_Cst` stores are `xchg`; other stores are `mov`; `Atomic_Rmw` add/sub/xchg with the old value use `lock xadd`/`xchg`; and/or/xor/nand use `lock cmpxchg` loops when the old value is used; `Atomic_Cas` is `lock cmpxchg` (16-byte is `Unsupported`); a `Seq_Cst` thread `Fence` is `mfence`, other fences and all signal fences are compiler barriers. `Load_Ordered`, `Store` with order ≠ `Plain`, and the atomic nodes are never removed, commoned, forwarded or fused.
 
-| Area | Deferred kinds | Why deferred |
+Still deferred (each reported by `lower` as `Unsupported(feature, position)`, never approximated):
+
+| Area | Kinds | Why |
 |---|---|---|
-| Bit tricks | `Popcnt Clz Ctz Bswap Rotl Rotr Mul_Hi` | Pure, trivial to add (stage 14); `core:math/bits` needs them soon after hello world. |
-| Overflow arithmetic | `Add_Overflow` etc. (`intrinsics.overflow_*`) | Pure tuples; add with the bit tricks. |
-| Float math | `FSqrt FAbs FMin FMax Fma Floor Ceil` | `intrinsics.sqrt` is `sqrtsd`; add with the bit tricks. |
-| 128-bit and 16-bit | `I128`, `F16` value types | `base:runtime` uses `u128` division. Open question 2. |
-| SIMD, matrix | vector value types, `#simd`, `matrix` | Out of v0; arrays and complex/quaternion arithmetic are expanded to scalars by `lower`. |
-| Atomics | `Atomic_Load/Store/Rmw/Cas`, `Fence` | Memory-chain nodes with a full-barrier meaning; additive. |
-| Inline asm, target intrinsics | `Asm`, `cpuid`, `rdtsc`, `xgetbv` | Odin roadmap item; one opaque effectful node later. |
-| Thread-local data | `Tls_Addr` | `base:runtime` uses `@(thread_local)` (`core_builtin.odin:63`, `heap_allocator_implementation.odin:2173`). Needed soon after hello world. Open question 3. |
-| Dynamic stack | `Stack_Alloc` (`intrinsics.alloca`) | Pinned, changes frame layout. |
-| Control folding | `Dead` control constant | No branch folding in v0 (section 11). |
-| Floating loads | `Load` without control, guard cast | Needs Click's `Cast` guard (section 11). |
-| Debug info | `Stack_Slot.debug_name`, variable scopes | DWARF is a later milestone. |
+| SIMD, matrix | vector value types | Open question 1: the copied runtime's baseline paths use `#simd[16]u8`/`#simd[4]u32`. |
+| Native 128-bit | `I128` | `lower` expands to `I64` pairs; the ABI keeps the 16-byte grouping (section 6). |
+| Rare numerics | `Fma`, `Floor`, `Ceil`, saturating ops, `Bit_Reverse`, rotates | Not used by the default runtime or `core:fmt`; `lower` can expand from shifts/masks when needed. |
+| Overflow arithmetic | none | `lower` expands `overflow_add/sub/mul` to compares and `Mul_Hi_*`; no node. |
+| Inline asm | `Asm` | Roadmap item. |
+| Control folding | `Dead` constant | Section 11. |
+| Floating loads | `Load` without control + guard cast | Section 11. |
+| Debug info | variable scopes | DWARF is a later milestone. |
 
 ## 5. Control, blocks and phis
 
-Blocks are derived, not stored. A **block head** is `Start`, `Region`, `Loop`, or a `Proj` of an `If`/`Switch` (Simple chapter 13, "Identification of Basic Blocks"). A block is the head plus every pinned node whose slot-0 control input is that head, plus exactly one **exit**: an `If`/`Switch`/`Return`/`Unreachable`/`Trap` whose control input is the head, or an edge into a `Region`/`Loop` whose input is the head. A jump needs no node: a `Region` input is the head of the predecessor block.
+A **block head** is `Proj 0` of `Start` (the entry head), a `Region`, a `Loop`, or a `Proj` of an `If`/`Switch` (Simple chapter 13, "Identification of Basic Blocks"). A block is its head, every pinned node whose slot-0 control input is that head, and one **exit**: an `If`/`Switch`/`Return`/`Unreachable`/`Trap` whose control input is the head, or an edge into a `Region`/`Loop` that lists the head as an input. A jump needs no node. `Stack_Slot` takes the entry head. Every transfer goes through a projection block, so critical edges do not exist in the source graph.
 
-Rules the builder and `lower` follow:
-- **Current control** in `lower` is a block head or `CTRL_NONE` (unreachable). While it is `CTRL_NONE` no node is emitted. Merges drop dead predecessors; a merge with one live predecessor is not created (the lowerer continues in that block). A `Region` has ≥2 inputs.
-- **Loops**: `loop_begin(entry) → Loop`, body built with the header as current control, every `continue` jumps to one `continue Region` (created on demand; if only the bottom of the body reaches the back edge there is none), `loop_end(loop, back_source)` sets input 1. Every `break` jumps to one exit `Region`. Phis for variables assigned in the body are created at `loop_begin` from a pre-scan of the loop body (variables assigned, plus always the memory phi), with the back-edge input set by `loop_end`. After `loop_end`, a phi whose back input is itself or equals its entry input is replaced by the entry value by the one-off pass `phis_simplify`, which then calls `gvn_rebuild` (section 11).
-- **Branch merges**: `lower` compares the per-variable node ids of the arms; a `Phi` is created only where they differ.
-- **Switch** on integers: one `Switch` with a case table and one default. Strings and type switches are `If` chains or a switch on the tag.
-- Reducibility: back edges exist only as `Loop` input 1. Verified (`C5`).
+Rules `lower` follows (all through one **pending-exit** mechanism):
+- **Current control** is a head or `CTRL_NONE` (unreachable; nothing is emitted). A merge with one live predecessor is not created.
+- **Pending exits.** `break`, labeled `break`/`continue`, `continue`, `fallthrough` and loop-bottom fall-through append `(head, environment)` to the target's list. The target is *sealed* once: a `Region` with exactly that many inputs is created, and its phis come from comparing the environments (a phi only where node ids differ; the memory phi only where states differ). Loop exits and `continue` targets are sealed when the loop body ends, so arity is never grown. Each target records its scope depth; exits run exactly the pending `defer`s of the scopes they cross (section 8).
+- **Counted `for`.** `continue` and the end of the body jump to a continue target that runs the post statement and then takes the back edge.
+- **Loops.** `loop_begin(entry)` creates the `Loop` and, from a pre-scan of the checked body (variables assigned in the body, the post statement, nested bodies and defer expansions; plus always the memory variable), one phi per such variable and a memory phi. `loop_end(loop, back_head)` sets input 1 and each phi's back input. If no path reaches the back edge (`for { break }`, `for { return }`), `loop_end(loop, NODE_NONE)` runs `loop_collapse`: the header is replaced by its entry, each phi by its entry value, the markers removed; since this rewrites inputs of already interned nodes it runs `uses_build` and `gvn_rebuild` (section 11). No synthetic back edge is invented.
+- **Switch.** One `Switch` per integer switch. A case body reached from its projection and by `fallthrough` is a `Region` with matching phis; its direct projection stays a separate edge block.
+- **Loop depth** and membership are those of the natural loop of each `Loop` back edge (body = blocks that reach the back-edge source without passing the header), not the count of dominating `Loop` nodes.
+- Reducibility follows from the above and is asserted (`C5`).
 
-Builder surface for control (all return `Node_Id`, sticky error): `start(fn)`, `if_(fn, ctrl, cond) → (true_head, false_head)`, `switch_(fn, ctrl, value, cases) → (case_heads, default_head)`, `region(fn, preds)`, `loop_begin`, `loop_end`, `phi(fn, region, values)`, `ret(fn, ctrl, mem, results)`, `trap`, `unreachable`, `function_finish(fn) → Error` (creates `Stop`, runs `phis_simplify`, `verify`).
+Builder surface for control (sticky error): `start`, `if_(ctrl, cond) → (true_head, false_head)`, `switch_`, `region(preds)`, `loop_begin`, `loop_end`, `phi(region, values)`, `ret`, `trap`, `unreachable`, `function_finish → Error` (creates `Stop`, runs `verify`).
 
 ## 6. Calls, ABI and aggregates
 
-**Aggregates are memory.** Structs, arrays, slices, strings, `any`, unions, dynamic arrays, maps, complex numbers and `context` itself are stack slots or globals, addressed by `Ptr`. `lower` loads and stores their scalar fields; whole-value copies use `Mem_Copy`; zero-initialization and `---` use `Mem_Set` or nothing. A local whose address is never taken and whose type is scalar is not a slot at all: it is an SSA variable in the lowerer's scope (Simple's `ScopeNode` idea), joined with phis (section 5). Slot promotion for small aggregates (slice, string) is a later pass (stage 15).
+**Aggregates are memory.** Structs, arrays, slices, strings, `any`, unions, dynamic arrays, maps, complex numbers and `context` are stack slots or globals addressed by `Ptr`. `lower` loads and stores scalar fields; whole-value copies are `Mem_Copy`; zero initialization is `Mem_Set`; `---` emits nothing. A local becomes an SSA variable (Simple's `ScopeNode` idea) only if its type is scalar and **no address of it is ever taken, explicitly or implicitly** (`&x`, slicing an array local, `any(x)` boxing, `by_ptr` calls, method receivers by pointer). Small-aggregate slot promotion is a later pass.
 
-**Calls carry scalars only.** `lower` asks `types` for the parameter classification (SysV eightbyte classes; the Odin-CC variant is extracted from `llvm_abi.cpp`; the classifier is `types` work, `docs/research/07` §2) and builds the call:
+**The signature is the output of `types.abi`, which reproduces `llvm_abi.cpp` exactly.** It is not derived from Clang's behaviour; Clang is the oracle for the `C` convention only. The planner keeps the fork's counters and decisions:
 
-| Source value | Lowered to |
+| Case in the fork | Representation |
 |---|---|
-| Scalar | One argument of that `Value_Type`; small ints get `Sign_Extend`/`Zero_Extend`. |
-| Aggregate ≤16 B classified INT/SSE | 1-2 scalar arguments loaded from the aggregate. |
-| Aggregate in MEMORY class | `Ptr` argument with attr `By_Value` and size/align; `x64` copies it to the outgoing area. |
-| Aggregate result ≤16 B | 1-2 scalar results (`Tuple(mem, r0, r1)`), stored to a slot by the caller. |
-| Aggregate result >16 B | Hidden first argument, attr `Struct_Return`. |
-| Multiple results, `Odin` cc | Results 0..n-2 are `Ptr` parameters appended after the regular parameters (caller passes `Stack_Slot` addresses and loads afterwards), result n-1 is the return value. Same layout as the official compiler. |
-| `context` | Last parameter (attr `Context`) of every `Odin`-cc function; the caller passes its current context pointer. `Contextless` and `C` have none. |
-| C variadic | `variadic = true`; `x64` sets `al` to the number of vector register arguments. |
+| Counters start at 6 integer and 8 SSE registers; every argument classified `Int`/`SSE*` subtracts its eightbytes before the decision (`llvm_abi.cpp:791-812, 930-938`). | Planner state; reproduced verbatim, including that return pointers, `sret` and `context` are not counted. |
+| Aggregate whose pieces do not fit the remaining registers (`ran_out_of_regs`). | `By_Value` argument for any convention (`:961-964`); returns use `Struct_Return`. |
+| MEMORY-class aggregate, convention `Odin`. | `Indirect`: plain pointer, no copy by `x64` (`:975-979`). The caller passes the address of a temporary copy, or of the original when the fork proves the parameter read-only (`lb_address_from_load_if_readonly_parameter`). |
+| MEMORY-class aggregate, convention `C`. | `By_Value` with size and alignment; `x64` copies it to the outgoing area (`:976-981`). |
+| Aggregate classified into registers. | 1-2 `Direct` pieces, consecutive in the parameter list, assigned by `x64` sequentially, register by register, as LLVM's calling-convention lowering of the final parameter list does. The planner's counters decide `Direct` versus `By_Value`; hidden pointers are not in the counters, so a straddle between the last register and the stack is reproduced, not corrected (open question 5). Odd-size aggregates follow `llreg`/`classify_source`. |
+| `i128` (computation uses `I64` pairs). | Two `Direct` `I64` pieces; the low piece has `align = 16` for stack placement; classified `Int,Int`. A struct containing it follows the aggregate rules, not "two scalars". |
+| Small integer (<4 bytes), `bool`. | `ext` = `Sign` (signed integers, enums), `Zero` (unsigned, `bool`, `b8`..): `lb_integer_extension_attribute` (`:437-456`). The caller extends arguments to 32 bits, the callee extends results to 32 bits. The same on `Result`. |
+| Results ≤16 bytes, classified. | 1-2 `Result` pieces (`rax:rdx`, `xmm0:xmm1`, mixed). |
+| Larger results. | First parameter `Struct_Return`. |
+| `Odin` convention, tuple results. | Results 0..n-2 are `Ptr` parameters (`Direct`, appended after the regular parameters, before `context`); result n-1 is the return value (`:394-418, 2754-2775`). |
+| `Odin` convention. | Last parameter `Context`. `Contextless` and `C` have none. A procedure of those conventions that needs a context builds a default one in a local (`lb_find_or_generate_context_ptr`, `lb_emit_init_context`). |
+| C variadic. | `variadic = true`; `x64` sets `al` to the number of vector register arguments. |
+| `f16`. | `Direct` `F16` piece (class `SSEHs`). |
 
-Order of parameters of an `Odin`-cc function: `[Struct_Return] regular… split-result-pointers… context`.
+Parameter order of an `Odin` function: `[Struct_Return] regular… split-result-pointers… Context`. `Start`, `Call` and `Return` carry exactly these pieces; `verify` checks types, `attr` and `ext` against the signature. Assigning registers, stack offsets, `rsp` alignment, callee-saved registers and the red zone belong to `x64`.
 
-Calls to functions in the module are `Call` with a `Symbol_Addr` callee; indirect calls pass any `Ptr`. Calls that never return (`-> !`, panics) are followed by `Unreachable(ctrl, mem)` consuming the call's memory, which keeps the call alive.
+Calls to module functions are `Call` with a `Symbol_Addr` callee. Calls that never return (`-> !`) are followed by `Unreachable(ctrl, mem)` consuming the call's memory.
 
-Register assignment, stack-argument placement, `rsp` alignment, callee-saved handling and the red zone belong to `x64`; `Call` and `Start`/`Return` tell it everything through the signature.
+**Validation** of the planner is bidirectional: a matrix of signatures compiled by the fork's Odin and by Clang, compared piece by piece with the plan (register exhaustion, MEMORY aggregates, mixed Int/SSE, odd sizes, signed/unsigned small returns, `i128`, split returns, `context`).
 
 ## 7. Memory model
 
-**Recommendation for v0: one memory chain per function.** This is Simple chapter 10 ("One memory value"), which Click himself builds first; chapter 11 splits it later.
+**v0: one memory chain per function** (Simple chapter 10).
 
-- `Memory` is a value type. `Start` produces the initial state (`Proj 1`). `Store`, `Mem_Copy`, `Mem_Set`, `Call` (member 0), `Syscall` (member 0) and memory `Phi` produce a new state. `Load`, `Return`, `Unreachable`, `Trap` and the producers consume one. Every function exit consumes the current state, which keeps stores alive (Simple: "Every Return consumes the current whole-memory value").
-- `lower` keeps the current state in a hidden variable `$mem` in the same scope structure as other variables, so branches and loops merge it with ordinary phis.
-- A `Load` does not produce a state, so many loads may read one state and `Load(Store(m,p,v), p)` with the identical pointer node and size can be forwarded (section 11).
-- **Order inside a block** is recovered by `sched` from four rules, nothing else: (1) data inputs, (2) producer before consumer of a state, (3) **anti-dependence**: a `Load` reading state `m` runs before every other consumer of `m` that takes the state over (a `Store`, `Call`, a `Phi` input on that edge, a `Return`), (4) ties broken by node id (source order for builder output). Rule 3 is Simple chapter 13 "Inserting Anti Dependencies" without alias filtering.
-- **Linearity** (verifier `M3`): two consumers of one state that take it over must be on mutually exclusive paths (neither block dominates the other, and not the same block). A violation is a forked or stale chain: the V8 bug class "three effect chains were conflated". A `Load` whose state was already taken over by a store in a block that dominates it is unsatisfiable (`M4`).
-- Loads and stores are pinned (section 2), so they cannot move above a bounds check or a null test. Division is pinned for the same reason and is not on the chain.
-- `Stack_Slot` addresses are plain pointers. All slots, globals and heap objects share the chain; this is conservative and always correct. Later refinement: non-escaping slots (address only used by `Load`/`Store`/`Ptr_*` chains) are sound alias classes by construction, and a `MemSplit/MemMerge` pair can be added without changing existing node layouts.
-- `Volatile` loads and stores are kept and never forwarded. Atomics (deferred) are chain nodes with full-barrier meaning.
+- `Memory` is a value type. `Start` supplies the initial state. Producers: `Store`, `Mem_Copy`, `Mem_Set`, `Fence`, `Call`/`Syscall`/`Target_Op`/`Load_Ordered`/`Atomic_*` (tuple member 0), memory `Phi`. Consumers: all producers, `Load`, `Return`, `Unreachable`, `Trap`. A call or syscall always takes the whole state and produces a new one, even with no result: unknown callees get no readonly or no-alias reading.
+- `lower` keeps the current state in a hidden variable `$mem` in the same scope structure as other variables.
+- A plain `Load` consumes a state and produces none. Volatile and atomic loads produce one (B1 of the review): the order between two of them is a graph edge, not the node-id tie-break.
+- **Order inside a block** comes from four rules and nothing else: (1) data inputs, (2) producer before consumer of a state, (3) anti-dependence: a plain `Load` of state `s` runs before the producer that takes `s` over, (4) ties by node id (source order for builder output). Rule 4 is only a determinism tie-break, never a semantic order.
+- **Path consistency** is verified (section 9, `M1-M5`): the current state at every point of every path, with phi inputs checked on their edges. Unchanged states need no phi; mutually exclusive consumers of one state are fine.
+- Loads, stores and division are pinned, so they cannot move above a bounds check or a null test.
+- All stack slots, globals and heap objects share the chain; conservative and correct for `rawptr`. Later refinement: non-escaping slots are sound alias classes; `MemSplit/MemMerge` can be added without changing existing layouts.
+- Non-atomic shared accesses obey Odin's race rules; the state token does not promise exclusivity. Only atomic and ordered nodes synchronize.
 
 ## 8. How Odin features lower
 
-Everything in this section happens in `lower` (AST + types → `ir`), which the architecture table does not list yet (open question 1). The IR sees only the result.
+All of this is `lower` (AST + types → `ir`). The behavioural reference is the named fork function.
 
-**Multiple return values.** Callee: results 0..n-2 are `Store`d through the extra pointer parameters, result n-1 is passed to `Return` (1 or 2 scalar pieces, or stored through `sret`). Named results are slots (or SSA variables) read by a bare `return`. Caller: one `Stack_Slot` per extra result, in the entry block; after the `Call`, `Load`s feed the destructuring assignment.
+**Integer division and remainder** (`lb_integer_division` `llvm_backend_expr.cpp:1494-1586`, `lb_integer_modulo` `:1729-1830`, mode from `lb_check_for_integer_division_by_zero_behaviour` `:309-326`: file feature flag, else `-integer-division-by-zero:{trap,zero,self,all-bits}`, default `trap`). A constant non-zero divisor emits the bare operation (unsigned divide by a power of two may become a shift). Otherwise: `If(rhs ≠ 0)`; fast path the operation; edge path by mode. Division: `trap` → `Trap`; `zero` → 0; `self` → `lhs`; `all-bits` → all ones. Remainder (`%` and `%%`): `trap` → `Trap`; `zero` and `all-bits` → `lhs`; `self` → 0. A constant zero divisor follows the same table. `Trap` is `ud2`, not the divide fault, so the observable signal matches. Signed `%` divides by the safe divisor `Select(Eq(y,-1), 1, y)` (`lb_srem_safe_divisor` `:331-342`), giving `MIN % -1 = 0`; `%%` is `lb_emit_signed_floor_mod` (`:346-392`): safe-divisor `SRem`, then `+ rhs` when the signs differ and the remainder is non-zero; constant `-1` gives 0. Signed `/` has no `MIN/-1` guard in the fork, so it keeps the hardware fault.
 
-**`defer`.** No `defer` node exists. `lower` keeps a stack of deferred statements per scope and, at every scope exit (`return`, `break`, `continue`, `or_return`, `or_break`, `or_continue`, fallthrough of the block), emits the pending bodies inline in reverse order, duplicating the code (same as `lb_emit_defer_stmts`). A `return` evaluates its operands, stores named results, runs the defers, then `Return`.
+**Shifts.** One `Shl`/`Shr`/`Sar` node with the count in its own type (total semantics, section 4); `lower` converts nothing. This matches the fork, which compares the count in its original width before converting it (`:2093-2125`): an `x: u8 << (256: u64)` is 0.
 
-**`or_return` / `or_else`.** `v, err := f() or_return` becomes: lowered call; `has_value` test (`err == nil`, or a tag compare for union errors); `If`; the false branch converts `err` to the last result type, stores it to the named result or sets the single result, runs defers, `Return`; the true branch continues. `or_else` is the same with a `Select`-free branch and a `Phi`. No special IR support.
+**Bounds checks.** The fork calls the runtime handler unconditionally and relies on inlining; we emit the handler's own condition inline and call the handler on the failure edge (`Cold`), then `Unreachable`. Index: `ULt(i, len)` (`bounds_check_error`: `uint(index) < uint(count)`). Slices, strings, dynamic arrays and fixed arrays: bound is the **length**, never the capacity (`llvm_backend_expr.cpp:5700-5760`): without `lo`, `ULe(hi, len)` (`slice_expr_error_hi`); with `lo`, `ULe(lo, hi) ∧ ULe(hi, len)` (equivalent to the runtime's `0 <= lo <= hi <= len`, `error_checks.odin:156`). Multipointer slices use `multi_pointer_slice_expr_error`. Handler variant: `_with_context` when the enclosing procedure has a context stack, else `_contextless` (`llvm_backend_general.cpp:1271-1275, 1356-1360`); arguments are the location `file` (blob), `line`, `column`, then the values. `#no_bounds_check` and `-no-bounds-check` emit nothing; checker-proven accesses emit nothing.
 
-**Slices, strings, dynamic arrays, `any`.** 16, 16, 40 and 16 byte aggregates in slots: `{data: Ptr, len: I64}`, `{data, len, cap, allocator{procedure, data}}`, `{data: Ptr, id: I64}` (`base:runtime` `Raw_Slice`, `Raw_Dynamic_Array`, `Raw_Any`). `len(s)` is `Load(Ptr_Offset(slot, 8))`. Passing a slice or string by value is two `I64`/`Ptr` arguments. `append`, `make`, `delete`, `map` are calls into `base:runtime`; map metadata is constant global data with relocations to function addresses.
+**Multiple results.** Callee: results 0..n-2 are `Store`d through the extra pointer parameters, result n-1 is passed to `Return`. Named results are slots or SSA variables. Caller: one `Stack_Slot` per extra result, `Load`s after the call.
 
-**Unions, `any`, `typeid`.** A union is `{variant area, tag}` laid out by `types`; the tag is an integer load; `switch v in u` is a `Switch` on the tag. `u.(T)` is a tag compare plus the panic path. `typeid` is an `I64` constant from `types`; `any(x)` stores a pointer to a stack copy and the `typeid` constant. `type_info_of(T)` is `Symbol_Addr(type_table) + Ptr_Index`. The type table and string tables are generated global data with relocations (`llvm_backend_type.cpp` is the behavioural reference).
+**`defer`.** No node. `lower` keeps, per scope, the list of deferred statements, each with the **context binding that was current when it was registered** (`lbDefer.context_stack_count`, restored while lowering the body: `llvm_backend_stmt.cpp:3610-3613, 3701-3704`). At every exit (`return`, `or_return`, `or_break`, `or_continue`, labeled `break`/`continue`, block end) the pending bodies of exactly the scopes crossed are emitted inline in reverse order. `return` first evaluates all operands, converts them, stores named results and split-result pointers, and only then runs the defers; the `Return` operands are the values computed before the defers (`:2621-2683, 2731-2853`). Procedures attached through `lb_add_defer_proc` follow the same exit mechanism.
 
-**Bounds checks and the panic path.** `a[i]` becomes `ok = ULt(i, len)`, `If(ok)`; the false projection carries `Cold` and calls the runtime error procedure with the source location (`file` string blob, `line`, `column` constants, `index`, `len`, plus the context pointer when the chosen variant is not contextless, see `base/runtime/error_checks.odin:27,45`), then `Unreachable`. Slice expressions check `lo <= hi <= cap` the same way. `#no_bounds_check` and `-no-bounds-check` make `lower` emit nothing. `sched` places `Cold` blocks last. No inliner is needed because the check is explicit.
+**`or_return` / `or_else`.** `has_value` is the boolean itself when the last value is `bool`, else `err == nil` (`lb_emit_try_has_value` `llvm_backend_utility.cpp:474-484`); `If`; the false edge converts the error to the last result type, stores named results or sets the single result, runs defers, `Return` (`:634-680`). `or_else` is `If` plus `Phi`.
 
-**Shifts.** `lower` emits `Select(ULt(count, W), Shl(x, count), 0)`; for signed `>>`, `Sar(x, Select(ULt(count, W), count, W-1))`. Folding removes the select when the count is constant (matches `llvm_backend_expr.cpp:2089-2128`).
+**`context`.** The incoming pointer is used directly as the address of `context`. `context.x = v` allocates a slot, `Mem_Copy`s the old context, stores the field and rebinds the current-context variable; calls pass the current one; the previous binding returns at scope exit.
 
-**`context`.** The incoming context pointer is `Proj` of `Start`, used directly as the address of `context`. `context.allocator = a` allocates a `Stack_Slot`, `Mem_Copy`s the old context into it, `Store`s the field and rebinds the lowerer's current-context variable; calls pass the current one. At scope exit the previous binding returns, as in `lb_push_context_onto_stack`.
+**Slices, strings, dynamic arrays, maps.** `{data, len}` (16 B), `{data, len, cap, allocator}` (40 B) in slots (`Raw_Slice`, `Raw_Dynamic_Array`). `append`, `make`, `delete`, `map` are calls into `base:runtime`; map operations follow the fork's runtime-call route (`llvm_backend.cpp:1341-1407`): key and value are passed by address of an lvalue or a temporary, hash and compare procedures and `Map_Info` come from constant global data with relocations. `#soa` element access gathers and scatters per field and uses the SoA pointer representation (`llvm_backend_general.cpp:936-1039, 1751-1810`); it is not `Ptr_Index`.
 
-**Proc groups, polymorphism.** The checker resolves groups and monomorphizes; `lower` receives one concrete procedure per instance, each a separate `Function` with a mangled name. A group call is a direct call to the chosen member. `$T` values are constants. The order of instances must be deterministic (checker requirement).
+**`any`.** `any(x)` takes the **address of an addressable operand** and a fresh slot only for rvalues and constants (`lb_address_from_load_or_generate_local` `llvm_backend_utility.cpp:1059-1071`; conversion `llvm_backend_expr.cpp:3384-3404`, constants `:2381-2396`); outside multi-assignment this exposes the address, so the variable is a slot. `typeid` is the canonical type hash (`lb_typeid` → `type_hash_canonical_type`, `llvm_backend_type.cpp:78-90`), not an index. `type_info_of(T)` with a static type uses the table index; `type_info_of(id)` calls `runtime.__type_info_of`, a hash lookup in `type_table` (`llvm_backend_proc.cpp:3170-3182`, `core.odin:814-826`). The type table and string tables are generated global data (`llvm_backend_type.cpp`).
 
-**Globals and constant data.** Constant-initialized globals, string literals, constant arrays/slices, `Source_Code_Location` values, type info and vtable-like tables become `Global` or `Local_Blob` bytes plus `Data_Reloc`s (absolute 64-bit address of a function, global or blob plus addend). Globals with non-constant initializers are set by a generated startup procedure in the checker's dependency order. `Symbol_Addr` yields the address; `x64` emits `lea rip+disp32` and the ELF relocation.
+**Unions.** Layout is supplied by `types` as a descriptor with kinds `Tagged` (tag integer after the variant area), `Maybe_Pointer` (no tag: nil pointer is "no variant", `is_type_union_maybe_pointer`), `Zero_Size`, plus `shared_nil` and custom alignment. `lower` follows `lb_emit_union_tag_ptr/value`, `lb_emit_union_cast`, the `shared_nil` branches (`llvm_backend_general.cpp:2425-2519`, `llvm_backend_utility.cpp:839-956`). A tag is never loaded from a `Maybe_Pointer`; constructing a nil `shared_nil` variant leaves the union nil.
 
-**Integers.** `i8..i64`, `uint`, `uintptr`, enums, `bit_set`, `bool` (`I8` in memory, `Bool` as a value) map directly. `bit_field` access is load, shift, mask. `i128/u128`: open question 2.
+**Proc groups, polymorphism.** Resolved and monomorphized by the checker, in a deterministic order; each instance is a separate `Function`.
 
-**Foreign and runtime calls.** `foreign` procedures become `Extern` symbols with the `C` convention. `intrinsics.mem_copy/mem_zero` → `Mem_Copy/Mem_Set`; `intrinsics.trap` → `Trap`; `intrinsics.unreachable` → `Unreachable`; `intrinsics.syscall` → `Syscall`; `volatile_load/store` → flagged `Load/Store`; `expect` is dropped. Any other intrinsic not in the v0 set is reported `Unsupported`.
+**Globals and constant data.** Constant-initialized globals, string literals, constant arrays, `Source_Code_Location` values, type info, map info become `Global` or `Local_Blob` bytes plus `Data_Reloc`s. Non-constant initializers run in a generated startup procedure in checker dependency order. `@(thread_local)` globals are `tls` globals with `Tls_Addr`.
+
+**Intrinsics.** `mem_copy*`/`mem_zero*` → `Mem_Copy`/`Mem_Set` (a `Mem_Set` is never removed in v0, so the volatile variant needs no extra flag); `unaligned_load/store` of scalars → `Load`/`Store` with `align_log2 = 0`, otherwise `Mem_Copy`; `trap`, `debug_trap` → `Trap`; `unreachable`; `expect` dropped; `syscall`; `atomic_*`, `volatile_*`, fences → section 4; `count_*`, `byte_swap`, `sqrt`, `alloca`, `cpu_relax`, `x86_cpuid/xgetbv`, `read_cycle_counter` → section 4 kinds; `count_ones/zeros/leading_ones/trailing_ones` compose from `Popcnt/Clz/Ctz` and `Xor -1`; `overflow_*` expand (add/sub by compare formulas, mul by `Mul_Hi_*`); `ptr_offset/ptr_sub` → `Ptr_Index`. **`#simd`**: open question 1.
+
+**f16.** Source `f16` values are `F16` in registers and 2 bytes in memory; arithmetic and comparisons promote per operation through `F32` (`Float_Ext`, op, `Float_Trunc`); `core:fmt` reaches this through `f64(f16)`. The runtime's `f16_to_f32`/`f32_to_f16` (`base/runtime/internal.odin:1071-1128`) are the software conversions used.
 
 ## 9. Verifier invariants
 
-`ir.verify(fn, allocator) -> []Verify_Error` runs after the builder finishes and after every pass in debug builds (`-define:IR_VERIFY=true`); the unit tests and `-dump-ir` always run it. Each error has `{node, other, code}`. The properties come from `kind_info` (arity, slot types, result rule, purity, pinned), so there is one table to keep correct.
+`ir.verify(fn, allocator) -> []Verify_Error` runs after the builder finishes and after every pass in debug builds (`-define:IR_VERIFY=true`); tests and `-dump-ir` always run it. Each error is `{node, other, code}`. Three files: `verify_graph` (S, G), `verify_control` (C, D), `verify_memory` (M).
 
 Structure
-- `S1` node 0 is `Invalid`; node `start` is `Start`; exactly one `Start` and one `Stop`.
-- `S2` every input id `< node count`, none is `Removed`; `NODE_NONE` appears only in unfinished loop back edges, and not at all after `function_finish`.
-- `S3` arity of each node is within `kind_info`; `Region ≥ 2`, `Loop = 2`, `Phi = region arity + 1`, `Switch` projections = cases + 1.
-- `S4` each input's `Value_Type` matches the slot rule; result type matches the rule (`Add` operands and result equal; `Eq` operands equal, result `Bool`; `Load` result is scalar; `Const_Int` value fits its width in sign-extended canonical form).
-- `S5` `Proj` input is `Tuple`, index in range, type equals the tuple member; every `If` has both projections exactly once, every `Switch` all of its projections.
-- `S6` `Call` argument and result types match its signature; `Return` operand types match the function signature; `Start` params match it; `Stack_Slot` has `size > 0`, power-of-two `align`, control input `Start`; symbol, table and signature indices are in range; case values are unique.
-- `S7` removed nodes have no inputs and no users; `Stop` inputs are exactly the terminators.
+- `S1` node 0 is `Invalid`; exactly one `Start` and one `Stop`; `Stop` inputs are exactly the terminators.
+- `S2` every input id `< node count` and not `Removed`; `NODE_NONE` only in an unsealed loop back edge, and nowhere after `function_finish`.
+- `S3` arity within `kind_info`; `Region ≥ 2`, `Loop = 2`, `Phi = region arity + 1`, `Switch` projections = cases + 1.
+- `S4` slot types and result types match the kind rule and the context rule (`Add` operands equal; `Eq` result `Bool`; `Load*`/`Store` only on non-`Bool` scalars; shift count any int; `Const_Int` canonical for its width).
+- `S5` `Proj` input is `Tuple`, index in range, type equals the member type derived by the kind (`Start` and `Call` from the signature); every `If` has both projections once, every `Switch` all of its.
+- `S6` `Call` operands and result members equal its signature (`type`, `attr`, `ext`); `Return` and `Start` equal the function signature; `Stack_Slot` size > 0, power-of-two align, control input the entry head; symbol, table and signature indices in range; case values unique.
+- `S7` removed nodes have no inputs and no users.
 
-Control (needs `cfg.odin`)
+Control (`cfg.odin`)
 - `C1` a slot-0 control input is a block head; every pinned node and terminator has one.
-- `C2` every block head has exactly one exit (section 5).
-- `C3` every head is reachable from `Start` by control edges.
-- `C4` `Loop` input 0 is not dominated by the loop; input 1's source is dominated by it.
-- `C5` reducible: every retreating edge in a DFS of the control graph is a `Loop` back edge.
-- `C6` `Phi` input 0 is a `Region`/`Loop`; all value inputs have one type (or `Memory`); no `Control` phis.
+- `C2` every head has exactly one exit.
+- `C3` every head is reachable from `Proj 0` of `Start` by control edges (forward enumeration; `Stop` is not used for reachability).
+- `C4` a `Loop`'s entry input is not dominated by it and its back-edge source is.
+- `C5` reducible: every retreating edge of a DFS of the control graph is a `Loop` back edge.
+- `C6` `Phi` input 0 is a `Region`/`Loop`; value inputs have one type; no `Control` phis; a `Loop` has a memory phi.
 
-Memory
-- `M1` memory-typed values are produced only by `Start`, `Store`, `Mem_Copy`, `Mem_Set`, `Call`/`Syscall` member 0, memory `Phi`.
-- `M2` every `Load/Store/Mem_*/Call/Syscall/Return/Unreachable/Trap` has exactly one memory input; no other node has one.
-- `M3` linearity as in section 7 (no fork, no stale state at an exit).
-- `M4` no `Load` is pinned in a block strictly dominated by a block that takes over its state.
+Memory (path consistency, linear time, reverse post-order over blocks; review M1)
+- `M1` memory-typed values come only from the producers of section 7.
+- `M2` each memory-using node has exactly one memory operand; no other node has one.
+- `M3` **entry state** of each block: the entry head has `Start`'s state; a branch projection has the exit state of the block of its `If`/`Switch`; a `Region` has its memory phi, and each phi input equals the exit state of the matching predecessor block; a `Region` without a memory phi requires all predecessors to have the same exit state (this rejects "forgot the phi after one arm stored"); a `Loop` has its memory phi, entry input equal to the entry predecessor's exit state, back input equal to the back-edge block's exit state.
+- `M4` **chain in a block**: the block's producers form one linear chain starting at the entry state (each consumes the entry state or the previous output; no output is taken over twice); the exit consumes the chain end; the block's exit state is the chain end (the entry state if none).
+- `M5` a plain `Load` consumes the entry state or a chain output *of its own block*; consuming an older state of a dominating block, after that block's chain moved on, is stale and rejected. Anti-dependence is then satisfiable by construction.
 
 Dataflow
-- `D1` schedulability: for every pinned node and every phi edge, each input's earliest block (pinned: its own block; pure: the deepest of its inputs' earliest blocks, which must form a dominator chain; constants and `Symbol_Addr`: entry) dominates the use block (for a phi, the matching predecessor block). This is the "value used on a path that does not define it" check.
-- `D2` division, `Load`, `Store`, `Call` etc. have a control input (pinned classes from `kind_info`).
+- `D1` schedulability: for every pinned node and every phi edge, each input's earliest block (pinned: its own; pure: the deepest of its inputs' earliest blocks, which must form a dominator chain; constants, symbol and TLS addresses: the entry) dominates the use block (for a phi, the matching predecessor block; back-edge phi inputs are checked at the back-edge block, not recursed through the phi).
+- `D2` pinned classes have a control input; pure classes do not.
 
-Interning (debug only)
-- `G1` every live pure node is in the GVN table under its own key and no two live nodes share a key.
-- `G2` no node mutated after interning (checked by re-hashing).
+Interning (debug): `G1` every table entry refers to a live pure node whose semantic key equals the entry's key (duplicates of a key are allowed); `G2` no interned node was mutated.
 
-`sched` has its own `verify_schedule`: every non-rematerialized node appears exactly once, in a block that dominates its uses; definitions precede uses inside a block; phis lead their block; each `Load` precedes every state-taking consumer of its state; the block order is a valid layout (entry first, `Cold` last).
+`sched.verify_schedule`: every non-rematerialized node appears exactly once, in a block that dominates its uses; definitions precede uses inside a block; phis lead their block; each plain `Load` precedes the producer taking over its state; the layout has the entry first and `Cold` blocks last.
 
-## 10. Text format, parser and interpreter
+Negative tests are one table-driven procedure with one broken graph per code. Two cases are mandatory because shortcuts pass them: **sequential diamonds** (`if c {store}` then `if d {store}` where the second diamond's stores reuse the first diamond's original state: `M3`), and a **volatile/atomic pair with unused results** (the order must survive).
 
-The dump is the primary debugging surface (V8 problem 1; Click: "ASCII dumps rule"). It prints the graph in id order, one node per line, with explicit ids, so `parse(print(f))` reproduces the same ids and `print(parse(print(f))) == print(f)` byte for byte. Ids may be sparse (removed nodes are skipped).
+## 10. Printer and interpreter
+
+The printer is the debugging surface (V8 problem 1). It prints the graph in id order, one node per line, with explicit ids; removed ids are skipped. The general parser is deferred (section 15); early tests build graphs with the builder and compare printed text. The syntax is fixed now so it can be parsed later without change:
 
 ```
 module      = { global | extern | function } ;
-global      = "global" GID STRING "size" INT "align" INT [ "mut" ]
-              [ "bytes" HEX ] { "reloc" INT "->" symref [ ("+"|"-") INT ] } ;
-extern      = "extern" XID STRING ;
+global      = "global" GID STRING "size" INT "align" INT [ "mut" ] [ "tls" ] [ "bytes" HEX ] { reloc } ;
+reloc       = "reloc" INT "->" symref [ ("+"|"-") INT ] ;
 function    = "func" FID STRING "sig" "=" SID "{" { sigdecl | tabledecl | blobdecl | nodeline } "}" ;
-sigdecl     = "sig" SID "cc" ("odin"|"contextless"|"c") [ "variadic" ]
-              "(" [ param { "," param } ] ")" "->" "(" [ vtype { "," vtype } ] ")" ;
-param       = vtype { ":" ("byval" "(" INT "," INT ")" | "sret" | "sext" | "zext" | "context") } ;
-tabledecl   = "table" TID "=" "[" INT { "," INT } "]" ;
-blobdecl    = "blob" BID STRING HEX { "reloc" INT "->" symref [ ("+"|"-") INT ] } ;
-nodeline    = NID "=" KIND "." vtype [ operands ] { attr } ;
-operands    = ref { "," ref } ;
-ref         = NID | "_" ;                      (* "_" is NODE_NONE, loop back edge only *)
-attr        = "value" "=" INT | "bits" "=" HEX | "index" "=" INT | "offset" "=" INT
-            | "stride" "=" INT | "size" "=" INT | "align" "=" INT | "sym" "=" symref
-            | "sig" "=" SID | "table" "=" TID | "volatile" | "cold" ;
-symref      = FID | GID | XID | BID ;
-vtype       = "none" | "ctrl" | "mem" | "tuple" | "bool" | "i8" | "i16" | "i32" | "i64" | "f32" | "f64" | "ptr" ;
-NID = "n" DIGITS ; FID = "f" DIGITS ; GID = "g" DIGITS ; XID = "x" DIGITS ;
-SID = "s" DIGITS ; TID = "t" DIGITS ; BID = "b" DIGITS ; HEX = 'x"' hexdigits '"' ;
-comments run from ";" to end of line
+sigdecl     = "sig" SID "cc" ("odin"|"contextless"|"c") [ "variadic" ] "(" [ param { "," param } ] ")" "->" "(" [ result { "," result } ] ")" ;
+param       = vtype { ":" ("indirect" | "byval" "(" INT "," INT ")" | "sret" | "sext" | "zext" | "context" | "align" "(" INT ")") } ;
+result      = vtype [ ":" ("sext" | "zext") ] ;
+nodeline    = NID "=" KIND "." vtype [ ref { "," ref } ] { attr } ;
+ref         = NID | "_" ;                          (* "_" = NODE_NONE, unsealed loop only *)
+attr        = ("value"|"bits"|"index"|"offset"|"stride"|"size"|"align"|"order"|"failure"|"op") "=" (INT|HEX|IDENT)
+            | "sym" "=" symref | "sig" "=" SID | "table" "=" TID | "weak" | "cold" ;
+vtype       = "none"|"ctrl"|"mem"|"tuple"|"bool"|"i8"|"i16"|"i32"|"i64"|"f16"|"f32"|"f64"|"ptr" ;
 ```
 
-The header names the function's own signature (`sig=s0`). Attribute order and the set per kind come from `kind_info`; the printer emits them in a fixed order and the parser accepts only that order, so the format has one spelling. Example (`func add_or_zero(a, b: i64, c: bool) -> i64`):
+`sched` also prints blocks (`block b2 head=n12 depth=1 preds=[b1,b4]: …`); print-only, used for golden tests. Example (`add_or_zero(a, b: i64, c: bool) -> i64`):
 
 ```
 func f0 "main.add_or_zero" sig=s0 {
-  sig s0 cc c (i64, i64, bool) -> (i64)
+  sig s0 cc c (i64, i64, bool:zext) -> (i64)
   n1  = start.tuple
   n2  = proj.ctrl n1 index=0
   n3  = proj.mem n1 index=1
@@ -363,196 +352,206 @@ func f0 "main.add_or_zero" sig=s0 {
   n11 = region.ctrl n8, n9
   n12 = const.i64 value=0
   n13 = phi.i64 n11, n10, n12
-  n14 = return.none n11, n3, n13
-  n15 = stop.none n14
+  n14 = phi.mem n11, n3, n3
+  n15 = return.none n11, n14, n13
+  n16 = stop.none n15
 }
 ```
 
-`sched` also prints blocks (`block b2 head=n12 depth=1 preds=[b1,b4]: …`) for golden tests; that form is print-only.
+**Interpreter** (the differential oracle; Simple chapters 8 and 18). Built in three layers so each is testable: (1) scalar and control evaluation of one function; (2) flat memory, globals with relocations, stack slots, loads/stores/copies, atomics as sequential operations; (3) calls and recursion with the ABI plan applied (pieces, `Indirect`, `By_Value`, extension), then a host table for externs and a small syscall whitelist.
+- Memory is one flat byte array from base `0x10000`; null faults. Pointers are `u64`.
+- Pure nodes are evaluated on demand and memoized by a generation counter bumped whenever a pinned node produces a value or a phi updates; pinned nodes run in the order of the four rules of section 7; all phis of a region read before any is written.
+- Results and failures are typed: value, `Trap`, `Unreachable`, `Arith_Trap` (hardware divide fault), `Out_of_Fuel`, fault address. Signal and exit-code distinctions are preserved so `Trap` (`ud2`) and a divide fault are different outcomes, as in the official binary.
+- It runs the unscheduled graph with the local rules only, and a second mode runs a `sched` schedule. The two share the effect rules, so agreement does not prove the rules; the official compiler's native output is the oracle for source-visible effects (writes, defer order, context, errors, ABI), compared on the same program.
 
-**Parser** (`parse.odin`): two passes over the tokens of a function: pass 1 allocates every node id mentioned (so loop back edges and phis can refer forward) and records kind/type; pass 2 fills inputs and attrs. Errors are `Parse_Error{line, column, code}` values. Hash-consing is not applied while parsing; the GVN table is rebuilt at the end (`gvn_rebuild`).
+## 11. Peepholes and GVN
 
-**Round-trip tests** (few, meaningful): (1) a corpus of hand-written graphs, one per construct (if, loop, switch, call with split results, memory phi, global with relocation); (2) graphs produced by the builder in the interpreter tests. Both check `print∘parse∘print` identity and `verify == ok`. A table-driven negative test feeds one broken text per verifier code.
+v0 starts with **no GVN and no folding beyond integer constants**; each addition has its own semantic tests and is added after the interpreter exists (section 15). Order of introduction, all at node creation in the builder (definitions before uses, no worklist, V8 problem 6):
 
-**Interpreter** (`interp.odin`, ~600 lines, the differential-testing oracle, after Simple chapter 8 and `Eval2` of chapter 18):
-- Memory is one flat byte array (64 MiB default) at base `0x10000`; null and low addresses fault. Globals are laid out in id order with relocations applied; each activation allocates its `Stack_Slot`s. Pointers are plain `u64`.
-- Execution starts at `Start` and walks blocks. At a block: pure nodes are evaluated on demand and memoized by a generation counter that increments whenever a pinned node produces a value or a phi is updated; pinned nodes are executed in the order of the four rules of section 7 (data, state, anti-dependence, node id); then the exit is taken. Phi inputs are all read before any phi of the region is written (parallel assignment; Simple chapter 8's warning).
-- Calls to module functions create a new activation; calls to `Extern` symbols go through a host table (`write`, `exit`, test hooks). `Syscall` supports a small whitelist. `Trap` and `Unreachable` end the run with a result code, so panics and bounds-check failures are comparable with the LLVM-built program's exit code.
-- Fuel limit on executed blocks; every run ends with a result value or a typed `Run_Error`.
-- It runs the **unscheduled graph with the local ordering rules only**, independent of GCM. A second mode runs a `sched` schedule, so a disagreement between the modes localizes bugs to `sched`.
+1. **Integer constant folding** with exact width wrap; shifts and conversions folded with the total semantics of section 4; division folded only for a non-zero divisor and not `MIN/-1`. Float folding only for `FAdd FSub FMul FDiv FNeg FSqrt` on constants of the same width, never for `F16` or comparisons with NaN, never across `Float_Ext/Trunc`.
+2. **Canonical form and identities** (small fixed list): commutative operand order by id, `a > b` → `b < a`; `x+0, x|0, x^0, x<<0, x*1, x&-1` → `x`; `x*0, x&0` → 0; `x-x, x^x` → 0; `Eq(x,x)` → true (integers and `Ptr` only; float `FEq` is not folded); `Select(c,a,a)`; extension/truncation round trips; `Ptr_Offset` chains.
+3. **Hash-consing of pure nodes.** Open-addressing table of `Node_Id`, lookups only, never iterated. The key is a **semantic key function per kind**: kind, type, inputs, and exactly the data fields that kind defines (not the raw union bytes), plus flags that change meaning (none in v0; `Cold` and `Rematerialize` are not in the key). `Proj` is interned only for non-control members of pure tuples. The table is a cache: rewriting passes may leave duplicates, and `G1` allows them.
+4. **Store-to-load forwarding**: `Load(ctrl, m, p)` with `m` a plain `Store` to the identical pointer node with identical value type and width, both `Plain` order, `m` the exact current state → the stored value. No partial overlap, no width change, no `Bool`, never across `Call`, `Syscall`, `Fence`, atomics, volatile or an unknown producer.
 
-Differential testing: Odin program → (a) official `odin` binary output, (b) our IR in the interpreter, (c) our native binary. Results and exit codes must agree. Where Odin leaves behaviour undefined (÷0, out-of-range float→int) tests avoid it.
+**Immutability.** An interned node is never edited. Edits touch non-interned kinds only (`Loop`, `Phi`, `Region`, `Stop`). A pass that rewrites inputs of interned nodes (`loop_collapse`, later SCCP) runs `uses_build`, rewrites, and `gvn_rebuild` (clear and re-insert in id order); duplicates that appear are legal.
 
-## 11. Peepholes and GVN (v0, kept minimal)
+**Roots and DCE.** Roots are terminators, every producer of a state (stores, calls, copies, fences, ordered and atomic operations, `Syscall`, `Target_Op`) and `Stack_Alloc`; a reachable infinite loop keeps its stores. Everything else is removed if unreached from roots through inputs, including unused plain `Load`, division (its zero guard is explicit; the `MIN/-1` fault of an unused signed division is allowed to vanish as it does under LLVM), phi-only cycles and dead address computations.
 
-All v0 simplification happens **at node creation** in the builder (`fold.odin`), so definitions are visited before uses and no worklist or global walk exists (V8 problem 6). In order, for pure kinds:
-
-1. **Constant folding**: both inputs `Const_*` → one constant, with exact width wrap, shift rules (count `≥` width is left unfolded), `Trunc/Zext/Sext`, compares, float ops (host SSE semantics equal target semantics on x64). Division is pinned and is folded only when both operands are constant and the divisor is non-zero and not the `MIN/-1` case.
-2. **Canonical form**: commutative operands ordered by node id; constants second; `a > b` becomes `b < a`.
-3. **Identities** (small fixed list): `x+0, x-0, x|0, x^0, x<<0, x*1, x&-1` → `x`; `x*0, x&0` → `0`; `x-x, x^x` → `0`; `Eq(x,x)` → `true`; `Select(c,a,a)` → `a`; `Select(true/false,…)`; `Zext(Zext x)`, `Trunc(Zext x)` back to the original width; `Ptr_Offset(Ptr_Offset(p,a),b)` → one offset; `Ptr_Offset(p,0)` → `p`.
-4. **Hash-consing** of pure nodes: open-addressing table of `Node_Id`, key = kind, type, inputs, data; lookups only, **never iterated**, so no ordering dependence. Constants are deduplicated by this. Pinned, `Region`, `Loop`, `Phi`, `Stack_Slot` and effect nodes are never interned.
-5. **Store-to-load forwarding**: `Load(ctrl, m, p)` where `m` is a `Store` whose pointer node is `p` (same id), same width, non-volatile → the stored value (bit-cast if types differ). Sound with one chain because `m` is the exact current state.
-
-**Immutability rule.** An interned node is never edited. The only edits to existing nodes are to non-interned kinds (`Loop` back edge, `Phi` inputs, `Region` shrinking, `Stop` inputs). This removes Click's edge-lock/unlock protocol. Any whole-graph pass that must rewrite inputs of interned nodes (`phis_simplify`, later SCCP) runs `uses_build`, rewrites, then `gvn_rebuild`.
-
-**Deferred**, in rough order of value: iterate-to-fixpoint worklist with distant-neighbor dependencies (Simple chapter 9, needs `Use_Table` kept incrementally); phi/load factoring (Simple chapters 10-11); SCCP and dead-branch removal with a `Dead` control constant and `region_remove_input` (Simple chapter 24); dead-store elimination; alias classes; floating loads guarded by `Cast` nodes (Click's null/range guard casts); range-check elimination; inlining; loop-invariant motion beyond what GCM does for pure nodes; Cranelift-style e-graph for pure nodes (doc 02 §4, rejected for v0).
-
-Dead code elimination in v0 is one pass: mark from all pinned nodes and phis, tombstone unmarked pure nodes and unused non-volatile `Load`s.
+**Deferred**, roughly by value: iterate-to-fixpoint worklist with distant-neighbour dependencies (Simple chapter 9); phi/load factoring (chapters 10-11); SCCP and dead-branch removal with a `Dead` constant and `region_remove_input` (chapter 24); dead-store elimination; alias classes; floating loads guarded by `Cast` nodes; range-check elimination; inlining; slot promotion; Cranelift-style e-graph (rejected for v0).
 
 ## 12. Pass pipeline
 
 ```
-check (typed AST)
-  → lower        per function, parallel; AST + types → ir.Function (builder + fold + loop phis)
-  → ir.verify
-  → ir.dce, ir.phis_simplify                      (v0 cleanup)
-  → ir.verify
-  → sched.schedule   cfg (blocks, RPO, dominators, loop depth) → schedule early → schedule late → local order
+check → lower (per function, parallel) → ir.verify → ir.dce → ir.verify
+  → sched.order        conservative: fixed control skeleton, pure nodes at the LCA of their uses
   → sched.verify_schedule
-  → x64.select       linear blocks of ideal nodes → machine instructions on virtual registers
-  → regalloc.allocate  liveness → intervals → assignment → parallel-move resolution → regalloc.verify
-  → x64.emit         prologue/epilogue, spill code, block layout (Cold last), branch fix-up, encode with core:rexcode/isa/x86
+  → x64.select         linear blocks of ideal nodes → machine CFG on virtual registers (all control expansion done here)
+  → x64.verify_machine pred/succ symmetry, definitions, edge moves, fixed registers, no critical edges
+  → regalloc.allocate  liveness → assignment → move resolution → regalloc.verify
+  → x64.emit           prologue/epilogue, spills, layout (Cold last), branch fix-up, encoding via core:rexcode/isa/x86
   → elf builder (src/elf)
 ```
 
-`-dump-ir=<pass>` prints the graph (or the schedule after `sched`) at the named point; deterministic, so dumps are golden-testable.
+Later optimizing variants plug in at the same points: GVN/forwarding in `ir`, GCM in `sched`. `-dump-ir=<pass>` prints the graph or schedule at a point; output is deterministic.
 
-**`sched` (separate package; GCM, Click 1995 and Simple chapter 13).**
-- Inputs: a verified `ir.Function`. Output: `Schedule { blocks: []Block }`, each block `{head, nodes: []Node_Id (final order), preds, succs, depth, cold}`.
-- Steps: `cfg` from `ir/cfg.odin` (heads, RPO, immediate dominators by Cooper-Harvey-Kennedy, loop depth from `Loop` nodes: no loop discovery); **early**: each pure node goes to the deepest of its inputs' blocks; **late**: walk uses (a `Phi` use counts at the matching predecessor block), take the least common dominator of uses, then walk up toward the early block choosing the shallowest loop depth, then the deepest block; **local order** inside a block: list scheduling by the rules of section 7, ties by node id. Pinned nodes keep their block, `Stack_Slot` stays in the entry block.
-- `Const_*`, `Undef`, `Symbol_Addr` have `Rematerialize`: they are not scheduled; `x64` materializes them at each use (Simple chapter 18: "shared constant expressions get a local copy in each function that uses them"; PR #7850 `remat`).
-- Hoisting a pure node to the common dominator of uses on exclusive paths can compute it where one path does not need it (V8 problem 5). v0 accepts this for cheap nodes; it has no pure expensive node (`Div` is pinned, there is no `FSqrt` yet).
-- The PR #7850 cold-block layout belongs here: blocks reachable only through `Cold` projections are placed last.
+**`sched`.** Input: a verified `ir.Function`. Output `Schedule { blocks: []Block }`, each `{head, nodes (final order), preds, succs, depth, cold}`. Stage A (`order`): enumerate blocks by forward control traversal; place each pure node in the LCA block of its uses (phi uses at the matching predecessor) — valid by `D1`; local order by the four rules of section 7. Stage B (GCM, Click 1995 and Simple chapter 13) adds *early* placement and the choice among blocks between early and late by shallowest loop depth. Fixed placements: `Phi` and control `Proj` at their head, `Stack_Slot` at the entry, pinned nodes in their block; loop back-edge phi inputs are excluded from ordinary recursive placement. `Const_*`, `Undef`, `Symbol_Addr`, `Tls_Addr` are `Rematerialize`: not scheduled, materialized at each use by `x64`. Hoisting to a common dominator of uses on exclusive paths may compute a value where one path does not need it (V8 problem 5); accepted for the cheap pure nodes of v0. `Cold`-only blocks are laid out last.
 
-**`x64.select`.** Greedy per-block tree matching on the schedule, using use counts: single-use `Load` folds into the ALU operand or compare; `Ptr_Offset`/`Ptr_Index` chains fold into `[base + index*scale + disp]`; `Cmp` feeding only the block's `If` fuses with `jcc`; phi nodes become parallel copies on the incoming edges (each edge has its own block, so no critical edges). ABI lowering from `Signature`: argument/result registers, `byval` copy, `sret`, `al` for variadics, `rsp` alignment, scratch contract stated once as a `bit_set`. Expansions that need new control flow (`u64↔float`, `Select` of floats, `Switch` jump tables) happen here, after scheduling. Instruction encoding is `core:rexcode/isa/x86`, never reimplemented.
+**`x64.select`.** Greedy per-block tree matching on the schedule with use counts. Single-use `Load` folds into the ALU/compare operand **only when it sits immediately before its consumer in the final order with no intervening pinned node** (any call, syscall, atomic, volatile, store or trapping operation blocks it; volatile and atomic loads never fold). `Ptr_Offset`/`Ptr_Index` chains fold into `[base + index*scale + disp]`; a compare feeding only the block's `If` fuses with `jcc`; phi nodes become parallel copies at the end of the predecessor (each source edge has its own block). ABI lowering from `Signature`; scratch contract as a `bit_set`. Expansions that create control flow (`u64↔float`, shift clamp where not constant, float `Select`, `Switch` jump tables, popcount/clz guards, `cmpxchg` loops) run here and **complete before liveness**; new blocks and edges carry parallel copies for values live across their joins; new critical edges are split. Encoding is `core:rexcode/isa/x86`.
 
-**Register allocation (package `regalloc`, standalone; imports nothing from `ir` or `x64`).** The interface is data:
+**Register allocation (package `regalloc`, imports neither `ir` nor `x64`).** First model, deliberately small (review M10): **no interval splitting**; one location per vreg for its whole life, register or spill slot; a spilled vreg is reloaded into a short-lived temporary vreg at each use and stored after each def (spill everywhere); fixed-register requirements (division, shifts by `cl`, call arguments and results, `syscall`) are met by `x64` copying through fresh short-lived vregs carrying a `Fixed` constraint; call clobbers force intervals that cross a call into callee-saved registers or spill slots. The interface is data:
 
 ```odin
 Vreg :: distinct u32
 Register_Class :: enum u8 { Int, Float }
-Constraint :: enum u8 { Any, Fixed, Reuse_Input }          // Fixed: reg in operand; Reuse_Input: two-address ops
-Position :: enum u8 { Early, Late }                        // when a use/def happens within an instruction
-
+Constraint :: enum u8 { Any, Fixed, Reuse_Input }
+Position   :: enum u8 { Early, Late }
 Operand :: struct { vreg: Vreg, role: enum u8 { Use, Def, Use_Def }, position: Position, constraint: Constraint, fixed: u8, reuse: u8 }
-Instruction :: struct { operands: []Operand, clobbers: Register_Set, is_call: bool, is_move: bool }
-Block :: struct { instructions: []Instruction, successors: []u32, edge_moves: [][]Move, depth: u8 }
-Program :: struct {
-	blocks: []Block, classes: []Register_Class,            // class per vreg
-	allocatable: [Register_Class]Register_Set, callee_saved: Register_Set,
-}
+Instruction :: struct { operands: []Operand, clobbers: Register_Set, is_call, is_move: bool }
+Block :: struct { instructions: []Instruction, successors: []u32, edge_copies: []Parallel_Copy, depth: u8 }
+Program :: struct { blocks: []Block, classes: []Register_Class, allocatable: [Register_Class]Register_Set, callee_saved: Register_Set, spill_width: [Register_Class]u8 }
 Location :: union { Register, Spill_Slot }
-Result :: struct { location: []Location, inserted_moves: []Move_At, spill_slot_count: u32 }   // errors as values
+Result :: struct { location: []Location, spill_slots: u32 }
 allocate :: proc(program: ^Program, allocator: mem.Allocator) -> (Result, Error)
 ```
 
-Model: liveness by backward dataflow on the block graph (loop depth weights from `Block.depth`); linear scan over live intervals in the Wimmer/Mössenböck SSA style (doc 02 §7.2), early/late positions, fixed and reuse-input constraints, call clobbers, caller-saved-first unless the interval crosses a call, rematerialization for constants (`remat` operands), spill by cost = uses × weight ÷ length, **parallel-move resolution with cycle breaking inside this package**. `verify` checks no two live vregs share a location, constraints hold, and clobbers are respected. A graph-colouring allocator (Simple chapter 20) can replace the middle later without changing `Program`.
+Steps: liveness by backward dataflow on the final machine CFG (loop depth weights); linear scan over whole-life intervals (Poletto/Sarkar, with SSA-aware phi handling after Wimmer/Mössenböck); parallel-copy resolution with cycle breaking inside this package. Spill cost = uses × weight ÷ length; named constants. Spill slots are fixed width (8 bytes for `Int` and `Float` scalars). Rematerialization (`Vreg_Info.remat`: immediate, symbol, slot address) is added to `Program` when it is implemented, not before. `regalloc.verify` checks the **rewritten** machine program: no two simultaneously live vregs share a register, fixed and reuse constraints hold at each operand position, clobbers are respected, every edge copy is a valid parallel move. A graph-colouring middle (Simple chapter 20) can replace linear scan later without changing `Program`.
 
 ## 13. Risk register
 
-Each V8 failure mode from `docs/research/02-backend-ir-landscape.md` §1.4 (numbering as there), then the PR #7850 and Tilde lessons.
+V8 failure modes are numbered as in `docs/research/02-backend-ir-landscape.md` §1.4.
 
-| # | Failure mode | Mitigation in this design | Check |
+| # | Failure mode | Mitigation | Check |
 |---|---|---|---|
-| 1 | Graph is a hard-to-read "soup" | Deterministic text dump with stable ids, per-pass `-dump-ir`, block-form dump after `sched` (sections 10, 12). ASCII only. | Round-trip tests |
-| 2 | Nearly everything ends up on the effect/control chain | Accepted openly: v0 pins all memory ops and divisions to blocks; only pure nodes float (Cranelift's split). No claim of hoisting loads. | Verifier `D2` |
-| 3 | Memory ops do not float | Same; floating loads deferred behind guard casts (section 11). | – |
-| 4 | Effect/control chains managed by hand, conflated chains bug (crbug 41470351) | One linear chain; `lower` carries it as the hidden variable `$mem` through the same scope/phi machinery as locals; verifier `M1-M4`; interpreter runs the unscheduled graph and the schedule. | `M3` negative tests, differential tests |
-| 5 | Scheduler complexity, CSE then re-duplication | GCM is its own package and moves only pure nodes; constants/addresses are rematerialized instead of scheduled; no pure expensive node exists in v0. | `verify_schedule` |
-| 6 | Bad visitation order; peepholes change a node once per ~20 visits | v0 folds at creation, in definition order; no global walk. Later fixpoint uses a worklist plus `Use_Table` (Simple chapter 9), never "walk up from returns". | – |
-| 7 | State tracking expensive; load elimination bails out on big graphs | No global load elimination in v0. Only O(1) store→load forwarding on the exact current state. | – |
-| 8 | Cache-unfriendly (3-7× L1 misses) | SoA via `#soa[dynamic]`, `distinct u32` handles, all edges in one arena, creation-order ids (defs next to uses), per-function arena freed at once; ~27 B per node. | Stage 17 measures nodes/s and bytes/node |
-| 9 | Control-dependent typing limited (`CheckedAdd`) | Checks are explicit `If` plus panic path; no node derives facts from a check. Overflow intrinsics (deferred) are pure tuples. | – |
-| 10 | Propagating deadness hard | v0 never creates dead control (`lower` skips unreachable code, merges drop dead predecessors). Later: one `Dead` constant and `region_remove_input`, verifier `C3`. | `C3` |
-| 11 | Hard to introduce control flow during lowering | IR passes never create blocks. All control comes from `lower` or from `x64` after `sched` (`u64↔float`, float `Select`, jump tables). Pure `min`/`max` stay `Select`. | – |
-| 12 | Hard to identify loop bodies | `Loop` nodes explicit, two inputs, reducible by construction; depth from the dominator tree. | `C4`, `C5` |
-| 13 | Slow compile | Per-pass timing in `-dump-ir`; parallel across functions with index-order merge; budget tracked in stage 17. | Benchmark gate |
-| 14 | Sea of Nodes destroys prior scheduling | Source order is recovered per block by node-id tie-break; debug builds keep program order. | Golden schedule dumps |
-
-Other risks:
+| 1 | Unreadable graph | Deterministic dump with stable ids, per-pass `-dump-ir`, block dump after `sched` (section 10). | Golden text |
+| 2, 3 | Everything lands on the effect/control chain; memory ops do not float | Accepted openly: v0 pins memory ops and divisions; only pure nodes float. No claim of load hoisting. | `D2` |
+| 4 | Hand-managed chains, conflated chains (crbug 41470351) | One linear chain carried as `$mem`; path-consistency verifier `M1-M5` including sequential diamonds; ordered operations are graph edges. | `M3` negative tests |
+| 5 | Scheduler complexity, CSE then re-duplication | Conservative `sched.order` first; GCM only for pure nodes, later; constants/addresses rematerialized. | `verify_schedule` |
+| 6 | Bad visitation order | Fold at creation, in definition order; later fixpoint via worklist plus `Use_Table`. | – |
+| 7 | State tracking cost | No global load elimination; O(1) forwarding of the exact current state only. | – |
+| 8 | Cache-unfriendly | SoA `#soa`, `u32` handles, one edge arena, creation-order ids, per-function arena, ~27 B per node. | Measured in step I1 |
+| 9 | Control-dependent typing | Checks are explicit `If` + panic path; no node derives facts from a check. | – |
+| 10 | Propagating deadness | v0 never creates dead control; `loop_collapse` is the only structural rewrite and rebuilds the GVN cache. | `C3` |
+| 11 | Hard to add control flow in lowering | IR passes never create blocks; `x64` creates them before liveness and re-verifies the machine CFG. | `x64.verify_machine` |
+| 12 | Loop bodies | Explicit `Loop` nodes; membership from natural loops. | `C4`, `C5` |
+| 13 | Slow compile | Per-pass timing; parallel across functions; budget gate (I1). | Benchmark |
+| 14 | Destroys prior scheduling | Source order recovered by id tie-break; GCM is optional. | Golden schedule |
 
 | Source | Failure mode | Mitigation |
 |---|---|---|
-| PR #7850 | Fat overloaded instruction record, several hand-kept `switch`es that must agree | SoA node, 8-byte payload read through per-kind accessors, one `kind_info` table for arity, types, purity, pinning, text name. `#assert` that every `Node_Kind` has an entry. |
-| PR #7850 | Shared mutable module state during parallel build forced a log-and-replay engine | Module symbols are declared before bodies are built; workers own one `Function` and one arena; blobs and signatures are function-local; merge in function-index order (section 14). Test: byte-identical output at 1 and N threads. |
-| PR #7850 | `setjmp`/`longjmp` bail-out, string reasons | Sticky-error builder, typed `Error` unions, `Unsupported` result from `lower`. |
-| PR #7850 | Allocator fused to one IR and one target | `regalloc` imports neither `ir` nor `x64` (section 12). |
-| PR #7850 | Magic constants (weights, thresholds) | Named constants in `regalloc`, documented where defined. |
-| Tilde / TB | Lone-maintainer SoN backend stalled and was removed | Scope limited to Odin core semantics; steps ≤ ~600 lines, each tested; interpreter makes the IR useful before any machine code exists. |
-| Click (`ASimpleReply.md`) | Anti-dependences missing from Click's thesis scheduler | Included from the start (section 7 rule 3, `verify_schedule`). |
-| Odin semantics | Shift, bounds, ÷0, `or_return`, `context` subtly differ from C | Each is specified in section 8 with its source line in the official backend. |
-| Determinism | Map iteration, pointer-order, thread order | GVN table is lookup-only; ids from creation order; merge by index; no `map` iteration in `ir`. |
+| PR #7850 | Fat record, parallel hand-kept `switch`es | SoA node, per-kind accessors, one `kind_info` table with `#assert` completeness. |
+| PR #7850 | Shared module state forced a replay log | Symbols pre-declared; one `Function` and arena per worker; function-local blobs and signatures; index-order merge; no `Symbol_Addr` rewrite. |
+| PR #7850 | `setjmp`, string reasons, magic constants | Sticky-error builder, typed `Error`, `Unsupported` results from `lower`, named constants. |
+| PR #7850 | Allocator fused to one IR/target | `regalloc` imports neither `ir` nor `x64`. |
+| Tilde | Lone-maintainer SoN backend stalled | Narrow scope, steps ≤ ~600 lines with tests, interpreter useful before machine code, milestones that run natively early. |
+| Click | Thesis scheduler lacked anti-dependences | Included from the start (section 7 rule 3). |
+| Odin semantics | Shift, remainder, division modes, slicing, `defer`, `any`, unions, `typeid`, ABI differ from C | Each is specified with its fork function (sections 6, 8) and has a representation test (section 15). |
+| Determinism | Map iteration, pointer order, thread order | Lookup-only GVN table, ids by creation order, index-order merge, no `map` iteration in `ir`. |
 
 ## 14. Parallelism and determinism
 
-- Parallel unit: one `Function`. `driver` uses `core:thread` `Pool` (`core/thread/thread_pool.odin`); there is no replay log.
-- Before the fork `lower` declares, in `check` order: functions (name, signature), globals (name, size, align), externs. Workers read these tables only.
-- Workers write only their own `Function` (nodes, edges, signatures, tables, blobs). `Local_Blob` and function-local `Signature` ids are local.
-- Join: a single thread walks functions by index, appends each function's blobs to the module's read-only data, deduplicating by content in that order, and rewrites `Local_Blob` symbol refs to final `Global` ids. The order of every later table (data layout, symbol table, text) is the function-index order.
-- A test builds a fixed module with 1 and 8 threads and compares the dump and the object bytes.
+- Parallel unit: one `Function`, on `core/thread/thread_pool.odin`. No replay log.
+- Before the fork `lower` declares, in `check` order, functions, globals (with `tls`), externs. Workers read these only and write only their own `Function`.
+- Join: one thread walks functions by index, appends blobs to read-only data deduplicating by content, alignment and complete relocation list, and fills `blob_symbol[function][blob]`. Every later table follows function-index order.
+- A test builds a fixed module with 1 and 8 threads and compares dumps and object bytes.
 
 ## 15. Staged implementation plan
 
-Each step is ≤ ~600 lines of Odin including its test, has one purpose and can be checked with `mise run check ir` and `mise run test ir`. Tests are few: round trip, one table-driven negative verifier test, one differential run per feature, a golden schedule per sched feature. "Needs" lists the earlier steps whose files must exist.
+The ~600-line figure is a review-size preference; estimates below include tests and error paths. Steps that previously hid several algorithms are split. "Interface" notes say where a step is bootstrapped with a limited interface. Validation per package: `mise run check <pkg>` and `mise run test <pkg>` for `ir`, `sched`, `types`, `regalloc`, `x64` separately.
+
+**Milestones** (the order of the review): **M0** a native executable of one procedure with a loop, memory and a call that writes with `Syscall` and exits; **M1** the same with ABI-checked calls between our procedures and a raw-syscall `core:sys/linux` program; **M2** a default-runtime executable (TLS, startup, allocator) with no `fmt`; **M3** `fmt.println`/`fmt.printf` without replacing the allocator or disabling TLS; **M4** optimizations (GVN, forwarding, GCM) with an unoptimized mode kept as the comparison path.
 
 | Step | Deliverable | Lines | Needs | Test |
 |---|---|---|---|---|
-| 1 | `ids.odin`, `kinds.odin`: `Node_Id`, `Value_Type`, `Node_Kind`, `Node_Flags`, `Node_Data`, `kind_info` table, `Error` types | ~300 | – | `#assert` completeness; name table round trip |
-| 2 | `graph.odin`: `Function`, `#soa` nodes, edges arena, `add_node`, `set_input`, `remove_node`, `uses_build`, sticky error | ~350 | 1 | add/inspect, `Use_Table` order |
-| 3 | `module.odin`: `Module`, `Global`, `Data_Reloc`, `Signature`, `Symbol_Ref`, blob merge | ~250 | 1 | merge dedup determinism |
-| 4 | `builder.odin`: typed constructors per kind group, control/phi helpers, `function_finish` | ~550 | 2, 3 | builds the example of section 10 |
-| 5 | `print.odin`: printer for graph form | ~300 | 2, 3 | golden text |
-| 6 | `parse.odin`: tokenizer + two-pass parser | ~550 | 5 (grammar fixed here) | round-trip corpus |
-| 7 | `cfg.odin`: heads, exits, RPO, idom, loop depth, DFS retreating edges | ~300 | 2 | dominators on hand graphs |
-| 8a | `verify.odin`: structure `S1-S7`, `G1-G2` | ~400 | 1, 2, 3 | negative table (part 1) |
-| 8b | `verify_flow.odin`: control `C1-C6`, memory `M1-M4`, dataflow `D1-D2` | ~500 | 7, 8a | negative table (part 2) |
-| 9 | `fold.odin`: constant folding, identities, GVN table, store→load forwarding; hooks into builder | ~500 | 4 | folds equal interpreter results |
-| 10a | `interp_memory.odin`: flat memory, globals with relocations, stack slots, extern host table | ~300 | 3 | load/store/reloc test |
-| 10b | `interp.odin`: block walk, local ordering, phi parallel update, calls, traps | ~550 | 7, 10a | programs by text and by builder |
-| 11a | `sched/early_late.odin`: early, late, loop-depth placement | ~450 | 7 | golden schedules |
-| 11b | `sched/local_order.odin`: list scheduling by section 7 rules, cold-last layout | ~300 | 11a | anti-dependence case |
-| 11c | `sched/verify.odin` + schedule printer + interpreter schedule mode | ~400 | 11b, 10b | interpreter agrees in both modes |
-| 12 | `types`: SysV and Odin-CC classification (`unify`, `fixup`, `[8]Class`) | ~500 | `types` base | table test against clang's decisions |
-| 13 | `regalloc/liveness.odin` + `program.odin` (interface of section 12) | ~450 | – | hand-built programs |
-| 14 | `regalloc/linear_scan.odin` | ~550 | 13 | constraint cases, call clobbers |
-| 15 | `regalloc/moves.odin` (parallel moves) + `verify.odin` | ~400 | 13 | cycle cases |
-| 16 | `x64`: ABI lowering, selection, emit (separate doc, several steps) | – | 11c, 14, 15, 12 | assembled output run by test harness |
-| 17 | `lower`: AST → IR in small steps (separate doc), then benchmark gate | – | 4, 9, 12 | differential against official `odin` |
-| 18 | Deferred kinds (bit tricks, overflow, float math), `i128`, `Tls_Addr` | ~400 each | 9, 10b | per-kind |
-| 19 | Slot promotion for small aggregates (slice/string) | ~400 | 11c | before/after node counts |
+| A1 | `ids`, `kinds`: ids, `Value_Type`, `Node_Kind` (77), `kind_info`, `target_op_info`, `Error` | ~450 | – | `#assert` completeness |
+| A2 | `graph`: SoA function, edges arena, accessors, `remove_node`, `uses_build` | ~450 | A1 | accessors, CSR order |
+| A3 | `module`: module, signature, global, blob merge table | ~350 | A1 | merge determinism |
+| A4 | `builder` core + **minimal verifier** (`S1-S7`, `C1-C3`) together; no `function_finish` promise beyond them | ~600 | A2, A3 | build and verify the sample |
+| A5 | builder control: pending exits, regions, loops, `loop_collapse` | ~550 | A4 | nested-loop sample with post statement, labeled continue, fallthrough, no-back-edge loop |
+| A6 | `print` (graph form) | ~350 | A2, A3 | golden text |
+| A7 | `cfg`: heads, exits, RPO, idom, natural loops | ~450 | A2 | dominators, no-exit loop |
+| A8 | `verify_control`: `C4-C6`, `D1-D2` | ~550 | A7 | negative table |
+| A9 | `verify_memory`: `M1-M5` (entry/exit states, chains, phi edges) | ~500 | A7, A8 | sequential-diamonds and stale-load negatives |
+| B1 | `types`: layout and union descriptors | ~600 | – | layout tables |
+| B2 | `types.abi`: classification (`unify`, `fixup`, odd sizes, `#raw_union`, SoA/packed fall-backs) | ~600 | B1 | table test |
+| B3 | `types.abi`: plan (counters, `Indirect`/`By_Value`, extension, split returns, context, `i128`) | ~600 | B2 | table test |
+| B4 | ABI matrix: signatures through the fork and Clang vs the plan | ~500 | B3 | matrix |
+| C1 | interpreter: scalar and control | ~500 | A4 | by builder |
+| C2 | interpreter: memory, globals, relocations, slots | ~500 | C1, A3 | load/store/reloc |
+| C3 | interpreter: calls with the ABI plan, externs, syscalls | ~600 | C2, B3 | recursion, byval, split results |
+| C4 | interpreter: ordered/atomic/TLS/target ops | ~400 | C2 | order cases |
+| D1 | `sched.order` (stage A) + schedule printer | ~450 | A7 | golden schedules |
+| D2 | `sched.verify_schedule`, interpreter schedule mode | ~400 | D1, C1 | agreement of modes |
+| E1 | `regalloc`: `Program`, liveness | ~500 | – | hand-built programs |
+| E2 | `regalloc`: whole-life linear scan, spill-everywhere, `verify` | ~600 | E1 | constraints, clobbers |
+| E3 | `regalloc`: parallel copies | ~400 | E1 | cycle cases |
+| F1-F6 | `x64`: call/ABI lowering; integer selection; float selection; memory/atomics; control expansion; frame/emit/layout | ~600 each | D2, E2, B3 | run natively (separate doc) |
+| G1-G6 | `lower`: expressions; control and `defer`; calls/ABI use; aggregates, slices, bounds; unions/`any`/`typeid`/type tables; maps/`#soa` | ~600 each | A5, B3 | against the fork (separate doc) |
+| H1 | TLS end to end: `tls` globals, `.tdata/.tbss`, `PT_TLS`, `R_X86_64_TPOFF32`, `Tls_Addr`, startup (`arch_prctl(ARCH_SET_FS)`) | ~600 | A3, F4 | thread-local test |
+| H2 | atomics, fences, ordered accesses in `x64` | ~500 | F4, C4 | per-op tests |
+| H3 | bit ops, `Mul_Hi`, overflow expansions, `FSqrt`, `Bswap` | ~500 | F2 | per-op |
+| H4 | `i128` pair expansion in `lower` (+ `udivmod128` path) | ~500 | G1 | boundary values |
+| H5 | `f16` conversions and promotion | ~300 | F3 | rounding cases |
+| H6 | `#simd` scalarization (or runtime adaptation; open question 1) | ~600 | G4 | memory_equal/compare |
+| H7 | `Target_Op` (`cpuid`, `xgetbv`, `pause`, `rdtsc`), `Stack_Alloc` | ~300 | F1 | per-op |
+| H8 | startup without the `.asm` stubs (open question 2) | ~500 | H1 | M2 |
+| I1 | folding, GVN, forwarding (each separately, semantic tests first); compile-time/peak-memory measurement | ~500 each | C3 | agree with interpreter |
+| I2 | GCM stage B | ~500 | D2, I1 | golden schedules |
+| I3 | deferred kinds, parser, slot promotion | – | – | – |
 
-Critical path to a runnable v0: 1 → 2/3 → 4 → 9 → 10 → (17 in parallel) → 11 → 16.
+Critical path: A1 → A2/A3 → A4 → A5 → C1-C3 → D1 → F1-F6 with B3 and E2 → M0; H1-H8 → M2/M3.
 
-Which steps can run in parallel (different agents, disjoint files):
-- After step 1 lands: **A** (2 then 4 then 9), **B** (3), **C** (5, then 6) and **D** (12, in `types`) start together. Step 5 needs only the node accessors, so C may use the raw `add_node` from step 2 as soon as it exists.
-- After step 2: **E** (7, then 8b) and **F** (8a).
-- After 4 and 7: **G** (10a, 10b), **H** (11a-11c). 11c needs 10b only for its schedule-mode test.
-- **I** (13, 14, 15: `regalloc`) is independent of everything above; it needs only section 12's interface and can start on day one.
-- 16 and 17 start after the IR core is stable (4 and 9) and the ABI classifier (12) exists.
+Parallel start, disjoint files: after A1, agents **A** (A2, A4, A5), **B** (A3, then C2), **C** (A6, A7); **D** (`types`: B1-B3) and **E** (`regalloc`: E1-E3) are independent of `ir` and start immediately (`regalloc` needs only the section 12 interface). After A7: **F** (A8, A9) and **G** (D1, D2). `x64` and `lower` steps start when A5, B3, D2 and E2 exist. Interfaces bootstrapped limitedly: A4's verifier covers only structure and entry control; `function_finish` verifies exactly what exists; GVN tests wait for I1.
 
 ## 16. Open questions for the owner
 
-1. **Package for AST → IR.** `docs/01-architecture.md` has no package between `check` and `ir`. This document assumes `lower` (depends on `syntax`, `types`, `check`, `ir`), and that `ir` depends only on `support`, not `types`. Confirm the name and the dependency change.
-2. **`i128`/`u128`.** `base:runtime` and `core:fmt` use them. Options: `I128` value type with `x64` splitting into two `I64`; or `lower` expands to `I64` pairs (no IR change). Recommendation: `lower` expands, so `ir` and `x64` stay scalar-only. Needed before a hello world that formats integers.
-3. **Thread-local storage.** `base:runtime` uses `@(thread_local)`. Needs `Tls_Addr` and TLS ELF relocations (`R_X86_64_TPOFF32` / initial-exec), specified in the System V x86-64 psABI and the ELF TLS specification. Which mode is wanted for static executables with no libc (initial-exec, set up by our `_start`)?
-4. **Odin calling convention.** The design copies the official layout (split returns by pointer, context last) so objects stay mixable with LLVM-built Odin code. If that is never needed, a register-return multi-value convention would be faster and simpler for `x64`; this is a one-line change in `lower` and `x64`, not in `ir`. Confirm.
-5. **Pinned loads in v0.** Floating loads (Click's guard casts) are deferred. Confirm that debug-build speed, not optimized code quality, is the target of v0.
-6. **Division by zero and `MIN/-1`.** Treated as trapping hardware behaviour, not diagnosed, as in the LLVM build. Confirm that no Odin-visible check is wanted.
+1. **`#simd`.** The copied runtime's baseline paths use `#simd[16]u8` (`memory_equal`, `memory_compare`, `internal.odin:276-340`) and `#simd[4]u32` (chacha8, `random_generator_chacha8_simd128.odin`) because `HAS_HARDWARE_SIMD` is true with SSE2. Recommendation: `lower` scalarizes a `#simd[N]T` as an aggregate with unrolled per-lane code for the intrinsics the runtime uses (H6), keeping `ir` scalar; a native `V128` is a later optimization. Alternative: adapt our `base/runtime` copy to set `HAS_HARDWARE_SIMD` false for this backend, which does not make user `#simd` code work.
+2. **Assembly stubs in the runtime.** `entry_unix_no_crt_linux_amd64.asm`, `tls_linux_no_crt_amd64.asm` and the stack-protector stub are `foreign import`ed assembly. A pure-Odin toolchain has no assembler. Options: emit the entry from `x64` directly (the code is short and documented), or port the stubs to naked Odin procedures. Needed by H1/H8.
+3. **`__ODIN_LLVM_F16_SUPPORTED`.** With it false the runtime's `__float16` is `u16`; the compiler would report false for this backend. This changes no user-visible type but is an ABI choice for the runtime's own `truncsfhf2`/`extendhfsf2`. Confirm.
+4. **`typeid` values.** Only consistency between ids and the generated `type_table` is observable (`__type_info_of` hashes `id % len`). Confirm that the canonical hash need not equal the official compiler's numbers.
+5. **Straddling pieces.** Hidden pointers (`sret`, split-result pointers, `context`) are not in the fork's register counters, so a register-fitting aggregate can straddle the last register and the stack in the physical assignment. This design reproduces the fork; the B4 matrix will show whether LLVM actually does so. Confirm that reproducing it is the intent.
 
-## 17. Sources
+## 17. Owner decisions
 
-- Repository: `docs/01-architecture.md`, `docs/research/01-gingerbill-vision.md`, `02-backend-ir-landscape.md`, `04-reuse-survey.md`, `06-pr7850-ir-regalloc-parallelism.md`, `07-pr7850-lowering-abi-elf-dwarf.md`; `core/rexcode/ir/*`, `core/rexcode/docs/ir_design.md`; `src/elf/writer.odin`; `base/runtime/core.odin`, `error_checks.odin`.
-- Odin official compiler (`refs/Odin-upstream/src`): `llvm_abi.cpp`, `llvm_backend.cpp`, `llvm_backend_proc.cpp`, `llvm_backend_expr.cpp`, `llvm_backend_utility.cpp`, `parser.hpp`.
-- Cliff Click, *Simple* tutorial, https://github.com/SeaOfNodes/Simple: chapters 8 (lazy phis, evaluator), 9 (GVN, worklists, `addDep`), 10-11 (memory), 13 (GCM), 18 (calls), 19-20 (selection, register masks), `ASimpleReply.md`.
-- Click, *Global Code Motion / Global Value Numbering*, PLDI 1995; Click and Paleczny, *A Simple Graph-Based Intermediate Representation*, 1995.
-- V8, *Land ahoy: leaving the Sea of Nodes*, 2025; Cranelift mid-end (Fallin, 2026); Tilde Backend `tb.h` (node list, `SPLITMEM/MERGEMEM`, anti-dependence edges after the inputs).
-- System V Application Binary Interface, AMD64 Architecture Processor Supplement (calling convention, eightbyte classification); Wimmer and Mössenböck, linear scan on SSA form; Cooper, Harvey and Kennedy, *A Simple, Fast Dominance Algorithm*.
+These replace the earlier list; later rulings override earlier text.
 
-## Owner decisions
+1. A `lower` package sits between `check` and `ir`. `ir` depends only on `support`.
+2. `i128`/`u128` are expanded by `lower` into `I64` pairs; `ir` and `x64` stay scalar-only. The ABI representation keeps the 16-byte grouping and alignment of the original type (section 6).
+3. Thread-local storage is **v0**, local-exec: `tls` globals in `.tdata`/`.tbss`, `PT_TLS`, `Tls_Addr` as `fs:0 + tpoff` with `R_X86_64_TPOFF32` (System V x86-64 psABI), thread pointer installed by startup with `arch_prctl(ARCH_SET_FS)` as the fork's no-CRT entry does, per-thread blocks initialized as `linux_no_crt_tls_init` does. Local-exec is a static-executable restriction, not the answer for shared objects.
+4. Atomics, fences, volatile/ordered accesses, bit intrinsics (`Popcnt Clz Ctz Bswap`, overflow via `Mul_Hi_*`), `f16` conversions and the target operations the default runtime and `core:fmt` reach are **v0** (section 4: 77 kinds).
+5. Division, remainder, shifts, slicing, `defer`, `any` and unions match the official compiler exactly, including the zero-divisor trap, `MIN % -1 = 0`, signed `%%`, and the four `-integer-division-by-zero` modes with per-file feature flags (section 8).
+6. The Odin calling convention follows `llvm_abi.cpp` exactly: MEMORY-class aggregates are `Indirect` for `Odin` and `By_Value` for `C`; aggregate grouping under register exhaustion, `ran_out_of_regs`, split results, context-last, and result extension metadata (section 6). No alternative convention.
+7. The direction stays Sea of Nodes with pinned loads and stores and a single memory chain; effect ordering, path-exclusive memory verification, the entry-head contract, loop sealing and GVN/forwarding rules follow the review (sections 5, 7, 9, 11).
+8. The plan is re-estimated; the general text parser and early optimizations are deferred; the printer stays (sections 10, 15).
 
-1. A `lower` package sits between `check` and `ir`. `ir` depends only on `support`, not on `types`.
-2. `lower` expands `i128`/`u128` into `I64` pairs. `ir` and `x64` stay scalar-only.
-3. Thread-local storage uses the local-exec model: the startup code allocates the TLS block and installs it with `arch_prctl(ARCH_SET_FS)`, as the fork's no-CRT entry does. A `Tls_Addr` node and TLS relocations come soon after hello world.
-4. The Odin calling convention keeps the official layout. The ABI must stay compatible with the official compiler and with foreign code.
-5. Pinned loads are accepted for v0. Debug-build speed and correctness come first.
-6. Division by zero and `MIN/-1` keep hardware-trap behavior, as in the LLVM build.
+## 18. Review responses
+
+Each finding was checked against the fork (`/home/su3h7am/Projects/Odin/src`) and `base/runtime` before acceptance.
+
+| Finding | Verdict | Evidence and change |
+|---|---|---|
+| B1 volatile/atomic order | Accepted | Fork sets volatile on every atomic (`llvm_backend_proc.cpp:4065-4288`); orders `consume→Acquire`. New `Load_Ordered`, `Atomic_Rmw`, `Atomic_Cas`, `Fence`; `Store` with order; x64 mapping table; plain `Load` stays state-consuming. |
+| B2 ABI representation | Accepted, with one refinement | MEMORY under `Odin` is `lb_arg_type_indirect` without `byval`; `ran_out_of_regs` makes an aggregate `byval` for any convention; extension on results (`llvm_abi.cpp:437-456, 961-981`). `Param_Attr` gains `Indirect`, `Param`/`Result` gain `ext`. Refinement: the fork decides grouping in the planner by counters, then LLVM places pieces sequentially, so IR keeps pieces plus the planner's decisions rather than aggregate groups; the uncounted hidden pointers can make a straddle, kept and tested (open question 5). |
+| B3 deferred set | Accepted | Verified TLS (`core_builtin.odin:63`, `heap_allocator_implementation.odin:2173`), atomics (`lifecycle_linux_amd64.odin:168-176`), `overflow_add` (`default_temp_allocator_arena.odin:28`), `cpuid/xgetbv` (`mem_linux_amd64.odin:52-65`), `u128`/`f16` in `fmt` (`fmt.odin:1149, 3525`), `#simd` in `memory_equal` (`internal.odin:276-340`). Node set grows 63→77; I did not re-verify every cited line of the review's table. New finding: runtime `.asm` stubs (open question 2). SIMD is not in the owner's list: open question 1. |
+| B4 entry/loop contract | Accepted | `Proj 0` of `Start` is the entry head; `Stack_Slot` uses it; `loop_collapse` for no-back-edge loops (section 5). |
+| M1 non-dominance ≠ exclusive | Accepted | Replaced by block entry/exit state and chain verification with phi edges (`M3-M5`); sequential-diamonds negative. |
+| M2 merge/exit rules | Accepted | Pending-exit sealing, post-statement continue, switch fallthrough regions, scope depths, natural-loop depth (section 5). No irreducible machinery. |
+| M3 numerics | Accepted | Fork compares the count before conversion (`:2093-2125`); `MIN % -1` safe divisor and `%%` (`:331-392`); trap mode emits `llvm.trap` (`:1549-1560`); default is `trap` (`build_settings.cpp:492`). IR shifts made total; division recipe by mode; `Trap` not the fault. Signed `/` has no `MIN/-1` guard in the fork; kept. |
+| M4 slice bound | Accepted | Bound is length for slices, strings, dynamic arrays (`:5700-5760`); condition from `error_checks.odin:156`. Also found: the fork calls the handler unconditionally; we inline the same condition. Handler variant by context presence. |
+| M5 defer/returns | Accepted | `context_stack_count` per defer (`llvm_backend_stmt.cpp:3610, 3704`); results computed and stored before defers (`:2621-2853`); boolean `or_return` (`llvm_backend_utility.cpp:474-484`). |
+| M6 `any`/unions/reflection | Accepted | `lb_address_from_load_or_generate_local`; maybe-pointer, zero-size and `shared_nil` unions; `typeid` is the canonical hash and `__type_info_of` a hash lookup. Added: contextless procedures generate a default context (`lb_find_or_generate_context_ptr`). Maps and `#soa` expansions noted. |
+| M7 forwarding | Accepted | `Bool` never stored; forwarding only for plain, identical type and width, current state; load folding only when adjacent to its consumer. |
+| M8 GVN | Accepted, simpler route | Duplicates allowed (`G1` weakened), semantic key function, `gvn_rebuild` after rewrites; blob symbols remapped at emit instead of rewriting nodes; `Undef` defined. |
+| M9 machine CFG | Accepted | `x64.select` completes all control expansion before liveness; `x64.verify_machine`; fixed placements and back-edge phi handling in `sched`. |
+| M10 allocator interface | Accepted | First model has no splitting, spill-everywhere, fixed-register copies, fixed-width slots, rewritten-program verification; remat added when implemented. |
+| N1 DCE roots | Accepted | Roots defined in section 11. |
+| N2 stale items | Accepted | Local-exec stated; stages named by deliverable. |
+| N3 node count | Accepted | No kind cut; mechanisms cut instead (parser, GVN, GCM deferred). |
+| Plan and order | Accepted | Section 15 rewritten with the review's order and milestones. |
+
+## 19. Sources
+
+- Repository: `docs/01-architecture.md`, `docs/research/01`, `02`, `04`, `06`, `07`, `10`; `core/rexcode/ir/*`, `core/rexcode/docs/ir_design.md`; `src/elf/writer.odin`; `base/runtime/*.odin` (`core.odin`, `error_checks.odin`, `internal.odin`, `mem_linux_amd64.odin`, `tls_linux_no_crt*.odin`, `entry_unix_no_crt_linux_amd64.asm`).
+- Fork `/home/su3h7am/Projects/Odin/src`: `llvm_abi.cpp`, `llvm_backend_expr.cpp`, `llvm_backend_general.cpp`, `llvm_backend_proc.cpp`, `llvm_backend_stmt.cpp`, `llvm_backend_type.cpp`, `llvm_backend_utility.cpp`, `build_settings.cpp`, `main.cpp`.
+- Click, *Simple* (https://github.com/SeaOfNodes/Simple): chapters 8-11, 13, 18-20, `ASimpleReply.md`; Click, *Global Code Motion / Global Value Numbering*, PLDI 1995; Click and Paleczny, *A Simple Graph-Based Intermediate Representation*, 1995.
+- V8, *Land ahoy: leaving the Sea of Nodes* (2025); Cranelift mid-end (Fallin, 2026); Tilde `tb.h`.
+- System V Application Binary Interface, AMD64 Architecture Processor Supplement (calling convention, eightbyte classification, thread-local storage); Poletto and Sarkar, *Linear Scan Register Allocation*; Wimmer and Mössenböck, linear scan on SSA form; Cooper, Harvey and Kennedy, *A Simple, Fast Dominance Algorithm*.

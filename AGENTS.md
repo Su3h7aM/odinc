@@ -2,6 +2,16 @@
 
 Rules for every contributor and agent working in this repository. Also read `docs/01-architecture.md`.
 
+## Resolving inconsistencies
+
+When a package, an implementation, the old C++ compiler and Odin's documented behavior disagree, do not assume any of them is right. Decide from evidence, in this order:
+
+1. Ginger Bill's intent: who authored the code or package (PR author, commit history), the PR description and review discussion, issues, his articles, talks, forum and Discord posts. Prefer sources that explain his design philosophy for the language and compiler.
+2. The official documentation and specification (`odin-lang.org`, `odin.ebnf`, Linux and ABI specs).
+3. Observed behavior of the official compiler, recorded as a fact, not as a verdict.
+
+Record the decision, the evidence and the sources in the relevant doc or commit message. Never decide by guess.
+
 ## Tools and wording
 
 - Debugging uses LLDB, never GDB, and is delegated to a sub-agent. The orchestrator does not debug.
