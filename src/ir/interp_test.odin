@@ -11,7 +11,8 @@ interp_sums_to_n :: proc(t: ^testing.T) {
 
 	fn, make_err := function_make(context.allocator, 0, "main.sum", 0)
 	testing.expect_value(t, make_err, nil)
-	defer function_destroy(fn)
+	_, append_err := append(&module.functions, fn)
+	testing.expect_value(t, append_err, nil)
 
 	add_signature(fn, Signature{cc = .C, params = {{type = .I64}}, results = {{type = .I64}}})
 	entry := start(fn)
@@ -96,7 +97,8 @@ edge_node :: proc(fn: ^Function, control: Node_Id, c: Edge_Case) -> Node_Id {
 edge_result :: proc(t: ^testing.T, module: ^Module, c: Edge_Case) -> Interp_Result {
 	fn, make_err := function_make(context.allocator, 0, "main.edge", 0)
 	testing.expect_value(t, make_err, nil)
-	defer function_destroy(fn)
+	_, append_err := append(&module.functions, fn)
+	testing.expect_value(t, append_err, nil)
 
 	result_type := c.type
 	#partial switch c.kind {
@@ -178,6 +180,8 @@ memory_function :: proc(t: ^testing.T, result: Value_Type) -> (fn: ^Function, en
 memory_finish :: proc(t: ^testing.T, module: ^Module, fn: ^Function, control, memory, value: Node_Id) -> Interp_Result {
 	ret(fn, control, memory, value)
 	testing.expect_value(t, function_finish(fn), nil)
+	_, append_err := append(&module.functions, fn)
+	testing.expect_value(t, append_err, nil)
 	result, err := interp_run(module, fn, nil, 1000, context.allocator)
 	testing.expect_value(t, err, nil)
 	return result
@@ -205,7 +209,6 @@ interp_memory_model :: proc(t: ^testing.T) {
 	}{{.I8, 0xA5}, {.I16, 0xBEEF}, {.I32, 0xDEADBEEF}, {.I64, 0x0123456789ABCDEF}, {.F32, 0x3FC00000}, {.F64, 0x3FF8000000000000}, {.Ptr, 0x10008}}
 	for c in scalars {
 		fn, entry := memory_function(t, c.type)
-		defer function_destroy(fn)
 		slot := stack_slot(fn, entry.control, 16, 8)
 		pointer := ptr_offset(fn, slot, 1)
 		stored := store(fn, entry.control, entry.memory, pointer, edge_constant(fn, c.type, c.bits), 0)
@@ -216,7 +219,6 @@ interp_memory_model :: proc(t: ^testing.T) {
 
 	{
 		fn, entry := memory_function(t, .I64)
-		defer function_destroy(fn)
 		table := symbol_addr(fn, Symbol_Ref{space = .Global, index = 0})
 		pointer := load(fn, entry.control, entry.memory, ptr_offset(fn, table, 8), .Ptr, 3)
 		target_value := load(fn, entry.control, entry.memory, pointer, .I64, 3)
@@ -227,7 +229,6 @@ interp_memory_model :: proc(t: ^testing.T) {
 
 	{
 		fn, entry := memory_function(t, .I64)
-		defer function_destroy(fn)
 		slot := stack_slot(fn, entry.control, 16, 8)
 		stored := store(fn, entry.control, entry.memory, slot, const_int(fn, .I64, 0x0807060504030201), 3)
 		copied := add_node(fn, .Mem_Copy, .Memory, {entry.control, stored, ptr_offset(fn, slot, 2), slot, const_int(fn, .I64, 6)})
@@ -236,4 +237,127 @@ interp_memory_model :: proc(t: ^testing.T) {
 		result := memory_finish(t, &module, fn, entry.control, set, value)
 		testing.expectf(t, result.outcome == .Value && result.value == 0xFFFF040302010201, "copy and set: got %v %x", result.outcome, result.value)
 	}
+}
+
+@(test)
+interp_store_waits_for_loads :: proc(t: ^testing.T) {
+	module: Module
+	testing.expect_value(t, module_init(&module), nil)
+	defer module_destroy(&module)
+
+	fn, entry := memory_function(t, .I64)
+	slot := stack_slot(fn, entry.control, 8, 8)
+	stored := store(fn, entry.control, entry.memory, slot, const_int(fn, .I64, 1), 3)
+	loaded := load(fn, entry.control, entry.memory, slot, .I64, 3)
+	result := memory_finish(t, &module, fn, entry.control, stored, loaded)
+	testing.expectf(t, result.outcome == .Value && result.value == 0, "load before store: got %v %x", result.outcome, result.value)
+}
+
+@(private = "file")
+call_function :: proc(t: ^testing.T, module: ^Module, signature: Signature) -> (fn: ^Function, entry: Start_Nodes, index: u32) {
+	err: runtime.Allocator_Error
+	fn, err = function_make(context.allocator, Function_Id(len(module.functions)), "main.call", 0)
+	testing.expect_value(t, err, nil)
+	add_signature(fn, signature)
+	entry = start(fn)
+	index = u32(len(module.functions))
+	_, append_err := append(&module.functions, fn)
+	testing.expect_value(t, append_err, nil)
+	return
+}
+
+@(private = "file")
+call_results :: proc(fn: ^Function, call_node: Node_Id, value_type: Value_Type) -> (memory, value: Node_Id) {
+	memory = add_node(fn, .Proj, .Memory, {call_node}, {index = 0})
+	value = add_node(fn, .Proj, value_type, {call_node}, {index = 1})
+	return
+}
+
+@(test)
+interp_calls :: proc(t: ^testing.T) {
+	module: Module
+	testing.expect_value(t, module_init(&module), nil)
+	defer module_destroy(&module)
+
+	fib, fib_entry, fib_index := call_function(t, &module, Signature{cc = .C, params = {{type = .I64}}, results = {{type = .I64}}})
+	n := fib_entry.params[0]
+	one, two := const_int(fib, .I64, 1), const_int(fib, .I64, 2)
+	small, large := if_(fib, fib_entry.control, compare(fib, .SLt, n, two))
+	ret(fib, small, fib_entry.memory, n)
+	fib_callee := symbol_addr(fib, Symbol_Ref{space = .Function, index = fib_index})
+	first_call := call(fib, large, fib_entry.memory, fib_callee, 0, {binary(fib, .Sub, n, one)})
+	first_memory, first_value := call_results(fib, first_call, .I64)
+	second_call := call(fib, large, first_memory, fib_callee, 0, {binary(fib, .Sub, n, two)})
+	second_memory, second_value := call_results(fib, second_call, .I64)
+	ret(fib, large, second_memory, binary(fib, .Add, first_value, second_value))
+	testing.expect_value(t, function_finish(fib), nil)
+
+	split, split_entry, split_index := call_function(
+		t,
+		&module,
+		Signature{cc = .Odin, params = {{type = .I64}, {type = .Ptr}, {type = .Ptr, attr = .Context}}, results = {{type = .I64}}},
+	)
+	split_n, split_out := split_entry.params[0], split_entry.params[1]
+	stored := store(split, split_entry.control, split_entry.memory, split_out, binary(split, .Add, split_n, split_n), 3)
+	ret(split, split_entry.control, stored, binary(split, .Add, split_n, const_int(split, .I64, 1)))
+	testing.expect_value(t, function_finish(split), nil)
+
+	indirect, indirect_entry, indirect_index := call_function(
+		t,
+		&module,
+		Signature{cc = .Odin, params = {{type = .Ptr, attr = .Indirect}, {type = .Ptr, attr = .Context}}, results = {{type = .I64}}},
+	)
+	field := load(indirect, indirect_entry.control, indirect_entry.memory, indirect_entry.params[0], .I64, 3)
+	ret(indirect, indirect_entry.control, indirect_entry.memory, field)
+	testing.expect_value(t, function_finish(indirect), nil)
+
+	caller, caller_entry, _ := call_function(t, &module, Signature{cc = .C, results = {{type = .I64}}})
+	fib_signature := add_signature(caller, Signature{cc = .C, params = {{type = .I64}}, results = {{type = .I64}}})
+	indirect_signature := add_signature(
+		caller,
+		Signature{cc = .Odin, params = {{type = .Ptr, attr = .Indirect}, {type = .Ptr, attr = .Context}}, results = {{type = .I64}}},
+	)
+	split_signature := add_signature(
+		caller,
+		Signature{cc = .Odin, params = {{type = .I64}, {type = .Ptr}, {type = .Ptr, attr = .Context}}, results = {{type = .I64}}},
+	)
+	control := caller_entry.control
+	slot := stack_slot(caller, control, 8, 8)
+	out := stack_slot(caller, control, 8, 8)
+	fib_call := call(
+		caller,
+		control,
+		caller_entry.memory,
+		symbol_addr(caller, Symbol_Ref{space = .Function, index = fib_index}),
+		fib_signature,
+		{const_int(caller, .I64, 10)},
+	)
+	fib_memory, fib_value := call_results(caller, fib_call, .I64)
+	stored_field := store(caller, control, fib_memory, slot, const_int(caller, .I64, 77), 3)
+	indirect_call := call(
+		caller,
+		control,
+		stored_field,
+		symbol_addr(caller, Symbol_Ref{space = .Function, index = indirect_index}),
+		indirect_signature,
+		{slot, slot},
+	)
+	indirect_memory, indirect_value := call_results(caller, indirect_call, .I64)
+	split_call := call(
+		caller,
+		control,
+		indirect_memory,
+		symbol_addr(caller, Symbol_Ref{space = .Function, index = split_index}),
+		split_signature,
+		{const_int(caller, .I64, 5), out, slot},
+	)
+	split_memory, split_value := call_results(caller, split_call, .I64)
+	split_stored := load(caller, control, split_memory, out, .I64, 3)
+	total := binary(caller, .Add, binary(caller, .Add, fib_value, indirect_value), binary(caller, .Add, split_value, split_stored))
+	ret(caller, control, split_memory, total)
+	testing.expect_value(t, function_finish(caller), nil)
+
+	result, err := interp_run(&module, caller, nil, 100_000, context.allocator)
+	testing.expect_value(t, err, nil)
+	testing.expectf(t, result.outcome == .Value && result.value == 148, "calls: got %v %v", result.outcome, result.value)
 }

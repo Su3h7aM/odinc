@@ -1,43 +1,51 @@
 package ir
 
 INTERP_MEMORY_BASE :: u64(0x10000)
+INTERP_STACK_SIZE :: u64(64 * 1024)
 
-// Globals, then thread-local globals (one block), then blobs of `fn`, then stack slots, all from `INTERP_MEMORY_BASE`.
-// Returns the memory size.
-interp_layout :: proc(s: ^Interp_State) -> int {
-	cursor: u64
-	for global, index in s.module.globals {
+// Globals, thread-local globals (one block), a distinct 8-byte cell per function and extern, blobs of
+// every function, then the stack. Returns the memory size.
+interp_layout :: proc(machine: ^Interp_Machine) -> int {
+	cursor := INTERP_MEMORY_BASE
+	for global, index in machine.module.globals {
 		if !global.tls {
-			s.global_addresses[index] = interp_bump(&cursor, u64(global.size), u64(global.align))
+			machine.global_addresses[index] = interp_bump(&cursor, u64(global.size), u64(global.align))
 		}
 	}
-	for global, index in s.module.globals {
+	for global, index in machine.module.globals {
 		if global.tls {
-			s.global_addresses[index] = interp_bump(&cursor, u64(global.size), u64(global.align))
+			machine.global_addresses[index] = interp_bump(&cursor, u64(global.size), u64(global.align))
 		}
 	}
-	for blob, index in s.fn.blobs {
-		s.blob_addresses[index] = interp_bump(&cursor, u64(len(blob.bytes)), u64(blob.align))
+	for &address in machine.function_addresses {
+		address = interp_bump(&cursor, 8, 8)
 	}
-	for id in 1 ..< len(s.fn.nodes) {
-		if s.fn.nodes.kind[id] == .Stack_Slot {
-			slot := node_slot(s.fn, Node_Id(id))
-			s.slot_addresses[id] = interp_bump(&cursor, u64(slot.size), u64(slot.align))
+	for &address in machine.extern_addresses {
+		address = interp_bump(&cursor, 8, 8)
+	}
+	for function, function_index in machine.module.functions {
+		for blob, blob_index in function.blobs {
+			machine.blob_addresses[function_index][blob_index] = interp_bump(&cursor, u64(len(blob.bytes)), u64(blob.align))
 		}
 	}
-	return int(cursor)
+	machine.stack_top = interp_bump(&cursor, INTERP_STACK_SIZE, 16)
+	machine.stack_end = cursor
+	return int(cursor - INTERP_MEMORY_BASE)
 }
 
-// Copies the bytes of every global and blob of `fn` and resolves their relocations.
-interp_initialize :: proc(s: ^Interp_State) -> bool {
-	for global, index in s.module.globals {
-		if !interp_write_object(s, s.global_addresses[index], global.bytes, global.size, global.relocs) {
+// Copies the bytes of every global and blob and resolves their relocations.
+interp_initialize :: proc(machine: ^Interp_Machine) -> bool {
+	for global, index in machine.module.globals {
+		if !interp_write_object(machine, 0, machine.global_addresses[index], global.bytes, global.size, global.relocs) {
 			return false
 		}
 	}
-	for blob, index in s.fn.blobs {
-		if !interp_write_object(s, s.blob_addresses[index], blob.bytes, u32(len(blob.bytes)), blob.relocs) {
-			return false
+	for function, function_index in machine.module.functions {
+		for blob, blob_index in function.blobs {
+			address := machine.blob_addresses[function_index][blob_index]
+			if !interp_write_object(machine, u32(function_index), address, blob.bytes, u32(len(blob.bytes)), blob.relocs) {
+				return false
+			}
 		}
 	}
 	return true
@@ -45,43 +53,61 @@ interp_initialize :: proc(s: ^Interp_State) -> bool {
 
 @(private = "file")
 interp_bump :: proc(cursor: ^u64, size, align: u64) -> u64 {
-	alignment := max(align, 1)
-	cursor^ = (cursor^ + alignment - 1) / alignment * alignment
-	address := INTERP_MEMORY_BASE + cursor^
-	cursor^ += size
+	address := interp_align(cursor^, align)
+	cursor^ = address + size
 	return address
 }
 
 @(private = "file")
-interp_write_object :: proc(s: ^Interp_State, address: u64, bytes: []byte, size: u32, relocs: []Data_Reloc) -> bool {
+interp_align :: proc(value, align: u64) -> u64 {
+	alignment := max(align, 1)
+	return (value + alignment - 1) / alignment * alignment
+}
+
+// Allocates from the stack of the running frames; each frame gives its allocations back on return.
+interp_stack_alloc :: proc(machine: ^Interp_Machine, size, align: u64) -> (u64, bool) {
+	address := interp_align(machine.stack_top, align)
+	if address > machine.stack_end || size > machine.stack_end - address {
+		return 0, false
+	}
+	machine.stack_top = address + size
+	return address, true
+}
+
+@(private = "file")
+interp_write_object :: proc(machine: ^Interp_Machine, owner: u32, address: u64, bytes: []byte, size: u32, relocs: []Data_Reloc) -> bool {
 	offset := int(address - INTERP_MEMORY_BASE)
-	copy(s.memory[offset:], bytes)
+	copy(machine.memory[offset:], bytes)
 	for reloc in relocs {
-		target, ok := interp_symbol_address(s, reloc.target)
-		if !ok {
-			interp_fail(s, .Unsupported, NODE_NONE)
-			return false
-		}
-		if u64(reloc.offset) + 8 > u64(size) {
-			interp_fail(s, .Unsupported, NODE_NONE)
+		target, ok := interp_symbol_address(machine, owner, reloc.target)
+		if !ok || u64(reloc.offset) + 8 > u64(size) {
 			return false
 		}
 		at := offset + int(reloc.offset)
-		interp_write(s.memory[at:at + 8], target + u64(reloc.addend))
+		interp_write(machine.memory[at:at + 8], target + u64(reloc.addend))
 	}
 	return true
 }
 
-// Only globals and blobs have addresses here; functions and externs need calls (C3).
-interp_symbol_address :: proc(s: ^Interp_State, symbol: Symbol_Ref) -> (u64, bool) {
+// `Local_Blob` resolves within the blobs of function `owner`.
+interp_symbol_address :: proc(machine: ^Interp_Machine, owner: u32, symbol: Symbol_Ref) -> (u64, bool) {
 	#partial switch symbol.space {
 	case .Global:
-		if int(symbol.index) < len(s.global_addresses) {
-			return s.global_addresses[symbol.index], true
+		if int(symbol.index) < len(machine.global_addresses) {
+			return machine.global_addresses[symbol.index], true
+		}
+	case .Function:
+		if int(symbol.index) < len(machine.function_addresses) {
+			return machine.function_addresses[symbol.index], true
+		}
+	case .Extern:
+		if int(symbol.index) < len(machine.extern_addresses) {
+			return machine.extern_addresses[symbol.index], true
 		}
 	case .Local_Blob:
-		if int(symbol.index) < len(s.blob_addresses) {
-			return s.blob_addresses[symbol.index], true
+		blobs := machine.blob_addresses[owner]
+		if int(symbol.index) < len(blobs) {
+			return blobs[symbol.index], true
 		}
 	}
 	return 0, false
@@ -92,14 +118,14 @@ interp_address :: proc(s: ^Interp_State, id: Node_Id) -> (value: u64, ok: bool) 
 	case .Stack_Slot:
 		return s.slot_addresses[id], true
 	case .Symbol_Addr:
-		address, found := interp_symbol_address(s, s.fn.nodes.data[id].symbol)
+		address, found := interp_symbol_address(s.machine, s.function_index, s.fn.nodes.data[id].symbol)
 		if found {
 			return address, true
 		}
 	case .Tls_Addr:
 		symbol := s.fn.nodes.data[id].symbol
-		if symbol.space == .Global && s.module.globals[symbol.index].tls {
-			return interp_symbol_address(s, symbol)
+		if symbol.space == .Global && s.machine.module.globals[symbol.index].tls {
+			return interp_symbol_address(s.machine, s.function_index, symbol)
 		}
 	}
 	interp_fail(s, .Unsupported, id)
@@ -156,7 +182,7 @@ interp_load :: proc(s: ^Interp_State, id: Node_Id, type: Value_Type) -> (value: 
 	if !in_range {
 		return 0, false
 	}
-	return interp_read(s.memory[offset:offset + width]), true
+	return interp_read(s.machine.memory[offset:offset + width]), true
 }
 
 @(private = "file")
@@ -170,12 +196,11 @@ interp_store :: proc(s: ^Interp_State, id: Node_Id, address, stored: u64, type: 
 	if !in_range {
 		return false
 	}
-	interp_write(s.memory[offset:offset + width], stored)
+	interp_write(s.machine.memory[offset:offset + width], stored)
 	return true
 }
 
 // Overlapping ranges copy as `memmove` does: `Mem_Copy` has memmove semantics (doc section 4).
-@(private = "file")
 interp_copy :: proc(s: ^Interp_State, id: Node_Id, destination, source, size: u64) -> bool {
 	if size == 0 {
 		return true
@@ -188,14 +213,15 @@ interp_copy :: proc(s: ^Interp_State, id: Node_Id, destination, source, size: u6
 	if !from_ok {
 		return false
 	}
+	memory := s.machine.memory
 	count := int(size)
 	if to < from {
 		for i in 0 ..< count {
-			s.memory[to + i] = s.memory[from + i]
+			memory[to + i] = memory[from + i]
 		}
 	} else if to > from {
 		for i := count - 1; i >= 0; i -= 1 {
-			s.memory[to + i] = s.memory[from + i]
+			memory[to + i] = memory[from + i]
 		}
 	}
 	return true
@@ -211,15 +237,14 @@ interp_set :: proc(s: ^Interp_State, id: Node_Id, destination, byte_value, size:
 		return false
 	}
 	for i in 0 ..< int(size) {
-		s.memory[offset + i] = u8(byte_value)
+		s.machine.memory[offset + i] = u8(byte_value)
 	}
 	return true
 }
 
 // A null or out-of-range access is a `Fault` carrying the address; alignment is not checked.
-@(private = "file")
 interp_range :: proc(s: ^Interp_State, id: Node_Id, address, size: u64) -> (int, bool) {
-	memory_size := u64(len(s.memory))
+	memory_size := u64(len(s.machine.memory))
 	if address >= INTERP_MEMORY_BASE && size <= memory_size && address - INTERP_MEMORY_BASE <= memory_size - size {
 		return int(address - INTERP_MEMORY_BASE), true
 	}

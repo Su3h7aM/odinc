@@ -158,7 +158,7 @@ interp_compute :: proc(s: ^Interp_State, id: Node_Id) -> (value: u64, ok: bool) 
 interp_projection :: proc(s: ^Interp_State, id: Node_Id) -> (value: u64, ok: bool) {
 	source := node_input(s.fn, id, 0)
 	index := s.fn.nodes.data[id].index
-	if s.fn.nodes.kind[source] == .Load_Ordered {
+	if s.fn.nodes.kind[source] == .Load_Ordered || s.fn.nodes.kind[source] == .Call || s.fn.nodes.kind[source] == .Syscall {
 		if index == 0 {
 			return 0, true
 		}

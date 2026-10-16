@@ -1,6 +1,7 @@
 package ir
 
 import "base:runtime"
+import "core:mem/virtual"
 
 Interp_Outcome :: enum u8 {
 	Value,
@@ -10,32 +11,53 @@ Interp_Outcome :: enum u8 {
 	Out_of_Fuel,
 	Fault, // `value` holds the faulting address
 	Unsupported,
+	Exit, // `value` holds the exit code of the `exit` system call
+	Stack_Overflow,
 }
 
 Interp_Result :: struct {
 	outcome: Interp_Outcome,
 	value:   u64,
 	node:    Node_Id,
+	output:  []byte, // bytes written to file descriptor 1; set by `interp_run` only
+}
+
+// State shared by every frame of one run.
+Interp_Machine :: struct {
+	module:             ^Module,
+	memory:             []u8,
+	global_addresses:   []u64,
+	blob_addresses:     [][]u64,
+	function_addresses: []u64,
+	extern_addresses:   []u64,
+	stack_top:          u64,
+	stack_end:          u64,
+	depth:              int,
+	fuel:               int,
+	output:             [dynamic]byte,
+	allocator:          runtime.Allocator,
+	err:                runtime.Allocator_Error,
 }
 
 Interp_State :: struct {
-	module:           ^Module,
-	fn:               ^Function,
-	uses:             Use_Table,
-	arguments:        []u64,
-	values:           []u64,
-	stamps:           []u64,
-	scratch:          []u64,
-	pending:          []Node_Id,
-	memory:           []u8,
-	global_addresses: []u64,
-	blob_addresses:   []u64,
-	slot_addresses:   []u64,
-	generation:       u64,
-	fuel:             int,
-	result:           Interp_Result,
+	machine:        ^Interp_Machine,
+	fn:             ^Function,
+	function_index: u32,
+	uses:           Use_Table,
+	arguments:      []u64,
+	values:         []u64,
+	stamps:         []u64,
+	scratch:        []u64,
+	pending:        []Node_Id,
+	slot_addresses: []u64,
+	generation:     u64,
+	result:         Interp_Result,
 }
 
+INTERP_MAX_DEPTH :: 512
+
+// Runs `fn` with `arguments`. Internal state lives in a private arena; `result.output` is allocated
+// with `allocator` and belongs to the caller.
 interp_run :: proc(
 	module: ^Module,
 	fn: ^Function,
@@ -46,42 +68,43 @@ interp_run :: proc(
 	result: Interp_Result,
 	err: runtime.Allocator_Error,
 ) {
-	uses := uses_build(fn, allocator) or_return
-	defer use_table_destroy(&uses, allocator)
-	phi_count := 0
-	for id in 1 ..< len(fn.nodes) {
-		if fn.nodes.kind[id] == .Phi {
-			phi_count += 1
-		}
+	arena: virtual.Arena
+	virtual.arena_init_growing(&arena) or_return
+	defer virtual.arena_destroy(&arena)
+	arena_allocator := virtual.arena_allocator(&arena)
+
+	entry, found := interp_function_index(module, fn)
+	if !found {
+		return Interp_Result{outcome = .Unsupported}, nil
 	}
-	s := Interp_State {
-		module     = module,
-		fn         = fn,
-		uses       = uses,
-		arguments  = arguments,
-		fuel       = fuel,
-		generation = 1,
+	output := make([dynamic]byte, allocator) or_return
+	defer if err != nil {
+		delete(output)
 	}
-	s.values = make([]u64, len(fn.nodes), allocator) or_return
-	defer delete(s.values, allocator)
-	s.stamps = make([]u64, len(fn.nodes), allocator) or_return
-	defer delete(s.stamps, allocator)
-	s.scratch = make([]u64, phi_count, allocator) or_return
-	defer delete(s.scratch, allocator)
-	s.pending = make([]Node_Id, len(fn.nodes), allocator) or_return
-	defer delete(s.pending, allocator)
-	s.global_addresses = make([]u64, len(module.globals), allocator) or_return
-	defer delete(s.global_addresses, allocator)
-	s.blob_addresses = make([]u64, len(fn.blobs), allocator) or_return
-	defer delete(s.blob_addresses, allocator)
-	s.slot_addresses = make([]u64, len(fn.nodes), allocator) or_return
-	defer delete(s.slot_addresses, allocator)
-	s.memory = make([]u8, interp_layout(&s), allocator) or_return
-	defer delete(s.memory, allocator)
-	if !interp_initialize(&s) {
-		return s.result, nil
+	machine := Interp_Machine {
+		module    = module,
+		fuel      = fuel,
+		output    = output,
+		allocator = arena_allocator,
 	}
-	return interp_walk(&s), nil
+	machine.global_addresses = make([]u64, len(module.globals), arena_allocator) or_return
+	machine.function_addresses = make([]u64, len(module.functions), arena_allocator) or_return
+	machine.extern_addresses = make([]u64, len(module.externs), arena_allocator) or_return
+	machine.blob_addresses = make([][]u64, len(module.functions), arena_allocator) or_return
+	for function, index in module.functions {
+		machine.blob_addresses[index] = make([]u64, len(function.blobs), arena_allocator) or_return
+	}
+	size := interp_layout(&machine)
+	machine.memory = make([]u8, size, arena_allocator) or_return
+	if !interp_initialize(&machine) {
+		return Interp_Result{outcome = .Unsupported}, nil
+	}
+	result = interp_frame(&machine, entry, arguments)
+	if machine.err != nil {
+		return {}, machine.err
+	}
+	result.output = machine.output[:]
+	return result, nil
 }
 
 interp_fail :: proc(s: ^Interp_State, outcome: Interp_Outcome, node: Node_Id) {
@@ -121,10 +144,10 @@ interp_walk :: proc(s: ^Interp_State) -> Interp_Result {
 		return s.result
 	}
 	for {
-		if s.fuel == 0 {
+		if s.machine.fuel == 0 {
 			return Interp_Result{outcome = .Out_of_Fuel, node = head}
 		}
-		s.fuel -= 1
+		s.machine.fuel -= 1
 		next, block_ok := interp_block(s, head)
 		if !block_ok || next == NODE_NONE {
 			return s.result
@@ -154,7 +177,7 @@ interp_block :: proc(s: ^Interp_State, head: Node_Id) -> (Node_Id, bool) {
 	pending_count := 0
 	for use in uses_of(s.uses, head) {
 		#partial switch fn.nodes.kind[use.user] {
-		case .SDiv, .UDiv, .SRem, .URem, .Load, .Load_Ordered, .Store, .Mem_Copy, .Mem_Set, .Fence:
+		case .SDiv, .UDiv, .SRem, .URem, .Load, .Load_Ordered, .Store, .Mem_Copy, .Mem_Set, .Fence, .Call, .Syscall, .Stack_Alloc:
 			s.pending[pending_count] = use.user
 			pending_count += 1
 		case .If, .Switch, .Return, .Unreachable, .Trap, .Region, .Loop:
@@ -208,7 +231,7 @@ interp_block :: proc(s: ^Interp_State, head: Node_Id) -> (Node_Id, bool) {
 	return NODE_NONE, true
 }
 
-// Executes each pending node once its memory input is taken and no earlier-id rule is broken: a state
+// Executes each pending node once its inputs are executed and no earlier-id rule is broken: a state
 // producer waits for the plain loads of its state (doc section 7, rule 3). Ties go to the lower id.
 @(private = "file")
 interp_run_pending :: proc(s: ^Interp_State, pending: []Node_Id) -> bool {
@@ -246,6 +269,12 @@ interp_execute_pinned :: proc(s: ^Interp_State, id: Node_Id) -> bool {
 	#partial switch s.fn.nodes.kind[id] {
 	case .SDiv, .UDiv, .SRem, .URem:
 		value, ok = interp_divide(s, id)
+	case .Call:
+		value, ok = interp_call(s, id)
+	case .Syscall:
+		value, ok = interp_syscall(s, id)
+	case .Stack_Alloc:
+		value, ok = interp_stack_alloc_node(s, id)
 	case:
 		value, ok = interp_memory_execute(s, id)
 	}
@@ -260,6 +289,11 @@ interp_execute_pinned :: proc(s: ^Interp_State, id: Node_Id) -> bool {
 
 @(private = "file")
 interp_memory_ready :: proc(s: ^Interp_State, pending: []Node_Id, id: Node_Id) -> bool {
+	for input in node_inputs(s.fn, id) {
+		if interp_pending_contains(pending, interp_memory_source(s.fn, input)) {
+			return false
+		}
+	}
 	kind := s.fn.nodes.kind[id]
 	if !interp_takes_memory(kind) {
 		return true
@@ -281,7 +315,7 @@ interp_memory_ready :: proc(s: ^Interp_State, pending: []Node_Id, id: Node_Id) -
 @(private = "file")
 interp_takes_memory :: proc(kind: Node_Kind) -> bool {
 	#partial switch kind {
-	case .Load, .Load_Ordered, .Store, .Mem_Copy, .Mem_Set, .Fence:
+	case .Load, .Load_Ordered, .Store, .Mem_Copy, .Mem_Set, .Fence, .Call, .Syscall:
 		return true
 	}
 	return false
@@ -290,7 +324,7 @@ interp_takes_memory :: proc(kind: Node_Kind) -> bool {
 @(private = "file")
 interp_produces_memory :: proc(kind: Node_Kind) -> bool {
 	#partial switch kind {
-	case .Load_Ordered, .Store, .Mem_Copy, .Mem_Set, .Fence:
+	case .Load_Ordered, .Store, .Mem_Copy, .Mem_Set, .Fence, .Call, .Syscall:
 		return true
 	}
 	return false
