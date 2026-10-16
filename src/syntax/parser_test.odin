@@ -1,0 +1,118 @@
+package syntax
+
+import "core:strings"
+import "core:testing"
+
+parse_expression_for_test :: proc(p: ^Parser, ast: ^Ast, source: string) -> Node_Index {
+	parser_init(p, ast, transmute([]byte)source)
+	root := parse_expr(p, false)
+	if is_inserted_semicolon(p.curr) {
+		advance_token(p)
+	}
+	return root
+}
+
+@(test)
+test_parse_core_expressions_and_types :: proc(t: ^testing.T) {
+	sources := [?]string{
+		"([^]byte)(raw_data(slice))[:size]",
+		"make([]byte, len(s), allocator, loc=loc) or_return",
+		"_reader_read_new_chunk(b) or_return",
+		"buffer_write(b, ([^]byte)(ptr)[:size], loc=loc)",
+		"([^]byte)(data)[:len]",
+		"transmute([]byte)string(val)",
+		"transmute(f16)n",
+		"endian.unchecked_put_u16be(bytes[1:], transmute(u16)v)",
+		"string(a.key^)",
+		"tag.?",
+		"Decoder_Flags{}",
+		"Header(0)",
+		"#caller_location",
+		"context.allocator",
+		"bit_set[Encoder_Flag]",
+		"map[Tag_Number]Tag_Implementation",
+		"map[typeid]Tag_Implementation",
+		"[^]char",
+		"^[^]char",
+		"proc \"c\" (int)",
+		"proc \"c\" (lhs, rhs: rawptr) -> int",
+		"proc(key, base: rawptr, nmemb, size: size_t, compar: proc \"c\" (lhs, rhs: rawptr) -> int) -> rawptr",
+		"proc(s: [^]char, n: size_t, format: cstring, #c_vararg args: ..any) -> int",
+		"proc(sig: int, func: proc \"c\" (int)) -> proc \"c\" (int)",
+		"proc(stream: ^FILE, buf: [^]char, mode: int, size: size_t) -> int",
+		"proc(s: cstring, c: int) -> [^]char",
+		"proc(v: $T, err: Decode_Error) -> (T, Unmarshal_Error)",
+		"proc(s: string, flags: Decoder_Flags = {}, allocator := context.allocator) -> (v: Value, err: Decode_Error)",
+		"proc(stream: ^FILE, format: cstring, arg: ^va_list) -> int",
+	}
+	for source in sources {
+		ast: Ast
+		ast_init(&ast)
+		p: Parser
+		parse_expression_for_test(&p, &ast, source)
+		testing.expectf(t, len(p.errors) == 0 && len(p.lex_errors) == 0 && p.curr.kind == .EOF, "%q: parse errors %v, lexical errors %v", source, p.errors, p.lex_errors)
+		parser_destroy(&p)
+		ast_destroy(&ast)
+	}
+
+	dump_cases := [?]struct {
+		source:   string,
+		expected: string,
+	}{
+		{"[^]char", `Multi_Pointer_Type 0..7 "[^]char" open=0 pointer=1 close=2
+  elem: Ident 3..7 "char"
+`},
+		{"bit_set[Encoder_Flag]", `Bit_Set_Type 0..21 "bit_set[Encoder_Flag]" tok_pos=0 open=7 close=20
+  elem: Ident 8..20 "Encoder_Flag"
+`},
+		{"make([]byte, len(s), allocator, loc=loc) or_return", `Or_Return_Expr 0..50 token=Or_Return
+  expr: Call_Expr 0..40 "make([]byte, len(s), allocator, loc=loc)" inlining=None tailing=None open=4 ellipsis=Invalid close=39
+    expr: Ident 0..4 "make"
+    args[0]: Array_Type 5..11 "[]byte" open=5 close=6
+      elem: Ident 7..11 "byte"
+    args[1]: Call_Expr 13..19 "len(s)" inlining=None tailing=None open=16 ellipsis=Invalid close=18
+      expr: Ident 13..16 "len"
+      args[0]: Ident 17..18 "s"
+    args[2]: Ident 21..30 "allocator"
+    args[3]: Field_Value 32..39 "loc=loc" sep=35
+      field: Ident 32..35 "loc"
+      value: Ident 36..39 "loc"
+`},
+	}
+	for dump_case in dump_cases {
+		ast: Ast
+		ast_init(&ast)
+		p: Parser
+		ast.root = parse_expression_for_test(&p, &ast, dump_case.source)
+
+		dump: strings.Builder
+		ast_dump(&ast, p.tokenizer.source, &dump)
+		testing.expect_value(t, strings.to_string(dump), dump_case.expected)
+
+		strings.builder_destroy(&dump)
+		parser_destroy(&p)
+		ast_destroy(&ast)
+	}
+}
+
+@(test)
+test_parse_expression_errors_recover :: proc(t: ^testing.T) {
+	cases := [?]struct {
+		source:      string,
+		first_error: Parse_Error_Kind,
+	}{
+		{"f(a b)", .Expected_Token},
+		{"a +", .Expected_Operand},
+		{"a->", .Expected_Selector},
+		{"proc(", .Expected_Token},
+	}
+	for test_case in cases {
+		ast: Ast
+		ast_init(&ast)
+		p: Parser
+		parse_expression_for_test(&p, &ast, test_case.source)
+		testing.expectf(t, len(p.errors) > 0 && p.errors[0].kind == test_case.first_error, "%q: parse errors %v", test_case.source, p.errors)
+		parser_destroy(&p)
+		ast_destroy(&ast)
+	}
+}
