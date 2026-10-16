@@ -1,0 +1,51 @@
+# First native syscall slice: ordered ticket path
+
+Target: compile the contextless `main` in `docs/05-lower-design.md` §19 into a static Linux x86-64 executable. It writes `abcde\n` to fd 1 with raw syscalls and exits 0. This plan narrows the full-language roadmap to that acceptance case: no generics, runtime types, context, defer, bounds checks, strings, slices, aggregates beyond the local `[6]u8`, or non-integer ABI cases. `#no_bounds_check` is required as in the acceptance source. The checker work is a prerequisite to lower, not a lower feature.
+
+## Committed starting point
+
+The repo already has a substantial foundation: `src/syntax/` has tokenizer, AST and parser (`src/syntax/tokenizer.odin`, `ast.odin`, `parser.odin`, `parse_stmt.odin`, `parse_expr.odin`, `parse_decl.odin`); `src/check/` has model, scopes, collection, resolution, constants, literals, numeric conversions and type-expression work (`src/check/model.odin`, `scopes.odin`, `collect.odin`, `resolve.odin`, `constant_ops.odin`, `literals.odin`, `numeric_conversion.odin`, `type_expr.odin`); `src/types/` has canonical types, layout and ABI classification/planning (`src/types/types.odin`, `abi_classify.odin`, `abi_plan.odin`). `src/ir/` includes graph/module/kinds, builders, CFG, verification, printing and interpreter (`src/ir/graph.odin`, `builder.odin`, `builder_control.odin`, `cfg.odin`, `verify.odin`, `interp.odin`). Scheduling and allocation have `src/sched/order.odin` and `src/regalloc/{program,liveness,linear_scan}.odin`. The x64 backend has machine/program/op metadata, ABI, frame emission, emission and verification (`src/amd64/`); `src/elf/` has types, writer and executable support; `src/link/link.odin` exists. Driver currently has only collection support (`src/driver/collections.odin`). `src/lower/` is in progress; it is not yet an end-to-end AST-to-IR implementation. Existing packages therefore do not imply that the pipeline is wired.
+
+## Tickets and dependencies
+
+Estimates are person-days, including focused tests; split any ticket that grows beyond the stated narrow slice. Checker identifiers below refer to `docs/03-checker-design.md` §14. Dependencies are hard ordering constraints; parallel work means separate ownership/files and frozen interfaces.
+
+| Ticket | Package / owned area | Exists vs missing; minimum slice deliverable | Depends on | Estimate |
+|---|---|---|---|---:|
+| S0 | `check`, E0 substrate: `check/expr.odin` | Existing model, constants, resolver and type-expression files; missing expression checker. Implement only identifiers, integer/bool unary and binary expressions, type hints, and the conversions needed by the sample. Checker §14 E0 depends on T2, which depends on T1/N3. | C0-C2, N0-N3, T0-T2 | 3d |
+| S1 | `check`, declarations/signatures: `check/signatures.odin`, `check/calls.odin` | Existing type ABI planner; missing checker procedure signature and direct-call plans. Implement `Contextless`, direct integer params/results, one-result direct calls; no named/default/variadic args, groups or generics. Checker P0 then P1. | T1,T2,E0 | 2.5d |
+| S2 | `check`, statements: `check/assignment.odin`, `control.odin`, `bodies.odin` | Existing scopes/AST and lower design; missing checked local/assignment, return, if/for, break/continue and procedure-body walk/plans. Support assignment order and `#no_bounds_check`; no defer or switches. | E1/E2 only where reused by assignment/place rules; P0; P1; S0 | 4d |
+| S3 | `check`, intrinsic: `check/builtin_target.odin` (or dedicated syscall file) | Missing intrinsic validation/typed plan. Check only `intrinsics.syscall` arity/types and its `I64` result; bind imported `base:intrinsics` name as compiler intrinsic, not a generic function call. | P1,E0; minimal import/entity setup | 1.5d |
+| S4 | `check`, minimal coordinator and driver input | Existing `driver/collections.odin`; no source-file parse/check command pipeline. Provide single source-file/package input and invoke parse then checker phases; avoid general collection discovery and runtime preload. Need C0-C2/T0 plus F3/F4 phase boundary as applicable, but omit unused closure stages. | S0-S3; syntax parser | 2d |
+| L0 | `lower`, module/procedure/symbol path (`src/lower/`) | In-progress only; no complete checked-program-to-IR contract. Implement `lower_program`, symbol declaration, one contextless `main`, parameter binding (none here), implicit/explicit return and errors. This is G0 narrowed. | checker output, IR A5, types B3 | 2d |
+| L1 | `lower`, scalar expressions and locals | Implement constants, integer/bool ops, local scalar state where applicable, pointer/address calculation and local `[6]u8` stack slot/index/store/load. The acceptance array must be memory-backed; do not generalize aggregate lowering. | L0, IR A5, types B3 | 3d |
+| L2 | `lower`, control and intrinsic | Implement loop/if/branch lowering and `Syscall` node construction with correct ordered memory chain. | L1, IR A5/A9 | 2.5d |
+| I0 | `ir` / `sched`, finishing blockers | Existing builders, verifier, CFG and scheduler. Complete only verifier/control/memory behavior and schedule verification required for the generated graph; no optimization passes. | A5,A7; A8/A9 as needed | 2d |
+| B0 | `types`, slice ABI freeze | `src/types/abi_plan.odin` exists. Confirm and test contextless no-arg main and syscall operands' scalar widths; no aggregate ABI matrix or runtime types for slice. | Existing B1-B3 implementation | 0.5d |
+| R0 | `regalloc`, finish minimal allocation | `Program`, liveness and linear scan exist. Complete constraints, spills and verifier needed for calls/syscall clobbers and generated basic blocks. | E1; selected amd64 interface | 2d |
+| X0 | `amd64`, finish M0 selection/emission | `src/amd64/` already has selector/emitter scaffolding. Complete only required integer ops, local memory, branches/loop, syscall register convention and startup/call/return/frame. Syscall uses `rax`, `rdi`, `rsi`, `rdx`, `r10`, `r8`, `r9`, clobbers `rcx`,`r11`; no libc. | I0, B0, R0 | 4d |
+| K0 | `link` + `elf`, static executable | Existing `src/link/link.odin`, `src/elf/writer.odin`, `elf_exec.odin`. Finish object/module integration, relocation/layout and write executable file for this single static image. | X0 | 2d |
+| D0 | `driver`, end-to-end compile command | Missing pipeline glue: read file → parse → check → lower → schedule → select → regalloc → emit → link → write file. Add one targeted Linux x64 command, phase errors and output path. No package discovery/general CLI required. | S4,L2,I0,R0,X0,K0 | 2d |
+| A0 | acceptance fixture and test task | Add the §19 source fixture and a native run test asserting stdout exactly `abcde\n` and status 0; retain interpreter acceptance if interpreter syscall support is already present. | D0 | 1d |
+
+### Checker subset decision
+
+The minimum checker ticket path is **C0 → C1 → C2 → T0 → N0 → N1 → N2 → N3 → T1 → T2 → E0 → P0 → P1 → S0 → S1 → S2 → B4(syscall-only intrinsic path) → S4**. In §14 identifiers: C0-C2, T0-T2, N0-N3, E0, P0/P1, S0/S1/S2, and the syscall-specific part of B4. E1/E2 are needed only if reusable place/select logic is necessary for the array store; reuse the minimal scalar/index/address plan rather than implement general selector/index semantics. Do not build P2, G0-G3, S3-S5, A0-A2, B0-B3, R0-R4, V0-V2, F0-F4 wholesale. In particular there are **no generic instances** and **no runtime type table/RTTI** in this path. `intrinsics.syscall` is checked as the intrinsic, not implemented by generic call resolution.
+
+## Waves
+
+1. **Wave 1, disjoint foundation:** S0 checker-expression file after its prerequisites are frozen; B0 ABI slice verification; R0 regalloc completion; I0 IR/scheduler verification. These can run in parallel with separate files. Checker C/T/N prerequisites must be checked for completion first; existing file presence alone does not establish completion.
+2. **Wave 2:** S1 and S2 can proceed in parallel after E0/P0 interfaces are fixed only if files are disjoint; otherwise S1 precedes S2. S3 syscall checker can run alongside them after P1 interface freeze. Do not overlap ownership of checker coordinator files.
+3. **Wave 3:** S4 minimal checker/driver boundary, then L0. L1 follows L0; L2 follows L1 and IR control/memory verifier readiness.
+4. **Wave 4, backend in parallel:** once IR, ABI, and allocator contracts are frozen, X0 and K0 can be developed on disjoint package files; K0 can begin ELF writer/link integration early but final dependency is emitted image contract. D0 follows both and connects all stages.
+5. **Wave 5:** A0 end-to-end native acceptance and interpreter comparison. Fix only failures on this source path; defer generalization tickets.
+
+The full-pipeline critical path is checker minimum (especially T2→E0→P1→S2) → L0/L1/L2 → verified scheduled IR → regalloc/amd64 → link/driver → A0. The backend and ELF work can overlap the checker/lower work after interfaces are agreed.
+
+## Three riskiest assumptions
+
+1. The committed checker foundations are sufficiently complete and their current interfaces can support a deliberately narrow checker without first implementing broad package loading, all diagnostics, or the rest of §14. The acceptance import of `base:intrinsics` may force more driver/import infrastructure than assumed.
+2. The current `lower` in-progress work can be extended to satisfy the documented IR builder contracts; in particular loop sealing, local array addressing and the `Syscall` memory token may expose missing verifier/builder behavior and expand I0/L2.
+3. Existing `amd64`, regalloc, linker and ELF code can be completed for a static Linux x86-64 image with the minimal `_start` that calls contextless `main`, without assembly stubs or libc. This must be validated against the Linux x86-64 syscall and ELF contracts, not inferred from package names.
+
+Design basis: `docs/02-ir-design.md` §15 for A–K steps and M0, `docs/03-checker-design.md` §14 for checker tickets, `docs/04-amd64-design.md` §§11–12 and M0 critical path, and `docs/05-lower-design.md` §19 for exact acceptance behavior. Paths in the starting-state inventory are committed source paths; the ticket estimates and proposed ownership are planning estimates, not claims that the named work is already present.
