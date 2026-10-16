@@ -28,6 +28,10 @@ Lower_Feature :: enum u8 {
 	Place,
 	Local,
 	Bounds,
+	Control,
+	Defer,
+	Range,
+	Switch,
 }
 
 Lower_Error :: struct {

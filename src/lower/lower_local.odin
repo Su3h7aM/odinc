@@ -82,6 +82,7 @@ scan_addresses :: proc(state: ^Procedure_State) {
 @(private)
 bind_local :: proc(state: ^Procedure_State, entity: check.Entity_Id, value: ir.Node_Id, initialize: bool) {
 	assert(entity != 0 && state.locals[entity].kind == .None)
+	if _, err := append(&state.local_entities, entity); err != nil { state.job.function.error = err; return }
 	type := state.job.program.entities[entity].type
 	if value != 0 && scalar_type(state, type) != .None && state.job.function.nodes.type[value] != scalar_type(state, type) {
 		lower_fail(state, state.job.procedure.body.node, .Conversion)
@@ -208,7 +209,7 @@ lower_assignment_plan :: proc(state: ^Procedure_State, node: syntax.Node_Index, 
 
 @(private)
 lower_local_assignment :: proc(state: ^Procedure_State, node: syntax.Node_Index, assignment: syntax.Assign_Stmt) {
-	if assignment.op.kind != .Eq { lower_fail(state, node, .Local); return }
+	if assignment.op.kind != .Eq { lower_compound_assignment(state, node, assignment); return }
 	info, ok := check.expression_info(state.job.program, state.view, node)
 	if ok && info.plan != 0 {
 		plan := check.plan(state.job.program, info.plan)
@@ -228,55 +229,4 @@ lower_local_assignment :: proc(state: ^Procedure_State, node: syntax.Node_Index,
 	for value, index in right { values[index] = lower_value(state, value) }
 	if state.failed { return }
 	for destination, index in destinations { write_destination(state, destination, values[index], node) }
-}
-
-@(private)
-lower_linear_statement :: proc(state: ^Procedure_State, node: syntax.Node_Index) {
-	if state.failed || state.builder.control == 0 || state.job.function.error != nil { return }
-	ast_node := state.ast.nodes[node]
-	#partial switch ast_node.kind {
-	case .Block_Stmt:
-		for statement in syntax.node_list(state.ast, ast_node.payload.(syntax.Block_Stmt).stmts) { lower_linear_statement(state, statement) }
-	case .Value_Decl:
-		lower_local_declaration(state, node, ast_node.payload.(syntax.Value_Decl))
-	case .Assign_Stmt:
-		lower_local_assignment(state, node, ast_node.payload.(syntax.Assign_Stmt))
-	case .Expr_Stmt:
-		lower_value(state, ast_node.payload.(syntax.Expr_Stmt).expr)
-	case .Return_Stmt:
-		info, ok := check.expression_info(state.job.program, state.view, node)
-		if ok && info.plan != 0 {
-			plan := check.plan(state.job.program, info.plan)
-			assert(plan != nil)
-			if exit, found := plan^.(check.Exit_Plan); found {
-				assert(exit.kind == .Return)
-				if len(exit.values) == 0 { ir.emit_return(state.builder); return }
-				if len(exit.values) != 1 { lower_fail(state, node, .Result); return }
-				value := lower_operand(state, exit.values[0])
-				lower_scalar_return(state, node, value)
-			} else { lower_fail(state, node, .Body) }
-			return
-		}
-		values := syntax.node_list(state.ast, ast_node.payload.(syntax.Return_Stmt).results)
-		signature := state.job.function.signatures[state.job.function.signature]
-		if len(values) != len(signature.results) || len(values) > 1 { lower_fail(state, node, .Result); return }
-		if len(values) == 0 { ir.emit_return(state.builder); return }
-		value := lower_value(state, values[0])
-		lower_scalar_return(state, node, value)
-	case .Empty_Stmt:
-	case:
-		lower_fail(state, node, .Body)
-	}
-}
-
-@(private)
-lower_scalar_return :: proc(state: ^Procedure_State, node: syntax.Node_Index, value: ir.Node_Id) {
-	if state.failed || state.job.function.error != nil { return }
-	signature := state.job.function.signatures[state.job.function.signature]
-	if len(signature.results) != 1 { lower_fail(state, node, .Result); return }
-	result_type := signature.results[0].type
-	result := value
-	if state.job.function.nodes.type[result] == .Bool && result_type == .I8 { result = ir.convert(state.job.function, .Zext, result, .I8) }
-	if state.job.function.nodes.type[result] != result_type { lower_fail(state, node, .Result); return }
-	ir.emit_return(state.builder, result)
 }

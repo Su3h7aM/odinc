@@ -19,6 +19,8 @@ Procedure_State :: struct {
 	entry_control:   ir.Node_Id,
 	failed:          bool,
 	context_pointer: ir.Node_Id,
+	local_entities:  [dynamic]check.Entity_Id,
+	control_targets: [dynamic]Control_Target,
 }
 
 @(private)
@@ -129,7 +131,7 @@ lower_procedure :: proc(job: ^Procedure_Job) -> (err: runtime.Allocator_Error) {
 	block := body.payload.(syntax.Block_Stmt)
 	assert(int(block.stmts.first) + int(block.stmts.count) <= len(ast.extra))
 	if len(procedure.defers) != 0 {
-		report_procedure_error(job, .Unsupported, .Body)
+		report_procedure_error(job, .Unsupported, .Defer)
 		return job.allocation_error
 	}
 	function := job.function
@@ -143,13 +145,15 @@ lower_procedure :: proc(job: ^Procedure_Job) -> (err: runtime.Allocator_Error) {
 	defer ir.builder_destroy(builder)
 	allocator := virtual.arena_allocator(&function.arena)
 	state := Procedure_State {
-		job           = job,
-		builder       = builder,
-		locals        = make([]Local_Binding, len(job.program.entities), allocator) or_return,
-		address_taken = make([]bool, len(job.program.entities), allocator) or_return,
-		ast           = ast,
-		view          = procedure.view,
-		entry_control = entry.control,
+		job             = job,
+		builder         = builder,
+		locals          = make([]Local_Binding, len(job.program.entities), allocator) or_return,
+		address_taken   = make([]bool, len(job.program.entities), allocator) or_return,
+		ast             = ast,
+		view            = procedure.view,
+		entry_control   = entry.control,
+		local_entities  = make([dynamic]check.Entity_Id, allocator) or_return,
+		control_targets = make([dynamic]Control_Target, allocator) or_return,
 	}
 	scan_addresses(&state)
 	for parameter, index in job.parameters {
@@ -181,7 +185,8 @@ lower_procedure :: proc(job: ^Procedure_Job) -> (err: runtime.Allocator_Error) {
 		}
 		bind_local(&state, entity, value, true)
 	}
-	lower_linear_statement(&state, procedure.body.node)
+	lower_statement(&state, procedure.body.node)
+	if function.error != nil { return function.error }
 	if state.failed { return job.allocation_error }
 	if builder.control != 0 {
 		if len(function.signatures[function.signature].results) != 0 {
