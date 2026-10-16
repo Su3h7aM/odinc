@@ -7,15 +7,6 @@ import "core:testing"
 blob_merge_is_deterministic_and_merges_only_equal_blobs :: proc(t: ^testing.T) {
 	hello := transmute([]byte)string("hello")
 	zeros := []byte{0, 0, 0, 0, 0, 0, 0, 0}
-	function_blobs := [][]Data_Blob {
-		{{bytes = hello, align = 1}, {bytes = hello, align = 1}, {bytes = zeros, align = 8, relocs = {{target = {.Global, 0}}}}},
-		{
-			{bytes = hello, align = 1},
-			{bytes = zeros, align = 8, relocs = {{target = {.Global, 0}, addend = 8}}},
-			{bytes = zeros, align = 8, relocs = {{target = {.Global, 0}}}},
-			{bytes = zeros, align = 8, relocs = {{target = {.Local_Blob, 0}}}},
-		},
-	}
 	expected_global_of_blob := [][]u32{{1, 1, 2}, {1, 3, 2, 4}}
 
 	merged: [2]Module
@@ -24,7 +15,27 @@ blob_merge_is_deterministic_and_merges_only_equal_blobs :: proc(t: ^testing.T) {
 		init_err := module_init(&module)
 		testing.expect(t, init_err == nil, "module_init failed")
 		append(&module.globals, Global{name = "target"})
-		symbols, err := blob_merge(&module, function_blobs)
+
+		function_0, make_err_0 := function_make(context.allocator, 0, "f0", 0)
+		function_1, make_err_1 := function_make(context.allocator, 1, "f1", 0)
+		testing.expect(t, make_err_0 == nil && make_err_1 == nil, "function_make failed")
+		append(&module.functions, function_0, function_1)
+
+		append(
+			&function_0.blobs,
+			Data_Blob{bytes = hello, align = 1},
+			Data_Blob{bytes = hello, align = 1},
+			Data_Blob{bytes = zeros, align = 8, relocs = {{target = {.Global, 0}}}},
+		)
+		append(
+			&function_1.blobs,
+			Data_Blob{bytes = hello, align = 1},
+			Data_Blob{bytes = zeros, align = 8, relocs = {{target = {.Global, 0}, addend = 8}}},
+			Data_Blob{bytes = zeros, align = 8, relocs = {{target = {.Global, 0}}}},
+			Data_Blob{bytes = zeros, align = 8, relocs = {{target = {.Local_Blob, 0}}}},
+		)
+
+		symbols, err := blob_merge(&module)
 		testing.expect(t, err == nil, "blob_merge failed")
 		merged_symbols[run] = symbols
 	}

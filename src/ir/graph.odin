@@ -37,11 +37,12 @@ Slot_Info :: struct {
 	align: u32,
 }
 
-// The kind gives the meaning; the accessors assert it. `Symbol_Ref` joins with ticket A3.
+// The kind gives the meaning; the accessors assert it.
 Node_Data :: struct #raw_union {
 	int_value:  i64,
 	float_bits: u64,
 	index:      u32,
+	symbol:     Symbol_Ref,
 	access:     Access_Info,
 	slot:       Slot_Info,
 }
@@ -57,17 +58,19 @@ Node :: struct {
 
 // Never copy or move a `Function`: its arrays hold the address of `arena`. Use `function_make`.
 Function :: struct {
-	id:        Function_Id,
-	name:      string,
-	signature: Signature_Id,
-	nodes:     #soa[dynamic]Node,
-	edges:     [dynamic]Node_Id,
-	tables:    [dynamic][]i64,
-	start:     Node_Id,
-	stop:      Node_Id,
-	arena:     virtual.Arena,
-	allocator: runtime.Allocator,
-	error:     runtime.Allocator_Error,
+	id:         Function_Id,
+	name:       string,
+	signature:  Signature_Id,
+	nodes:      #soa[dynamic]Node,
+	edges:      [dynamic]Node_Id,
+	tables:     [dynamic][]i64,
+	signatures: [dynamic]Signature,
+	blobs:      [dynamic]Data_Blob,
+	start:      Node_Id,
+	stop:       Node_Id,
+	arena:      virtual.Arena,
+	allocator:  runtime.Allocator,
+	error:      runtime.Allocator_Error,
 }
 
 Use :: struct {
@@ -105,6 +108,8 @@ function_make :: proc(allocator: runtime.Allocator, id: Function_Id, name: strin
 	fn.nodes = make_soa(#soa[dynamic]Node, 0, 64, arena_alloc) or_return
 	fn.edges = make([dynamic]Node_Id, 0, 128, arena_alloc) or_return
 	fn.tables = make([dynamic][]i64, arena_alloc) or_return
+	fn.signatures = make([dynamic]Signature, arena_alloc) or_return
+	fn.blobs = make([dynamic]Data_Blob, arena_alloc) or_return
 	append_soa(&fn.nodes, Node{}) or_return
 	return fn, nil
 }

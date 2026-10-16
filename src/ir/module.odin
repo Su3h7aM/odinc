@@ -117,26 +117,27 @@ module_destroy :: proc(module: ^Module) {
 	module^ = {}
 }
 
-// Returns, per function in index order, the global that holds each of its blobs. Blobs with equal
+// Returns, per function in index order, the global that holds each of its `blobs`. Blobs with equal
 // bytes, alignment and relocations (same offsets, targets and addends; a `Local_Blob` target counts
 // as equal only within its own function) share one global, appended to `module.globals` in
 // first-occurrence order. Relocations of the new globals are rewritten to their final targets.
 // Results and globals are allocated in `module.arena`.
-blob_merge :: proc(module: ^Module, function_blobs: [][]Data_Blob) -> (blob_symbols: [][]Symbol_Ref, err: runtime.Allocator_Error) {
+blob_merge :: proc(module: ^Module) -> (blob_symbols: [][]Symbol_Ref, err: runtime.Allocator_Error) {
 	scratch: virtual.Arena
 	virtual.arena_init_growing(&scratch) or_return
 	defer virtual.arena_destroy(&scratch)
 	scratch_allocator := virtual.arena_allocator(&scratch)
 
 	module_allocator := virtual.arena_allocator(&module.arena)
-	blob_symbols = make([][]Symbol_Ref, len(function_blobs), module_allocator) or_return
+	blob_symbols = make([][]Symbol_Ref, len(module.functions), module_allocator) or_return
 
 	first_merged := len(module.globals)
 	representative_functions := make([dynamic]u32, scratch_allocator) or_return
 	global_of_key := make(map[string]u32, scratch_allocator)
 	key := make([dynamic]byte, scratch_allocator) or_return
 
-	for blobs, function_index in function_blobs {
+	for function, function_index in module.functions {
+		blobs := function.blobs[:]
 		blob_symbols[function_index] = make([]Symbol_Ref, len(blobs), module_allocator) or_return
 		for blob, blob_index in blobs {
 			clear(&key)
