@@ -8,6 +8,7 @@ collection_resolution_table :: proc(t: ^testing.T) {
 	allocator := context.allocator
 	root, root_err := os.make_directory_temp("", "odin-collections-*", allocator)
 	testing.expect(t, root_err == nil)
+	defer delete(root, allocator)
 	defer os.remove_all(root)
 	directories := []string{"base", "core", "vendor", "user", "app", "base/runtime", "core/fmt", "user/lib", "app/sub"}
 	for directory in directories {
