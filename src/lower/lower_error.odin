@@ -32,6 +32,11 @@ Lower_Feature :: enum u8 {
 	Defer,
 	Range,
 	Switch,
+	Call,
+	Call_Argument,
+	Context,
+	Builtin,
+	Syscall,
 }
 
 Lower_Error :: struct {

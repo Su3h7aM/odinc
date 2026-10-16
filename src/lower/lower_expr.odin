@@ -20,7 +20,7 @@ lower_fail :: proc(state: ^Procedure_State, node: syntax.Node_Index, feature: Lo
 @(private)
 lower_info :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> check.Expression_Info {
 	info, ok := check.expression_info(state.job.program, state.view, node)
-	assert(ok && info.state == .Checked && info.type != 0, "missing checked expression fact")
+	assert(ok && info.state == .Checked && (info.type != 0 || info.mode == .No_Value), "missing checked expression fact")
 	return info
 }
 
@@ -156,6 +156,8 @@ lower_value :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> ir.Node
 	if info.constant != 0 { return lower_constant(state, info.constant, info.type) }
 	if info.plan != 0 {
 		plan := check.plan(state.job.program, info.plan)
+		if plan == nil &&
+		   (state.ast.nodes[node].kind == .Call_Expr || state.ast.nodes[node].kind == .Selector_Call_Expr) { return lower_fail(state, node, .Call) }
 		assert(plan != nil)
 		#partial switch value in plan^ {
 		case check.Conversion_Plan:
@@ -165,6 +167,10 @@ lower_value :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> ir.Node
 		case check.Bounds_Plan:
 			if value.policy != .Disabled { return lower_fail(state, node, .Bounds) }
 			return lower_load(state, lower_index_address(state, node, true), info.type)
+		case check.Call_Plan:
+			return lower_call(state, node, info, value)
+		case check.Builtin_Plan:
+			return lower_builtin(state, node, info, value)
 		case:
 			return lower_fail(state, node, .Expression)
 		}
@@ -174,6 +180,8 @@ lower_value :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> ir.Node
 	case .Ident, .Implicit:
 		assert(info.entity != 0)
 		return lower_entity_value(state, info.entity)
+	case .Call_Expr, .Selector_Call_Expr:
+		return lower_fail(state, node, .Call)
 	case .Paren_Expr:
 		return lower_value(state, ast_node.payload.(syntax.Paren_Expr).expr)
 	case .Unary_Expr:

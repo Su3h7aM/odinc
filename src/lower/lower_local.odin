@@ -64,13 +64,14 @@ scan_addresses :: proc(state: ^Procedure_State) {
 		}
 		if typed.nodes.plans[index] == 0 { continue }
 		plan := check.plan(state.job.program, typed.nodes.plans[index])
+		if plan == nil && (ast_node.kind == .Call_Expr || ast_node.kind == .Selector_Call_Expr) { lower_fail(state, node, .Call); return }
 		assert(plan != nil)
 		#partial switch value in plan^ {
 		case check.Conversion_Plan:
 			if value.kind == .Box { mark_address_taken(state, value.source) }
 		case check.Call_Plan:
 			for argument in value.arguments {
-				if argument.parameter == 0 { continue }
+				if argument.parameter == 0 || int(argument.parameter) >= len(state.job.program.entities) { continue }
 				parameter := &state.job.program.entities[argument.parameter]
 				if .By_Pointer in parameter.flags { mark_address_taken(state, argument.value) }
 			}

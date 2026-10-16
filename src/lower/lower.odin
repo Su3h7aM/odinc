@@ -16,6 +16,7 @@ Procedure_Job :: struct {
 	symbols:          []ir.Symbol_Ref,
 	parameters:       []types.Abi_Param,
 	layouts:          []Type_Layout,
+	declarations:     []Procedure_Declaration,
 	errors:           [dynamic]Lower_Error,
 	allocation_error: runtime.Allocator_Error,
 }
@@ -79,6 +80,8 @@ lower_program :: proc(
 	for &job in jobs {
 		assert(job.program != nil, "missing checked procedure")
 	}
+	declarations := prepare_declarations(jobs, len(program.entities), scratch_allocator) or_return
+	for &job in jobs { job.declarations = declarations }
 	if len(jobs) > 0 {
 		locked_allocator: mem.Mutex_Allocator
 		mem.mutex_allocator_init(&locked_allocator, allocator)

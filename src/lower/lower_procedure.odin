@@ -21,6 +21,7 @@ Procedure_State :: struct {
 	context_pointer: ir.Node_Id,
 	local_entities:  [dynamic]check.Entity_Id,
 	control_targets: [dynamic]Control_Target,
+	call_signatures: [dynamic]Call_Signature,
 }
 
 @(private)
@@ -154,6 +155,7 @@ lower_procedure :: proc(job: ^Procedure_Job) -> (err: runtime.Allocator_Error) {
 		entry_control   = entry.control,
 		local_entities  = make([dynamic]check.Entity_Id, allocator) or_return,
 		control_targets = make([dynamic]Control_Target, allocator) or_return,
+		call_signatures = make([dynamic]Call_Signature, allocator) or_return,
 	}
 	scan_addresses(&state)
 	for parameter, index in job.parameters {
