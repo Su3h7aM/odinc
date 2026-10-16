@@ -11,6 +11,8 @@ Constant_Pool_Error :: enum u8 {
 	None,
 	Uninitialized,
 	Handle_Limit,
+	Invalid_Float_Width,
+	Invalid_Component,
 }
 Constant_Error :: union #shared_nil {
 	Constant_Pool_Error,
@@ -118,4 +120,131 @@ constant_pool_rational_key :: proc(pool: ^Constant_Pool, type: types.Type_Id, va
 	type_text := strconv.write_bits(type_buffer[:], u64(type), 10, false, 32, strconv.digits, {})
 	segments := [6]string{"r:", type_text, ":", numerator, "/", denominator}
 	return strings.concatenate(segments[:], allocator = pool.allocator)
+}
+
+// Interns an IEEE float bit pattern. Width is part of the key; signed zero and NaN payloads remain distinct.
+@(require_results)
+constant_pool_intern_float :: proc(pool: ^Constant_Pool, value: Float_Value, type: types.Type_Id = 0) -> (id: Const_Id, err: Constant_Error) {
+	if !constant_pool_ready(pool) { return 0, Constant_Pool_Error.Uninitialized }
+	if value.width != 16 && value.width != 32 && value.width != 64 { return 0, Constant_Pool_Error.Invalid_Float_Width }
+	if value.width == 16 && value.bits > u64(max(u16)) || value.width == 32 && value.bits > u64(max(u32)) {
+		return 0, Constant_Pool_Error.Invalid_Float_Width
+	}
+	key, key_error := constant_pool_float_key(pool, type, value)
+	if key_error != nil { return 0, key_error }
+	if existing, found := pool.keys[key]; found { return existing, nil }
+	if u64(len(pool.values)) > u64(max(u32)) { return 0, Constant_Pool_Error.Handle_Limit }
+	id = Const_Id(len(pool.values))
+	append(&pool.values, Constant{type = type, value = value}) or_return
+	pool.keys[key] = id
+	return id, nil
+}
+
+// Interns component handles in real/imaginary order.
+@(require_results)
+constant_pool_intern_complex :: proc(pool: ^Constant_Pool, value: Complex_Value, type: types.Type_Id = 0) -> (id: Const_Id, err: Constant_Error) {
+	if !constant_pool_ready(pool) { return 0, Constant_Pool_Error.Uninitialized }
+	for component in value {
+		if constant_pool_get(pool, component) == nil { return 0, Constant_Pool_Error.Invalid_Component }
+	}
+	key, key_error := constant_pool_complex_key(pool, type, value)
+	if key_error != nil { return 0, key_error }
+	if existing, found := pool.keys[key]; found { return existing, nil }
+	if u64(len(pool.values)) > u64(max(u32)) { return 0, Constant_Pool_Error.Handle_Limit }
+	id = Const_Id(len(pool.values))
+	append(&pool.values, Constant{type = type, value = value}) or_return
+	pool.keys[key] = id
+	return id, nil
+}
+
+// Interns quaternion components in real/i/j/k order.
+@(require_results)
+constant_pool_intern_quaternion :: proc(pool: ^Constant_Pool, value: Quaternion_Value, type: types.Type_Id = 0) -> (id: Const_Id, err: Constant_Error) {
+	if !constant_pool_ready(pool) { return 0, Constant_Pool_Error.Uninitialized }
+	for component in value {
+		if constant_pool_get(pool, component) == nil { return 0, Constant_Pool_Error.Invalid_Component }
+	}
+	key, key_error := constant_pool_quaternion_key(pool, type, value)
+	if key_error != nil { return 0, key_error }
+	if existing, found := pool.keys[key]; found { return existing, nil }
+	if u64(len(pool.values)) > u64(max(u32)) { return 0, Constant_Pool_Error.Handle_Limit }
+	id = Const_Id(len(pool.values))
+	append(&pool.values, Constant{type = type, value = value}) or_return
+	pool.keys[key] = id
+	return id, nil
+}
+
+@(private = "file")
+constant_pool_float_key :: proc(pool: ^Constant_Pool, type: types.Type_Id, value: Float_Value) -> (key: string, err: Constant_Error) {
+	type_buffer: [11]byte
+	width_buffer: [3]byte
+	bits_buffer: [16]byte
+	type_text := strconv.write_bits(type_buffer[:], u64(type), 10, false, 32, strconv.digits, {})
+	width_text := strconv.write_bits(width_buffer[:], u64(value.width), 10, false, 8, strconv.digits, {})
+	bits_text := strconv.write_bits(bits_buffer[:], value.bits, 16, false, 64, strconv.digits, {})
+	segments := [6]string{"f:", type_text, ":", width_text, ":", bits_text}
+	return strings.concatenate(segments[:], allocator = pool.allocator)
+}
+
+@(private = "file")
+constant_pool_complex_key :: proc(pool: ^Constant_Pool, type: types.Type_Id, value: Complex_Value) -> (key: string, err: Constant_Error) {
+	type_buffer: [11]byte
+	real_length_buffer, imaginary_length_buffer: [20]byte
+	type_text := strconv.write_bits(type_buffer[:], u64(type), 10, false, 32, strconv.digits, {})
+	real_text, key_error := constant_pool_numeric_key(pool, value[0])
+	if key_error != nil { return "", key_error }
+	imaginary_text: string
+	imaginary_text, key_error = constant_pool_numeric_key(pool, value[1])
+	if key_error != nil { return "", key_error }
+	real_length := strconv.write_bits(real_length_buffer[:], u64(len(real_text)), 10, false, 64, strconv.digits, {})
+	imaginary_length := strconv.write_bits(imaginary_length_buffer[:], u64(len(imaginary_text)), 10, false, 64, strconv.digits, {})
+	segments := [9]string{"c:", type_text, ":", real_length, "#", real_text, imaginary_length, "#", imaginary_text}
+	return strings.concatenate(segments[:], allocator = pool.allocator)
+}
+
+@(private = "file")
+constant_pool_quaternion_key :: proc(pool: ^Constant_Pool, type: types.Type_Id, value: Quaternion_Value) -> (key: string, err: Constant_Error) {
+	type_buffer: [11]byte
+	component_length_buffer: [4][20]byte
+	type_text := strconv.write_bits(type_buffer[:], u64(type), 10, false, 32, strconv.digits, {})
+	component_text: [4]string
+	component_length: [4]string
+	for i in 0 ..< 4 {
+		component_text[i], err = constant_pool_numeric_key(pool, value[i])
+		if err != nil { return "", err }
+		component_length[i] = strconv.write_bits(component_length_buffer[i][:], u64(len(component_text[i])), 10, false, 64, strconv.digits, {})
+	}
+	segments := [15]string {
+		"q:",
+		type_text,
+		":",
+		component_length[0],
+		"#",
+		component_text[0],
+		component_length[1],
+		"#",
+		component_text[1],
+		component_length[2],
+		"#",
+		component_text[2],
+		component_length[3],
+		"#",
+		component_text[3],
+	}
+	return strings.concatenate(segments[:], allocator = pool.allocator)
+}
+
+@(private = "file")
+constant_pool_numeric_key :: proc(pool: ^Constant_Pool, id: Const_Id) -> (key: string, err: Constant_Error) {
+	entry := constant_pool_get(pool, id)
+	if entry == nil { return "", Constant_Pool_Error.Invalid_Component }
+	#partial switch &value in entry.value {
+	case big.Int:
+		return constant_pool_integer_key(pool, entry.type, &value)
+	case big.Rat:
+		return constant_pool_rational_key(pool, entry.type, &value)
+	case Float_Value:
+		return constant_pool_float_key(pool, entry.type, value)
+	}
+	return "", Constant_Pool_Error.Invalid_Component
 }
