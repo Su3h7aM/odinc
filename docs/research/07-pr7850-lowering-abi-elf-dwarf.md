@@ -240,7 +240,7 @@ Odin translation: this maps almost 1:1 onto our `elf` package's `Builder`
 model — sections as handles, relocations as data, layout as a pure
 procedure returning `Error`. The `.eh_frame` synthesizer wants to be its
 own small file with a byte-level test (CIE bytes + one FDE, decoded by
-`readelf --debug-dump=frames` as oracle).
+`llvm-readelf --debug-dump=frames` as oracle).
 
 ## 5. `src/xb_dwarf.cpp` (1378 lines) — DWARF 4
 

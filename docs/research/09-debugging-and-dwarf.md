@@ -130,7 +130,7 @@ this doc):
   calls). User views sort before generated ones so "user wins"
   (`llvm_backend.cpp:4363-4375`). No `core/` or `base/` usage exists
   (grep hits only `src/` + `.gitignore:309` `*.raddbg`).
-- gdb/lldb path stays primary on Linux: `.debug_gdb_scripts` embeds
+- lldb path stays primary on Linux: `.debug_gdb_scripts` embeds
   `base/runtime/odin_debugger.py` (`llvm_backend.cpp:4178-4211`), which
   pretty-prints strings/slices/dynamic/maps/unions/`any`/SOA by *field
   shape*, not names (`odin_debugger.py:94-111, 258-277`). See §4 quirks.
@@ -139,7 +139,7 @@ What this means for our backend: replicate (a) standard DWARF, (b) the
 `.debug_gdb_scripts` + field layouts the Python printers key on, and
 (c) optionally the `.raddbg` strings (cheap: NUL-terminated
 `type_view:`/`entry_point:` text in a `PROGBITS` `.raddbg` section).
-(a)+(b) give gdb/lldb now; (c) is forward-compat for raddbg-on-Linux and
+(a)+(b) give lldb now; (c) is forward-compat for raddbg-on-Linux and
 harmless to other tools.
 
 ## 2. Official specs to follow
@@ -222,7 +222,7 @@ Fetch these; `refs/` has no local copies (§0, point 3).
 
 ## 3. Minimal staged plan (Linux x86-64)
 
-Principle: each stage is usable with stock gdb/perf; raddbg rides along
+Principle: each stage is usable with stock lldb/perf; raddbg rides along
 once its DWARF→RDI converter lands (§1.2). IR/lowering must preserve the
 inputs each stage consumes — columns are requirements, not wishes.
 
@@ -231,8 +231,8 @@ inputs each stage consumes — columns are requirements, not wishes.
 Emit: `push rbp; mov rbp,rsp` prologue in every proc (matches PR #7850
 `incoming_base=16` frame model; doc 07 §1/§3), full `symtab` + `strtab`
 (function + global symbols, size + type), valid `.eh_frame` CIE+FDE per
-proc (doc 07 §4 bytes). Result: `gdb bt`, `perf record/call-graph`,
-`addr2line -e -f -C` work; no source lines yet.
+proc (doc 07 §4 bytes). Result: `lldb bt`, `perf record/call-graph`,
+`llvm-addr2line -e -f -C` work; no source lines yet.
 IR/lowering must preserve: proc symbol names (mangled Odin canonical
 names — the same strings `typeid`/pretty-printers hash), proc byte ranges
 (start/size; FDE `initial_location/address_range` source), per-proc frame
@@ -245,7 +245,7 @@ Emit: `.debug_info` skeleton (one CU + one `DW_TAG_subprogram` per proc
 with `low_pc/high_pc`) + `.debug_abbrev` + `.debug_line` program
 (`set_address/advance_line/copy/end_sequence`, `prologue_end`, `is_stmt`);
 `.debug_str` optional (else `FORM_string`, accepting doc-07 debt
-knowingly). Result: `gdb step/list/break file:line`, `perf annotate`
+knowingly). Result: `lldb step/list/break file:line`, `perf annotate`
 source correlation.
 IR/lowering must preserve: **source location on every IR node**
 (`file,line,column`, CU-relative file index) from AST → IR → machine
@@ -266,8 +266,8 @@ struct/member/array/typedef/enum/union/subroutine types in `.debug_info`
 fall back to `.debug_loc/.debug_ranges` only if a consumer demands v4),
 `frame_base = DW_OP_fbreg 0` off single-`rbp` (doc-07 single-byte
 `rbp` precedent), locations via `OP_addr/breg/reg/fbreg/deref`
-(+ `DW_OP_GNU_entry_value` only where proven). Result: `gdb print/locals`,
-lldb synthetic children, future raddbg eval.
+(+ `DW_OP_GNU_entry_value` only where proven). Result: `lldb print/locals`
+and synthetic children, future raddbg eval.
 IR/lowering must preserve, in addition to stages 0–1: **variable→value
 mapping** per program point (which stack slot / register / `breg+offset`
 holds each source variable; spill/reload updates; location lists over
@@ -283,24 +283,23 @@ equivalents until an optimizer exists.
 
 Explicit non-goals per stage: split-DWARF/`.dwp`, `.debug_names` index,
 macro sections, call-site tags, LTO-aware locations — all deferrable
-without breaking gdb `bt/step/print`.
+without breaking lldb `bt/step/print`.
 
 ## 4. Debugging the compiler itself during development
 
 The compiler is an Odin program built today by the fork's LLVM path; all
 of these work *now*, before our backend exists.
 
-- `odin -debug` + gdb/lldb/raddbg: build with `odin build -debug -o:none`
-  (forum-verified gdb recipe; §1.3 for what `-debug` enables). gdb:
-  `source base/runtime/odin_debugger.py` or rely on auto-load from
-  `.debug_gdb_scripts` (+ `add-auto-load-safe-path <dir>`);
-  `set odin-map-hint off` for VS Code C/C++ front-ends that mishandle the
-  `map` display hint (`odin_debugger.py:16-17`). lldb: `command script
-  import base/runtime/odin_debugger.py`, needs
+- `odin -debug` + lldb/raddbg: build with `odin build -debug -o:none`
+  (forum-verified recipe; §1.3 for what `-debug` enables). lldb:
+  `command script import base/runtime/odin_debugger.py` (or rely on
+  auto-load from `.debug_gdb_scripts`), needs
   `settings set target.load-script-from-symbol-file true` on macOS dSYM
   (`odin_debugger.py:3-8`); LLDB ≤ 14 matches by regex not recognizer fn
-  (`__lldb_init_module`, `:974-998`). raddbg on Windows: open the `.pdb`
-  + `.exe`; `.raddbg` views apply automatically; on Linux use gdb/lldb
+  (`__lldb_init_module`, `:974-998`). The `map` display hint can be
+  disabled for VS Code C/C++ front-ends that mishandle it
+  (`odin_debugger.py:16-17`). raddbg on Windows: open the `.pdb`
+  + `.exe`; `.raddbg` views apply automatically; on Linux use lldb
   until the Linux-debug phase lands (§1.1).
 - `-sanitize`: `-sanitize:address|memory|thread` (`main.cpp:834,1951-1968`);
   OS gates `build_settings.cpp:2693-2727` (address: Win/Linux/Darwin/
@@ -314,8 +313,8 @@ of these work *now*, before our backend exists.
   `entry.location.file_path/line/procedure`
   (`core/testing/reporting.odin:308-335`, entries carry
   `runtime.Source_Code_Location` from `core/mem/tracking_allocator.odin`);
-  run test binaries under gdb with `break __debugbreak` / `SIGTRAP` catch
-  to land exactly on the failing assert.
+  run test binaries under lldb with a `__debugbreak` breakpoint / `SIGTRAP`
+  catch to land exactly on the failing assert.
 - `core:debug/trace`: `trace.odin:9,15,49-80,99-156`, `doc.odin:1-49`.
   Linux default resolves via fork+exec `addr2line`
   (`trace_linux.odin:50-351`, `SYMBOLIZER_PROGRAM`, `trace.odin:28`) —
