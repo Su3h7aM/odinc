@@ -294,6 +294,10 @@ check_node_data :: proc(v: ^Verifier, id: Node_Id) {
 				break
 			}
 		}
+	case .Load_Ordered:
+		if data.access.value_type not_in input_types(.Store, 3) {
+			report(v, id, NODE_NONE, .Bad_Node_Data)
+		}
 	case .Call:
 		if int(data.index) >= len(fn.signatures) {
 			report(v, id, NODE_NONE, .Bad_Node_Data)
@@ -361,8 +365,7 @@ check_symbol :: proc(v: ^Verifier, id: Node_Id, symbol: Symbol_Ref, thread_local
 	}
 }
 
-// What `Proj` reads from a tuple. A `.None` type means the member type is not recorded
-// (the value of a `Load_Ordered`).
+// What `Proj` reads from a tuple.
 @(private = "file")
 tuple_member :: proc(v: ^Verifier, tuple: Node_Id, index: int) -> (type: Value_Type, found: bool) {
 	fn := v.fn
@@ -387,7 +390,7 @@ tuple_member :: proc(v: ^Verifier, tuple: Node_Id, index: int) -> (type: Value_T
 		return .Control, int(data.index) < len(fn.tables) && index <= len(fn.tables[data.index])
 	case .Load_Ordered:
 		if index < 2 {
-			return .Memory if index == 0 else .None, true
+			return .Memory if index == 0 else data.access.value_type, true
 		}
 	case .Atomic_Rmw:
 		if index < 2 {
@@ -441,11 +444,7 @@ check_projections :: proc(v: ^Verifier) {
 		}
 		tuple := node_input(fn, id, 0)
 		member, found := tuple_member(v, tuple, int(fn.nodes.data[id].index))
-		bad_type := type_of(v, id) != member
-		if member == .None {
-			bad_type = type_of(v, id) not_in input_types(.Store, 3)
-		}
-		if !found || bad_type {
+		if !found || type_of(v, id) != member {
 			report(v, id, tuple, .Bad_Projection)
 		}
 	}

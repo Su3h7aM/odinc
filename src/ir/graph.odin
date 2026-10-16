@@ -30,6 +30,7 @@ Access_Info :: struct {
 	rmw:           Rmw_Op,
 	weak:          bool,
 	signal:        bool,
+	value_type:    Value_Type, // the value of a `Load_Ordered`
 }
 
 Slot_Info :: struct {
