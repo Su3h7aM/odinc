@@ -6,6 +6,22 @@ import "oc:syntax"
 import "oc:types"
 
 @(test)
+builtin_kind_uses_checked_identity :: proc(t: ^testing.T) {
+	kinds := [3]Builtin_Kind{.Syscall, .None, .Syscall}
+	program := Checked_Program {
+		builtin_kinds = kinds[:],
+	}
+	testing.expect_value(t, builtin_kind(&program, 2), Builtin_Kind.Syscall)
+	testing.expect_value(t, builtin_kind(&program, 1), Builtin_Kind.None)
+	testing.expect_value(t, builtin_kind(&program, 0), Builtin_Kind.None)
+	testing.expect_value(t, builtin_kind(&program, Builtin_Id(len(kinds))), Builtin_Kind.None)
+	testing.expect_value(t, builtin_kind(&program, 0xffff_ffff), Builtin_Kind.None)
+	testing.expect_value(t, builtin_kind(nil, 2), Builtin_Kind.None)
+	zero: Checked_Program
+	testing.expect_value(t, builtin_kind(&zero, 2), Builtin_Kind.None)
+}
+
+@(test)
 checked_views_keep_instances_separate :: proc(t: ^testing.T) {
 	ast: syntax.Ast
 	syntax.ast_init(&ast)

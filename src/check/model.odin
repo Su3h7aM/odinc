@@ -15,6 +15,11 @@ Symbol_Id :: distinct u32
 View_Id :: distinct u32
 Builtin_Id :: distinct u32
 
+Builtin_Kind :: enum u8 {
+	None,
+	Syscall,
+}
+
 Source_Span :: struct {
 	file:       File_Id,
 	start, end: u32,
@@ -575,6 +580,7 @@ Checked_Program :: struct {
 	constant_table: []Constant,
 	symbol_table:   []Symbol,
 	entity_symbols: []Symbol_Id,
+	builtin_kinds:  []Builtin_Kind,
 	procedure_list: []Checked_Procedure,
 	global_list:    []Global,
 	type_data:      ^types.Store,
@@ -621,6 +627,12 @@ entity_symbol :: proc(program: ^Checked_Program, entity: Entity_Id) -> Symbol_Id
 	symbol := table_entry(program.entity_symbols, entity)
 	if symbol == nil { return 0 }
 	return symbol^
+}
+builtin_kind :: proc(program: ^Checked_Program, id: Builtin_Id) -> Builtin_Kind {
+	if program == nil { return .None }
+	kind := table_entry(program.builtin_kinds, id)
+	if kind == nil { return .None }
+	return kind^
 }
 globals :: proc(program: ^Checked_Program) -> []Global {
 	if program == nil { return nil }
