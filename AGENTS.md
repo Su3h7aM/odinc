@@ -2,6 +2,16 @@
 
 Rules for every contributor and agent working in this repository. Also read `docs/01-architecture.md`.
 
+## Prior-art check before every task
+
+The orchestrator puts this at the top of every task it delegates, and no agent writes code until it is done. We already lost time having an agent write an x86-64 encoder that `core:rexcode/isa/x86` provides.
+
+1. Search our copy of `base/` and `core/` (and `vendor/` in the fork) for an existing Odin package that solves the problem.
+2. Search the official repositories on GitHub (`odin-lang/Odin`, `odin-lang/examples`, `odin-lang/pkg.odin-lang.org`) for existing code, open and merged pull requests, and issues on the problem.
+3. Search `/home/su3h7am/Projects/refs` for specifications and reference implementations in other languages.
+4. Report what was found and what will be reused before writing anything. Write only what is missing.
+5. Check the result against Ginger Bill's stated vision for Odin and its compiler (`docs/research/01-gingerbill-vision.md`): the simplest efficient solution, idiomatic Odin, nothing that changes the language.
+
 ## Do not reinvent the wheel
 
 Before building anything, look for an existing reference: documentation, a specification, or an implementation that already solves the problem. Study it, understand its logic and organization, then adapt the ideas into simple, idiomatic Odin. Never translate a C or Rust implementation line by line.
