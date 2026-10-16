@@ -2,6 +2,12 @@
 
 Rules for every contributor and agent working in this repository. Also read `docs/01-architecture.md`.
 
+## Tools and wording
+
+- Debugging uses LLDB, never GDB, and is delegated to a sub-agent. The orchestrator does not debug.
+- Avoid the GNU toolchain and GNU-derived references: no GDB, GCC, GNU binutils (`as`, `ld`, `objdump`, `readelf`, `nm`) or glibc, in tasks, tests and docs. Use the LLVM equivalents (`lldb`, `llvm-objdump`, `llvm-readelf`, `llvm-nm`, `llvm-mc`) for inspection, and the specifications and Linux documentation as the source of truth.
+- The platform is Linux. Write "Linux", never "GNU/Linux". Coreutils and other userland tools are fine to use as plain tools.
+
 ## Orchestration
 
 The orchestrator coordinates; it does not do routine work. It decides architecture, keeps the design aligned with the goals, and delegates research, implementation, test runs, checks and local investigations to sub-agents. It does not run tests itself: a sub-agent runs `mise run check`, `mise run test` and `mise run fmt` and reports only whether everything passed or, on failure, the specific reason. It reads code only for critical decisions that cannot reasonably be delegated.
