@@ -23,6 +23,11 @@ build_program :: proc(function: ^Machine_Function, allocator: mem.Allocator) -> 
 			edge_moves   = make([][]regalloc.Move, len(successors), allocator) or_return,
 			depth        = block.depth,
 		}
+		for moves, edge in block.edge_moves {
+			stored := make([]regalloc.Move, len(moves), allocator) or_return
+			copy(stored, moves)
+			blocks[block_index].edge_moves[edge] = stored
+		}
 	}
 	program.blocks = blocks
 	program.classes = function.vreg_classes[:]
@@ -68,7 +73,7 @@ translate_instruction :: proc(instruction: Machine_Instruction, allocator: mem.A
 			if value.has_index {
 				append(&operands, regalloc.Operand{vreg = value.index, role = .Use, position = .Early}) or_return
 			}
-		case Immediate, Block_Ref, Symbol_Target:
+		case Immediate, Block_Ref, Symbol_Target, Physical_Register:
 		}
 	}
 	result = regalloc.Instruction {
@@ -96,6 +101,8 @@ pseudo_access :: proc(pseudo: Pseudo, index: int) -> Op_Access {
 		return .Def if index == 0 else .Use
 	case .Call:
 		return .Use if index == 0 else .None
+	case .Syscall:
+		return .Use
 	case .None, .Entry, .Return:
 	}
 	return .None

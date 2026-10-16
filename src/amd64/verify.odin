@@ -88,6 +88,10 @@ verify_operands :: proc(function: ^Machine_Function, instruction: Machine_Instru
 			if instruction.pseudo == .None && index >= int(instruction.explicit_count) {
 				return .Bad_Operand
 			}
+		case Physical_Register:
+			if Gpr(value) != .RSP {
+				return .Bad_Fixed_Register
+			}
 		case Fixed_Vreg:
 			if int(value.vreg) >= len(function.vreg_classes) {
 				return .Bad_Vreg

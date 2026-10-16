@@ -213,6 +213,17 @@ emit_instruction_body :: proc(emitter: ^Emitter, instruction: Machine_Instructio
 			return Emit_Failure.Bad_Operand
 		}
 		return emit_vreg_move(emitter, source, destination)
+	case .Syscall:
+		emitter.scratch_taken = {}
+		emitter.store_count = 0
+		for operand in instruction.operands {
+			if value, ok := operand.(Vreg); ok {
+				source := vreg_register(emitter, value, Access{reads = true}, 8) or_return
+				append(&emitter.instructions, x86.inst_r_r(.MOV, x86.R10, source)) or_return
+			}
+		}
+		append(&emitter.instructions, x86.inst_none(.SYSCALL)) or_return
+		return nil
 	case .Call, .None:
 		return lower_instruction(emitter, instruction, block)
 	}
@@ -470,6 +481,8 @@ lower_instruction :: proc(emitter: ^Emitter, instruction: Machine_Instruction, b
 		case Fixed_Vreg:
 			class := emitter.function.vreg_classes[value.vreg]
 			slot^ = x86.op_reg(register_of_width(class, u8(value.register), width))
+		case Physical_Register:
+			slot^ = x86.op_reg(register_of_width(.Int, u8(value), width))
 		case Immediate:
 			slot^ = x86.op_imm(i64(value), 8 if instruction.mnemonic == .MOVABS else min(width, 4))
 		case Memory_Ref:

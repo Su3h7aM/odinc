@@ -71,6 +71,8 @@ Fixed_Vreg :: struct {
 
 Immediate :: distinct i64
 
+Physical_Register :: distinct Gpr
+
 Block_Ref :: distinct u32
 
 Symbol_Target :: struct {
@@ -110,6 +112,7 @@ Memory_Ref :: struct {
 
 Machine_Operand :: union {
 	Vreg,
+	Physical_Register,
 	Fixed_Vreg,
 	Immediate,
 	Memory_Ref,
@@ -126,6 +129,7 @@ Pseudo :: enum u8 {
 	Call,
 	Return,
 	Copy,
+	Syscall,
 }
 
 // operands[:explicit_count] go to the encoder; the rest only constrain the allocator.
@@ -142,6 +146,7 @@ Machine_Instruction :: struct {
 Machine_Block :: struct {
 	instructions: [dynamic]Machine_Instruction,
 	successors:   [dynamic]u32,
+	edge_moves:   [][]regalloc.Move,
 	depth:        u8,
 	cold:         bool,
 }
@@ -264,6 +269,8 @@ print_operand :: proc(builder: ^strings.Builder, operand: Machine_Operand) {
 	switch value in operand {
 	case Vreg:
 		fmt.sbprintf(builder, "v%d", u32(value))
+	case Physical_Register:
+		fmt.sbprintf(builder, "%v", Gpr(value))
 	case Fixed_Vreg:
 		fmt.sbprintf(builder, "v%d@%d", u32(value.vreg), value.register)
 	case Immediate:

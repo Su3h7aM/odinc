@@ -59,7 +59,7 @@ op_info :: proc(mnemonic: x86.Mnemonic) -> (info: Op_Info, known: bool) {
 	case .IDIV, .DIV, .MUL:
 		info.access = {.Use, .None, .None, .None}
 		info.writes_flags = true
-	case .CQO, .CDQ, .MOVSB, .STOSB:
+	case .CQO, .CDQ, .MOVSB, .STOSB, .STD, .CLD:
 	case .SYSCALL:
 		info.writes_flags = true
 	case .JE, .JNE, .JL, .JLE, .JG, .JGE, .JB, .JBE, .JA, .JAE, .JP, .JNP:
