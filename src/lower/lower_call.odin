@@ -161,6 +161,7 @@ lower_call :: proc(state: ^Procedure_State, node: syntax.Node_Index, info: check
 
 @(private)
 lower_builtin :: proc(state: ^Procedure_State, node: syntax.Node_Index, info: check.Expression_Info, plan: check.Builtin_Plan) -> ir.Node_Id {
+	if check.builtin_kind(state.job.program, plan.builtin) == .Len { return lower_length(state, node, info, plan) }
 	if check.builtin_kind(state.job.program, plan.builtin) != .Syscall || len(plan.helpers) != 0 { return lower_fail(state, node, .Builtin) }
 	if info.type == 0 ||
 	   scalar_type(state, info.type) != .I64 ||

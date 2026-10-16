@@ -30,16 +30,16 @@ Collection_Table :: struct {
 collection_table_init :: proc(table: ^Collection_Table, odin_root: string, allocator: runtime.Allocator) -> Collection_Error {
 	assert(table != nil && table.allocator.procedure == nil && allocator.procedure != nil)
 	table.allocator = allocator
+	absolute_root, root_err := filepath.abs(odin_root, allocator)
+	if root_err != nil { return .Invalid_Collection }
+	defer delete(absolute_root, allocator)
 	names := []string{"base", "core", "vendor"}
 	for name in names {
-		joined, join_err := filepath.join({odin_root, name}, allocator)
+		joined, join_err := filepath.join({absolute_root, name}, allocator)
 		if join_err != nil { return .Invalid_Collection }
-		absolute, abs_err := filepath.abs(joined, allocator)
-		delete(joined, allocator)
-		if abs_err != nil { return .Invalid_Collection }
 		owned_name, clone_err := strings.clone(name, allocator)
-		if clone_err != nil { delete(absolute, allocator); return .Invalid_Collection }
-		append(&table.collections, Collection{owned_name, absolute})
+		if clone_err != nil { delete(joined, allocator); return .Invalid_Collection }
+		append(&table.collections, Collection{owned_name, joined})
 	}
 	return .None
 }

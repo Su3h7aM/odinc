@@ -152,7 +152,7 @@ direct_calls_preserve_argument_order_conversions_and_syscall_memory :: proc(t: ^
 			node: syntax.Node_Index,
 			type: types.Type_Id,
 			plan: check.Plan_Id,
-		}{{next_dereference, byte, 0}, {difference, byte, 0}, {initialize_dereference, byte, 0}, {buffer_index, byte, 0}, {buffer_address, pointer, 0}, {first_call, byte, 2}, {second_call, byte, 3}, {subtract_call, byte, 4}, {address_word, word, 7}, {write_call, word, 8}, {exit_code, word, 0}, {exit_call, word, 9}}) {
+		}{{next_dereference, byte, 0}, {difference, byte, 0}, {initialize_dereference, byte, 0}, {buffer_index, byte, 10}, {buffer_address, pointer, 0}, {first_call, byte, 2}, {second_call, byte, 3}, {subtract_call, byte, 4}, {address_word, word, 7}, {write_call, word, 8}, {exit_code, word, 0}, {exit_call, word, 9}}) {
 		facts[int(entry.node) - 1] = {
 			type  = entry.type,
 			plan  = entry.plan,
@@ -243,6 +243,7 @@ direct_calls_preserve_argument_order_conversions_and_syscall_memory :: proc(t: ^
 			check.Conversion_Plan{kind = .Cast, source = check.Expression_Ref{1, buffer_address}, target = word},
 			check.Builtin_Plan{builtin = 1, arguments = {check.Const_Id(2), check.Const_Id(2), check.Expression_Ref{1, address_word}, check.Const_Id(2)}},
 			check.Builtin_Plan{builtin = 1, arguments = {check.Const_Id(3), check.Expression_Ref{1, exit_code}}},
+			check.Bounds_Plan{kind = .Index, policy = .Disabled},
 		},
 		allocator,
 	)

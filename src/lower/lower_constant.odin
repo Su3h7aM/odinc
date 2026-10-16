@@ -11,6 +11,7 @@ import "oc:types"
 lower_constant :: proc(state: ^Procedure_State, id: check.Const_Id, target: types.Type_Id) -> ir.Node_Id {
 	constant := check.constant(state.job.program, id)
 	assert(constant != nil)
+	if text, is_string := constant.value.(string); is_string { return lower_string(state, text) }
 	type := target if target != 0 else constant.type
 	scalar := scalar_type(state, type)
 	if scalar == .None { return lower_fail(state, state.job.procedure.body.node, .Constant) }
@@ -47,6 +48,31 @@ lower_constant :: proc(state: ^Procedure_State, id: check.Const_Id, target: type
 	case:
 		return lower_fail(state, state.job.procedure.body.node, .Constant)
 	}
+}
+
+// The bytes live in a blob of this function; the value is a header of data pointer and length, as for any string.
+@(private)
+lower_string :: proc(state: ^Procedure_State, text: string) -> ir.Node_Id {
+	function := state.job.function
+	allocator := virtual.arena_allocator(&function.arena)
+	bytes, bytes_error := make([]byte, len(text), allocator)
+	if bytes_error != nil {
+		function.error = bytes_error
+		return 0
+	}
+	copy(bytes, text)
+	blob := ir.Symbol_Ref {
+		space = .Local_Blob,
+		index = u32(len(function.blobs)),
+	}
+	if _, append_error := append(&function.blobs, ir.Data_Blob{bytes = bytes, align = 1}); append_error != nil {
+		function.error = append_error
+		return 0
+	}
+	slot := ir.stack_slot(function, state.entry_control, 16, 8)
+	lower_store_word(state, slot, ir.symbol_addr(function, blob))
+	lower_store_word(state, ir.ptr_offset(function, slot, 8), ir.const_int(function, .I64, i64(len(text))))
+	return slot
 }
 
 @(private)

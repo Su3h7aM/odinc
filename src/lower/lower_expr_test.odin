@@ -229,6 +229,7 @@ local_array_aliasing :: proc(t: ^testing.T, store: ^types.Store, allocator: runt
 	}
 	facts[int(index) - 1] = {
 		type  = byte,
+		plan  = 3,
 		mode  = .Variable,
 		state = .Checked,
 	}
@@ -251,6 +252,7 @@ local_array_aliasing :: proc(t: ^testing.T, store: ^types.Store, allocator: runt
 				values = fixture_clone([]check.Operand{check.Entity_Id(4)}, allocator),
 			},
 			check.Conversion_Plan{kind = .Cast, source = check.Expression_Ref{1, value}, target = byte},
+			check.Bounds_Plan{kind = .Index, policy = .Disabled},
 		},
 		allocator,
 	)

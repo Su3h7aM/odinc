@@ -4,6 +4,7 @@ import "base:runtime"
 import "core:math/big"
 import "core:strconv"
 import "oc:syntax"
+import "oc:types"
 
 Literal_Diagnostic :: enum u8 {
 	None,
@@ -24,16 +25,16 @@ BIG_RAT_LITERAL_MAX_EXPONENT :: 65536
 
 // Parses one numeric/rune token slice into the caller-owned constant pool.
 @(require_results)
-literal_constant :: proc(pool: ^Constant_Pool, kind: syntax.Token_Kind, text: string) -> (id: Const_Id, err: Literal_Error) {
+literal_constant :: proc(pool: ^Constant_Pool, kind: syntax.Token_Kind, text: string, type: types.Type_Id = 0) -> (id: Const_Id, err: Literal_Error) {
 	#partial switch kind {
 	case .Integer:
-		return literal_integer(pool, text)
+		return literal_integer(pool, text, type)
 	case .Float:
 		return literal_float(pool, text)
 	case .Imag:
 		return literal_imaginary(pool, text)
 	case .Rune:
-		return literal_rune(pool, text)
+		return literal_rune(pool, text, type)
 	case:
 		return 0, Literal_Diagnostic.Invalid_Token_Literal
 	}
@@ -60,7 +61,7 @@ literal_error_message :: proc(err: Literal_Error) -> string {
 }
 
 @(private = "file")
-literal_integer :: proc(pool: ^Constant_Pool, text: string) -> (id: Const_Id, err: Literal_Error) {
+literal_integer :: proc(pool: ^Constant_Pool, text: string, type: types.Type_Id) -> (id: Const_Id, err: Literal_Error) {
 	base := i8(10)
 	prefix_length := 0
 	if len(text) > 2 && text[0] == '0' {
@@ -111,7 +112,7 @@ literal_integer :: proc(pool: ^Constant_Pool, text: string) -> (id: Const_Id, er
 			return 0, multiply_error
 		}
 	}
-	return constant_pool_intern_integer(pool, &value)
+	return constant_pool_intern_integer(pool, &value, type)
 }
 
 @(private = "file")
@@ -120,7 +121,7 @@ literal_float :: proc(pool: ^Constant_Pool, text: string) -> (id: Const_Id, err:
 		return literal_hex_float(pool, text)
 	}
 	if !literal_contains(text, '.') && !literal_contains(text, '-') {
-		return literal_integer(pool, text)
+		return literal_integer(pool, text, 0)
 	}
 	return literal_decimal_rational(pool, text)
 }
@@ -255,7 +256,7 @@ literal_imaginary :: proc(pool: ^Constant_Pool, text: string) -> (id: Const_Id, 
 }
 
 @(private = "file")
-literal_rune :: proc(pool: ^Constant_Pool, text: string) -> (id: Const_Id, err: Literal_Error) {
+literal_rune :: proc(pool: ^Constant_Pool, text: string, type: types.Type_Id) -> (id: Const_Id, err: Literal_Error) {
 	if len(text) < 3 || text[0] != '\'' || text[len(text) - 1] != '\'' {
 		return 0, Literal_Diagnostic.Invalid_Rune_Literal
 	}
@@ -264,7 +265,7 @@ literal_rune :: proc(pool: ^Constant_Pool, text: string) -> (id: Const_Id, err: 
 	value: big.Int
 	big.int_set_from_integer(&value, i64(r), allocator = context.temp_allocator) or_return
 	defer big.int_destroy(&value)
-	return constant_pool_intern_integer(pool, &value)
+	return constant_pool_intern_integer(pool, &value, type)
 }
 
 @(private = "file")

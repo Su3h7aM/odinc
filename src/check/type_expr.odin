@@ -73,6 +73,7 @@ Type_Checker :: struct {
 	declarations:     map[Entity_Id]Collected_Declaration,
 	synced:           int,
 	enum_members:     map[types.Type_Id][]Enum_Member,
+	subtype_fields:   map[types.Type_Id][]bool,
 	nominals:         [dynamic]Nominal_Type,
 	layouts_checked:  int,
 	diagnostics:      [dynamic]Type_Diagnostic,
@@ -101,6 +102,7 @@ type_checker_init :: proc(
 	checker.arena_allocator = mem.dynamic_arena_allocator(&checker.arena)
 	checker.declarations = make(map[Entity_Id]Collected_Declaration, allocator)
 	checker.enum_members = make(map[types.Type_Id][]Enum_Member, allocator)
+	checker.subtype_fields = make(map[types.Type_Id][]bool, allocator)
 	checker.nominals.allocator = allocator
 	checker.diagnostics.allocator = allocator
 }
@@ -109,6 +111,7 @@ type_checker_destroy :: proc(checker: ^Type_Checker) {
 	if checker == nil { return }
 	delete(checker.declarations)
 	delete(checker.enum_members)
+	delete(checker.subtype_fields)
 	delete(checker.nominals)
 	delete(checker.diagnostics)
 	mem.dynamic_arena_destroy(&checker.arena)
@@ -141,7 +144,8 @@ type_declaration :: proc(checker: ^Type_Checker, id: Entity_Id) -> (handled, val
 	#partial switch file.ast.nodes[value].kind {
 	case .Struct_Type:
 		type := publish_nominal(checker, id, .Struct, name) or_return
-		descriptor, record_valid := struct_descriptor(checker, file_id, file, scope, value, name) or_return
+		descriptor, subtypes, record_valid := struct_descriptor(checker, file_id, file, scope, value, name) or_return
+		register_subtypes(checker, type, subtypes) or_return
 		types.complete_nominal(checker.store, type, descriptor)
 		return true, record_valid, nil
 	case .Union_Type:
@@ -210,9 +214,11 @@ type_expression :: proc(
 		if key == types.TYPE_POISON || value == types.TYPE_POISON { return types.TYPE_POISON, nil }
 		return types.intern(checker.store, types.Type{kind = .Map, index = key, elem = value}), nil
 	case .Struct_Type:
-		descriptor, valid := struct_descriptor(checker, file_id, file, scope, node, "") or_return
+		descriptor, subtypes, valid := struct_descriptor(checker, file_id, file, scope, node, "") or_return
 		if !valid { return types.TYPE_POISON, nil }
-		return types.intern(checker.store, descriptor), nil
+		type = types.intern(checker.store, descriptor)
+		register_subtypes(checker, type, subtypes) or_return
+		return type, nil
 	case .Union_Type:
 		descriptor, valid := union_descriptor(checker, file_id, file, scope, node, "") or_return
 		if !valid { return types.TYPE_POISON, nil }
@@ -473,6 +479,7 @@ struct_descriptor :: proc(
 	name: string,
 ) -> (
 	descriptor: types.Type,
+	subtypes: []bool,
 	valid: bool,
 	err: Resolve_Error,
 ) {
@@ -482,7 +489,7 @@ struct_descriptor :: proc(
 		type_report(checker, file_id, file, node, .Unsupported_Type_Expression) or_return
 		valid = false
 	}
-	fields, fields_valid, _ := record_fields(checker, file_id, file, scope, record.fields, true, true) or_return
+	fields, fields_valid, _, field_subtypes := record_fields(checker, file_id, file, scope, record.fields, true, true) or_return
 	descriptor = types.Type {
 		kind      = .Struct,
 		name      = name,
@@ -494,7 +501,7 @@ struct_descriptor :: proc(
 	descriptor.custom_align, align_valid = alignment_expression(checker, file_id, file, scope, record.align) or_return
 	descriptor.min_field_align, min_valid = alignment_expression(checker, file_id, file, scope, record.min_field_align) or_return
 	descriptor.max_field_align, max_valid = alignment_expression(checker, file_id, file, scope, record.max_field_align) or_return
-	return descriptor, valid && fields_valid && align_valid && min_valid && max_valid, nil
+	return descriptor, field_subtypes, valid && fields_valid && align_valid && min_valid && max_valid, nil
 }
 
 @(private = "file")
@@ -642,6 +649,18 @@ enum_descriptor :: proc(
 	return descriptor, members, valid, nil
 }
 
+// Records which struct fields were declared #subtype, aligned with the descriptor fields. Absent means none.
+@(private = "file")
+register_subtypes :: proc(checker: ^Type_Checker, type: types.Type_Id, subtypes: []bool) -> runtime.Allocator_Error {
+	any_subtype := false
+	for subtype in subtypes { any_subtype ||= subtype }
+	if !any_subtype { return nil }
+	_, stored, inserted, err := map_entry(&checker.subtype_fields, type)
+	if err != nil { return err }
+	if inserted { stored^ = subtypes }
+	return nil
+}
+
 @(private = "file")
 register_enum :: proc(checker: ^Type_Checker, type: types.Type_Id, members: []Enum_Member) -> runtime.Allocator_Error {
 	_, stored, inserted, err := map_entry(&checker.enum_members, type)
@@ -679,8 +698,8 @@ procedure_type :: proc(
 			return types.TYPE_POISON, nil
 		}
 	}
-	parameters, parameters_valid, variadic := record_fields(checker, file_id, file, scope, signature.params, false, false) or_return
-	results, results_valid, _ := record_fields(checker, file_id, file, scope, signature.results, false, false) or_return
+	parameters, parameters_valid, variadic, _ := record_fields(checker, file_id, file, scope, signature.params, false, false) or_return
+	results, results_valid, _, _ := record_fields(checker, file_id, file, scope, signature.results, false, false) or_return
 	if !parameters_valid || !results_valid { return types.TYPE_POISON, nil }
 	parameter_types := make([]types.Type_Id, len(parameters), checker.arena_allocator) or_return
 	result_types := make([]types.Type_Id, len(results), checker.arena_allocator) or_return
@@ -706,13 +725,15 @@ record_fields :: proc(
 	fields: []types.Type_Field,
 	valid: bool,
 	variadic: bool,
+	subtypes: []bool,
 	err: Resolve_Error,
 ) {
-	if list_node == 0 { return nil, true, false, nil }
+	if list_node == 0 { return nil, true, false, nil, nil }
 	nodes := syntax.node_list(file.ast, syntax.node_payload(file.ast, list_node, syntax.Field_List).list)
 	total := 0
 	for field_node in nodes { total += max(int(syntax.node_payload(file.ast, field_node, syntax.Field).names.count), 1) }
 	stored := make([]types.Type_Field, total, checker.arena_allocator) or_return
+	subtype_flags := make([]bool, total, checker.arena_allocator) or_return
 	count := 0
 	valid = true
 	for field_node in nodes {
@@ -759,10 +780,11 @@ record_fields :: proc(
 				name = field_name,
 				type = field_type,
 			}
+			subtype_flags[count] = .Subtype in field.flags
 			count += 1
 		}
 	}
-	return stored[:count], valid, variadic, nil
+	return stored[:count], valid, variadic, subtype_flags[:count], nil
 }
 
 @(private = "file")

@@ -1,0 +1,96 @@
+package driver
+
+import "core:path/filepath"
+import "core:testing"
+import "oc:ir"
+import "oc:lower"
+
+// Runs testdata/<section>/main.odin through the driver, lowering and the interpreter, and returns the interpreter result.
+run_section :: proc(t: ^testing.T, section: string) -> (result: ir.Interp_Result, ok: bool) {
+	odin_root, _ := filepath.join({#directory, "..", ".."}, context.temp_allocator)
+	main_path, _ := filepath.join({#directory, "testdata", section, "main.odin"}, context.temp_allocator)
+	session, err := check_program(odin_root, main_path, context.allocator)
+	defer session_destroy(session)
+	if !testing.expectf(t, err == .None, "%v %v", err, session.checker.diagnostics) { return }
+
+	module: ir.Module
+	lower_errors, lower_error := lower.lower_program(&session.program, &module, context.allocator)
+	defer delete(lower_errors, context.allocator)
+	if !testing.expectf(t, lower_error == nil && len(lower_errors) == 0, "%v %v", lower_error, lower_errors) { return }
+	defer ir.module_destroy(&module)
+
+	main_function: ^ir.Function
+	for function in module.functions {
+		if function.name == "main" { main_function = function }
+	}
+	if !testing.expect(t, main_function != nil) { return }
+	run_result, run_error := ir.interp_run(&module, main_function, nil, 100_000, context.allocator)
+	testing.expect(t, run_error == nil)
+	return run_result, run_error == nil
+}
+
+expect_exit :: proc(t: ^testing.T, section: string, code: u64) {
+	result, ok := run_section(t, section)
+	defer delete(result.output, context.allocator)
+	if !ok { return }
+	testing.expect_value(t, result.outcome, ir.Interp_Outcome.Exit)
+	testing.expect_value(t, result.value, code)
+}
+
+@(test)
+section_19_program_from_driver_exits :: proc(t: ^testing.T) {
+	result, ok := run_section(t, "section_19")
+	defer delete(result.output, context.allocator)
+	if !ok { return }
+	testing.expect_value(t, result.outcome, ir.Interp_Outcome.Exit)
+	testing.expect_value(t, result.value, u64(0))
+	testing.expect(t, string(result.output) == "abcde\n")
+}
+
+@(test)
+section_20_procedure_call_exits_with_result :: proc(t: ^testing.T) {
+	expect_exit(t, "section_20", 5)
+}
+
+@(test)
+section_21_loops_and_control_flow_exit_with_result :: proc(t: ^testing.T) {
+	expect_exit(t, "section_21", 127)
+}
+
+@(test)
+section_22_pointers_compound_and_short_circuit_exit_with_result :: proc(t: ^testing.T) {
+	expect_exit(t, "section_22", 71)
+}
+
+@(test)
+section_23_universe_and_argument_conversion_exit_with_result :: proc(t: ^testing.T) {
+	expect_exit(t, "section_23", 200)
+}
+
+@(test)
+section_24_switch_exits_with_result :: proc(t: ^testing.T) {
+	expect_exit(t, "section_24", 122)
+}
+
+@(test)
+section_25_structs_exit_with_result :: proc(t: ^testing.T) {
+	expect_exit(t, "section_25", 37)
+}
+
+@(test)
+section_26_arrays_slices_and_len_exit_with_result :: proc(t: ^testing.T) {
+	expect_exit(t, "section_26", 47)
+}
+
+@(test)
+section_27_out_of_range_slice_index_traps :: proc(t: ^testing.T) {
+	result, ok := run_section(t, "section_27")
+	defer delete(result.output, context.allocator)
+	if !ok { return }
+	testing.expect_value(t, result.outcome, ir.Interp_Outcome.Trap)
+}
+
+@(test)
+section_28_strings_len_and_index_exit_with_result :: proc(t: ^testing.T) {
+	expect_exit(t, "section_28", 128)
+}

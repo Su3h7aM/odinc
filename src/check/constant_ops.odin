@@ -8,6 +8,13 @@ import "oc:types"
 Constant_Operation_Error_Kind :: Constant_Pool_Error
 Constant_Operation_Error :: Constant_Error
 // Evaluates a constant unary operator and interns the result in pool.
+@(private = "file")
+constant_unsigned_integer_type :: proc(store: ^types.Store, type: types.Type_Id) -> bool {
+	descriptor := types.get(store, conversion_base_type(store, type))
+	return descriptor.kind == .Integer && !descriptor.signed && descriptor.count > 0
+}
+
+// Evaluates a constant unary operator and interns the result in pool.
 @(require_results)
 constant_unary_operator :: proc(
 	pool: ^Constant_Pool,
@@ -37,7 +44,17 @@ constant_unary_operator :: proc(
 		case .Sub:
 			big.int_neg(&result, &value, allocator = context.temp_allocator) or_return
 		case .Xor:
-			big.bit_complement(&result, &value, allocator = context.temp_allocator) or_return
+			if type_store != nil && type != 0 && constant_unsigned_integer_type(type_store, type) {
+				descriptor := types.get(type_store, conversion_base_type(type_store, type))
+				mask: big.Int
+				defer big.int_destroy(&mask)
+				big.int_set_from_integer(&mask, 1, allocator = context.temp_allocator) or_return
+				big.int_shl(&mask, &mask, int(descriptor.count) * 8, allocator = context.temp_allocator) or_return
+				big.int_sub_digit(&mask, &mask, 1, allocator = context.temp_allocator) or_return
+				big.int_sub(&result, &mask, &value, allocator = context.temp_allocator) or_return
+			} else {
+				big.bit_complement(&result, &value, allocator = context.temp_allocator) or_return
+			}
 		case:
 			return 0, Constant_Operation_Error_Kind.Unsupported_Operator
 		}

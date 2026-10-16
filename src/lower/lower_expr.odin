@@ -164,9 +164,11 @@ lower_value :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> ir.Node
 			return lower_conversion(state, value, node)
 		case check.Place_Plan:
 			return lower_load(state, lower_place(state, value, node), info.type)
+		case check.Aggregate_Plan:
+			return lower_aggregate(state, node, value)
 		case check.Bounds_Plan:
-			if value.policy != .Disabled { return lower_fail(state, node, .Bounds) }
-			return lower_load(state, lower_index_address(state, node, true), info.type)
+			if value.kind == .Slice { return lower_slice_expression(state, node, value) }
+			return lower_load(state, lower_index_address(state, node, value), info.type)
 		case check.Call_Plan:
 			return lower_call(state, node, info, value)
 		case check.Builtin_Plan:
@@ -237,8 +239,8 @@ lower_address :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> ir.No
 		case check.Place_Plan:
 			return lower_place(state, value, node)
 		case check.Bounds_Plan:
-			if value.policy != .Disabled { return lower_fail(state, node, .Bounds) }
-			return lower_index_address(state, node, true)
+			if value.kind != .Index { return lower_fail(state, node, .Place) }
+			return lower_index_address(state, node, value)
 		case:
 			return lower_fail(state, node, .Place)
 		}
@@ -259,8 +261,6 @@ lower_address :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> ir.No
 		return lower_address(state, ast_node.payload.(syntax.Paren_Expr).expr)
 	case .Deref_Expr:
 		return lower_value(state, ast_node.payload.(syntax.Deref_Expr).expr)
-	case .Index_Expr:
-		return lower_index_address(state, node, false)
 	}
 	return lower_fail(state, node, .Place)
 }
@@ -289,30 +289,13 @@ lower_operand_address :: proc(state: ^Procedure_State, operand: check.Operand) -
 
 @(private)
 lower_place :: proc(state: ^Procedure_State, plan: check.Place_Plan, node: syntax.Node_Index) -> ir.Node_Id {
-	if plan.bit_size != 0 { return lower_fail(state, node, .Place) }
-	address := lower_operand_address(state, plan.root)
-	if len(plan.path) != 0 { return lower_fail(state, node, .Place) }
-	return address
-}
-
-@(private)
-lower_index_address :: proc(state: ^Procedure_State, node: syntax.Node_Index, unchecked: bool) -> ir.Node_Id {
-	ast_node := state.ast.nodes[node]
-	if ast_node.kind != .Index_Expr { return lower_fail(state, node, .Place) }
-	index := ast_node.payload.(syntax.Index_Expr)
-	base_type := lower_type(state, lower_info(state, index.expr).type)
-	if base_type.kind != .Array && base_type.kind != .Multi_Pointer { return lower_fail(state, node, .Place) }
-	if !unchecked && base_type.kind == .Array {
-		file := check.sources(state.job.program)[int(state.job.procedure.body.file) - 1]
-		index_info := lower_info(state, index.index)
-		if file.policy.bounds_check != .Disabled && index_info.constant == 0 { return lower_fail(state, node, .Bounds) }
-	}
-	base := lower_address(state, index.expr) if base_type.kind == .Array else lower_value(state, index.expr)
-	offset := lower_value(state, index.index)
+	if plan.bit_size != 0 || len(plan.path) > 1 { return lower_fail(state, node, .Place) }
+	if len(plan.path) == 0 { return lower_operand_address(state, plan.root) }
+	base := lower_operand(state, plan.root)
 	if state.failed { return 0 }
-	layout := state.job.layouts[base_type.elem]
-	assert(layout.error == .None && layout.size <= i64(max(u32)))
-	return ir.ptr_index(state.job.function, base, offset, u32(layout.size))
+	offset, err := types.field_offset(check.type_store(state.job.program), plan.path[0].type, int(plan.path[0].field_index))
+	if err != .None { return lower_fail(state, node, .Place) }
+	return ir.ptr_offset(state.job.function, base, offset)
 }
 
 @(private)

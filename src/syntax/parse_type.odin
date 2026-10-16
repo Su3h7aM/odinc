@@ -329,6 +329,17 @@ parse_field_list :: proc(p: ^Parser, closing: Token_Kind, allowed_flags: Field_F
 		ok := handle_field(p, &seen_ellipsis, &fields, names, allowed_flags, set_flags)
 		for ok && p.curr.kind != closing && p.curr.kind != .EOF {
 			set_flags = parse_field_prefixes(p)
+			if p.curr.kind == .Ellipsis {
+				ellipsis_start := p.curr.start
+				type := parse_var_type(p, allowed_flags)
+				if seen_ellipsis {
+					report(p, .Invalid_Field, p.ast.nodes[type].start)
+				}
+				seen_ellipsis = true
+				ok = expect_field_separator(p)
+				append(&fields, add_field(p, ellipsis_start, {}, type, 0, 0, check_field_flag_prefixes(p, 0, allowed_flags, set_flags)))
+				continue
+			}
 			names = parse_ident_list(p, allow_poly_names)
 			name_count += int(names.count)
 			ok = handle_field(p, &seen_ellipsis, &fields, names, allowed_flags, set_flags)
@@ -536,7 +547,7 @@ parse_proc_expr :: proc(p: ^Parser) -> Node_Index {
 	proc_type.tags = tags
 	p.ast.nodes[type].payload = proc_type
 
-	if p.allow_type && p.expr_level < 0 {
+	if p.allow_type && p.expr_level < 0 && p.curr.kind != .Undef {
 		if where_pos != 0 {
 			report(p, .Invalid_Proc_Signature, where_pos)
 		}
@@ -548,9 +559,6 @@ parse_proc_expr :: proc(p: ^Parser) -> Node_Index {
 	p.proc_depth += 1
 	defer p.proc_depth -= 1
 	if allow_token(p, .Undef) {
-		if where_pos != 0 {
-			report(p, .Invalid_Proc_Signature, where_pos)
-		}
 	} else if p.curr.kind == .Open_Brace {
 		body = parse_body(p)
 	} else if allow_token(p, .Do) {

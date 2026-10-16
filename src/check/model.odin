@@ -18,6 +18,8 @@ Builtin_Id :: distinct u32
 Builtin_Kind :: enum u8 {
 	None,
 	Syscall,
+	Len,
+	Cap,
 }
 
 Source_Span :: struct {

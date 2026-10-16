@@ -114,6 +114,18 @@ constant_pool_intern_bool :: proc(pool: ^Constant_Pool, value: bool, type: types
 	return id, nil
 }
 
+@(require_results)
+constant_pool_intern_nil :: proc(pool: ^Constant_Pool, type: types.Type_Id = 0) -> (id: Const_Id, err: Constant_Error) {
+	if !constant_pool_ready(pool) { return 0, Constant_Pool_Error.Uninitialized }
+	key := constant_pool_simple_key(pool, "n:", type, "nil") or_return
+	if existing, found := pool.keys[key]; found { return existing, nil }
+	if u64(len(pool.values)) > u64(max(u32)) { return 0, Constant_Pool_Error.Handle_Limit }
+	id = Const_Id(len(pool.values))
+	append(&pool.values, Constant{type = type, value = Nil_Value{}}) or_return
+	pool.keys[key] = id
+	return id, nil
+}
+
 // Interns a borrowed UTF-8 string as an arena-owned immutable copy.
 @(require_results)
 constant_pool_intern_string :: proc(pool: ^Constant_Pool, value: string, type: types.Type_Id = 0) -> (id: Const_Id, err: Constant_Error) {
