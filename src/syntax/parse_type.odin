@@ -558,6 +558,8 @@ parse_proc_expr :: proc(p: ^Parser) -> Node_Index {
 
 	skip_possible_newline(p)
 	body: Node_Index
+	p.proc_depth += 1
+	defer p.proc_depth -= 1
 	if allow_token(p, .Undef) {
 		if where_pos != 0 {
 			report(p, .Invalid_Proc_Signature, where_pos)
@@ -565,7 +567,7 @@ parse_proc_expr :: proc(p: ^Parser) -> Node_Index {
 	} else if p.curr.kind == .Open_Brace {
 		body = parse_body(p)
 	} else if allow_token(p, .Do) {
-		body = parse_stmt_stub(p)
+		body = parse_stmt(p)
 		if newline_between(p, p.ast.nodes[type].end, p.ast.nodes[body].start) {
 			report(p, .Invalid_Proc_Signature, p.ast.nodes[body].start)
 		}
@@ -588,7 +590,7 @@ parse_bracket_type :: proc(p: ^Parser) -> Node_Index {
 	#partial switch p.curr.kind {
 	case .Pointer:
 		tok := expect_token(p, .Pointer)
-		close := expect_token(p, .Close_Bracket)
+		close := expect_closing(p, .Close_Bracket)
 		elem := parse_type(p)
 		return add_node(p, .Multi_Pointer_Type, open.start, p.prev.end, Multi_Pointer_Type{
 			open    = open.start,
@@ -601,7 +603,7 @@ parse_bracket_type :: proc(p: ^Parser) -> Node_Index {
 		tok := expect_token(p, .Dynamic)
 		if allow_token(p, .Semicolon) {
 			capacity := parse_expr(p, false)
-			close := expect_token(p, .Close_Bracket)
+			close := expect_closing(p, .Close_Bracket)
 			elem := parse_type(p)
 			return add_node(p, .Fixed_Capacity_Dynamic_Array_Type, open.start, p.prev.end, Fixed_Capacity_Dynamic_Array_Type{
 				open        = open.start,
@@ -611,7 +613,7 @@ parse_bracket_type :: proc(p: ^Parser) -> Node_Index {
 				elem        = elem,
 			})
 		}
-		close := expect_token(p, .Close_Bracket)
+		close := expect_closing(p, .Close_Bracket)
 		elem := parse_type(p)
 		return add_node(p, .Dynamic_Array_Type, open.start, p.prev.end, Dynamic_Array_Type{
 			open        = open.start,
@@ -632,7 +634,7 @@ parse_bracket_type :: proc(p: ^Parser) -> Node_Index {
 		p.expr_level -= 1
 	}
 
-	close := expect_token(p, .Close_Bracket)
+	close := expect_closing(p, .Close_Bracket)
 	elem := parse_type(p)
 	return add_node(p, .Array_Type, open.start, p.prev.end, Array_Type{
 		open  = open.start,
@@ -646,7 +648,7 @@ parse_map_type :: proc(p: ^Parser) -> Node_Index {
 	tok := expect_token(p, .Map)
 	expect_token(p, .Open_Bracket)
 	key := parse_type(p)
-	expect_token(p, .Close_Bracket)
+	expect_closing(p, .Close_Bracket)
 	value := parse_type(p)
 	return add_node(p, .Map_Type, tok.start, p.prev.end, Map_Type{tok_pos = tok.start, key = key, value = value})
 }
@@ -661,7 +663,7 @@ parse_poly_params :: proc(p: ^Parser) -> Node_Index {
 		report(p, .Missing_Poly_Parameter, p.ast.nodes[params].start)
 		result = 0
 	}
-	expect_token(p, .Close_Paren)
+	expect_closing(p, .Close_Paren)
 	return result
 }
 
@@ -852,7 +854,7 @@ parse_bit_set_type :: proc(p: ^Parser) -> Node_Index {
 		underlying = parse_type(p)
 	}
 
-	close := expect_token(p, .Close_Bracket)
+	close := expect_closing(p, .Close_Bracket)
 	return add_node(p, .Bit_Set_Type, tok.start, close.end, Bit_Set_Type{
 		tok_pos    = tok.start,
 		open       = open.start,
@@ -868,7 +870,7 @@ parse_matrix_type :: proc(p: ^Parser) -> Node_Index {
 	row_count := parse_expr(p, false)
 	expect_token(p, .Comma)
 	column_count := parse_expr(p, false)
-	expect_token(p, .Close_Bracket)
+	expect_closing(p, .Close_Bracket)
 	elem := parse_type(p)
 	return add_node(p, .Matrix_Type, tok.start, p.prev.end, Matrix_Type{
 		tok_pos      = tok.start,

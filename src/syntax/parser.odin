@@ -1,4 +1,4 @@
-// Parser state, error values, token helpers and the file, body and statement-stub entry points.
+// Parser state, error values, token helpers, and the file and body entry points.
 //
 // Procedure names and order follow core:odin/parser so the two can be read side by side. Parsing
 // never panics: a mismatch records a Parse_Error and returns a node or 0, and every loop consumes
@@ -28,6 +28,15 @@ Parse_Error_Kind :: enum u8 {
 	Invalid_Field,
 	Unexpected_Prefix,
 	Invalid_Proc_Signature,
+	File_Scope_Statement,
+	Misplaced_Statement,
+	Expected_Statement,
+	Expected_Single_Expression,
+	Misplaced_Do_Body,
+	Invalid_Value_Decl,
+	Invalid_Attribute_Target,
+	Invalid_Foreign_Declaration,
+	Invalid_Unroll_Loop,
 	Unsupported_Construct,
 }
 
@@ -48,6 +57,7 @@ Parser :: struct {
 	errors:           [dynamic]Parse_Error,
 	lex_errors:       [dynamic]Error,
 	expr_level:       int,
+	proc_depth:       int,
 	allow_range:      bool,
 	allow_in_expr:    bool,
 	allow_type:       bool,
@@ -87,6 +97,13 @@ expect_token :: proc(p: ^Parser, kind: Token_Kind) -> Token {
 	}
 	report(p, .Expected_Token, p.curr.start, kind)
 	return Token{kind = kind, start = p.curr.start, end = p.curr.start}
+}
+
+expect_closing :: proc(p: ^Parser, kind: Token_Kind) -> Token {
+	if is_inserted_semicolon(p.curr) && peek_token(p, 0).kind == kind {
+		advance_token(p)
+	}
+	return expect_token(p, kind)
 }
 
 allow_token :: proc(p: ^Parser, kind: Token_Kind) -> bool {
@@ -152,14 +169,6 @@ parse_ident :: proc(p: ^Parser) -> Node_Index {
 	return add_node(p, .Ident, tok.start, tok.end, Ident{})
 }
 
-expect_semicolon :: proc(p: ^Parser) {
-	if p.curr.kind == .Semicolon {
-		advance_token(p)
-	} else if p.curr.kind != .EOF {
-		report(p, .Expected_Token, p.curr.start, .Semicolon)
-	}
-}
-
 // parse_file parses the file header, then statements up to EOF, and sets `ast.root`.
 parse_file :: proc(p: ^Parser) -> Node_Index {
 	tags := make([dynamic]Node_Index, 0, 4, p.allocator)
@@ -176,18 +185,21 @@ parse_file :: proc(p: ^Parser) -> Node_Index {
 			advance_token(p)
 		}
 		append(&tags, add_node(p, .File_Tag, start, p.prev.end, File_Tag{}))
-		expect_semicolon(p)
+		expect_semicolon(p, 0)
 	}
 
 	package_pos := expect_token(p, .Package).start
 	name := parse_ident(p)
 	package_decl := add_node(p, .Package_Decl, package_pos, p.prev.end, Package_Decl{package_pos = package_pos, name = name})
-	expect_semicolon(p)
+	expect_semicolon(p, package_decl)
 
 	decls := make([dynamic]Node_Index, 0, 16, p.allocator)
 	defer delete(decls)
 	for p.curr.kind != .EOF {
-		append(&decls, parse_stmt_stub(p))
+		decl := parse_stmt(p)
+		if p.ast.nodes[decl].kind != .Empty_Stmt {
+			append(&decls, decl)
+		}
 	}
 
 	file := add_node(p, .File, 0, u32(len(p.tokenizer.source)), File{
@@ -199,39 +211,18 @@ parse_file :: proc(p: ^Parser) -> Node_Index {
 	return file
 }
 
-// parse_stmt_stub stands in for statements until stage B. It records one error and skips to the
-// next statement boundary, always consuming at least one token unless at EOF.
-parse_stmt_stub :: proc(p: ^Parser) -> Node_Index {
-	start := p.curr.start
-	report(p, .Unsupported_Construct, start)
-	if p.curr.kind != .EOF {
-		advance_token(p)
-	}
-	for p.curr.kind != .EOF && p.curr.kind != .Close_Brace && p.curr.kind != .Semicolon {
-		advance_token(p)
-	}
-	if p.curr.kind == .Semicolon {
-		advance_token(p)
-	}
-	return add_node(p, .Bad_Stmt, start, p.prev.end, Bad_Stmt{})
-}
-
 parse_body :: proc(p: ^Parser) -> Node_Index {
 	prev_expr_level := p.expr_level
 	defer p.expr_level = prev_expr_level
 	p.expr_level = 0
 
 	open := expect_token(p, .Open_Brace)
-	stmts := make([dynamic]Node_Index, 0, 8, p.allocator)
-	defer delete(stmts)
-	for p.curr.kind != .Close_Brace && p.curr.kind != .EOF {
-		append(&stmts, parse_stmt_stub(p))
-	}
+	stmts := parse_stmt_list(p)
 	close := expect_token(p, .Close_Brace)
 
 	return add_node(p, .Block_Stmt, open.start, p.prev.end, Block_Stmt{
 		open  = open.start,
-		stmts = ast_add_list(p.ast, stmts[:]),
+		stmts = stmts,
 		close = close.start,
 	})
 }

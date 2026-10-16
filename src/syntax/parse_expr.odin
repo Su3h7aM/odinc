@@ -25,7 +25,7 @@ parse_unary_expr :: proc(p: ^Parser, lhs: bool) -> Node_Index {
 		tok := advance_token(p)
 		open := expect_token(p, .Open_Paren)
 		type := parse_type(p)
-		close := expect_token(p, .Close_Paren)
+		close := expect_closing(p, .Close_Paren)
 		expr := parse_unary_expr(p, lhs)
 		return add_node(p, .Type_Cast, tok.start, p.prev.end, Type_Cast{
 			token = tok,
@@ -166,12 +166,12 @@ token_precedence :: proc(p: ^Parser, kind: Token_Kind) -> int {
 	return 0
 }
 
-// expect_operator consumes the operator of a binary expression. Only `if`, `when` and `or_else`
-// may appear there without being operators.
+// expect_operator consumes the operator of a binary expression. Only `if`, `when`, `or_else`, `in`
+// and `not in` may appear there without being operator kinds.
 expect_operator :: proc(p: ^Parser) -> Token {
 	prev := p.curr
 	#partial switch prev.kind {
-	case .If, .When, .Or_Else:
+	case .If, .When, .Or_Else, .In, .Not_In:
 	case:
 		if !is_operator(prev.kind) {
 			report(p, .Expected_Operator, prev.start)
@@ -406,7 +406,7 @@ parse_atom_expr :: proc(p: ^Parser, value: Node_Index, lhs: bool) -> Node_Index 
 			}
 
 			p.expr_level -= 1
-			close := expect_token(p, .Close_Bracket)
+			close := expect_closing(p, .Close_Bracket)
 			p.allow_range = prev_allow_range
 
 			start := start_of(p, operand)
@@ -440,7 +440,7 @@ parse_atom_expr :: proc(p: ^Parser, value: Node_Index, lhs: bool) -> Node_Index 
 			case .Open_Paren:
 				open := expect_token(p, .Open_Paren)
 				type := parse_type(p)
-				close := expect_token(p, .Close_Paren)
+				close := expect_closing(p, .Close_Paren)
 				operand = add_node(p, .Type_Assertion, start_of(p, operand), close.end, Type_Assertion{
 					expr  = operand,
 					dot   = tok.start,
@@ -537,7 +537,7 @@ parse_operand :: proc(p: ^Parser, lhs: bool) -> Node_Index {
 		p.expr_level = max(p.expr_level, 0) + 1
 		expr := parse_expr(p, false)
 		p.expr_level = prev_expr_level
-		close := expect_token(p, .Close_Paren)
+		close := expect_closing(p, .Close_Paren)
 		return add_node(p, .Paren_Expr, open.start, close.end, Paren_Expr{open = open.start, expr = expr, close = close.start})
 
 	case .Distinct:
@@ -736,6 +736,7 @@ parse_inlining_or_tailing_operand :: proc(p: ^Parser, lhs: bool, tok: Token) -> 
 // set_tag stores `tag` on a node that has a tag field and reports whether it had one.
 set_tag :: proc(p: ^Parser, index: Node_Index, tag: Node_Index) -> bool {
 	node := &p.ast.nodes[index]
+	node.start = min(node.start, p.ast.nodes[tag].start)
 	#partial switch node.kind {
 	case .Array_Type:
 		payload := node.payload.(Array_Type)
