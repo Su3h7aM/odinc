@@ -555,3 +555,13 @@ Each finding was checked against the fork (`/home/su3h7am/Projects/Odin/src`) an
 - Click, *Simple* (https://github.com/SeaOfNodes/Simple): chapters 8-11, 13, 18-20, `ASimpleReply.md`; Click, *Global Code Motion / Global Value Numbering*, PLDI 1995; Click and Paleczny, *A Simple Graph-Based Intermediate Representation*, 1995.
 - V8, *Land ahoy: leaving the Sea of Nodes* (2025); Cranelift mid-end (Fallin, 2026); Tilde `tb.h`.
 - System V Application Binary Interface, AMD64 Architecture Processor Supplement (calling convention, eightbyte classification, thread-local storage); Poletto and Sarkar, *Linear Scan Register Allocation*; Wimmer and Mössenböck, linear scan on SSA form; Cooper, Harvey and Kennedy, *A Simple, Fast Dominance Algorithm*.
+
+## Open-question rulings
+
+Evidence: `docs/research/12-runtime-asm-and-f16.md`.
+
+1. `#simd`: `lower` scalarizes it. Our `base/runtime` stays unmodified.
+2. Runtime assembly stubs: the compiler emits the process-entry, TLS setup and stack-protector sequences directly (Ginger Bill's own position on issue #4444 is that assembly is optional tooling, not a language need). No assembler is embedded. User `foreign import` of `.asm` files is a later feature.
+3. `__ODIN_LLVM_F16_SUPPORTED`: this backend reports `false`, so the runtime's f16 helpers use the integer-register ABI. The `f16` language type is unchanged. Revisit only if hardware f16 is added.
+4. `typeid` values: only consistency with our generated type table is required.
+5. Register straddle: reproduce the official compiler.
