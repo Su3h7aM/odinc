@@ -9,7 +9,7 @@ Status: draft 1. Scope: instruction selection, frame and call lowering, emission
 | Question | Finding | Consequence |
 |---|---|---|
 | Encoder in `core`? | `core/rexcode/isa/x86` (`encode`, `Instruction`, generic `inst_*` shape builders, about 7,500 typed `inst_<mnemonic>_<operands>` builders, labels, `Relocation`, `clobber_forms`). API summary: `core/rexcode/docs/x86_api.md` (the task named `docs/x86_api.md`; the file is in `core/rexcode/docs/`). | No encoder is written. Fixed sequences (prologue, startup, expansions) use the typed builders. The table-driven core uses the shape-generic builders (`inst_r_r`, `inst_r_m`, `inst_r_i`, `inst_m_r`, `inst_m_i`, `inst_rel`), because the operand width is data there and four typed builders per mnemonic would multiply the tables by four. |
-| Operand read/write facts | `x86.clobber_forms(mnemonic)` gives per form the written and read operand sets, implicit registers, and flags. | The per-opcode operand-role table is generated from it, not typed by hand (section 4). A test checks that all forms of every mnemonic `x64` uses agree on the operand roles it takes from them. |
+| Operand read/write facts | `x86.clobber_forms(mnemonic)` has them per form, but it is `@(private)` in `core/rexcode/isa/x86/tables.odin`, so `x64` cannot call it. | `op_info.odin` is a small hand-written table over the mnemonics `x64` selects (X0). Exporting the accessor would let a later test cross-check it; that change belongs to `core/`. |
 | ELF output | `src/elf`: `Builder` (ET_REL), `Executable_Builder` (ET_EXEC with `PT_LOAD` and `PT_GNU_STACK`), `R_X86_64` constants. | `link` writes the executable through `executable_add_segment`. Missing: `PT_TLS` and `R_X86_64_TPOFF32` (section 12, ticket H1 prerequisite). |
 | Allocator | `src/regalloc`: `Program`, `Instruction`, `Operand`, `Result` (agent-279). | `x64` builds a `regalloc.Program` and applies the `Result`. |
 | Lowering lessons | `docs/research/07` sections 3, 7, 8: stack-first/registers-second call setup, `AL` rule, explicit scratch contract, flag fusion, cold blocks last, table-driven ALU core instead of an 800-line switch, errors instead of asserts on user input. | Adopted as stated below. Rejected: always-frame without a reason (here the frame pointer is a stated contract), Win64-order spills, `R11` RIP normalization. |
@@ -45,17 +45,17 @@ Status: draft 1. Scope: instruction selection, frame and call lowering, emission
 | `verify.odin` | `verify_machine` |
 
 ```odin
-Machine_Operand :: union { Vreg, Physical, Immediate, Memory_Ref, Block_Ref, Symbol_Ref_Offset }
+Machine_Operand :: union { Vreg, Fixed_Vreg, Immediate, Memory_Ref, Block_Ref, Symbol_Target }
 Memory_Ref :: struct { base: Memory_Base, index: Vreg, has_index: bool, scale: u8, displacement: i32, segment_fs: bool }
 Memory_Base :: union { Vreg, Frame_Object, Rip_Symbol }       // Frame_Object: slot, spill, incoming argument, outgoing argument
 Machine_Instruction :: struct {
 	mnemonic: x86.Mnemonic, width: u8, operand_count: u8, operands: [4]Machine_Operand,
-	pseudo: Pseudo, condition: Condition, location: u32,       // location: index into the function's debug table, 0 = none
+	pseudo: Pseudo, explicit_count: u8, rep: bool, operands: []Machine_Operand, clobbers: Register_Set,
 }
-Pseudo :: enum u8 { None, Call, Return, Copy, Parallel_Copy, Syscall, Jump_Table, Tls_Address, Spill_Probe }
+Pseudo :: enum u8 { None, Entry, Call, Return, Copy }
 ```
 
-`Physical` names a fixed machine register inside a fixed-register sequence. `Pseudo` instructions expand in `emit`. `Copy` is a `regalloc` `is_move` (class-matching `mov`/`movaps`).
+`Fixed_Vreg{vreg, register, role}` pins a vreg to a machine register at one instruction. Conditions are separate mnemonics (`JE`, `SETL`, `CMOVB`), not a field. `Pseudo` instructions expand in `emit`. `Copy` is a `regalloc` `is_move` (class-matching `mov`/`movaps`).
 
 **Register numbering** (the `regalloc.Register` number is the hardware number; `x86.gpr64_from_num` / `x86.xmm_from_num` convert):
 
@@ -67,11 +67,11 @@ Pseudo :: enum u8 { None, Call, Return, Copy, Parallel_Copy, Syscall, Jump_Table
 | callee-saved | `rbx r12 r13 r14 r15` | none |
 | call clobbers | `rax rcx rdx rsi rdi r8 r9` | `xmm0`-`xmm13` |
 
-`x64.build_program(machine_function) -> regalloc.Program` fills `blocks` (instructions with operand lists from `op_info`), `classes`, `allocatable`, `callee_saved`; `depth` comes from `sched`. Edge copies are `Block.edge_moves`.
+`x64.build_program(machine_function) -> regalloc.Program` fills `blocks` (instructions with operand lists from `op_info`), `classes`, `allocatable`, `callee_saved`; `depth` comes from `sched`. Edge copies and cycle breaking are the allocator's (`inserted_moves`). `regalloc.Instruction.clobbers` carries no register class, so `x64` packs both banks into the one set (`Int` at its number, `Float` shifted by `FLOAT_CLOBBER_SHIFT = 16`); this needs a decision by the regalloc owner.
 
 ## 4. Operand constraint generation
 
-`op_info(mnemonic, form) -> Operand_Info [4]{role, position, constraint, memory_ok, immediate_ok}` plus `implicit_uses`, `implicit_defs`, `clobbers`, `writes_flags`. The roles come from `x86.clobber_forms` (`written`, `read`, `implicit_wr`, `implicit_rd`); the table adds what the encoder metadata cannot say:
+`op_info(mnemonic) -> (Op_Info, known)` with `access [4]`, `two_address`, `reuse_unless_immediate`, `writes_flags`, `reads_flags`, `branch`, `terminator`. `op_info.odin` is hand-written over the selected mnemonics (see section 1); it records the role of each operand, the two-address shape, and the flag behaviour. Machine instructions use a canonical three-operand form (`add d, a, b`), fixed registers appear as `Fixed_Vreg` operands, and `explicit_count` separates encoder operands from constraint-only ones. The rules:
 
 | Rule | Constraint produced |
 |---|---|
@@ -351,7 +351,7 @@ Sizes include tests and error paths. "After" lists hard dependencies. `link` and
 
 | Ticket | Deliverable | Lines | After | Test |
 |---|---|---|---|---|
-| X0 | `machine.odin`, `op_info.odin` (generated from `clobber_forms`), register tables, `build_program`, `verify.odin`, machine printer | ~550 | regalloc `program.odin`, ir A1 | op_info agreement test, hand-built programs |
+| X0 | `machine.odin`, `op_info.odin` (hand-written), register tables, `build_program`, `verify.odin`, machine printer | ~550 | regalloc `program.odin`, ir A1 | op_info agreement test, hand-built programs |
 | F1 | `abi.odin`: assignment, `Start` parameters, `Call`, `Return`, sret, result extension, `AL`, stack arguments and `By_Value` copies | ~600 | X0, types B3, sched D2 | signatures from the B4 matrix, selection golden |
 | F2 | `select_int.odin`: constants, ALU, shifts (total), div/rem, compares, `Select`, ext/trunc, address folding | ~600 | X0 | per-kind selection tests |
 | F3 | `select_float.odin`: float ops, compares, conversions with `u64` blocks, constant pool, `Bitcast`, float `Select` | ~600 | X0 | boundary-value tests |

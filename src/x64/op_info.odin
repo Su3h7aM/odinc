@@ -1,0 +1,77 @@
+package x64
+
+import x86 "core:rexcode/isa/x86"
+
+Op_Access :: enum u8 {
+	None,
+	Use,
+	Def,
+}
+
+// Op_Info describes the machine form of one mnemonic. `access` is the role of
+// operand i when it is a virtual register; a memory operand always uses its base
+// and index. `two_address` marks the machine form `op dst, src1, src2` that x86 runs
+// as `dst = src1; op dst, src2`: the allocator gets a Reuse_Input constraint binding
+// operand 0 to operand 1 (dropped when `reuse_unless_immediate` and the last operand is an immediate).
+Op_Info :: struct {
+	access:                 [4]Op_Access,
+	two_address:            bool,
+	reuse_unless_immediate: bool,
+	writes_flags:           bool,
+	reads_flags:            bool,
+	branch:                 bool,
+	terminator:             bool,
+}
+
+// Returns false for mnemonics `x64` does not select.
+op_info :: proc(mnemonic: x86.Mnemonic) -> (info: Op_Info, known: bool) {
+	#partial switch mnemonic {
+	case .MOV, .MOVABS, .MOVZX, .MOVSX, .MOVSXD, .LEA, .MOVSS, .MOVSD, .MOVUPS, .MOVAPS, .MOVD, .MOVQ, .SQRTSS, .SQRTSD:
+		info.access = {.Def, .Use, .None, .None}
+	case .CVTSI2SS, .CVTSI2SD, .CVTTSS2SI, .CVTTSD2SI, .CVTSS2SD, .CVTSD2SS:
+		info.access = {.Def, .Use, .None, .None}
+	case .ADD, .SUB, .AND, .OR, .XOR, .SHL, .SHR, .SAR:
+		info.access = {.Def, .Use, .Use, .None}
+		info.two_address = true
+		info.writes_flags = true
+	case .IMUL:
+		info.access = {.Def, .Use, .Use, .None}
+		info.two_address = true
+		info.reuse_unless_immediate = true
+		info.writes_flags = true
+	case .NEG, .NOT, .BSWAP:
+		info.access = {.Def, .Use, .None, .None}
+		info.two_address = true
+		info.writes_flags = mnemonic == .NEG
+	case .ADDSS, .ADDSD, .SUBSS, .SUBSD, .MULSS, .MULSD, .DIVSS, .DIVSD, .XORPS:
+		info.access = {.Def, .Use, .Use, .None}
+		info.two_address = true
+	case .CMOVE, .CMOVNE, .CMOVL, .CMOVLE, .CMOVG, .CMOVGE, .CMOVB, .CMOVBE, .CMOVA, .CMOVAE:
+		info.access = {.Def, .Use, .Use, .None}
+		info.two_address = true
+		info.reads_flags = true
+	case .CMP, .TEST, .UCOMISS, .UCOMISD:
+		info.access = {.Use, .Use, .None, .None}
+		info.writes_flags = true
+	case .SETE, .SETNE, .SETL, .SETLE, .SETG, .SETGE, .SETB, .SETBE, .SETA, .SETAE, .SETP, .SETNP:
+		info.access = {.Def, .None, .None, .None}
+		info.reads_flags = true
+	case .IDIV, .DIV, .MUL:
+		info.access = {.Use, .None, .None, .None}
+		info.writes_flags = true
+	case .CQO, .CDQ, .MOVSB, .STOSB:
+	case .SYSCALL:
+		info.writes_flags = true
+	case .JE, .JNE, .JL, .JLE, .JG, .JGE, .JB, .JBE, .JA, .JAE, .JP, .JNP:
+		info.reads_flags = true
+		info.branch = true
+	case .JMP:
+		info.branch = true
+		info.terminator = true
+	case .UD2, .RET:
+		info.terminator = true
+	case:
+		return {}, false
+	}
+	return info, true
+}
