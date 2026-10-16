@@ -1,0 +1,5 @@
+[env]
+ODIN_ROOT = "{{env.HOME}}/Projects/Odin"
+
+[task_config]
+includes = ["scripts"]

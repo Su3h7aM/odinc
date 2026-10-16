@@ -47,4 +47,6 @@ Keep the number of tests to the minimum necessary. Write only tests that provide
 ## Workflow
 
 - Version control is Jujutsu (`jj`) only. Agents do not run `jj` or `git`; the orchestrator commits.
-- Run Odin with `ODIN_ROOT=/home/su3h7am/Projects/Odin /home/su3h7am/Projects/Odin/odin ...`.
+- Every task (build, check, test, format, anything else) runs through Mise: `mise run <task>`. Tasks are executable Bash scripts in `scripts/` with `#MISE` headers, never inline TOML tasks. `scripts/_lib.sh` holds shared helpers and is not executable. Config is `.mise/config.toml`, which sets `ODIN_ROOT` to our Odin fork.
+- Available now: `mise run check [package]`, `mise run test [package]`, `mise run fmt [--check]`. A new kind of task becomes a new script.
+- Run code through these tasks, not by calling `odin` by hand. Run `mise run fmt` and `mise run check` before reporting work done.

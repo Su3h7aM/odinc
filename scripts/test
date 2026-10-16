@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+#MISE description="Run every package's tests"
+#MISE alias="t"
+#USAGE arg "[package]" help="Package to test; omit for all"
+set -euo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
+
+flags=(-vet -strict-style -vet-tabs -disallow-do -warnings-as-errors "$COLLECTION")
+
+target="${usage_package:-${1:-}}"
+mapfile -t packages < <(project_packages)
+if [[ -n "$target" ]]; then packages=("$target"); fi
+
+failed=()
+for package in "${packages[@]}"; do
+	package_has_tests "$package" || continue
+	step "test $package"
+	"$ODIN" test "$PROJECT_ROOT/src/$package" "${flags[@]}" || failed+=("$package")
+done
+if ((${#failed[@]})); then die "tests failed: ${failed[*]}"; fi

@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+#MISE description="Format Odin sources with odinfmt"
+#MISE alias="f"
+#USAGE flag "--check" help="Report unformatted files and exit non-zero; write nothing"
+set -euo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
+cd "$PROJECT_ROOT"
+
+check="${usage_check:-false}"
+if [[ "${1:-}" == "--check" ]]; then check=true; fi
+
+mapfile -t sources < <(owned_sources)
+
+if [[ "$check" == true ]]; then
+	unformatted=()
+	for file in "${sources[@]}"; do
+		odinfmt "$file" | cmp -s - "$file" || unformatted+=("$file")
+	done
+	if ((${#unformatted[@]})); then
+		printf 'unformatted:\n'
+		printf '  %s\n' "${unformatted[@]}"
+		die "${#unformatted[@]} file(s) need formatting"
+	fi
+else
+	for file in "${sources[@]}"; do
+		odinfmt -w "$file" > /dev/null
+	done
+fi

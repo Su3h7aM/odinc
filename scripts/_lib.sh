@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Shared helpers for the task scripts. Not executable on purpose: mise only
+# discovers executable files as tasks.
+
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+ODIN="${ODIN_ROOT:?ODIN_ROOT must name the Odin fork checkout}/odin"
+[[ -x "$ODIN" ]] || { printf 'error: %s is not executable\n' "$ODIN" >&2; exit 1; }
+export ODIN_ROOT
+
+COLLECTION="-collection:oc=$PROJECT_ROOT/src"
+
+project_packages() {
+	local dir
+	for dir in "$PROJECT_ROOT"/src/*/; do
+		if [[ -n "$(compgen -G "${dir}*.odin")" ]]; then
+			basename "$dir"
+		fi
+	done
+}
+
+package_has_tests() {
+	[[ -n "$(compgen -G "$PROJECT_ROOT/src/$1/*_test.odin")" ]]
+}
+
+owned_sources() {
+	find "$PROJECT_ROOT/src" -name '*.odin' | sort
+}
+
+die() { printf 'error: %s\n' "$*" >&2; exit 1; }
+
+step() { printf '\n==> %s\n' "$*"; }
