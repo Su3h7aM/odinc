@@ -1,6 +1,6 @@
 # Lowering: checked program to IR
 
-Status: design. Owner: package `lower` (`src/lower`). It implements tickets G0-G6 and H1-H8 of `docs/02-ir-design.md` section 15, and adds G0 as the core those tickets build on. The checker contract is `docs/03-checker-design.md` section 12; the IR contract is `docs/02-ir-design.md` sections 3-8. The `x64` side is `docs/04-x64-design.md`, which this document does not change.
+Status: design. Owner: package `lower` (`src/lower`). It implements tickets G0-G6 and H1-H8 of `docs/02-ir-design.md` section 15, and adds G0 as the core those tickets build on. The checker contract is `docs/03-checker-design.md` section 12; the IR contract is `docs/02-ir-design.md` sections 3-8. The `amd64` side is `docs/04-amd64-design.md`, which this document does not change.
 
 ## 1. Prior art and what is reused
 
@@ -8,7 +8,7 @@ Every rule below cites the fork function it reproduces, as `docs/02-ir-design.md
 
 The fork's procedure driver is `lb_generate_code` (`llvm_backend.cpp:3803`), which generates each procedure through `lb_generate_procedure` (`llvm_backend.cpp:3745`): build the body with `lb_build_stmt`, finish, record it as done. The default context is set up by `lb_emit_init_context` (`llvm_backend.cpp:225`). The statement lowering is `lb_build_stmt` (`llvm_backend_stmt.cpp:3320`), `lb_build_stmt_list` (`:260`), `lb_build_return_stmt` (`:2685`), `lb_build_defer_stmt` (`:3599`), `lb_build_assign_stmt` (`:3241`) and `lb_build_assignment` (`:2588`). Expressions are `lb_build_expr` (`llvm_backend_expr.cpp:4601`), `lb_build_addr` (`:5134`) and `lb_emit_conv` (`:2359`). Calls are `lb_emit_call` (`llvm_backend_proc.cpp:1236`) and `lb_emit_runtime_call` (`:1181`). Module setup is `lb_init_module` (`llvm_backend_general.cpp:182`); bounds checks are `lb_emit_bounds_check` (`:1256`). Runtime type information is `lb_setup_type_info_data` (`llvm_backend_type.cpp:1162`). Unions are `lb_emit_union_cast` (`llvm_backend_utility.cpp:854`). The ABI is `llvm_abi.cpp`, which `types.plan_abi` (`src/types/abi_plan.odin:116`) reproduces.
 
-The PR 7850 fast backend (`/home/su3h7am/Projects/refs/odin-pr7850-fast-backend/src`) is the closest prior art for a second backend that builds from the AST. Its ideas are used, not its code. `xb_build_proc` (`xb_backend.cpp:269`) builds one procedure and returns a reason string when it cannot; we do not copy that fallback, because an unsupported feature is a typed `Lower_Error` and never a second path (section 17). `xb_lower_jobs` (`xb_backend.cpp:469`) lowers procedures in parallel after the module is declared; we do the same (section 4). Its separate machine-lowering pass (`x64_lower.cpp`) matches our split between `lower` and `x64`. Its `x64_abi.cpp` is an independent ABI implementation; we use `types.plan_abi` only.
+The PR 7850 fast backend (`/home/su3h7am/Projects/refs/odin-pr7850-fast-backend/src`) is the closest prior art for a second backend that builds from the AST. Its ideas are used, not its code. `xb_build_proc` (`xb_backend.cpp:269`) builds one procedure and returns a reason string when it cannot; we do not copy that fallback, because an unsupported feature is a typed `Lower_Error` and never a second path (section 17). `xb_lower_jobs` (`xb_backend.cpp:469`) lowers procedures in parallel after the module is declared; we do the same (section 4). Its separate machine-lowering pass (`x64_lower.cpp`) matches our split between `lower` and `amd64`. Its `x64_abi.cpp` is an independent ABI implementation; we use `types.plan_abi` only.
 
 Reused as they are: `ir` builder and `builder_control` (`builder.odin`, `builder_control.odin`), `ir.add_signature`, `ir.blob_merge`, `types` layout and `plan_abi`, the checker accessors in `src/check/model.odin`, `base/runtime` (the runtime helpers, the entry and TLS sources in `base/runtime/*_linux_no_crt*`), and `intrinsics.syscall` (`base/intrinsics`). The runtime sources are the reference for startup (section 15); the compiler emits the equivalent IR directly, as open-question ruling 2 requires.
 
@@ -64,9 +64,9 @@ The ABI is the output of `types.plan_abi(store, procedure_type, by_pointer, conf
 
 The conversion to IR is mechanical. `Abi_Piece` maps to `Value_Type` by name (I8 to I8 ... I64, F16, F32, F64, V128, Ptr). `Abi_Attr` maps to `Param_Attr`, and `Abi_Extension` to `Extension`. `size` and `align` are copied; `Abi_Result` gives `Result{type, ext, size}`. The resulting `ir.Signature` is stored with `add_signature`. A plan has at most two results: one or two pieces for a result of at most 16 bytes, and `Struct_Return` for a larger one. The verifier checks the limit of two results anyway (section 17).
 
-Each piece has one meaning. A `Direct` piece is a node of its piece type; `lower` stores the pieces of a register-classified parameter into the parameter's stack slot at entry, and loads them back at a call site. An `Indirect` parameter is a `Ptr` to a caller-owned copy; the caller makes the copy, or passes the original when the fork proves the parameter read-only (`lb_address_from_load_if_readonly_parameter`, `docs/02-ir-design.md` section 6). A `By_Value` parameter is a `Ptr` to the object, which `x64` copies into the outgoing area. `Struct_Return` is the first parameter, a `Ptr` to the destination. Extension is applied by the caller on parameters (to 32 bits) and by the callee on results, as `docs/02-ir-design.md` section 6 states.
+Each piece has one meaning. A `Direct` piece is a node of its piece type; `lower` stores the pieces of a register-classified parameter into the parameter's stack slot at entry, and loads them back at a call site. An `Indirect` parameter is a `Ptr` to a caller-owned copy; the caller makes the copy, or passes the original when the fork proves the parameter read-only (`lb_address_from_load_if_readonly_parameter`, `docs/02-ir-design.md` section 6). A `By_Value` parameter is a `Ptr` to the object, which `amd64` copies into the outgoing area. `Struct_Return` is the first parameter, a `Ptr` to the destination. Extension is applied by the caller on parameters (to 32 bits) and by the callee on results, as `docs/02-ir-design.md` section 6 states.
 
-Multiple results follow the fork. For `Odin` and `Contextless`, results 0..n-2 are `Ptr` parameters that the callee stores through; the last result is the `Return` value. The caller allocates one stack slot per extra result, passes its address and loads it after the call. `Odin` procedures take the context pointer last; `Contextless` and `C` take none. A contextless procedure that needs a context builds a default one in a local (section 9). The variadic flag of a C signature is passed through to `x64`, which sets the vector count.
+Multiple results follow the fork. For `Odin` and `Contextless`, results 0..n-2 are `Ptr` parameters that the callee stores through; the last result is the `Return` value. The caller allocates one stack slot per extra result, passes its address and loads it after the call. `Odin` procedures take the context pointer last; `Contextless` and `C` take none. A contextless procedure that needs a context builds a default one in a local (section 9). The variadic flag of a C signature is passed through to `amd64`, which sets the vector count.
 
 A call is `ir.call` with a `Symbol_Addr` callee for a direct call, and with a `Ptr` value for a call through a procedure value. The callee's `Signature_Id` is the one the caller added for that type.
 
@@ -106,7 +106,7 @@ Map operations are runtime calls into `base:runtime` (`llvm_backend.cpp:1341-140
 
 ## 14. TLS, atomics, bit and target operations
 
-A `Global` with `thread_local` is an IR global with the TLS flag. A reference to it is `tls_addr` (H1), which `x64` and the ELF writer turn into the thread-pointer-relative access (`PT_TLS`, `.tdata` and `.tbss`, `R_X86_64_TPOFF32`, per H1 and `docs/04-x64-design.md`).
+A `Global` with `thread_local` is an IR global with the TLS flag. A reference to it is `tls_addr` (H1), which `amd64` and the ELF writer turn into the thread-pointer-relative access (`PT_TLS`, `.tdata` and `.tbss`, `R_X86_64_TPOFF32`, per H1 and `docs/04-amd64-design.md`).
 
 Atomic builtins lower to `Atomic_Rmw` (with `Access_Info.rmw`), `Atomic_Cas` (with the success and failure orders and `weak`), `Load_Ordered`, ordered `Store` and `Fence`. The Odin order names map one-to-one to `Memory_Order`. Floats compare by bits in CAS (`bitcast` first). The sequential semantics of these nodes are fixed by C4.
 
@@ -132,7 +132,7 @@ The same input gives the same bytes. Symbols are declared in checker order (sect
 
 Three kinds of failure are kept apart. A feature not implemented is `Lower_Error` with `Unsupported`. An IR verifier rejection after a function is built is reported with the `ir.Verify_Code` and the function. A broken checker fact (a missing expression, a dangling range) is an `assert` in debug builds, because the boundary verifier should have caught it before lowering. Allocation failure returns `runtime.Allocator_Error`, and the builder's sticky error reports it through `function_finish`.
 
-The IR verifier runs on each function after its builder finishes (`docs/02-ir-design.md` section 9). The signature rule (at most two results) is checked there too, for every signature of the function, so a bad signature cannot reach `x64`.
+The IR verifier runs on each function after its builder finishes (`docs/02-ir-design.md` section 9). The signature rule (at most two results) is checked there too, for every signature of the function, so a bad signature cannot reach `amd64`.
 
 ## 18. Tickets
 
@@ -156,7 +156,7 @@ Each row names its files. Files do not overlap between rows, except that a ticke
 | H7 | `Target_Op` and `Stack_Alloc` lowering | `lower_target.odin`, `lower_target_test.odin` | G0, F1 | `cpuid` leaf 0 table |
 | H8 | Startup without assembly: `_start`, argument capture, TLS setup, canary, init and fini order, exit | `lower_startup.odin`, `lower_startup_test.odin` | H1, G3, G5 | the M2 default-runtime executable |
 
-The driver step that loads and checks one file, and writes the executable through `x64` and `elf`, is not a `lower` ticket. It is a driver ticket (owned by `driver`), and the first slice needs it (section 19).
+The driver step that loads and checks one file, and writes the executable through `amd64` and `elf`, is not a `lower` ticket. It is a driver ticket (owned by `driver`), and the first slice needs it (section 19).
 
 ## 19. Minimal first slice
 
@@ -180,14 +180,14 @@ main :: proc "contextless" () {
 }
 ```
 
-Its acceptance is that the interpreter, run on the lowered module, produces the bytes `abcde\n` on fd 1 with outcome `Exit` and code 0; and that the executable written by `x64` and `elf` prints the same bytes and exits with status 0. The `x64` side is `docs/04-x64-design.md`. The checker must accept this file; that is a precondition on `check`, not a `lower` ticket.
+Its acceptance is that the interpreter, run on the lowered module, produces the bytes `abcde\n` on fd 1 with outcome `Exit` and code 0; and that the executable written by `amd64` and `elf` prints the same bytes and exits with status 0. The `amd64` side is `docs/04-amd64-design.md`. The checker must accept this file; that is a precondition on `check`, not a `lower` ticket.
 
 This slice has one deliberate deviation from the full ABI: `main` is contextless, so `_start` calls it without a context pointer. The default `main` of Odin takes a context; that enters with G3 and the context path, and then the `__init_context` call and the runtime startup enter with H8 and M2.
 
 ## 20. Open questions and risks
 
 1. Address-taken analysis (section 5) is a lower pre-pass. If the checker can report it cheaply, G1 should take the checker's answer instead; this is a G1 decision with evidence from `lb_address_from_load_or_generate_local` and the checker's addressing modes.
-2. Two-result returns and calls. A 9-to-16-byte aggregate result, and a mixed-class result, need two `Return` or `Call` results. The interpreter reports `Unsupported` for a `Return` with two results (decision 2 of `docs/02-ir-design.md`) and handles one value per call. These cases are then checked only by `x64` and the ABI matrix (B4), not by the interpreter oracle. The first slice avoids them.
+2. Two-result returns and calls. A 9-to-16-byte aggregate result, and a mixed-class result, need two `Return` or `Call` results. The interpreter reports `Unsupported` for a `Return` with two results (decision 2 of `docs/02-ir-design.md`) and handles one value per call. These cases are then checked only by `amd64` and the ABI matrix (B4), not by the interpreter oracle. The first slice avoids them.
 3. `f16` arithmetic is promoted (section 13). H5 must confirm the rounding cases against the fork before it is accepted.
 4. The contextless `main` of the first slice is a deviation from Odin's `main`. It is only a slice; the full entry is H8.
 5. The stack-protector canary source (the auxiliary vector's random bytes) and the argument capture in `_start` follow `base/runtime`. H8 decides the exact sequence from those sources.

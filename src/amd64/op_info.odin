@@ -1,4 +1,4 @@
-package x64
+package amd64
 
 import x86 "core:rexcode/isa/x86"
 
@@ -23,7 +23,7 @@ Op_Info :: struct {
 	terminator:             bool,
 }
 
-// Returns false for mnemonics `x64` does not select.
+// Returns false for mnemonics `amd64` does not select.
 op_info :: proc(mnemonic: x86.Mnemonic) -> (info: Op_Info, known: bool) {
 	#partial switch mnemonic {
 	case .MOV, .MOVABS, .MOVZX, .MOVSX, .MOVSXD, .LEA, .MOVSS, .MOVSD, .MOVUPS, .MOVAPS, .MOVD, .MOVQ, .SQRTSS, .SQRTSD:

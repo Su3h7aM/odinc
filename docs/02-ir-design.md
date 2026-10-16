@@ -1,6 +1,6 @@
 # Design of package `ir`: a Sea of Nodes IR for Odin
 
-Status: revision 2, after the adversarial review `docs/research/10-ir-design-review.md` (responses at the end). Scope: package `ir` (graph, builder, verifier, printer, interpreter) and the interfaces to `sched`, `x64` and `regalloc`. Linux x64 only. Behaviour reference is the fork `/home/su3h7am/Projects/Odin/src`; where this document says "the fork" it means those files.
+Status: revision 2, after the adversarial review `docs/research/10-ir-design-review.md` (responses at the end). Scope: package `ir` (graph, builder, verifier, printer, interpreter) and the interfaces to `sched`, `amd64` and `regalloc`. Linux x64 only. Behaviour reference is the fork `/home/su3h7am/Projects/Odin/src`; where this document says "the fork" it means those files.
 
 ## 1. Prior art and what is reused
 
@@ -32,12 +32,12 @@ Vocabulary taken from `core/rexcode/ir`:
 1. **Sea of Nodes with pinned effects.** Every value is a node; edges are inputs. Only pure nodes float. Every node that touches memory, can trap, or is ordered (loads, stores, calls, division, atomics, volatile accesses, syscalls) has a control input and stays in its block. This is Cranelift's split with Click's graph model. Floating loads are deferred (section 11).
 2. **One memory chain per function** (section 7). Alias classes deferred.
 3. **Scalar-only values.** Aggregates live in memory (stack slots) and move with `Load`/`Store`/`Mem_Copy`. Same rule as PR #7850 ("scalars in vregs, the rest by address") and as Tilde's Odin backend (`param_nodes`: "parameters, pointers to return values, and context ptr").
-4. **ABI-explicit calls.** The IR contains the result of the Odin/SysV argument planning (section 6); `x64` only assigns registers.
-5. **No control flow is created after `lower`** except by `x64` after scheduling, and the allocator sees that final CFG (section 12).
+4. **ABI-explicit calls.** The IR contains the result of the Odin/SysV argument planning (section 6); `amd64` only assigns registers.
+5. **No control flow is created after `lower`** except by `amd64` after scheduling, and the allocator sees that final CFG (section 12).
 6. **Structured control flow.** Odin has no `goto`; labeled `break`/`continue`, `fallthrough` and `defer` expansion do not enter a loop's interior. Every loop has one `Loop` header with exactly two inputs (section 5).
 7. **One table for declarative node properties** (`kind_info`: name, arity, slot types, purity, pinning, tuple shape). Typing rules that depend on context, tuple projections, interpretation and selection are explicit procedures, not table entries.
 8. **`ir` does not depend on `types`.** It is type-erased to scalars. `lower` depends on both.
-9. **Selection after scheduling**, inside `x64`, on linear blocks (the reverse of Simple chapter 19). `sched` stays machine independent.
+9. **Selection after scheduling**, inside `amd64`, on linear blocks (the reverse of Simple chapter 19). `sched` stays machine independent.
 10. **Total, Odin-exact scalar semantics in the IR.** Shifts, signed remainder and conversions are defined for all inputs the way the fork defines them (sections 4, 8); `lower` does not rely on poison or undefined results.
 
 Rejected, briefly:
@@ -121,7 +121,7 @@ Signature :: struct { cc: Calling_Convention, variadic: bool, params: []Param, r
 
 **V128** (decision 1) is a `Value_Type` for ABI pieces and memory: `Load`, `Store`, `Call`, `Return` and `Start` pieces may carry it. The interpreter returns `Unsupported` at the first node that produces or consumes a V128 value (`node` = that node). No node holds a two-word value. `lower` scalarizes `#simd` values, so V128 appears only at ABI boundaries.
 
-`Indirect` is a plain pointer to a caller-owned copy (Odin MEMORY-class arguments); `By_Value` is the C `byval` object copied by `x64` into the outgoing stack area. They are different ABIs (section 6).
+`Indirect` is a plain pointer to a caller-owned copy (Odin MEMORY-class arguments); `By_Value` is the C `byval` object copied by `amd64` into the outgoing stack area. They are different ABIs (section 6).
 
 Module symbols (functions, globals, externs) are declared by `lower` in `check` order before any body is built; workers read them. `Local_Blob` ids stay function-local through the whole pipeline: nothing rewrites `Symbol_Addr` nodes. The emitter keeps `blob_symbol[function][blob]`, filled by a deterministic merge in function-index order that deduplicates blobs only when bytes, alignment, and every relocation (offset, final target, addend) are equal (section 14).
 
@@ -141,7 +141,7 @@ Every node has one output of type `Value_Type`. Multi-output nodes have type `Tu
 | `Switch` | ctrl, value | Tuple(ctrl × (n+1)) | control | `data.index` = case table; `Proj k<n` case k, `Proj n` default. |
 | `Proj` | tuple | member type | head if control, else pure | |
 | `Return` | ctrl, mem, results… | none | terminator | Operands match the signature (section 6). |
-| `Unreachable` `Trap` | ctrl, mem | none | terminator | `Trap` executes `ud2`; `Unreachable` is `ud2` for `x64`, assumption for optimizers. |
+| `Unreachable` `Trap` | ctrl, mem | none | terminator | `Trap` executes `ud2`; `Unreachable` is `ud2` for `amd64`, assumption for optimizers. |
 | `Const_Int` `Const_Float` | none | Bool/I8..I64/Ptr; F16/F32/F64 | pure, remat | |
 | `Undef` | none | any scalar | pure | One stable arbitrary value per node (`---` only). Interpreter: 0. Never used to fill a missing phi arm. |
 | `Symbol_Addr` | none | Ptr | pure, remat | Function, global, extern or local blob. |
@@ -150,7 +150,7 @@ Every node has one output of type `Value_Type`. Multi-output nodes have type `Tu
 | `Stack_Alloc` | ctrl, size:I64 | Ptr | pinned | `intrinsics.alloca`; `data.index` = alignment. Lives until return; forces a frame pointer. |
 | `Phi` | region, values… | any, incl. Memory | bound to region | One value per region input, same order. |
 | `Add Sub Mul And Or Xor` | a, b | I8..I64 (`Bool` for And/Or/Xor) | pure | Commutative ones sort inputs by id. |
-| `Shl Shr Sar` | a, count | type of a | pure | `count` is any int type, read **unsigned in its own width**. Total: `count ≥ width(a)` gives 0 (`Shl`, `Shr`) or sign fill (`Sar`), as `llvm_backend_expr.cpp:2093-2125`. `x64` expands the clamp unless the count is a constant `< width`. |
+| `Shl Shr Sar` | a, count | type of a | pure | `count` is any int type, read **unsigned in its own width**. Total: `count ≥ width(a)` gives 0 (`Shl`, `Shr`) or sign fill (`Sar`), as `llvm_backend_expr.cpp:2093-2125`. `amd64` expands the clamp unless the count is a constant `< width`. |
 | `SDiv UDiv SRem URem` | ctrl, a, b | I8..I64 | pinned | Hardware semantics: trap on divisor 0 and on `MIN/-1`. `lower` adds the official guards (section 8). Not on the memory chain. Unused result: removable. |
 | `Eq Ne SLt SLe ULt ULe` | a, b | Bool | pure | `>`/`>=` canonicalized by swapping. `Eq/Ne` also on `Ptr`, `Bool`. |
 | `FEq FLt FLe FNe` | a, b | Bool | pure | Ordered, except `FNe` (true on NaN). Not defined on `F16`. |
@@ -158,8 +158,8 @@ Every node has one output of type `Value_Type`. Multi-output nodes have type `Tu
 | `Select` | cond, a, b | type of a | pure | Operands already evaluated; never for effectful `x if c else y`. |
 | `Trunc Zext Sext` | a | I8..I64/Bool | pure | `Trunc` to `Bool` keeps bit 0. |
 | `Bitcast` | a | same size | pure | int↔float, int↔`Ptr`, `I16`↔`F16`. Not for `Bool`. |
-| `Sint_To_Float Uint_To_Float Float_To_Sint Float_To_Uint Float_Ext Float_Trunc` | a | F16/F32/F64/int | pure | `F16` ends use the runtime software routines (`f16_to_f32`, `f32_to_f16`, same rounding as the libcalls the fork emits); `x64` expands `u64↔float` after scheduling. |
-| `Popcnt Clz Ctz Bswap` | a | I8..I64 | pure | `Clz`/`Ctz` of 0 give the width (`llvm.ctlz/cttz` with `is_zero_poison = false`, `llvm_backend_proc.cpp:3851-3870`). `x64` expands at baseline x86-64 (`bsr/bsf` guards, SWAR popcount; no `popcnt`/`lzcnt` assumed). |
+| `Sint_To_Float Uint_To_Float Float_To_Sint Float_To_Uint Float_Ext Float_Trunc` | a | F16/F32/F64/int | pure | `F16` ends use the runtime software routines (`f16_to_f32`, `f32_to_f16`, same rounding as the libcalls the fork emits); `amd64` expands `u64↔float` after scheduling. |
+| `Popcnt Clz Ctz Bswap` | a | I8..I64 | pure | `Clz`/`Ctz` of 0 give the width (`llvm.ctlz/cttz` with `is_zero_poison = false`, `llvm_backend_proc.cpp:3851-3870`). `amd64` expands at baseline x86-64 (`bsr/bsf` guards, SWAR popcount; no `popcnt`/`lzcnt` assumed). |
 | `Mul_Hi_S Mul_Hi_U` | a, b | I64 | pure | High half of the 128-bit product; narrower overflow tests widen to 64 first. |
 | `Ptr_Offset` | base | Ptr | pure | `base + data.int_value`. |
 | `Ptr_Index` | base, index:I64 | Ptr | pure | `base + index * data.index`. Not an `#soa` element address (section 8). |
@@ -216,19 +216,19 @@ Builder surface for control (sticky error): `start`, `if_(ctrl, cond) → (true_
 |---|---|
 | Counters start at 6 integer and 8 SSE registers; every argument classified `Int`/`SSE*` subtracts its eightbytes before the decision (`llvm_abi.cpp:791-812, 930-938`). | Planner state; reproduced verbatim, including that return pointers, `sret` and `context` are not counted. |
 | Aggregate whose pieces do not fit the remaining registers (`ran_out_of_regs`). | `By_Value` argument for any convention (`:961-964`); returns use `Struct_Return`. |
-| MEMORY-class aggregate, convention `Odin`. | `Indirect`: plain pointer, no copy by `x64` (`:975-979`). The caller passes the address of a temporary copy, or of the original when the fork proves the parameter read-only (`lb_address_from_load_if_readonly_parameter`). |
-| MEMORY-class aggregate, convention `C`. | `By_Value` with size and alignment; `x64` copies it to the outgoing area (`:976-981`). |
-| Aggregate classified into registers. | 1-2 `Direct` pieces, consecutive in the parameter list, assigned by `x64` sequentially, register by register, as LLVM's calling-convention lowering of the final parameter list does. The planner's counters decide `Direct` versus `By_Value`; hidden pointers are not in the counters, so a straddle between the last register and the stack is reproduced, not corrected (open question 5). Odd-size aggregates follow `llreg`/`classify_source`. |
+| MEMORY-class aggregate, convention `Odin`. | `Indirect`: plain pointer, no copy by `amd64` (`:975-979`). The caller passes the address of a temporary copy, or of the original when the fork proves the parameter read-only (`lb_address_from_load_if_readonly_parameter`). |
+| MEMORY-class aggregate, convention `C`. | `By_Value` with size and alignment; `amd64` copies it to the outgoing area (`:976-981`). |
+| Aggregate classified into registers. | 1-2 `Direct` pieces, consecutive in the parameter list, assigned by `amd64` sequentially, register by register, as LLVM's calling-convention lowering of the final parameter list does. The planner's counters decide `Direct` versus `By_Value`; hidden pointers are not in the counters, so a straddle between the last register and the stack is reproduced, not corrected (open question 5). Odd-size aggregates follow `llreg`/`classify_source`. |
 | `i128` (computation uses `I64` pairs). | Two `Direct` `I64` pieces; the low piece has `align = 16` for stack placement; classified `Int,Int`. A struct containing it follows the aggregate rules, not "two scalars". |
 | Small integer (<4 bytes), `bool`. | `ext` = `Sign` (signed integers, enums), `Zero` (unsigned, `bool`, `b8`..): `lb_integer_extension_attribute` (`:437-456`). The caller extends arguments to 32 bits, the callee extends results to 32 bits. The same on `Result`. |
 | Results ≤16 bytes, classified. | 1-2 `Result` pieces (`rax:rdx`, `xmm0:xmm1`, mixed); an odd-size piece sets `size`. |
 | Larger results. | First parameter `Struct_Return`. |
 | `Odin` convention, tuple results. | Results 0..n-2 are `Ptr` parameters (`Direct`, appended after the regular parameters, before `context`); result n-1 is the return value (`:394-418, 2754-2775`). |
 | `Odin` convention. | Last parameter `Context`. `Contextless` and `C` have none. A procedure of those conventions that needs a context builds a default one in a local (`lb_find_or_generate_context_ptr`, `lb_emit_init_context`). |
-| C variadic. | `variadic = true`; `x64` sets `al` to the number of vector register arguments. |
+| C variadic. | `variadic = true`; `amd64` sets `al` to the number of vector register arguments. |
 | `f16`. | `Direct` `F16` piece (class `SSEHs`). |
 
-Parameter order of an `Odin` function: `[Struct_Return] regular… split-result-pointers… Context`. `Start`, `Call` and `Return` carry exactly these pieces; `verify` checks types, `attr` and `ext` against the signature. Assigning registers, stack offsets, `rsp` alignment, callee-saved registers and the red zone belong to `x64`.
+Parameter order of an `Odin` function: `[Struct_Return] regular… split-result-pointers… Context`. `Start`, `Call` and `Return` carry exactly these pieces; `verify` checks types, `attr` and `ext` against the signature. Assigning registers, stack offsets, `rsp` alignment, callee-saved registers and the red zone belong to `amd64`.
 
 Calls to module functions are `Call` with a `Symbol_Addr` callee. Calls that never return (`-> !`) are followed by `Unreachable(ctrl, mem)` consuming the call's memory.
 
@@ -245,7 +245,7 @@ A `Return` with two results (decision 2) is not interpreted: the interpreter ret
 | `struct{f32}` after the 8 SSE registers are used | 1 | `byval align 8` | plain `float` | Both use an 8-byte stack slot. |
 | `struct{u128}` | 1 | `i128` | `{i64, i64}` | Same registers; the stack case is `By_Value` in both. |
 
-Clang also puts `zeroext`/`signext` on small results; the fork never attaches the result extension (only `sret`). The plan records the intended `ext` on single results, so `x64` extends results itself (decision in `docs/04-x64-design.md`).
+Clang also puts `zeroext`/`signext` on small results; the fork never attaches the result extension (only `sret`). The plan records the intended `ext` on single results, so `amd64` extends results itself (decision in `docs/04-amd64-design.md`).
 
 ## 7. Memory model
 
@@ -400,20 +400,20 @@ v0 starts with **no GVN and no folding beyond integer constants**; each addition
 check → lower (per function, parallel) → ir.verify → ir.dce → ir.verify
   → sched.order        conservative: fixed control skeleton, pure nodes at the LCA of their uses
   → sched.verify_schedule
-  → x64.select         linear blocks of ideal nodes → machine CFG on virtual registers (all control expansion done here)
-  → x64.verify_machine pred/succ symmetry, definitions, edge moves, fixed registers, no critical edges
+  → amd64.select         linear blocks of ideal nodes → machine CFG on virtual registers (all control expansion done here)
+  → amd64.verify_machine pred/succ symmetry, definitions, edge moves, fixed registers, no critical edges
   → regalloc.allocate  liveness → assignment → move resolution → regalloc.verify
-  → x64.emit           prologue/epilogue, spills, layout (Cold last), branch fix-up, encoding via core:rexcode/isa/x86
+  → amd64.emit           prologue/epilogue, spills, layout (Cold last), branch fix-up, encoding via core:rexcode/isa/x86
   → elf builder (src/elf)
 ```
 
 Later optimizing variants plug in at the same points: GVN/forwarding in `ir`, GCM in `sched`. `-dump-ir=<pass>` prints the graph or schedule at a point; output is deterministic.
 
-**`sched`.** Input: a verified `ir.Function`. Output `Schedule { blocks: []Block }`, each `{head, nodes (final order), preds, succs, depth, cold}`. Stage A (`order`): enumerate blocks by forward control traversal; place each pure node in the LCA block of its uses (phi uses at the matching predecessor) — valid by `D1`; local order by the four rules of section 7. Stage B (GCM, Click 1995 and Simple chapter 13) adds *early* placement and the choice among blocks between early and late by shallowest loop depth. Fixed placements: `Phi` and control `Proj` at their head, `Stack_Slot` at the entry, pinned nodes in their block; loop back-edge phi inputs are excluded from ordinary recursive placement. `Const_*`, `Undef`, `Symbol_Addr`, `Tls_Addr` are `Rematerialize`: not scheduled, materialized at each use by `x64`. Hoisting to a common dominator of uses on exclusive paths may compute a value where one path does not need it (V8 problem 5); accepted for the cheap pure nodes of v0. `Cold`-only blocks are laid out last.
+**`sched`.** Input: a verified `ir.Function`. Output `Schedule { blocks: []Block }`, each `{head, nodes (final order), preds, succs, depth, cold}`. Stage A (`order`): enumerate blocks by forward control traversal; place each pure node in the LCA block of its uses (phi uses at the matching predecessor) — valid by `D1`; local order by the four rules of section 7. Stage B (GCM, Click 1995 and Simple chapter 13) adds *early* placement and the choice among blocks between early and late by shallowest loop depth. Fixed placements: `Phi` and control `Proj` at their head, `Stack_Slot` at the entry, pinned nodes in their block; loop back-edge phi inputs are excluded from ordinary recursive placement. `Const_*`, `Undef`, `Symbol_Addr`, `Tls_Addr` are `Rematerialize`: not scheduled, materialized at each use by `amd64`. Hoisting to a common dominator of uses on exclusive paths may compute a value where one path does not need it (V8 problem 5); accepted for the cheap pure nodes of v0. `Cold`-only blocks are laid out last.
 
-**`x64.select`.** Greedy per-block tree matching on the schedule with use counts. Single-use `Load` folds into the ALU/compare operand **only when it sits immediately before its consumer in the final order with no intervening pinned node** (any call, syscall, atomic, volatile, store or trapping operation blocks it; volatile and atomic loads never fold). `Ptr_Offset`/`Ptr_Index` chains fold into `[base + index*scale + disp]`; a compare feeding only the block's `If` fuses with `jcc`; phi nodes become parallel copies at the end of the predecessor (each source edge has its own block). ABI lowering from `Signature`; scratch contract as a `bit_set`. Expansions that create control flow (`u64↔float`, shift clamp where not constant, float `Select`, `Switch` jump tables, popcount/clz guards, `cmpxchg` loops) run here and **complete before liveness**; new blocks and edges carry parallel copies for values live across their joins; new critical edges are split. Encoding is `core:rexcode/isa/x86`.
+**`amd64.select`.** Greedy per-block tree matching on the schedule with use counts. Single-use `Load` folds into the ALU/compare operand **only when it sits immediately before its consumer in the final order with no intervening pinned node** (any call, syscall, atomic, volatile, store or trapping operation blocks it; volatile and atomic loads never fold). `Ptr_Offset`/`Ptr_Index` chains fold into `[base + index*scale + disp]`; a compare feeding only the block's `If` fuses with `jcc`; phi nodes become parallel copies at the end of the predecessor (each source edge has its own block). ABI lowering from `Signature`; scratch contract as a `bit_set`. Expansions that create control flow (`u64↔float`, shift clamp where not constant, float `Select`, `Switch` jump tables, popcount/clz guards, `cmpxchg` loops) run here and **complete before liveness**; new blocks and edges carry parallel copies for values live across their joins; new critical edges are split. Encoding is `core:rexcode/isa/x86`.
 
-**Register allocation (package `regalloc`, imports neither `ir` nor `x64`).** First model, deliberately small (review M10): **no interval splitting**; one location per vreg for its whole life, register or spill slot; a spilled vreg is reloaded into a short-lived temporary vreg at each use and stored after each def (spill everywhere); fixed-register requirements (division, shifts by `cl`, call arguments and results, `syscall`) are met by `x64` copying through fresh short-lived vregs carrying a `Fixed` constraint; call clobbers force intervals that cross a call into callee-saved registers or spill slots. The interface is data:
+**Register allocation (package `regalloc`, imports neither `ir` nor `amd64`).** First model, deliberately small (review M10): **no interval splitting**; one location per vreg for its whole life, register or spill slot; a spilled vreg is reloaded into a short-lived temporary vreg at each use and stored after each def (spill everywhere); fixed-register requirements (division, shifts by `cl`, call arguments and results, `syscall`) are met by `amd64` copying through fresh short-lived vregs carrying a `Fixed` constraint; call clobbers force intervals that cross a call into callee-saved registers or spill slots. The interface is data:
 
 ```odin
 Vreg :: distinct u32
@@ -446,7 +446,7 @@ V8 failure modes are numbered as in `docs/research/02-backend-ir-landscape.md` �
 | 8 | Cache-unfriendly | SoA `#soa`, `u32` handles, one edge arena, creation-order ids, per-function arena, ~27 B per node. | Measured in step I1 |
 | 9 | Control-dependent typing | Checks are explicit `If` + panic path; no node derives facts from a check. | – |
 | 10 | Propagating deadness | v0 never creates dead control; `loop_collapse` is the only structural rewrite and rebuilds the GVN cache. | `C3` |
-| 11 | Hard to add control flow in lowering | IR passes never create blocks; `x64` creates them before liveness and re-verifies the machine CFG. | `x64.verify_machine` |
+| 11 | Hard to add control flow in lowering | IR passes never create blocks; `amd64` creates them before liveness and re-verifies the machine CFG. | `amd64.verify_machine` |
 | 12 | Loop bodies | Explicit `Loop` nodes; membership from natural loops. | `C4`, `C5` |
 | 13 | Slow compile | Per-pass timing; parallel across functions; budget gate (I1). | Benchmark |
 | 14 | Destroys prior scheduling | Source order recovered by id tie-break; GCM is optional. | Golden schedule |
@@ -456,7 +456,7 @@ V8 failure modes are numbered as in `docs/research/02-backend-ir-landscape.md` �
 | PR #7850 | Fat record, parallel hand-kept `switch`es | SoA node, per-kind accessors, one `kind_info` table with `#assert` completeness. |
 | PR #7850 | Shared module state forced a replay log | Symbols pre-declared; one `Function` and arena per worker; function-local blobs and signatures; index-order merge; no `Symbol_Addr` rewrite. |
 | PR #7850 | `setjmp`, string reasons, magic constants | Sticky-error builder, typed `Error`, `Unsupported` results from `lower`, named constants. |
-| PR #7850 | Allocator fused to one IR/target | `regalloc` imports neither `ir` nor `x64`. |
+| PR #7850 | Allocator fused to one IR/target | `regalloc` imports neither `ir` nor `amd64`. |
 | Tilde | Lone-maintainer SoN backend stalled | Narrow scope, steps ≤ ~600 lines with tests, interpreter useful before machine code, milestones that run natively early. |
 | Click | Thesis scheduler lacked anti-dependences | Included from the start (section 7 rule 3). |
 | Odin semantics | Shift, remainder, division modes, slicing, `defer`, `any`, unions, `typeid`, ABI differ from C | Each is specified with its fork function (sections 6, 8) and has a representation test (section 15). |
@@ -471,7 +471,7 @@ V8 failure modes are numbered as in `docs/research/02-backend-ir-landscape.md` �
 
 ## 15. Staged implementation plan
 
-The ~600-line figure is a review-size preference; estimates below include tests and error paths. Steps that previously hid several algorithms are split. "Interface" notes say where a step is bootstrapped with a limited interface. Validation per package: `mise run check <pkg>` and `mise run test <pkg>` for `ir`, `sched`, `types`, `regalloc`, `x64` separately.
+The ~600-line figure is a review-size preference; estimates below include tests and error paths. Steps that previously hid several algorithms are split. "Interface" notes say where a step is bootstrapped with a limited interface. Validation per package: `mise run check <pkg>` and `mise run test <pkg>` for `ir`, `sched`, `types`, `regalloc`, `amd64` separately.
 
 **Milestones** (the order of the review): **M0** a native executable of one procedure with a loop, memory and a call that writes with `Syscall` and exits; **M1** the same with ABI-checked calls between our procedures and a raw-syscall `core:sys/linux` program; **M2** a default-runtime executable (TLS, startup, allocator) with no `fmt`; **M3** `fmt.println`/`fmt.printf` without replacing the allocator or disabling TLS; **M4** optimizations (GVN, forwarding, GCM) with an unoptimized mode kept as the comparison path.
 
@@ -499,11 +499,11 @@ The ~600-line figure is a review-size preference; estimates below include tests 
 | E1 | `regalloc`: `Program`, liveness | ~500 | – | hand-built programs |
 | E2 | `regalloc`: whole-life linear scan, spill-everywhere, `verify` | ~600 | E1 | constraints, clobbers |
 | E3 | `regalloc`: parallel copies | ~400 | E1 | cycle cases |
-| F1-F6 | `x64`: call/ABI lowering; integer selection; float selection; memory/atomics; control expansion; frame/emit/layout | ~600 each | D2, E2, B3 | run natively (separate doc) |
+| F1-F6 | `amd64`: call/ABI lowering; integer selection; float selection; memory/atomics; control expansion; frame/emit/layout | ~600 each | D2, E2, B3 | run natively (separate doc) |
 | G0 | `lower`: module pass, symbol table, procedure job pool, parameter binding, implicit return, error type, `lower_program` | – | A5, B3 | a procedure returning a constant, built and verified |
 | G1-G6 | `lower`: expressions; control and `defer`; calls/ABI use; aggregates, slices, bounds; unions/`any`/`typeid`/type tables; maps/`#soa` | ~600 each | A5, B3 | against the fork (separate doc) |
 | H1 | TLS end to end: `tls` globals, `.tdata/.tbss`, `PT_TLS`, `R_X86_64_TPOFF32`, `Tls_Addr`, startup (`arch_prctl(ARCH_SET_FS)`) | ~600 | A3, F4 | thread-local test |
-| H2 | atomics, fences, ordered accesses in `x64` | ~500 | F4, C4 | per-op tests |
+| H2 | atomics, fences, ordered accesses in `amd64` | ~500 | F4, C4 | per-op tests |
 | H3 | bit ops, `Mul_Hi`, overflow expansions, `FSqrt`, `Bswap` | ~500 | F2 | per-op |
 | H4 | `i128` pair expansion in `lower` (+ `udivmod128` path) | ~500 | G1 | boundary values |
 | H5 | `f16` conversions and promotion | ~300 | F3 | rounding cases |
@@ -516,12 +516,12 @@ The ~600-line figure is a review-size preference; estimates below include tests 
 
 Critical path: A1 → A2/A3 → A4 → A5 → C1-C3 → D1 → F1-F6 with B3 and E2 → M0; H1-H8 → M2/M3.
 
-Parallel start, disjoint files: after A1, agents **A** (A2, A4, A5), **B** (A3, then C2), **C** (A6, A7); **D** (`types`: B1-B3) and **E** (`regalloc`: E1-E3) are independent of `ir` and start immediately (`regalloc` needs only the section 12 interface). After A7: **F** (A8, A9) and **G** (D1, D2). `x64` and `lower` steps start when A5, B3, D2 and E2 exist. Interfaces bootstrapped limitedly: A4's verifier covers only structure and entry control; `function_finish` verifies exactly what exists; GVN tests wait for I1.
+Parallel start, disjoint files: after A1, agents **A** (A2, A4, A5), **B** (A3, then C2), **C** (A6, A7); **D** (`types`: B1-B3) and **E** (`regalloc`: E1-E3) are independent of `ir` and start immediately (`regalloc` needs only the section 12 interface). After A7: **F** (A8, A9) and **G** (D1, D2). `amd64` and `lower` steps start when A5, B3, D2 and E2 exist. Interfaces bootstrapped limitedly: A4's verifier covers only structure and entry control; `function_finish` verifies exactly what exists; GVN tests wait for I1.
 
 ## 16. Open questions for the owner
 
 1. **`#simd`.** The copied runtime's baseline paths use `#simd[16]u8` (`memory_equal`, `memory_compare`, `internal.odin:276-340`) and `#simd[4]u32` (chacha8, `random_generator_chacha8_simd128.odin`) because `HAS_HARDWARE_SIMD` is true with SSE2. Recommendation: `lower` scalarizes a `#simd[N]T` as an aggregate with unrolled per-lane code for the intrinsics the runtime uses (H6), keeping `ir` scalar; a native `V128` is a later optimization. Alternative: adapt our `base/runtime` copy to set `HAS_HARDWARE_SIMD` false for this backend, which does not make user `#simd` code work.
-2. **Assembly stubs in the runtime.** `entry_unix_no_crt_linux_amd64.asm`, `tls_linux_no_crt_amd64.asm` and the stack-protector stub are `foreign import`ed assembly. A pure-Odin toolchain has no assembler. Options: emit the entry from `x64` directly (the code is short and documented), or port the stubs to naked Odin procedures. Needed by H1/H8.
+2. **Assembly stubs in the runtime.** `entry_unix_no_crt_linux_amd64.asm`, `tls_linux_no_crt_amd64.asm` and the stack-protector stub are `foreign import`ed assembly. A pure-Odin toolchain has no assembler. Options: emit the entry from `amd64` directly (the code is short and documented), or port the stubs to naked Odin procedures. Needed by H1/H8.
 3. **`__ODIN_LLVM_F16_SUPPORTED`.** With it false the runtime's `__float16` is `u16`; the compiler would report false for this backend. This changes no user-visible type but is an ABI choice for the runtime's own `truncsfhf2`/`extendhfsf2`. Confirm.
 4. **`typeid` values.** Only consistency between ids and the generated `type_table` is observable (`__type_info_of` hashes `id % len`). Confirm that the canonical hash need not equal the official compiler's numbers.
 5. **Straddling pieces.** Hidden pointers (`sret`, split-result pointers, `context`) are not in the fork's register counters, so a register-fitting aggregate can straddle the last register and the stack in the physical assignment. This design reproduces the fork; the B4 matrix will show whether LLVM actually does so. Confirm that reproducing it is the intent.
@@ -531,7 +531,7 @@ Parallel start, disjoint files: after A1, agents **A** (A2, A4, A5), **B** (A3, 
 These replace the earlier list; later rulings override earlier text.
 
 1. A `lower` package sits between `check` and `ir`. `ir` depends only on `support`.
-2. `i128`/`u128` are expanded by `lower` into `I64` pairs; `ir` and `x64` stay scalar-only. The ABI representation keeps the 16-byte grouping and alignment of the original type (section 6).
+2. `i128`/`u128` are expanded by `lower` into `I64` pairs; `ir` and `amd64` stay scalar-only. The ABI representation keeps the 16-byte grouping and alignment of the original type (section 6).
 3. Thread-local storage is **v0**, local-exec: `tls` globals in `.tdata`/`.tbss`, `PT_TLS`, `Tls_Addr` as `fs:0 + tpoff` with `R_X86_64_TPOFF32` (System V x86-64 psABI), thread pointer installed by startup with `arch_prctl(ARCH_SET_FS)` as the fork's no-CRT entry does, per-thread blocks initialized as `linux_no_crt_tls_init` does. Local-exec is a static-executable restriction, not the answer for shared objects.
 4. Atomics, fences, volatile/ordered accesses, bit intrinsics (`Popcnt Clz Ctz Bswap`, overflow via `Mul_Hi_*`), `f16` conversions and the target operations the default runtime and `core:fmt` reach are **v0** (section 4: 77 kinds).
 5. Division, remainder, shifts, slicing, `defer`, `any` and unions match the official compiler exactly, including the zero-divisor trap, `MIN % -1 = 0`, signed `%%`, and the four `-integer-division-by-zero` modes with per-file feature flags (section 8).
@@ -557,7 +557,7 @@ Each finding was checked against the fork (`/home/su3h7am/Projects/Odin/src`) an
 | M6 `any`/unions/reflection | Accepted | `lb_address_from_load_or_generate_local`; maybe-pointer, zero-size and `shared_nil` unions; `typeid` is the canonical hash and `__type_info_of` a hash lookup. Added: contextless procedures generate a default context (`lb_find_or_generate_context_ptr`). Maps and `#soa` expansions noted. |
 | M7 forwarding | Accepted | `Bool` never stored; forwarding only for plain, identical type and width, current state; load folding only when adjacent to its consumer. |
 | M8 GVN | Accepted, simpler route | Duplicates allowed (`G1` weakened), semantic key function, `gvn_rebuild` after rewrites; blob symbols remapped at emit instead of rewriting nodes; `Undef` defined. |
-| M9 machine CFG | Accepted | `x64.select` completes all control expansion before liveness; `x64.verify_machine`; fixed placements and back-edge phi handling in `sched`. |
+| M9 machine CFG | Accepted | `amd64.select` completes all control expansion before liveness; `amd64.verify_machine`; fixed placements and back-edge phi handling in `sched`. |
 | M10 allocator interface | Accepted | First model has no splitting, spill-everywhere, fixed-register copies, fixed-width slots, rewritten-program verification; remat added when implemented. |
 | N1 DCE roots | Accepted | Roots defined in section 11. |
 | N2 stale items | Accepted | Local-exec stated; stages named by deliverable. |

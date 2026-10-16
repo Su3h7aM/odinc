@@ -1,4 +1,4 @@
-package x64
+package amd64
 
 import "base:runtime"
 import "core:mem"

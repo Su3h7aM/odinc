@@ -26,8 +26,8 @@ All packages sit under `src/` and are imported with `-collection:oc=src`, as `im
 | `check` | name resolution, type checking, constants, polymorphism, `defer`/`context` semantics | syntax, types |
 | `ir` | Sea of Nodes graph, builder, verifier, printer | support, types |
 | `sched` | global code motion, scheduling to linear blocks | ir |
-| `regalloc` | register allocation over a data-only `Program` (virtual registers, constraints, clobbers); knows nothing of `ir` or `x64` | core only |
-| `x64` | instruction selection, ABI and frame lowering, emission; allocation is `regalloc`; encoding is `core:rexcode/isa/x86` imported directly | ir, sched, regalloc, link (input types only), types (ABI plan, driver glue only) |
+| `regalloc` | register allocation over a data-only `Program` (virtual registers, constraints, clobbers); knows nothing of `ir` or `amd64` | core only |
+| `amd64` | instruction selection, ABI and frame lowering, emission; allocation is `regalloc`; encoding is `core:rexcode/isa/x86` imported directly | ir, sched, regalloc, link (input types only), types (ABI plan, driver glue only) |
 | `elf` | ELF64 relocatable and executable writer, symbols, relocations | support |
 | `link` | built-in static linker | elf |
 | `driver` | CLI, package loading, pipeline, deterministic output | all |
@@ -50,7 +50,7 @@ $ODIN test  src/<pkg> -collection:oc=src -vet -strict-style
 
 ## Foundation order
 
-Wave 1 (independent, no cross-dependencies): `support`, `elf`, `x64` encoder, `syntax` tokenizer.
+Wave 1 (independent, no cross-dependencies): `support`, `elf`, `amd64` encoder, `syntax` tokenizer.
 Wave 2: `syntax` AST and parser, `types`, `ir` core graph with verifier and printer.
 Wave 3: `check`, `sched`, instruction selection, register allocation.
 Wave 4: `link`, `driver`, integration, first end-to-end milestone.

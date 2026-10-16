@@ -1,4 +1,4 @@
-package x64
+package amd64
 
 import "core:mem/virtual"
 import "core:os"
@@ -63,7 +63,7 @@ emitted_add_links_and_exits_with_seven :: proc(t: ^testing.T) {
 	testing.expect(t, link_err == nil, "link must succeed")
 	defer delete(image)
 
-	directory, directory_err := os.make_directory_temp("", "x64-emit-*", context.temp_allocator)
+	directory, directory_err := os.make_directory_temp("", "amd64-emit-*", context.temp_allocator)
 	testing.expect(t, directory_err == nil, "temporary directory must be created")
 	path, _ := filepath.join({directory, "add"}, context.temp_allocator)
 	defer {

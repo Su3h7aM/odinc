@@ -1,4 +1,4 @@
-package x64
+package amd64
 
 Verify_Kind :: enum u8 {
 	None,

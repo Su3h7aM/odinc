@@ -1,4 +1,4 @@
-# Design of package `x64` and the first `link` stage
+# Design of package `amd64` and the first `link` stage
 
 Status: draft 1. Scope: instruction selection, frame and call lowering, emission and relocations for Linux x86-64 (System V), process startup (ticket H8), and the minimal `link` package (stage 1 of `docs/research/08-linker-options.md`). Inputs are `docs/02-ir-design.md` (sections 4, 6, 12-15 and the open-question rulings), `src/regalloc/program.odin`, `src/types/abi_plan.odin`, `core/rexcode/isa/x86`, `src/elf`, and `docs/research/07`, `08`, `09`, `12`. The IR names (`Node_Kind`) are those of `src/ir/kinds.odin`.
 
@@ -9,11 +9,11 @@ Status: draft 1. Scope: instruction selection, frame and call lowering, emission
 | Question | Finding | Consequence |
 |---|---|---|
 | Encoder in `core`? | `core/rexcode/isa/x86` (`encode`, `Instruction`, generic `inst_*` shape builders, about 7,500 typed `inst_<mnemonic>_<operands>` builders, labels, `Relocation`, `clobber_forms`). API summary: `core/rexcode/docs/x86_api.md` (the task named `docs/x86_api.md`; the file is in `core/rexcode/docs/`). | No encoder is written. Fixed sequences (prologue, startup, expansions) use the typed builders. The table-driven core uses the shape-generic builders (`inst_r_r`, `inst_r_m`, `inst_r_i`, `inst_m_r`, `inst_m_i`, `inst_rel`), because the operand width is data there and four typed builders per mnemonic would multiply the tables by four. |
-| Operand read/write facts | `x86.clobber_forms(mnemonic)` has them per form, but it is `@(private)` in `core/rexcode/isa/x86/tables.odin`, so `x64` cannot call it. | `op_info.odin` is a small hand-written table over the mnemonics `x64` selects (X0). Exporting the accessor would let a later test cross-check it; that change belongs to `core/`. |
+| Operand read/write facts | `x86.clobber_forms(mnemonic)` has them per form, but it is `@(private)` in `core/rexcode/isa/x86/tables.odin`, so `amd64` cannot call it. | `op_info.odin` is a small hand-written table over the mnemonics `amd64` selects (X0). Exporting the accessor would let a later test cross-check it; that change belongs to `core/`. |
 | ELF output | `src/elf`: `Builder` (ET_REL), `Executable_Builder` (ET_EXEC with `PT_LOAD` and `PT_GNU_STACK`), `R_X86_64` constants. | `link` writes the executable through `executable_add_segment`. Missing: `PT_TLS` and `R_X86_64_TPOFF32` (section 12, ticket H1 prerequisite). |
-| Allocator | `src/regalloc`: `Program`, `Instruction`, `Operand`, `Result` (agent-279). | `x64` builds a `regalloc.Program` and applies the `Result`. |
+| Allocator | `src/regalloc`: `Program`, `Instruction`, `Operand`, `Result` (agent-279). | `amd64` builds a `regalloc.Program` and applies the `Result`. |
 | Lowering lessons | `docs/research/07` sections 3, 7, 8: stack-first/registers-second call setup, `AL` rule, explicit scratch contract, flag fusion, cold blocks last, table-driven ALU core instead of an 800-line switch, errors instead of asserts on user input. | Adopted as stated below. Rejected: always-frame without a reason (here the frame pointer is a stated contract), Win64-order spills, `R11` RIP normalization. |
-| Startup | `docs/research/12` and the rulings: the compiler emits entry, TLS and stack-protector sequences. Reference behaviour: `base/runtime/entry_unix_no_crt_linux_amd64.asm`, `tls_linux_no_crt_amd64.asm`, `stack_protector_linux_no_crt_amd64.asm`. | `x64.startup` re-creates these three with `rexcode` builders (section 11). |
+| Startup | `docs/research/12` and the rulings: the compiler emits entry, TLS and stack-protector sequences. Reference behaviour: `base/runtime/entry_unix_no_crt_linux_amd64.asm`, `tls_linux_no_crt_amd64.asm`, `stack_protector_linux_no_crt_amd64.asm`. | `amd64.startup` re-creates these three with `rexcode` builders (section 11). |
 | Linker | `docs/research/08` stage 1: fused static non-PIE executable, small code model, fail loudly beyond ±2 GiB. | Section 12. |
 | Official behaviour | The fork lowers through LLVM and has no code to copy. ABI reference: `llvm_abi.cpp` through `types.plan_abi`. Numerics: `docs/02-ir-design.md` section 8. | Every sequence below is checked against the interpreter and the fork's native output (section 15). |
 
@@ -31,7 +31,7 @@ Status: draft 1. Scope: instruction selection, frame and call lowering, emission
 
 ## 3. Package layout and data
 
-`src/x64` (imports `oc:ir`, `oc:sched`, `oc:regalloc`, `oc:types` for `Abi_Piece`/`Abi_Plan` only if the driver passes plans, `oc:link` for the output types, `core:rexcode/isa/x86`):
+`src/amd64` (imports `oc:ir`, `oc:sched`, `oc:regalloc`, `oc:types` for `Abi_Piece`/`Abi_Plan` only if the driver passes plans, `oc:link` for the output types, `core:rexcode/isa/x86`):
 
 | File | Content |
 |---|---|
@@ -67,7 +67,7 @@ Pseudo :: enum u8 { None, Entry, Call, Return, Copy }
 | callee-saved | `rbx r12 r13 r14 r15` | none |
 | call clobbers | `rax rcx rdx rsi rdi r8 r9` | `xmm0`-`xmm13` |
 
-`x64.build_program(machine_function) -> regalloc.Program` fills `blocks` (instructions with operand lists from `op_info`), `classes`, `allocatable`, `callee_saved`; `depth` comes from `sched`. Edge copies and cycle breaking are the allocator's (`inserted_moves`). `regalloc.Instruction.clobbers` carries no register class, so `x64` packs both banks into the one set (`Int` at its number, `Float` shifted by `FLOAT_CLOBBER_SHIFT = 16`); this needs a decision by the regalloc owner.
+`amd64.build_program(machine_function) -> regalloc.Program` fills `blocks` (instructions with operand lists from `op_info`), `classes`, `allocatable`, `callee_saved`; `depth` comes from `sched`. Edge copies and cycle breaking are the allocator's (`inserted_moves`). `regalloc.Instruction.clobbers` carries no register class, so `amd64` packs both banks into the one set (`Int` at its number, `Float` shifted by `FLOAT_CLOBBER_SHIFT = 16`); this needs a decision by the regalloc owner.
 
 ## 4. Operand constraint generation
 
@@ -197,7 +197,7 @@ Atomic and ordered nodes follow `docs/02-ir-design.md` section 4 and are ticket 
 | `Syscall` | six `Fixed` copies (`rax rdi rsi rdx r8 r9`), argument 4 for `r10`, `syscall`, result `rax` |
 | `Target_Op` | `Cpuid`: `eax`, `ecx` in; `cpuid`; `eax ebx ecx edx` out. `Xgetbv`: `ecx` in, `eax edx` out. `Pause`: `pause`. `Rdtsc`: `rdtsc; shl rdx, 32; or rax, rdx` |
 
-A bounds-check failure is not special to `x64`: the IR contains an `If` whose `Cold` projection leads to a handler `Call` and `Unreachable`. The cold tail therefore holds argument setup, `call handler`, `ud2`. Cold blocks are not merged in v0.
+A bounds-check failure is not special to `amd64`: the IR contains an `If` whose `Cold` projection leads to a handler `Call` and `Unreachable`. The cold tail therefore holds argument setup, `call handler`, `ud2`. Cold blocks are not merged in v0.
 
 ## 6. Applying the allocation (`emit`)
 
@@ -211,14 +211,14 @@ A bounds-check failure is not special to `x64`: the IR contains an `If` whose `C
 
 ## 7. Calls and ABI (F1)
 
-**Assignment** reproduces LLVM's `CC_X86_64_C` over the `ir.Signature` pieces (the pieces already carry the fork's decisions; `x64` assigns sequentially, as `docs/02-ir-design.md` section 6 requires):
+**Assignment** reproduces LLVM's `CC_X86_64_C` over the `ir.Signature` pieces (the pieces already carry the fork's decisions; `amd64` assigns sequentially, as `docs/02-ir-design.md` section 6 requires):
 
 | Piece | Placement |
 |---|---|
 | `I8..I64`, `Bool`, `Ptr`, `Direct` | next of `rdi rsi rdx rcx r8 r9`, else the next 8-byte stack slot |
 | `F16 F32 F64`, `V128` | next of `xmm0`-`xmm7`, else the next stack slot (8 bytes; `V128`: 16 bytes, 16-aligned) |
 | `Direct` piece with `align = 16` (low half of an `i128`) | register if one is free, else a stack slot aligned to 16; its partner follows sequentially. The straddle case is reproduced, not corrected |
-| `Indirect` | an `Int` register or slot holding the address; no copy by `x64` |
+| `Indirect` | an `Int` register or slot holding the address; no copy by `amd64` |
 | `By_Value` | no register; the object is copied into the outgoing area at the next stack offset aligned to `max(8, align)`, size rounded to 8 |
 | `Struct_Return` | first `Int` register (`rdi`) |
 | `Context` | an ordinary `Int` piece, last in the list |
@@ -251,11 +251,11 @@ The thread pointer `fs:0` holds its own address (the startup stub and `linux_no_
 
 `tpoff(s) = s − (memsz + ((−vaddr − memsz) & (align − 1)))`
 
-(the formula the runtime itself uses for `block_offset`: the `.alignment` block of `tls_linux_no_crt_amd64.asm`; it is negative or zero). `link` computes it; `x64` emits `lea r, [r + 0]` with a `R_X86_64_TPOFF32` relocation on the displacement, or, when the address is only used by one load or store, the folded form `mov r, fs:[disp32]` with the relocation on `disp32`. The encoder emits relocations only for labels, so these two forms are recorded by the emitter: it defines a label before and after the instruction, and for `lea` with no immediate or a segmented `mov` with no immediate the displacement is the last four bytes of the instruction (`end − 4`). The same rule holds for RIP-relative operands: **no RIP-relative operand is combined with an immediate**, so the `REL32` field is always the last four bytes and ELF addend = encoder addend − 4. `select` materializes the immediate in a register in that case; `verify_machine` checks it.
+(the formula the runtime itself uses for `block_offset`: the `.alignment` block of `tls_linux_no_crt_amd64.asm`; it is negative or zero). `link` computes it; `amd64` emits `lea r, [r + 0]` with a `R_X86_64_TPOFF32` relocation on the displacement, or, when the address is only used by one load or store, the folded form `mov r, fs:[disp32]` with the relocation on `disp32`. The encoder emits relocations only for labels, so these two forms are recorded by the emitter: it defines a label before and after the instruction, and for `lea` with no immediate or a segmented `mov` with no immediate the displacement is the last four bytes of the instruction (`end − 4`). The same rule holds for RIP-relative operands: **no RIP-relative operand is combined with an immediate**, so the `REL32` field is always the last four bytes and ELF addend = encoder addend − 4. `select` materializes the immediate in a register in that case; `verify_machine` checks it.
 
 ## 10. Relocations and the object seam
 
-`x64` and the data emission produce `link.Input` (section 12). Relocation kinds, all from `elf.R_X86_64` plus one addition:
+`amd64` and the data emission produce `link.Input` (section 12). Relocation kinds, all from `elf.R_X86_64` plus one addition:
 
 | Source | Field | ELF type | Addend |
 |---|---|---|---|
@@ -266,11 +266,11 @@ The thread pointer `fs:0` holds its own address (the startup stub and `linux_no_
 | `Tls_Addr` | disp32 | `R_X86_64_TPOFF32` (23, **not yet in `src/elf/types.odin`**) | 0 |
 | absolute 32 (`mov r32, imm32` of an address) | – | not used: non-PIE would allow `R_X86_64_32S`, but RIP-relative keeps the output position-independent-ready | – |
 
-Symbols: one `link.Symbol` per `ir.Function` (defined in `.text`, size = code size), per `Global` (section by kind), per `Extern` (undefined), plus startup symbols (section 11). `Local_Blob` ids never reach the object: the driver's `blob_merge` has already assigned each blob a `Global` (`src/ir/module.odin`), and `x64` maps `Symbol_Addr(Local_Blob)` through `blob_symbols[function][blob]`.
+Symbols: one `link.Symbol` per `ir.Function` (defined in `.text`, size = code size), per `Global` (section by kind), per `Extern` (undefined), plus startup symbols (section 11). `Local_Blob` ids never reach the object: the driver's `blob_merge` has already assigned each blob a `Global` (`src/ir/module.odin`), and `amd64` maps `Symbol_Addr(Local_Blob)` through `blob_symbols[function][blob]`.
 
 ## 11. Process startup (H8)
 
-`x64.startup` builds three fixed code sequences with typed `rexcode` builders (no encoder written) and defines them as symbols the runtime expects:
+`amd64.startup` builds three fixed code sequences with typed `rexcode` builders (no encoder written) and defines them as symbols the runtime expects:
 
 | Symbol | Behaviour (reference) |
 |---|---|
@@ -282,7 +282,7 @@ The startup is a subset-first ticket: **H8a** (`_start` that loads `argc/argv`, 
 
 ## 12. Package `link`, stage 1
 
-Input types (the seam of `docs/research/08` stage 0; `x64` imports `link` for these types only):
+Input types (the seam of `docs/research/08` stage 0; `amd64` imports `link` for these types only):
 
 ```odin
 Section_Kind :: enum u8 { Text, Rodata, Data, Bss, Tdata, Tbss }
@@ -293,7 +293,7 @@ Input :: struct { atoms: []Atom, symbols: []Symbol }
 link :: proc(inputs: []Input, entry: string, allocator: mem.Allocator) -> (image: []byte, err: Link_Error)
 ```
 
-**What a `Module` lowers to** (`x64.compile_module(module, schedules, config) -> (link.Input, Error)`):
+**What a `Module` lowers to** (`amd64.compile_module(module, schedules, config) -> (link.Input, Error)`):
 
 | Source | Atom |
 |---|---|
@@ -317,7 +317,7 @@ References: `refs/mold` is a Rust tree; paths below are relative to it. `elf/tls
 
 ## 13. Debug-info hooks (stage 1: line table, `docs/research/09`)
 
-`ir.Node` has no source location (open question 2). The hook: an optional `ir.Function.locations: []Source_Location` parallel to `nodes` (`{file: u32, line: u32, column: u32}`), filled by `lower` when `-debug` is on. `select` copies the location of the node that produced an instruction to `Machine_Instruction.location`. `emit` records `Line_Row {address, file, line, column, is_stmt, prologue_end}` when the location changes between consecutive encoded instructions, suppressing zero-length rows; `prologue_end` is set on the first instruction after the prologue; rows follow address order, so cold blocks (laid out last) form their own rows. The frame pointer, symbol sizes and `Unwind_Info` already give stage 0 (`lldb bt`, `perf`). The DWARF writers (`.debug_info`, `.debug_abbrev`, `.debug_line`, DWARF 5 header) are a separate package after this one; they consume `Atom.lines` and `Symbol` records and do not touch `x64`.
+`ir.Node` has no source location (open question 2). The hook: an optional `ir.Function.locations: []Source_Location` parallel to `nodes` (`{file: u32, line: u32, column: u32}`), filled by `lower` when `-debug` is on. `select` copies the location of the node that produced an instruction to `Machine_Instruction.location`. `emit` records `Line_Row {address, file, line, column, is_stmt, prologue_end}` when the location changes between consecutive encoded instructions, suppressing zero-length rows; `prologue_end` is set on the first instruction after the prologue; rows follow address order, so cold blocks (laid out last) form their own rows. The frame pointer, symbol sizes and `Unwind_Info` already give stage 0 (`lldb bt`, `perf`). The DWARF writers (`.debug_info`, `.debug_abbrev`, `.debug_line`, DWARF 5 header) are a separate package after this one; they consume `Atom.lines` and `Symbol` records and do not touch `amd64`.
 
 ## 14. Determinism rules
 
@@ -341,8 +341,8 @@ References: `refs/mold` is a Rust tree; paths below are relative to it. `elf/tls
 1. **Spill and reload contract with regalloc.** `Result.location` is per program vreg and `inserted_moves` are vreg moves; this document reloads spilled operands itself through the scratch registers (section 6) and applies `inserted_moves` as plain moves. Confirm with the regalloc owner that (a) `edge_moves` and cycle breaking are resolved inside `inserted_moves` (the document assumes yes, so `emit` never resolves a parallel copy), (b) the allocator never needs a scratch register of its own, (c) a vreg used by a `Fixed`-constrained operand may be assigned a register outside that fixed register and the allocator then inserts the copy.
 2. **Source locations on IR nodes.** Needed by section 13; not in `ir.Node`. Proposal: a parallel `locations` array on `Function` (no node growth). Needs a ruling by the `ir` owner.
 3. **`elf` additions** (`PT_TLS`, `R_X86_64_TPOFF32`) and who writes them; H1 depends on them.
-4. **Package edge.** The architecture table lists `x64` as depending on `ir, sched`. This design adds `regalloc`, `link` (types only) and `types` (ABI plan, only in the driver glue). The table needs the new edges, or the atom types move to `elf`.
-5. **`Float_Ext`/`Float_Trunc` on `F16`.** The runtime routines are Odin procedures reached by name. Who declares them as externs: `lower` (as ordinary `Call`s, which would remove these from `x64`) or `x64` through `Config`? Recommendation: `lower`, so `x64` never sees an `F16` conversion; H5 shrinks to the `lower` side plus `movd` moves.
+4. **Package edge.** The architecture table lists `amd64` as depending on `ir, sched`. This design adds `regalloc`, `link` (types only) and `types` (ABI plan, only in the driver glue). The table needs the new edges, or the atom types move to `elf`.
+5. **`Float_Ext`/`Float_Trunc` on `F16`.** The runtime routines are Odin procedures reached by name. Who declares them as externs: `lower` (as ordinary `Call`s, which would remove these from `amd64`) or `amd64` through `Config`? Recommendation: `lower`, so `amd64` never sees an `F16` conversion; H5 shrinks to the `lower` side plus `movd` moves.
 6. **Over-aligned frame objects.** `#simd` and `align(32)` aggregates reach alignment above 16 (`DEFAULT_LAYOUT.max_simd_align` is 512). v0 reports `Unsupported_Alignment`. A later step realigns `rsp` and addresses locals through a second base register.
 7. **Float `Select` without control flow.** This design uses `movd/movq` + `cmov`; `docs/02-ir-design.md` section 12 lists float `Select` among the control-flow expansions. Confirm the deviation (it is a strict simplification, the result is bitwise the same).
 8. **Callee-side C variadics** (`#c_vararg` procedures defined in Odin) are not supported in v0; no known program in the default runtime defines one.
@@ -367,7 +367,7 @@ Sizes include tests and error paths. "After" lists hard dependencies. `link` and
 | H1 | TLS end to end: `tpoff`, `Tls_Addr` forms, `link` `.tdata/.tbss` and `PT_TLS`, `elf` additions | ~600 | F4, L1, elf additions | thread-local test |
 | H2 | atomics, fences, ordered accesses | ~500 | F4, ir C4 | per-op tests |
 | H3 | `Popcnt Clz Ctz Bswap Mul_Hi`, `FSqrt` | ~500 | F2 | per-op tables |
-| H5 | `f16` handling (`movd` moves, runtime conversion calls if open question 5 goes to `x64`) | ~300 | F3 | rounding cases |
+| H5 | `f16` handling (`movd` moves, runtime conversion calls if open question 5 goes to `amd64`) | ~300 | F3 | rounding cases |
 | H7 | `Target_Op`, `Stack_Alloc` realignment | ~300 | F1 | per-op |
 | H8b | full startup: auxv scan, `PT_TLS` lookup, TLS block, guard, layout function, `__stack_chk_fail` | ~500 | H1 | M2 |
 | L2 | `.eh_frame` synthesis in `link` | ~350 | F6 | `llvm-readelf --debug-dump=frames` |
