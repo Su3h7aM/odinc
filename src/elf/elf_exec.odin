@@ -24,6 +24,7 @@ Program_Flags :: bit_set[PF;u32]
 PT_NULL :: 0x00000000
 PT_LOAD :: 0x00000001
 PT_GNU_STACK :: 0x6474e551
+PT_TLS :: 0x00000007
 
 /*
 	The kernel maps at page granularity and requires
@@ -60,6 +61,7 @@ Executable_Segment :: struct {
 	flags:     Program_Flags,
 	alignment: u64,
 	data:      [dynamic]u8,
+	tls:       bool,
 }
 
 /*
@@ -131,6 +133,25 @@ executable_add_segment :: proc(
 	return Segment_Handle(u32(len(builder.segments))), nil
 }
 
+
+executable_add_tls_segment :: proc(
+	builder: ^Executable_Builder,
+	vaddr: u64,
+	data: []byte,
+	memsz: u64,
+	flags: Program_Flags,
+	alignment: u64,
+) -> (
+	Segment_Handle,
+	Error,
+) {
+	h, err := executable_add_segment(builder, vaddr, data, memsz, flags, alignment)
+	if err == nil {
+		builder.segments[len(builder.segments) - 1].tls = true
+	}
+	return h, err
+}
+
 /*
 	Sets the entry address of the executable.
 */
@@ -197,7 +218,7 @@ executable_write :: proc(builder: ^Executable_Builder, allocator := context.allo
 		append(
 			&segment_headers,
 			Program_Header {
-				p_type = u32le(PT_LOAD),
+				p_type = u32le(segment.tls ? PT_TLS : PT_LOAD),
 				p_flags = u32le(program_flags_mask(segment.flags)),
 				p_offset = u64le(file_offset),
 				p_vaddr = u64le(segment.vaddr),

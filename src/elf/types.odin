@@ -102,6 +102,7 @@ R_X86_64 :: enum u32le {
 	R_X86_64_GOTPCREL = 9, // G + GOT + A - P, word32
 	R_X86_64_32       = 10, // S + A truncated to u32
 	R_X86_64_32S      = 11, // S + A sign-extended to i64 as i32
+	R_X86_64_TPOFF32  = 23, // TLS offset
 }
 
 /*
