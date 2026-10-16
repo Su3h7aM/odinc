@@ -13,6 +13,14 @@ Constant_Pool_Error :: enum u8 {
 	Handle_Limit,
 	Invalid_Float_Width,
 	Invalid_Component,
+	Invalid_Operand,
+	Unsupported_Operator,
+	Division_By_Zero,
+	Negative_Shift,
+	Shift_Too_Large,
+	Not_Representable,
+	Unsupported_Constant_Op,
+	Missing_Type_Store,
 }
 Constant_Error :: union #shared_nil {
 	Constant_Pool_Error,
@@ -92,6 +100,50 @@ constant_pool_intern_rational :: proc(pool: ^Constant_Pool, value: ^big.Rat, typ
 constant_pool_get :: proc(pool: ^Constant_Pool, id: Const_Id) -> ^Constant {
 	if !constant_pool_ready(pool) || id == 0 || u64(id) >= u64(len(pool.values)) { return nil }
 	return &pool.values[id]
+}
+
+@(require_results)
+constant_pool_intern_bool :: proc(pool: ^Constant_Pool, value: bool, type: types.Type_Id = 0) -> (id: Const_Id, err: Constant_Error) {
+	if !constant_pool_ready(pool) { return 0, Constant_Pool_Error.Uninitialized }
+	key := constant_pool_simple_key(pool, "b:", type, "true" if value else "false") or_return
+	if existing, found := pool.keys[key]; found { return existing, nil }
+	if u64(len(pool.values)) > u64(max(u32)) { return 0, Constant_Pool_Error.Handle_Limit }
+	id = Const_Id(len(pool.values))
+	append(&pool.values, Constant{type = type, value = value}) or_return
+	pool.keys[key] = id
+	return id, nil
+}
+
+// Interns a borrowed UTF-8 string as an arena-owned immutable copy.
+@(require_results)
+constant_pool_intern_string :: proc(pool: ^Constant_Pool, value: string, type: types.Type_Id = 0) -> (id: Const_Id, err: Constant_Error) {
+	if !constant_pool_ready(pool) { return 0, Constant_Pool_Error.Uninitialized }
+	key, key_error := constant_pool_string_key(pool, "s:", type, value)
+	if key_error != nil { return 0, key_error }
+	if existing, found := pool.keys[key]; found { return existing, nil }
+	if u64(len(pool.values)) > u64(max(u32)) { return 0, Constant_Pool_Error.Handle_Limit }
+	stored, clone_error := strings.clone(value, pool.allocator)
+	if clone_error != nil { return 0, clone_error }
+	id = Const_Id(len(pool.values))
+	append(&pool.values, Constant{type = type, value = stored}) or_return
+	pool.keys[key] = id
+	return id, nil
+}
+
+// Interns a borrowed UTF-16 string as an arena-owned immutable copy.
+@(require_results)
+constant_pool_intern_string16 :: proc(pool: ^Constant_Pool, value: []u16, type: types.Type_Id = 0) -> (id: Const_Id, err: Constant_Error) {
+	if !constant_pool_ready(pool) { return 0, Constant_Pool_Error.Uninitialized }
+	key, key_error := constant_pool_string16_key(pool, type, value)
+	if key_error != nil { return 0, key_error }
+	if existing, found := pool.keys[key]; found { return existing, nil }
+	if u64(len(pool.values)) > u64(max(u32)) { return 0, Constant_Pool_Error.Handle_Limit }
+	stored := make([]u16, len(value), pool.allocator)
+	copy(stored, value)
+	id = Const_Id(len(pool.values))
+	append(&pool.values, Constant{type = type, value = stored}) or_return
+	pool.keys[key] = id
+	return id, nil
 }
 
 @(private = "file")
@@ -247,4 +299,39 @@ constant_pool_numeric_key :: proc(pool: ^Constant_Pool, id: Const_Id) -> (key: s
 		return constant_pool_float_key(pool, entry.type, value)
 	}
 	return "", Constant_Pool_Error.Invalid_Component
+}
+
+@(private = "file")
+constant_pool_simple_key :: proc(pool: ^Constant_Pool, prefix: string, type: types.Type_Id, value: string) -> (key: string, err: Constant_Error) {
+	type_buffer: [11]byte
+	type_text := strconv.write_bits(type_buffer[:], u64(type), 10, false, 32, strconv.digits, {})
+	segments := [4]string{prefix, type_text, ":", value}
+	return strings.concatenate(segments[:], allocator = pool.allocator)
+}
+
+@(private = "file")
+constant_pool_string_key :: proc(pool: ^Constant_Pool, prefix: string, type: types.Type_Id, value: string) -> (key: string, err: Constant_Error) {
+	type_buffer: [11]byte
+	length_buffer: [20]byte
+	type_text := strconv.write_bits(type_buffer[:], u64(type), 10, false, 32, strconv.digits, {})
+	length_text := strconv.write_bits(length_buffer[:], u64(len(value)), 10, false, 64, strconv.digits, {})
+	segments := [6]string{prefix, type_text, ":", length_text, "#", value}
+	return strings.concatenate(segments[:], allocator = pool.allocator)
+}
+
+@(private = "file")
+constant_pool_string16_key :: proc(pool: ^Constant_Pool, type: types.Type_Id, value: []u16) -> (key: string, err: Constant_Error) {
+	type_buffer: [11]byte
+	length_buffer: [20]byte
+	type_text := strconv.write_bits(type_buffer[:], u64(type), 10, false, 32, strconv.digits, {})
+	length_text := strconv.write_bits(length_buffer[:], u64(len(value)), 10, false, 64, strconv.digits, {})
+	segments := make([dynamic]string, pool.allocator)
+	defer delete(segments)
+	append(&segments, "s16:", type_text, ":", length_text, "#") or_return
+	for unit in value {
+		buffer: [4]byte
+		text := strconv.write_bits(buffer[:], u64(unit), 16, false, 16, strconv.digits, {})
+		append(&segments, text) or_return
+	}
+	return strings.concatenate(segments[:], allocator = pool.allocator)
 }
