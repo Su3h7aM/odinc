@@ -41,9 +41,10 @@ $ODIN test  src/<pkg> -collection:oc=src -vet -strict-style
 
 ## Code rules (apply to every component)
 
-- Follow the `odin-maintainer` skill: explicit allocators and arenas, `snake_case` procs, `Ada_Case` types, errors as values, no hidden allocation, zero value inert, `distinct` handles, `bit_set` flags, doc comment above each public declaration.
+- Follow the `odin-maintainer` skill: explicit allocators and arenas, `snake_case` procs, `Ada_Case` types, errors as values, no hidden allocation, zero value inert, `distinct` handles, `bit_set` flags.
+- Naming, comments and tests follow `AGENTS.md`, which overrides the skill on comment and test volume.
 - Deterministic output: same input gives byte-identical output. No timestamps, no pointer-order dependence.
-- Every package has tests that run in CI-style `odin test`, and a `doc.odin`.
+- Tests are few and meaningful (see `AGENTS.md`).
 - No speculative features. Implement what the foundation needs.
 
 ## Foundation order
