@@ -60,6 +60,8 @@ interp_compute :: proc(s: ^Interp_State, id: Node_Id) -> (value: u64, ok: bool) 
 		return interp_canonical(type, fn.nodes.data[id].float_bits), true
 	case .Undef:
 		return 0, true
+	case .Stack_Slot, .Symbol_Addr, .Tls_Addr:
+		return interp_address(s, id)
 	case .Proj:
 		return interp_projection(s, id)
 	case .Select:
@@ -156,6 +158,12 @@ interp_compute :: proc(s: ^Interp_State, id: Node_Id) -> (value: u64, ok: bool) 
 interp_projection :: proc(s: ^Interp_State, id: Node_Id) -> (value: u64, ok: bool) {
 	source := node_input(s.fn, id, 0)
 	index := s.fn.nodes.data[id].index
+	if s.fn.nodes.kind[source] == .Load_Ordered {
+		if index == 0 {
+			return 0, true
+		}
+		return interp_evaluate(s, source)
+	}
 	if s.fn.nodes.kind[source] == .Start {
 		switch {
 		case index == 1:

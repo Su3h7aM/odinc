@@ -1,9 +1,14 @@
 package ir
 
+import "base:runtime"
 import "core:testing"
 
 @(test)
 interp_sums_to_n :: proc(t: ^testing.T) {
+	module: Module
+	testing.expect_value(t, module_init(&module), nil)
+	defer module_destroy(&module)
+
 	fn, make_err := function_make(context.allocator, 0, "main.sum", 0)
 	testing.expect_value(t, make_err, nil)
 	defer function_destroy(fn)
@@ -41,7 +46,7 @@ interp_sums_to_n :: proc(t: ^testing.T) {
 		n, sum: u64,
 	}{{0, 0}, {1, 1}, {10, 55}, {100, 5050}}
 	for c in cases {
-		result, err := interp_run(fn, []u64{c.n}, 10_000, context.allocator)
+		result, err := interp_run(&module, fn, []u64{c.n}, 10_000, context.allocator)
 		testing.expect_value(t, err, nil)
 		testing.expect_value(t, result.outcome, Interp_Outcome.Value)
 		testing.expect_value(t, result.value, c.sum)
@@ -88,7 +93,7 @@ edge_node :: proc(fn: ^Function, control: Node_Id, c: Edge_Case) -> Node_Id {
 }
 
 @(private = "file")
-edge_result :: proc(t: ^testing.T, c: Edge_Case) -> Interp_Result {
+edge_result :: proc(t: ^testing.T, module: ^Module, c: Edge_Case) -> Interp_Result {
 	fn, make_err := function_make(context.allocator, 0, "main.edge", 0)
 	testing.expect_value(t, make_err, nil)
 	defer function_destroy(fn)
@@ -108,13 +113,17 @@ edge_result :: proc(t: ^testing.T, c: Edge_Case) -> Interp_Result {
 	emit_return(b, result)
 	testing.expect_value(t, builder_finish(b), nil)
 
-	outcome, err := interp_run(fn, nil, 100, context.allocator)
+	outcome, err := interp_run(module, fn, nil, 100, context.allocator)
 	testing.expect_value(t, err, nil)
 	return outcome
 }
 
 @(test)
 interp_arithmetic_edges :: proc(t: ^testing.T) {
+	module: Module
+	testing.expect_value(t, module_init(&module), nil)
+	defer module_destroy(&module)
+
 	cases := [?]Edge_Case {
 		// Shifts: counts at or above the width, count read unsigned in its own width, arithmetic sign fill.
 		{kind = .Shl, type = .I8, count_type = .I64, a = 0x81, b = 8, outcome = .Value, value = 0},
@@ -140,7 +149,7 @@ interp_arithmetic_edges :: proc(t: ^testing.T) {
 		{kind = .FAdd, type = .F32, a = 0x4B800000, b = 0x3F800000, outcome = .Value, value = 0x4B800000},
 	}
 	for c in cases {
-		result := edge_result(t, c)
+		result := edge_result(t, &module, c)
 		testing.expectf(
 			t,
 			result.outcome == c.outcome && result.value == c.value,
@@ -152,5 +161,79 @@ interp_arithmetic_edges :: proc(t: ^testing.T) {
 			c.outcome,
 			c.value,
 		)
+	}
+}
+
+@(private = "file")
+memory_function :: proc(t: ^testing.T, result: Value_Type) -> (fn: ^Function, entry: Start_Nodes) {
+	err: runtime.Allocator_Error
+	fn, err = function_make(context.allocator, 0, "main.memory", 0)
+	testing.expect_value(t, err, nil)
+	add_signature(fn, Signature{cc = .C, results = {{type = result}}})
+	entry = start(fn)
+	return
+}
+
+@(private = "file")
+memory_finish :: proc(t: ^testing.T, module: ^Module, fn: ^Function, control, memory, value: Node_Id) -> Interp_Result {
+	ret(fn, control, memory, value)
+	testing.expect_value(t, function_finish(fn), nil)
+	result, err := interp_run(module, fn, nil, 1000, context.allocator)
+	testing.expect_value(t, err, nil)
+	return result
+}
+
+@(test)
+interp_memory_model :: proc(t: ^testing.T) {
+	module: Module
+	testing.expect_value(t, module_init(&module), nil)
+	defer module_destroy(&module)
+
+	globals := [?]Global {
+		{name = "table", size = 16, align = 8, mutable = true, relocs = []Data_Reloc{{offset = 8, target = {space = .Global, index = 1}, addend = 4}}},
+		{name = "target", size = 16, align = 8, bytes = []byte{0, 0, 0, 0, 0x2A}},
+		{name = "local", size = 8, align = 8, tls = true, bytes = []byte{0x00, 0x01}},
+	}
+	for global in globals {
+		_, append_err := append(&module.globals, global)
+		testing.expect_value(t, append_err, nil)
+	}
+
+	scalars := [?]struct {
+		type: Value_Type,
+		bits: u64,
+	}{{.I8, 0xA5}, {.I16, 0xBEEF}, {.I32, 0xDEADBEEF}, {.I64, 0x0123456789ABCDEF}, {.F32, 0x3FC00000}, {.F64, 0x3FF8000000000000}, {.Ptr, 0x10008}}
+	for c in scalars {
+		fn, entry := memory_function(t, c.type)
+		defer function_destroy(fn)
+		slot := stack_slot(fn, entry.control, 16, 8)
+		pointer := ptr_offset(fn, slot, 1)
+		stored := store(fn, entry.control, entry.memory, pointer, edge_constant(fn, c.type, c.bits), 0)
+		loaded := load(fn, entry.control, stored, pointer, c.type, 0)
+		result := memory_finish(t, &module, fn, entry.control, stored, loaded)
+		testing.expectf(t, result.outcome == .Value && result.value == c.bits, "%v: got %v %x", c.type, result.outcome, result.value)
+	}
+
+	{
+		fn, entry := memory_function(t, .I64)
+		defer function_destroy(fn)
+		table := symbol_addr(fn, Symbol_Ref{space = .Global, index = 0})
+		pointer := load(fn, entry.control, entry.memory, ptr_offset(fn, table, 8), .Ptr, 3)
+		target_value := load(fn, entry.control, entry.memory, pointer, .I64, 3)
+		local := load(fn, entry.control, entry.memory, tls_addr(fn, Symbol_Ref{space = .Global, index = 2}), .I64, 3)
+		result := memory_finish(t, &module, fn, entry.control, entry.memory, binary(fn, .Add, target_value, local))
+		testing.expectf(t, result.outcome == .Value && result.value == 0x12A, "relocation and tls: got %v %x", result.outcome, result.value)
+	}
+
+	{
+		fn, entry := memory_function(t, .I64)
+		defer function_destroy(fn)
+		slot := stack_slot(fn, entry.control, 16, 8)
+		stored := store(fn, entry.control, entry.memory, slot, const_int(fn, .I64, 0x0807060504030201), 3)
+		copied := add_node(fn, .Mem_Copy, .Memory, {entry.control, stored, ptr_offset(fn, slot, 2), slot, const_int(fn, .I64, 6)})
+		set := add_node(fn, .Mem_Set, .Memory, {entry.control, copied, ptr_offset(fn, slot, 6), const_int(fn, .I8, 0xFF), const_int(fn, .I64, 2)})
+		value := load(fn, entry.control, set, slot, .I64, 3)
+		result := memory_finish(t, &module, fn, entry.control, set, value)
+		testing.expectf(t, result.outcome == .Value && result.value == 0xFFFF040302010201, "copy and set: got %v %x", result.outcome, result.value)
 	}
 }
