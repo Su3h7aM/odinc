@@ -20,6 +20,26 @@ start_process :: proc(desc: os.Process_Desc) -> (os.Process, os.Error) {
 	return os.process_start(desc)
 }
 
+run_raw_data_child :: proc(
+	path, output_path: string,
+	stderr: ^os.File,
+) -> (
+	state: os.Process_State,
+	output: []byte,
+	open_error, process_error, wait_error, output_error: os.Error,
+) {
+	stdout: ^os.File
+	stdout, open_error = os.open(output_path, {.Write, .Create, .Trunc})
+	if open_error != nil { return }
+	defer _ = os.close(stdout)
+	process: os.Process
+	process, process_error = start_process(os.Process_Desc{command = []string{path}, stdout = stdout, stderr = stderr})
+	if process_error != nil { return }
+	state, wait_error = os.process_wait(process)
+	output, output_error = os.read_entire_file_from_path(output_path, context.temp_allocator)
+	return
+}
+
 @(test)
 native_sections_exit_with_interpreter_results :: proc(t: ^testing.T) {
 	expected := [?]struct {
@@ -43,6 +63,7 @@ native_sections_exit_with_interpreter_results :: proc(t: ^testing.T) {
 		{"or_break", 73},
 		{"or_continue", 0},
 		{"unreachable", 0},
+		{"raw_data", 127},
 	}
 	odin_root, _ := filepath.join({#directory, "..", ".."}, context.temp_allocator)
 	directory, directory_err := os.make_directory_temp("", "driver-native-*", context.temp_allocator)
@@ -55,13 +76,33 @@ native_sections_exit_with_interpreter_results :: proc(t: ^testing.T) {
 		defer delete(image)
 		path, _ := filepath.join({directory, entry.section}, context.temp_allocator)
 		if !testing.expect(t, write_executable(path, image) == nil, "executable must be written") { continue }
+		if entry.section == "raw_data" {
+			devnull, devnull_err := os.open("/dev/null", {.Write})
+			if !testing.expect(t, devnull_err == nil, "devnull must open") { continue }
+			defer _ = os.close(devnull)
+			output_path, _ := filepath.join({directory, "raw_data.stdout"}, context.temp_allocator)
+			state, output, open_err, process_err, wait_err, output_err := run_raw_data_child(path, output_path, devnull)
+			if !testing.expect(t, open_err == nil, "raw_data stdout file must open") { continue }
+			if !testing.expect(t, process_err == nil, "raw_data process must start") { continue }
+			testing.expectf(t, wait_err == nil && state.exit_code == entry.code, "raw_data exited %d, expected %d: %v", state.exit_code, entry.code, wait_err)
+			testing.expect(t, output_err == nil && string(output) == "!", "raw_data operand side effect must run once")
+			continue
+		}
 		devnull, devnull_err := os.open("/dev/null", {.Write})
 		testing.expect(t, devnull_err == nil, "devnull must open")
 		defer _ = os.close(devnull)
 		process, process_err := start_process(os.Process_Desc{command = []string{path}, stdout = devnull, stderr = devnull})
 		if !testing.expect(t, process_err == nil, "process must start") { continue }
 		state, wait_err := os.process_wait(process)
-		testing.expect(t, wait_err == nil && state.exit_code == entry.code, entry.section)
+		testing.expectf(
+			t,
+			wait_err == nil && state.exit_code == entry.code,
+			"%s exited %d, expected %d: %v",
+			entry.section,
+			state.exit_code,
+			entry.code,
+			wait_err,
+		)
 	}
 }
 

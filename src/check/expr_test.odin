@@ -33,6 +33,19 @@ Mismatch := byte + negative
 Negative_Shift := byte << -1
 Flipped :: ~u8(0)
 Complement_Untyped :: ~5
+bytes: []u8
+raw := raw_data(bytes)
+utf16: string16
+raw_utf16 := raw_data(utf16)
+text_pointer: cstring
+raw_cstring := raw_data(text_pointer)
+raw_slice_type := raw_data([]u8)
+raw_string16_type := raw_data(string16)
+Element :: distinct u8
+named_bytes: []Element
+raw_named := raw_data(named_bytes)
+raw_array := raw_data([2]u8{1, 2})
+raw_many := raw_data(bytes, bytes)
 `,
 	)
 	ast: syntax.Ast
@@ -47,6 +60,9 @@ Complement_Untyped :: ~5
 	defer types.destroy(&store)
 	integer := types.intern(&store, types.Type{kind = .Integer, name = "int", count = 8, signed = true})
 	byte_type := types.intern(&store, types.Type{kind = .Integer, count = 1})
+	u16_type := types.intern(&store, types.Type{kind = .Integer, count = 2})
+	string16_type := types.intern(&store, types.Type{kind = .String16})
+	cstring_type := types.intern(&store, types.Type{kind = .CString})
 	signed_byte := types.intern(&store, types.Type{kind = .Integer, count = 1, signed = true})
 	word := types.intern(&store, types.Type{kind = .Integer, name = "uintptr", count = 8})
 	boolean := types.intern(&store, types.Type{kind = .Bool})
@@ -64,12 +80,42 @@ Complement_Untyped :: ~5
 	builtins := []struct {
 		name: string,
 		type: types.Type_Id,
-	}{{"int", integer}, {"u8", byte_type}, {"i8", signed_byte}, {"uintptr", word}, {"bool", boolean}}
+	} {
+		{"int", integer},
+		{"u8", byte_type},
+		{"u16", u16_type},
+		{"i8", signed_byte},
+		{"uintptr", word},
+		{"bool", boolean},
+		{"string16", string16_type},
+		{"cstring", cstring_type},
+	}
 	for builtin in builtins {
 		id, create_error := entity_create(&scopes, Entity{name = builtin.name, kind = .Type_Name, scope = universe, state = .Resolved, type = builtin.type})
 		_, insert_error := scope_insert(&scopes, universe, id)
 		if !testing.expect(t, create_error == nil && insert_error == nil) { return }
 	}
+	raw_data_entity, raw_data_create_error := entity_create(
+		&scopes,
+		Entity{name = "raw_data", kind = .Builtin, scope = universe, state = .Resolved, data = UNIVERSE_RAW_DATA},
+	)
+	_, raw_data_insert_error := scope_insert(&scopes, universe, raw_data_entity)
+	if !testing.expect(t, raw_data_create_error == nil && raw_data_insert_error == nil) { return }
+	shadow_scope, shadow_scope_error := scope_create(&scopes, file_scope, .Procedure)
+	shadow_entity, shadow_create_error := entity_create(
+		&scopes,
+		Entity{name = "raw_data", kind = .Variable, scope = shadow_scope, state = .Resolved, type = byte_type},
+	)
+	_, shadow_insert_error := scope_insert(&scopes, shadow_scope, shadow_entity)
+	shadow_lookup, _ := scope_lookup(&scopes, shadow_scope, "raw_data")
+	if !testing.expect(
+		t,
+		shadow_scope_error == nil &&
+		shadow_create_error == nil &&
+		shadow_insert_error == nil &&
+		shadow_lookup == shadow_entity &&
+		shadow_lookup != raw_data_entity,
+	) { return }
 	boolean_values := []bool{false, true}
 	for value in boolean_values {
 		constant, constant_error := constant_pool_intern_bool(&pool, value, types.TYPE_UNTYPED_BOOL)
@@ -106,7 +152,18 @@ Complement_Untyped :: ~5
 	for declaration in collection.declarations {
 		state, err := resolve_entity(&resolver, declaration.entity)
 		name := entity_get(&scopes, declaration.entity).name
-		invalid := name == "Overflow" || name == "Bad" || name == "Missing" || name == "Wrong" || name == "Mismatch" || name == "Negative_Shift"
+		invalid :=
+			name == "Overflow" ||
+			name == "Bad" ||
+			name == "Missing" ||
+			name == "Wrong" ||
+			name == "Mismatch" ||
+			name == "Negative_Shift" ||
+			name == "raw_array" ||
+			name == "raw_many" ||
+			name == "raw_cstring" ||
+			name == "raw_slice_type" ||
+			name == "raw_string16_type"
 		testing.expectf(t, err == nil && (state == .Invalid) == invalid, "%s: %v %v", name, state, err)
 	}
 	testing.expect(t, len(type_checker.diagnostics) == 0 && len(resolver.diagnostics) == 0)
@@ -161,6 +218,25 @@ Complement_Untyped :: ~5
 			testing.expectf(t, value_error == .None && actual == expected, "%s: %d", entity.name, actual)
 		}
 		if entity.name == "same" { testing.expect(t, constant_pool_get(&pool, info.constant).value.(bool)) }
+		if entity.name == "raw" {
+			result := types.get(&store, types.resolve_named(&store, info.type))^
+			testing.expect(t, entity.state == .Resolved && result.kind == .Multi_Pointer && result.elem == byte_type)
+			builtin_plan := plan(&program, info.plan)^.(Builtin_Plan)
+			if testing.expect(t, len(builtin_plan.arguments) == 1) {
+				expression, is_expression := builtin_plan.arguments[0].(Expression_Ref)
+				call := syntax.node_payload(&ast, declaration.value.node, syntax.Call_Expr)
+				testing.expect(t, is_expression && expression.node == syntax.node_list(&ast, call.args)[0])
+			}
+		}
+		if entity.name == "raw_utf16" {
+			result := types.get(&store, types.resolve_named(&store, info.type))^
+			testing.expect(t, entity.state == .Resolved && result.kind == .Multi_Pointer && result.elem == u16_type)
+		}
+		if entity.name == "raw_named" {
+			result := types.get(&store, types.resolve_named(&store, info.type))^
+			element := entity_get(&scopes, scope_lookup_current(&scopes, package_scope, "Element")).type
+			testing.expect(t, entity.state == .Resolved && result.kind == .Multi_Pointer && result.elem == element)
+		}
 	}
 	buffer := entity_get(&scopes, scope_lookup_current(&scopes, package_scope, "Buffer"))
 	testing.expect(t, types.get(&store, buffer.type).count == 6)

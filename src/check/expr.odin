@@ -85,6 +85,7 @@ expression_checker_init :: proc(
 	append(&checker.builtin_kinds, Builtin_Kind.None, .Len, .Cap, .Size_Of, .Align_Of, .Min, .Max, .Abs, .Clamp) or_return
 	append(&checker.builtin_kinds, Builtin_Kind.Typeid_Of) or_return
 	append(&checker.builtin_kinds, Builtin_Kind.Unreachable) or_return
+	append(&checker.builtin_kinds, Builtin_Kind.Raw_Data) or_return
 	append(&checker.builtin_kinds, Builtin_Kind.Has_Target_Feature) or_return
 	return nil
 }
@@ -333,7 +334,8 @@ expression_identifier :: proc(
 	err: Resolve_Error,
 ) {
 	resolver := checker.type_checker.resolver
-	entity, _ := scope_lookup(resolver.scopes, scope, expression_text(checker.type_checker.files[file], node))
+	name := expression_text(checker.type_checker.files[file], node)
+	entity, _ := scope_lookup(resolver.scopes, scope, name)
 	view := expression_file_view(checker, file) or_return
 	if entity == 0 { return expression_failure(checker, view, scope, node, .Undeclared_Name) }
 	return expression_entity_info(checker, file, scope, node, entity)

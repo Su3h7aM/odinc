@@ -297,6 +297,24 @@ lower_numeric_builtin :: proc(state: ^Procedure_State, node: syntax.Node_Index, 
 }
 
 @(private)
+lower_raw_data :: proc(state: ^Procedure_State, node: syntax.Node_Index, info: check.Expression_Info, plan: check.Builtin_Plan) -> ir.Node_Id {
+	if len(plan.arguments) != 1 || info.type == 0 || lower_type(state, info.type).kind != .Multi_Pointer {
+		return lower_fail(state, node, .Builtin)
+	}
+	if !call_operand_valid(state, plan.arguments[0]) { return lower_fail(state, node, .Builtin) }
+	operand := plan.arguments[0].(check.Expression_Ref)
+	value := lower_operand(state, plan.arguments[0])
+	if state.failed || state.job.function.error != nil { return 0 }
+	kind := lower_type(state, lower_info(state, operand.node).type).kind
+	#partial switch kind {
+	case .Slice, .String, .String16:
+		return lower_load_word(state, value, .Ptr)
+	case:
+		return lower_fail(state, node, .Builtin)
+	}
+}
+
+@(private)
 lower_builtin :: proc(state: ^Procedure_State, node: syntax.Node_Index, info: check.Expression_Info, plan: check.Builtin_Plan) -> ir.Node_Id {
 	if kind := check.builtin_kind(state.job.program, plan.builtin); kind == .Min || kind == .Max || kind == .Abs || kind == .Clamp {
 		return lower_numeric_builtin(state, node, plan, kind)
@@ -311,6 +329,7 @@ lower_builtin :: proc(state: ^Procedure_State, node: syntax.Node_Index, info: ch
 		ir.emit_unreachable(state.builder)
 		return 0
 	}
+	if check.builtin_kind(state.job.program, plan.builtin) == .Raw_Data { return lower_raw_data(state, node, info, plan) }
 	if check.builtin_kind(state.job.program, plan.builtin) == .Len { return lower_length(state, node, info, plan) }
 	if value, handled := lower_simd_builtin(state, node, info, plan, check.builtin_kind(state.job.program, plan.builtin)); handled {
 		return value

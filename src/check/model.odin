@@ -20,6 +20,7 @@ Builtin_Kind :: enum u8 {
 	Syscall,
 	Len,
 	Cap,
+	Raw_Data,
 	Size_Of,
 	Align_Of,
 	Trap,

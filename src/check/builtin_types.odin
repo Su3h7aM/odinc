@@ -90,6 +90,7 @@ UNIVERSE_ABS :: Builtin_Id(7)
 UNIVERSE_CLAMP :: Builtin_Id(8)
 UNIVERSE_TYPEID_OF :: Builtin_Id(9)
 UNIVERSE_UNREACHABLE :: Builtin_Id(10)
+UNIVERSE_RAW_DATA :: Builtin_Id(11)
 
 // Binds the universal builtin procedures as builtin entities in the universal scope.
 bind_universe_builtins :: proc(scopes: ^Scope_Store, universe: Scope_Id) -> Binding_Error {
@@ -107,6 +108,7 @@ bind_universe_builtins :: proc(scopes: ^Scope_Store, universe: Scope_Id) -> Bind
 		{"clamp", UNIVERSE_CLAMP},
 		{"typeid_of", UNIVERSE_TYPEID_OF},
 		{"unreachable", UNIVERSE_UNREACHABLE},
+		{"raw_data", UNIVERSE_RAW_DATA},
 	}
 	for binding in bindings {
 		id, create_error := entity_create(scopes, Entity{name = binding.name, kind = .Builtin, scope = universe, state = .Resolved, data = binding.builtin})

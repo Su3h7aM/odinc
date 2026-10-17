@@ -187,6 +187,9 @@ expression_builtin_call :: proc(
 	if kind := checker.builtin_kinds[builtin]; kind == .Len || kind == .Cap {
 		return expression_length(checker, view, scope, node, builtin, kind, arguments, call.ellipsis.kind != .Invalid)
 	}
+	if checker.builtin_kinds[builtin] == .Raw_Data {
+		return expression_raw_data(checker, view, scope, node, builtin, arguments, call.ellipsis.kind != .Invalid)
+	}
 	if kind := checker.builtin_kinds[builtin]; simd_builtin_kind(kind) {
 		return expression_simd_call(checker, view, scope, node, builtin, kind, arguments, call.ellipsis.kind != .Invalid)
 	}
@@ -207,6 +210,59 @@ expression_builtin_call :: proc(
 	plan := Plan_Id(len(checker.plans))
 	append(&checker.plans, Plan(Builtin_Plan{builtin = builtin, arguments = operands})) or_return
 	return Expression_Info{type = word, mode = .Value, plan = plan, scope = scope, state = .Checked}, nil
+}
+
+@(private = "file")
+expression_raw_data :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	scope: Scope_Id,
+	node: syntax.Node_Index,
+	builtin: Builtin_Id,
+	arguments: []syntax.Node_Index,
+	ellipsis: bool,
+) -> (
+	info: Expression_Info,
+	err: Resolve_Error,
+) {
+	if len(arguments) != 1 || ellipsis { return expression_failure(checker, view, scope, node, .Unsupported) }
+	operand := check_expression(checker, view, scope, arguments[0]) or_return
+	if operand.state == .Invalid { return expression_poison(scope), nil }
+	#partial switch operand.mode {
+	case .Value,
+	     .Immutable_Value,
+	     .Variable,
+	     .Constant,
+	     .Context,
+	     .Map_Index,
+	     .Optional_Ok,
+	     .Optional_Ok_Pointer,
+	     .Soa_Variable,
+	     .Swizzle_Value,
+	     .Swizzle_Variable:
+	case:
+		return expression_failure(checker, view, scope, arguments[0], .Invalid_Operand)
+	}
+	store := checker.type_checker.store
+	descriptor := types.get(store, types.resolve_named(store, operand.type))
+	element: types.Type_Id
+	#partial switch descriptor.kind {
+	case .Slice:
+		element = descriptor.elem
+	case .String:
+		element = types.intern(store, types.Type{kind = .Integer, count = 1})
+	case .String16:
+		element = types.intern(store, types.Type{kind = .Integer, count = 2})
+	case:
+		return expression_failure(checker, view, scope, arguments[0], .Invalid_Operand)
+	}
+	result := types.intern(store, types.Type{kind = .Multi_Pointer, elem = element})
+	allocator := mem.dynamic_arena_allocator(&checker.arena)
+	operands := make([]Operand, 1, allocator) or_return
+	operands[0] = Operand(Expression_Ref{view, arguments[0]})
+	plan := Plan_Id(len(checker.plans))
+	append(&checker.plans, Plan(Builtin_Plan{builtin = builtin, arguments = operands})) or_return
+	return Expression_Info{type = result, mode = .Value, plan = plan, scope = scope, state = .Checked}, nil
 }
 
 // min, max, abs and clamp take runtime operands of one integer or float type; constant operands fold in no builtin yet.
