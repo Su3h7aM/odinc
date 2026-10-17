@@ -62,6 +62,12 @@ expression_declaration :: proc(resolver: ^Resolver, id: Entity_Id, user_data: ra
 	if declaration.value.node != 0 {
 		info = check_expression(checker, view, entity.scope, declaration.value.node, target) or_return
 		if info.state == .Invalid { return false, nil }
+		if entity.kind == .Constant && info.mode == .Builtin {
+			binding := entity_get(resolver.scopes, id)
+			binding.kind = .Builtin
+			binding.data = entity_get(resolver.scopes, info.entity).data
+			return true, nil
+		}
 		if entity.kind == .Constant && info.mode != .Constant {
 			expression_failure(checker, view, entity.scope, declaration.value.node, .Invalid_Operand) or_return
 			return false, nil

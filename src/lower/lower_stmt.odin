@@ -3,6 +3,7 @@ package lower
 import "oc:check"
 import "oc:ir"
 import "oc:syntax"
+import "oc:types"
 
 @(private)
 lower_statement :: proc(state: ^Procedure_State, node: syntax.Node_Index) {
@@ -47,9 +48,7 @@ lower_statement :: proc(state: ^Procedure_State, node: syntax.Node_Index) {
 					ir.emit_return(state.builder)
 					return
 				}
-				if len(exit.values) != 1 { lower_fail(state, node, .Result); return }
-				value := lower_operand(state, exit.values[0])
-				lower_scalar_return(state, node, value)
+				lower_return_values(state, node, exit.values)
 			} else { lower_fail(state, node, .Body) }
 			return
 		}
@@ -63,6 +62,22 @@ lower_statement :: proc(state: ^Procedure_State, node: syntax.Node_Index) {
 	case:
 		lower_fail(state, node, .Body)
 	}
+}
+
+// lower_return_values stores every value but the last through the hidden result pointers,
+// then returns the last value in registers, as the physical plan of a split return requires.
+@(private)
+lower_return_values :: proc(state: ^Procedure_State, node: syntax.Node_Index, values: []check.Operand) {
+	last := len(values) - 1
+	if len(values) != len(state.result_pointers) + 1 { lower_fail(state, node, .Result); return }
+	store := check.type_store(state.job.program)
+	descriptor := types.get(store, types.resolve_named(store, state.job.procedure.signature))
+	for value, index in values[:last] {
+		operand := lower_operand(state, value, descriptor.results[index])
+		if state.failed || state.job.function.error != nil { return }
+		lower_store(state, state.result_pointers[index], operand, descriptor.results[index])
+	}
+	lower_scalar_return(state, node, lower_operand(state, values[last], descriptor.results[last]))
 }
 
 @(private)

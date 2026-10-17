@@ -69,7 +69,7 @@ expression_checker_init :: proc(
 	defer if err != nil { expression_checker_destroy(checker) }
 	append(&checker.views, Typed_View{}) or_return
 	append(&checker.plans, Plan{}) or_return
-	append(&checker.builtin_kinds, Builtin_Kind.None, .Len, .Cap) or_return
+	append(&checker.builtin_kinds, Builtin_Kind.None, .Len, .Cap, .Size_Of, .Align_Of, .Min, .Max, .Abs, .Clamp) or_return
 	return nil
 }
 

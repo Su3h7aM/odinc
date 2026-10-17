@@ -131,6 +131,10 @@ lower_local_declaration :: proc(state: ^Procedure_State, node: syntax.Node_Index
 	if !declaration.is_mutable { return }
 	names := syntax.node_list(state.ast, declaration.names)
 	values := syntax.node_list(state.ast, declaration.values)
+	if len(values) == 1 && len(names) > 1 {
+		lower_multi_declaration(state, node, names, values[0])
+		return
+	}
 	if len(values) != 0 && len(values) != len(names) { lower_fail(state, node, .Local); return }
 	allocator := virtual.arena_allocator(&state.job.function.arena)
 	initials, err := make([]ir.Node_Id, len(names), allocator)
@@ -144,6 +148,26 @@ lower_local_declaration :: proc(state: ^Procedure_State, node: syntax.Node_Index
 		if info.entity == 0 { continue }
 		initialize := len(values) == 0 || state.ast.nodes[values[index]].kind != .Undef
 		bind_local(state, info.entity, initials[index], initialize)
+	}
+}
+
+@(private)
+lower_multi_declaration :: proc(state: ^Procedure_State, node: syntax.Node_Index, names: []syntax.Node_Index, value: syntax.Node_Index) {
+	info := lower_info(state, value)
+	if info.plan == 0 { lower_fail(state, node, .Local); return }
+	plan := check.plan(state.job.program, info.plan)
+	if plan == nil { lower_fail(state, node, .Local); return }
+	call, is_call := plan^.(check.Call_Plan)
+	if !is_call || len(call.results) != len(names) { lower_fail(state, node, .Local); return }
+	allocator := virtual.arena_allocator(&state.job.function.arena)
+	results, err := make([]ir.Node_Id, len(names), allocator)
+	if err != nil { state.job.function.error = err; return }
+	lower_call_results(state, value, info, call, results)
+	if state.failed || state.job.function.error != nil { return }
+	for name, index in names {
+		entity := lower_info(state, name).entity
+		if entity == 0 { continue }
+		bind_local(state, entity, results[index], true)
 	}
 }
 

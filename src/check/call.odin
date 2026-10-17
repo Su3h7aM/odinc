@@ -21,11 +21,7 @@ expression_call :: proc(
 	scopes := checker.type_checker.resolver.scopes
 	procedure := entity_get(scopes, callee.entity).data.(Procedure_Data)
 	descriptor := types.get(checker.type_checker.store, procedure.signature)
-	if spread ||
-	   descriptor.variadic ||
-	   len(descriptor.results) > 1 ||
-	   len(arguments) != len(procedure.parameters) ||
-	   len(descriptor.params) != len(arguments) {
+	if spread || descriptor.variadic || len(arguments) != len(procedure.parameters) || len(descriptor.params) != len(arguments) {
 		return expression_failure(checker, view, scope, node, .Unsupported)
 	}
 	allocator := mem.dynamic_arena_allocator(&checker.arena)

@@ -66,13 +66,28 @@ bind_builtin_types :: proc(scopes: ^Scope_Store, universe: Scope_Id, builtins: B
 // Ids of the universal builtins are reserved by expression_checker_init.
 UNIVERSE_LEN :: Builtin_Id(1)
 UNIVERSE_CAP :: Builtin_Id(2)
+UNIVERSE_SIZE_OF :: Builtin_Id(3)
+UNIVERSE_ALIGN_OF :: Builtin_Id(4)
+UNIVERSE_MIN :: Builtin_Id(5)
+UNIVERSE_MAX :: Builtin_Id(6)
+UNIVERSE_ABS :: Builtin_Id(7)
+UNIVERSE_CLAMP :: Builtin_Id(8)
 
-// Binds `len` and `cap` as builtin entities in the universal scope.
+// Binds the universal builtin procedures as builtin entities in the universal scope.
 bind_universe_builtins :: proc(scopes: ^Scope_Store, universe: Scope_Id) -> Binding_Error {
 	bindings := [?]struct {
 		name:    string,
 		builtin: Builtin_Id,
-	}{{"len", UNIVERSE_LEN}, {"cap", UNIVERSE_CAP}}
+	} {
+		{"len", UNIVERSE_LEN},
+		{"cap", UNIVERSE_CAP},
+		{"size_of", UNIVERSE_SIZE_OF},
+		{"align_of", UNIVERSE_ALIGN_OF},
+		{"min", UNIVERSE_MIN},
+		{"max", UNIVERSE_MAX},
+		{"abs", UNIVERSE_ABS},
+		{"clamp", UNIVERSE_CLAMP},
+	}
 	for binding in bindings {
 		id, create_error := entity_create(scopes, Entity{name = binding.name, kind = .Builtin, scope = universe, state = .Resolved, data = binding.builtin})
 		if create_error != nil { return create_error }

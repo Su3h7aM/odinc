@@ -134,7 +134,8 @@ expression_signature_bindings :: proc(
 	}
 	if proc_type.results != 0 {
 		for field_node in syntax.node_list(file.ast, syntax.node_payload(file.ast, proc_type.results, syntax.Field_List).list) {
-			if syntax.node_payload(file.ast, field_node, syntax.Field).names.count != 0 {
+			for name_node in syntax.node_list(file.ast, syntax.node_payload(file.ast, field_node, syntax.Field).names) {
+				if expression_text(file, name_node) == "" { continue }
 				expression_failure(checker, view, scope, field_node, .Unsupported) or_return
 				return nil
 			}
@@ -304,7 +305,8 @@ expression_local_declaration :: proc(
 	declaration := syntax.node_payload(file.ast, node, syntax.Value_Decl)
 	names := syntax.node_list(file.ast, declaration.names)
 	values := syntax.node_list(file.ast, declaration.values)
-	if !declaration.is_mutable || (len(values) != 0 && len(values) != len(names)) || (declaration.type == 0 && len(values) == 0) {
+	multi := len(values) == 1 && len(names) > 1
+	if !declaration.is_mutable || (len(values) != 0 && len(values) != len(names) && !multi) || (declaration.type == 0 && len(values) == 0) {
 		expression_failure(checker, view, scope, node, .Unsupported) or_return
 		return nil
 	}
@@ -315,9 +317,26 @@ expression_local_declaration :: proc(
 	}
 	allocator := mem.dynamic_arena_allocator(&checker.arena)
 	variable_types := make([]types.Type_Id, len(names), allocator) or_return
+	if multi {
+		value := check_expression(checker, view, scope, values[0]) or_return
+		if value.state == .Invalid { return nil }
+		call: Call_Plan
+		is_call := false
+		if value.plan != 0 { call, is_call = checker.plans[value.plan].(Call_Plan) }
+		if !is_call || target != 0 || len(call.results) != len(names) {
+			expression_failure(checker, view, scope, values[0], .Unsupported) or_return
+			return nil
+		}
+		for result, index in call.results { variable_types[index] = result }
+	}
 	for index in 0 ..< len(values) {
+		if multi { break }
 		value := check_expression(checker, view, scope, values[index], target) or_return
 		if value.state == .Invalid { return nil }
+		if value.mode == .No_Value {
+			expression_failure(checker, view, scope, values[index], .Unsupported) or_return
+			return nil
+		}
 		variable_types[index] = target
 		if target != 0 { continue }
 		#partial switch types.get(checker.type_checker.store, value.type).kind {

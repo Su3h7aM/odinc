@@ -22,6 +22,7 @@ Procedure_State :: struct {
 	local_entities:  [dynamic]check.Entity_Id,
 	control_targets: [dynamic]Control_Target,
 	call_signatures: [dynamic]Call_Signature,
+	result_pointers: [dynamic]ir.Node_Id,
 }
 
 @(private)
@@ -156,11 +157,16 @@ lower_procedure :: proc(job: ^Procedure_Job) -> (err: runtime.Allocator_Error) {
 		local_entities  = make([dynamic]check.Entity_Id, allocator) or_return,
 		control_targets = make([dynamic]Control_Target, allocator) or_return,
 		call_signatures = make([dynamic]Call_Signature, allocator) or_return,
+		result_pointers = make([dynamic]ir.Node_Id, allocator) or_return,
 	}
 	scan_addresses(&state)
 	for parameter, index in job.parameters {
 		if parameter.attr == .Context {
 			state.context_pointer = entry.params[index]
+			continue
+		}
+		if parameter.source < 0 && parameter.attr == .Direct && parameter.type == .Ptr {
+			if _, append_error := append(&state.result_pointers, entry.params[index]); append_error != nil { return append_error }
 			continue
 		}
 		if parameter.source < 0 || parameter.attr != .Direct {
