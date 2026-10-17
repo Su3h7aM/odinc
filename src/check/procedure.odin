@@ -175,9 +175,25 @@ expression_default_argument :: proc(
 ) {
 	file := checker.type_checker.files[checker.views[view].file]
 	if file.ast.nodes[node].kind == .Basic_Directive {
-		if expression_text(file, node) == "#caller_location" { return Default_Argument{caller_location = true}, nil }
+		switch expression_text(file, node) {
+		case "#caller_location":
+			return Default_Argument{caller_location = true}, nil
+		case "#caller_expression":
+			return Default_Argument{caller_expression = true}, nil
+		}
 		expression_failure(checker, view, scope, node, .Unsupported) or_return
 		return {}, nil
+	}
+	if file.ast.nodes[node].kind == .Call_Expr {
+		call := syntax.node_payload(file.ast, node, syntax.Call_Expr)
+		if file.ast.nodes[call.expr].kind == .Basic_Directive && expression_text(file, call.expr) == "#caller_expression" {
+			targets := syntax.node_list(file.ast, call.args)
+			if len(targets) == 1 && file.ast.nodes[targets[0]].kind == .Ident {
+				return Default_Argument{caller_expression = true, caller_expression_target = expression_text(file, targets[0])}, nil
+			}
+			expression_failure(checker, view, scope, node, .Unsupported) or_return
+			return {}, nil
+		}
 	}
 	info := check_expression(checker, view, scope, node, type) or_return
 	if info.state == .Invalid { return {}, nil }

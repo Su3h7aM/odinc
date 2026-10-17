@@ -12,7 +12,11 @@ lower_constant :: proc(state: ^Procedure_State, id: check.Const_Id, target: type
 	constant := check.constant(state.job.program, id)
 	assert(constant != nil)
 	if text, is_string := constant.value.(string); is_string { return lower_string(state, text) }
+	if aggregate, is_aggregate := constant.value.(check.Aggregate_Value); is_aggregate {
+		return lower_constant_aggregate(state, constant.type, aggregate)
+	}
 	type := target if target != 0 else constant.type
+	type = types.default_type_of_untyped(check.type_store(state.job.program), type)
 	scalar := scalar_type(state, type)
 	if is_wide_integer(state, type) {
 		if integer, is_integer := constant.value.(big.Int); is_integer { return lower_wide_constant(state, integer) }
@@ -52,6 +56,23 @@ lower_constant :: proc(state: ^Procedure_State, id: check.Const_Id, target: type
 	case:
 		return lower_fail(state, state.job.procedure.body.node, .Constant)
 	}
+}
+
+// A constant aggregate is built like a literal: a stack slot with one field store per element.
+@(private)
+lower_constant_aggregate :: proc(state: ^Procedure_State, type: types.Type_Id, aggregate: check.Aggregate_Value) -> ir.Node_Id {
+	allocator := virtual.arena_allocator(&state.job.function.arena)
+	values, values_error := make([]check.Operand, len(aggregate.elements), allocator)
+	indices, indices_error := make([]u32, len(aggregate.elements), allocator)
+	if values_error != nil || indices_error != nil {
+		state.job.function.error = runtime.Allocator_Error.Out_Of_Memory
+		return 0
+	}
+	for element, index in aggregate.elements {
+		values[index] = check.Operand(element)
+		indices[index] = u32(index)
+	}
+	return lower_aggregate(state, state.job.procedure.body.node, check.Aggregate_Plan{type = type, values = values, field_indices = indices})
 }
 
 // Typed f32 values are stored with f64 bits. Narrow them when the target scalar is f32.

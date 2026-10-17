@@ -38,7 +38,7 @@ main :: proc() {
 
 	image, err := driver.build_file(odin_root, file, os.to_writer(os.stderr), context.allocator)
 	if err != nil {
-		fmt.eprintfln("build failed: %v", err)
+		fmt.eprintln("build failed")
 		os.exit(1)
 	}
 	defer delete(image)

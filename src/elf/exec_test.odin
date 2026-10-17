@@ -2,8 +2,25 @@ package elf
 
 import "core:bytes"
 import "core:os"
+import "core:path/filepath"
 import "core:slice"
+import "core:sync"
 import "core:testing"
+
+process_lock: sync.Mutex
+
+write_executable :: proc(path: string, image: []byte) -> os.Error {
+	sync.mutex_lock(&process_lock)
+	defer sync.mutex_unlock(&process_lock)
+	permissions := os.Permissions_Read_All + os.Permissions{.Write_User, .Execute_User}
+	return os.write_entire_file(path, image, permissions)
+}
+
+start_process :: proc(desc: os.Process_Desc) -> (os.Process, os.Error) {
+	sync.mutex_lock(&process_lock)
+	defer sync.mutex_unlock(&process_lock)
+	return os.process_start(desc)
+}
 
 // The 10 bytes of `mov edi, 42; mov eax, 231; syscall`, i.e. the
 // exit_group(42) shutdown sequence.
@@ -47,11 +64,14 @@ executable_runs_and_exits_42 :: proc(t: ^testing.T) {
 
 	testing.expect(t, bytes.equal(bytes_at(object, int(u64(text_header.p_offset)), len(exit_group_42_bytes)), exit_group_42_bytes), "segment bytes written")
 
-	permissions := os.Permissions_Read_All + os.Permissions{.Write_User, .Execute_User}
-	testing.expect(t, os.write_entire_file("/tmp/opencode/elf-exec", object, permissions) == nil, "executable written")
+	directory, directory_err := os.make_directory_temp("", "elf-exec-*", context.temp_allocator)
+	testing.expect(t, directory_err == nil, "temporary directory must be created")
+	defer os.remove_all(directory)
+	path, _ := filepath.join({directory, "exec"}, context.temp_allocator)
+	testing.expect(t, write_executable(path, object) == nil, "executable written")
 	delete(object, context.allocator)
 
-	process, process_err := os.process_start(os.Process_Desc{command = []string{"/tmp/opencode/elf-exec"}})
+	process, process_err := start_process(os.Process_Desc{command = []string{path}})
 	testing.expect(t, process_err == nil, "process must start")
 	state, wait_err := os.process_wait(process)
 	testing.expect(t, wait_err == nil, "process must be waited on")

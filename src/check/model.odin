@@ -289,8 +289,10 @@ Label_Data :: struct {
 	scope:  Scope_Id,
 }
 Default_Argument :: struct {
-	value:           Operand,
-	caller_location: bool,
+	value:                    Operand,
+	caller_location:          bool,
+	caller_expression:        bool,
+	caller_expression_target: string,
 }
 Procedure_Data :: struct {
 	parameters, results: []Entity_Id,
@@ -590,14 +592,15 @@ Relocation :: struct {
 	addend: i64,
 }
 Global :: struct {
-	entity:              Entity_Id,
-	symbol:              Symbol_Id,
-	type:                types.Type_Id,
-	alignment:           u32,
-	thread_local:        bool,
-	initializer:         Const_Id,
-	relocations:         []Relocation,
-	dynamic_initializer: bool,
+	entity:           Entity_Id,
+	symbol:           Symbol_Id,
+	type:             types.Type_Id,
+	alignment:        u32,
+	thread_local:     bool,
+	initializer:      Const_Id,
+	relocations:      []Relocation,
+	initializer_node: Node_Ref,
+	initializer_view: View_Id,
 }
 Ordered_Procedure :: struct {
 	entity:   Entity_Id,
@@ -619,27 +622,27 @@ Runtime_Requirements :: struct {
 	type_table:                       Symbol_Id,
 	entry_point:                      Entity_Id,
 	tests:                            []Entity_Id,
-	global_init_order:                []Entity_Id,
 	init_procedures, fini_procedures: []Ordered_Procedure,
 }
 
 // Every slice, map, source and type store is borrowed and remains valid through lowering.
 // Handle-indexed tables reserve entry zero; ordered procedure/global lists do not.
 Checked_Program :: struct {
-	packages:       []Package,
-	files:          []File,
-	entities:       []Entity,
-	scopes:         []Scope,
-	typed_views:    []Typed_View,
-	plan_table:     []Plan,
-	constant_table: []Constant,
-	symbol_table:   []Symbol,
-	entity_symbols: []Symbol_Id,
-	builtin_kinds:  []Builtin_Kind,
-	procedure_list: []Checked_Procedure,
-	global_list:    []Global,
-	type_data:      ^types.Store,
-	runtime:        Runtime_Requirements,
+	packages:              []Package,
+	files:                 []File,
+	entities:              []Entity,
+	scopes:                []Scope,
+	typed_views:           []Typed_View,
+	plan_table:            []Plan,
+	constant_table:        []Constant,
+	symbol_table:          []Symbol,
+	entity_symbols:        []Symbol_Id,
+	builtin_kinds:         []Builtin_Kind,
+	procedure_list:        []Checked_Procedure,
+	global_list:           []Global,
+	global_initialization: []Entity_Id,
+	type_data:             ^types.Store,
+	runtime:               Runtime_Requirements,
 }
 
 // The returned row is a copy; its referenced plans and constants remain borrowed.

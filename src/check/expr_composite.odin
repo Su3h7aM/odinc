@@ -1,6 +1,7 @@
 package check
 
 import "core:mem"
+import "core:slice"
 import "oc:syntax"
 import "oc:types"
 
@@ -30,6 +31,7 @@ expression_composite :: proc(
 	allocator := mem.dynamic_arena_allocator(&checker.arena)
 	values := make([]Operand, len(elements), allocator) or_return
 	indices := make([]u32, len(elements), allocator) or_return
+	constants := make([]Const_Id, len(fields), allocator) or_return
 	for element, position in elements {
 		value_node := element
 		index := position
@@ -45,6 +47,15 @@ expression_composite :: proc(
 		if value.state == .Invalid { return expression_poison(scope), nil }
 		values[position] = Operand(Expression_Ref{view, value_node})
 		indices[position] = u32(index)
+		if value.constant != 0 && expression_conversion_plan(checker, value.plan) == 0 { constants[index] = value.constant }
+	}
+	if len(elements) == len(fields) && !slice.contains(constants, 0) {
+		constant, constant_error := constant_pool_intern_aggregate(checker.constants, type, constants)
+		if constant_error != nil {
+			expression_constant_failure(checker, file_id, node, constant_error) or_return
+			return expression_poison(scope), nil
+		}
+		return Expression_Info{type = type, constant = constant, mode = .Constant, scope = scope, state = .Checked}, nil
 	}
 	plan := Plan_Id(len(checker.plans))
 	append(&checker.plans, Plan(Aggregate_Plan{type = type, values = values, field_indices = indices})) or_return

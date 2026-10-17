@@ -9,6 +9,9 @@ import "oc:ir"
 import "oc:link"
 import "oc:regalloc"
 
+// rexcode's Instruction_Flags.segment index for FS.
+FS_SEGMENT_INDEX :: u8(5)
+
 Emit_Failure :: enum u8 {
 	None,
 	// Encoding_Failed: the encoder rejected an instruction; the machine function was not valid for emission.
@@ -501,9 +504,15 @@ lower_instruction :: proc(emitter: ^Emitter, instruction: Machine_Instruction, b
 			slot^ = x86.op_imm(i64(value), 8 if instruction.mnemonic == .MOVABS else min(width, 4))
 		case Memory_Ref:
 			slot^ = x86.op_mem(lower_memory(emitter, value) or_return, width)
+			if value.segment_fs {
+				lowered.flags.segment = FS_SEGMENT_INDEX
+			}
 		case Symbol_Target:
 			label := external_label(emitter, value, .R_X86_64_PLT32, value.addend - 4) or_return
 			slot^ = x86.op_label(label, 4)
+		case Thread_Pointer_Offset:
+			label := external_label(emitter, Symbol_Target{symbol = value.symbol}, .R_X86_64_TPOFF64, 0) or_return
+			slot^ = x86.op_imm_label(label)
 		case Block_Ref:
 			return Emit_Failure.Bad_Operand
 		}

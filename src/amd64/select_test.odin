@@ -123,9 +123,11 @@ selected_test_run :: proc(t: ^testing.T, function: ^ir.Function, expected: int, 
 		testing.expect(t, os.remove(path) == nil)
 		testing.expect(t, os.remove(directory) == nil)
 	}
-	permissions := os.Permissions_Read_All + os.Permissions{.Write_User, .Execute_User}
-	testing.expect(t, os.write_entire_file(path, image, permissions) == nil)
-	process, process_err := os.process_start(os.Process_Desc{command = []string{path}})
+	testing.expect(t, write_executable(path, image) == nil)
+	devnull, devnull_err := os.open("/dev/null", {.Write})
+	testing.expect(t, devnull_err == nil, "devnull must open")
+	defer _ = os.close(devnull)
+	process, process_err := start_process(os.Process_Desc{command = []string{path}, stdout = devnull, stderr = devnull})
 	testing.expect_value(t, process_err, nil)
 	if process_err != nil { return }
 	state, wait_err := os.process_wait(process)
@@ -357,9 +359,11 @@ selected_loop_exits_with_fifty_five :: proc(t: ^testing.T) {
 		testing.expect(t, os.remove(path) == nil)
 		testing.expect(t, os.remove(directory) == nil)
 	}
-	permissions := os.Permissions_Read_All + os.Permissions{.Write_User, .Execute_User}
-	testing.expect(t, os.write_entire_file(path, image, permissions) == nil)
-	process, process_err := os.process_start(os.Process_Desc{command = []string{path}})
+	testing.expect(t, write_executable(path, image) == nil)
+	devnull, devnull_err := os.open("/dev/null", {.Write})
+	testing.expect(t, devnull_err == nil, "devnull must open")
+	defer _ = os.close(devnull)
+	process, process_err := start_process(os.Process_Desc{command = []string{path}, stdout = devnull, stderr = devnull})
 	testing.expect_value(t, process_err, nil)
 	if process_err != nil { return }
 	state, wait_err := os.process_wait(process)

@@ -5,6 +5,7 @@ import "core:fmt"
 import "core:io"
 import "core:mem/virtual"
 import "oc:amd64"
+import "oc:elf"
 import "oc:ir"
 import "oc:link"
 import "oc:lower"
@@ -61,7 +62,10 @@ build_file :: proc(odin_root, main_path: string, log: io.Writer, allocator: runt
 	session, driver_err := check_program(odin_root, main_path, allocator)
 	defer session_destroy(session)
 	if driver_err == .Check_Failed { write_diagnostics(session, log) }
-	if driver_err != .None { return nil, driver_err }
+	if driver_err != .None {
+		if driver_err != .Check_Failed { fmt.wprintfln(log, "driver error: %v", driver_err) }
+		return nil, driver_err
+	}
 
 	module: ir.Module
 	lower_errors, lower_err := lower.lower_program(&session.program, &module, allocator)
@@ -72,17 +76,44 @@ build_file :: proc(odin_root, main_path: string, log: io.Writer, allocator: runt
 		write_lower_errors(session, log, lower_errors)
 		return nil, Lower_Failed{len(lower_errors)}
 	}
-	return build_image(&module, allocator)
+	return build_image(&module, log, allocator)
+}
+
+// Writes the failure while the module and the image's scratch names are still alive: the error's strings point into them.
+@(private = "file")
+write_build_error :: proc(log: io.Writer, err: Build_Error) {
+	switch value in err {
+	case Driver_Error, runtime.Allocator_Error, Lower_Failed:
+		fmt.wprintfln(log, "build failed: %v", value)
+	case Missing_Main:
+		fmt.wprintfln(log, "build failed: no main procedure")
+	case Select_Failed:
+		fmt.wprintfln(log, "%s: instruction selection failed: %v", value.function, value.err)
+	case Allocate_Failed:
+		fmt.wprintfln(log, "%s: register allocation failed: %v", value.function, value.err)
+	case Emit_Failed:
+		fmt.wprintfln(log, "%s: machine code emission failed: %v", value.function, value.err)
+	case Link_Failed:
+		fmt.wprintfln(log, "link failed: %v", value.err)
+	}
 }
 
 // Symbols are laid out as: `_start`, functions, globals, local blobs of every function, startup slots, externs.
 // Atoms follow the same order, so the index of every defined symbol is also its atom index.
-build_image :: proc(module: ^ir.Module, allocator: runtime.Allocator) -> (image: []byte, err: Build_Error) {
+build_image :: proc(module: ^ir.Module, log: io.Writer, allocator: runtime.Allocator) -> (image: []byte, err: Build_Error) {
 	main_index := -1
 	for function, index in module.functions {
 		if function.name == "main" { main_index = index }
 	}
 	if main_index < 0 { return nil, Missing_Main{} }
+	init_index := -1
+	for function, index in module.functions {
+		if function.name == lower.GLOBAL_INITIALIZER_NAME { init_index = index }
+	}
+	fini_index := -1
+	for function, index in module.functions {
+		if function.name == lower.PROGRAM_FINALIZER_NAME { fini_index = index }
+	}
 	context_index := -1
 	for global, index in module.globals {
 		if global.name == lower.DEFAULT_CONTEXT_NAME { context_index = index }
@@ -92,6 +123,7 @@ build_image :: proc(module: ^ir.Module, allocator: runtime.Allocator) -> (image:
 	scratch: virtual.Arena
 	virtual.arena_init_growing(&scratch) or_return
 	defer virtual.arena_destroy(&scratch)
+	defer if err != nil { write_build_error(log, err) }
 	scratch_allocator := virtual.arena_allocator(&scratch)
 
 	function_count := len(module.functions)
@@ -105,7 +137,7 @@ build_image :: proc(module: ^ir.Module, allocator: runtime.Allocator) -> (image:
 	blob_base := global_base + global_count
 	extern_base := blob_base + blob_count
 	startup_base := extern_base + extern_count
-	symbol_count := startup_base + STARTUP_SLOT_COUNT
+	symbol_count := startup_base + STARTUP_SLOT_COUNT + 1
 
 	function_symbols := make([]u32, function_count, scratch_allocator) or_return
 	global_symbols := make([]u32, global_count, scratch_allocator) or_return
@@ -130,7 +162,7 @@ build_image :: proc(module: ^ir.Module, allocator: runtime.Allocator) -> (image:
 
 	symbols := make([]link.Symbol, symbol_count, scratch_allocator) or_return
 	startup_atom := blob_base + blob_count
-	atoms := make([]link.Atom, startup_atom + 1, scratch_allocator) or_return
+	atoms := make([]link.Atom, startup_atom + 2, scratch_allocator) or_return
 	defer {
 		for &atom in atoms[1:1 + function_count] { amd64.atom_destroy(&atom, allocator) }
 	}
@@ -146,7 +178,7 @@ build_image :: proc(module: ^ir.Module, allocator: runtime.Allocator) -> (image:
 	}
 	for global, index in module.globals {
 		symbols[global_base + index] = link.Symbol {
-			name = fmt.aprintf("data.%d", index, allocator = scratch_allocator),
+			name = global.name,
 			atom = u32(global_base + index),
 		}
 		relocs := make([]link.Relocation, len(global.relocs), scratch_allocator) or_return
@@ -205,16 +237,47 @@ build_image :: proc(module: ^ir.Module, allocator: runtime.Allocator) -> (image:
 			offset = u64(8 * slot),
 		}
 	}
+	thread_pointer_symbol := u32(startup_base + STARTUP_SLOT_COUNT)
+	symbols[thread_pointer_symbol] = link.Symbol {
+		name = "runtime.thread_pointer",
+		atom = u32(startup_atom + 1),
+	}
 	atoms[startup_atom] = link.Atom {
 		section = .Bss,
 		align   = 8,
 		size    = 8 * STARTUP_SLOT_COUNT,
 	}
+	thread_pointer_relocs := make([]link.Relocation, 1, scratch_allocator) or_return
+	thread_pointer_relocs[0] = link.Relocation {
+		offset = 0,
+		symbol = thread_pointer_symbol,
+		kind   = .R_X86_64_64,
+		addend = 0,
+	}
+	atoms[startup_atom + 1] = link.Atom {
+		section = .Tcb,
+		align   = 8,
+		bytes   = make([]byte, 8, scratch_allocator) or_return,
+		size    = 8,
+		relocs  = thread_pointer_relocs,
+	}
 
 	for function, index in module.functions {
 		atoms[1 + index] = native_function(function, function_indices[index], allocator) or_return
 	}
-	atoms[0] = start_atom(function_symbols[main_index], global_symbols[context_index], u32(startup_base), scratch_allocator) or_return
+	init_symbol: Maybe(u32)
+	if init_index >= 0 { init_symbol = function_symbols[init_index] }
+	fini_symbol: Maybe(u32)
+	if fini_index >= 0 { fini_symbol = function_symbols[fini_index] }
+	atoms[0] = start_atom(
+		function_symbols[main_index],
+		init_symbol,
+		fini_symbol,
+		global_symbols[context_index],
+		u32(startup_base),
+		thread_pointer_symbol,
+		scratch_allocator,
+	) or_return
 
 	inputs := []link.Input{{atoms = atoms, symbols = symbols}}
 	linked, link_err := link.link(inputs, "_start", allocator)
@@ -222,108 +285,59 @@ build_image :: proc(module: ^ir.Module, allocator: runtime.Allocator) -> (image:
 	return linked, nil
 }
 
-// `_start` stores argc, argv and envp from the initial stack, passes the default context in rdi, calls
-// `main` and exits 0. Relocations: the three startup slots (`startup`, +1, +2), the context, then `main`.
+// `_start` stores argc, argv and envp, sets the thread pointer, calls the initializer when there is one, passes the
+// default context in rdi, calls `main`, calls the finalizer when there is one, and exits 0.
 @(private = "file")
-start_atom :: proc(main_symbol, context_symbol, startup: u32, allocator: runtime.Allocator) -> (atom: link.Atom, err: runtime.Allocator_Error) {
-	start_code := make([]byte, 60, allocator) or_return
-	copy(
-		start_code,
-		[]byte {
-			0x48,
-			0x8b,
-			0x04,
-			0x24,
-			0x48,
-			0x89,
-			0x05,
-			0,
-			0,
-			0,
-			0,
-			0x48,
-			0x8d,
-			0x44,
-			0x24,
-			0x08,
-			0x48,
-			0x89,
-			0x05,
-			0,
-			0,
-			0,
-			0,
-			0x48,
-			0x8b,
-			0x0c,
-			0x24,
-			0x48,
-			0x8d,
-			0x44,
-			0xcc,
-			0x10,
-			0x48,
-			0x89,
-			0x05,
-			0,
-			0,
-			0,
-			0,
-			0x48,
-			0x8d,
-			0x3d,
-			0,
-			0,
-			0,
-			0,
-			0xe8,
-			0,
-			0,
-			0,
-			0,
-			0xb8,
-			231,
-			0,
-			0,
-			0,
-			0x31,
-			0xff,
-			0x0f,
-			0x05,
-		},
-	)
-	relocs := make([]link.Relocation, 5, allocator) or_return
-	relocs[0] = {
-		offset = 7,
-		symbol = startup,
-		kind   = .R_X86_64_PC32,
-		addend = -4,
+start_atom :: proc(
+	main_symbol: u32,
+	init_symbol, fini_symbol: Maybe(u32),
+	context_symbol, startup, thread_pointer: u32,
+	allocator: runtime.Allocator,
+) -> (
+	atom: link.Atom,
+	err: runtime.Allocator_Error,
+) {
+	code := make([dynamic]byte, allocator) or_return
+	relocs := make([dynamic]link.Relocation, allocator) or_return
+	append(&code, 0x48, 0x8b, 0x04, 0x24) or_return // mov rax, [rsp]
+	start_store_rip(&code, &relocs, {0x48, 0x89, 0x05}, startup) or_return // mov [argc], rax
+	append(&code, 0x48, 0x8d, 0x44, 0x24, 0x08) or_return // lea rax, [rsp + 8]
+	start_store_rip(&code, &relocs, {0x48, 0x89, 0x05}, startup + 1) or_return // mov [argv], rax
+	append(&code, 0x48, 0x8b, 0x0c, 0x24) or_return // mov rcx, [rsp]
+	append(&code, 0x48, 0x8d, 0x44, 0xcc, 0x10) or_return // lea rax, [rsp + rcx * 8 + 16]
+	start_store_rip(&code, &relocs, {0x48, 0x89, 0x05}, startup + 2) or_return // mov [envp], rax
+	start_rip_operand(&code, &relocs, {0x48, 0x8d, 0x35}, thread_pointer, .R_X86_64_PC32) or_return // lea rsi, [tp]
+	append(&code, 0xbf, 0x02, 0x10, 0, 0, 0xb8, 158, 0, 0, 0, 0x0f, 0x05) or_return // arch_prctl(ARCH_SET_FS, rsi)
+	if init, has_init := init_symbol.?; has_init {
+		start_rip_operand(&code, &relocs, {0xe8}, init, .R_X86_64_PLT32) or_return
 	}
-	relocs[1] = {
-		offset = 19,
-		symbol = startup + 1,
-		kind   = .R_X86_64_PC32,
-		addend = -4,
+	start_rip_operand(&code, &relocs, {0x48, 0x8d, 0x3d}, context_symbol, .R_X86_64_PC32) or_return // lea rdi, [context]
+	start_rip_operand(&code, &relocs, {0xe8}, main_symbol, .R_X86_64_PLT32) or_return
+	if fini, has_fini := fini_symbol.?; has_fini {
+		start_rip_operand(&code, &relocs, {0xe8}, fini, .R_X86_64_PLT32) or_return
 	}
-	relocs[2] = {
-		offset = 35,
-		symbol = startup + 2,
-		kind   = .R_X86_64_PC32,
-		addend = -4,
-	}
-	relocs[3] = {
-		offset = 42,
-		symbol = context_symbol,
-		kind   = .R_X86_64_PC32,
-		addend = -4,
-	}
-	relocs[4] = {
-		offset = 47,
-		symbol = main_symbol,
-		kind   = .R_X86_64_PLT32,
-		addend = -4,
-	}
-	return link.Atom{section = .Text, align = 16, bytes = start_code, size = u64(len(start_code)), relocs = relocs}, nil
+	append(&code, 0xb8, 231, 0, 0, 0, 0x31, 0xff, 0x0f, 0x05) or_return // exit_group(0)
+	return link.Atom{section = .Text, align = 16, bytes = code[:], size = u64(len(code)), relocs = relocs[:]}, nil
+}
+
+// Appends an instruction ending in a rip-relative 32-bit field that refers to `symbol`.
+@(private = "file")
+start_rip_operand :: proc(
+	code: ^[dynamic]byte,
+	relocs: ^[dynamic]link.Relocation,
+	opcode: []byte,
+	symbol: u32,
+	kind: elf.R_X86_64,
+) -> runtime.Allocator_Error {
+	append(code, ..opcode) or_return
+	append(relocs, link.Relocation{offset = u32(len(code)), symbol = symbol, kind = kind, addend = -4}) or_return
+	_, err := append(code, 0, 0, 0, 0)
+	return err
+}
+
+@(private = "file")
+start_store_rip :: proc(code: ^[dynamic]byte, relocs: ^[dynamic]link.Relocation, opcode: []byte, symbol: u32) -> runtime.Allocator_Error {
+	return start_rip_operand(code, relocs, opcode, symbol, .R_X86_64_PC32)
 }
 
 @(private = "file")

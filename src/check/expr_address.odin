@@ -61,9 +61,16 @@ expression_selector :: proc(
 	selector := syntax.node_payload(file.ast, node, syntax.Selector_Expr)
 	scopes := checker.type_checker.resolver.scopes
 	if file.ast.nodes[selector.expr].kind == .Ident {
-		import_name, _ := scope_lookup(scopes, scope, expression_text(file, selector.expr))
-		if import_name != 0 && entity_get(scopes, import_name).kind == .Import_Name {
-			return expression_import_member(checker, view, file_id, scope, node, import_name)
+		name, _ := scope_lookup(scopes, scope, expression_text(file, selector.expr))
+		if name != 0 && entity_get(scopes, name).kind == .Import_Name {
+			return expression_import_member(checker, view, file_id, scope, node, name)
+		}
+		if name != 0 && entity_get(scopes, name).kind == .Type_Name {
+			if _, resolve_error := resolve_entity(checker.type_checker.resolver, name); resolve_error != nil { return {}, resolve_error }
+			enum_type := entity_get(scopes, name).type
+			if types.get(checker.type_checker.store, types.resolve_named(checker.type_checker.store, enum_type)).kind == .Enum {
+				return expression_enum_member(checker, view, scope, node, enum_type, expression_text(file, selector.field))
+			}
 		}
 	}
 	return expression_field(checker, view, file_id, scope, node)

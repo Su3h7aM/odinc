@@ -51,6 +51,13 @@ SHT :: enum u32le {
 	SHT_NOBITS   = 8, // occupies no space in the file
 }
 
+SHT_HASH :: u32(5) // symbol hash table
+SHT_DYNAMIC :: u32(6) // dynamic linking information
+SHT_NOTE :: u32(7)
+SHT_DYNSYM :: u32(11) // minimal dynamic symbol table
+SHT_GROUP :: u32(17) // section group
+GRP_COMDAT :: u32(0x1)
+
 // Bit positions of the `sh_flags` section attributes.
 SHF :: enum u8 {
 	SHF_WRITE            = 0, // 0x1: writable during process execution
@@ -73,6 +80,7 @@ Section_Flags :: bit_set[SHF;u64]
 SHN_UNDEF :: Section_Index(0) // undefined symbol
 SHN_LORESERVE :: 0xff00 // reserved index range, low bound
 SHN_ABS :: Section_Index(0xfff1) // absolute value, not affected by relocation
+SHN_COMMON :: Section_Index(0xfff2) // tentative common definition
 SHN_HIRESERVE :: 0xffff // reserved index range, high bound
 
 // `st_info` bits 0-3: symbol binding.
@@ -94,15 +102,51 @@ STT :: enum u8 {
 // `r_info`[0..31]: x86-64 relocation types (numerical values per the ELF
 // x86-64 psABI); `r_info` packs them as (symbol index << 32) | r_type.
 R_X86_64 :: enum u32le {
-	R_X86_64_NONE     = 0, // no relocation
-	R_X86_64_64       = 1, // S + A, word64
-	R_X86_64_PC32     = 2, // S + A - P, word32
-	R_X86_64_GOT32    = 3, // G + A, word32
-	R_X86_64_PLT32    = 4, // L + A - P, word32
-	R_X86_64_GOTPCREL = 9, // G + GOT + A - P, word32
-	R_X86_64_32       = 10, // S + A truncated to u32
-	R_X86_64_32S      = 11, // S + A sign-extended to i64 as i32
-	R_X86_64_TPOFF32  = 23, // TLS offset
+	R_X86_64_NONE          = 0, // no relocation
+	R_X86_64_64            = 1, // S + A, word64
+	R_X86_64_PC32          = 2, // S + A - P, word32
+	R_X86_64_GOT32         = 3, // G + A, word32
+	R_X86_64_PLT32         = 4, // L + A - P, word32
+	R_X86_64_GLOB_DAT      = 6, // S, word64 in the GOT
+	R_X86_64_JUMP_SLOT     = 7, // S, word64 in the PLT GOT
+	R_X86_64_RELATIVE      = 8, // B + A, word64
+	R_X86_64_GOTPCREL      = 9, // G + GOT + A - P, word32
+	R_X86_64_32            = 10, // S + A truncated to u32
+	R_X86_64_32S           = 11, // S + A sign-extended to i64 as i32
+	R_X86_64_TPOFF32       = 23, // TLS offset
+	R_X86_64_TPOFF64       = 18, // TLS offset, word64
+	R_X86_64_GOTPCRELX     = 41, // relaxable GOTPCREL without a REX prefix
+	R_X86_64_REX_GOTPCRELX = 42, // relaxable GOTPCREL with a REX prefix
+}
+
+// `d_tag` values of a dynamic entry. The numeric values are the SysV ABI tags.
+DT_NULL :: i64(0)
+DT_NEEDED :: i64(1)
+DT_PLTRELSZ :: i64(2)
+DT_PLTGOT :: i64(3)
+DT_HASH :: i64(4)
+DT_STRTAB :: i64(5)
+DT_SYMTAB :: i64(6)
+DT_RELA :: i64(7)
+DT_RELASZ :: i64(8)
+DT_RELAENT :: i64(9)
+DT_STRSZ :: i64(10)
+DT_SYMENT :: i64(11)
+DT_SONAME :: i64(14)
+DT_PLTREL :: i64(20)
+DT_JMPREL :: i64(23)
+DT_FLAGS :: i64(30)
+DT_FLAGS_1 :: i64(0x6fff_fffb)
+DF_BIND_NOW :: u64(0x8)
+DF_1_NOW :: u64(0x1)
+
+/*
+	ELF64 dynamic entry (spec type Elf64_Dyn), 16 bytes.
+	`d_val` is an address or an integer, selected by `d_tag`.
+*/
+Dynamic_Entry :: struct #packed {
+	d_tag: i64le,
+	d_val: u64le,
 }
 
 /*

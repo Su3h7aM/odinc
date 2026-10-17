@@ -46,6 +46,7 @@ Session :: struct {
 	constants:           check.Constant_Pool,
 	scopes:              check.Scope_Store,
 	universe:            check.Scope_Id,
+	build:               check.Build_Configuration,
 	collection:          check.Collection,
 	resolver:            check.Resolver,
 	type_checker:        check.Type_Checker,
@@ -84,12 +85,8 @@ runtime_histogram :: proc(odin_root: string, allocator: runtime.Allocator, write
 	session.allocator = allocator
 	defer session_destroy(session)
 	if error := session_prepare(session, odin_root); error != .None { return error }
-	directory, resolve_error := resolve_collection_import(&session.collections, "base:runtime", "", allocator)
-	if resolve_error != .None { return .Import_Failed }
-	if error := push(&session.owned_strings, directory); error != .None { return error }
-	runtime_package, runtime_scope, package_error := add_package(session, directory, "runtime", .Runtime)
-	if package_error != .None { return package_error }
-	if error := load_directory(session, directory, runtime_package, runtime_scope); error != .None { return error }
+	runtime_package, runtime_error := load_runtime(session)
+	if runtime_error != .None { return runtime_error }
 	if error := bind_imports(session, true); error != .None { return error }
 	if error := session_init_checkers(session); error != .None { return error }
 	for declaration in session.collection.declarations {
@@ -202,6 +199,7 @@ span_node_kind :: proc(ast: ^syntax.Ast, source: check.Source_Span) -> string {
 @(private = "file")
 check_session :: proc(session: ^Session, odin_root, main_path: string) -> Driver_Error {
 	if error := session_prepare(session, odin_root); error != .None { return error }
+	if _, runtime_error := load_runtime(session); runtime_error != .None { return runtime_error }
 	main_key, key_error := own(session, main_path)
 	if key_error != .None { return key_error }
 	main_package, main_scope, package_error := add_package(session, main_key, "main", .User)
@@ -216,6 +214,8 @@ check_session :: proc(session: ^Session, odin_root, main_path: string) -> Driver
 		if check.entity_get(&session.scopes, declaration.entity).package_id != main_package { continue }
 		if _, resolve_error := check.resolve_entity(&session.resolver, declaration.entity); resolve_error != nil { return .Check_Failed }
 	}
+	startup_valid, startup_error := check.resolve_startup_procedures(&session.checker)
+	if startup_error != nil || !startup_valid { return .Check_Failed }
 	if len(session.collection.diagnostics) + len(session.type_checker.diagnostics) + len(session.resolver.diagnostics) + len(session.checker.diagnostics) !=
 	   0 {
 		return .Check_Failed
@@ -237,6 +237,7 @@ session_prepare :: proc(session: ^Session, odin_root: string) -> Driver_Error {
 	allocator := session.allocator
 	session.store = types.init()
 	session.stage = .Store
+	session.build = check.DEFAULT_BUILD_CONFIGURATION
 	session.stage = .Collections
 	if collection_table_init(&session.collections, odin_root, allocator) != .None { return .Collection_Failed }
 	collection_table_freeze(&session.collections)
@@ -254,6 +255,7 @@ session_prepare :: proc(session: ^Session, odin_root: string) -> Driver_Error {
 	session.boolean = types.intern(&session.store, types.Type{kind = .Bool})
 	session.stage = .Collection
 	check.collection_init(&session.collection, &session.scopes, allocator)
+	session.collection.builtin_scope = universe
 
 	if error := push(&session.packages, check.Package{}); error != .None { return error }
 	return push(&session.files, nil)
@@ -276,6 +278,7 @@ session_init_checkers :: proc(session: ^Session) -> Driver_Error {
 		allocator,
 	)
 	session.stage = .Expression_Checker
+	if !check.bind_universe_build_context(&session.type_checker, session.universe, &session.constants, session.build) { return .Check_Failed }
 	checker_error := check.expression_checker_init(
 		&session.checker,
 		&session.type_checker,
@@ -303,7 +306,7 @@ bind_imports :: proc(session: ^Session, tolerant: bool) -> Driver_Error {
 		import_path := strings.trim(string(importer.source[span.start:span.end]), "\"")
 		package_id, package_error := import_package(session, pending.declaration.file, import_path)
 		if package_error != .None {
-			if !tolerant { return package_error }
+			if !tolerant && session.packages[importer.package_id].kind != .Runtime { return package_error }
 			if error := push(&session.unsupported_imports, import_path); error != .None { return error }
 			package_id = 0
 		}
@@ -356,6 +359,19 @@ load_directory :: proc(session: ^Session, directory: string, package_id: check.P
 		if check.collect_file(&session.collection, session.files[file_id], file_id, order) != nil { return .Check_Failed }
 	}
 	return .None
+}
+
+@(private = "file")
+// base:runtime is loaded for every program: its @(builtin) declarations form the universal scope.
+load_runtime :: proc(session: ^Session) -> (check.Package_Id, Driver_Error) {
+	directory, resolve_error := resolve_collection_import(&session.collections, "base:runtime", "", session.allocator)
+	if resolve_error != .None { return 0, .Import_Failed }
+	if error := push(&session.owned_strings, directory); error != .None { return 0, error }
+	runtime_package, runtime_scope, package_error := add_package(session, directory, "runtime", .Runtime)
+	if package_error != .None { return 0, package_error }
+	session.collection.runtime_package = runtime_package
+	session.collection.runtime_scope = runtime_scope
+	return runtime_package, load_directory(session, directory, runtime_package, runtime_scope)
 }
 
 @(private = "file")

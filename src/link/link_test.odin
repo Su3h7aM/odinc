@@ -2,7 +2,23 @@ package link
 
 import "core:os"
 import "core:path/filepath"
+import "core:sync"
 import "core:testing"
+
+process_lock: sync.Mutex
+
+write_executable :: proc(path: string, image: []byte) -> os.Error {
+	sync.mutex_lock(&process_lock)
+	defer sync.mutex_unlock(&process_lock)
+	permissions := os.Permissions_Read_All + os.Permissions{.Write_User, .Execute_User}
+	return os.write_entire_file(path, image, permissions)
+}
+
+start_process :: proc(desc: os.Process_Desc) -> (os.Process, os.Error) {
+	sync.mutex_lock(&process_lock)
+	defer sync.mutex_unlock(&process_lock)
+	return os.process_start(desc)
+}
 
 run_executable_expect_exit :: proc(t: ^testing.T, image: []byte, expected_code: int) {
 	directory, dir_err := os.make_directory_temp("", "link-l1-*", context.temp_allocator)
@@ -14,10 +30,9 @@ run_executable_expect_exit :: proc(t: ^testing.T, image: []byte, expected_code: 
 		testing.expect(t, os.remove(directory) == nil, "temporary directory must be removed")
 	}
 
-	permissions := os.Permissions_Read_All + os.Permissions{.Write_User, .Execute_User}
-	testing.expect(t, os.write_entire_file(executable_path, image, permissions) == nil, "executable must be written")
+	testing.expect(t, write_executable(executable_path, image) == nil, "executable must be written")
 
-	process, start_err := os.process_start(os.Process_Desc{command = []string{executable_path}})
+	process, start_err := start_process(os.Process_Desc{command = []string{executable_path}})
 	testing.expect(t, start_err == nil, "process must start")
 	state, wait_err := os.process_wait(process)
 	testing.expect(t, wait_err == nil, "process must be waited on")

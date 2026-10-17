@@ -249,6 +249,8 @@ select_value :: proc(selector: ^Selector, node: ir.Node_Id) -> (value: Vreg, err
 		select_float_bits(selector, value, input.nodes.type[node], input.nodes.data[node].float_bits) or_return
 	case .Symbol_Addr:
 		emit(output, block, .LEA, 8, value, Memory_Ref{base = Symbol_Target{symbol = input.nodes.data[node].symbol}}) or_return
+	case .Tls_Addr:
+		select_thread_local_address(selector, node, value) or_return
 	case .Undef:
 		if class == .Float {
 			select_float_bits(selector, value, input.nodes.type[node], 0) or_return
@@ -316,7 +318,7 @@ select_node :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Status {
 		return select_memory(selector, node)
 	case .Call, .Syscall:
 		return select_call(selector, node)
-	case .Const_Int, .Const_Float, .Symbol_Addr, .Undef:
+	case .Const_Int, .Const_Float, .Symbol_Addr, .Tls_Addr, .Undef:
 		return nil
 	}
 	return select_failure(selector)

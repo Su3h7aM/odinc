@@ -1,5 +1,6 @@
 package lower
 
+import "base:runtime"
 import "core:mem/virtual"
 import "oc:check"
 import "oc:ir"
@@ -21,63 +22,84 @@ Local_Binding :: struct {
 }
 
 @(private)
-mark_address_taken :: proc(state: ^Procedure_State, operand: check.Operand) {
+Address_Scan :: struct {
+	program:       ^check.Checked_Program,
+	address_taken: []bool,
+}
+
+@(private)
+view_ast :: proc(program: ^check.Checked_Program, view: check.View_Id) -> ^syntax.Ast {
+	return check.sources(program)[int(program.typed_views[view].file) - 1].ast
+}
+
+@(private)
+mark_address_taken :: proc(scan: ^Address_Scan, operand: check.Operand) {
 	#partial switch value in operand {
 	case check.Entity_Id:
-		state.address_taken[value] = true
+		scan.address_taken[value] = true
 	case check.Expression_Ref:
-		info, ok := check.expression_info(state.job.program, value.view, value.node)
+		info, ok := check.expression_info(scan.program, value.view, value.node)
 		assert(ok)
-		if info.entity != 0 { state.address_taken[info.entity] = true; return }
-		ast := state.ast
+		if info.entity != 0 { scan.address_taken[info.entity] = true; return }
+		ast := view_ast(scan.program, value.view)
 		#partial switch ast.nodes[value.node].kind {
 		case .Paren_Expr:
-			mark_address_taken(state, check.Expression_Ref{value.view, ast.nodes[value.node].payload.(syntax.Paren_Expr).expr})
+			mark_address_taken(scan, check.Expression_Ref{value.view, ast.nodes[value.node].payload.(syntax.Paren_Expr).expr})
 		case .Selector_Expr:
-			mark_address_taken(state, check.Expression_Ref{value.view, ast.nodes[value.node].payload.(syntax.Selector_Expr).expr})
+			mark_address_taken(scan, check.Expression_Ref{value.view, ast.nodes[value.node].payload.(syntax.Selector_Expr).expr})
 		case .Index_Expr:
-			mark_address_taken(state, check.Expression_Ref{value.view, ast.nodes[value.node].payload.(syntax.Index_Expr).expr})
+			mark_address_taken(scan, check.Expression_Ref{value.view, ast.nodes[value.node].payload.(syntax.Index_Expr).expr})
 		}
 	case check.Projection:
-		mark_address_taken(state, value.expression)
+		mark_address_taken(scan, value.expression)
 	case:
 	}
 }
 
 @(private)
-scan_addresses :: proc(state: ^Procedure_State) {
-	view := state.job.procedure.view
-	if view == 0 { return }
-	assert(int(view) < len(state.job.program.typed_views))
-	typed := &state.job.program.typed_views[view]
+scan_view_addresses :: proc(scan: ^Address_Scan, view: check.View_Id) {
+	typed := &scan.program.typed_views[view]
+	if typed.file == 0 { return }
+	ast := view_ast(scan.program, view)
 	for status, index in typed.nodes.states {
 		if status != .Checked { continue }
 		node := typed.first_node + syntax.Node_Index(index)
-		assert(int(node) < len(state.ast.nodes))
-		ast_node := state.ast.nodes[node]
+		assert(int(node) < len(ast.nodes))
+		ast_node := ast.nodes[node]
 		#partial switch ast_node.kind {
 		case .Unary_Expr:
 			unary := ast_node.payload.(syntax.Unary_Expr)
-			if unary.op.kind == .And { mark_address_taken(state, check.Expression_Ref{view, unary.expr}) }
+			if unary.op.kind == .And { mark_address_taken(scan, check.Expression_Ref{view, unary.expr}) }
 		case .Slice_Expr:
-			mark_address_taken(state, check.Expression_Ref{view, ast_node.payload.(syntax.Slice_Expr).expr})
+			mark_address_taken(scan, check.Expression_Ref{view, ast_node.payload.(syntax.Slice_Expr).expr})
 		}
 		if typed.nodes.plans[index] == 0 { continue }
-		plan := check.plan(state.job.program, typed.nodes.plans[index])
-		if plan == nil && (ast_node.kind == .Call_Expr || ast_node.kind == .Selector_Call_Expr) { lower_fail(state, node, .Call); return }
+		plan := check.plan(scan.program, typed.nodes.plans[index])
+		if plan == nil && (ast_node.kind == .Call_Expr || ast_node.kind == .Selector_Call_Expr) { continue }
 		assert(plan != nil)
 		#partial switch value in plan^ {
 		case check.Conversion_Plan:
-			if value.kind == .Box { mark_address_taken(state, value.source) }
+			if value.kind == .Box { mark_address_taken(scan, value.source) }
 		case check.Call_Plan:
 			for argument in value.arguments {
-				if argument.parameter == 0 || int(argument.parameter) >= len(state.job.program.entities) { continue }
-				parameter := &state.job.program.entities[argument.parameter]
-				if .By_Pointer in parameter.flags { mark_address_taken(state, argument.value) }
+				if argument.parameter == 0 || int(argument.parameter) >= len(scan.program.entities) { continue }
+				parameter := &scan.program.entities[argument.parameter]
+				if .By_Pointer in parameter.flags { mark_address_taken(scan, argument.value) }
 			}
 		case:
 		}
 	}
+}
+
+@(private)
+scan_address_taken :: proc(program: ^check.Checked_Program, allocator: runtime.Allocator) -> (address_taken: []bool, err: runtime.Allocator_Error) {
+	address_taken = make([]bool, len(program.entities), allocator) or_return
+	scan := Address_Scan {
+		program       = program,
+		address_taken = address_taken,
+	}
+	for view in 1 ..< len(program.typed_views) { scan_view_addresses(&scan, check.View_Id(view)) }
+	return address_taken, nil
 }
 
 @(private)

@@ -12,7 +12,7 @@ import "oc:types"
 Procedure_State :: struct {
 	job:             ^Procedure_Job,
 	builder:         ^ir.Builder,
-	locals:          []Local_Binding,
+	locals:          map[check.Entity_Id]Local_Binding,
 	address_taken:   []bool,
 	ast:             ^syntax.Ast,
 	view:            check.View_Id,
@@ -150,8 +150,8 @@ lower_procedure :: proc(job: ^Procedure_Job) -> (err: runtime.Allocator_Error) {
 	state := Procedure_State {
 		job             = job,
 		builder         = builder,
-		locals          = make([]Local_Binding, len(job.program.entities), allocator) or_return,
-		address_taken   = make([]bool, len(job.program.entities), allocator) or_return,
+		locals          = make(map[check.Entity_Id]Local_Binding, allocator),
+		address_taken   = job.address_taken,
 		ast             = ast,
 		view            = procedure.view,
 		entry_control   = entry.control,
@@ -160,7 +160,6 @@ lower_procedure :: proc(job: ^Procedure_Job) -> (err: runtime.Allocator_Error) {
 		call_signatures = make([dynamic]Call_Signature, allocator) or_return,
 		result_pointers = make([dynamic]ir.Node_Id, allocator) or_return,
 	}
-	scan_addresses(&state)
 	for index := 0; index < len(job.parameters); {
 		parameter := job.parameters[index]
 		if parameter.attr == .Context {

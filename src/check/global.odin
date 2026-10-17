@@ -1,11 +1,12 @@
 package check
 
 import "base:runtime"
+import "core:mem"
 import "oc:syntax"
 import "oc:types"
 
 // Publishes package-level variables after procedures: one symbol and one Global record each. A constant initializer
-// is kept as a constant; any other initializer is marked dynamic for startup code.
+// is kept as a constant; any other initializer is kept as a node for startup code.
 @(private = "package")
 expression_checker_publish_globals :: proc(checker: ^Expression_Checker, program: ^Checked_Program) -> runtime.Allocator_Error {
 	scopes := checker.type_checker.resolver.scopes
@@ -18,14 +19,16 @@ expression_checker_publish_globals :: proc(checker: ^Expression_Checker, program
 		if layout_error != .None { continue }
 		thread_local := variable.storage == .Thread_Local
 		symbol := Symbol_Id(len(checker.symbols))
+		name := symbol_name(checker, program, entity) or_return
+		linkage := symbol_linkage(checker, entity) or_return
 		append(
 			&checker.symbols,
 			Symbol {
 				entity = Entity_Id(id),
 				kind = .Global,
-				name = entity.name,
+				name = name,
 				type = entity.type,
-				linkage = .Strong,
+				linkage = linkage,
 				thread_local = thread_local,
 				alignment = u32(alignment),
 			},
@@ -44,13 +47,15 @@ expression_checker_publish_globals :: proc(checker: ^Expression_Checker, program
 			if info.mode == .Constant {
 				global.initializer = info.constant
 			} else {
-				global.dynamic_initializer = true
+				global.initializer_node = variable.initializer
+				global.initializer_view = view
 			}
 		}
 		append(&checker.globals, global) or_return
 	}
 	program.global_list = checker.globals[:]
-	return nil
+	program.global_initialization = global_initialization_order(checker, checker.globals[:], mem.dynamic_arena_allocator(&checker.arena)) or_return
+	return expression_checker_publish_startup(checker, program)
 }
 
 @(private = "file")

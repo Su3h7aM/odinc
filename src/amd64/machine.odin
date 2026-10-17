@@ -80,6 +80,11 @@ Symbol_Target :: struct {
 	addend: i64,
 }
 
+// Thread_Pointer_Offset is the local-exec TPOFF64 of a thread-local symbol, a link-time immediate.
+Thread_Pointer_Offset :: struct {
+	symbol: ir.Symbol_Ref,
+}
+
 // Frame_Object names frame memory the frame layout places later. `index` is the byte
 // offset in the stack-argument area for `Incoming` and `Outgoing`, and the object id
 // for `Slot` and `Spill`.
@@ -118,6 +123,7 @@ Machine_Operand :: union {
 	Memory_Ref,
 	Block_Ref,
 	Symbol_Target,
+	Thread_Pointer_Offset,
 }
 
 // Pseudo instructions expand in `emit`. `Entry` defines the register parameters,
@@ -279,6 +285,8 @@ print_operand :: proc(builder: ^strings.Builder, operand: Machine_Operand) {
 		fmt.sbprintf(builder, "b%d", u32(value))
 	case Symbol_Target:
 		fmt.sbprintf(builder, "sym%d.%d%+d", u8(value.symbol.space), value.symbol.index, value.addend)
+	case Thread_Pointer_Offset:
+		fmt.sbprintf(builder, "tpoff(sym%d.%d)", u8(value.symbol.space), value.symbol.index)
 	case Memory_Ref:
 		strings.write_string(builder, "[fs:" if value.segment_fs else "[")
 		switch base in value.base {

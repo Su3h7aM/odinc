@@ -18,6 +18,7 @@ Procedure_Job :: struct {
 	parameters:       []types.Abi_Param,
 	layouts:          []Type_Layout,
 	declarations:     []Procedure_Declaration,
+	address_taken:    []bool,
 	errors:           [dynamic]Lower_Error,
 	allocation_error: runtime.Allocator_Error,
 }
@@ -62,11 +63,7 @@ lower_program :: proc(
 	if len(runtime_requirements.type_info) != 0 || runtime_requirements.type_table != 0 {
 		append(&collected, Lower_Error{code = .Unsupported, feature = .Runtime_Type_Info}) or_return
 	}
-	if runtime_requirements.entry_point != 0 ||
-	   len(runtime_requirements.global_init_order) != 0 ||
-	   len(runtime_requirements.init_procedures) != 0 ||
-	   len(runtime_requirements.fini_procedures) != 0 ||
-	   len(runtime_requirements.tests) != 0 {
+	if runtime_requirements.entry_point != 0 || len(runtime_requirements.tests) != 0 {
 		append(&collected, Lower_Error{code = .Unsupported, feature = .Startup}) or_return
 	}
 	jobs := make([]Procedure_Job, len(module.functions), scratch_allocator) or_return
@@ -92,7 +89,11 @@ lower_program :: proc(
 		assert(job.program != nil, "missing checked procedure")
 	}
 	declarations := prepare_declarations(jobs, len(program.entities), scratch_allocator) or_return
-	for &job in jobs { job.declarations = declarations }
+	address_taken := scan_address_taken(program, scratch_allocator) or_return
+	for &job in jobs {
+		job.declarations = declarations
+		job.address_taken = address_taken
+	}
 	if len(jobs) > 0 {
 		locked_allocator: mem.Mutex_Allocator
 		mem.mutex_allocator_init(&locked_allocator, allocator)
@@ -114,6 +115,7 @@ lower_program :: proc(
 		if job.allocation_error != nil { return nil, job.allocation_error }
 		append(&collected, ..job.errors[:]) or_return
 	}
+	append_startup_procedures(program, module, symbols, declarations, layouts, default_context, &collected, allocator) or_return
 	_, merge_error := ir.blob_merge(module)
 	if merge_error != nil { return nil, merge_error }
 	errors = make([]Lower_Error, len(collected), allocator) or_return

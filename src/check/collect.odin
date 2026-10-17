@@ -55,11 +55,15 @@ Collected_Declaration :: struct {
 
 // Owns collection records only. The scope store, files, ASTs and source bytes must outlive it.
 Collection :: struct {
-	scopes:       ^Scope_Store,
-	allocator:    mem.Allocator,
-	declarations: [dynamic]Collected_Declaration,
-	pending:      [dynamic]Pending_Declaration,
-	diagnostics:  [dynamic]Collection_Diagnostic,
+	scopes:          ^Scope_Store,
+	allocator:       mem.Allocator,
+	// Entities of `@(builtin)` declarations in runtime_package are also bound here, the universal scope.
+	builtin_scope:   Scope_Id,
+	runtime_package: Package_Id,
+	runtime_scope:   Scope_Id,
+	declarations:    [dynamic]Collected_Declaration,
+	pending:         [dynamic]Pending_Declaration,
+	diagnostics:     [dynamic]Collection_Diagnostic,
 }
 
 collection_init :: proc(collection: ^Collection, scopes: ^Scope_Store, allocator: mem.Allocator) {
@@ -366,7 +370,7 @@ collect_value_declaration :: proc(
 		if visibility != .File { destination = scope_get(collection.scopes, file.scope).parent }
 		entity_order := order
 		entity_order.declaration_index = u32(index)
-		_ = collect_entity(
+		entity := collect_entity(
 			collection,
 			file,
 			id,
@@ -382,6 +386,12 @@ collect_value_declaration :: proc(
 			value,
 			foreign_block,
 		) or_return
+		if collection.builtin_scope != 0 &&
+		   file.package_id == collection.runtime_package &&
+		   collection_has_attribute(file.ast, file.source, decl.attributes, "builtin") {
+			_, insert_error := scope_insert(collection.scopes, collection.builtin_scope, entity)
+			if insert_error != nil { return insert_error }
+		}
 	}
 	if len(values) > 0 && len(values) != int(decl.names.count) {
 		collection_report(collection, file, id, values[len(values) - 1], .Arity) or_return
@@ -494,6 +504,8 @@ collect_attributes :: proc(
 				has_test = true
 			case "export":
 				flags += {.Export}
+			case "require":
+				flags += {.Required}
 			}
 		}
 	}

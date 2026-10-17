@@ -15,12 +15,11 @@ expression_checker_publish_procedures :: proc(checker: ^Expression_Checker, prog
 	for entity, id in scopes.entities {
 		if entity.kind != .Procedure { continue }
 		procedure, is_procedure := entity.data.(Procedure_Data)
-		if !is_procedure || procedure.body.node == 0 || procedure.body_state != .Complete { continue }
+		if !is_procedure || procedure.body.node == 0 || procedure.body_state != .Complete || entity.state != .Resolved { continue }
 		symbol := Symbol_Id(len(checker.symbols))
-		append(
-			&checker.symbols,
-			Symbol{entity = Entity_Id(id), kind = .Procedure, name = entity.name, type = procedure.signature, linkage = .Strong},
-		) or_return
+		name := symbol_name(checker, program, entity) or_return
+		linkage := symbol_linkage(checker, entity) or_return
+		append(&checker.symbols, Symbol{entity = Entity_Id(id), kind = .Procedure, name = name, type = procedure.signature, linkage = linkage}) or_return
 		checker.entity_symbols[id] = symbol
 		view := expression_file_view(checker, procedure.body.file) or_return
 		span := checker.type_checker.files[procedure.body.file].ast.nodes[procedure.body.node]

@@ -215,6 +215,8 @@ check_expression :: proc(
 			info = expression_deref(checker, view, file_id, scope, node) or_return
 		case .Selector_Expr:
 			info = expression_selector(checker, view, file_id, scope, node) or_return
+		case .Implicit_Selector_Expr:
+			info = expression_implicit_selector(checker, view, scope, node, hint) or_return
 		case .Slice_Expr:
 			info = expression_slice(checker, view, file_id, scope, node) or_return
 		case .Comp_Lit:

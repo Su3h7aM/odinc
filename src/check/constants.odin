@@ -126,6 +126,18 @@ constant_pool_intern_nil :: proc(pool: ^Constant_Pool, type: types.Type_Id = 0) 
 	return id, nil
 }
 
+// Aggregates are not deduplicated: each composite literal is its own immutable value.
+@(require_results)
+constant_pool_intern_aggregate :: proc(pool: ^Constant_Pool, type: types.Type_Id, elements: []Const_Id) -> (id: Const_Id, err: Constant_Error) {
+	if !constant_pool_ready(pool) { return 0, Constant_Pool_Error.Uninitialized }
+	if u64(len(pool.values)) > u64(max(u32)) { return 0, Constant_Pool_Error.Handle_Limit }
+	stored := make([]Const_Id, len(elements), pool.allocator) or_return
+	copy(stored, elements)
+	id = Const_Id(len(pool.values))
+	append(&pool.values, Constant{type = type, value = Aggregate_Value{elements = stored}}) or_return
+	return id, nil
+}
+
 // Interns a borrowed UTF-8 string as an arena-owned immutable copy.
 @(require_results)
 constant_pool_intern_string :: proc(pool: ^Constant_Pool, value: string, type: types.Type_Id = 0) -> (id: Const_Id, err: Constant_Error) {

@@ -3,10 +3,26 @@ package amd64
 import "core:mem/virtual"
 import "core:os"
 import "core:path/filepath"
+import "core:sync"
 import "core:testing"
 import "oc:ir"
 import "oc:link"
 import "oc:regalloc"
+
+process_lock: sync.Mutex
+
+write_executable :: proc(path: string, image: []byte) -> os.Error {
+	sync.mutex_lock(&process_lock)
+	defer sync.mutex_unlock(&process_lock)
+	permissions := os.Permissions_Read_All + os.Permissions{.Write_User, .Execute_User}
+	return os.write_entire_file(path, image, permissions)
+}
+
+start_process :: proc(desc: os.Process_Desc) -> (os.Process, os.Error) {
+	sync.mutex_lock(&process_lock)
+	defer sync.mutex_unlock(&process_lock)
+	return os.process_start(desc)
+}
 
 // `add(a, b)` built by hand, allocated and emitted, then linked behind a `_start` that
 // calls `add(3, 4)` and exits with the result. `llvm-objdump -d` of the function atom:
@@ -70,9 +86,11 @@ emitted_add_links_and_exits_with_seven :: proc(t: ^testing.T) {
 		testing.expect(t, os.remove(path) == nil, "executable must be removed")
 		testing.expect(t, os.remove(directory) == nil, "temporary directory must be removed")
 	}
-	permissions := os.Permissions_Read_All + os.Permissions{.Write_User, .Execute_User}
-	testing.expect(t, os.write_entire_file(path, image, permissions) == nil, "executable must be written")
-	process, process_err := os.process_start(os.Process_Desc{command = []string{path}})
+	testing.expect(t, write_executable(path, image) == nil, "executable must be written")
+	devnull, devnull_err := os.open("/dev/null", {.Write})
+	testing.expect(t, devnull_err == nil, "devnull must open")
+	defer _ = os.close(devnull)
+	process, process_err := start_process(os.Process_Desc{command = []string{path}, stdout = devnull, stderr = devnull})
 	testing.expect(t, process_err == nil, "process must start")
 	state, wait_err := os.process_wait(process)
 	testing.expect(t, wait_err == nil, "process must be waited on")

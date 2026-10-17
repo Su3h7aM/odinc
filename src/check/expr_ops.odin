@@ -55,7 +55,9 @@ expression_binary :: proc(
 	file := checker.type_checker.files[checker.views[view].file]
 	binary := syntax.node_payload(file.ast, node, syntax.Binary_Expr)
 	left := check_expression(checker, view, scope, binary.left) or_return
-	right := check_expression(checker, view, scope, binary.right) or_return
+	right_hint := types.Type_Id(0)
+	if file.ast.nodes[binary.right].kind == .Implicit_Selector_Expr { right_hint = left.type }
+	right := check_expression(checker, view, scope, binary.right, right_hint) or_return
 	if left.state == .Invalid || right.state == .Invalid { return expression_poison(scope), nil }
 	if !expression_value(left) || !expression_value(right) { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
 	store := checker.type_checker.store
@@ -63,6 +65,7 @@ expression_binary :: proc(
 	right_kind := types.get(store, conversion_base_type(store, right.type)).kind
 	integer := conversion_integer(left_kind) && conversion_integer(right_kind)
 	boolean := conversion_boolean(left_kind) && conversion_boolean(right_kind)
+	enum_pair := left_kind == .Enum && right_kind == .Enum
 	float_side := conversion_float(left_kind) || conversion_float(right_kind)
 	float_pair :=
 		float_side && (conversion_float(left_kind) || conversion_integer(left_kind)) && (conversion_float(right_kind) || conversion_integer(right_kind))
@@ -91,9 +94,9 @@ expression_binary :: proc(
 	case .Cmp_And, .Cmp_Or:
 		valid = boolean
 	case .Cmp_Eq, .Not_Eq:
-		valid = integer || boolean || float_pair
+		valid = integer || boolean || float_pair || enum_pair
 	case .Lt, .Gt, .Lt_Eq, .Gt_Eq:
-		valid = integer || float_pair
+		valid = integer || float_pair || enum_pair
 	}
 	if !valid { return expression_failure(checker, view, scope, node, .Invalid_Operator) }
 	left_untyped, right_untyped := conversion_untyped(left_kind), conversion_untyped(right_kind)

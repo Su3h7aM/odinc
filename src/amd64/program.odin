@@ -77,7 +77,7 @@ translate_instruction :: proc(instruction: Machine_Instruction, allocator: mem.A
 			if value.has_index {
 				append(&operands, regalloc.Operand{vreg = value.index, role = .Use, position = .Early}) or_return
 			}
-		case Immediate, Block_Ref, Symbol_Target, Physical_Register:
+		case Immediate, Block_Ref, Symbol_Target, Thread_Pointer_Offset, Physical_Register:
 		}
 	}
 	result = regalloc.Instruction {

@@ -132,7 +132,7 @@ lower_operand :: proc(state: ^Procedure_State, operand: check.Operand, target :=
 
 @(private)
 lower_entity_value :: proc(state: ^Procedure_State, entity: check.Entity_Id) -> ir.Node_Id {
-	assert(int(entity) > 0 && int(entity) < len(state.locals))
+	assert(entity != 0)
 	binding := state.locals[entity]
 	if binding.kind == .Variable { return ir.variable_get(state.builder, binding.variable) }
 	if binding.kind == .Address { return lower_load(state, binding.address, state.job.program.entities[entity].type) }
@@ -142,8 +142,12 @@ lower_entity_value :: proc(state: ^Procedure_State, entity: check.Entity_Id) -> 
 	if symbol != 0 {
 		ref := state.job.symbols[symbol]
 		if ref.space == .Function || ref.space == .Extern { return ir.symbol_addr(state.job.function, ref) }
-		address := ir.symbol_addr(state.job.function, ref)
-		if check.symbols(state.job.program)[int(symbol) - 1].thread_local { address = ir.tls_addr(state.job.function, ref) }
+		address: ir.Node_Id
+		if check.symbols(state.job.program)[int(symbol) - 1].thread_local {
+			address = ir.tls_addr(state.job.function, ref)
+		} else {
+			address = ir.symbol_addr(state.job.function, ref)
+		}
 		return lower_load(state, address, state.job.program.entities[entity].type)
 	}
 	return lower_fail(state, state.job.procedure.body.node, .Local)

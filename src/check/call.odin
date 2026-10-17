@@ -62,6 +62,24 @@ expression_call :: proc(
 		case default_argument.caller_location:
 			argument.value = Operand(Expression_Ref{view, node})
 			argument.caller_location = true
+		case default_argument.caller_expression:
+			source := checker.type_checker.files[file_id]
+			text := expression_text(source, node)
+			if default_argument.caller_expression_target != "" {
+				text = ""
+				for parameter, position in procedure.parameters {
+					if entity_get(scopes, parameter).name != default_argument.caller_expression_target { continue }
+					if position < fixed_supplied { text = expression_text(source, arguments[position]) }
+					break
+				}
+			}
+			string_type := types.intern(checker.type_checker.store, types.Type{kind = .String})
+			constant, constant_error := constant_pool_intern_string(checker.constants, text, string_type)
+			if constant_error != nil {
+				expression_constant_failure(checker, file_id, node, constant_error) or_return
+				return expression_poison(scope), nil
+			}
+			argument.value = Operand(constant)
 		case default_argument.value != nil:
 			argument.value = default_argument.value
 		case:

@@ -74,6 +74,14 @@ lower_if :: proc(state: ^Procedure_State, node: syntax.Node_Index, statement: sy
 	end := ir.jump_target_make(state.builder)
 	if !push_control_target(state, {{state.job.procedure.body.file, node}, end, 0, false}) { return }
 	defer pop(&state.control_targets)
+	if function := state.job.function; function.nodes.kind[condition] == .Const_Int {
+		taken := statement.body if ir.node_int_value(function, condition) != 0 else statement.else_stmt
+		lower_scoped_statement(state, taken)
+		if state.failed || state.job.function.error != nil { return }
+		ir.jump_to(state.builder, end)
+		ir.seal_target(state.builder, end)
+		return
+	}
 	branch := ir.branch_if(state.builder, condition)
 	ir.enter_arm(state.builder, branch, 0)
 	lower_scoped_statement(state, statement.body)

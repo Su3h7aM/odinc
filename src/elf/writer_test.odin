@@ -2,6 +2,7 @@ package elf
 
 import "core:bytes"
 import "core:os"
+import "core:path/filepath"
 import "core:slice"
 import "core:testing"
 
@@ -158,8 +159,13 @@ write_object :: proc(t: ^testing.T) {
 
 	// Dump both sample objects so they can be inspected with readelf and
 	// objdump by hand.
-	testing.expect(t, os.write_entire_file("/tmp/opencode/elf-empty.o", empty_object) == nil, "empty sample written")
-	testing.expect(t, os.write_entire_file("/tmp/opencode/elf-full.o", object) == nil, "full sample written")
+	directory, directory_err := os.make_directory_temp("", "elf-write-*", context.temp_allocator)
+	testing.expect(t, directory_err == nil, "temporary directory must be created")
+	defer os.remove_all(directory)
+	empty_path, _ := filepath.join({directory, "empty.o"}, context.temp_allocator)
+	full_path, _ := filepath.join({directory, "full.o"}, context.temp_allocator)
+	testing.expect(t, os.write_entire_file(empty_path, empty_object) == nil, "empty sample written")
+	testing.expect(t, os.write_entire_file(full_path, object) == nil, "full sample written")
 }
 
 @(test)

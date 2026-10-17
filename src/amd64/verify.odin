@@ -115,7 +115,7 @@ verify_operands :: proc(function: ^Machine_Function, instruction: Machine_Instru
 			}
 		case Immediate:
 			has_immediate = true
-		case Symbol_Target:
+		case Symbol_Target, Thread_Pointer_Offset:
 		}
 	}
 	if has_rip && has_immediate {

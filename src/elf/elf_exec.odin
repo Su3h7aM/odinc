@@ -23,6 +23,9 @@ Program_Flags :: bit_set[PF;u32]
 // Program header (`p_type`) values; the GNU ones are in the OS range.
 PT_NULL :: 0x00000000
 PT_LOAD :: 0x00000001
+PT_DYNAMIC :: 0x00000002
+PT_INTERP :: 0x00000003
+PT_PHDR :: 0x00000006
 PT_GNU_STACK :: 0x6474e551
 PT_TLS :: 0x00000007
 
@@ -70,9 +73,15 @@ Executable_Segment :: struct {
 	see `executable_set_entry`.
 */
 Executable_Builder :: struct {
-	allocator: mem.Allocator,
-	entry:     u64,
-	segments:  [dynamic]Executable_Segment,
+	allocator:           mem.Allocator,
+	entry:               u64,
+	segments:            [dynamic]Executable_Segment,
+	load_headers:        bool,
+	loaded_header_vaddr: u64,
+	interpreter_vaddr:   u64,
+	interpreter_size:    u64,
+	dynamic_vaddr:       u64,
+	dynamic_size:        u64,
 }
 
 /*
@@ -159,6 +168,24 @@ executable_set_entry :: proc(builder: ^Executable_Builder, address: u64) {
 	builder.entry = address
 }
 
+// Maps the ELF and program headers at `vaddr` so a program interpreter can read them.
+executable_load_headers :: proc(builder: ^Executable_Builder, vaddr: u64) {
+	builder.load_headers = true
+	builder.loaded_header_vaddr = vaddr
+}
+
+// `size` is the interpreter path in a loadable segment, including the NUL.
+executable_set_interpreter :: proc(builder: ^Executable_Builder, vaddr, size: u64) {
+	builder.interpreter_vaddr = vaddr
+	builder.interpreter_size = size
+}
+
+// `size` is the dynamic array in a loadable segment.
+executable_set_dynamic :: proc(builder: ^Executable_Builder, vaddr, size: u64) {
+	builder.dynamic_vaddr = vaddr
+	builder.dynamic_size = size
+}
+
 PROGRAM_HEADER_SIZE :: size_of(Program_Header) // 56
 
 /*
@@ -201,6 +228,15 @@ executable_write :: proc(builder: ^Executable_Builder, allocator := context.allo
 	// File offsets congruent to `vaddr` (mod alignment, at least one
 	// page), packed after header and program header table.
 	program_header_count := len(builder.segments) + 1
+	if builder.load_headers {
+		program_header_count += 2
+	}
+	if builder.interpreter_size > 0 {
+		program_header_count += 1
+	}
+	if builder.dynamic_size > 0 {
+		program_header_count += 1
+	}
 	cursor: u64 = FILE_HEADER_SIZE + PROGRAM_HEADER_SIZE * u64(program_header_count)
 	for sorted_position in order {
 		segment := builder.segments[sorted_position]
@@ -229,6 +265,74 @@ executable_write :: proc(builder: ^Executable_Builder, allocator := context.allo
 			},
 		)
 		cursor = file_offset + u64(len(segment.data))
+	}
+
+	if builder.load_headers {
+		header_span := PROGRAM_HEADER_SIZE * u64(program_header_count)
+		append(
+			&segment_headers,
+			Program_Header {
+				p_type = u32le(PT_PHDR),
+				p_flags = u32le(program_flags_mask({.PF_R})),
+				p_offset = u64le(FILE_HEADER_SIZE),
+				p_vaddr = u64le(builder.loaded_header_vaddr + FILE_HEADER_SIZE),
+				p_paddr = u64le(builder.loaded_header_vaddr + FILE_HEADER_SIZE),
+				p_filesz = u64le(header_span),
+				p_memsz = u64le(header_span),
+				p_align = u64le(8),
+			},
+		)
+		append(
+			&segment_headers,
+			Program_Header {
+				p_type = u32le(PT_LOAD),
+				p_flags = u32le(program_flags_mask({.PF_R})),
+				p_offset = 0,
+				p_vaddr = u64le(builder.loaded_header_vaddr),
+				p_paddr = u64le(builder.loaded_header_vaddr),
+				p_filesz = u64le(PAGE_SIZE),
+				p_memsz = u64le(PAGE_SIZE),
+				p_align = u64le(PAGE_SIZE),
+			},
+		)
+	}
+	if builder.interpreter_size > 0 {
+		offset, found := load_file_offset(segment_headers[:], builder.interpreter_vaddr)
+		if !found {
+			return nil, .Invalid_Segment
+		}
+		append(
+			&segment_headers,
+			Program_Header {
+				p_type = u32le(PT_INTERP),
+				p_flags = u32le(program_flags_mask({.PF_R})),
+				p_offset = u64le(offset),
+				p_vaddr = u64le(builder.interpreter_vaddr),
+				p_paddr = u64le(builder.interpreter_vaddr),
+				p_filesz = u64le(builder.interpreter_size),
+				p_memsz = u64le(builder.interpreter_size),
+				p_align = 1,
+			},
+		)
+	}
+	if builder.dynamic_size > 0 {
+		offset, found := load_file_offset(segment_headers[:], builder.dynamic_vaddr)
+		if !found {
+			return nil, .Invalid_Segment
+		}
+		append(
+			&segment_headers,
+			Program_Header {
+				p_type = u32le(PT_DYNAMIC),
+				p_flags = u32le(program_flags_mask({.PF_R, .PF_W})),
+				p_offset = u64le(offset),
+				p_vaddr = u64le(builder.dynamic_vaddr),
+				p_paddr = u64le(builder.dynamic_vaddr),
+				p_filesz = u64le(builder.dynamic_size),
+				p_memsz = u64le(builder.dynamic_size),
+				p_align = 8,
+			},
+		)
 	}
 
 	// The last PT_GNU_STACK defines stack executability: this one makes
@@ -296,4 +400,17 @@ align_congruent :: proc "contextless" (pos: u64, value: u64, alignment: u64) -> 
 		delta += alignment
 	}
 	return pos + delta % alignment
+}
+
+load_file_offset :: proc(headers: []Program_Header, vaddr: u64) -> (u64, bool) {
+	for header in headers {
+		if u32(header.p_type) != PT_LOAD {
+			continue
+		}
+		start := u64(header.p_vaddr)
+		if vaddr >= start && vaddr < start + u64(header.p_filesz) {
+			return u64(header.p_offset) + (vaddr - start), true
+		}
+	}
+	return 0, false
 }

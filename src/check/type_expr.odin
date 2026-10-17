@@ -712,6 +712,42 @@ procedure_type :: proc(
 		nil
 }
 
+// An untyped parameter takes the type of its default: `#caller_location` and `#caller_expression` are strings and locations, literals take their default type.
+@(private = "file")
+default_parameter_type :: proc(checker: ^Type_Checker, file: ^File, value: syntax.Node_Index) -> (type: types.Type_Id, found: bool, err: Resolve_Error) {
+	if value == 0 { return 0, false, nil }
+	if file.ast.nodes[value].kind == .Basic_Lit {
+		untyped: types.Type_Id
+		#partial switch syntax.node_payload(file.ast, value, syntax.Basic_Lit).kind {
+		case .Integer:
+			untyped = types.TYPE_UNTYPED_INTEGER
+		case .Float:
+			untyped = types.TYPE_UNTYPED_FLOAT
+		case .Rune:
+			untyped = types.TYPE_UNTYPED_RUNE
+		case .String:
+			return types.intern(checker.store, types.Type{kind = .String}), true, nil
+		case:
+			return 0, false, nil
+		}
+		return types.default_type_of_untyped(checker.store, untyped), true, nil
+	}
+	directive := value
+	if file.ast.nodes[value].kind == .Call_Expr { directive = syntax.node_payload(file.ast, value, syntax.Call_Expr).expr }
+	if file.ast.nodes[directive].kind != .Basic_Directive { return 0, false, nil }
+	switch expression_text(file, directive) {
+	case "#caller_expression":
+		return types.intern(checker.store, types.Type{kind = .String}), true, nil
+	case "#caller_location":
+		if directive != value || checker.collection.runtime_scope == 0 { return 0, false, nil }
+		entity := scope_lookup_current(checker.resolver.scopes, checker.collection.runtime_scope, "Source_Code_Location")
+		if entity == 0 { return 0, false, nil }
+		if _, resolve_error := resolve_entity(checker.resolver, entity); resolve_error != nil { return 0, false, resolve_error }
+		return entity_get(checker.resolver.scopes, entity).type, true, nil
+	}
+	return 0, false, nil
+}
+
 // Parameters and results keep an empty name when unnamed; a trailing `..T` becomes a slice and sets variadic.
 @(private = "file")
 record_fields :: proc(
@@ -746,7 +782,12 @@ record_fields :: proc(
 		}
 		field_type := types.TYPE_POISON
 		if type_node == 0 {
-			type_report(checker, file_id, file, field_node, .Missing_Field_Type) or_return
+			inferred, found := default_parameter_type(checker, file, field.default_value) or_return
+			if found {
+				field_type = inferred
+			} else {
+				type_report(checker, file_id, file, field_node, .Missing_Field_Type) or_return
+			}
 		} else {
 			field_type = type_expression(checker, file_id, scope, type_node, direct) or_return
 			if is_variadic { field_type = type_wrapper(checker, .Slice, field_type) }
