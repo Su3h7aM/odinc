@@ -67,7 +67,10 @@ expression_or_branch :: proc(
 	if checker.defer_depth != 0 { return expression_failure(checker, view, scope, node, .Unsupported) }
 	ast := checker.type_checker.files[file_id].ast
 	expression := syntax.node_payload(ast, node, syntax.Or_Branch_Expr)
-	if expression.token.kind != .Or_Break { return expression_failure(checker, view, scope, node, .Unsupported) }
+	if expression.token.kind != .Or_Break && expression.token.kind != .Or_Continue {
+		return expression_failure(checker, view, scope, node, .Unsupported)
+	}
+	is_continue := expression.token.kind == .Or_Continue
 	operand := check_expression(checker, view, scope, expression.expr) or_return
 	if operand.state == .Invalid { return expression_poison(scope), nil }
 	if operand.plan == 0 { return expression_failure(checker, view, scope, node, .Unsupported) }
@@ -98,7 +101,8 @@ expression_or_branch :: proc(
 	for index := len(checker.control) - 1; index >= 0; index -= 1 {
 		frame := checker.control[index]
 		if label != "" && frame.label != label { continue }
-		if label == "" && !frame.is_loop && !frame.is_switch { continue }
+		if label == "" && !frame.is_loop && (is_continue || !frame.is_switch) { continue }
+		if is_continue && !frame.is_loop { break }
 		target = Node_Ref{file_id, frame.node}
 		break
 	}
@@ -110,7 +114,9 @@ expression_or_branch :: proc(
 		append(&values, Operand(Projection{Expression_Ref{view, expression.expr}, 0})) or_return
 	}
 	failure := Plan_Id(len(checker.plans))
-	append(&checker.plans, Plan(Exit_Plan{kind = .Break, target = target})) or_return
+	exit_kind := Exit_Kind.Break
+	if is_continue { exit_kind = .Continue }
+	append(&checker.plans, Plan(Exit_Plan{kind = exit_kind, target = target})) or_return
 	plan := Plan_Id(len(checker.plans))
 	append(
 		&checker.plans,

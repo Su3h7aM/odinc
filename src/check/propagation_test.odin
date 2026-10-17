@@ -13,6 +13,22 @@ main :: proc "contextless" (ok: bool) -> u8 {
 	}
 	return 0
 }
+continue_check :: proc "contextless" (ok: bool) -> u8 {
+	for {
+		value := bool_status(ok) or_continue
+		return value
+	}
+	return 0
+}
+continue_label_check :: proc "contextless" (ok: bool) {
+	outer: for {
+		for { (bool_status(ok)) or_continue outer }
+	}
+}
+continue_indirect_check :: proc "contextless" (ok: bool) {
+	status_fn := bool_status
+	for { status_fn(ok) or_continue }
+}
 bool_status :: proc "contextless" (ok: bool) -> (u8, bool) { return 7, ok }
 status_only :: proc "contextless" (ok: bool) -> bool {
 	for { status_only_value(ok) or_break; break }
@@ -35,7 +51,7 @@ status :: proc "contextless" (ok: bool) -> (u8, bool) { return 1, ok }
 		transmute([]byte)string(
 			`package sample
 main :: proc "contextless" (ok: bool) {
-	for { status(ok) or_continue }
+	status(ok) or_continue
 }
 status :: proc "contextless" (ok: bool) -> (u8, bool) { return 1, ok }
 `,
@@ -51,7 +67,25 @@ status :: proc "contextless" (ok: bool) -> (u8, bool) { return 1, ok }
 		transmute([]byte)string(
 			`package sample
 main :: proc "contextless" (ok: bool) {
+	for { defer status(ok) or_continue; break }
+}
+status :: proc "contextless" (ok: bool) -> (u8, bool) { return 1, ok }
+`,
+		),
+		transmute([]byte)string(
+			`package sample
+main :: proc "contextless" (ok: bool) {
 	for { status(ok) or_break missing }
+}
+status :: proc "contextless" (ok: bool) -> (u8, bool) { return 1, ok }
+`,
+		),
+		transmute([]byte)string(
+			`package sample
+main :: proc "contextless" (ok: bool) {
+	bad: switch 1 {
+	case 1: status(ok) or_continue bad
+	}
 }
 status :: proc "contextless" (ok: bool) -> (u8, bool) { return 1, ok }
 `,

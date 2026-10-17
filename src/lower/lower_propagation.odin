@@ -81,7 +81,14 @@ lower_or_branch :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: 
 	exit_plan := check.plan(state.job.program, plan.failure)
 	if exit_plan == nil { return lower_fail(state, node, .Control) }
 	exit, valid_exit := exit_plan^.(check.Exit_Plan)
-	if !valid_exit || exit.kind != .Break || exit.target.node == 0 { return lower_fail(state, node, .Control) }
+	branch_expr := state.ast.nodes[node].payload.(syntax.Or_Branch_Expr)
+	expected_exit := check.Exit_Kind.Break
+	if branch_expr.token.kind == .Or_Continue {
+		expected_exit = .Continue
+	} else if branch_expr.token.kind != .Or_Break {
+		return lower_fail(state, node, .Control)
+	}
+	if !valid_exit || exit.kind != expected_exit || exit.target.node == 0 { return lower_fail(state, node, .Control) }
 	builder := state.builder
 	end := ir.jump_target_make(builder)
 	branch := ir.branch_if(builder, condition)
