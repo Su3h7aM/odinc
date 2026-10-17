@@ -157,12 +157,20 @@ lower_multi_declaration :: proc(state: ^Procedure_State, node: syntax.Node_Index
 	if info.plan == 0 { lower_fail(state, node, .Local); return }
 	plan := check.plan(state.job.program, info.plan)
 	if plan == nil { lower_fail(state, node, .Local); return }
-	call, is_call := plan^.(check.Call_Plan)
-	if !is_call || len(call.results) != len(names) { lower_fail(state, node, .Local); return }
 	allocator := virtual.arena_allocator(&state.job.function.arena)
 	results, err := make([]ir.Node_Id, len(names), allocator)
 	if err != nil { state.job.function.error = err; return }
-	lower_call_results(state, value, info, call, results)
+	#partial switch variant in plan^ {
+	case check.Call_Plan:
+		if len(variant.results) != len(names) { lower_fail(state, node, .Local); return }
+		lower_call_results(state, value, info, variant, results)
+	case check.Builtin_Plan:
+		if len(variant.results) != len(names) { lower_fail(state, node, .Local); return }
+		lower_intrinsic_tuple(state, value, variant, state.job.program.builtin_kinds[variant.builtin], results)
+	case:
+		lower_fail(state, node, .Local)
+		return
+	}
 	if state.failed || state.job.function.error != nil { return }
 	for name, index in names {
 		entity := lower_info(state, name).entity

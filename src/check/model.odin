@@ -44,6 +44,23 @@ Builtin_Kind :: enum u8 {
 	Atomic_Or,
 	Atomic_Xor,
 	Atomic_Exchange,
+	Atomic_Compare_Exchange_Strong,
+	Atomic_Compare_Exchange_Weak,
+	Atomic_Load_Explicit,
+	Atomic_Store_Explicit,
+	Atomic_Add_Explicit,
+	Atomic_Sub_Explicit,
+	Atomic_And_Explicit,
+	Atomic_Or_Explicit,
+	Atomic_Xor_Explicit,
+	Atomic_Exchange_Explicit,
+	Atomic_Compare_Exchange_Strong_Explicit,
+	Atomic_Compare_Exchange_Weak_Explicit,
+	Atomic_Thread_Fence,
+	Atomic_Signal_Fence,
+	Overflow_Add,
+	Overflow_Sub,
+	Overflow_Mul,
 	Mem_Copy,
 	Mem_Copy_Non_Overlapping,
 	Mem_Zero,
@@ -271,9 +288,13 @@ Label_Data :: struct {
 	target: Node_Ref,
 	scope:  Scope_Id,
 }
+Default_Argument :: struct {
+	value:           Operand,
+	caller_location: bool,
+}
 Procedure_Data :: struct {
 	parameters, results: []Entity_Id,
-	defaults:            []Operand,
+	defaults:            []Default_Argument,
 	signature:           types.Type_Id,
 	convention:          types.Calling_Convention,
 	body:                Node_Ref,
@@ -407,10 +428,13 @@ Place_Plan :: struct {
 	bit_offset, bit_size: u32,
 }
 Call_Argument :: struct {
-	value:            Operand,
-	parameter:        Entity_Id,
-	conversion:       Plan_Id,
-	evaluation_order: u32,
+	value:             Operand,
+	parameter:         Entity_Id,
+	conversion:        Plan_Id,
+	evaluation_order:  u32,
+	caller_location:   bool,
+	variadic_pack:     bool,
+	variadic_elements: []Operand,
 }
 Call_Plan :: struct {
 	callee:       Operand,
@@ -425,6 +449,7 @@ Builtin_Plan :: struct {
 	builtin:   Builtin_Id,
 	arguments: []Operand,
 	helpers:   []Entity_Id,
+	results:   []types.Type_Id,
 }
 Aggregate_Plan :: struct {
 	type:          types.Type_Id,
@@ -572,7 +597,7 @@ Global :: struct {
 	thread_local:        bool,
 	initializer:         Const_Id,
 	relocations:         []Relocation,
-	dynamic_initializer: Plan_Id,
+	dynamic_initializer: bool,
 }
 Ordered_Procedure :: struct {
 	entity:   Entity_Id,

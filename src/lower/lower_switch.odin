@@ -34,7 +34,11 @@ lower_switch :: proc(state: ^Procedure_State, node: syntax.Node_Index, statement
 		for value_node in values {
 			condition := lower_value(state, value_node)
 			if state.failed || state.job.function.error != nil { return }
-			if tag != 0 { condition = ir.compare(state.job.function, .Eq, tag, condition) }
+			if tag != 0 {
+				tag_type := state.job.function.nodes.type[tag]
+				kind := ir.Node_Kind.FEq if tag_type == .F32 || tag_type == .F64 else ir.Node_Kind.Eq
+				condition = ir.compare(state.job.function, kind, tag, condition)
+			}
 			branch := ir.branch_if(state.builder, condition)
 			ir.enter_arm(state.builder, branch, 0)
 			ir.jump_to(state.builder, bodies[index])

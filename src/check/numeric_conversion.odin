@@ -545,6 +545,16 @@ numeric_promote_untyped_constant :: proc(
 	case bool:
 		return numeric_intern_bool(pool, value, target_type, source_id)
 	case big.Int:
+		if target.kind == .Untyped_Float {
+			rational: big.Rat
+			defer big.destroy(&rational)
+			if set_error := big.rat_set_int(&rational, &value, allocator = context.temp_allocator); set_error != nil {
+				return 0, numeric_conversion_error(.Internal_Error, source_id, target_type)
+			}
+			result, pool_error := constant_pool_intern_rational(pool, &rational, target_type)
+			if pool_error != nil { return 0, numeric_conversion_error(.Internal_Error, source_id, target_type) }
+			return result, {}
+		}
 		return numeric_intern_integer(pool, &value, target_type, source_id)
 	case big.Rat:
 		result, pool_error := constant_pool_intern_rational(pool, &value, target_type)

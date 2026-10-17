@@ -33,6 +33,23 @@ lower_conversion :: proc(state: ^Procedure_State, plan: check.Conversion_Plan, n
 	}
 	source_bits := scalar_bits(source)
 	target_bits := scalar_bits(target)
+	if source == .F16 {
+		value = float16_widen(function, value)
+		source = .F32
+	}
+	if target == .F16 {
+		wide := value
+		#partial switch source {
+		case .F32:
+			wide = ir.convert(function, .Float_Ext, value, .F64)
+		case .F64:
+		case:
+			if source < .I8 || source > .I64 { return lower_fail(state, node, .Conversion) }
+			wide = ir.convert(function, .Sint_To_Float if source_signed else .Uint_To_Float, value, .F64)
+		}
+		return float16_narrow(function, wide)
+	}
+	source_bits = scalar_bits(source)
 	if source >= .I8 && source <= .I64 && target >= .I8 && target <= .I64 {
 		if source_bits > target_bits { return ir.convert(function, .Trunc, value, target) }
 		kind := ir.Node_Kind.Sext if source_signed else ir.Node_Kind.Zext

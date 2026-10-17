@@ -18,6 +18,8 @@ native_sections_exit_with_interpreter_results :: proc(t: ^testing.T) {
 		{"section_25", 37},
 		{"section_26", 47},
 		{"section_28", 128},
+		{"section_29", 15},
+		{"section_30", 26},
 	}
 	odin_root, _ := filepath.join({#directory, "..", ".."}, context.temp_allocator)
 	directory, directory_err := os.make_directory_temp("", "driver-native-*", context.temp_allocator)

@@ -138,7 +138,7 @@ lower_procedure :: proc(job: ^Procedure_Job) -> (err: runtime.Allocator_Error) {
 		return job.allocation_error
 	}
 	function := job.function
-	if len(function.signatures[function.signature].results) > 1 {
+	if len(function.signatures[function.signature].results) > 2 {
 		report_procedure_error(job, .Unsupported, .Result)
 		return job.allocation_error
 	}

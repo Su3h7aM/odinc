@@ -22,6 +22,7 @@ expression_unary :: proc(
 	kind := types.get(checker.type_checker.store, conversion_base_type(checker.type_checker.store, operand.type)).kind
 	valid := conversion_integer(kind) && (unary.op.kind == .Add || unary.op.kind == .Sub || unary.op.kind == .Xor)
 	valid ||= conversion_boolean(kind) && unary.op.kind == .Not
+	valid ||= conversion_float(kind) && (unary.op.kind == .Add || unary.op.kind == .Sub)
 	if !valid { return expression_failure(checker, view, scope, node, .Invalid_Operator) }
 	info = Expression_Info {
 		type  = operand.type,
@@ -62,6 +63,9 @@ expression_binary :: proc(
 	right_kind := types.get(store, conversion_base_type(store, right.type)).kind
 	integer := conversion_integer(left_kind) && conversion_integer(right_kind)
 	boolean := conversion_boolean(left_kind) && conversion_boolean(right_kind)
+	float_side := conversion_float(left_kind) || conversion_float(right_kind)
+	float_pair :=
+		float_side && (conversion_float(left_kind) || conversion_integer(left_kind)) && (conversion_float(right_kind) || conversion_integer(right_kind))
 	operator := binary.op.kind
 	comparison := syntax.Token_Kind.B_Comparison_Begin < operator && operator < .B_Comparison_End
 	shift := operator == .Shl || operator == .Shr
@@ -78,16 +82,18 @@ expression_binary :: proc(
 	}
 	valid := false
 	#partial switch operator {
-	case .Add, .Sub, .Mul, .Quo, .Mod, .Mod_Mod, .Shl, .Shr:
+	case .Add, .Sub, .Mul, .Quo:
+		valid = integer || float_pair
+	case .Mod, .Mod_Mod, .Shl, .Shr:
 		valid = integer
 	case .And, .Or, .Xor, .And_Not:
 		valid = integer || boolean
 	case .Cmp_And, .Cmp_Or:
 		valid = boolean
 	case .Cmp_Eq, .Not_Eq:
-		valid = integer || boolean
+		valid = integer || boolean || float_pair
 	case .Lt, .Gt, .Lt_Eq, .Gt_Eq:
-		valid = integer
+		valid = integer || float_pair
 	}
 	if !valid { return expression_failure(checker, view, scope, node, .Invalid_Operator) }
 	left_untyped, right_untyped := conversion_untyped(left_kind), conversion_untyped(right_kind)
@@ -97,6 +103,7 @@ expression_binary :: proc(
 		if left_untyped && right_untyped {
 			if integer { target = types.TYPE_UNTYPED_INTEGER }
 			if left_kind == .Untyped_Rune || right_kind == .Untyped_Rune { target = types.TYPE_UNTYPED_RUNE }
+			if float_side { target = types.TYPE_UNTYPED_FLOAT }
 		}
 		if !left_untyped && !right_untyped { return expression_failure(checker, view, scope, node, .Mismatched_Types) }
 		if left.type != target {
@@ -115,10 +122,13 @@ expression_binary :: proc(
 	// A dynamic integer paired with an untyped operand needs concrete rows at both runtime uses.
 	if left.mode != .Constant || right.mode != .Constant {
 		if conversion_untyped(types.get(store, left.type).kind) {
-			left = check_expression(checker, view, scope, binary.left, checker.default_integer) or_return
+			left_target := checker.default_integer
+			if types.get(store, left.type).kind == .Untyped_Float { left_target = types.default_type_of_untyped(store, types.TYPE_UNTYPED_FLOAT) }
+			left = check_expression(checker, view, scope, binary.left, left_target) or_return
 		}
 		if conversion_untyped(types.get(store, right.type).kind) {
 			target := checker.default_integer
+			if types.get(store, right.type).kind == .Untyped_Float { target = types.default_type_of_untyped(store, types.TYPE_UNTYPED_FLOAT) }
 			if !shift { target = left.type }
 			right = check_expression(checker, view, scope, binary.right, target) or_return
 		}

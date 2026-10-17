@@ -353,7 +353,7 @@ lower_wide_operator :: proc(
 }
 
 @(private)
-wide_compound_operator :: proc(operator: syntax.Token_Kind) -> syntax.Token_Kind {
+compound_binary_operator :: proc(operator: syntax.Token_Kind) -> syntax.Token_Kind {
 	#partial switch operator {
 	case .Add_Eq:
 		return .Add

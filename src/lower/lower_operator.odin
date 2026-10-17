@@ -19,7 +19,12 @@ lower_binary :: proc(state: ^Procedure_State, node: syntax.Node_Index, expressio
 	signed := signed_type(state, lower_info(state, expression.left).type)
 	if scalar_type(state, lower_info(state, expression.left).type) == .None { return lower_fail(state, node, .Operator) }
 	floating := type == .F32 || type == .F64
-	if type == .F16 || type == .V128 { return lower_fail(state, node, .Operator) }
+	if type == .F16 {
+		result, ok := lower_float16_operation(function, expression.op.kind, left, right)
+		if !ok { return lower_fail(state, node, .Operator) }
+		return result
+	}
+	if type == .V128 { return lower_fail(state, node, .Operator) }
 	#partial switch expression.op.kind {
 	case .Add:
 		return ir.binary(function, .FAdd if floating else .Add, left, right)

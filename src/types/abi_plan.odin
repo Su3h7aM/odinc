@@ -172,7 +172,7 @@ plan_abi :: proc(
 	if convention == .Odin {
 		if !push(&params, Abi_Param{source = -1, type = .Ptr, attr = .Context, size = 8, align = 8}) { return {}, .Out_Of_Memory }
 	}
-	return Abi_Plan{convention, proc_type.variadic, params[:], results[:]}, .None
+	return Abi_Plan{convention, proc_type.variadic && convention == .C, params[:], results[:]}, .None
 }
 
 @(private = "file")

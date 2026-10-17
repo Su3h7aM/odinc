@@ -79,9 +79,15 @@ check_conversion :: proc(
 	allowed := info.type == target
 	if kind == .Assignment && untyped {
 		allowed = conversion_integer(src.kind) && conversion_integer(dst.kind) || conversion_boolean(src.kind) && conversion_boolean(dst.kind)
+		allowed ||= conversion_float(src.kind) && conversion_float(dst.kind)
+		allowed ||= conversion_integer(src.kind) && conversion_float(dst.kind)
+		allowed ||= conversion_float(src.kind) && conversion_integer(dst.kind)
 	}
 	if kind == .Cast {
 		allowed ||= conversion_integer(src.kind) && conversion_integer(dst.kind) || conversion_boolean(src.kind) && conversion_boolean(dst.kind)
+		allowed ||= conversion_float(src.kind) && conversion_float(dst.kind)
+		allowed ||= conversion_integer(src.kind) && conversion_float(dst.kind)
+		allowed ||= conversion_float(src.kind) && conversion_integer(dst.kind)
 		allowed ||= conversion_pointer(src.kind) && conversion_pointer(dst.kind)
 		allowed ||= info.type == config.uintptr && conversion_pointer(dst.kind) || conversion_pointer(src.kind) && target == config.uintptr
 	}
@@ -89,7 +95,7 @@ check_conversion :: proc(
 		return {}, .Not_Assignable if kind == .Assignment else .Not_Castable, nil
 	}
 	if info.mode == .Constant {
-		if !conversion_integer(dst.kind) && !conversion_boolean(dst.kind) { return {}, .Unsupported, nil }
+		if !conversion_integer(dst.kind) && !conversion_boolean(dst.kind) && !conversion_float(dst.kind) { return {}, .Unsupported, nil }
 		constant, conversion_error := numeric_convert_constant(pool, store, info.constant, info.type, target)
 		if conversion_error.kind == .Internal_Error { return {}, .None, Constant_Pool_Error.Invalid_Operand }
 		if conversion_error.kind != .None { return {}, .Not_Representable, nil }
@@ -117,6 +123,10 @@ conversion_boolean :: proc(kind: types.Kind) -> bool {
 	return kind == .Bool || kind == .Untyped_Bool
 }
 
+conversion_float :: proc(kind: types.Kind) -> bool {
+	return kind == .Float || kind == .Untyped_Float
+}
+
 conversion_untyped :: proc(kind: types.Kind) -> bool {
 	return .Untyped_Bool <= kind && kind <= .Untyped_Nil
 }
@@ -127,5 +137,5 @@ conversion_pointer :: proc(kind: types.Kind) -> bool {
 
 @(private = "file")
 conversion_scalar :: proc(kind: types.Kind) -> bool {
-	return conversion_integer(kind) || conversion_boolean(kind) || conversion_pointer(kind)
+	return conversion_integer(kind) || conversion_boolean(kind) || conversion_pointer(kind) || kind == .Float
 }

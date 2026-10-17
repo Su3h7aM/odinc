@@ -35,10 +35,11 @@ lower_constant :: proc(state: ^Procedure_State, id: check.Const_Id, target: type
 		if error != .None { return lower_constant_error(state, error) }
 		return ir.const_int(function, scalar, i64(bits))
 	case check.Float_Value:
-		if scalar < .F16 || scalar > .F64 || scalar_bits(scalar) != int(value.width) {
+		bits, bits_ok := lower_float_bits(value, scalar)
+		if !bits_ok {
 			return lower_fail(state, state.job.procedure.body.node, .Constant)
 		}
-		return ir.const_float(function, scalar, value.bits)
+		return ir.const_float(function, scalar, bits)
 	case check.Pointer_Value:
 		return ir.const_int(function, .Ptr, i64(value))
 	case check.Nil_Value:
@@ -51,6 +52,18 @@ lower_constant :: proc(state: ^Procedure_State, id: check.Const_Id, target: type
 	case:
 		return lower_fail(state, state.job.procedure.body.node, .Constant)
 	}
+}
+
+// Typed f32 values are stored with f64 bits. Narrow them when the target scalar is f32.
+@(private)
+lower_float_bits :: proc(value: check.Float_Value, scalar: ir.Value_Type) -> (bits: u64, ok: bool) {
+	if scalar == .F64 && value.width == 64 { return value.bits, true }
+	if scalar == .F32 {
+		if value.width == 32 { return value.bits, true }
+		if value.width == 64 { return u64(transmute(u32)f32(transmute(f64)value.bits)), true }
+	}
+	if scalar == .F16 && value.width == 16 { return value.bits, true }
+	return 0, false
 }
 
 // The bytes live in a blob of this function; the value is a header of data pointer and length, as for any string.

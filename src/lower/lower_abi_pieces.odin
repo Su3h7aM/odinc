@@ -1,6 +1,5 @@
 package lower
 
-import "core:fmt"
 import "oc:check"
 import "oc:ir"
 import "oc:syntax"
@@ -120,15 +119,6 @@ bind_aggregate_parameter :: proc(state: ^Procedure_State, entity: check.Entity_I
 		bind_local(state, entity, values[0], true)
 	} else {
 		layout := job.layouts[job.program.entities[entity].type]
-		fmt.eprintfln(
-			"DEBUG bind: err=%v size=%v n=%v first_attr=%v first_size=%v first_type=%v",
-			layout.error,
-			layout.size,
-			len(parameters),
-			parameters[0].attr,
-			parameters[0].size,
-			parameters[0].type,
-		)
 		if layout.error != .None || !parameters_tile(parameters, layout.size) {
 			report_procedure_error(job, .Unsupported, .Parameter)
 			return false

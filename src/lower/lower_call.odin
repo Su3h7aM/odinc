@@ -107,7 +107,7 @@ lower_call_results :: proc(state: ^Procedure_State, node: syntax.Node_Index, inf
 	} else if signature.cc != .Contextless {
 		lower_fail(state, node, .Call); return
 	}
-	if signature.variadic || plan.variadic { lower_fail(state, node, .Call); return }
+	if signature.variadic { lower_fail(state, node, .Call); return }
 	descriptor := lower_type(state, declaration.type)
 	result_count := len(plan.results)
 	split_count := max(result_count - 1, 0)
@@ -150,7 +150,9 @@ lower_call_results :: proc(state: ^Procedure_State, node: syntax.Node_Index, inf
 		arguments[split_base + index] = slots[index]
 	}
 	for argument, index in plan.arguments {
-		if !call_operand_valid(state, argument.value) { lower_fail(state, node, .Call_Argument); return }
+		if !argument.caller_location &&
+		   !argument.variadic_pack &&
+		   !call_operand_valid(state, argument.value) { lower_fail(state, node, .Call_Argument); return }
 		position := -1
 		for parameter, source in declaration.parameters {
 			if parameter == argument.parameter { position = source; break }
@@ -187,10 +189,14 @@ lower_call_results :: proc(state: ^Procedure_State, node: syntax.Node_Index, inf
 		if first < 0 { lower_fail(state, node, .Call_Argument); return }
 		span := parameter_span(declaration.abi_params[first:])
 		value: ir.Node_Id
-		if argument.conversion != 0 {
+		if argument.variadic_pack {
+			value = lower_variadic_slice(state, node, argument, descriptor.params[position])
+		} else if argument.conversion != 0 {
 			value = lower_conversion(state, check.plan(state.job.program, argument.conversion)^.(check.Conversion_Plan), node)
+		} else if argument.caller_location {
+			value = lower_caller_location(state, node, descriptor.params[position])
 		} else {
-			value = lower_operand(state, argument.value)
+			value = lower_operand(state, argument.value, descriptor.params[position])
 		}
 		if state.failed || function.error != nil { return }
 		if is_aggregate(state, descriptor.params[position]) {

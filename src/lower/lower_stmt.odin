@@ -53,11 +53,12 @@ lower_statement :: proc(state: ^Procedure_State, node: syntax.Node_Index) {
 			return
 		}
 		values := syntax.node_list(state.ast, ast_node.payload.(syntax.Return_Stmt).results)
-		signature := state.job.function.signatures[state.job.function.signature]
-		if len(values) != len(signature.results) || len(values) > 1 { lower_fail(state, node, .Result); return }
+		store := check.type_store(state.job.program)
+		descriptor := types.get(store, types.resolve_named(store, state.job.procedure.signature))
+		if len(values) != len(descriptor.results) || len(values) > 1 { lower_fail(state, node, .Result); return }
 		if len(values) == 0 { ir.emit_return(state.builder); return }
 		value := lower_value(state, values[0])
-		lower_scalar_return(state, node, value)
+		lower_last_result(state, node, value, descriptor.results[0])
 	case .Empty_Stmt:
 	case:
 		lower_fail(state, node, .Body)

@@ -52,9 +52,14 @@ lower_compound_operator :: proc(
 	function := state.job.function
 	scalar := scalar_type(state, type)
 	if is_wide_integer(state, type) {
-		return lower_wide_operator(state, node, wide_compound_operator(operator), signed_type(state, type), false, left, right)
+		return lower_wide_operator(state, node, compound_binary_operator(operator), signed_type(state, type), false, left, right)
 	}
-	if scalar == .None || scalar == .F16 || scalar == .Ptr { return lower_fail(state, node, .Operator) }
+	if scalar == .F16 {
+		result, ok := lower_float16_operation(function, compound_binary_operator(operator), left, right)
+		if !ok { return lower_fail(state, node, .Operator) }
+		return result
+	}
+	if scalar == .None || scalar == .Ptr { return lower_fail(state, node, .Operator) }
 	if operator != .Shl_Eq && operator != .Shr_Eq && function.nodes.type[left] != function.nodes.type[right] { return lower_fail(state, node, .Conversion) }
 	floating := scalar == .F32 || scalar == .F64
 	#partial switch operator {

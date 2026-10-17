@@ -72,8 +72,17 @@ fill_globals :: proc(
 			assert(size >= 8 && relocation.offset <= u64(size - 8))
 			output.relocs[index] = {u32(relocation.offset), symbols[relocation.target], relocation.addend}
 		}
-		if global.initializer != 0 || global.dynamic_initializer != 0 {
+		if global.dynamic_initializer {
 			append(errors, Lower_Error{code = .Unsupported, feature = .Global_Initializer, entity = global.entity}) or_return
+		} else if global.initializer != 0 {
+			bytes, relocs, encoded, image_error := global_constant_image(program, global.initializer, output.size, symbols, output.relocs, allocator)
+			if image_error != nil { return image_error }
+			if !encoded {
+				append(errors, Lower_Error{code = .Unsupported, feature = .Global_Initializer, entity = global.entity}) or_return
+				continue
+			}
+			output.bytes = bytes
+			output.relocs = relocs
 		}
 	}
 	return nil

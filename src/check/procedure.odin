@@ -95,15 +95,29 @@ expression_signature_bindings :: proc(
 	result_types := descriptor.results
 	parameters: [dynamic]Entity_Id
 	parameters.allocator = mem.dynamic_arena_allocator(&checker.arena)
+	defaults: [dynamic]Default_Argument
+	defaults.allocator = mem.dynamic_arena_allocator(&checker.arena)
+	declaration_scope := entity_get(resolver.scopes, id).scope
 	if proc_type.params != 0 {
 		for field_node in syntax.node_list(file.ast, syntax.node_payload(file.ast, proc_type.params, syntax.Field_List).list) {
 			field := syntax.node_payload(file.ast, field_node, syntax.Field)
-			if field.default_value != 0 || field.names.count == 0 {
+			if field.names.count == 0 {
 				expression_failure(checker, view, scope, field_node, .Unsupported) or_return
 				return nil
 			}
 			for name_node in syntax.node_list(file.ast, field.names) {
 				if len(parameters) >= len(parameter_types) { return nil }
+				default_argument: Default_Argument
+				if field.default_value != 0 {
+					default_argument = expression_default_argument(
+						checker,
+						view,
+						declaration_scope,
+						field.default_value,
+						parameter_types[len(parameters)],
+					) or_return
+				}
+				append(&defaults, default_argument) or_return
 				parameter, create_error := entity_create(
 					resolver.scopes,
 					Entity {
@@ -144,7 +158,35 @@ expression_signature_bindings :: proc(
 	checker.results = result_types
 	procedure := &entity_get(resolver.scopes, id).data.(Procedure_Data)
 	procedure.parameters = parameters[:]
+	procedure.defaults = defaults[:]
 	return nil
+}
+
+@(private = "file")
+expression_default_argument :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	scope: Scope_Id,
+	node: syntax.Node_Index,
+	type: types.Type_Id,
+) -> (
+	argument: Default_Argument,
+	err: Resolve_Error,
+) {
+	file := checker.type_checker.files[checker.views[view].file]
+	if file.ast.nodes[node].kind == .Basic_Directive {
+		if expression_text(file, node) == "#caller_location" { return Default_Argument{caller_location = true}, nil }
+		expression_failure(checker, view, scope, node, .Unsupported) or_return
+		return {}, nil
+	}
+	info := check_expression(checker, view, scope, node, type) or_return
+	if info.state == .Invalid { return {}, nil }
+	if info.constant != 0 { return Default_Argument{value = Operand(info.constant)}, nil }
+	if expression_conversion_plan(checker, info.plan) != 0 {
+		expression_failure(checker, view, scope, node, .Unsupported) or_return
+		return {}, nil
+	}
+	return Default_Argument{value = Operand(Expression_Ref{view, node})}, nil
 }
 
 expression_block :: proc(checker: ^Expression_Checker, view: View_Id, file_id: File_Id, scope: Scope_Id, node: syntax.Node_Index) -> Resolve_Error {
@@ -320,14 +362,21 @@ expression_local_declaration :: proc(
 	if multi {
 		value := check_expression(checker, view, scope, values[0]) or_return
 		if value.state == .Invalid { return nil }
-		call: Call_Plan
+		results: []types.Type_Id
 		is_call := false
-		if value.plan != 0 { call, is_call = checker.plans[value.plan].(Call_Plan) }
-		if !is_call || target != 0 || len(call.results) != len(names) {
+		if value.plan != 0 {
+			#partial switch plan in checker.plans[value.plan] {
+			case Call_Plan:
+				results, is_call = plan.results, true
+			case Builtin_Plan:
+				results, is_call = plan.results, true
+			}
+		}
+		if !is_call || target != 0 || len(results) != len(names) {
 			expression_failure(checker, view, scope, values[0], .Unsupported) or_return
 			return nil
 		}
-		for result, index in call.results { variable_types[index] = result }
+		for result, index in results { variable_types[index] = result }
 	}
 	for index in 0 ..< len(values) {
 		if multi { break }
@@ -344,6 +393,8 @@ expression_local_declaration :: proc(
 			variable_types[index] = checker.default_integer
 		case .Untyped_Bool:
 			variable_types[index] = checker.boolean
+		case .Untyped_Float:
+			variable_types[index] = types.default_type_of_untyped(checker.type_checker.store, value.type)
 		case:
 			variable_types[index] = value.type
 		}

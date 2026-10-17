@@ -5,7 +5,8 @@ import "oc:ir"
 import "oc:syntax"
 
 // Lowers the intrinsics of base:intrinsics planned by the checker. Operands arrive already converted to the
-// types the checker fixed; each shape is validated here before its node is built.
+// types the checker fixed; each shape is validated here before its node is built. Intrinsics with two results
+// go through `lower_intrinsic_tuple`, and the single-value entry takes their first result.
 @(private)
 lower_intrinsic :: proc(
 	state: ^Procedure_State,
@@ -14,17 +15,19 @@ lower_intrinsic :: proc(
 	plan: check.Builtin_Plan,
 	kind: check.Builtin_Kind,
 ) -> ir.Node_Id {
-	for operand in plan.arguments {
-		if !call_operand_valid(state, operand) { return lower_fail(state, node, .Builtin) }
+	if len(plan.results) != 0 {
+		results: [2]ir.Node_Id
+		lower_intrinsic_tuple(state, node, plan, kind, results[:])
+		return results[0]
 	}
+	values, ok := lower_intrinsic_operands(state, node, plan)
+	if !ok { return 0 }
 	function := state.job.function
-	values: [3]ir.Node_Id
-	for operand, index in plan.arguments {
-		values[index] = lower_operand(state, operand)
-		if state.failed || function.error != nil { return 0 }
-	}
+	arguments := values[:len(plan.arguments)]
 	type := ir.Value_Type.None
 	if info.type != 0 { type = scalar_type(state, info.type) }
+	order, order_ok := intrinsic_memory_order(state, node, kind, arguments)
+	if !order_ok { return 0 }
 	#partial switch kind {
 	case .Count_Ones, .Count_Zeros, .Count_Leading_Zeros, .Count_Trailing_Zeros, .Reverse_Bits, .Byte_Swap:
 		if !is_integer_value(function, values[0]) || type != function.nodes.type[values[0]] { return lower_fail(state, node, .Builtin) }
@@ -32,12 +35,10 @@ lower_intrinsic :: proc(
 	case .Expect:
 		if type != function.nodes.type[values[0]] || type != function.nodes.type[values[1]] { return lower_fail(state, node, .Builtin) }
 		return values[0]
-	case .Volatile_Load, .Atomic_Load:
-		order := ir.Memory_Order.Volatile if kind == .Volatile_Load else .Seq_Cst
+	case .Volatile_Load, .Atomic_Load, .Atomic_Load_Explicit:
 		if !is_integer_type(type) || function.nodes.type[values[0]] != .Ptr { return lower_fail(state, node, .Builtin) }
 		return lower_ordered_load(state, values[0], type, order)
-	case .Volatile_Store, .Atomic_Store:
-		order := ir.Memory_Order.Volatile if kind == .Volatile_Store else .Seq_Cst
+	case .Volatile_Store, .Atomic_Store, .Atomic_Store_Explicit:
 		if function.nodes.type[values[0]] != .Ptr || !is_integer_value(function, values[1]) { return lower_fail(state, node, .Builtin) }
 		memory := ir.add_node(
 			function,
@@ -48,11 +49,32 @@ lower_intrinsic :: proc(
 		)
 		ir.variable_set(state.builder, ir.MEMORY_VARIABLE, memory)
 		return 0
-	case .Atomic_Add, .Atomic_Sub, .Atomic_And, .Atomic_Or, .Atomic_Xor, .Atomic_Exchange:
+	case .Atomic_Add,
+	     .Atomic_Sub,
+	     .Atomic_And,
+	     .Atomic_Or,
+	     .Atomic_Xor,
+	     .Atomic_Exchange,
+	     .Atomic_Add_Explicit,
+	     .Atomic_Sub_Explicit,
+	     .Atomic_And_Explicit,
+	     .Atomic_Or_Explicit,
+	     .Atomic_Xor_Explicit,
+	     .Atomic_Exchange_Explicit:
 		if function.nodes.type[values[0]] != .Ptr || !is_integer_value(function, values[1]) || function.nodes.type[values[1]] != type {
 			return lower_fail(state, node, .Builtin)
 		}
-		return lower_read_modify_write(state, rmw_operation(kind), values[0], values[1], type)
+		return lower_read_modify_write(state, rmw_operation(kind), values[0], values[1], type, order)
+	case .Atomic_Thread_Fence, .Atomic_Signal_Fence:
+		memory := ir.add_node(
+			function,
+			.Fence,
+			.Memory,
+			{state.builder.control, ir.variable_get(state.builder, ir.MEMORY_VARIABLE)},
+			{access = {order = order, signal = kind == .Atomic_Signal_Fence}},
+		)
+		ir.variable_set(state.builder, ir.MEMORY_VARIABLE, memory)
+		return 0
 	case .Mem_Copy, .Mem_Copy_Non_Overlapping:
 		if function.nodes.type[values[0]] != .Ptr || function.nodes.type[values[1]] != .Ptr || function.nodes.type[values[2]] != .I64 {
 			return lower_fail(state, node, .Builtin)
@@ -64,6 +86,110 @@ lower_intrinsic :: proc(
 		return lower_memory_effect(state, .Mem_Set, values[0], zero, values[1])
 	}
 	return lower_fail(state, node, .Builtin)
+}
+
+// Fills the two results of an overflow or compare-exchange intrinsic: the value and the bool, in that order.
+@(private)
+lower_intrinsic_tuple :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: check.Builtin_Plan, kind: check.Builtin_Kind, results: []ir.Node_Id) {
+	values, ok := lower_intrinsic_operands(state, node, plan)
+	if !ok { return }
+	function := state.job.function
+	arguments := values[:len(plan.arguments)]
+	#partial switch kind {
+	case .Overflow_Add, .Overflow_Sub, .Overflow_Mul:
+		if !is_integer_value(function, values[0]) || function.nodes.type[values[1]] != function.nodes.type[values[0]] {
+			lower_fail(state, node, .Builtin)
+			return
+		}
+		results[0], results[1] = lower_overflow(state, kind, signed_type(state, plan.results[0]), values[0], values[1])
+	case .Atomic_Compare_Exchange_Strong, .Atomic_Compare_Exchange_Weak, .Atomic_Compare_Exchange_Strong_Explicit, .Atomic_Compare_Exchange_Weak_Explicit:
+		success, success_ok := intrinsic_memory_order(state, node, kind, arguments)
+		if !success_ok { return }
+		failure := success
+		if len(arguments) > 3 {
+			failure, success_ok = atomic_memory_order(state, node, arguments[len(arguments) - 1])
+			if !success_ok { return }
+		}
+		if function.nodes.type[values[0]] != .Ptr ||
+		   !is_integer_value(function, values[1]) ||
+		   function.nodes.type[values[2]] != function.nodes.type[values[1]] {
+			lower_fail(state, node, .Builtin)
+			return
+		}
+		weak := kind == .Atomic_Compare_Exchange_Weak || kind == .Atomic_Compare_Exchange_Weak_Explicit
+		results[0], results[1] = lower_compare_exchange(state, values[0], values[1], values[2], success, failure, weak)
+	case:
+		lower_fail(state, node, .Builtin)
+	}
+}
+
+@(private)
+lower_intrinsic_operands :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: check.Builtin_Plan) -> (values: [5]ir.Node_Id, ok: bool) {
+	for operand in plan.arguments {
+		if !call_operand_valid(state, operand) {
+			lower_fail(state, node, .Builtin)
+			return values, false
+		}
+	}
+	for operand, index in plan.arguments {
+		values[index] = lower_operand(state, operand)
+		if state.failed || state.job.function.error != nil { return values, false }
+	}
+	return values, true
+}
+
+// The order of a single-order operation, `Volatile` for volatile accesses and sequentially consistent otherwise.
+// A compare-exchange's success order is its third-from-last operand, when its orders are explicit.
+@(private)
+intrinsic_memory_order :: proc(
+	state: ^Procedure_State,
+	node: syntax.Node_Index,
+	kind: check.Builtin_Kind,
+	arguments: []ir.Node_Id,
+) -> (
+	ir.Memory_Order,
+	bool,
+) {
+	#partial switch kind {
+	case .Volatile_Load, .Volatile_Store:
+		return .Volatile, true
+	case .Atomic_Compare_Exchange_Strong_Explicit, .Atomic_Compare_Exchange_Weak_Explicit:
+		return atomic_memory_order(state, node, arguments[len(arguments) - 2])
+	case .Atomic_Load_Explicit,
+	     .Atomic_Store_Explicit,
+	     .Atomic_Add_Explicit,
+	     .Atomic_Sub_Explicit,
+	     .Atomic_And_Explicit,
+	     .Atomic_Or_Explicit,
+	     .Atomic_Xor_Explicit,
+	     .Atomic_Exchange_Explicit,
+	     .Atomic_Thread_Fence,
+	     .Atomic_Signal_Fence:
+		return atomic_memory_order(state, node, arguments[len(arguments) - 1])
+	}
+	return .Seq_Cst, true
+}
+
+// Maps the `Atomic_Memory_Order` constant to the IR order. Consume is monotonic, which the IR calls Relaxed.
+@(private)
+atomic_memory_order :: proc(state: ^Procedure_State, node: syntax.Node_Index, value: ir.Node_Id) -> (ir.Memory_Order, bool) {
+	function := state.job.function
+	if function.nodes.kind[value] == .Const_Int {
+		switch ir.node_int_value(function, value) {
+		case 0, 1:
+			return .Relaxed, true
+		case 2:
+			return .Acquire, true
+		case 3:
+			return .Release, true
+		case 4:
+			return .Acq_Rel, true
+		case 5:
+			return .Seq_Cst, true
+		}
+	}
+	lower_fail(state, node, .Builtin)
+	return .Seq_Cst, false
 }
 
 @(private)
@@ -79,15 +205,15 @@ is_integer_type :: proc(type: ir.Value_Type) -> bool {
 @(private)
 rmw_operation :: proc(kind: check.Builtin_Kind) -> ir.Rmw_Op {
 	#partial switch kind {
-	case .Atomic_Add:
+	case .Atomic_Add, .Atomic_Add_Explicit:
 		return .Add
-	case .Atomic_Sub:
+	case .Atomic_Sub, .Atomic_Sub_Explicit:
 		return .Sub
-	case .Atomic_And:
+	case .Atomic_And, .Atomic_And_Explicit:
 		return .And
-	case .Atomic_Or:
+	case .Atomic_Or, .Atomic_Or_Explicit:
 		return .Or
-	case .Atomic_Xor:
+	case .Atomic_Xor, .Atomic_Xor_Explicit:
 		return .Xor
 	}
 	return .Xchg
@@ -149,19 +275,50 @@ lower_ordered_load :: proc(state: ^Procedure_State, pointer: ir.Node_Id, type: i
 	return ir.add_node(function, .Proj, type, {load}, {index = 1})
 }
 
-// The result is the old value. Sequentially consistent, as the Odin intrinsics without an explicit order.
+// The result is the old value.
 @(private)
-lower_read_modify_write :: proc(state: ^Procedure_State, operation: ir.Rmw_Op, pointer, operand: ir.Node_Id, type: ir.Value_Type) -> ir.Node_Id {
+lower_read_modify_write :: proc(
+	state: ^Procedure_State,
+	operation: ir.Rmw_Op,
+	pointer, operand: ir.Node_Id,
+	type: ir.Value_Type,
+	order: ir.Memory_Order,
+) -> ir.Node_Id {
 	function := state.job.function
 	update := ir.add_node(
 		function,
 		.Atomic_Rmw,
 		.Tuple,
 		{state.builder.control, ir.variable_get(state.builder, ir.MEMORY_VARIABLE), pointer, operand},
-		{access = {order = .Seq_Cst, rmw = operation}},
+		{access = {order = order, rmw = operation}},
 	)
 	ir.variable_set(state.builder, ir.MEMORY_VARIABLE, ir.add_node(function, .Proj, .Memory, {update}, {index = 0}))
 	return ir.add_node(function, .Proj, type, {update}, {index = 1})
+}
+
+// Returns the old value and the success flag.
+@(private)
+lower_compare_exchange :: proc(
+	state: ^Procedure_State,
+	pointer, expected, desired: ir.Node_Id,
+	success, failure: ir.Memory_Order,
+	weak: bool,
+) -> (
+	old, succeeded: ir.Node_Id,
+) {
+	function := state.job.function
+	type := function.nodes.type[expected]
+	exchange := ir.add_node(
+		function,
+		.Atomic_Cas,
+		.Tuple,
+		{state.builder.control, ir.variable_get(state.builder, ir.MEMORY_VARIABLE), pointer, expected, desired},
+		{access = {order = success, failure_order = failure, weak = weak}},
+	)
+	ir.variable_set(state.builder, ir.MEMORY_VARIABLE, ir.add_node(function, .Proj, .Memory, {exchange}, {index = 0}))
+	old = ir.add_node(function, .Proj, type, {exchange}, {index = 1})
+	succeeded = ir.add_node(function, .Proj, .Bool, {exchange}, {index = 2})
+	return
 }
 
 @(private)

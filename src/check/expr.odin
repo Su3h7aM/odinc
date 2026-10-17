@@ -43,6 +43,7 @@ Expression_Checker :: struct {
 	symbols:         [dynamic]Symbol,
 	entity_symbols:  [dynamic]Symbol_Id,
 	procedures:      [dynamic]Checked_Procedure,
+	globals:         [dynamic]Global,
 	diagnostics:     [dynamic]Expression_Diagnostic,
 	results:         []types.Type_Id,
 	control:         [dynamic]Control_Frame,
@@ -66,6 +67,7 @@ expression_checker_init :: proc(
 	checker.control.allocator = allocator
 	checker.symbols.allocator, checker.entity_symbols.allocator, checker.procedures.allocator = allocator, allocator, allocator
 	checker.builtin_kinds.allocator = allocator
+	checker.globals.allocator = allocator
 	defer if err != nil { expression_checker_destroy(checker) }
 	append(&checker.views, Typed_View{}) or_return
 	append(&checker.plans, Plan{}) or_return
@@ -77,6 +79,7 @@ expression_checker_destroy :: proc(checker: ^Expression_Checker) {
 	if checker == nil { return }
 	delete(checker.views)
 	delete(checker.plans)
+	delete(checker.globals)
 	delete(checker.builtin_kinds)
 	delete(checker.symbols)
 	delete(checker.entity_symbols)
@@ -154,10 +157,12 @@ check_expression :: proc(
 				info = expression_string_literal(checker, view, file_id, scope, node) or_return
 				break
 			}
-			if kind != .Integer && kind != .Rune {
+			if kind != .Integer && kind != .Rune && kind != .Float {
 				return expression_failure(checker, view, scope, node, .Unsupported)
 			}
-			untyped := types.TYPE_UNTYPED_RUNE if kind == .Rune else types.TYPE_UNTYPED_INTEGER
+			untyped := types.TYPE_UNTYPED_INTEGER
+			if kind == .Rune { untyped = types.TYPE_UNTYPED_RUNE }
+			if kind == .Float { untyped = types.TYPE_UNTYPED_FLOAT }
 			literal, literal_error := literal_constant(checker.constants, kind, expression_text(file, node), untyped)
 			if literal_error != nil {
 				#partial switch failure in literal_error {

@@ -193,7 +193,9 @@ lower_value :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> ir.Node
 		if state.failed { return 0 }
 		function := state.job.function
 		if is_wide_integer(state, lower_info(state, value.expr).type) { return lower_wide_unary(state, node, value.op.kind, operand) }
-		if scalar_type(state, lower_info(state, value.expr).type) == .None || function.nodes.type[operand] == .F16 {
+		if scalar_type(state, lower_info(state, value.expr).type) == .None { return lower_fail(state, node, .Operator) }
+		if function.nodes.type[operand] == .F16 {
+			if value.op.kind == .Sub { return float16_negate(function, operand) }
 			return lower_fail(state, node, .Operator)
 		}
 		#partial switch value.op.kind {

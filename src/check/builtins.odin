@@ -47,6 +47,40 @@ intrinsic_builtin_kind :: proc(name: string) -> Builtin_Kind {
 		return .Atomic_Xor
 	case "atomic_exchange":
 		return .Atomic_Exchange
+	case "atomic_compare_exchange_strong":
+		return .Atomic_Compare_Exchange_Strong
+	case "atomic_compare_exchange_weak":
+		return .Atomic_Compare_Exchange_Weak
+	case "atomic_load_explicit":
+		return .Atomic_Load_Explicit
+	case "atomic_store_explicit":
+		return .Atomic_Store_Explicit
+	case "atomic_add_explicit":
+		return .Atomic_Add_Explicit
+	case "atomic_sub_explicit":
+		return .Atomic_Sub_Explicit
+	case "atomic_and_explicit":
+		return .Atomic_And_Explicit
+	case "atomic_or_explicit":
+		return .Atomic_Or_Explicit
+	case "atomic_xor_explicit":
+		return .Atomic_Xor_Explicit
+	case "atomic_exchange_explicit":
+		return .Atomic_Exchange_Explicit
+	case "atomic_compare_exchange_strong_explicit":
+		return .Atomic_Compare_Exchange_Strong_Explicit
+	case "atomic_compare_exchange_weak_explicit":
+		return .Atomic_Compare_Exchange_Weak_Explicit
+	case "atomic_thread_fence":
+		return .Atomic_Thread_Fence
+	case "atomic_signal_fence":
+		return .Atomic_Signal_Fence
+	case "overflow_add":
+		return .Overflow_Add
+	case "overflow_sub":
+		return .Overflow_Sub
+	case "overflow_mul":
+		return .Overflow_Mul
 	case "mem_copy":
 		return .Mem_Copy
 	case "mem_copy_non_overlapping":

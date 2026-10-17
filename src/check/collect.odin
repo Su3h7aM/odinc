@@ -327,8 +327,9 @@ collect_value_declaration :: proc(
 		type := decl.type
 		if decl.is_mutable {
 			kind = .Variable
+			storage := Storage_Kind.Thread_Local if collection_has_attribute(file.ast, file.source, decl.attributes, "thread_local") else .Global
 			data = Variable_Data {
-				storage     = .Global,
+				storage     = storage,
 				initializer = {id, value},
 			}
 		} else if value == 0 {
