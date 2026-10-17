@@ -229,6 +229,11 @@ lower_branch :: proc(state: ^Procedure_State, node: syntax.Node_Index, statement
 	if !found || exit.target.node == 0 { lower_fail(state, node, .Control); return }
 	if exit.kind != .Break && exit.kind != .Continue { lower_fail(state, node, .Control); return }
 	assert(exit.kind == .Break && statement.token.kind == .Break || exit.kind == .Continue && statement.token.kind == .Continue)
+	lower_branch_exit(state, node, exit)
+}
+
+@(private)
+lower_branch_exit :: proc(state: ^Procedure_State, node: syntax.Node_Index, exit: check.Exit_Plan) {
 	for index := len(state.control_targets) - 1; index >= 0; index -= 1 {
 		target := state.control_targets[index]
 		if target.node != exit.target { continue }

@@ -259,6 +259,8 @@ check_expression :: proc(
 			info = expression_or_else(checker, view, file_id, scope, node, hint) or_return
 		case .Or_Return_Expr:
 			info = expression_or_return(checker, view, file_id, scope, node) or_return
+		case .Or_Branch_Expr:
+			info = expression_or_branch(checker, view, file_id, scope, node) or_return
 		case .Slice_Expr:
 			info = expression_slice(checker, view, file_id, scope, node) or_return
 		case .Comp_Lit:

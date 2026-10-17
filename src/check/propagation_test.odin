@@ -3,6 +3,68 @@ package check
 import "core:testing"
 
 @(test)
+expression_or_break_checks_status_and_target_context :: proc(t: ^testing.T) {
+	valid := transmute([]byte)string(
+		`package sample
+main :: proc "contextless" (ok: bool) -> u8 {
+	for {
+		value := bool_status(ok) or_break
+		return value
+	}
+	return 0
+}
+bool_status :: proc "contextless" (ok: bool) -> (u8, bool) { return 7, ok }
+status_only :: proc "contextless" (ok: bool) -> bool {
+	for { status_only_value(ok) or_break; break }
+	return true
+}
+status_only_value :: proc "contextless" (ok: bool) -> bool { return ok }
+`,
+	)
+	procedure, ok := check_procedure_source(t, valid)
+	if !ok { return }
+	testing.expect(t, procedure.body_state == .Complete)
+
+	invalid_sources := [?][]byte {
+		transmute([]byte)string(
+			`package sample
+main :: proc "contextless" (ok: bool) { status(ok) or_break }
+status :: proc "contextless" (ok: bool) -> (u8, bool) { return 1, ok }
+`,
+		),
+		transmute([]byte)string(
+			`package sample
+main :: proc "contextless" (ok: bool) {
+	for { status(ok) or_continue }
+}
+status :: proc "contextless" (ok: bool) -> (u8, bool) { return 1, ok }
+`,
+		),
+		transmute([]byte)string(
+			`package sample
+main :: proc "contextless" (ok: bool) {
+	for { defer status(ok) or_break; break }
+}
+status :: proc "contextless" (ok: bool) -> (u8, bool) { return 1, ok }
+`,
+		),
+		transmute([]byte)string(
+			`package sample
+main :: proc "contextless" (ok: bool) {
+	for { status(ok) or_break missing }
+}
+status :: proc "contextless" (ok: bool) -> (u8, bool) { return 1, ok }
+`,
+		),
+	}
+	for source in invalid_sources {
+		rejected, rejected_ok := check_procedure_source(t, source)
+		if !rejected_ok { continue }
+		testing.expect(t, rejected.body_state == .Invalid)
+	}
+}
+
+@(test)
 expression_or_else_checks_bool_and_nil_pointer_status_pairs :: proc(t: ^testing.T) {
 	valid := transmute([]byte)string(
 		`package sample

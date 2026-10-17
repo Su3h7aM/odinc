@@ -53,6 +53,50 @@ lower_or_else :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: ch
 }
 
 @(private)
+lower_or_branch :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: check.Propagation_Plan) -> ir.Node_Id {
+	operand, is_expression := plan.operand.(check.Expression_Ref)
+	if !is_expression || operand.view != state.view { return lower_fail(state, node, .Expression) }
+	operand_info := lower_info(state, operand.node)
+	if operand_info.plan == 0 { return lower_fail(state, node, .Expression) }
+	call, is_call := check.plan(state.job.program, operand_info.plan)^.(check.Call_Plan)
+	if !is_call || (len(call.results) != 1 && len(call.results) != 2) { return lower_fail(state, node, .Expression) }
+	call_node := operand.node
+	for state.ast.nodes[call_node].kind == .Paren_Expr {
+		call_node = state.ast.nodes[call_node].payload.(syntax.Paren_Expr).expr
+	}
+	values: [2]ir.Node_Id
+	lower_call_results(state, call_node, operand_info, call, values[:len(call.results)])
+	if state.failed || state.job.function.error != nil { return 0 }
+	status_index := len(call.results) - 1
+	condition: ir.Node_Id
+	switch plan.test {
+	case .Boolean_True:
+		if state.job.function.nodes.type[values[status_index]] != .Bool { return lower_fail(state, node, .Expression) }
+		condition = values[status_index]
+	case .Nil:
+		if state.job.function.nodes.type[values[status_index]] != .Ptr { return lower_fail(state, node, .Expression) }
+		condition = ir.compare(state.job.function, .Eq, values[status_index], ir.const_int(state.job.function, .Ptr, 0))
+	}
+	if plan.failure == 0 { return lower_fail(state, node, .Control) }
+	exit_plan := check.plan(state.job.program, plan.failure)
+	if exit_plan == nil { return lower_fail(state, node, .Control) }
+	exit, valid_exit := exit_plan^.(check.Exit_Plan)
+	if !valid_exit || exit.kind != .Break || exit.target.node == 0 { return lower_fail(state, node, .Control) }
+	builder := state.builder
+	end := ir.jump_target_make(builder)
+	branch := ir.branch_if(builder, condition)
+	ir.enter_arm(builder, branch, 0)
+	ir.jump_to(builder, end)
+	ir.enter_arm(builder, branch, 1)
+	lower_branch_exit(state, node, exit)
+	if state.failed || state.job.function.error != nil { return 0 }
+	ir.seal_target(builder, end)
+	if len(plan.values) == 0 { return 0 }
+	if len(plan.values) != 1 || status_index != 1 { return lower_fail(state, node, .Result) }
+	return values[0]
+}
+
+@(private)
 lower_or_return :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: check.Propagation_Plan) -> ir.Node_Id {
 	operand, is_expression := plan.operand.(check.Expression_Ref)
 	if !is_expression || operand.view != state.view { return lower_fail(state, node, .Expression) }

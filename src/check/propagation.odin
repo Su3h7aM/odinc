@@ -54,6 +54,79 @@ expression_or_else :: proc(
 }
 
 @(private = "package")
+expression_or_branch :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	file_id: File_Id,
+	scope: Scope_Id,
+	node: syntax.Node_Index,
+) -> (
+	info: Expression_Info,
+	err: Resolve_Error,
+) {
+	if checker.defer_depth != 0 { return expression_failure(checker, view, scope, node, .Unsupported) }
+	ast := checker.type_checker.files[file_id].ast
+	expression := syntax.node_payload(ast, node, syntax.Or_Branch_Expr)
+	if expression.token.kind != .Or_Break { return expression_failure(checker, view, scope, node, .Unsupported) }
+	operand := check_expression(checker, view, scope, expression.expr) or_return
+	if operand.state == .Invalid { return expression_poison(scope), nil }
+	if operand.plan == 0 { return expression_failure(checker, view, scope, node, .Unsupported) }
+	call, is_call := checker.plans[operand.plan].(Call_Plan)
+	if !is_call || (len(call.results) != 1 && len(call.results) != 2) {
+		return expression_failure(checker, view, scope, node, .Unsupported)
+	}
+	store := checker.type_checker.store
+	status_index := len(call.results) - 1
+	status := call.results[status_index]
+	status_type := types.get(store, types.resolve_named(store, status))
+	test: Optional_Test
+	#partial switch status_type.kind {
+	case .Bool:
+		test = .Boolean_True
+	case .Pointer:
+		test = .Nil
+	case:
+		return expression_failure(checker, view, scope, node, .Unsupported)
+	}
+	for result in call.results {
+		if types.get(store, types.resolve_named(store, result)).kind == .Union {
+			return expression_failure(checker, view, scope, node, .Unsupported)
+		}
+	}
+	target: Node_Ref
+	label := expression_text(checker.type_checker.files[file_id], expression.label)
+	for index := len(checker.control) - 1; index >= 0; index -= 1 {
+		frame := checker.control[index]
+		if label != "" && frame.label != label { continue }
+		if label == "" && !frame.is_loop && !frame.is_switch { continue }
+		target = Node_Ref{file_id, frame.node}
+		break
+	}
+	if target.node == 0 { return expression_failure(checker, view, scope, node, .Unsupported) }
+	allocator := mem.dynamic_arena_allocator(&checker.arena)
+	values: [dynamic]Operand
+	if status_index != 0 {
+		values = make([dynamic]Operand, allocator) or_return
+		append(&values, Operand(Projection{Expression_Ref{view, expression.expr}, 0})) or_return
+	}
+	failure := Plan_Id(len(checker.plans))
+	append(&checker.plans, Plan(Exit_Plan{kind = .Break, target = target})) or_return
+	plan := Plan_Id(len(checker.plans))
+	append(
+		&checker.plans,
+		Plan(Propagation_Plan{operand = Expression_Ref{view, expression.expr}, test = test, values = values[:], failure = failure}),
+	) or_return
+	info = Expression_Info {
+		scope = scope,
+		plan  = plan,
+		mode  = .No_Value,
+		state = .Checked,
+	}
+	if status_index != 0 { info.type, info.mode = call.results[0], .Value }
+	return info, nil
+}
+
+@(private = "package")
 expression_or_return :: proc(
 	checker: ^Expression_Checker,
 	view: View_Id,
