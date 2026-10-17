@@ -54,9 +54,13 @@ expression_binary :: proc(
 ) {
 	file := checker.type_checker.files[checker.views[view].file]
 	binary := syntax.node_payload(file.ast, node, syntax.Binary_Expr)
+	if binary.op.kind == .In || binary.op.kind == .Not_In {
+		return expression_membership(checker, view, scope, node, binary.op.kind == .Not_In)
+	}
 	left := check_expression(checker, view, scope, binary.left) or_return
 	right_hint := types.Type_Id(0)
-	if file.ast.nodes[binary.right].kind == .Implicit_Selector_Expr { right_hint = left.type }
+	left_base := types.get(checker.type_checker.store, conversion_base_type(checker.type_checker.store, left.type)).kind
+	if file.ast.nodes[binary.right].kind == .Implicit_Selector_Expr || expression_string_kind(left_base) { right_hint = left.type }
 	right := check_expression(checker, view, scope, binary.right, right_hint) or_return
 	if left.state == .Invalid || right.state == .Invalid { return expression_poison(scope), nil }
 	if !expression_value(left) || !expression_value(right) { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
@@ -66,6 +70,10 @@ expression_binary :: proc(
 	integer := conversion_integer(left_kind) && conversion_integer(right_kind)
 	boolean := conversion_boolean(left_kind) && conversion_boolean(right_kind)
 	enum_pair := left_kind == .Enum && right_kind == .Enum
+	type_id_pair := left_kind == .Type_Id && right_kind == .Type_Id
+	string_pair := expression_string_kind(left_kind) && expression_string_kind(right_kind)
+	pointer_pair := conversion_pointer(left_kind) && conversion_pointer(right_kind)
+	pointer_pair ||= left_kind == .Untyped_Nil && conversion_nilable(right_kind) || right_kind == .Untyped_Nil && conversion_nilable(left_kind)
 	float_side := conversion_float(left_kind) || conversion_float(right_kind)
 	float_pair :=
 		float_side && (conversion_float(left_kind) || conversion_integer(left_kind)) && (conversion_float(right_kind) || conversion_integer(right_kind))
@@ -94,9 +102,9 @@ expression_binary :: proc(
 	case .Cmp_And, .Cmp_Or:
 		valid = boolean
 	case .Cmp_Eq, .Not_Eq:
-		valid = integer || boolean || float_pair || enum_pair
+		valid = integer || boolean || float_pair || enum_pair || type_id_pair || string_pair || pointer_pair
 	case .Lt, .Gt, .Lt_Eq, .Gt_Eq:
-		valid = integer || float_pair || enum_pair
+		valid = integer || float_pair || enum_pair || string_pair
 	}
 	if !valid { return expression_failure(checker, view, scope, node, .Invalid_Operator) }
 	left_untyped, right_untyped := conversion_untyped(left_kind), conversion_untyped(right_kind)
@@ -135,6 +143,9 @@ expression_binary :: proc(
 			if !shift { target = left.type }
 			right = check_expression(checker, view, scope, binary.right, target) or_return
 		}
+	}
+	if comparison && string_pair && (left.mode != .Constant || right.mode != .Constant) {
+		return expression_runtime_comparison(checker, view, scope, node, binary.left, binary.right, operator, left.type)
 	}
 	info = Expression_Info {
 		type  = left.type,

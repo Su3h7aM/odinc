@@ -172,7 +172,8 @@ local_array_aliasing :: proc(t: ^testing.T, store: ^types.Store, allocator: runt
 		1,
 		syntax.Assign_Stmt{op = {kind = .Eq}, lhs = syntax.ast_add_list(&ast, {index}), rhs = syntax.ast_add_list(&ast, {scalar_name})},
 	)
-	result := syntax.ast_add_node(&ast, .Return_Stmt, 0, 1, syntax.Return_Stmt{results = syntax.ast_add_list(&ast, {index})})
+	parenthesized := syntax.ast_add_node(&ast, .Paren_Expr, 0, 1, syntax.Paren_Expr{expr = index})
+	result := syntax.ast_add_node(&ast, .Return_Stmt, 0, 1, syntax.Return_Stmt{results = syntax.ast_add_list(&ast, {parenthesized})})
 	body := syntax.ast_add_node(
 		&ast,
 		.Block_Stmt,
@@ -228,6 +229,12 @@ local_array_aliasing :: proc(t: ^testing.T, store: ^types.Store, allocator: runt
 		state = .Checked,
 	}
 	facts[int(index) - 1] = {
+		type  = byte,
+		plan  = 3,
+		mode  = .Variable,
+		state = .Checked,
+	}
+	facts[int(parenthesized) - 1] = {
 		type  = byte,
 		plan  = 3,
 		mode  = .Variable,

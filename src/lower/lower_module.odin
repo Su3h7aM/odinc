@@ -76,7 +76,14 @@ fill_globals :: proc(
 			bytes, relocs, encoded, image_error := global_constant_image(program, global.initializer, output.size, symbols, output.relocs, allocator)
 			if image_error != nil { return image_error }
 			if !encoded {
-				append(errors, Lower_Error{code = .Unsupported, feature = .Global_Initializer, entity = global.entity}) or_return
+				declaration := program.entities[global.entity].declaration
+				span := program.files[declaration.file].ast.nodes[declaration.node]
+				source := check.Source_Span {
+					file  = declaration.file,
+					start = span.start,
+					end   = span.end,
+				}
+				append(errors, Lower_Error{code = .Unsupported, feature = .Global_Initializer, entity = global.entity, source = source}) or_return
 				continue
 			}
 			output.bytes = bytes

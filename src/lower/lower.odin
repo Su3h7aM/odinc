@@ -1,9 +1,7 @@
 package lower
 
 import "base:runtime"
-import "core:mem"
 import "core:mem/virtual"
-import "core:thread"
 import "oc:check"
 import "oc:ir"
 import "oc:types"
@@ -60,9 +58,7 @@ lower_program :: proc(
 	}
 	append(&module.globals, ir.Global{name = DEFAULT_CONTEXT_NAME, size = DEFAULT_CONTEXT_SIZE, align = 16, mutable = true}) or_return
 	runtime_requirements := check.runtime_requirements(program)
-	if len(runtime_requirements.type_info) != 0 || runtime_requirements.type_table != 0 {
-		append(&collected, Lower_Error{code = .Unsupported, feature = .Runtime_Type_Info}) or_return
-	}
+	fill_type_info(program, module, &collected) or_return
 	if runtime_requirements.entry_point != 0 || len(runtime_requirements.tests) != 0 {
 		append(&collected, Lower_Error{code = .Unsupported, feature = .Startup}) or_return
 	}
@@ -94,23 +90,8 @@ lower_program :: proc(
 		job.declarations = declarations
 		job.address_taken = address_taken
 	}
-	if len(jobs) > 0 {
-		locked_allocator: mem.Mutex_Allocator
-		mem.mutex_allocator_init(&locked_allocator, allocator)
-		worker_allocator := mem.mutex_allocator(&locked_allocator)
-		pool: thread.Pool
-		thread.pool_init(&pool, worker_allocator, min(max(worker_count, 1), len(jobs)))
-		for &job in jobs {
-			job.function.allocator = worker_allocator
-			thread.pool_add_task(&pool, worker_allocator, run_procedure, &job)
-		}
-		thread.pool_start(&pool)
-		thread.pool_finish(&pool)
-		thread.pool_destroy(&pool)
-		for &job in jobs {
-			job.function.allocator = allocator
-		}
-	}
+	reached_globals := lower_reachable(program, module, jobs, symbols, worker_count, allocator, scratch_allocator) or_return
+	prune_unreached_global_errors(program, symbols, reached_globals, &collected) or_return
 	for &job in jobs {
 		if job.allocation_error != nil { return nil, job.allocation_error }
 		append(&collected, ..job.errors[:]) or_return

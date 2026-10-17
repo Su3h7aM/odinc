@@ -8,17 +8,25 @@ import "oc:types"
 @(private)
 lower_conversion :: proc(state: ^Procedure_State, plan: check.Conversion_Plan, node: syntax.Node_Index) -> ir.Node_Id {
 	assert(plan.kind != .Invalid, "missing checked conversion kind")
-	if plan.kind == .Box || plan.kind == .Union_Injection || len(plan.path) != 0 { return lower_fail(state, node, .Conversion) }
+	if plan.kind == .Box { return lower_box(state, node, plan) }
+	if plan.kind == .Union_Injection || len(plan.path) != 0 { return lower_fail(state, node, .Conversion) }
 	source_id := operand_type(state, plan.source)
 	if state.failed { return 0 }
 	constant_target := types.Type_Id(0)
 	if types.is_untyped(check.type_store(state.job.program), source_id) { constant_target = plan.target }
 	value := lower_operand(state, plan.source, constant_target)
 	if state.failed { return 0 }
+	if scalar_type(state, source_id) != .None && lower_type(state, plan.target).kind == .Simd_Vector {
+		return lower_simd_broadcast(state, plan.target, value)
+	}
 	function := state.job.function
 	if is_wide_integer(state, plan.target) || is_wide_integer(state, source_id) {
 		return lower_wide_conversion(state, node, source_id, plan.target, value)
 	}
+	if plan.kind == .Transmute && (scalar_type(state, source_id) == .None) != (scalar_type(state, plan.target) == .None) {
+		return lower_transmute_across_classes(state, source_id, plan.target, value)
+	}
+	if scalar_type(state, plan.target) == .None { return lower_same_layout_conversion(state, node, plan, source_id, value) }
 	source := function.nodes.type[value]
 	target := scalar_type(state, plan.target)
 	if source == target { return value }
@@ -69,6 +77,26 @@ lower_conversion :: proc(state: ^Procedure_State, plan: check.Conversion_Plan, n
 	return lower_fail(state, node, .Conversion)
 }
 
+// `any(value)`: a stack copy of the value, and an `any` slot holding its data pointer and typeid.
+@(private)
+lower_box :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: check.Conversion_Plan) -> ir.Node_Id {
+	source_id := operand_type(state, plan.source)
+	if state.failed { return 0 }
+	source_layout := state.job.layouts[source_id]
+	if source_layout.error != .None { return lower_fail(state, node, .Conversion) }
+	value := lower_operand(state, plan.source, 0)
+	if state.failed { return 0 }
+	function := state.job.function
+	data := ir.stack_slot(function, state.entry_control, u32(max(source_layout.size, 1)), u32(source_layout.align))
+	lower_store(state, data, value, source_id)
+	typeid_value := lower_runtime_typeid(state, node, source_id)
+	if state.failed { return 0 }
+	any_slot := ir.stack_slot(function, state.entry_control, 16, 8)
+	lower_store_word(state, any_slot, data)
+	lower_store_word(state, ir.ptr_offset(function, any_slot, 8), typeid_value)
+	return any_slot
+}
+
 @(private)
 scalar_bits :: proc(type: ir.Value_Type) -> int {
 	#partial switch type {
@@ -85,4 +113,34 @@ scalar_bits :: proc(type: ir.Value_Type) -> int {
 	case:
 		return 0
 	}
+}
+
+// Copies an aggregate operand (its address) into a fresh slot of the target type, for casts such as []u8 <-> string.
+// Transmute between a scalar and an aggregate of equal size: the scalar is stored into a slot, or the scalar is loaded from the aggregate's address.
+@(private)
+lower_transmute_across_classes :: proc(state: ^Procedure_State, source_id, target_id: types.Type_Id, value: ir.Node_Id) -> ir.Node_Id {
+	if scalar_type(state, source_id) == .None { return lower_load(state, value, target_id) }
+	target_layout := state.job.layouts[target_id]
+	slot := ir.stack_slot(state.job.function, state.entry_control, u32(target_layout.size), u32(target_layout.align))
+	lower_store(state, slot, value, source_id)
+	return slot
+}
+
+// Copies an aggregate operand (its address) into a fresh slot of the target type, for casts such as []u8 <-> string.
+@(private)
+lower_same_layout_conversion :: proc(
+	state: ^Procedure_State,
+	node: syntax.Node_Index,
+	plan: check.Conversion_Plan,
+	source_id: types.Type_Id,
+	address: ir.Node_Id,
+) -> ir.Node_Id {
+	source_layout := state.job.layouts[source_id]
+	target_layout := state.job.layouts[plan.target]
+	if source_layout.error != .None || target_layout.error != .None || source_layout.size != target_layout.size || scalar_type(state, source_id) != .None {
+		return lower_fail(state, node, .Conversion)
+	}
+	copy := ir.stack_slot(state.job.function, state.entry_control, u32(target_layout.size), u32(target_layout.align))
+	lower_store(state, copy, address, plan.target)
+	return copy
 }

@@ -35,7 +35,7 @@ expression_call :: proc(
 	call_arguments := make([]Call_Argument, parameter_count, allocator) or_return
 	fixed_supplied := min(len(arguments), fixed_count)
 	for argument, index in arguments[:fixed_supplied] {
-		value := check_expression(checker, view, scope, argument, descriptor.params[index]) or_return
+		value := expression_argument(checker, view, scope, argument, descriptor.params[index]) or_return
 		if value.state == .Invalid { return expression_poison(scope), nil }
 		conversion := expression_conversion_plan(checker, value.plan)
 		if conversion != 0 {

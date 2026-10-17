@@ -97,9 +97,8 @@ lower_call :: proc(state: ^Procedure_State, node: syntax.Node_Index, info: check
 @(private)
 lower_call_results :: proc(state: ^Procedure_State, node: syntax.Node_Index, info: check.Expression_Info, plan: check.Call_Plan, values: []ir.Node_Id) {
 	if plan.context_plan != 0 { lower_fail(state, node, .Context); return }
-	if plan.entity == 0 || int(plan.entity) >= len(state.job.declarations) { lower_fail(state, node, .Call); return }
-	declaration := state.job.declarations[plan.entity]
-	if declaration.type == 0 || !direct_call_callee(state, plan) { lower_fail(state, node, .Call); return }
+	declaration, valid := call_declaration(state, node, plan)
+	if !valid { return }
 	signature := declaration.signature
 	context_count := 0
 	if signature.cc == .Odin {
@@ -153,9 +152,12 @@ lower_call_results :: proc(state: ^Procedure_State, node: syntax.Node_Index, inf
 		if !argument.caller_location &&
 		   !argument.variadic_pack &&
 		   !call_operand_valid(state, argument.value) { lower_fail(state, node, .Call_Argument); return }
-		position := -1
-		for parameter, source in declaration.parameters {
-			if parameter == argument.parameter { position = source; break }
+		position := index
+		if plan.entity != 0 {
+			position = -1
+			for parameter, source in declaration.parameters {
+				if parameter == argument.parameter { position = source; break }
+			}
 		}
 		if position < 0 { lower_fail(state, node, .Call_Argument); return }
 		for previous in ordered[:index] {
@@ -176,7 +178,13 @@ lower_call_results :: proc(state: ^Procedure_State, node: syntax.Node_Index, inf
 	for entry, index in ordered {
 		if index > 0 && ordered[index - 1].evaluation_order == entry.evaluation_order { lower_fail(state, node, .Call_Argument); return }
 	}
-	callee := ir.symbol_addr(function, declaration.symbol)
+	callee: ir.Node_Id
+	if plan.entity == 0 {
+		callee = lower_operand(state, plan.callee)
+	} else {
+		callee = ir.symbol_addr(function, declaration.symbol)
+	}
+	if state.failed || function.error != nil { return }
 	last := len(arguments) - 1
 	if context_count == 1 {
 		arguments[last] = state.context_pointer
@@ -299,6 +307,9 @@ lower_builtin :: proc(state: ^Procedure_State, node: syntax.Node_Index, info: ch
 		return 0
 	}
 	if check.builtin_kind(state.job.program, plan.builtin) == .Len { return lower_length(state, node, info, plan) }
+	if value, handled := lower_simd_builtin(state, node, info, plan, check.builtin_kind(state.job.program, plan.builtin)); handled {
+		return value
+	}
 	if kind := check.builtin_kind(state.job.program, plan.builtin); kind != .Syscall { return lower_intrinsic(state, node, info, plan, kind) }
 	if check.builtin_kind(state.job.program, plan.builtin) != .Syscall || len(plan.helpers) != 0 { return lower_fail(state, node, .Builtin) }
 	if info.type == 0 ||

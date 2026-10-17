@@ -43,7 +43,7 @@ check_conversion :: proc(
 ) {
 	if info.state == .Invalid || info.type == types.TYPE_POISON { return {}, .Invalid_Value, nil }
 	#partial switch info.mode {
-	case .Constant, .Value, .Immutable_Value, .Variable:
+	case .Constant, .Value, .Immutable_Value, .Variable, .Context:
 	case:
 		return {}, .Invalid_Value, nil
 	}
@@ -71,17 +71,26 @@ check_conversion :: proc(
 		target_size, _, target_error := types.layout(store, target, config.layout)
 		if source_error != .None || target_error != .None { return {}, .Invalid_Type, nil }
 		if size != target_size { return {}, .Size_Mismatch, nil }
-		// The first slice only retains scalar reinterpretations.
-		if !conversion_scalar(src.kind) || !conversion_scalar(dst.kind) { return {}, .Unsupported, nil }
 		return result, .None, nil
 	}
 	if kind != .Assignment && kind != .Cast { return {}, .Unsupported, nil }
+	if kind == .Assignment && !untyped && dst.kind == .Any && src.kind != .Any {
+		result.plan.kind = .Box
+		return result, .None, nil
+	}
 	allowed := info.type == target
 	if kind == .Assignment && untyped {
 		allowed = conversion_integer(src.kind) && conversion_integer(dst.kind) || conversion_boolean(src.kind) && conversion_boolean(dst.kind)
 		allowed ||= conversion_float(src.kind) && conversion_float(dst.kind)
 		allowed ||= conversion_integer(src.kind) && conversion_float(dst.kind)
 		allowed ||= conversion_float(src.kind) && conversion_integer(dst.kind)
+		allowed ||= src.kind == .Untyped_Nil && conversion_nilable(dst.kind)
+	}
+	if kind == .Assignment && !untyped {
+		allowed ||= dst.kind == .Raw_Pointer && (src.kind == .Pointer || src.kind == .Multi_Pointer)
+		allowed ||= dst.kind == .Pointer && src.kind == .Multi_Pointer && dst.elem == src.elem
+		allowed ||= dst.kind == .Multi_Pointer && src.kind == .Pointer && dst.elem == src.elem
+		allowed ||= simd_broadcast_allowed(dst, info.type)
 	}
 	if kind == .Cast {
 		allowed ||= conversion_integer(src.kind) && conversion_integer(dst.kind) || conversion_boolean(src.kind) && conversion_boolean(dst.kind)
@@ -89,10 +98,23 @@ check_conversion :: proc(
 		allowed ||= conversion_integer(src.kind) && conversion_float(dst.kind)
 		allowed ||= conversion_float(src.kind) && conversion_integer(dst.kind)
 		allowed ||= conversion_pointer(src.kind) && conversion_pointer(dst.kind)
+		allowed ||= src.kind == .CString && conversion_code_unit_pointer(store, dst, 1) || conversion_code_unit_pointer(store, src, 1) && dst.kind == .CString
+		allowed ||=
+			src.kind == .CString16 && conversion_code_unit_pointer(store, dst, 2) || conversion_code_unit_pointer(store, src, 2) && dst.kind == .CString16
+		allowed ||= src.kind == .CString && dst.kind == .Raw_Pointer || src.kind == .Raw_Pointer && dst.kind == .CString
+		allowed ||= conversion_byte_slice(store, src) && dst.kind == .String || src.kind == .String && conversion_byte_slice(store, dst)
 		allowed ||= info.type == config.uintptr && conversion_pointer(dst.kind) || conversion_pointer(src.kind) && target == config.uintptr
 	}
 	if !allowed {
 		return {}, .Not_Assignable if kind == .Assignment else .Not_Castable, nil
+	}
+	if dst.kind == .Simd_Vector { return result, .None, nil }
+	if src.kind == .Untyped_Nil {
+		nil_constant, nil_error := constant_pool_intern_nil(pool, target)
+		if nil_error != nil { return {}, .None, nil_error }
+		result.info.mode = .Constant
+		result.info.constant = nil_constant
+		return result, .None, nil
 	}
 	if info.mode == .Constant {
 		if !conversion_integer(dst.kind) && !conversion_boolean(dst.kind) && !conversion_float(dst.kind) { return {}, .Unsupported, nil }
@@ -135,7 +157,28 @@ conversion_pointer :: proc(kind: types.Kind) -> bool {
 	return kind == .Pointer || kind == .Multi_Pointer || kind == .Raw_Pointer
 }
 
+conversion_nilable :: proc(kind: types.Kind) -> bool {
+	return conversion_pointer(kind) || kind == .CString || kind == .CString16 || kind == .Procedure
+}
+
+// []u8 and string share one layout, so either converts to the other with a cast (not cstring).
+// cstring and cstring16 convert to and from pointers of their code unit, as the official check_is_castable_to allows.
+@(private = "file")
+conversion_code_unit_pointer :: proc(store: ^types.Store, descriptor: types.Type, width: i64) -> bool {
+	if descriptor.kind != .Pointer && descriptor.kind != .Multi_Pointer { return false }
+	element := types.get(store, conversion_base_type(store, descriptor.elem))^
+	return element.kind == .Integer && element.count == width && !element.signed
+}
+
+// []u8 and string share one layout, so either converts to the other with a cast (not cstring).
+@(private = "file")
+conversion_byte_slice :: proc(store: ^types.Store, descriptor: types.Type) -> bool {
+	if descriptor.kind != .Slice { return false }
+	element := types.get(store, conversion_base_type(store, descriptor.elem))^
+	return element.kind == .Integer && element.count == 1 && !element.signed
+}
+
 @(private = "file")
 conversion_scalar :: proc(kind: types.Kind) -> bool {
-	return conversion_integer(kind) || conversion_boolean(kind) || conversion_pointer(kind) || kind == .Float
+	return conversion_integer(kind) || conversion_boolean(kind) || conversion_pointer(kind) || kind == .CString || kind == .Float
 }

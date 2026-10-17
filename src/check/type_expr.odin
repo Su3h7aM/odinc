@@ -24,7 +24,13 @@ Type_Diagnostic_Kind :: enum u8 {
 	Invalid_Calling_Convention,
 	Invalid_Distinct,
 	Recursive_Value,
+	Invalid_Bit_Set_Element,
+	Invalid_Bit_Set_Backing,
+	Bit_Set_Out_Of_Range,
+	Invalid_Simd_Count,
+	Invalid_Simd_Element,
 }
+
 
 // Placeholder for F3. Names and source bytes are borrowed.
 Type_Diagnostic :: struct {
@@ -57,26 +63,55 @@ Integer_Evaluator :: #type proc(
 	err: Resolve_Error,
 )
 
+// Evaluates a boolean constant condition in `scope`. False means the evaluator diagnosed it already.
+Boolean_Evaluator :: #type proc(
+	checker: ^Type_Checker,
+	scope: Scope_Id,
+	file: File_Id,
+	expression: syntax.Node_Index,
+	user_data: rawptr,
+) -> (
+	value: bool,
+	ok: bool,
+	err: Resolve_Error,
+)
+
+// Evaluates the default expression of an untyped parameter and returns its default type. False means it was diagnosed already.
+Default_Type_Evaluator :: #type proc(
+	checker: ^Type_Checker,
+	scope: Scope_Id,
+	file: File_Id,
+	expression: syntax.Node_Index,
+	user_data: rawptr,
+) -> (
+	type_id: types.Type_Id,
+	ok: bool,
+	err: Resolve_Error,
+)
+
 // Resolves type expressions into the borrowed type store. Run it serially with the borrowed resolver.
 // Owns member arrays, enum metadata, diagnostics and lookup tables. `files` is indexed by File_Id.
 // The declaration dispatcher passed to resolver_init calls type_declaration for each entity first.
 Type_Checker :: struct {
-	resolver:         ^Resolver,
-	collection:       ^Collection,
-	store:            ^types.Store,
-	files:            []^File,
-	evaluate_integer: Integer_Evaluator,
-	user_data:        rawptr,
-	allocator:        mem.Allocator,
-	arena:            mem.Dynamic_Arena,
-	arena_allocator:  mem.Allocator,
-	declarations:     map[Entity_Id]Collected_Declaration,
-	synced:           int,
-	enum_members:     map[types.Type_Id][]Enum_Member,
-	subtype_fields:   map[types.Type_Id][]bool,
-	nominals:         [dynamic]Nominal_Type,
-	layouts_checked:  int,
-	diagnostics:      [dynamic]Type_Diagnostic,
+	resolver:              ^Resolver,
+	collection:            ^Collection,
+	store:                 ^types.Store,
+	files:                 []^File,
+	evaluate_integer:      Integer_Evaluator,
+	evaluate_boolean:      Boolean_Evaluator,
+	evaluate_default_type: Default_Type_Evaluator,
+	user_data:             rawptr,
+	instantiating:         bool,
+	allocator:             mem.Allocator,
+	arena:                 mem.Dynamic_Arena,
+	arena_allocator:       mem.Allocator,
+	declarations:          map[Entity_Id]Collected_Declaration,
+	synced:                int,
+	enum_members:          map[types.Type_Id][]Enum_Member,
+	field_flags:           map[types.Type_Id][]syntax.Field_Flags,
+	nominals:              [dynamic]Nominal_Type,
+	layouts_checked:       int,
+	diagnostics:           [dynamic]Type_Diagnostic,
 }
 
 type_checker_init :: proc(
@@ -102,7 +137,7 @@ type_checker_init :: proc(
 	checker.arena_allocator = mem.dynamic_arena_allocator(&checker.arena)
 	checker.declarations = make(map[Entity_Id]Collected_Declaration, allocator)
 	checker.enum_members = make(map[types.Type_Id][]Enum_Member, allocator)
-	checker.subtype_fields = make(map[types.Type_Id][]bool, allocator)
+	checker.field_flags = make(map[types.Type_Id][]syntax.Field_Flags, allocator)
 	checker.nominals.allocator = allocator
 	checker.diagnostics.allocator = allocator
 }
@@ -111,7 +146,7 @@ type_checker_destroy :: proc(checker: ^Type_Checker) {
 	if checker == nil { return }
 	delete(checker.declarations)
 	delete(checker.enum_members)
-	delete(checker.subtype_fields)
+	delete(checker.field_flags)
 	delete(checker.nominals)
 	delete(checker.diagnostics)
 	mem.dynamic_arena_destroy(&checker.arena)
@@ -134,8 +169,7 @@ type_declaration :: proc(checker: ^Type_Checker, id: Entity_Id) -> (handled, val
 	scope, name := entity.scope, entity.name
 	value := type_unparen(file, collected.value.node)
 	if entity.kind == .Constant {
-		if file.ast.nodes[value].kind != .Ident { return }
-		is_type := type_alias_target(checker, file_id, file, scope, value) or_return
+		is_type := type_value_is_type(checker, file_id, file, scope, value) or_return
 		if !is_type { return }
 		entity = entity_get(scopes, id)
 		entity.kind = .Type_Name
@@ -144,8 +178,8 @@ type_declaration :: proc(checker: ^Type_Checker, id: Entity_Id) -> (handled, val
 	#partial switch file.ast.nodes[value].kind {
 	case .Struct_Type:
 		type := publish_nominal(checker, id, .Struct, name) or_return
-		descriptor, subtypes, record_valid := struct_descriptor(checker, file_id, file, scope, value, name) or_return
-		register_subtypes(checker, type, subtypes) or_return
+		descriptor, field_flags, record_valid := struct_descriptor(checker, file_id, file, scope, value, name) or_return
+		register_field_flags(checker, type, field_flags) or_return
 		types.complete_nominal(checker.store, type, descriptor)
 		return true, record_valid, nil
 	case .Union_Type:
@@ -172,6 +206,54 @@ type_declaration :: proc(checker: ^Type_Checker, id: Entity_Id) -> (handled, val
 	return true, type != types.TYPE_POISON, nil
 }
 
+// The taken branch of a ternary when; ok is false after the condition has been diagnosed.
+@(private = "file")
+type_ternary_when_branch :: proc(
+	checker: ^Type_Checker,
+	file_id: File_Id,
+	file: ^File,
+	scope: Scope_Id,
+	node: syntax.Node_Index,
+) -> (
+	branch: syntax.Node_Index,
+	ok: bool,
+	err: Resolve_Error,
+) {
+	ternary := syntax.node_payload(file.ast, node, syntax.Ternary_Expr)
+	if checker.evaluate_boolean == nil {
+		type_report(checker, file_id, file, node, .Missing_Evaluator) or_return
+		return 0, false, nil
+	}
+	value, evaluated, evaluate_error := checker.evaluate_boolean(checker, scope, file_id, ternary.cond, checker.user_data)
+	if evaluate_error != nil || !evaluated { return 0, false, evaluate_error }
+	if value { return ternary.x, true, nil }
+	return ternary.y, true, nil
+}
+
+// A constant names a type when its value is a type node, an alias, or a ternary when selecting one.
+@(private = "file")
+type_value_is_type :: proc(
+	checker: ^Type_Checker,
+	file_id: File_Id,
+	file: ^File,
+	scope: Scope_Id,
+	node: syntax.Node_Index,
+) -> (
+	is_type: bool,
+	err: Resolve_Error,
+) {
+	#partial switch file.ast.nodes[node].kind {
+	case .Ident:
+		return type_alias_target(checker, file_id, file, scope, node)
+	case .Ternary_When_Expr:
+		branch, selected, branch_error := type_ternary_when_branch(checker, file_id, file, scope, node)
+		if branch_error != nil || !selected { return false, branch_error }
+		return type_value_is_type(checker, file_id, file, scope, branch)
+	case:
+		return file.ast.nodes[node].kind >= .Typeid_Type && file.ast.nodes[node].kind <= .Bit_Field_Type, nil
+	}
+}
+
 // Poison is returned after a diagnosed error. Direct positions need the value's layout; indirect ones
 // need only its identity. Both request identity so mutually recursive nominals can be declared.
 @(require_results)
@@ -190,12 +272,18 @@ type_expression :: proc(
 	#partial switch file.ast.nodes[node].kind {
 	case .Ident:
 		return type_identifier(checker, file_id, file, scope, node, direct)
+	case .Ternary_When_Expr:
+		branch, selected, branch_error := type_ternary_when_branch(checker, file_id, file, scope, node)
+		if branch_error != nil || !selected { return types.TYPE_POISON, branch_error }
+		return type_expression(checker, file_id, scope, branch, direct)
 	case .Pointer_Type:
 		elem := type_expression(checker, file_id, scope, syntax.node_payload(file.ast, node, syntax.Pointer_Type).elem, false) or_return
 		return type_wrapper(checker, .Pointer, elem), nil
 	case .Multi_Pointer_Type:
 		elem := type_expression(checker, file_id, scope, syntax.node_payload(file.ast, node, syntax.Multi_Pointer_Type).elem, false) or_return
 		return type_wrapper(checker, .Multi_Pointer, elem), nil
+	case .Poly_Type:
+		return type_expression(checker, file_id, scope, syntax.node_payload(file.ast, node, syntax.Poly_Type).type, direct)
 	case .Dynamic_Array_Type:
 		elem := type_expression(checker, file_id, scope, syntax.node_payload(file.ast, node, syntax.Dynamic_Array_Type).elem, false) or_return
 		return type_wrapper(checker, .Dynamic_Array, elem), nil
@@ -207,6 +295,14 @@ type_expression :: proc(
 		return types.intern(checker.store, types.Type{kind = .Fixed_Capacity_Array, elem = elem, count = count}), nil
 	case .Array_Type:
 		return array_type(checker, file_id, file, scope, node)
+	case .Call_Expr:
+		return type_of_type(checker, file_id, file, scope, node)
+	case .Bit_Set_Type:
+		return bit_set_type(checker, file_id, file, scope, node)
+	case .Typeid_Type:
+		if syntax.node_payload(file.ast, node, syntax.Typeid_Type).specialization == 0 {
+			return types.intern(checker.store, types.Type{kind = .Type_Id}), nil
+		}
 	case .Map_Type:
 		map_type := syntax.node_payload(file.ast, node, syntax.Map_Type)
 		key := type_expression(checker, file_id, scope, map_type.key, false) or_return
@@ -214,10 +310,10 @@ type_expression :: proc(
 		if key == types.TYPE_POISON || value == types.TYPE_POISON { return types.TYPE_POISON, nil }
 		return types.intern(checker.store, types.Type{kind = .Map, index = key, elem = value}), nil
 	case .Struct_Type:
-		descriptor, subtypes, valid := struct_descriptor(checker, file_id, file, scope, node, "") or_return
+		descriptor, field_flags, valid := struct_descriptor(checker, file_id, file, scope, node, "") or_return
 		if !valid { return types.TYPE_POISON, nil }
 		type = types.intern(checker.store, descriptor)
-		register_subtypes(checker, type, subtypes) or_return
+		register_field_flags(checker, type, field_flags) or_return
 		return type, nil
 	case .Union_Type:
 		descriptor, valid := union_descriptor(checker, file_id, file, scope, node, "") or_return
@@ -231,6 +327,8 @@ type_expression :: proc(
 		return type, nil
 	case .Proc_Type:
 		return procedure_type(checker, file_id, file, scope, node)
+	case .Helper_Type:
+		return type_expression(checker, file_id, scope, syntax.node_payload(file.ast, node, syntax.Helper_Type).type, direct)
 	case .Distinct_Type:
 		type_report(checker, file_id, file, node, .Invalid_Distinct) or_return
 		return types.TYPE_POISON, nil
@@ -335,6 +433,47 @@ type_identifier :: proc(
 	return entity.type, nil
 }
 
+// `type_of(x)` declares a type name, as it does in a type position.
+is_type_of_call :: proc(file: ^File, node: syntax.Node_Index) -> bool {
+	if file.ast.nodes[node].kind != .Call_Expr { return false }
+	call := syntax.node_payload(file.ast, node, syntax.Call_Expr)
+	return file.ast.nodes[call.expr].kind == .Ident && type_node_text(file, call.expr) == "type_of"
+}
+
+// `type_of(x)` in a type position is the type of the identifier `x`.
+@(private = "file")
+type_of_type :: proc(
+	checker: ^Type_Checker,
+	file_id: File_Id,
+	file: ^File,
+	scope: Scope_Id,
+	node: syntax.Node_Index,
+) -> (
+	type: types.Type_Id,
+	err: Resolve_Error,
+) {
+	call := syntax.node_payload(file.ast, node, syntax.Call_Expr)
+	arguments := syntax.node_list(file.ast, call.args)
+	if file.ast.nodes[call.expr].kind != .Ident ||
+	   type_node_text(file, call.expr) != "type_of" ||
+	   len(arguments) != 1 ||
+	   file.ast.nodes[arguments[0]].kind != .Ident {
+		type_report(checker, file_id, file, node, .Unsupported_Type_Expression) or_return
+		return types.TYPE_POISON, nil
+	}
+	name := type_node_text(file, arguments[0])
+	scopes := checker.resolver.scopes
+	found, _ := scope_lookup(scopes, scope, name)
+	if found == 0 {
+		type_report(checker, file_id, file, arguments[0], .Undeclared_Type, name) or_return
+		return types.TYPE_POISON, nil
+	}
+	state, resolve_error := resolve_entity(checker.resolver, found)
+	if resolve_error != nil { return types.TYPE_POISON, resolve_error }
+	if state == .Invalid { return types.TYPE_POISON, nil }
+	return entity_get(scopes, found).type, nil
+}
+
 @(private = "file")
 resolve_type_dependency :: proc(
 	checker: ^Type_Checker,
@@ -368,8 +507,7 @@ array_type :: proc(
 ) {
 	array := syntax.node_payload(file.ast, node, syntax.Array_Type)
 	if array.tag != 0 {
-		type_report(checker, file_id, file, array.tag, .Unsupported_Type_Expression) or_return
-		return types.TYPE_POISON, nil
+		return simd_array_type(checker, file_id, file, scope, array)
 	}
 	if array.len == 0 {
 		elem := type_expression(checker, file_id, scope, array.elem, false) or_return
@@ -417,7 +555,6 @@ enumerated_array_type :: proc(
 	return types.intern(checker.store, types.Type{kind = .Enumerated_Array, elem = elem, index = index, count = count}), nil
 }
 
-@(private = "file")
 array_count :: proc(checker: ^Type_Checker, file_id: File_Id, scope: Scope_Id, node: syntax.Node_Index) -> (count: i64, valid: bool, err: Resolve_Error) {
 	file := checker.files[file_id]
 	value, ok := integer_expression(checker, file_id, file, scope, node) or_return
@@ -479,7 +616,7 @@ struct_descriptor :: proc(
 	name: string,
 ) -> (
 	descriptor: types.Type,
-	subtypes: []bool,
+	flags: []syntax.Field_Flags,
 	valid: bool,
 	err: Resolve_Error,
 ) {
@@ -489,7 +626,7 @@ struct_descriptor :: proc(
 		type_report(checker, file_id, file, node, .Unsupported_Type_Expression) or_return
 		valid = false
 	}
-	fields, fields_valid, _, field_subtypes := record_fields(checker, file_id, file, scope, record.fields, true, true) or_return
+	fields, fields_valid, _, field_flags := record_fields(checker, file_id, file, scope, record.fields, true, true) or_return
 	descriptor = types.Type {
 		kind      = .Struct,
 		name      = name,
@@ -501,7 +638,7 @@ struct_descriptor :: proc(
 	descriptor.custom_align, align_valid = alignment_expression(checker, file_id, file, scope, record.align) or_return
 	descriptor.min_field_align, min_valid = alignment_expression(checker, file_id, file, scope, record.min_field_align) or_return
 	descriptor.max_field_align, max_valid = alignment_expression(checker, file_id, file, scope, record.max_field_align) or_return
-	return descriptor, field_subtypes, valid && fields_valid && align_valid && min_valid && max_valid, nil
+	return descriptor, field_flags, valid && fields_valid && align_valid && min_valid && max_valid, nil
 }
 
 @(private = "file")
@@ -649,15 +786,15 @@ enum_descriptor :: proc(
 	return descriptor, members, valid, nil
 }
 
-// Records which struct fields were declared #subtype, aligned with the descriptor fields. Absent means none.
+// Records each field's flags (`using`, `#subtype`), aligned with the descriptor fields, when any field has flags.
 @(private = "file")
-register_subtypes :: proc(checker: ^Type_Checker, type: types.Type_Id, subtypes: []bool) -> runtime.Allocator_Error {
-	any_subtype := false
-	for subtype in subtypes { any_subtype ||= subtype }
-	if !any_subtype { return nil }
-	_, stored, inserted, err := map_entry(&checker.subtype_fields, type)
+register_field_flags :: proc(checker: ^Type_Checker, type: types.Type_Id, field_flags: []syntax.Field_Flags) -> runtime.Allocator_Error {
+	any_flagged := false
+	for flags in field_flags { any_flagged ||= flags != {} }
+	if !any_flagged { return nil }
+	_, stored, inserted, err := map_entry(&checker.field_flags, type)
 	if err != nil { return err }
-	if inserted { stored^ = subtypes }
+	if inserted { stored^ = field_flags }
 	return nil
 }
 
@@ -681,7 +818,7 @@ procedure_type :: proc(
 	err: Resolve_Error,
 ) {
 	signature := syntax.node_payload(file.ast, node, syntax.Proc_Type)
-	if signature.generic {
+	if signature.generic && !checker.instantiating {
 		type_report(checker, file_id, file, node, .Unsupported_Type_Expression) or_return
 		return types.TYPE_POISON, nil
 	}
@@ -712,9 +849,38 @@ procedure_type :: proc(
 		nil
 }
 
+// Checks the default expression of an untyped parameter and takes its default type, as official handle_parameter_value does.
+@(private = "file")
+default_expression_type :: proc(
+	checker: ^Type_Checker,
+	scope: Scope_Id,
+	file_id: File_Id,
+	value: syntax.Node_Index,
+) -> (
+	type: types.Type_Id,
+	found: bool,
+	err: Resolve_Error,
+) {
+	if checker.evaluate_default_type == nil { return 0, false, nil }
+	inferred, ok, evaluate_error := checker.evaluate_default_type(checker, scope, file_id, value, checker.user_data)
+	if evaluate_error != nil { return 0, false, evaluate_error }
+	if !ok { return types.TYPE_POISON, true, nil }
+	return inferred, true, nil
+}
+
 // An untyped parameter takes the type of its default: `#caller_location` and `#caller_expression` are strings and locations, literals take their default type.
 @(private = "file")
-default_parameter_type :: proc(checker: ^Type_Checker, file: ^File, value: syntax.Node_Index) -> (type: types.Type_Id, found: bool, err: Resolve_Error) {
+default_parameter_type :: proc(
+	checker: ^Type_Checker,
+	file_id: File_Id,
+	file: ^File,
+	scope: Scope_Id,
+	value: syntax.Node_Index,
+) -> (
+	type: types.Type_Id,
+	found: bool,
+	err: Resolve_Error,
+) {
 	if value == 0 { return 0, false, nil }
 	if file.ast.nodes[value].kind == .Basic_Lit {
 		untyped: types.Type_Id
@@ -734,7 +900,7 @@ default_parameter_type :: proc(checker: ^Type_Checker, file: ^File, value: synta
 	}
 	directive := value
 	if file.ast.nodes[value].kind == .Call_Expr { directive = syntax.node_payload(file.ast, value, syntax.Call_Expr).expr }
-	if file.ast.nodes[directive].kind != .Basic_Directive { return 0, false, nil }
+	if file.ast.nodes[directive].kind != .Basic_Directive { return default_expression_type(checker, scope, file_id, value) }
 	switch expression_text(file, directive) {
 	case "#caller_expression":
 		return types.intern(checker.store, types.Type{kind = .String}), true, nil
@@ -761,7 +927,7 @@ record_fields :: proc(
 	fields: []types.Type_Field,
 	valid: bool,
 	variadic: bool,
-	subtypes: []bool,
+	field_flags: []syntax.Field_Flags,
 	err: Resolve_Error,
 ) {
 	if list_node == 0 { return nil, true, false, nil, nil }
@@ -769,11 +935,12 @@ record_fields :: proc(
 	total := 0
 	for field_node in nodes { total += max(int(syntax.node_payload(file.ast, field_node, syntax.Field).names.count), 1) }
 	stored := make([]types.Type_Field, total, checker.arena_allocator) or_return
-	subtype_flags := make([]bool, total, checker.arena_allocator) or_return
+	flags := make([]syntax.Field_Flags, total, checker.arena_allocator) or_return
 	count := 0
 	valid = true
 	for field_node in nodes {
 		field := syntax.node_payload(file.ast, field_node, syntax.Field)
+		if checker.instantiating && is_type_param_field(file, field) { continue }
 		type_node := field.type
 		is_variadic := false
 		if type_node != 0 && file.ast.nodes[type_node].kind == .Ellipsis {
@@ -782,7 +949,7 @@ record_fields :: proc(
 		}
 		field_type := types.TYPE_POISON
 		if type_node == 0 {
-			inferred, found := default_parameter_type(checker, file, field.default_value) or_return
+			inferred, found := default_parameter_type(checker, file_id, file, scope, field.default_value) or_return
 			if found {
 				field_type = inferred
 			} else {
@@ -821,11 +988,11 @@ record_fields :: proc(
 				name = field_name,
 				type = field_type,
 			}
-			subtype_flags[count] = .Subtype in field.flags
+			flags[count] = field.flags
 			count += 1
 		}
 	}
-	return stored[:count], valid, variadic, subtype_flags[:count], nil
+	return stored[:count], valid, variadic, flags[:count], nil
 }
 
 @(private = "file")
@@ -855,7 +1022,6 @@ calling_convention_from_name :: proc(name: string) -> (convention: types.Calling
 	return .Odin, false
 }
 
-@(private = "file")
 underlying_type :: proc(store: ^types.Store, id: types.Type_Id) -> types.Type_Id {
 	current := id
 	for _ in 0 ..< len(store.types) {
@@ -896,7 +1062,6 @@ type_node_span :: proc(file_id: File_Id, file: ^File, node: syntax.Node_Index) -
 	return {file_id, span.start, span.end}
 }
 
-@(private = "file")
 type_report :: proc(
 	checker: ^Type_Checker,
 	file_id: File_Id,

@@ -161,8 +161,20 @@ lower_local_declaration :: proc(state: ^Procedure_State, node: syntax.Node_Index
 	allocator := virtual.arena_allocator(&state.job.function.arena)
 	initials, err := make([]ir.Node_Id, len(names), allocator)
 	if err != nil { state.job.function.error = err; return }
+	conversions: []check.Plan_Id
+	if declared, declared_found := check.expression_info(state.job.program, state.view, node); declared_found && declared.plan != 0 {
+		plan := check.plan(state.job.program, declared.plan)
+		if plan == nil { lower_fail(state, node, .Local); return }
+		assignment, found := plan^.(check.Assignment_Plan)
+		if !found { lower_fail(state, node, .Local); return }
+		conversions = assignment.conversions
+	}
 	for value, index in values {
-		if state.ast.nodes[value].kind != .Undef { initials[index] = lower_value(state, value) }
+		if index < len(conversions) && conversions[index] != 0 {
+			initials[index] = lower_declared_conversion(state, value, conversions[index])
+		} else if state.ast.nodes[value].kind != .Undef {
+			initials[index] = lower_value(state, value)
+		}
 	}
 	if state.failed { return }
 	for name, index in names {
@@ -171,6 +183,15 @@ lower_local_declaration :: proc(state: ^Procedure_State, node: syntax.Node_Index
 		initialize := len(values) == 0 || state.ast.nodes[values[index]].kind != .Undef
 		bind_local(state, info.entity, initials[index], initialize)
 	}
+}
+
+@(private)
+lower_declared_conversion :: proc(state: ^Procedure_State, value: syntax.Node_Index, plan_id: check.Plan_Id) -> ir.Node_Id {
+	plan := check.plan(state.job.program, plan_id)
+	if plan == nil { lower_fail(state, value, .Conversion); return 0 }
+	converted, found := plan^.(check.Conversion_Plan)
+	if !found { lower_fail(state, value, .Conversion); return 0 }
+	return lower_conversion(state, converted, value)
 }
 
 @(private)
@@ -264,6 +285,7 @@ lower_assignment_plan :: proc(state: ^Procedure_State, node: syntax.Node_Index, 
 
 @(private)
 lower_local_assignment :: proc(state: ^Procedure_State, node: syntax.Node_Index, assignment: syntax.Assign_Stmt) {
+	rebind_context_for_assignment(state, assignment)
 	if assignment.op.kind != .Eq { lower_compound_assignment(state, node, assignment); return }
 	info, ok := check.expression_info(state.job.program, state.view, node)
 	if ok && info.plan != 0 {

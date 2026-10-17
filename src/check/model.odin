@@ -64,6 +64,14 @@ Builtin_Kind :: enum u8 {
 	Mem_Copy,
 	Mem_Copy_Non_Overlapping,
 	Mem_Zero,
+	Typeid_Of,
+	Has_Target_Feature,
+	Unaligned_Load,
+	Simd_Indices,
+	Simd_Select,
+	Simd_Lanes_Ne,
+	Simd_Reduce_Or,
+	Simd_Reduce_Min,
 }
 
 
@@ -303,6 +311,9 @@ Procedure_Data :: struct {
 	body_state:          Body_State,
 	definition:          Entity_Id,
 	instance:            Instance_Id,
+	defers:              []Defer_Registration,
+	generic:             bool,
+	poly_arguments:      []types.Type_Id,
 }
 Entity_Data :: union {
 	Variable_Data,
@@ -457,6 +468,7 @@ Aggregate_Plan :: struct {
 	type:          types.Type_Id,
 	values:        []Operand,
 	field_indices: []u32,
+	conversions:   []Plan_Id,
 }
 Assignment_Plan :: struct {
 	destinations, values: []Operand,
@@ -498,6 +510,7 @@ Exit_Plan :: struct {
 	target:        Node_Ref,
 	exited_scopes: []Scope_Id,
 	values:        []Operand,
+	conversions:   []Plan_Id,
 }
 Optional_Test :: enum u8 {
 	Boolean_True,
@@ -527,6 +540,12 @@ Plan :: union {
 	Exit_Plan,
 	Propagation_Plan,
 	Context_Plan,
+	Typeid_Plan,
+	Switch_Plan,
+}
+Switch_Plan :: struct {
+	tag:         Entity_Id,
+	comparisons: []Plan_Id,
 }
 Defer_Registration :: struct {
 	scope:        Scope_Id,
@@ -619,10 +638,14 @@ Runtime_Requirements :: struct {
 	schema_entities, helper_entities: []Entity_Id,
 	dependencies:                     []Dependency,
 	type_info:                        []Type_Info_Entry,
+	type_info_type:                   types.Type_Id,
+	type_info_parameters_type:        types.Type_Id,
+	enum_members:                     []Enum_Type_Members,
 	type_table:                       Symbol_Id,
 	entry_point:                      Entity_Id,
 	tests:                            []Entity_Id,
 	init_procedures, fini_procedures: []Ordered_Procedure,
+	init_context:                     Entity_Id,
 }
 
 // Every slice, map, source and type store is borrowed and remains valid through lowering.

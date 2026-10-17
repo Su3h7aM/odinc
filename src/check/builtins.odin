@@ -3,6 +3,7 @@ package check
 import "base:runtime"
 import "core:math/big"
 import "core:mem"
+import "core:strings"
 import "oc:syntax"
 import "oc:types"
 
@@ -27,6 +28,8 @@ intrinsic_builtin_kind :: proc(name: string) -> Builtin_Kind {
 		return .Byte_Swap
 	case "expect":
 		return .Expect
+	case "has_target_feature":
+		return .Has_Target_Feature
 	case "volatile_load":
 		return .Volatile_Load
 	case "volatile_store":
@@ -87,6 +90,18 @@ intrinsic_builtin_kind :: proc(name: string) -> Builtin_Kind {
 		return .Mem_Copy_Non_Overlapping
 	case "mem_zero":
 		return .Mem_Zero
+	case "unaligned_load":
+		return .Unaligned_Load
+	case "simd_indices":
+		return .Simd_Indices
+	case "simd_select":
+		return .Simd_Select
+	case "simd_lanes_ne":
+		return .Simd_Lanes_Ne
+	case "simd_reduce_or":
+		return .Simd_Reduce_Or
+	case "simd_reduce_min":
+		return .Simd_Reduce_Min
 	}
 	return .None
 }
@@ -157,8 +172,17 @@ expression_builtin_call :: proc(
 	if kind := checker.builtin_kinds[builtin]; kind == .Size_Of || kind == .Align_Of {
 		return expression_layout_query(checker, view, scope, node, kind, arguments, call.ellipsis.kind != .Invalid)
 	}
+	if checker.builtin_kinds[builtin] == .Typeid_Of {
+		return expression_typeid_of(checker, view, scope, node, arguments, call.ellipsis.kind != .Invalid)
+	}
+	if checker.builtin_kinds[builtin] == .Has_Target_Feature {
+		return expression_has_target_feature(checker, view, scope, node, arguments, call.ellipsis.kind != .Invalid)
+	}
 	if kind := checker.builtin_kinds[builtin]; kind == .Len || kind == .Cap {
 		return expression_length(checker, view, scope, node, builtin, kind, arguments, call.ellipsis.kind != .Invalid)
+	}
+	if kind := checker.builtin_kinds[builtin]; simd_builtin_kind(kind) {
+		return expression_simd_call(checker, view, scope, node, builtin, kind, arguments, call.ellipsis.kind != .Invalid)
 	}
 	if kind := checker.builtin_kinds[builtin]; intrinsic_shape(kind) != .None {
 		return expression_intrinsic_call(checker, view, scope, node, builtin, kind, arguments, call.ellipsis.kind != .Invalid)
@@ -197,6 +221,9 @@ expression_numeric_builtin :: proc(
 	store := checker.type_checker.store
 	count := 2
 	if kind == .Abs { count = 1 } else if kind == .Clamp { count = 3 }
+	if (kind == .Min || kind == .Max) && len(arguments) == 1 && !ellipsis {
+		return expression_extremum_of_type(checker, view, scope, node, kind, arguments[0])
+	}
 	if len(arguments) != count || ellipsis { return expression_failure(checker, view, scope, node, .Unsupported) }
 	first := check_expression(checker, view, scope, arguments[0]) or_return
 	if first.state == .Invalid { return expression_poison(scope), nil }
@@ -218,6 +245,51 @@ expression_numeric_builtin :: proc(
 	plan := Plan_Id(len(checker.plans))
 	append(&checker.plans, Plan(Builtin_Plan{builtin = builtin, arguments = operands})) or_return
 	return Expression_Info{type = first.type, mode = .Value, plan = plan, scope = scope, state = .Checked}, nil
+}
+
+// min(T) and max(T) of an integer type are its extreme constants, typed T.
+@(private = "file")
+expression_extremum_of_type :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	scope: Scope_Id,
+	node: syntax.Node_Index,
+	kind: Builtin_Kind,
+	argument: syntax.Node_Index,
+) -> (
+	info: Expression_Info,
+	err: Resolve_Error,
+) {
+	operand := check_expression(checker, view, scope, argument) or_return
+	if operand.state == .Invalid { return expression_poison(scope), nil }
+	store := checker.type_checker.store
+	descriptor := types.get(store, types.resolve_named(store, operand.type))
+	if operand.mode != .Type || !conversion_integer(descriptor.kind) { return expression_failure(checker, view, scope, node, .Unsupported) }
+	size, _, layout_error := types.layout(store, operand.type)
+	if layout_error != .None { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
+	bits := int(size) * 8
+	value: big.Int
+	defer big.destroy(&value)
+	failure: big.Error
+	if kind == .Min && !descriptor.signed {
+		failure = big.set(&value, 0)
+	} else {
+		magnitude_bits := bits
+		if descriptor.signed { magnitude_bits -= 1 }
+		failure = big.power_of_two(&value, magnitude_bits)
+		if failure == nil && kind == .Max { failure = big.int_sub_digit(&value, &value, 1) }
+		if failure == nil && kind == .Min { failure = big.int_neg(&value, &value) }
+	}
+	if failure != nil {
+		expression_constant_failure(checker, checker.views[view].file, node, failure) or_return
+		return expression_poison(scope), nil
+	}
+	constant, constant_error := constant_pool_intern_integer(checker.constants, &value, operand.type)
+	if constant_error != nil {
+		expression_constant_failure(checker, checker.views[view].file, node, constant_error) or_return
+		return expression_poison(scope), nil
+	}
+	return Expression_Info{type = operand.type, constant = constant, mode = .Constant, scope = scope, state = .Checked}, nil
 }
 
 // size_of and align_of fold to the target layout of the operand's type, as an untyped integer does in the official compiler.
@@ -247,12 +319,50 @@ expression_layout_query :: proc(
 		expression_constant_failure(checker, checker.views[view].file, node, set_error) or_return
 		return expression_poison(scope), nil
 	}
-	constant, constant_error := constant_pool_intern_integer(checker.constants, &value, checker.default_integer)
+	constant, constant_error := constant_pool_intern_integer(checker.constants, &value, types.TYPE_UNTYPED_INTEGER)
 	if constant_error != nil {
 		expression_constant_failure(checker, checker.views[view].file, node, constant_error) or_return
 		return expression_poison(scope), nil
 	}
-	return Expression_Info{type = checker.default_integer, constant = constant, mode = .Constant, scope = scope, state = .Checked}, nil
+	return Expression_Info{type = types.TYPE_UNTYPED_INTEGER, constant = constant, mode = .Constant, scope = scope, state = .Checked}, nil
+}
+
+// has_target_feature folds to an untyped bool: every comma-separated feature must be in the build's target features.
+@(private = "file")
+expression_has_target_feature :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	scope: Scope_Id,
+	node: syntax.Node_Index,
+	arguments: []syntax.Node_Index,
+	ellipsis: bool,
+) -> (
+	info: Expression_Info,
+	err: Resolve_Error,
+) {
+	if len(arguments) != 1 || ellipsis { return expression_failure(checker, view, scope, node, .Unsupported) }
+	feature := check_expression(checker, view, scope, arguments[0]) or_return
+	if feature.state == .Invalid { return expression_poison(scope), nil }
+	names, is_string := constant_pool_get(checker.constants, feature.constant).value.(string)
+	if feature.mode != .Constant || !is_string { return expression_failure(checker, view, scope, arguments[0], .Invalid_Operand) }
+	enabled := true
+	for name in strings.split_iterator(&names, ",") {
+		enabled &&= target_feature_enabled(checker.target_features, name)
+	}
+	constant, constant_error := constant_pool_intern_bool(checker.constants, enabled, types.TYPE_UNTYPED_BOOL)
+	if constant_error != nil {
+		expression_constant_failure(checker, checker.views[view].file, node, constant_error) or_return
+		return expression_poison(scope), nil
+	}
+	return Expression_Info{type = types.TYPE_UNTYPED_BOOL, constant = constant, mode = .Constant, scope = scope, state = .Checked}, nil
+}
+
+@(private = "file")
+target_feature_enabled :: proc(features: []string, name: string) -> bool {
+	for feature in features {
+		if feature == name { return true }
+	}
+	return false
 }
 
 // len and cap of a fixed array are constants. len of a slice or string is read from its header during lowering.
@@ -283,13 +393,13 @@ expression_length :: proc(
 			expression_constant_failure(checker, checker.views[view].file, node, set_error) or_return
 			return expression_poison(scope), nil
 		}
-		constant, constant_error := constant_pool_intern_integer(checker.constants, &value, checker.default_integer)
+		constant, constant_error := constant_pool_intern_integer(checker.constants, &value, types.TYPE_UNTYPED_INTEGER)
 		if constant_error != nil {
 			expression_constant_failure(checker, checker.views[view].file, node, constant_error) or_return
 			return expression_poison(scope), nil
 		}
-		return Expression_Info{type = checker.default_integer, constant = constant, mode = .Constant, scope = scope, state = .Checked}, nil
-	case .Slice, .String:
+		return Expression_Info{type = types.TYPE_UNTYPED_INTEGER, constant = constant, mode = .Constant, scope = scope, state = .Checked}, nil
+	case .Slice, .String, .String16:
 		if kind == .Cap { return expression_failure(checker, view, scope, node, .Unsupported) }
 		allocator := mem.dynamic_arena_allocator(&checker.arena)
 		operands := make([]Operand, 1, allocator) or_return

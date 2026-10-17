@@ -29,7 +29,7 @@ intrinsic_shape :: proc(kind: Builtin_Kind) -> Intrinsic_Shape {
 		return .Value_Pair
 	case .Overflow_Add, .Overflow_Sub, .Overflow_Mul:
 		return .Overflow
-	case .Volatile_Load, .Atomic_Load, .Atomic_Load_Explicit:
+	case .Volatile_Load, .Atomic_Load, .Atomic_Load_Explicit, .Unaligned_Load:
 		return .Load
 	case .Volatile_Store, .Atomic_Store, .Atomic_Store_Explicit:
 		return .Store

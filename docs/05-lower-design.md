@@ -30,6 +30,8 @@ The module pass is single-threaded and runs in this order: (1) for each `check.s
 
 After the module pass the symbol set is fixed. Procedure bodies are lowered next, in parallel. Each worker writes only its own `ir.Function`, its own signatures and its own blobs. The workers cannot add module symbols. After all workers finish, each function's blobs are merged in function order with `ir.blob_merge`, so merged blob ids do not depend on scheduling.
 
+Staged divergence (reachability, `src/lower/reachability.odin`): the official compiler lowers every procedure and global; we lower only what the roots reach. The roots are the user-package procedures and globals, and the startup procedures of the runtime requirements (entry point, init and fini procedures, tests, init context). Each round lowers the newly reached procedures in parallel, then marks the symbols their IR and blobs reference (`Symbol_Addr`, `Tls_Addr`, blob and global relocations). A procedure never reached gets an `unreachable` body and no errors, and an initializer error of an unreached runtime global is dropped. User-package code always reports its errors. Lowering everything is the goal once every runtime feature lowers; until then reachability keeps unsupported runtime code from failing the build.
+
 ## 5. Per-procedure lowering
 
 Each `check.Checked_Procedure` gives an entity, a symbol, a signature type, a body `Node_Ref` (or a generated-body recipe for equality, hash and map helpers), a typed-view id, parameter and result entities, a calling convention, attributes, a source span and the defer registrations of its scopes.
@@ -103,6 +105,10 @@ Map operations are runtime calls into `base:runtime` (`llvm_backend.cpp:1341-140
 `f16` is a storage and ABI type (`F16`). Arithmetic promotes to `F32`, operates, and rounds back to `F16`. This is exact for add, subtract, multiply, divide and square root, because 24 is at least 2 × 11 + 2 (the double-rounding result of Figueroa, 1995). LLVM promotes half arithmetic to float on x86-64 without native half support, so the fork's observable results match this route. H5 checks the rounding cases against the fork before it is accepted. Open-question ruling 3 keeps the runtime's f16 helpers on the integer-register ABI.
 
 `#simd` is scalarized (open-question ruling 1). A vector value is held as its lane values; operations are per lane; broadcast and shuffle with constant indices are computed at lowering. In memory a vector is its lanes in order. `V128` appears only where a value crosses an ABI boundary, as a `Direct` `V128` piece (decision 1 of `docs/02-ir-design.md`); the interpreter reports `Unsupported` for it.
+
+Lowering keeps a vector as a stack slot of lanes, and each lane is one scalar load, store or select (`src/lower/lower_simd.odin`). Native vector selection (SSE, NEON) for these operations is a later optimization, deferred; it is not implemented, and the per-lane form is the reference.
+
+Element types follow the official `src/check_builtin.cpp`: `simd_reduce_or` takes integer or boolean elements (line 1403; the official compiler rejects `#simd[4]f32` with that message, observed with `odin check`), `simd_reduce_min` takes integer or float (line 1368), and `simd_indices` takes any numeric element (line 1277). `base/intrinsics/intrinsics.odin` declares float for `simd_reduce_or`, `simd_reduce_and` and `simd_reduce_xor` as well; the checker keeps the official rule, and the base declaration is reported for the owner to decide. Float `simd_reduce_min` lowers to `FLt` with `FNe` for NaN, the `fmin` rule of `llvm.vector.reduce.fmin` (official `src/llvm_backend_proc.cpp`, reduce_min, ~2040-2070).
 
 ## 14. TLS, atomics, bit and target operations
 

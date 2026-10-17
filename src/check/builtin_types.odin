@@ -5,6 +5,8 @@ import "oc:types"
 Builtin_Types :: struct {
 	int, uint, uintptr, i8, u8, i16, u16, i32, u32, i64, u64, i128, u128: types.Type_Id,
 	boolean, f32, f64, rune, rawptr, string_type:                         types.Type_Id,
+	cstring_type, string16_type, cstring16_type:                          types.Type_Id,
+	any_type, typeid_type:                                                types.Type_Id,
 }
 
 // `int` and `uint` are unnamed, like the default-integer descriptor; `uintptr` is named so it stays distinct from `uint`.
@@ -29,6 +31,11 @@ seed_builtin_types :: proc(store: ^types.Store) -> Builtin_Types {
 		rune = types.intern(store, types.Type{kind = .Rune, count = 4, signed = true}),
 		rawptr = types.intern(store, types.Type{kind = .Raw_Pointer}),
 		string_type = types.intern(store, types.Type{kind = .String}),
+		cstring_type = types.intern(store, types.Type{kind = .CString}),
+		string16_type = types.intern(store, types.Type{kind = .String16}),
+		cstring16_type = types.intern(store, types.Type{kind = .CString16}),
+		any_type = types.intern(store, types.Type{kind = .Any}),
+		typeid_type = types.intern(store, types.Type{kind = .Type_Id}),
 	}
 }
 
@@ -58,6 +65,11 @@ bind_builtin_types :: proc(scopes: ^Scope_Store, universe: Scope_Id, builtins: B
 		{"rune", builtins.rune},
 		{"rawptr", builtins.rawptr},
 		{"string", builtins.string_type},
+		{"cstring", builtins.cstring_type},
+		{"string16", builtins.string16_type},
+		{"cstring16", builtins.cstring16_type},
+		{"any", builtins.any_type},
+		{"typeid", builtins.typeid_type},
 	}
 	for binding in bindings {
 		id, create_error := entity_create(scopes, Entity{name = binding.name, kind = .Type_Name, scope = universe, state = .Resolved, type = binding.type})
@@ -76,6 +88,7 @@ UNIVERSE_MIN :: Builtin_Id(5)
 UNIVERSE_MAX :: Builtin_Id(6)
 UNIVERSE_ABS :: Builtin_Id(7)
 UNIVERSE_CLAMP :: Builtin_Id(8)
+UNIVERSE_TYPEID_OF :: Builtin_Id(9)
 
 // Binds the universal builtin procedures as builtin entities in the universal scope.
 bind_universe_builtins :: proc(scopes: ^Scope_Store, universe: Scope_Id) -> Binding_Error {
@@ -91,6 +104,7 @@ bind_universe_builtins :: proc(scopes: ^Scope_Store, universe: Scope_Id) -> Bind
 		{"max", UNIVERSE_MAX},
 		{"abs", UNIVERSE_ABS},
 		{"clamp", UNIVERSE_CLAMP},
+		{"typeid_of", UNIVERSE_TYPEID_OF},
 	}
 	for binding in bindings {
 		id, create_error := entity_create(scopes, Entity{name = binding.name, kind = .Builtin, scope = universe, state = .Resolved, data = binding.builtin})

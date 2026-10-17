@@ -39,29 +39,29 @@ lower_index_address :: proc(state: ^Procedure_State, node: syntax.Node_Index, pl
 	case .Array:
 		base = lower_address(state, index.expr)
 		length = ir.const_int(function, function.nodes.type[offset], base_type.count)
-	case .Slice, .String:
+	case .Slice, .String, .String16:
 		if function.nodes.type[offset] != .I64 { return lower_fail(state, node, .Bounds) }
 		header := lower_value(state, index.expr)
 		base = lower_load_word(state, header, .Ptr)
 		length = lower_load_word(state, ir.ptr_offset(function, header, 8), .I64)
+	case .Multi_Pointer:
+		base = lower_value(state, index.expr)
 	case:
 		return lower_fail(state, node, .Place)
 	}
 	if state.failed || function.error != nil { return 0 }
 	if plan.policy == .Enabled { lower_check(state, ir.compare(function, .ULt, offset, length)) }
-	stride := u32(1)
-	if base_type.kind != .String {
-		layout := state.job.layouts[base_type.elem]
-		assert(layout.error == .None && layout.size <= i64(max(u32)))
-		stride = u32(layout.size)
-	}
-	return ir.ptr_index(function, base, offset, stride)
+	layout := state.job.layouts[lower_info(state, node).type]
+	assert(layout.error == .None && layout.size <= i64(max(u32)))
+	return ir.ptr_index(function, base, offset, u32(layout.size))
 }
 
 // A slice expression builds a new header in its own slot. Absent low and high bounds are nil operands.
 @(private)
 lower_slice_expression :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: check.Bounds_Plan) -> ir.Node_Id {
-	ast_node := state.ast.nodes[node]
+	slice_node := node
+	for state.ast.nodes[slice_node].kind == .Paren_Expr { slice_node = state.ast.nodes[slice_node].payload.(syntax.Paren_Expr).expr }
+	ast_node := state.ast.nodes[slice_node]
 	if ast_node.kind != .Slice_Expr { return lower_fail(state, node, .Place) }
 	expression := ast_node.payload.(syntax.Slice_Expr)
 	function := state.job.function
@@ -75,19 +75,26 @@ lower_slice_expression :: proc(state: ^Procedure_State, node: syntax.Node_Index,
 		header := lower_value(state, expression.expr)
 		base = lower_load_word(state, header, .Ptr)
 		length = lower_load_word(state, ir.ptr_offset(function, header, 8), .I64)
+	case .Multi_Pointer:
+		base = lower_value(state, expression.expr)
 	case:
 		return lower_fail(state, node, .Place)
 	}
 	low := lower_bound(state, plan.operands[1], ir.const_int(function, .I64, 0))
-	high := lower_bound(state, plan.operands[2], length)
-	if state.failed || function.error != nil { return 0 }
-	if function.nodes.type[low] != .I64 || function.nodes.type[high] != .I64 { return lower_fail(state, node, .Bounds) }
-	if plan.policy == .Enabled {
-		lower_check(state, ir.compare(function, .ULe, high, length))
-		lower_check(state, ir.compare(function, .ULe, low, high))
-	}
 	layout := state.job.layouts[base_type.elem]
 	assert(layout.error == .None && layout.size <= i64(max(u32)))
+	if state.failed || function.error != nil { return 0 }
+	if function.nodes.type[low] != .I64 { return lower_fail(state, node, .Bounds) }
+	if base_type.kind == .Multi_Pointer && plan.operands[2] == nil {
+		return ir.ptr_index(function, base, low, u32(layout.size))
+	}
+	high := lower_bound(state, plan.operands[2], length)
+	if state.failed || function.error != nil { return 0 }
+	if function.nodes.type[high] != .I64 { return lower_fail(state, node, .Bounds) }
+	if plan.policy == .Enabled {
+		if base_type.kind != .Multi_Pointer { lower_check(state, ir.compare(function, .ULe, high, length)) }
+		lower_check(state, ir.compare(function, .ULe, low, high))
+	}
 	slot := ir.stack_slot(function, state.entry_control, 16, 8)
 	lower_store_word(state, slot, ir.ptr_index(function, base, low, u32(layout.size)))
 	lower_store_word(state, ir.ptr_offset(function, slot, 8), ir.binary(function, .Sub, high, low))

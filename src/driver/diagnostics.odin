@@ -24,8 +24,21 @@ write_diagnostics :: proc(session: ^Session, writer: io.Writer) {
 // Writes one line per lowering error as `path:line:column: lower code feature`.
 write_lower_errors :: proc(session: ^Session, writer: io.Writer, errors: []lower.Lower_Error) {
 	for error in errors {
-		file := session.files[error.source.file]
-		line, column := line_column(file.source, error.source.start)
+		source := error.source
+		if error.node.file != 0 {
+			node := session.files[error.node.file].ast.nodes[error.node.node]
+			source = check.Source_Span {
+				file  = error.node.file,
+				start = node.start,
+				end   = node.end,
+			}
+		}
+		if source.file == 0 {
+			fmt.wprintfln(writer, "lower %v %v", error.code, error.feature)
+			continue
+		}
+		file := session.files[source.file]
+		line, column := line_column(file.source, source.start)
 		fmt.wprintfln(writer, "%s:%d:%d: lower %v %v", file.display_path, line, column, error.code, error.feature)
 	}
 }

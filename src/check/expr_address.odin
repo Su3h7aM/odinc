@@ -119,24 +119,49 @@ expression_field :: proc(
 	indirect := types.get(store, owner).kind == .Pointer
 	if indirect { owner = types.resolve_named(store, types.get(store, owner).elem) }
 	descriptor := types.get(store, owner)
-	if descriptor.kind != .Struct || (!indirect && base.mode != .Variable && base.mode != .Value && base.mode != .Immutable_Value) {
+	if descriptor.kind != .Struct || (!indirect && base.mode != .Variable && base.mode != .Value && base.mode != .Immutable_Value && base.mode != .Context) {
 		return expression_failure(checker, view, scope, node, .Unsupported)
 	}
-	fields := descriptor.fields
-	index := struct_field_index(fields, expression_text(file, selector.field))
-	if index < 0 { return expression_failure(checker, view, scope, selector.field, .Undeclared_Name) }
 	allocator := mem.dynamic_arena_allocator(&checker.arena)
-	path := make([]Member_Step, 1, allocator) or_return
-	path[0] = Member_Step {
-		type        = owner,
-		field_index = u32(index),
-		indirect    = indirect,
-	}
+	path := make([dynamic]Member_Step, 0, allocator) or_return
+	field_type, found := field_path(checker, owner, indirect, expression_text(file, selector.field), &path)
+	if !found { return expression_failure(checker, view, scope, selector.field, .Undeclared_Name) }
 	plan := Plan_Id(len(checker.plans))
-	append(&checker.plans, Plan(Place_Plan{root = Operand(Expression_Ref{view, selector.expr}), path = path})) or_return
+	append(&checker.plans, Plan(Place_Plan{root = Operand(Expression_Ref{view, selector.expr}), path = path[:]})) or_return
 	mode := base.mode
-	if indirect { mode = .Variable }
-	return Expression_Info{type = fields[index].type, mode = mode, plan = plan, scope = scope, state = .Checked}, nil
+	if indirect || base.mode == .Context { mode = .Variable }
+	return Expression_Info{type = field_type, mode = mode, plan = plan, scope = scope, state = .Checked}, nil
+}
+
+// Finds a field by name in a struct, then in its by-value `using` fields, depth first. The path lists each member step from owner.
+@(private = "file")
+field_path :: proc(
+	checker: ^Expression_Checker,
+	owner: types.Type_Id,
+	indirect: bool,
+	name: string,
+	path: ^[dynamic]Member_Step,
+) -> (
+	field_type: types.Type_Id,
+	found: bool,
+) {
+	store := checker.type_checker.store
+	descriptor := types.get(store, owner)
+	if index := struct_field_index(descriptor.fields, name); index >= 0 {
+		append(path, Member_Step{type = owner, field_index = u32(index), indirect = indirect})
+		return descriptor.fields[index].type, true
+	}
+	flags := checker.type_checker.field_flags[owner]
+	for field, index in descriptor.fields {
+		if index >= len(flags) || .Using not_in flags[index] { continue }
+		embedded := types.resolve_named(store, field.type)
+		if types.get(store, embedded).kind != .Struct { continue }
+		mark := len(path)
+		append(path, Member_Step{type = owner, field_index = u32(index), indirect = indirect})
+		if embedded_type, ok := field_path(checker, embedded, false, name, path); ok { return embedded_type, true }
+		resize(path, mark)
+	}
+	return 0, false
 }
 
 @(private = "package")

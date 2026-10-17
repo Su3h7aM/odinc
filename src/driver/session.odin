@@ -89,6 +89,7 @@ runtime_histogram :: proc(odin_root: string, allocator: runtime.Allocator, write
 	if runtime_error != .None { return runtime_error }
 	if error := bind_imports(session, true); error != .None { return error }
 	if error := session_init_checkers(session); error != .None { return error }
+	if error := bind_whens(session); error != .None { return error }
 	for declaration in session.collection.declarations {
 		if check.entity_get(&session.scopes, declaration.entity).package_id != runtime_package { continue }
 		_, _ = check.resolve_entity(&session.resolver, declaration.entity)
@@ -209,6 +210,7 @@ check_session :: proc(session: ^Session, odin_root, main_path: string) -> Driver
 	if check.collect_file(&session.collection, session.files[main_file], main_file, {}) != nil { return .Check_Failed }
 	if error := bind_imports(session, false); error != .None { return error }
 	if error := session_init_checkers(session); error != .None { return error }
+	if error := bind_whens(session); error != .None { return error }
 
 	for declaration in session.collection.declarations {
 		if check.entity_get(&session.scopes, declaration.entity).package_id != main_package { continue }
@@ -290,6 +292,28 @@ session_init_checkers :: proc(session: ^Session) -> Driver_Error {
 	)
 	if checker_error != nil { return .Allocation_Failed }
 	session.checker.packages = session.packages[:]
+	session.checker.target_features = session.build.target_features
+	return .None
+}
+
+// A pending `when` waits for its condition, which needs the expression checker, so it is bound after the checkers exist.
+@(private = "file")
+bind_whens :: proc(session: ^Session) -> Driver_Error {
+	for index := 0; index < len(session.collection.pending); index += 1 {
+		pending := session.collection.pending[index]
+		if pending.handled || pending.kind != .When { continue }
+		file := session.files[pending.declaration.file]
+		statement := syntax.node_payload(file.ast, pending.declaration.node, syntax.When_Stmt)
+		condition, ok, evaluate_error := session.type_checker.evaluate_boolean(
+			&session.type_checker,
+			file.scope,
+			pending.declaration.file,
+			statement.cond,
+			session.type_checker.user_data,
+		)
+		if evaluate_error != nil || !ok { return .Check_Failed }
+		if check.collect_when_arm(&session.collection, file, index, condition) != nil { return .Check_Failed }
+	}
 	return .None
 }
 

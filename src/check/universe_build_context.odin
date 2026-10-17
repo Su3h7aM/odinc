@@ -72,9 +72,15 @@ Build_Configuration :: struct {
 	default_to_panic_allocator: bool,
 	no_crt:                     bool,
 	no_thread_local:            bool,
+	no_rtti:                    bool,
 	use_separate_modules:       bool,
+	test:                       bool,
+	no_entry_point:             bool,
+	foreign_error_procedures:   bool,
+	valgrind_support:           bool,
 	bedrock:                    bool,
 	defines:                    map[string]string,
+	target_features:            []string,
 }
 
 DEFAULT_BUILD_CONFIGURATION :: Build_Configuration {
@@ -144,7 +150,12 @@ bind_universe_build_context :: proc(checker: ^Type_Checker, universe: Scope_Id, 
 		{"ODIN_DEFAULT_TO_PANIC_ALLOCATOR", configuration.default_to_panic_allocator},
 		{"ODIN_NO_CRT", configuration.no_crt},
 		{"ODIN_NO_THREAD_LOCAL", configuration.no_thread_local},
+		{"ODIN_NO_RTTI", configuration.no_rtti},
 		{"ODIN_USE_SEPARATE_MODULES", configuration.use_separate_modules},
+		{"ODIN_TEST", configuration.test},
+		{"ODIN_NO_ENTRY_POINT", configuration.no_entry_point},
+		{"ODIN_FOREIGN_ERROR_PROCEDURES", configuration.foreign_error_procedures},
+		{"ODIN_VALGRIND_SUPPORT", configuration.valgrind_support},
 		{"ODIN_BEDROCK", configuration.bedrock},
 	}
 	for flag in flags {
@@ -166,7 +177,11 @@ bind_universe_build_context :: proc(checker: ^Type_Checker, universe: Scope_Id, 
 		return false
 	}
 	if !publish_enum_constant(checker, universe, pool, "Odin_Build_Mode_Type", "ODIN_BUILD_MODE", Build_Mode, configuration.build_mode) { return false }
-	return publish_enum_constant(checker, universe, pool, "Odin_Error_Pos_Style_Type", "ODIN_ERROR_POS_STYLE", Error_Pos_Style, configuration.error_pos_style)
+	if !publish_enum_constant(checker, universe, pool, "Odin_Error_Pos_Style_Type", "ODIN_ERROR_POS_STYLE", Error_Pos_Style, configuration.error_pos_style) {
+		return false
+	}
+	if !publish_sanitizer_flags(checker, universe, pool) { return false }
+	return bind_universe_calling_convention(checker, universe, pool)
 }
 
 // The enum type takes the member order of `E`, whose values count from 0 as in the official tables.
@@ -180,21 +195,8 @@ publish_enum_constant :: proc(
 	$E: typeid,
 	selected: E,
 ) -> bool {
-	names := reflect.enum_field_names(E)
-	members, members_error := make([]Enum_Member, len(names), checker.arena_allocator)
-	if members_error != nil { return false }
-	for name, index in names {members[index] = Enum_Member {
-			name  = name,
-			value = i64(index),
-		}}
-	backing := types.intern(checker.store, types.Type{kind = .Integer, count = types.DEFAULT_LAYOUT.int_size, signed = true})
-	enum_type := types.intern(
-		checker.store,
-		types.Type{kind = .Enum, name = type_name, backing = backing, count = i64(len(names)), lower_bound = 0, upper_bound = i64(len(names) - 1)},
-	)
-	_, stored, inserted, map_error := map_entry(&checker.enum_members, enum_type)
-	if map_error != nil { return false }
-	if inserted { stored^ = members }
+	enum_type, ok := publish_enum_type(checker, E, type_name)
+	if !ok { return false }
 	value: big.Int
 	defer big.destroy(&value)
 	if set_error := big.set(&value, i64(selected)); set_error != nil { return false }
@@ -204,6 +206,50 @@ publish_enum_constant :: proc(
 }
 
 @(private = "file")
+publish_enum_type :: proc(checker: ^Type_Checker, $E: typeid, type_name: string) -> (enum_type: types.Type_Id, ok: bool) {
+	names := reflect.enum_field_names(E)
+	members, members_error := make([]Enum_Member, len(names), checker.arena_allocator)
+	if members_error != nil { return 0, false }
+	for name, index in names {members[index] = Enum_Member {
+			name  = name,
+			value = i64(index),
+		}}
+	backing := types.intern(checker.store, types.Type{kind = .Integer, count = types.DEFAULT_LAYOUT.int_size, signed = true})
+	enum_type = types.intern(
+		checker.store,
+		types.Type{kind = .Enum, name = type_name, backing = backing, count = i64(len(names)), lower_bound = 0, upper_bound = i64(len(names) - 1)},
+	)
+	_, stored, inserted, map_error := map_entry(&checker.enum_members, enum_type)
+	if map_error != nil { return 0, false }
+	if inserted { stored^ = members }
+	return enum_type, true
+}
+
+// Official checker.cpp declares ODIN_SANITIZER_FLAGS as a bit_set of Odin_Sanitizer_Flag over u32; no sanitizer is enabled.
+@(private = "file")
+Sanitizer_Flag :: enum {
+	Address,
+	Memory,
+	Thread,
+}
+
+@(private = "file")
+publish_sanitizer_flags :: proc(checker: ^Type_Checker, universe: Scope_Id, pool: ^Constant_Pool) -> bool {
+	enum_type, ok := publish_enum_type(checker, Sanitizer_Flag, "Odin_Sanitizer_Flag")
+	if !ok { return false }
+	backing := types.intern(checker.store, types.Type{kind = .Integer, count = 4})
+	flags_type := types.intern(
+		checker.store,
+		types.Type{kind = .Bit_Set, name = "Odin_Sanitizer_Flags", elem = enum_type, backing = backing, lower_bound = 0, upper_bound = 2},
+	)
+	value: big.Int
+	defer big.destroy(&value)
+	if set_error := big.set(&value, 0); set_error != nil { return false }
+	constant, constant_error := constant_pool_intern_integer(pool, &value, flags_type)
+	if constant_error != nil { return false }
+	return publish_universe_constant(checker, universe, "ODIN_SANITIZER_FLAGS", flags_type, constant)
+}
+
 publish_universe_constant :: proc(checker: ^Type_Checker, universe: Scope_Id, name: string, type: types.Type_Id, constant: Const_Id) -> bool {
 	id, create_error := entity_create(
 		checker.resolver.scopes,

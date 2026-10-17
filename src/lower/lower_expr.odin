@@ -153,9 +153,21 @@ lower_entity_value :: proc(state: ^Procedure_State, entity: check.Entity_Id) -> 
 	return lower_fail(state, state.job.procedure.body.node, .Local)
 }
 
+// The checker marks the branch not taken as Inactive; lowering takes the other one.
+@(private)
+lower_ternary_when_branch :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> syntax.Node_Index {
+	ternary := state.ast.nodes[node].payload.(syntax.Ternary_Expr)
+	info, _ := check.expression_info(state.job.program, state.view, ternary.x)
+	if info.state == .Inactive { return ternary.y }
+	return ternary.x
+}
+
 @(private)
 lower_value :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> ir.Node_Id {
 	if state.failed || state.job.function.error != nil { return 0 }
+	if state.ast.nodes[node].kind == .Ternary_When_Expr { return lower_value(state, lower_ternary_when_branch(state, node)) }
+	if state.ast.nodes[node].kind == .Paren_Expr { return lower_value(state, state.ast.nodes[node].payload.(syntax.Paren_Expr).expr) }
+	if state.ast.nodes[node].kind == .Ternary_If_Expr { return lower_ternary_if(state, node) }
 	info := lower_info(state, node)
 	if info.constant != 0 { return lower_constant(state, info.constant, info.type) }
 	if info.plan != 0 {
@@ -177,13 +189,17 @@ lower_value :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> ir.Node
 			return lower_call(state, node, info, value)
 		case check.Builtin_Plan:
 			return lower_builtin(state, node, info, value)
+		case check.Typeid_Plan:
+			return lower_typeid(state, node, value)
 		case:
 			return lower_fail(state, node, .Expression)
 		}
 	}
 	ast_node := state.ast.nodes[node]
 	#partial switch ast_node.kind {
-	case .Ident, .Implicit:
+	case .Implicit:
+		return state.context_pointer
+	case .Ident:
 		assert(info.entity != 0)
 		return lower_entity_value(state, info.entity)
 	case .Call_Expr, .Selector_Call_Expr:
@@ -238,6 +254,7 @@ lower_load :: proc(state: ^Procedure_State, address: ir.Node_Id, type: types.Typ
 @(private)
 lower_address :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> ir.Node_Id {
 	if state.failed { return 0 }
+	if state.ast.nodes[node].kind == .Paren_Expr { return lower_address(state, state.ast.nodes[node].payload.(syntax.Paren_Expr).expr) }
 	info := lower_info(state, node)
 	if info.plan != 0 {
 		plan := check.plan(state.job.program, info.plan)
@@ -254,6 +271,8 @@ lower_address :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> ir.No
 	}
 	ast_node := state.ast.nodes[node]
 	#partial switch ast_node.kind {
+	case .Implicit:
+		return state.context_pointer
 	case .Ident:
 		binding := state.locals[info.entity]
 		if binding.kind == .Address { return binding.address }
@@ -296,13 +315,17 @@ lower_operand_address :: proc(state: ^Procedure_State, operand: check.Operand) -
 
 @(private)
 lower_place :: proc(state: ^Procedure_State, plan: check.Place_Plan, node: syntax.Node_Index) -> ir.Node_Id {
-	if plan.bit_size != 0 || len(plan.path) > 1 { return lower_fail(state, node, .Place) }
+	if plan.bit_size != 0 { return lower_fail(state, node, .Place) }
 	if len(plan.path) == 0 { return lower_operand_address(state, plan.root) }
 	base := lower_operand(state, plan.root)
 	if state.failed { return 0 }
-	offset, err := types.field_offset(check.type_store(state.job.program), plan.path[0].type, int(plan.path[0].field_index))
-	if err != .None { return lower_fail(state, node, .Place) }
-	return ir.ptr_offset(state.job.function, base, offset)
+	total: i64
+	for step in plan.path {
+		offset, err := types.field_offset(check.type_store(state.job.program), step.type, int(step.field_index))
+		if err != .None { return lower_fail(state, node, .Place) }
+		total += i64(offset)
+	}
+	return ir.ptr_offset(state.job.function, base, total)
 }
 
 @(private)

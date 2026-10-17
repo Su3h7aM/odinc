@@ -59,3 +59,45 @@ native_sections_exit_with_interpreter_results :: proc(t: ^testing.T) {
 		testing.expect(t, wait_err == nil && state.exit_code == entry.code, entry.section)
 	}
 }
+
+@(test)
+native_startup_initializes_auxv_across_arguments_and_environment :: proc(t: ^testing.T) {
+	odin_root, _ := filepath.join({#directory, "..", ".."}, context.temp_allocator)
+	main_path, _ := filepath.join({#directory, "testdata", "startup_args", "main.odin"}, context.temp_allocator)
+	image, err := build_file(odin_root, main_path, {}, context.allocator)
+	if !testing.expectf(t, err == nil, "startup fixture must build: %v", err) { return }
+	defer delete(image)
+	directory, directory_err := os.make_directory_temp("", "driver-startup-*", context.temp_allocator)
+	if !testing.expect(t, directory_err == nil, "temporary directory must be created") { return }
+	defer os.remove_all(directory)
+	path, _ := filepath.join({directory, "startup"}, context.temp_allocator)
+	if !testing.expect(t, write_executable(path, image) == nil, "startup executable must be written") { return }
+	devnull, devnull_err := os.open("/dev/null", {.Write})
+	if !testing.expect(t, devnull_err == nil, "devnull must open") { return }
+	defer _ = os.close(devnull)
+	commands := [?][3]string{{path, "first", "second"}, {path, "third", "fourth"}}
+	environments := [?][]string{{"NABLA_STARTUP_TEST=present"}, {}}
+	for index in 0 ..< len(commands) {
+		process, process_err := start_process(os.Process_Desc{command = commands[index][:], env = environments[index], stdout = devnull, stderr = devnull})
+		if !testing.expect(t, process_err == nil, "startup process must start") { continue }
+		state, wait_err := os.process_wait(process)
+		testing.expect(t, wait_err == nil && state.exit_code == 0, "runtime init must accept argv and environment")
+	}
+}
+
+@(test)
+startup_initializes_runtime_args_header_before_global_initializer :: proc(t: ^testing.T) {
+	init_symbol := Maybe(u32)(2)
+	atom, err := start_atom(1, init_symbol, nil, 3, 4, 5, 6, context.allocator)
+	if !testing.expect_value(t, err, nil) { return }
+	defer delete(atom.bytes, context.allocator)
+	defer delete(atom.relocs, context.allocator)
+	data_offset, length_offset, init_offset := -1, -1, -1
+	for relocation in atom.relocs {
+		if relocation.symbol == 4 && relocation.addend == -4 { data_offset = int(relocation.offset) }
+		if relocation.symbol == 4 && relocation.addend == 4 { length_offset = int(relocation.offset) }
+		if relocation.symbol == 2 { init_offset = int(relocation.offset) }
+	}
+	testing.expect(t, data_offset >= 0 && length_offset >= 0, "runtime.args__ data and length relocations must target its resolved global")
+	testing.expect(t, data_offset < init_offset && length_offset < init_offset, "runtime.args__ must be initialized before package initializers")
+}

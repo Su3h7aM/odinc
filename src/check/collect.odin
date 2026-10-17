@@ -341,7 +341,7 @@ collect_value_declaration :: proc(
 			continue
 		} else {
 			value_kind := file.ast.nodes[value].kind
-			if .Typeid_Type <= value_kind && value_kind <= .Bit_Field_Type {
+			if (.Typeid_Type <= value_kind && value_kind <= .Bit_Field_Type) || is_type_of_call(file, value) {
 				kind = .Type_Name
 				type = value
 			} else if value_kind == .Proc_Lit {

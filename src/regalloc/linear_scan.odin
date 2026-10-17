@@ -401,6 +401,9 @@ first_ending_at_or_after :: proc "contextless" (occupied: []Occupied, pos: Pos) 
 }
 
 insert_occupied :: proc(table: ^[dynamic]Occupied, entry: Occupied) {
+	if len(table) == cap(table) {
+		_ = reserve(table, max(2 * cap(table), 16))
+	}
 	inject_at(table, first_ending_at_or_after(table[:], entry.first), entry)
 }
 

@@ -367,3 +367,21 @@ Defer for v0: incremental/daemon checking, cross-build cache serialization, sema
 2. Preserve the fork's canonical numeric typeid algorithm initially as a low-cost compatibility default. Only table consistency is required, so the numeric algorithm may change later.
 3. Use the committed `types.reserve_nominal`, `types.complete_nominal` and `types.layout` signatures in section 3. Checker model and checked-view accessors live in `src/check/model.odin`; detailed semantic algorithms remain separate tickets.
 4. The [IR open-question rulings](02-ir-design.md#open-question-rulings) settle baseline SIMD and startup: `lower` scalarizes SIMD without changing the runtime; the compiler emits entry/TLS/stack-protector sequences directly; user assembly imports are later work; `__ODIN_LLVM_F16_SUPPORTED` is false while the language's f16 type stays unchanged.
+
+## Appendix A. Polymorphism implementation note (agent-500)
+
+Official references, read before this note: `/home/su3h7am/Projects/Odin/src/check_type.cpp` `determine_type_from_polymorphic` (~2874, untyped/compound-literal sources first, then unification), `check_record_polymorphic_params` (~395), `check_procedure_type` (~4026); `/home/su3h7am/Projects/Odin/src/check_expr.cpp` `find_or_generate_polymorphic_procedure` (~719, instance cache and body check), `find_or_generate_polymorphic_procedure_from_parameters` (~1131), the call site (~7581) and `evaluate_where_clauses` (~7776). Nothing here is copied; the cache key and the reserve-then-check order follow section 7.
+
+Current state: `procedure_type` (type_expr.odin) rejects `signature.generic`, and records reject `poly_params` and `where_clauses`. The expression checker has no instantiation. The M1 gap is therefore the whole feature, not a field.
+
+Plan, in order, each step gated on the base:runtime histogram: (1) `$T` and `typeid` parameters bound from the argument type for scalar, pointer, slice and typeid patterns; (2) `where` clauses evaluated per instance; (3) polymorphic structs and unions `Name($T)`; (4) procedure groups over instances; (5) `$N` value parameters and specialization patterns (`$E` in `[]$E`, `$T/[]$E`).
+
+Data: a generic definition keeps its declared signature as a pattern with the `$` names bound to slots. An instance is `(definition Entity_Id, enclosing Instance_Id, canonical arguments)`, where each argument is a type id for `$T`/`typeid`, or a typed `Const_Id` for `$N`. Arguments are ordered by declaration, defaults are filled before keying, and the key is compared in full on hash collision. Every instance gets its own typed view, so one syntax node can hold different types per instance; checked facts are never shared between instances.
+
+Life cycle: a request reserves the instance and its concrete signature entity, marks it `Checking`, and then checks the body. A recursive request for the same key reuses the reserved instance. An invalid instance is cached as `Invalid`; a later use reports one concise note at the use site, not the original diagnostics. Errors from argument binding are reported once, at the call site, with an instantiation note naming the bound arguments. Lowering receives one function per complete instance; internal names come from the key (section 7 encoding), and enumeration sorts keys.
+
+Budget: an explicit instantiation limit (count and nesting depth) produces its own diagnostic with the instantiation trace. This is separate from semantic invalidity.
+
+Divergence to track: the official compiler probes deferred untyped arguments in a first pass; our first slice binds only from typed arguments and reports `Unsupported` for deferred untyped arguments until step 2.
+
+Divergence to track (temporary): `intrinsics.has_target_feature` reads `Build_Configuration.target_features`, which is empty, so `sse2` reports false and `base:runtime` `memory_compare` takes its scalar path. The official x86-64 baseline reports `sse2` true. SIMD pending: `#simd` types, `unaligned_load`, `simd_lanes_ne`, `simd_reduce_or`, `simd_indices`, `simd_select`, `simd_reduce_min`, and V128 lowering. Enabling it later is a data change to the target feature list.

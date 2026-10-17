@@ -94,3 +94,28 @@ section_27_out_of_range_slice_index_traps :: proc(t: ^testing.T) {
 section_28_strings_len_and_index_exit_with_result :: proc(t: ^testing.T) {
 	expect_exit(t, "section_28", 128)
 }
+
+@(test)
+declared_variable_assignment_exits_with_value :: proc(t: ^testing.T) {
+	expect_exit(t, "declared_assignment", 1)
+}
+
+@(test)
+string_comparison_exits_with_result :: proc(t: ^testing.T) {
+	expect_exit(t, "string_compare", 63)
+}
+
+@(test)
+string_switch_exits_with_result :: proc(t: ^testing.T) {
+	expect_exit(t, "string_switch", 3)
+}
+
+@(test)
+cstring_literals_compare_with_terminators :: proc(t: ^testing.T) {
+	expect_exit(t, "cstring_literals", 3)
+}
+
+@(test)
+utf16_literals_keep_code_unit_lengths_and_terminators :: proc(t: ^testing.T) {
+	expect_exit(t, "utf16_literals", 31)
+}

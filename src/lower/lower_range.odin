@@ -75,7 +75,10 @@ lower_range :: proc(state: ^Procedure_State, node: syntax.Node_Index, statement:
 	end := ir.jump_target_make(state.builder)
 	loop := ir.loop_begin(state.builder, variables[:])
 	continuation := ir.jump_target_make(state.builder)
-	if !push_control_target(state, {{state.job.procedure.body.file, node}, end, continuation, true}) { return }
+	if !push_control_target(
+		state,
+		{node = {state.job.procedure.body.file, node}, break_target = end, continue_target = continuation, is_loop = true},
+	) { return }
 	defer pop(&state.control_targets)
 	upper := lower_value(state, interval.right)
 	if state.failed || function.error != nil { return }

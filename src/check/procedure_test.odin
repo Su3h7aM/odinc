@@ -11,11 +11,17 @@ procedures_record_zero_parameter_signatures :: proc(t: ^testing.T) {
 main :: proc "contextless" () {
 	buffer: [6]u8
 	value: u8
+	index := 1
 	value = 7
 	buffer[5] = '\n'
+	#no_bounds_check unchecked := buffer[index]
+	checked := buffer[index]
 	#no_bounds_check for i in 0 ..< 5 {
 		buffer[i] = u8('a' + i)
 	}
+	pointer := cast([^]u8)&buffer[0]
+	pointer = pointer[1:]
+	slice := pointer[1:3]
 }
 `,
 	)
@@ -84,17 +90,40 @@ main :: proc "contextless" () {
 	program.files = []File{{}, file}
 	info, found := expression_info(&program, 1, syntax.node_list(&ast, local.names)[0])
 	testing.expect(t, found && info.mode == .Variable && types.get(&store, info.type).count == 6)
-	assignment_info, assignment_found := expression_info(&program, 1, syntax.node_list(&ast, body.stmts)[2])
+	assignment_info, assignment_found := expression_info(&program, 1, syntax.node_list(&ast, body.stmts)[3])
 	assignment, is_assignment := program.plan_table[assignment_info.plan].(Assignment_Plan)
 	testing.expect(t, assignment_found && is_assignment && len(assignment.destinations) == 1 && assignment.conversions[0] != 0)
-	indexed_assignment := syntax.node_payload(&ast, syntax.node_list(&ast, body.stmts)[3], syntax.Assign_Stmt)
+	indexed_assignment := syntax.node_payload(&ast, syntax.node_list(&ast, body.stmts)[4], syntax.Assign_Stmt)
 	indexed, indexed_found := expression_info(&program, 1, syntax.node_list(&ast, indexed_assignment.lhs)[0])
 	bounds, is_bounds := program.plan_table[indexed.plan].(Bounds_Plan)
 	testing.expect(t, indexed_found && indexed.mode == .Variable && is_bounds && bounds.policy == .Disabled && len(bounds.operands) == 2)
-	loop := syntax.node_payload(&ast, syntax.node_list(&ast, body.stmts)[4], syntax.Range_Stmt)
+	loop := syntax.node_payload(&ast, syntax.node_list(&ast, body.stmts)[7], syntax.Range_Stmt)
 	loop_body := syntax.node_payload(&ast, loop.body, syntax.Block_Stmt)
 	inner := syntax.node_payload(&ast, syntax.node_list(&ast, loop_body.stmts)[0], syntax.Assign_Stmt)
 	inside, inside_found := expression_info(&program, 1, syntax.node_list(&ast, inner.lhs)[0])
 	unchecked, is_unchecked := program.plan_table[inside.plan].(Bounds_Plan)
 	testing.expect(t, inside_found && is_unchecked && unchecked.policy == .Disabled)
+	unchecked_decl := syntax.node_payload(&ast, syntax.node_list(&ast, body.stmts)[5], syntax.Value_Decl)
+	unchecked_value := syntax.node_list(&ast, unchecked_decl.values)[0]
+	unchecked_info, unchecked_found := expression_info(&program, 1, unchecked_value)
+	unchecked_plan, is_unchecked_plan := program.plan_table[unchecked_info.plan].(Bounds_Plan)
+	testing.expect(t, unchecked_found && is_unchecked_plan && unchecked_plan.policy == .Disabled)
+	checked_decl := syntax.node_payload(&ast, syntax.node_list(&ast, body.stmts)[6], syntax.Value_Decl)
+	checked_value := syntax.node_list(&ast, checked_decl.values)[0]
+	checked_info, checked_found := expression_info(&program, 1, checked_value)
+	checked_plan, is_checked_plan := program.plan_table[checked_info.plan].(Bounds_Plan)
+	testing.expect(t, checked_found && is_checked_plan && checked_plan.policy == .Enabled)
+	statements := syntax.node_list(&ast, body.stmts)
+	pointer_decl := syntax.node_payload(&ast, statements[8], syntax.Value_Decl)
+	pointer_id := syntax.node_list(&ast, pointer_decl.names)[0]
+	pointer_info, pointer_found := expression_info(&program, 1, pointer_id)
+	testing.expect(t, pointer_found && types.get(&store, pointer_info.type).kind == .Multi_Pointer)
+	pointer_assignment := syntax.node_payload(&ast, statements[9], syntax.Assign_Stmt)
+	pointer_slice := syntax.node_list(&ast, pointer_assignment.rhs)[0]
+	pointer_slice_info, pointer_slice_found := expression_info(&program, 1, pointer_slice)
+	testing.expect(t, pointer_slice_found && pointer_slice_info.type == pointer_info.type)
+	slice_decl := syntax.node_payload(&ast, statements[10], syntax.Value_Decl)
+	slice_value := syntax.node_list(&ast, slice_decl.values)[0]
+	slice_info, slice_found := expression_info(&program, 1, slice_value)
+	testing.expect(t, slice_found && types.get(&store, slice_info.type).kind == .Slice)
 }

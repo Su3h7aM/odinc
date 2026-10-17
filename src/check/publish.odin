@@ -21,7 +21,7 @@ expression_checker_publish_procedures :: proc(checker: ^Expression_Checker, prog
 		linkage := symbol_linkage(checker, entity) or_return
 		append(&checker.symbols, Symbol{entity = Entity_Id(id), kind = .Procedure, name = name, type = procedure.signature, linkage = linkage}) or_return
 		checker.entity_symbols[id] = symbol
-		view := expression_file_view(checker, procedure.body.file) or_return
+		view := expression_body_view(checker, procedure, procedure.body.file) or_return
 		span := checker.type_checker.files[procedure.body.file].ast.nodes[procedure.body.node]
 		append(
 			&checker.procedures,
@@ -34,11 +34,17 @@ expression_checker_publish_procedures :: proc(checker: ^Expression_Checker, prog
 				source = {procedure.body.file, span.start, span.end},
 				parameters = procedure.parameters,
 				results = procedure.results,
+				defers = procedure.defers,
 				convention = procedure.convention,
 			},
 		) or_return
 	}
+	if collection := checker.type_checker.collection; collection != nil && collection.runtime_scope != 0 {
+		entity := scope_lookup_current(scopes, collection.runtime_scope, "__init_context")
+		if entity != 0 && checker.entity_symbols[entity] != 0 { program.runtime.init_context = entity }
+	}
 	expression_checker_publish_globals(checker, program) or_return
+	expression_checker_publish_type_info(checker, program) or_return
 	program.symbol_table = checker.symbols[:]
 	program.entity_symbols = checker.entity_symbols[:]
 	program.procedure_list = checker.procedures[:]

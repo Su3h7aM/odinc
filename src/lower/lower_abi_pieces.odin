@@ -72,7 +72,7 @@ results_tile :: proc(results: []ir.Result, size: i64) -> bool {
 @(private)
 is_aggregate :: proc(state: ^Procedure_State, type: types.Type_Id) -> bool {
 	#partial switch lower_type(state, type).kind {
-	case .Struct, .Array, .String, .Slice:
+	case .Struct, .Array, .String, .Slice, .Any:
 		return true
 	}
 	return false
@@ -102,7 +102,7 @@ bind_parameter :: proc(state: ^Procedure_State, parameters: []types.Abi_Param, v
 	#partial switch lower_type(state, type).kind {
 	case .Bool:
 		value = ir.convert(job.function, .Trunc, value, .Bool)
-	case .Integer, .Rune, .Float, .Raw_Pointer, .Pointer, .Multi_Pointer, .CString, .CString16, .Procedure, .Type_Id:
+	case .Integer, .Enum, .Rune, .Float, .Raw_Pointer, .Pointer, .Multi_Pointer, .CString, .CString16, .Procedure, .Type_Id:
 	case:
 		report_procedure_error(job, .Unsupported, .Parameter)
 		return false
@@ -169,6 +169,8 @@ lower_last_result :: proc(state: ^Procedure_State, node: syntax.Node_Index, valu
 	}
 	if state.struct_return != 0 {
 		lower_store(state, state.struct_return, value, type)
+		run_deferred(state, 0)
+		if state.failed || state.job.function.error != nil || state.builder.control == 0 { return }
 		ir.emit_return(state.builder)
 		return
 	}
@@ -185,5 +187,7 @@ lower_last_result :: proc(state: ^Procedure_State, node: syntax.Node_Index, valu
 		pieces[index] = lower_load_word(state, ir.ptr_offset(function, value, offset), result.type)
 		offset += i64(result.size)
 	}
+	run_deferred(state, 0)
+	if state.failed || function.error != nil || state.builder.control == 0 { return }
 	ir.emit_return(state.builder, ..pieces[:len(signature.results)])
 }

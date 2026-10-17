@@ -57,6 +57,19 @@ call_signature :: proc(state: ^Procedure_State, declaration: Procedure_Declarati
 }
 
 @(private)
+abi_signature :: proc(plan: types.Abi_Plan, allocator: runtime.Allocator) -> (signature: ir.Signature, err: runtime.Allocator_Error) {
+	params := make([]ir.Param, len(plan.params), allocator) or_return
+	results := make([]ir.Result, len(plan.results), allocator) or_return
+	for parameter, index in plan.params {
+		params[index] = {piece_type(parameter.type), ir.Param_Attr(parameter.attr), ir.Extension(parameter.ext), parameter.size, parameter.align}
+	}
+	for result, index in plan.results {
+		results[index] = {piece_type(result.type), ir.Extension(result.ext), result.size}
+	}
+	return ir.Signature{ir.Calling_Convention(plan.convention), plan.variadic, params, results}, nil
+}
+
+@(private)
 call_scalar_type :: proc(type: ir.Value_Type) -> bool {
 	#partial switch type {
 	case .I8, .I16, .I32, .I64, .F32, .F64, .Ptr:

@@ -33,7 +33,12 @@ lower_aggregate :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: 
 		field_type := types.get(store, owner).fields[index].type
 		offset, offset_error := types.field_offset(store, owner, index)
 		if offset_error != .None { return lower_fail(state, node, .Expression) }
-		field_value := lower_operand(state, value, field_type)
+		field_value: ir.Node_Id
+		if position < len(plan.conversions) && plan.conversions[position] != 0 {
+			field_value = lower_declared_conversion(state, node, plan.conversions[position])
+		} else {
+			field_value = lower_operand(state, value, field_type)
+		}
 		if state.failed { return 0 }
 		lower_store(state, ir.ptr_offset(function, address, offset), field_value, field_type)
 		if state.failed { return 0 }

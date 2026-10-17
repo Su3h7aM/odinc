@@ -24,7 +24,7 @@ append_startup_procedures :: proc(
 	errors: ^[dynamic]Lower_Error,
 	allocator: runtime.Allocator,
 ) -> runtime.Allocator_Error {
-	if len(program.global_initialization) > 0 || len(program.runtime.init_procedures) > 0 {
+	if len(program.global_initialization) > 0 || len(program.runtime.init_procedures) > 0 || program.runtime.init_context != 0 {
 		append_generated_procedure(
 			program,
 			module,
@@ -122,6 +122,7 @@ append_generated_procedure :: proc(
 lower_global_initializers :: proc(state: ^Procedure_State) {
 	program := state.job.program
 	function := state.job.function
+	call_init_context(state)
 	for entity in program.global_initialization {
 		global := find_global(program, entity)
 		assert(global != nil)

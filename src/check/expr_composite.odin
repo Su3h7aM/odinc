@@ -31,6 +31,7 @@ expression_composite :: proc(
 	allocator := mem.dynamic_arena_allocator(&checker.arena)
 	values := make([]Operand, len(elements), allocator) or_return
 	indices := make([]u32, len(elements), allocator) or_return
+	conversions := make([]Plan_Id, len(elements), allocator) or_return
 	constants := make([]Const_Id, len(fields), allocator) or_return
 	for element, position in elements {
 		value_node := element
@@ -47,6 +48,7 @@ expression_composite :: proc(
 		if value.state == .Invalid { return expression_poison(scope), nil }
 		values[position] = Operand(Expression_Ref{view, value_node})
 		indices[position] = u32(index)
+		conversions[position] = expression_boxing_plan(checker, value.plan)
 		if value.constant != 0 && expression_conversion_plan(checker, value.plan) == 0 { constants[index] = value.constant }
 	}
 	if len(elements) == len(fields) && !slice.contains(constants, 0) {
@@ -58,6 +60,6 @@ expression_composite :: proc(
 		return Expression_Info{type = type, constant = constant, mode = .Constant, scope = scope, state = .Checked}, nil
 	}
 	plan := Plan_Id(len(checker.plans))
-	append(&checker.plans, Plan(Aggregate_Plan{type = type, values = values, field_indices = indices})) or_return
+	append(&checker.plans, Plan(Aggregate_Plan{type = type, values = values, field_indices = indices, conversions = conversions})) or_return
 	return Expression_Info{type = type, mode = .Value, plan = plan, scope = scope, state = .Checked}, nil
 }

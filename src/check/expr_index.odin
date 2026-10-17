@@ -24,19 +24,24 @@ expression_index :: proc(
 	if base.state == .Invalid { return expression_poison(scope), nil }
 	base_descriptor := types.get(checker.type_checker.store, base.type)
 	is_array := base_descriptor.kind == .Array
-	is_string := base_descriptor.kind == .String
-	if (!is_array && !is_string && base_descriptor.kind != .Slice) || (is_array && base.mode != .Variable) {
+	is_string := base_descriptor.kind == .String || base_descriptor.kind == .String16
+	is_multi_pointer := base_descriptor.kind == .Multi_Pointer
+	if (!is_array && !is_string && !is_multi_pointer && base_descriptor.kind != .Slice) || (is_array && base.mode != .Variable) {
 		return expression_failure(checker, view, scope, node, .Unsupported)
 	}
 	length := base_descriptor.count
 	element_type := base_descriptor.elem
 	mode := Addressing_Mode.Variable
 	if is_string {
-		element_type = types.intern(checker.type_checker.store, types.Type{kind = .Integer, count = 1})
+		element_width: i64 = 1 if base_descriptor.kind == .String else 2
+		element_type = types.intern(checker.type_checker.store, types.Type{kind = .Integer, count = element_width})
 		mode = .Value
 	}
-	position := check_expression(checker, view, scope, access.index, checker.default_integer) or_return
+	position := check_expression(checker, view, scope, access.index) or_return
 	if position.state == .Invalid { return expression_poison(scope), nil }
+	if conversion_untyped(types.get(checker.type_checker.store, position.type).kind) {
+		position = check_expression(checker, view, scope, access.index, checker.default_integer) or_return
+	}
 	statically_checked := false
 	if is_array && position.mode == .Constant {
 		value := constant_pool_get(checker.constants, position.constant).value.(big.Int)
@@ -51,7 +56,7 @@ expression_index :: proc(
 	operands[0] = Operand(Expression_Ref{view, access.expr})
 	operands[1] = Operand(Expression_Ref{view, access.index})
 	policy := Check_Policy.Disabled if checker.unchecked_depth > 0 || statically_checked else Check_Policy.Enabled
-	if checker.type_checker.files[file_id].policy.bounds_check == .Disabled { policy = .Disabled }
+	if checker.type_checker.files[file_id].policy.bounds_check == .Disabled || is_multi_pointer { policy = .Disabled }
 	plan := Plan_Id(len(checker.plans))
 	append(&checker.plans, Plan(Bounds_Plan{kind = .Index, operands = operands, policy = policy})) or_return
 	return Expression_Info{type = element_type, mode = mode, plan = plan, scope = scope, state = .Checked}, nil
@@ -76,7 +81,8 @@ expression_slice :: proc(
 	if base.state == .Invalid { return expression_poison(scope), nil }
 	store := checker.type_checker.store
 	base_descriptor := types.get(store, types.resolve_named(store, base.type))
-	if (base_descriptor.kind != .Array || base.mode != .Variable) && base_descriptor.kind != .Slice {
+	is_multi_pointer := base_descriptor.kind == .Multi_Pointer
+	if (base_descriptor.kind != .Array || base.mode != .Variable) && base_descriptor.kind != .Slice && !is_multi_pointer {
 		return expression_failure(checker, view, scope, node, .Unsupported)
 	}
 	slice_type := types.intern(store, types.Type{kind = .Slice, elem = base_descriptor.elem})
@@ -94,5 +100,8 @@ expression_slice :: proc(
 	if file.policy.bounds_check == .Disabled { policy = .Disabled }
 	plan := Plan_Id(len(checker.plans))
 	append(&checker.plans, Plan(Bounds_Plan{kind = .Slice, operands = operands, policy = policy})) or_return
-	return Expression_Info{type = slice_type, mode = .Value, plan = plan, scope = scope, state = .Checked}, nil
+	// ptr[low:] is ptr + low and keeps the multi-pointer type; ptr[low:high] yields a slice.
+	result_type := slice_type
+	if is_multi_pointer && access.high == 0 { result_type = base.type }
+	return Expression_Info{type = result_type, mode = .Value, plan = plan, scope = scope, state = .Checked}, nil
 }

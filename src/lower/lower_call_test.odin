@@ -222,7 +222,6 @@ direct_calls_preserve_argument_order_conversions_and_syscall_memory :: proc(t: ^
 			},
 			check.Call_Plan {
 				callee = check.Expression_Ref{1, next_name},
-				entity = 2,
 				arguments = {
 					{value = check.Expression_Ref{1, buffer_address}, parameter = 5},
 					{value = check.Const_Id(5), parameter = 6, conversion = 6, evaluation_order = 1},

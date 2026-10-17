@@ -34,6 +34,50 @@ expression_integer_evaluator :: proc(
 	return 0, false, nil
 }
 
+// Install as Type_Checker.evaluate_default_type with the Expression_Checker as its user_data.
+expression_default_type_evaluator :: proc(
+	type_checker: ^Type_Checker,
+	scope: Scope_Id,
+	file: File_Id,
+	node: syntax.Node_Index,
+	user_data: rawptr,
+) -> (
+	type_id: types.Type_Id,
+	ok: bool,
+	err: Resolve_Error,
+) {
+	checker := cast(^Expression_Checker)user_data
+	assert(checker != nil && checker.type_checker == type_checker)
+	view := expression_file_view(checker, file) or_return
+	info := check_expression(checker, view, scope, node) or_return
+	if info.state == .Invalid { return types.TYPE_POISON, false, nil }
+	return types.default_type_of_untyped(checker.type_checker.store, info.type), true, nil
+}
+
+// Install as Type_Checker.evaluate_boolean with the Expression_Checker as its user_data.
+expression_boolean_evaluator :: proc(
+	type_checker: ^Type_Checker,
+	scope: Scope_Id,
+	file: File_Id,
+	node: syntax.Node_Index,
+	user_data: rawptr,
+) -> (
+	value: bool,
+	ok: bool,
+	err: Resolve_Error,
+) {
+	checker := cast(^Expression_Checker)user_data
+	assert(checker != nil && checker.type_checker == type_checker)
+	view := expression_file_view(checker, file) or_return
+	info := check_expression(checker, view, scope, node) or_return
+	if info.state == .Invalid { return }
+	if info.mode == .Constant {
+		if constant, is_bool := constant_pool_get(checker.constants, info.constant).value.(bool); is_bool { return constant, true, nil }
+	}
+	expression_failure(checker, view, scope, node, .Expected_Boolean_Constant) or_return
+	return false, false, nil
+}
+
 // Declaration dispatcher for the narrow scalar slice. Other declaration kinds remain unsupported.
 // Type declarations are attempted first so aliases and constant-dependent layouts use one resolver.
 expression_declaration :: proc(resolver: ^Resolver, id: Entity_Id, user_data: rawptr) -> (valid: bool, err: Resolve_Error) {

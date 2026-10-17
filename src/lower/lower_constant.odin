@@ -2,7 +2,9 @@ package lower
 
 import "base:runtime"
 import "core:math/big"
+import "core:mem"
 import "core:mem/virtual"
+import "core:unicode/utf16"
 import "oc:check"
 import "oc:ir"
 import "oc:types"
@@ -11,12 +13,25 @@ import "oc:types"
 lower_constant :: proc(state: ^Procedure_State, id: check.Const_Id, target: types.Type_Id) -> ir.Node_Id {
 	constant := check.constant(state.job.program, id)
 	assert(constant != nil)
-	if text, is_string := constant.value.(string); is_string { return lower_string(state, text) }
+	type := target if target != 0 else constant.type
+	type = types.default_type_of_untyped(check.type_store(state.job.program), type)
+	if text, is_string := constant.value.(string); is_string {
+		#partial switch lower_type(state, type).kind {
+		case .CString:
+			return lower_cstring(state, text)
+		case .CString16:
+			return lower_cstring16(state, text)
+		case .String16:
+			return lower_string16(state, text)
+		case .String:
+			return lower_string(state, text)
+		case:
+			return lower_fail(state, state.job.procedure.body.node, .Constant)
+		}
+	}
 	if aggregate, is_aggregate := constant.value.(check.Aggregate_Value); is_aggregate {
 		return lower_constant_aggregate(state, constant.type, aggregate)
 	}
-	type := target if target != 0 else constant.type
-	type = types.default_type_of_untyped(check.type_store(state.job.program), type)
 	scalar := scalar_type(state, type)
 	if is_wide_integer(state, type) {
 		if integer, is_integer := constant.value.(big.Int); is_integer { return lower_wide_constant(state, integer) }
@@ -110,6 +125,59 @@ lower_string :: proc(state: ^Procedure_State, text: string) -> ir.Node_Id {
 	lower_store_word(state, slot, ir.symbol_addr(function, blob))
 	lower_store_word(state, ir.ptr_offset(function, slot, 8), ir.const_int(function, .I64, i64(len(text))))
 	return slot
+}
+
+@(private)
+lower_cstring :: proc(state: ^Procedure_State, text: string) -> ir.Node_Id {
+	function := state.job.function
+	allocator := virtual.arena_allocator(&function.arena)
+	bytes, bytes_error := make([]byte, len(text) + 1, allocator)
+	if bytes_error != nil { function.error = bytes_error; return 0 }
+	copy(bytes, transmute([]byte)text)
+	return lower_string_blob(state, bytes)
+}
+
+@(private)
+lower_cstring16 :: proc(state: ^Procedure_State, text: string) -> ir.Node_Id {
+	return lower_string16_data(state, text, true)
+}
+
+@(private)
+lower_string16 :: proc(state: ^Procedure_State, text: string) -> ir.Node_Id {
+	return lower_string16_data(state, text, false)
+}
+
+@(private)
+lower_string16_data :: proc(state: ^Procedure_State, text: string, is_cstring: bool) -> ir.Node_Id {
+	function := state.job.function
+	allocator := virtual.arena_allocator(&function.arena)
+	units, units_error := make([]u16, len(text) + 1, allocator)
+	if units_error != nil { function.error = units_error; return 0 }
+	length := utf16.encode_string(units, text)
+	byte_length := (length + 1) * size_of(u16)
+	bytes, bytes_error := make([]byte, byte_length, allocator)
+	if bytes_error != nil { function.error = bytes_error; return 0 }
+	mem.copy(raw_data(bytes), raw_data(units), byte_length)
+	address := lower_string_blob(state, bytes)
+	if is_cstring { return address }
+	slot := ir.stack_slot(function, state.entry_control, 16, 8)
+	lower_store_word(state, slot, address)
+	lower_store_word(state, ir.ptr_offset(function, slot, 8), ir.const_int(function, .I64, i64(length)))
+	return slot
+}
+
+@(private)
+lower_string_blob :: proc(state: ^Procedure_State, bytes: []byte) -> ir.Node_Id {
+	function := state.job.function
+	blob := ir.Symbol_Ref {
+		space = .Local_Blob,
+		index = u32(len(function.blobs)),
+	}
+	if _, append_error := append(&function.blobs, ir.Data_Blob{bytes = bytes, align = 1}); append_error != nil {
+		function.error = append_error
+		return 0
+	}
+	return ir.symbol_addr(function, blob)
 }
 
 @(private)

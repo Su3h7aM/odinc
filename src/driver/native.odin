@@ -115,10 +115,13 @@ build_image :: proc(module: ^ir.Module, log: io.Writer, allocator: runtime.Alloc
 		if function.name == lower.PROGRAM_FINALIZER_NAME { fini_index = index }
 	}
 	context_index := -1
+	args_index := -1
 	for global, index in module.globals {
 		if global.name == lower.DEFAULT_CONTEXT_NAME { context_index = index }
+		if global.name == "runtime.args__" { args_index = index }
 	}
 	assert(context_index >= 0, "lowering declares the default context global")
+	assert(args_index >= 0, "lowering declares the runtime args global")
 
 	scratch: virtual.Arena
 	virtual.arena_init_growing(&scratch) or_return
@@ -274,6 +277,7 @@ build_image :: proc(module: ^ir.Module, log: io.Writer, allocator: runtime.Alloc
 		init_symbol,
 		fini_symbol,
 		global_symbols[context_index],
+		global_symbols[args_index],
 		u32(startup_base),
 		thread_pointer_symbol,
 		scratch_allocator,
@@ -287,11 +291,11 @@ build_image :: proc(module: ^ir.Module, log: io.Writer, allocator: runtime.Alloc
 
 // `_start` stores argc, argv and envp, sets the thread pointer, calls the initializer when there is one, passes the
 // default context in rdi, calls `main`, calls the finalizer when there is one, and exits 0.
-@(private = "file")
+@(private)
 start_atom :: proc(
 	main_symbol: u32,
 	init_symbol, fini_symbol: Maybe(u32),
-	context_symbol, startup, thread_pointer: u32,
+	context_symbol, args_symbol, startup, thread_pointer: u32,
 	allocator: runtime.Allocator,
 ) -> (
 	atom: link.Atom,
@@ -303,6 +307,9 @@ start_atom :: proc(
 	start_store_rip(&code, &relocs, {0x48, 0x89, 0x05}, startup) or_return // mov [argc], rax
 	append(&code, 0x48, 0x8d, 0x44, 0x24, 0x08) or_return // lea rax, [rsp + 8]
 	start_store_rip(&code, &relocs, {0x48, 0x89, 0x05}, startup + 1) or_return // mov [argv], rax
+	start_store_rip(&code, &relocs, {0x48, 0x89, 0x05}, args_symbol) or_return // mov [runtime.args__.data], rax
+	append(&code, 0x48, 0x8b, 0x0c, 0x24) or_return // mov rcx, [rsp]
+	start_rip_operand(&code, &relocs, {0x48, 0x89, 0x0d}, args_symbol, .R_X86_64_PC32, 4) or_return // mov [runtime.args__.len], rcx
 	append(&code, 0x48, 0x8b, 0x0c, 0x24) or_return // mov rcx, [rsp]
 	append(&code, 0x48, 0x8d, 0x44, 0xcc, 0x10) or_return // lea rax, [rsp + rcx * 8 + 16]
 	start_store_rip(&code, &relocs, {0x48, 0x89, 0x05}, startup + 2) or_return // mov [envp], rax
@@ -328,9 +335,10 @@ start_rip_operand :: proc(
 	opcode: []byte,
 	symbol: u32,
 	kind: elf.R_X86_64,
+	addend: i64 = -4,
 ) -> runtime.Allocator_Error {
 	append(code, ..opcode) or_return
-	append(relocs, link.Relocation{offset = u32(len(code)), symbol = symbol, kind = kind, addend = -4}) or_return
+	append(relocs, link.Relocation{offset = u32(len(code)), symbol = symbol, kind = kind, addend = addend}) or_return
 	_, err := append(code, 0, 0, 0, 0)
 	return err
 }
@@ -353,12 +361,16 @@ global_section :: proc(global: ir.Global) -> link.Section_Kind {
 	return .Data if global.mutable else .Rodata
 }
 
+@(private = "file", thread_local)
+native_scratch: virtual.Arena
+
 @(private = "file")
 native_function :: proc(function: ^ir.Function, indices: amd64.Symbol_Indices, allocator: runtime.Allocator) -> (atom: link.Atom, err: Build_Error) {
-	arena: virtual.Arena
-	virtual.arena_init_growing(&arena) or_return
-	defer virtual.arena_destroy(&arena)
-	scratch := virtual.arena_allocator(&arena)
+	if native_scratch.curr_block == nil {
+		virtual.arena_init_growing(&native_scratch) or_return
+	}
+	defer virtual.arena_free_all(&native_scratch)
+	scratch := virtual.arena_allocator(&native_scratch)
 
 	schedule, sched_err := sched.order(function, scratch)
 	if sched_err != nil { return {}, sched_err }
