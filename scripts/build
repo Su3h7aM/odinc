@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#MISE description="Build an Odin main file into a native executable (mise run build -- <file> -out:<path>)"
+#MISE description="Build odinc, optionally compile an Odin main file (mise run build -- <file> -out:<path>)"
 #MISE alias="b"
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
@@ -8,4 +8,5 @@ binary="$PROJECT_ROOT/build/odinc"
 mkdir -p "$PROJECT_ROOT/build"
 step "build odinc"
 "$ODIN" build "$PROJECT_ROOT/src/odinc" -vet -strict-style -vet-tabs -disallow-do -warnings-as-errors "$COLLECTION" -out:"$binary" || die "build failed: odinc"
+if (($# == 0)); then exit 0; fi
 "$binary" "$@"
