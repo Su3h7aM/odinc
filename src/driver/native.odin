@@ -2,6 +2,7 @@ package driver
 
 import "base:runtime"
 import "core:fmt"
+import "core:io"
 import "core:mem/virtual"
 import "oc:amd64"
 import "oc:ir"
@@ -47,10 +48,19 @@ Build_Error :: union {
 	Link_Failed,
 }
 
-// Checks and lowers `main_path`, then builds a static Linux executable image. The caller frees it with `allocator`.
-build_file :: proc(odin_root, main_path: string, allocator: runtime.Allocator) -> (image: []byte, err: Build_Error) {
+// Slots in the BSS atom that `_start` fills: argc, argv and envp.
+@(private = "file")
+STARTUP_SLOT_COUNT :: 3
+
+@(private = "file")
+STARTUP_SLOT_NAMES := [STARTUP_SLOT_COUNT]string{"runtime.argc", "runtime.argv", "runtime.envp"}
+
+// Checks and lowers `main_path`, then builds a static Linux executable image. Checker diagnostics and lowering
+// errors go to `log`. The caller frees the image with `allocator`.
+build_file :: proc(odin_root, main_path: string, log: io.Writer, allocator: runtime.Allocator) -> (image: []byte, err: Build_Error) {
 	session, driver_err := check_program(odin_root, main_path, allocator)
 	defer session_destroy(session)
+	if driver_err == .Check_Failed { write_diagnostics(session, log) }
 	if driver_err != .None { return nil, driver_err }
 
 	module: ir.Module
@@ -58,11 +68,14 @@ build_file :: proc(odin_root, main_path: string, allocator: runtime.Allocator) -
 	defer delete(lower_errors, allocator)
 	if lower_err != nil { return nil, lower_err }
 	defer ir.module_destroy(&module)
-	if len(lower_errors) > 0 { return nil, Lower_Failed{len(lower_errors)} }
+	if len(lower_errors) > 0 {
+		write_lower_errors(session, log, lower_errors)
+		return nil, Lower_Failed{len(lower_errors)}
+	}
 	return build_image(&module, allocator)
 }
 
-// Symbols are laid out as: `_start`, functions, globals, local blobs of every function, externs.
+// Symbols are laid out as: `_start`, functions, globals, local blobs of every function, startup slots, externs.
 // Atoms follow the same order, so the index of every defined symbol is also its atom index.
 build_image :: proc(module: ^ir.Module, allocator: runtime.Allocator) -> (image: []byte, err: Build_Error) {
 	main_index := -1
@@ -70,6 +83,11 @@ build_image :: proc(module: ^ir.Module, allocator: runtime.Allocator) -> (image:
 		if function.name == "main" { main_index = index }
 	}
 	if main_index < 0 { return nil, Missing_Main{} }
+	context_index := -1
+	for global, index in module.globals {
+		if global.name == lower.DEFAULT_CONTEXT_NAME { context_index = index }
+	}
+	assert(context_index >= 0, "lowering declares the default context global")
 
 	scratch: virtual.Arena
 	virtual.arena_init_growing(&scratch) or_return
@@ -86,7 +104,8 @@ build_image :: proc(module: ^ir.Module, allocator: runtime.Allocator) -> (image:
 	global_base := 1 + function_count
 	blob_base := global_base + global_count
 	extern_base := blob_base + blob_count
-	symbol_count := extern_base + extern_count
+	startup_base := extern_base + extern_count
+	symbol_count := startup_base + STARTUP_SLOT_COUNT
 
 	function_symbols := make([]u32, function_count, scratch_allocator) or_return
 	global_symbols := make([]u32, global_count, scratch_allocator) or_return
@@ -110,7 +129,8 @@ build_image :: proc(module: ^ir.Module, allocator: runtime.Allocator) -> (image:
 	}
 
 	symbols := make([]link.Symbol, symbol_count, scratch_allocator) or_return
-	atoms := make([]link.Atom, blob_base + blob_count, scratch_allocator) or_return
+	startup_atom := blob_base + blob_count
+	atoms := make([]link.Atom, startup_atom + 1, scratch_allocator) or_return
 	defer {
 		for &atom in atoms[1:1 + function_count] { amd64.atom_destroy(&atom, allocator) }
 	}
@@ -178,26 +198,132 @@ build_image :: proc(module: ^ir.Module, allocator: runtime.Allocator) -> (image:
 			atom = link.ATOM_UNDEFINED,
 		}
 	}
+	for name, slot in STARTUP_SLOT_NAMES {
+		symbols[startup_base + slot] = link.Symbol {
+			name   = name,
+			atom   = u32(startup_atom),
+			offset = u64(8 * slot),
+		}
+	}
+	atoms[startup_atom] = link.Atom {
+		section = .Bss,
+		align   = 8,
+		size    = 8 * STARTUP_SLOT_COUNT,
+	}
 
 	for function, index in module.functions {
 		atoms[1 + index] = native_function(function, function_indices[index], allocator) or_return
 	}
-
-	// call main; mov eax, 231; xor edi, edi; syscall
-	start_code := [?]byte{0xe8, 0, 0, 0, 0, 0xb8, 231, 0, 0, 0, 0x31, 0xff, 0x0f, 0x05}
-	start_relocs := []link.Relocation{{offset = 1, symbol = function_symbols[main_index], kind = .R_X86_64_PLT32, addend = -4}}
-	atoms[0] = link.Atom {
-		section = .Text,
-		align   = 16,
-		bytes   = start_code[:],
-		size    = u64(len(start_code)),
-		relocs  = start_relocs,
-	}
+	atoms[0] = start_atom(function_symbols[main_index], global_symbols[context_index], u32(startup_base), scratch_allocator) or_return
 
 	inputs := []link.Input{{atoms = atoms, symbols = symbols}}
 	linked, link_err := link.link(inputs, "_start", allocator)
 	if link_err != nil { return nil, Link_Failed{link_err} }
 	return linked, nil
+}
+
+// `_start` stores argc, argv and envp from the initial stack, passes the default context in rdi, calls
+// `main` and exits 0. Relocations: the three startup slots (`startup`, +1, +2), the context, then `main`.
+@(private = "file")
+start_atom :: proc(main_symbol, context_symbol, startup: u32, allocator: runtime.Allocator) -> (atom: link.Atom, err: runtime.Allocator_Error) {
+	start_code := make([]byte, 60, allocator) or_return
+	copy(
+		start_code,
+		[]byte {
+			0x48,
+			0x8b,
+			0x04,
+			0x24,
+			0x48,
+			0x89,
+			0x05,
+			0,
+			0,
+			0,
+			0,
+			0x48,
+			0x8d,
+			0x44,
+			0x24,
+			0x08,
+			0x48,
+			0x89,
+			0x05,
+			0,
+			0,
+			0,
+			0,
+			0x48,
+			0x8b,
+			0x0c,
+			0x24,
+			0x48,
+			0x8d,
+			0x44,
+			0xcc,
+			0x10,
+			0x48,
+			0x89,
+			0x05,
+			0,
+			0,
+			0,
+			0,
+			0x48,
+			0x8d,
+			0x3d,
+			0,
+			0,
+			0,
+			0,
+			0xe8,
+			0,
+			0,
+			0,
+			0,
+			0xb8,
+			231,
+			0,
+			0,
+			0,
+			0x31,
+			0xff,
+			0x0f,
+			0x05,
+		},
+	)
+	relocs := make([]link.Relocation, 5, allocator) or_return
+	relocs[0] = {
+		offset = 7,
+		symbol = startup,
+		kind   = .R_X86_64_PC32,
+		addend = -4,
+	}
+	relocs[1] = {
+		offset = 19,
+		symbol = startup + 1,
+		kind   = .R_X86_64_PC32,
+		addend = -4,
+	}
+	relocs[2] = {
+		offset = 35,
+		symbol = startup + 2,
+		kind   = .R_X86_64_PC32,
+		addend = -4,
+	}
+	relocs[3] = {
+		offset = 42,
+		symbol = context_symbol,
+		kind   = .R_X86_64_PC32,
+		addend = -4,
+	}
+	relocs[4] = {
+		offset = 47,
+		symbol = main_symbol,
+		kind   = .R_X86_64_PLT32,
+		addend = -4,
+	}
+	return link.Atom{section = .Text, align = 16, bytes = start_code, size = u64(len(start_code)), relocs = relocs}, nil
 }
 
 @(private = "file")

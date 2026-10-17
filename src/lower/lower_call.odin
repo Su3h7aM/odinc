@@ -78,8 +78,13 @@ lower_call :: proc(state: ^Procedure_State, node: syntax.Node_Index, info: check
 	declaration := state.job.declarations[plan.entity]
 	if declaration.type == 0 || !direct_call_callee(state, plan) { return lower_fail(state, node, .Call) }
 	signature := declaration.signature
-	if signature.cc == .Odin { return lower_fail(state, node, .Context) }
-	if signature.cc != .Contextless || signature.variadic || plan.variadic { return lower_fail(state, node, .Call) }
+	context_count := 0
+	if signature.cc == .Odin {
+		context_count = 1
+	} else if signature.cc != .Contextless {
+		return lower_fail(state, node, .Call)
+	}
+	if signature.variadic || plan.variadic { return lower_fail(state, node, .Call) }
 	descriptor := lower_type(state, declaration.type)
 	if len(plan.results) != len(descriptor.results) ||
 	   len(plan.results) > 1 ||
@@ -93,9 +98,10 @@ lower_call :: proc(state: ^Procedure_State, node: syntax.Node_Index, info: check
 	if len(plan.results) == 0 && info.mode != .No_Value { return lower_fail(state, node, .Result) }
 	count := len(declaration.parameters)
 	if len(plan.arguments) != count ||
-	   len(signature.params) != count ||
-	   len(declaration.abi_params) != count { return lower_fail(state, node, .Call_Argument) }
-	for parameter, index in signature.params {
+	   len(signature.params) != count + context_count ||
+	   len(declaration.abi_params) != len(signature.params) { return lower_fail(state, node, .Call_Argument) }
+	if context_count == 1 && signature.params[count].attr != .Context { return lower_fail(state, node, .Call_Argument) }
+	for parameter, index in signature.params[:count] {
 		if parameter.attr != .Direct ||
 		   !call_scalar_type(parameter.type) ||
 		   declaration.abi_params[index].source != i32(index) ||
@@ -104,7 +110,7 @@ lower_call :: proc(state: ^Procedure_State, node: syntax.Node_Index, info: check
 	function := state.job.function
 	allocator := virtual.arena_allocator(&function.arena)
 	ordered, ordered_error := make([]Call_Argument_Order, count, allocator)
-	arguments, arguments_error := make([]ir.Node_Id, count, allocator)
+	arguments, arguments_error := make([]ir.Node_Id, len(signature.params), allocator)
 	if ordered_error != nil { function.error = ordered_error; return 0 }
 	if arguments_error != nil { function.error = arguments_error; return 0 }
 	for argument, index in plan.arguments {
@@ -133,6 +139,10 @@ lower_call :: proc(state: ^Procedure_State, node: syntax.Node_Index, info: check
 		if index > 0 && ordered[index - 1].evaluation_order == entry.evaluation_order { return lower_fail(state, node, .Call_Argument) }
 	}
 	callee := ir.symbol_addr(function, declaration.symbol)
+	if context_count == 1 {
+		arguments[count] = state.context_pointer
+		if arguments[count] == 0 { arguments[count] = ir.symbol_addr(function, state.job.default_context) }
+	}
 	for entry in ordered {
 		argument := plan.arguments[entry.argument_index]
 		position := entry.parameter_index

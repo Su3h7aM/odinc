@@ -14,12 +14,17 @@ Procedure_Job :: struct {
 	procedure:        check.Checked_Procedure,
 	function:         ^ir.Function,
 	symbols:          []ir.Symbol_Ref,
+	default_context:  ir.Symbol_Ref,
 	parameters:       []types.Abi_Param,
 	layouts:          []Type_Layout,
 	declarations:     []Procedure_Declaration,
 	errors:           [dynamic]Lower_Error,
 	allocation_error: runtime.Allocator_Error,
 }
+
+// Stand-in for runtime.Context until base/runtime compiles: a zeroed block, so no allocator or logger is set.
+DEFAULT_CONTEXT_NAME :: "runtime.context"
+DEFAULT_CONTEXT_SIZE :: 256
 
 // Initializes module in place; do not move it. The caller destroys it with ir.module_destroy
 // and deletes errors with allocator. Allocation failure destroys the partial module.
@@ -48,6 +53,11 @@ lower_program :: proc(
 	collected := make([dynamic]Lower_Error, scratch_allocator) or_return
 	symbols := declare_symbols(program, module, allocator) or_return
 	fill_globals(program, module, symbols, &collected) or_return
+	default_context := ir.Symbol_Ref {
+		space = .Global,
+		index = u32(len(module.globals)),
+	}
+	append(&module.globals, ir.Global{name = DEFAULT_CONTEXT_NAME, size = DEFAULT_CONTEXT_SIZE, align = 16, mutable = true}) or_return
 	runtime_requirements := check.runtime_requirements(program)
 	if len(runtime_requirements.type_info) != 0 || runtime_requirements.type_table != 0 {
 		append(&collected, Lower_Error{code = .Unsupported, feature = .Runtime_Type_Info}) or_return
@@ -68,12 +78,13 @@ lower_program :: proc(
 		job := &jobs[symbol.index]
 		assert(job.program == nil, "duplicate checked procedure")
 		job^ = Procedure_Job {
-			program   = program,
-			procedure = procedure,
-			function  = module.functions[symbol.index],
-			symbols   = symbols,
-			layouts   = layouts,
-			errors    = make([dynamic]Lower_Error, virtual.arena_allocator(&module.functions[symbol.index].arena)) or_return,
+			program         = program,
+			procedure       = procedure,
+			function        = module.functions[symbol.index],
+			symbols         = symbols,
+			default_context = default_context,
+			layouts         = layouts,
+			errors          = make([dynamic]Lower_Error, virtual.arena_allocator(&module.functions[symbol.index].arena)) or_return,
 		}
 		prepare_procedure(job, scratch_allocator) or_return
 	}
