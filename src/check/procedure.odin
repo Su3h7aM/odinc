@@ -274,7 +274,15 @@ expression_statement :: proc(checker: ^Expression_Checker, view: View_Id, file_i
 	case .Range_Stmt:
 		return expression_range(checker, view, file_id, scope, node)
 	case .Expr_Stmt:
-		_ = check_expression(checker, view, scope, syntax.node_payload(file.ast, node, syntax.Expr_Stmt).expr) or_return
+		expression := syntax.node_payload(file.ast, node, syntax.Expr_Stmt).expr
+		info := check_expression(checker, view, scope, expression) or_return
+		classified_expression := expression
+		for file.ast.nodes[classified_expression].kind == .Paren_Expr {
+			classified_expression = syntax.node_payload(file.ast, classified_expression, syntax.Paren_Expr).expr
+		}
+		if info.state != .Invalid && file.ast.nodes[classified_expression].kind == .Or_Return_Expr && info.mode != .No_Value {
+			expression_failure(checker, view, scope, expression, .Unsupported) or_return
+		}
 		return nil
 	case:
 		expression_failure(checker, view, scope, node, .Unsupported) or_return

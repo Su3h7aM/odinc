@@ -52,3 +52,82 @@ expression_or_else :: proc(
 	append(&checker.plans, Plan(Propagation_Plan{operand = Expression_Ref{view, expression.x}, test = test, values = values})) or_return
 	return Expression_Info{type = payload_type, mode = .Value, scope = scope, plan = plan, state = .Checked}, nil
 }
+
+@(private = "package")
+expression_or_return :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	file_id: File_Id,
+	scope: Scope_Id,
+	node: syntax.Node_Index,
+) -> (
+	info: Expression_Info,
+	err: Resolve_Error,
+) {
+	if checker.defer_depth != 0 { return expression_failure(checker, view, scope, node, .Unsupported) }
+	ast := checker.type_checker.files[file_id].ast
+	expression := syntax.node_payload(ast, node, syntax.Or_Return_Expr)
+	operand := check_expression(checker, view, scope, expression.expr) or_return
+	if operand.state == .Invalid { return expression_poison(scope), nil }
+	if operand.plan == 0 { return expression_failure(checker, view, scope, node, .Unsupported) }
+	call, is_call := checker.plans[operand.plan].(Call_Plan)
+	if !is_call || (len(call.results) != 1 && len(call.results) != 2) {
+		return expression_failure(checker, view, scope, node, .Unsupported)
+	}
+	store := checker.type_checker.store
+	status_index := len(call.results) - 1
+	status := call.results[status_index]
+	status_type := types.get(store, types.resolve_named(store, status))
+	test: Optional_Test
+	#partial switch status_type.kind {
+	case .Bool:
+		test = .Boolean_True
+	case .Pointer:
+		test = .Nil
+	case:
+		return expression_failure(checker, view, scope, node, .Unsupported)
+	}
+	for result in call.results {
+		if types.get(store, types.resolve_named(store, result)).kind == .Union {
+			return expression_failure(checker, view, scope, node, .Unsupported)
+		}
+	}
+	returnable := len(checker.results) == 1 && expression_propagation_result_matches(checker, status, checker.results[0])
+	if len(checker.results) > 1 &&
+	   len(checker.named_results) == len(checker.results) &&
+	   expression_propagation_result_matches(checker, status, checker.results[len(checker.results) - 1]) {
+		returnable = true
+		for result in checker.named_results {
+			if result == 0 { returnable = false; break }
+		}
+	}
+	if !returnable { return expression_failure(checker, view, scope, node, .Unsupported) }
+	allocator := mem.dynamic_arena_allocator(&checker.arena)
+	failure_values := make([]Operand, 1, allocator) or_return
+	failure_values[0] = Operand(Projection{Expression_Ref{view, expression.expr}, u32(status_index)})
+	failure := Plan_Id(len(checker.plans))
+	append(&checker.plans, Plan(Exit_Plan{kind = .Return, values = failure_values})) or_return
+	values := make([]Operand, status_index, allocator) or_return
+	for index in 0 ..< status_index {
+		values[index] = Operand(Projection{Expression_Ref{view, expression.expr}, u32(index)})
+	}
+	plan := Plan_Id(len(checker.plans))
+	append(&checker.plans, Plan(Propagation_Plan{operand = Expression_Ref{view, expression.expr}, test = test, values = values, failure = failure})) or_return
+	info = Expression_Info {
+		scope = scope,
+		state = .Checked,
+		plan  = plan,
+		mode  = .No_Value,
+	}
+	if len(values) == 1 { info.type, info.mode = call.results[0], .Value }
+	return info, nil
+}
+
+@(private = "package")
+expression_propagation_result_matches :: proc(checker: ^Expression_Checker, status, result: types.Type_Id) -> bool {
+	store := checker.type_checker.store
+	if status == result { return true }
+	status_type := types.get(store, types.resolve_named(store, status))
+	result_type := types.get(store, types.resolve_named(store, result))
+	return status_type.kind == .Bool && result_type.kind == .Bool
+}

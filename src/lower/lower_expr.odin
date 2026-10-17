@@ -192,6 +192,7 @@ lower_value :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> ir.Node
 		case check.Typeid_Plan:
 			return lower_typeid(state, node, value)
 		case check.Propagation_Plan:
+			if state.ast.nodes[node].kind == .Or_Return_Expr { return lower_or_return(state, node, value) }
 			return lower_or_else(state, node, value)
 		case:
 			return lower_fail(state, node, .Expression)
@@ -249,6 +250,11 @@ lower_load :: proc(state: ^Procedure_State, address: ir.Node_Id, type: types.Typ
 	if state.failed || state.job.function.error != nil { return 0 }
 	scalar := scalar_type(state, type)
 	if scalar == .None { return address }
+	if scalar == .Bool {
+		function := state.job.function
+		byte := ir.load(function, state.builder.control, ir.variable_get(state.builder, ir.MEMORY_VARIABLE), address, .I8, 0)
+		return ir.convert(function, .Trunc, byte, .Bool)
+	}
 	value := ir.load(state.job.function, state.builder.control, ir.variable_get(state.builder, ir.MEMORY_VARIABLE), address, scalar, 0)
 	return lower_endian_value(state, value, type)
 }
@@ -337,6 +343,7 @@ lower_store :: proc(state: ^Procedure_State, address, value: ir.Node_Id, type: t
 	memory := ir.variable_get(state.builder, ir.MEMORY_VARIABLE)
 	if scalar_type(state, type) != .None {
 		stored_value := lower_endian_value(state, value, type)
+		if function.nodes.type[stored_value] == .Bool { stored_value = ir.convert(function, .Zext, stored_value, .I8) }
 		memory = ir.store(function, state.builder.control, memory, address, stored_value, 0)
 	} else {
 		size := ir.const_int(function, .I64, state.job.layouts[type].size)
