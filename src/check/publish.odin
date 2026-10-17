@@ -23,6 +23,7 @@ expression_checker_publish_procedures :: proc(checker: ^Expression_Checker, prog
 		) or_return
 		checker.entity_symbols[id] = symbol
 		view := expression_file_view(checker, procedure.body.file) or_return
+		span := checker.type_checker.files[procedure.body.file].ast.nodes[procedure.body.node]
 		append(
 			&checker.procedures,
 			Checked_Procedure {
@@ -31,6 +32,7 @@ expression_checker_publish_procedures :: proc(checker: ^Expression_Checker, prog
 				signature = procedure.signature,
 				body = procedure.body,
 				view = view,
+				source = {procedure.body.file, span.start, span.end},
 				parameters = procedure.parameters,
 				results = procedure.results,
 				convention = procedure.convention,

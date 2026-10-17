@@ -23,6 +23,7 @@ Procedure_State :: struct {
 	control_targets: [dynamic]Control_Target,
 	call_signatures: [dynamic]Call_Signature,
 	result_pointers: [dynamic]ir.Node_Id,
+	struct_return:   ir.Node_Id,
 }
 
 @(private)
@@ -160,38 +161,26 @@ lower_procedure :: proc(job: ^Procedure_Job) -> (err: runtime.Allocator_Error) {
 		result_pointers = make([dynamic]ir.Node_Id, allocator) or_return,
 	}
 	scan_addresses(&state)
-	for parameter, index in job.parameters {
+	for index := 0; index < len(job.parameters); {
+		parameter := job.parameters[index]
 		if parameter.attr == .Context {
 			state.context_pointer = entry.params[index]
+			index += 1
 			continue
 		}
 		if parameter.source < 0 && parameter.attr == .Direct && parameter.type == .Ptr {
 			if _, append_error := append(&state.result_pointers, entry.params[index]); append_error != nil { return append_error }
+			index += 1
 			continue
 		}
-		if parameter.source < 0 || parameter.attr != .Direct {
-			report_procedure_error(job, .Unsupported, .Parameter)
-			return job.allocation_error
+		if parameter.source < 0 && parameter.attr == .Struct_Return {
+			state.struct_return = entry.params[index]
+			index += 1
+			continue
 		}
-		source := int(parameter.source)
-		assert(source < len(procedure.parameters))
-		if state.locals[procedure.parameters[source]].kind != .None {
-			report_procedure_error(job, .Unsupported, .Parameter)
-			return job.allocation_error
-		}
-		store := check.type_store(job.program)
-		entity := procedure.parameters[source]
-		type := types.get(store, types.resolve_named(store, job.program.entities[entity].type))
-		value := entry.params[index]
-		#partial switch type.kind {
-		case .Bool:
-			value = ir.convert(function, .Trunc, value, .Bool)
-		case .Integer, .Rune, .Float, .Raw_Pointer, .Pointer, .Multi_Pointer, .CString, .CString16, .Procedure, .Type_Id:
-		case:
-			report_procedure_error(job, .Unsupported, .Parameter)
-			return job.allocation_error
-		}
-		bind_local(&state, entity, value, true)
+		span := parameter_span(job.parameters[index:])
+		if !bind_parameter(&state, job.parameters[index:index + span], entry.params[index:index + span]) { return job.allocation_error }
+		index += span
 	}
 	lower_statement(&state, procedure.body.node)
 	if function.error != nil { return function.error }

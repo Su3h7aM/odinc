@@ -128,8 +128,8 @@ select_function_impl :: proc(
 		type := input.nodes.type[node]
 		if type == .Memory || type == .Control || type == .Tuple || type == .None { continue }
 		class, ok := register_class_of(type)
-		if !ok || class != .Int { continue }
-		selector.values[node] = new_vreg(output, .Int) or_return
+		if !ok || class == .Float && type != .F32 && type != .F64 { continue }
+		selector.values[node] = new_vreg(output, class) or_return
 	}
 	selector.params = lower_start(output, 0, selector.signature, selector.assignment, allocator) or_return
 	for block in schedule.blocks {
@@ -215,7 +215,11 @@ select_width :: proc(type: ir.Value_Type) -> u8 {
 		return 2
 	case .I32:
 		return 4
+	case .F32:
+		return 4
 	case .I64, .Ptr:
+		return 8
+	case .F64:
 		return 8
 	}
 	return 0
@@ -229,7 +233,11 @@ select_value :: proc(selector: ^Selector, node: ir.Node_Id) -> (value: Vreg, err
 	}
 	kind := input.nodes.kind[node]
 	if .Rematerialize not_in ir.kind_info[kind].flags { return selector.values[node], nil }
-	value = new_vreg(output, .Int) or_return
+	class := Register_Class.Int
+	if got, is_register := register_class_of(input.nodes.type[node]); is_register {
+		class = got
+	}
+	value = new_vreg(output, class) or_return
 	#partial switch kind {
 	case .Const_Int:
 		constant := input.nodes.data[node].int_value
@@ -237,10 +245,16 @@ select_value :: proc(selector: ^Selector, node: ir.Node_Id) -> (value: Vreg, err
 		if width == 8 && constant >= 0 && constant <= i64(max(u32)) { width = 4 }
 		mnemonic: x86.Mnemonic = .MOVABS if width == 8 && (constant < i64(min(i32)) || constant > i64(max(i32))) else .MOV
 		emit(output, block, mnemonic, width, value, Immediate(constant)) or_return
+	case .Const_Float:
+		select_float_bits(selector, value, input.nodes.type[node], input.nodes.data[node].float_bits) or_return
 	case .Symbol_Addr:
 		emit(output, block, .LEA, 8, value, Memory_Ref{base = Symbol_Target{symbol = input.nodes.data[node].symbol}}) or_return
 	case .Undef:
-		emit(output, block, .MOV, 4, value, Immediate(0)) or_return
+		if class == .Float {
+			select_float_bits(selector, value, input.nodes.type[node], 0) or_return
+		} else {
+			emit(output, block, .MOV, 4, value, Immediate(0)) or_return
+		}
 	case:
 		return 0, select_failure(selector)
 	}
@@ -265,6 +279,9 @@ select_node :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Status {
 			case Vreg:
 				return emit_pseudo(selector.output, selector.block, .Copy, selector.values[node], value)
 			case Memory_Ref:
+				if mnemonic, width, is_float := float_move(input.nodes.type[node]); is_float {
+					return emit(selector.output, selector.block, mnemonic, width, selector.values[node], value)
+				}
 				mnemonic: x86.Mnemonic = .LEA if selector.signature.params[index - 2].attr == .By_Value else .MOV
 				width := select_width(input.nodes.type[node])
 				if width < 4 && mnemonic == .MOV { mnemonic = .MOVZX }
@@ -274,36 +291,32 @@ select_node :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Status {
 			return emit_pseudo(selector.output, selector.block, .Copy, selector.values[node], selector.tuples[source][index - 1])
 		}
 		return select_failure(selector, .Malformed_Input)
-	case .Add,
-	     .Sub,
-	     .Mul,
-	     .And,
-	     .Or,
-	     .Xor,
-	     .Shl,
-	     .Shr,
-	     .Sar,
-	     .SDiv,
-	     .UDiv,
-	     .SRem,
-	     .URem,
-	     .Eq,
-	     .Ne,
-	     .SLt,
-	     .SLe,
-	     .ULt,
-	     .ULe,
-	     .Select,
-	     .Trunc,
-	     .Zext,
-	     .Sext,
-	     .Bitcast:
+	case .Add, .Sub, .Mul, .And, .Or, .Xor, .Shl, .Shr, .Sar, .SDiv, .UDiv, .SRem, .URem, .Eq, .Ne, .SLt, .SLe, .ULt, .ULe, .Trunc, .Zext, .Sext:
 		return select_integer(selector, node)
+	case .Select, .Bitcast:
+		return select_scalar(selector, node)
+	case .FAdd,
+	     .FSub,
+	     .FMul,
+	     .FDiv,
+	     .FNeg,
+	     .FSqrt,
+	     .FEq,
+	     .FNe,
+	     .FLt,
+	     .FLe,
+	     .Sint_To_Float,
+	     .Uint_To_Float,
+	     .Float_To_Sint,
+	     .Float_To_Uint,
+	     .Float_Ext,
+	     .Float_Trunc:
+		return select_float(selector, node)
 	case .Load, .Store, .Ptr_Offset, .Ptr_Index, .Stack_Slot, .Stack_Alloc, .Mem_Copy, .Mem_Set:
 		return select_memory(selector, node)
 	case .Call, .Syscall:
 		return select_call(selector, node)
-	case .Const_Int, .Symbol_Addr, .Undef:
+	case .Const_Int, .Const_Float, .Symbol_Addr, .Undef:
 		return nil
 	}
 	return select_failure(selector)

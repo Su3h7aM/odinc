@@ -3,8 +3,8 @@ package check
 import "oc:types"
 
 Builtin_Types :: struct {
-	int, uint, uintptr, i8, u8, i16, u16, i32, u32, i64, u64: types.Type_Id,
-	boolean, f32, f64, rune, rawptr, string_type:             types.Type_Id,
+	int, uint, uintptr, i8, u8, i16, u16, i32, u32, i64, u64, i128, u128: types.Type_Id,
+	boolean, f32, f64, rune, rawptr, string_type:                         types.Type_Id,
 }
 
 // `int` and `uint` are unnamed, like the default-integer descriptor; `uintptr` is named so it stays distinct from `uint`.
@@ -21,6 +21,8 @@ seed_builtin_types :: proc(store: ^types.Store) -> Builtin_Types {
 		u32 = types.intern(store, types.Type{kind = .Integer, count = 4}),
 		i64 = types.intern(store, types.Type{kind = .Integer, count = 8, signed = true}),
 		u64 = types.intern(store, types.Type{kind = .Integer, count = 8}),
+		i128 = types.intern(store, types.Type{kind = .Integer, count = 16, signed = true}),
+		u128 = types.intern(store, types.Type{kind = .Integer, count = 16}),
 		boolean = types.intern(store, types.Type{kind = .Bool}),
 		f32 = types.intern(store, types.Type{kind = .Float, count = 4}),
 		f64 = types.intern(store, types.Type{kind = .Float, count = 8}),
@@ -48,6 +50,8 @@ bind_builtin_types :: proc(scopes: ^Scope_Store, universe: Scope_Id, builtins: B
 		{"u32", builtins.u32},
 		{"i64", builtins.i64},
 		{"u64", builtins.u64},
+		{"i128", builtins.i128},
+		{"u128", builtins.u128},
 		{"bool", builtins.boolean},
 		{"f32", builtins.f32},
 		{"f64", builtins.f64},

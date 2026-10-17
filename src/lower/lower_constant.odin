@@ -14,6 +14,9 @@ lower_constant :: proc(state: ^Procedure_State, id: check.Const_Id, target: type
 	if text, is_string := constant.value.(string); is_string { return lower_string(state, text) }
 	type := target if target != 0 else constant.type
 	scalar := scalar_type(state, type)
+	if is_wide_integer(state, type) {
+		if integer, is_integer := constant.value.(big.Int); is_integer { return lower_wide_constant(state, integer) }
+	}
 	if scalar == .None { return lower_fail(state, state.job.procedure.body.node, .Constant) }
 	function := state.job.function
 	#partial switch value in constant.value {

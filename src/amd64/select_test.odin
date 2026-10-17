@@ -8,6 +8,7 @@ import "oc:ir"
 import "oc:link"
 import "oc:regalloc"
 import "oc:sched"
+import "oc:types"
 
 @(test)
 selected_integer_boundaries :: proc(t: ^testing.T) {
@@ -73,7 +74,7 @@ selected_integer_boundaries :: proc(t: ^testing.T) {
 }
 
 @(private)
-selected_test_run :: proc(t: ^testing.T, function: ^ir.Function, expected: int, callee: ^ir.Function = nil) {
+selected_test_run :: proc(t: ^testing.T, function: ^ir.Function, expected: int, callee: ^ir.Function = nil, callee_plan: types.Abi_Plan = {}) {
 	schedule, schedule_err := sched.order(function, context.allocator)
 	testing.expect_value(t, schedule_err, nil)
 	if schedule_err != nil { return }
@@ -105,7 +106,7 @@ selected_test_run :: proc(t: ^testing.T, function: ^ir.Function, expected: int, 
 	atoms := []link.Atom{atom}
 	symbols := []link.Symbol{{name = "_start", atom = 0}}
 	if callee != nil {
-		callee_atom = selected_test_callee(t, callee)
+		callee_atom = selected_test_callee(t, callee, callee_plan)
 		if len(callee_atom.bytes) == 0 { return }
 		atoms = []link.Atom{atom, callee_atom}
 		symbols = []link.Symbol{{name = "_start", atom = 0}, {name = callee.name, atom = 1}}
@@ -133,13 +134,21 @@ selected_test_run :: proc(t: ^testing.T, function: ^ir.Function, expected: int, 
 }
 
 @(private)
-selected_test_callee :: proc(t: ^testing.T, function: ^ir.Function) -> link.Atom {
+selected_test_callee :: proc(t: ^testing.T, function: ^ir.Function, plan := types.Abi_Plan{}) -> link.Atom {
 	schedule, schedule_err := sched.order(function, context.allocator)
 	testing.expect_value(t, schedule_err, nil)
 	if schedule_err != nil { return {} }
 	defer sched.schedule_destroy(&schedule, context.allocator)
 	machine: Machine_Function
-	selection_err := select_function(&machine, function, &schedule, {convention = .C, params = {{type = .I64}}, results = {{type = .I64}}})
+	chosen := plan
+	if len(chosen.params) == 0 && len(chosen.results) == 0 {
+		chosen = {
+			convention = .C,
+			params     = {{type = .I64}},
+			results    = {{type = .I64}},
+		}
+	}
+	selection_err := select_function(&machine, function, &schedule, chosen)
 	testing.expect_value(t, selection_err, Select_Error{})
 	if selection_err.kind != .None { return {} }
 	defer machine_function_destroy(&machine)

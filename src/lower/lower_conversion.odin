@@ -16,6 +16,9 @@ lower_conversion :: proc(state: ^Procedure_State, plan: check.Conversion_Plan, n
 	value := lower_operand(state, plan.source, constant_target)
 	if state.failed { return 0 }
 	function := state.job.function
+	if is_wide_integer(state, plan.target) || is_wide_integer(state, source_id) {
+		return lower_wide_conversion(state, node, source_id, plan.target, value)
+	}
 	source := function.nodes.type[value]
 	target := scalar_type(state, plan.target)
 	if source == target { return value }

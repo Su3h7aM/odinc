@@ -13,6 +13,7 @@ lower_binary :: proc(state: ^Procedure_State, node: syntax.Node_Index, expressio
 	}
 	right := lower_value(state, expression.right)
 	if state.failed { return 0 }
+	if is_wide_integer(state, lower_info(state, expression.left).type) { return lower_wide_binary(state, node, expression, left, right) }
 	function := state.job.function
 	type := function.nodes.type[left]
 	signed := signed_type(state, lower_info(state, expression.left).type)

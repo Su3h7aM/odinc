@@ -46,7 +46,7 @@ op_info :: proc(mnemonic: x86.Mnemonic) -> (info: Op_Info, known: bool) {
 	case .ADDSS, .ADDSD, .SUBSS, .SUBSD, .MULSS, .MULSD, .DIVSS, .DIVSD, .XORPS:
 		info.access = {.Def, .Use, .Use, .None}
 		info.two_address = true
-	case .CMOVE, .CMOVNE, .CMOVL, .CMOVLE, .CMOVG, .CMOVGE, .CMOVB, .CMOVBE, .CMOVA, .CMOVAE:
+	case .CMOVE, .CMOVNE, .CMOVL, .CMOVLE, .CMOVG, .CMOVGE, .CMOVB, .CMOVBE, .CMOVA, .CMOVAE, .CMOVNS:
 		info.access = {.Def, .Use, .Use, .None}
 		info.two_address = true
 		info.reads_flags = true

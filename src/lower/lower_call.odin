@@ -91,8 +91,9 @@ lower_call :: proc(state: ^Procedure_State, node: syntax.Node_Index, info: check
 	return single[0]
 }
 
-// lower_call_results fills values with the call's results. For several results, the callee
-// receives a stack slot per result but the last one, which it returns in registers.
+// lower_call_results fills values with the call's results. A register-passed aggregate argument
+// spans one physical argument per piece; an aggregate result comes back through a hidden pointer
+// or in registers. Split results go through stack slots.
 @(private)
 lower_call_results :: proc(state: ^Procedure_State, node: syntax.Node_Index, info: check.Expression_Info, plan: check.Call_Plan, values: []ir.Node_Id) {
 	if plan.context_plan != 0 { lower_fail(state, node, .Context); return }
@@ -111,26 +112,20 @@ lower_call_results :: proc(state: ^Procedure_State, node: syntax.Node_Index, inf
 	result_count := len(plan.results)
 	split_count := max(result_count - 1, 0)
 	if len(descriptor.results) != result_count ||
-	   len(signature.results) != result_count - split_count ||
 	   (result_count == 0 && info.mode != .No_Value) ||
 	   (result_count == 1 && info.type != plan.results[0]) { lower_fail(state, node, .Result); return }
 	for result, index in plan.results {
-		if result != descriptor.results[index] || scalar_type(state, result) == .None { lower_fail(state, node, .Result); return }
+		if result != descriptor.results[index] { lower_fail(state, node, .Result); return }
 	}
-	if result_count > 0 && !call_scalar_type(signature.results[0].type) { lower_fail(state, node, .Result); return }
 	count := len(declaration.parameters)
-	if len(plan.arguments) != count ||
-	   len(signature.params) != count + split_count + context_count ||
-	   len(declaration.abi_params) != len(signature.params) { lower_fail(state, node, .Call_Argument); return }
-	if context_count == 1 && signature.params[len(signature.params) - 1].attr != .Context { lower_fail(state, node, .Call_Argument); return }
-	for parameter, index in signature.params[:count] {
-		if parameter.attr != .Direct ||
-		   !call_scalar_type(parameter.type) ||
-		   declaration.abi_params[index].source != i32(index) ||
-		   scalar_type(state, descriptor.params[index]) == .None { lower_fail(state, node, .Call_Argument); return }
+	split_base := len(signature.params) - context_count - split_count
+	if len(plan.arguments) != count || len(declaration.abi_params) != len(signature.params) || split_base < count {
+		lower_fail(state, node, .Call_Argument); return
 	}
+	if context_count == 1 && signature.params[len(signature.params) - 1].attr != .Context { lower_fail(state, node, .Call_Argument); return }
 	for index in 0 ..< split_count {
-		if signature.params[count + index].attr != .Direct || signature.params[count + index].type != .Ptr { lower_fail(state, node, .Call_Argument); return }
+		if signature.params[split_base + index].attr != .Direct ||
+		   signature.params[split_base + index].type != .Ptr { lower_fail(state, node, .Call_Argument); return }
 	}
 	function := state.job.function
 	allocator := virtual.arena_allocator(&function.arena)
@@ -140,11 +135,19 @@ lower_call_results :: proc(state: ^Procedure_State, node: syntax.Node_Index, inf
 	if ordered_error != nil { function.error = ordered_error; return }
 	if arguments_error != nil { function.error = arguments_error; return }
 	if slots_error != nil { function.error = slots_error; return }
+	struct_return := struct_return_index(declaration.abi_params)
+	result_slot: ir.Node_Id
+	if result_count > 0 && scalar_type(state, plan.results[result_count - 1]) == .None {
+		layout := state.job.layouts[plan.results[result_count - 1]]
+		if layout.error != .None { lower_fail(state, node, .Result); return }
+		result_slot = ir.stack_slot(function, state.entry_control, u32(layout.size), u32(layout.align))
+		if struct_return >= 0 { arguments[struct_return] = result_slot }
+	}
 	for index in 0 ..< split_count {
 		layout := state.job.layouts[plan.results[index]]
 		if layout.error != .None { lower_fail(state, node, .Result); return }
 		slots[index] = ir.stack_slot(function, state.entry_control, u32(layout.size), u32(layout.align))
-		arguments[count + index] = slots[index]
+		arguments[split_base + index] = slots[index]
 	}
 	for argument, index in plan.arguments {
 		if !call_operand_valid(state, argument.value) { lower_fail(state, node, .Call_Argument); return }
@@ -180,6 +183,9 @@ lower_call_results :: proc(state: ^Procedure_State, node: syntax.Node_Index, inf
 	for entry in ordered {
 		argument := plan.arguments[entry.argument_index]
 		position := entry.parameter_index
+		first := source_index(declaration.abi_params, position)
+		if first < 0 { lower_fail(state, node, .Call_Argument); return }
+		span := parameter_span(declaration.abi_params[first:])
 		value: ir.Node_Id
 		if argument.conversion != 0 {
 			value = lower_conversion(state, check.plan(state.job.program, argument.conversion)^.(check.Conversion_Plan), node)
@@ -187,10 +193,21 @@ lower_call_results :: proc(state: ^Procedure_State, node: syntax.Node_Index, inf
 			value = lower_operand(state, argument.value)
 		}
 		if state.failed || function.error != nil { return }
-		if function.nodes.type[value] == .Bool && signature.params[position].type == .I8 { value = ir.convert(function, .Zext, value, .I8) }
+		if is_aggregate(state, descriptor.params[position]) {
+			if !pass_aggregate_argument(state, value, descriptor.params[position], declaration.abi_params[first:first + span], arguments[first:first + span]) {
+				lower_fail(state, node, .Call_Argument)
+				return
+			}
+			continue
+		}
+		if span != 1 || signature.params[first].attr != .Direct { lower_fail(state, node, .Call_Argument); return }
+		if function.nodes.type[value] == .Bool && signature.params[first].type == .I8 { value = ir.convert(function, .Zext, value, .I8) }
 		if function.error != nil { return }
-		if function.nodes.type[value] != signature.params[position].type { lower_fail(state, node, .Call_Argument); return }
-		arguments[position] = value
+		if function.nodes.type[value] != signature.params[first].type { lower_fail(state, node, .Call_Argument); return }
+		arguments[first] = value
+	}
+	for argument in arguments {
+		if argument == 0 { lower_fail(state, node, .Call_Argument); return }
 	}
 	id := call_signature(state, declaration)
 	if function.error != nil { return }
@@ -198,9 +215,24 @@ lower_call_results :: proc(state: ^Procedure_State, node: syntax.Node_Index, inf
 	memory := ir.add_node(function, .Proj, .Memory, {call}, {index = 0})
 	ir.variable_set(state.builder, ir.MEMORY_VARIABLE, memory)
 	if result_count == 0 { return }
-	value := ir.add_node(function, .Proj, signature.results[0].type, {call}, {index = 1})
-	if scalar_type(state, plan.results[result_count - 1]) == .Bool { value = ir.convert(function, .Trunc, value, .Bool) }
-	values[result_count - 1] = value
+	if scalar_type(state, plan.results[result_count - 1]) != .None {
+		if len(signature.results) != 1 || !call_scalar_type(signature.results[0].type) { lower_fail(state, node, .Result); return }
+		value := ir.add_node(function, .Proj, signature.results[0].type, {call}, {index = 1})
+		if scalar_type(state, plan.results[result_count - 1]) == .Bool { value = ir.convert(function, .Trunc, value, .Bool) }
+		values[result_count - 1] = value
+	} else {
+		values[result_count - 1] = result_slot
+		if struct_return < 0 {
+			layout := state.job.layouts[plan.results[result_count - 1]]
+			if layout.error != .None || !results_tile(signature.results, layout.size) { lower_fail(state, node, .Result); return }
+			offset := i64(0)
+			for result, index in signature.results {
+				piece := ir.add_node(function, .Proj, result.type, {call}, {index = u32(index + 1)})
+				lower_store_word(state, ir.ptr_offset(function, result_slot, offset), piece)
+				offset += i64(result.size)
+			}
+		}
+	}
 	for index in 0 ..< split_count {
 		values[index] = lower_load(state, slots[index], plan.results[index])
 	}

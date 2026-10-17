@@ -65,7 +65,7 @@ lower_statement :: proc(state: ^Procedure_State, node: syntax.Node_Index) {
 }
 
 // lower_return_values stores every value but the last through the hidden result pointers,
-// then returns the last value in registers, as the physical plan of a split return requires.
+// then returns the last value as the physical plan of a split return requires.
 @(private)
 lower_return_values :: proc(state: ^Procedure_State, node: syntax.Node_Index, values: []check.Operand) {
 	last := len(values) - 1
@@ -77,7 +77,8 @@ lower_return_values :: proc(state: ^Procedure_State, node: syntax.Node_Index, va
 		if state.failed || state.job.function.error != nil { return }
 		lower_store(state, state.result_pointers[index], operand, descriptor.results[index])
 	}
-	lower_scalar_return(state, node, lower_operand(state, values[last], descriptor.results[last]))
+	operand := lower_operand(state, values[last], descriptor.results[last])
+	lower_last_result(state, node, operand, descriptor.results[last])
 }
 
 @(private)
