@@ -38,6 +38,10 @@ build_program :: proc(function: ^Machine_Function, allocator: mem.Allocator) -> 
 	program.callee_saved = #partial {
 		.Int = INT_CALLEE_SAVED,
 	}
+	program.scratch = {
+		.Int   = INT_SCRATCH,
+		.Float = FLOAT_SCRATCH,
+	}
 	return program, nil
 }
 

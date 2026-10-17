@@ -100,9 +100,18 @@ emit_function :: proc(
 	emit_prologue(&emitter.instructions, emitter.layout) or_return
 
 	move_cursor := 0
+	copy_cursor := 0
 	for block, block_index in function.blocks {
 		emitter.block_first[block_index] = u32(len(emitter.instructions))
 		for instruction, instruction_index in block.instructions {
+			for copy_cursor < len(result.edge_copies) {
+				edge := result.edge_copies[copy_cursor]
+				if edge.block != u32(block_index) || edge.before != u32(instruction_index) {
+					break
+				}
+				emit_location_move(&emitter, edge.class, edge.source, edge.destination) or_return
+				copy_cursor += 1
+			}
 			for move_cursor < len(result.inserted_moves) {
 				inserted := result.inserted_moves[move_cursor]
 				if inserted.block != u32(block_index) || inserted.before != u32(instruction_index) {
@@ -242,10 +251,15 @@ location_of :: proc(emitter: ^Emitter, vreg: Vreg) -> (regalloc.Location, Emit_E
 emit_vreg_move :: proc(emitter: ^Emitter, source, destination: Vreg) -> Emit_Error {
 	from := location_of(emitter, source) or_return
 	to := location_of(emitter, destination) or_return
+	return emit_location_move(emitter, emitter.function.vreg_classes[source], from, to)
+}
+
+// Emits one copy between the locations of a single register class.
+@(private = "file")
+emit_location_move :: proc(emitter: ^Emitter, class: Register_Class, from, to: regalloc.Location) -> Emit_Error {
 	if from == to {
 		return nil
 	}
-	class := emitter.function.vreg_classes[source]
 	instructions := &emitter.instructions
 	switch from_value in from {
 	case regalloc.Register:

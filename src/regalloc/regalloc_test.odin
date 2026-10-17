@@ -1,5 +1,6 @@
 package regalloc
 
+import "core:slice"
 import "core:testing"
 
 @(private = "file")
@@ -143,4 +144,49 @@ honors_fixed_registers_and_reuse_input :: proc(t: ^testing.T) {
 	if len(result.inserted_moves) == 1 {
 		testing.expect_value(t, result.inserted_moves[0].move, Move{source = 0, destination = 4})
 	}
+}
+
+@(test)
+resolves_parallel_edge_copies_with_cycles :: proc(t: ^testing.T) {
+	classes := []Register_Class{.Int, .Int, .Int, .Int}
+	program := Program {
+		blocks = {
+			{
+				instructions = {{operands = {def(0)}}, {operands = {def(1)}}, {operands = {def(2)}}, {operands = {def(3)}}, {}},
+				successors = {1},
+				edge_moves = {{{source = 1, destination = 0}, {source = 0, destination = 1}, {source = 3, destination = 2}, {source = 2, destination = 3}}},
+			},
+			{instructions = {{operands = {use(0), use(1), use(2), use(3)}}}},
+		},
+		classes = classes,
+		allocatable = #partial{.Int = {0, 1, 2, 3}},
+		scratch = #partial{.Int = {10}},
+	}
+	result := Result {
+		location         = []Location{Register(0), Register(1), Spill_Slot(0), Spill_Slot(1)},
+		spill_slot_count = 2,
+	}
+	testing.expect_value(t, resolve_edge_moves(&program, &result).kind, Allocation_Error.None)
+	testing.expect_value(t, resolve_edge_moves(&program, &result).kind, Allocation_Error.None)
+	expected := []Edge_Copy {
+		{block = 0, before = 4, class = .Int, source = Register(1), destination = Register(10)},
+		{block = 0, before = 4, class = .Int, source = Register(0), destination = Register(1)},
+		{block = 0, before = 4, class = .Int, source = Register(10), destination = Register(0)},
+		{block = 0, before = 4, class = .Int, source = Spill_Slot(1), destination = Spill_Slot(2)},
+		{block = 0, before = 4, class = .Int, source = Spill_Slot(0), destination = Spill_Slot(1)},
+		{block = 0, before = 4, class = .Int, source = Spill_Slot(2), destination = Spill_Slot(0)},
+	}
+	testing.expect_value(t, len(result.edge_copies), len(expected))
+	if len(result.edge_copies) == len(expected) {
+		testing.expect(t, slice.equal(result.edge_copies, expected[:]), "both cycles break through a temporary, before the block's last instruction")
+	}
+	testing.expect_value(t, result.spill_slot_count, 3)
+	delete(result.edge_copies)
+
+	allocated, ok := expect_allocation_verifies(t, &program)
+	if !ok {
+		return
+	}
+	defer result_destroy(&allocated)
+	testing.expect_value(t, len(allocated.edge_copies), 6)
 }

@@ -180,6 +180,11 @@ Program :: struct {
 	// needs a save and restore; registers in `callee_saved` are always also
 	// in `allocatable`.
 	callee_saved: [Register_Class]Register_Set,
+	// scratch is, per class, the reserved registers outside `allocatable` the
+	// resolver of the edge copies may use as a temporary; it uses the first
+	// one. A class with no scratch register breaks a cycle through a spill
+	// slot instead, so the zero value is valid.
+	scratch:      [Register_Class]Register_Set,
 }
 
 // Spill_Slot names one slot of the function's frame; slots are numbered 0,
@@ -204,6 +209,19 @@ Move_At :: struct {
 	move:   Move,
 }
 
+// Edge_Copy is one sequential copy `resolve_edge_moves` produced from a
+// block's simultaneous `edge_moves`. It runs before instruction `before` of
+// `block`, so the branch the block ends with sees the finished copies, and its
+// endpoints are locations: the allocation of the parallel copy's vregs, or a
+// temporary one of them passed through.
+Edge_Copy :: struct {
+	block:       u32,
+	before:      u32,
+	class:       Register_Class,
+	source:      Location,
+	destination: Location,
+}
+
 // Result is the allocator's answer. Zero value means "empty program, nothing
 // allocated". Free it with `result_destroy`.
 Result :: struct {
@@ -214,6 +232,11 @@ Result :: struct {
 	// inserted_moves are the reuse-input copies, sorted by block, then
 	// position, then operand order.
 	inserted_moves:    []Move_At,
+	// edge_copies are the sequential edge copies, sorted by block, then
+	// position, then program order; nil until `resolve_edge_moves` produced
+	// them, so resolving twice keeps the first answer instead of duplicating
+	// the copies.
+	edge_copies:       []Edge_Copy,
 	// spill_slot_count is the number of spill slots the frame needs.
 	spill_slot_count:  u32,
 	// callee_saved_used is, per class, the callee-saved registers some vreg
@@ -225,6 +248,7 @@ Result :: struct {
 result_destroy :: proc(result: ^Result, allocator := context.allocator) {
 	delete(result.location, allocator)
 	delete(result.inserted_moves, allocator)
+	delete(result.edge_copies, allocator)
 	result^ = {}
 }
 
@@ -250,7 +274,8 @@ Allocation_Error :: enum u8 {
 	// operand) finds no register.
 	No_Register_Available,
 	// Bad_Location: `verify` found a missing, out-of-range or unallocatable
-	// location.
+	// location, or `resolve_edge_moves` found an edge copy whose endpoints
+	// have no location or disagree about the register class.
 	Bad_Location,
 	// Register_Conflict: `verify` found two vregs live together in one register.
 	Register_Conflict,

@@ -327,8 +327,6 @@ selected_loop_exits_with_fifty_five :: proc(t: ^testing.T) {
 	for block in program.blocks { for moves in block.edge_moves { move_count += len(moves) } }
 	testing.expect(t, move_count >= 4, "loop phis must carry entry and backedge parallel copies")
 
-	// Blocked on regalloc E3: resolve_edge_moves is still a no-op.
-	if !#config(AMD64_EDGE_MOVES_READY, false) { return }
 	result, allocation_err := regalloc.allocate(&program)
 	defer regalloc.result_destroy(&result)
 	testing.expect_value(t, allocation_err.kind, regalloc.Allocation_Error.None)

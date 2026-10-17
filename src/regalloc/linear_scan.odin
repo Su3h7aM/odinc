@@ -134,6 +134,10 @@ allocate :: proc(program: ^Program, allocator := context.allocator) -> (result: 
 	result.inserted_moves = moves[:]
 	result.location = scan.location
 	result.spill_slot_count = scan.slot_count
+	if err = resolve_edge_moves(program, &result, allocator); err.kind != .None {
+		result_destroy(&result, allocator)
+		return {}, err
+	}
 	return
 }
 
@@ -550,12 +554,5 @@ verify :: proc(program: ^Program, result: ^Result, allocator := context.allocato
 			reach_owner = entry.owner
 		}
 	}
-	return Error{}
-}
-
-// resolve_edge_moves is the boundary of step E3: it turns each block's
-// `edge_moves` into sequential moves between the locations of `result`,
-// breaking cycles, and is the only place that will read them.
-resolve_edge_moves :: proc(program: ^Program, result: ^Result, allocator := context.allocator) -> Error {
 	return Error{}
 }
