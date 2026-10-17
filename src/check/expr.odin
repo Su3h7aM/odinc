@@ -255,6 +255,8 @@ check_expression :: proc(
 			info = expression_ternary_when(checker, view, file_id, scope, node, hint) or_return
 		case .Ternary_If_Expr:
 			info = expression_ternary_if(checker, view, file_id, scope, node, hint) or_return
+		case .Or_Else_Expr:
+			info = expression_or_else(checker, view, file_id, scope, node, hint) or_return
 		case .Slice_Expr:
 			info = expression_slice(checker, view, file_id, scope, node) or_return
 		case .Comp_Lit:

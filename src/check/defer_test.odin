@@ -32,7 +32,9 @@ check_procedure_source :: proc(t: ^testing.T, source: []byte) -> (procedure: Pro
 	if !testing.expect(t, universe_error == nil && package_error == nil && file_error == nil) { return {}, false }
 	byte_id, byte_create_error := entity_create(&scopes, Entity{name = "u8", kind = .Type_Name, scope = universe, state = .Resolved, type = byte_type})
 	_, byte_insert_error := scope_insert(&scopes, universe, byte_id)
-	if !testing.expect(t, byte_create_error == nil && byte_insert_error == nil) { return {}, false }
+	bool_id, bool_create_error := entity_create(&scopes, Entity{name = "bool", kind = .Type_Name, scope = universe, state = .Resolved, type = boolean})
+	_, bool_insert_error := scope_insert(&scopes, universe, bool_id)
+	if !testing.expect(t, byte_create_error == nil && byte_insert_error == nil && bool_create_error == nil && bool_insert_error == nil) { return {}, false }
 	file := File {
 		package_id = 1,
 		ast        = &ast,
