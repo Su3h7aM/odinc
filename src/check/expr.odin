@@ -84,6 +84,7 @@ expression_checker_init :: proc(
 	append(&checker.plans, Plan{}) or_return
 	append(&checker.builtin_kinds, Builtin_Kind.None, .Len, .Cap, .Size_Of, .Align_Of, .Min, .Max, .Abs, .Clamp) or_return
 	append(&checker.builtin_kinds, Builtin_Kind.Typeid_Of) or_return
+	append(&checker.builtin_kinds, Builtin_Kind.Unreachable) or_return
 	append(&checker.builtin_kinds, Builtin_Kind.Has_Target_Feature) or_return
 	return nil
 }

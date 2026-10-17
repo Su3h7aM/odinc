@@ -23,6 +23,7 @@ Builtin_Kind :: enum u8 {
 	Size_Of,
 	Align_Of,
 	Trap,
+	Unreachable,
 	Min,
 	Max,
 	Abs,

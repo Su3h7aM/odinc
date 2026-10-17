@@ -169,6 +169,12 @@ expression_builtin_call :: proc(
 		append(&checker.plans, Plan(Builtin_Plan{builtin = builtin})) or_return
 		return Expression_Info{mode = .No_Value, plan = plan, scope = scope, state = .Checked}, nil
 	}
+	if checker.builtin_kinds[builtin] == .Unreachable {
+		if len(arguments) != 0 || call.ellipsis.kind != .Invalid { return expression_failure(checker, view, scope, node, .Unsupported) }
+		plan := Plan_Id(len(checker.plans))
+		append(&checker.plans, Plan(Builtin_Plan{builtin = builtin})) or_return
+		return Expression_Info{mode = .No_Value, plan = plan, scope = scope, state = .Checked}, nil
+	}
 	if kind := checker.builtin_kinds[builtin]; kind == .Size_Of || kind == .Align_Of {
 		return expression_layout_query(checker, view, scope, node, kind, arguments, call.ellipsis.kind != .Invalid)
 	}

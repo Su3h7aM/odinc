@@ -306,6 +306,11 @@ lower_builtin :: proc(state: ^Procedure_State, node: syntax.Node_Index, info: ch
 		ir.emit_trap(state.builder)
 		return 0
 	}
+	if check.builtin_kind(state.job.program, plan.builtin) == .Unreachable {
+		if len(plan.arguments) != 0 { return lower_fail(state, node, .Builtin) }
+		ir.emit_unreachable(state.builder)
+		return 0
+	}
 	if check.builtin_kind(state.job.program, plan.builtin) == .Len { return lower_length(state, node, info, plan) }
 	if value, handled := lower_simd_builtin(state, node, info, plan, check.builtin_kind(state.job.program, plan.builtin)); handled {
 		return value

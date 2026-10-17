@@ -42,6 +42,7 @@ native_sections_exit_with_interpreter_results :: proc(t: ^testing.T) {
 		{"or_return", 0},
 		{"or_break", 73},
 		{"or_continue", 0},
+		{"unreachable", 0},
 	}
 	odin_root, _ := filepath.join({#directory, "..", ".."}, context.temp_allocator)
 	directory, directory_err := os.make_directory_temp("", "driver-native-*", context.temp_allocator)

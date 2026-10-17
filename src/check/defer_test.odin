@@ -5,7 +5,7 @@ import "oc:syntax"
 import "oc:types"
 
 @(private = "package")
-check_procedure_source :: proc(t: ^testing.T, source: []byte) -> (procedure: Procedure_Data, ok: bool) {
+check_procedure_source :: proc(t: ^testing.T, source: []byte, expect_invalid := false) -> (procedure: Procedure_Data, ok: bool) {
 	ast: syntax.Ast
 	syntax.ast_init(&ast, context.allocator)
 	defer syntax.ast_destroy(&ast)
@@ -34,7 +34,11 @@ check_procedure_source :: proc(t: ^testing.T, source: []byte) -> (procedure: Pro
 	_, byte_insert_error := scope_insert(&scopes, universe, byte_id)
 	bool_id, bool_create_error := entity_create(&scopes, Entity{name = "bool", kind = .Type_Name, scope = universe, state = .Resolved, type = boolean})
 	_, bool_insert_error := scope_insert(&scopes, universe, bool_id)
-	if !testing.expect(t, byte_create_error == nil && byte_insert_error == nil && bool_create_error == nil && bool_insert_error == nil) { return {}, false }
+	builtin_error := bind_universe_builtins(&scopes, universe)
+	if !testing.expect(
+		t,
+		byte_create_error == nil && byte_insert_error == nil && bool_create_error == nil && bool_insert_error == nil && builtin_error == nil,
+	) { return {}, false }
 	file := File {
 		package_id = 1,
 		ast        = &ast,
@@ -57,10 +61,12 @@ check_procedure_source :: proc(t: ^testing.T, source: []byte) -> (procedure: Pro
 		expression_checker_init(&checker, &type_checker, &pool, {uintptr = word, layout = types.DEFAULT_LAYOUT}, integer, boolean, context.allocator) == nil,
 	) { return {}, false }
 	defer expression_checker_destroy(&checker)
+	checker.packages = []Package{{}, {kind = .User}}
 	for declaration in collection.declarations {
 		state, err := resolve_entity(&resolver, declaration.entity)
-		if !testing.expectf(t, err == nil && state == .Resolved, "%v %v", state, err) { return {}, false }
+		if !expect_invalid && !testing.expectf(t, err == nil && state == .Resolved, "%v %v %v", state, err, checker.diagnostics) { return {}, false }
 	}
+	if expect_invalid && !testing.expect(t, len(checker.diagnostics) > 0) { return {}, false }
 	return entity_get(&scopes, collection.declarations[0].entity).data.(Procedure_Data), true
 }
 
