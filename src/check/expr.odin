@@ -326,7 +326,7 @@ check_expression :: proc(
 		case .Type_Assertion:
 			info = expression_type_assertion(checker, view, file_id, scope, node, hint) or_return
 		case .Selector_Expr:
-			info = expression_selector(checker, view, file_id, scope, node) or_return
+			info = expression_selector(checker, view, file_id, scope, node, hint) or_return
 		case .Implicit_Selector_Expr:
 			info = expression_implicit_selector(checker, view, scope, node, hint) or_return
 		case .Implicit:
@@ -483,6 +483,9 @@ expression_entity_info :: proc(
 	if target == 0 { target = entity }
 	binding := entity_get(resolver.scopes, target)
 	if binding.type == types.TYPE_POISON { return expression_poison(scope), nil }
+	if binding.type == types.TYPE_NONE && (binding.kind == .Variable || binding.kind == .Constant) {
+		return expression_failure(checker, view, scope, node, .Missing_Type, binding.name)
+	}
 	if expression_captures_local(resolver.scopes, scope, binding) {
 		return expression_failure(checker, view, scope, node, .Invalid_Operand)
 	}

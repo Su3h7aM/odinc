@@ -43,6 +43,7 @@ expression_procedure_literal :: proc(
 				convention = descriptor.convention,
 				variadic_index = procedure_variadic_index(file, literal.type),
 				body = {file_id, literal.body},
+				where_clauses = literal.where_clauses,
 				instance = checker.active_instance,
 			},
 		},

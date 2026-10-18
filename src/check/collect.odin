@@ -349,7 +349,8 @@ collect_value_declaration :: proc(
 				literal := syntax.node_payload(file.ast, value, syntax.Proc_Lit)
 				type = literal.type
 				data = Procedure_Data {
-					body = {id, literal.body},
+					body          = {id, literal.body},
+					where_clauses = literal.where_clauses,
 				}
 			} else if value_kind == .Proc_Group {
 				kind = .Procedure_Group

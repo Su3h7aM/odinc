@@ -390,6 +390,7 @@ Procedure_Data :: struct {
 	convention:          types.Calling_Convention,
 	variadic_index:      int,
 	body:                Node_Ref,
+	where_clauses:       syntax.Node_Range,
 	body_state:          Body_State,
 	definition:          Entity_Id,
 	instance:            Instance_Id,
@@ -526,6 +527,12 @@ Place_Plan :: struct {
 	path:                 []Member_Step,
 	bit_offset, bit_size: u32,
 }
+Swizzle_Plan :: struct {
+	root:     Operand,
+	indices:  [4]u8,
+	count:    u8,
+	indirect: bool,
+}
 Call_Argument :: struct {
 	value:                Operand,
 	parameter:            Entity_Id,
@@ -623,6 +630,7 @@ Context_Plan :: struct {
 Plan :: union {
 	Conversion_Plan,
 	Place_Plan,
+	Swizzle_Plan,
 	Call_Plan,
 	Builtin_Plan,
 	Aggregate_Plan,

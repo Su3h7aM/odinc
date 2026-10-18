@@ -1,5 +1,6 @@
 package check
 
+import "core:fmt"
 import "core:mem"
 import "oc:syntax"
 import "oc:types"
@@ -40,12 +41,20 @@ expression_address :: proc(
 	operand := syntax.node_payload(file.ast, node, syntax.Unary_Expr).expr
 	target := check_expression(checker, view, scope, operand) or_return
 	if target.state == .Invalid { return expression_poison(scope), nil }
-	if target.mode != .Variable { return expression_unsupported(checker, view, scope, node, "Address_Mode") }
 	if target.plan != 0 {
+		if swizzle, is_swizzle := checker.plans[target.plan].(Swizzle_Plan); is_swizzle && swizzle.count > 1 {
+			reason := fmt.aprintf(
+				"Cannot take the pointer address of '%s' which is a swizzle intermediate array value",
+				expression_text(file, operand),
+				allocator = mem.dynamic_arena_allocator(&checker.arena),
+			)
+			return expression_failure(checker, view, scope, node, .Invalid_Operand, reason)
+		}
 		if place, is_place := checker.plans[target.plan].(Place_Plan); is_place && place.bit_size != 0 {
 			return expression_unsupported(checker, view, scope, node, "Address_Bit_Field")
 		}
 	}
+	if target.mode != .Variable { return expression_unsupported(checker, view, scope, node, "Address_Mode") }
 	pointer := types.intern(checker.type_checker.store, types.Type{kind = .Pointer, elem = target.type})
 	return Expression_Info{type = pointer, mode = .Value, scope = scope, state = .Checked}, nil
 }
@@ -58,6 +67,7 @@ expression_selector :: proc(
 	file_id: File_Id,
 	scope: Scope_Id,
 	node: syntax.Node_Index,
+	hint: types.Type_Id = 0,
 ) -> (
 	info: Expression_Info,
 	err: Resolve_Error,
@@ -78,7 +88,7 @@ expression_selector :: proc(
 			}
 		}
 	}
-	return expression_field(checker, view, file_id, scope, node)
+	return expression_field(checker, view, file_id, scope, node, hint)
 }
 
 @(private = "file")
@@ -111,6 +121,7 @@ expression_field :: proc(
 	file_id: File_Id,
 	scope: Scope_Id,
 	node: syntax.Node_Index,
+	hint: types.Type_Id = 0,
 ) -> (
 	info: Expression_Info,
 	err: Resolve_Error,
@@ -124,6 +135,9 @@ expression_field :: proc(
 	indirect := types.get(store, owner).kind == .Pointer
 	if indirect { owner = types.resolve_named(store, types.get(store, owner).elem) }
 	descriptor := types.get(store, owner)
+	if descriptor.kind == .Array {
+		return expression_array_selector(checker, view, file_id, scope, node, base, descriptor^, indirect, hint)
+	}
 	if (descriptor.kind != .Struct && descriptor.kind != .Bit_Field && descriptor.kind != .Any) ||
 	   (!indirect && base.mode != .Variable && base.mode != .Value && base.mode != .Immutable_Value && base.mode != .Context) {
 		return expression_unsupported(checker, view, scope, node, "Selector_Base")

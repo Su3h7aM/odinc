@@ -276,6 +276,7 @@ expression_new_instance :: proc(
 				poly_arguments = poly_types,
 				poly_constants = poly_constants,
 				body = definition_procedure.body,
+				where_clauses = definition_procedure.where_clauses,
 				body_state = .Unchecked,
 			},
 		},
@@ -301,8 +302,13 @@ expression_new_instance :: proc(
 	valid, body_error := expression_procedure_body(checker, resolver, instance, declaration.type)
 	checker.active_instance = outer_instance
 	if body_error != nil { return {}, body_error }
-	entity_get(scopes, instance).state = .Resolved
-	if !valid || entity_get(scopes, instance).data.(Procedure_Data).body_state != .Complete { return expression_poison(scope), nil }
+	entity_get(scopes, instance).state = .Resolved if valid else .Invalid
+	if !valid || entity_get(scopes, instance).data.(Procedure_Data).body_state != .Complete {
+		if !valid && definition_procedure.where_clauses.count != 0 {
+			return expression_failure(checker, view, scope, node, .Invalid_Operand, "at caller location")
+		}
+		return expression_poison(scope), nil
+	}
 	return expression_instance_call(checker, view, file_id, scope, node, instance, arguments, spread)
 }
 
@@ -321,7 +327,15 @@ expression_instance_call :: proc(
 	err: Resolve_Error,
 ) {
 	entity := entity_get(checker.type_checker.resolver.scopes, instance)
-	if entity.state != .Resolved { return expression_poison(scope), nil }
+	procedure := entity.data.(Procedure_Data)
+	if entity.state != .Resolved {
+		if entity.state == .Invalid &&
+		   procedure.where_clauses.count != 0 { return expression_failure(checker, view, scope, node, .Invalid_Operand, "at caller location") }
+		return expression_poison(scope), nil
+	}
+	if procedure.body_state == .Invalid {
+		return expression_poison(scope), nil
+	}
 	callee := Expression_Info {
 		scope  = scope,
 		mode   = .Value,

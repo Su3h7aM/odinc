@@ -11,6 +11,7 @@ check_procedure_source :: proc(
 	expected_kind := Expression_Diagnostic_Kind.None,
 	expected_reason := "",
 	diagnostic_count := -1,
+	procedure_name := "",
 ) -> (
 	procedure: Procedure_Data,
 	ok: bool,
@@ -39,6 +40,20 @@ check_procedure_source :: proc(
 	package_scope, package_error := scope_create(&scopes, universe, .Package)
 	file_scope, file_error := scope_create(&scopes, package_scope, .File)
 	if !testing.expect(t, universe_error == nil && package_error == nil && file_error == nil) { return {}, false }
+	integer_id, integer_create_error := entity_create(&scopes, Entity{name = "int", kind = .Type_Name, scope = universe, state = .Resolved, type = integer})
+	_, integer_insert_error := scope_insert(&scopes, universe, integer_id)
+	if !testing.expect(t, integer_create_error == nil && integer_insert_error == nil) { return {}, false }
+	for value in ([2]bool{false, true}) {
+		constant, constant_error := constant_pool_intern_bool(&pool, value, types.TYPE_UNTYPED_BOOL)
+		if !testing.expect(t, constant_error == nil) { return {}, false }
+		name := "true" if value else "false"
+		entity, create_error := entity_create(
+			&scopes,
+			Entity{name = name, kind = .Constant, scope = universe, state = .Resolved, type = types.TYPE_UNTYPED_BOOL, constant = constant},
+		)
+		_, insert_error := scope_insert(&scopes, universe, entity)
+		if !testing.expect(t, create_error == nil && insert_error == nil) { return {}, false }
+	}
 	byte_id, byte_create_error := entity_create(&scopes, Entity{name = "u8", kind = .Type_Name, scope = universe, state = .Resolved, type = byte_type})
 	_, byte_insert_error := scope_insert(&scopes, universe, byte_id)
 	bool_id, bool_create_error := entity_create(&scopes, Entity{name = "bool", kind = .Type_Name, scope = universe, state = .Resolved, type = boolean})
@@ -95,7 +110,9 @@ check_procedure_source :: proc(
 	   !testing.expectf(t, len(checker.diagnostics) == diagnostic_count, "expected %d diagnostics, got %v", diagnostic_count, checker.diagnostics) {
 		return {}, false
 	}
-	main_procedure, is_procedure := entity_get(&scopes, collection.declarations[0].entity).data.(Procedure_Data)
+	procedure_entity := collection.declarations[0].entity
+	if procedure_name != "" { procedure_entity = scope_lookup_current(&scopes, package_scope, procedure_name) }
+	main_procedure, is_procedure := entity_get(&scopes, procedure_entity).data.(Procedure_Data)
 	if !testing.expectf(t, is_procedure, "main has no procedure data, diagnostics %v", checker.diagnostics) { return {}, false }
 	return main_procedure, true
 }

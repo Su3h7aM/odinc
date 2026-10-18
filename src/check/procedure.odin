@@ -96,6 +96,11 @@ expression_procedure_body :: proc(checker: ^Expression_Checker, resolver: ^Resol
 	expression_signature_bindings(checker, resolver, id, signature, procedure_scope) or_return
 	diagnostics_before := len(checker.diagnostics)
 	defers_first := len(checker.defers)
+	if !(expression_procedure_where(checker, view, procedure_scope, entity_get(resolver.scopes, id).data.(Procedure_Data).where_clauses) or_return) {
+		procedure = &entity_get(resolver.scopes, id).data.(Procedure_Data)
+		procedure.body_state = .Invalid
+		return false, nil
+	}
 	expression_block(checker, view, body.file, procedure_scope, body.node) or_return
 	// Nested literal bodies resolve like top-level ones; drain them here so their diagnostics count for this body. The resolver stack is empty while bodies are checked.
 	resolver_check_pending_bodies(resolver) or_return
@@ -132,6 +137,8 @@ expression_bodyless_signature_bindings :: proc(
 	defer { checker.results, checker.named_results = outer_results, outer_named_results }
 	expression_signature_bindings(checker, resolver, id, signature, procedure_scope) or_return
 	procedure := entity_get(resolver.scopes, id).data.(Procedure_Data)
+	view := expression_file_view(checker, signature.file) or_return
+	if !(expression_procedure_where(checker, view, procedure_scope, procedure.where_clauses) or_return) { return false, nil }
 	descriptor := types.get(checker.type_checker.store, procedure.signature)
 	return len(procedure.parameters) == len(descriptor.params), nil
 }
