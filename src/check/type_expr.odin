@@ -519,6 +519,9 @@ array_type :: proc(
 		return type_wrapper(checker, .Slice, elem), nil
 	}
 	length := type_unparen(file, array.len)
+	if file.ast.nodes[length].kind == .Poly_Type {
+		length = syntax.node_payload(file.ast, length, syntax.Poly_Type).type
+	}
 	if file.ast.nodes[length].kind == .Unary_Expr && syntax.node_payload(file.ast, length, syntax.Unary_Expr).op.kind == .Question {
 		type_report(checker, file_id, file, length, .Invalid_Array_Count) or_return
 		return types.TYPE_POISON, nil
@@ -877,7 +880,7 @@ default_expression_type :: proc(
 }
 
 // An untyped parameter takes the type of its default: `#caller_location` and `#caller_expression` are strings and locations, literals take their default type.
-@(private = "file")
+@(private = "package")
 default_parameter_type :: proc(
 	checker: ^Type_Checker,
 	file_id: File_Id,
@@ -948,7 +951,7 @@ record_fields :: proc(
 	valid = true
 	for field_node in nodes {
 		field := syntax.node_payload(file.ast, field_node, syntax.Field)
-		if checker.instantiating && is_type_param_field(file, field) { continue }
+		if checker.instantiating && is_poly_name_field(file, field) { continue }
 		type_node := field.type
 		is_variadic := false
 		if type_node != 0 && file.ast.nodes[type_node].kind == .Ellipsis {

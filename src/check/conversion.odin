@@ -88,7 +88,7 @@ check_conversion :: proc(
 		allowed ||= src.kind == .Untyped_Nil && conversion_nilable(dst)
 	}
 	if kind == .Assignment && !untyped {
-		allowed ||= dst.kind == .Raw_Pointer && (src.kind == .Pointer || src.kind == .Multi_Pointer)
+		allowed ||= conversion_implicit_raw_pointer(store, info.type, target)
 		allowed ||= conversion_implicit_pointer(store, info.type, target)
 		allowed ||= simd_broadcast_allowed(dst, info.type)
 	}
@@ -158,6 +158,14 @@ conversion_untyped :: proc(kind: types.Kind) -> bool {
 
 conversion_pointer :: proc(kind: types.Kind) -> bool {
 	return kind == .Pointer || kind == .Multi_Pointer || kind == .Raw_Pointer
+}
+
+
+// Any ^T or [^]T converts implicitly to rawptr.
+conversion_implicit_raw_pointer :: proc(store: ^types.Store, source, target: types.Type_Id) -> bool {
+	src := types.get(store, conversion_base_type(store, source))^
+	dst := types.get(store, conversion_base_type(store, target))^
+	return dst.kind == .Raw_Pointer && (src.kind == .Pointer || src.kind == .Multi_Pointer)
 }
 
 // ^T and [^]T of one element type convert implicitly in either direction.

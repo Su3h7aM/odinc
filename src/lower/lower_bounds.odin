@@ -37,7 +37,7 @@ lower_index_address :: proc(state: ^Procedure_State, node: syntax.Node_Index, pl
 	base, length: ir.Node_Id
 	#partial switch base_type.kind {
 	case .Array:
-		base = lower_address(state, index.expr)
+		base = lower_array_base(state, index.expr)
 		length = ir.const_int(function, function.nodes.type[offset], base_type.count)
 	case .Slice, .String, .String16:
 		if function.nodes.type[offset] != .I64 { return lower_fail(state, node, .Bounds) }

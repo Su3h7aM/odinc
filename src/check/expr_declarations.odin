@@ -93,6 +93,7 @@ expression_declaration :: proc(resolver: ^Resolver, id: Entity_Id, user_data: ra
 	}
 	if entity.kind == .Import_Name { return true, nil }
 	if entity.kind == .Procedure { return expression_procedure_declaration(checker, resolver, id, declaration, entity.scope) }
+	if entity.kind == .Procedure_Group { return expression_procedure_group_declaration(checker, resolver, id, declaration, entity.scope) }
 	if entity.kind != .Constant && entity.kind != .Variable {
 		expression_unsupported(checker, view, entity.scope, declaration.identifier.node, "Declaration_Kind") or_return
 		return false, nil
@@ -115,6 +116,12 @@ expression_declaration :: proc(resolver: ^Resolver, id: Entity_Id, user_data: ra
 		if entity.kind == .Constant && info.mode == .Type {
 			binding := entity_get(resolver.scopes, id)
 			binding.kind = .Type_Name
+			binding.type = info.type
+			return true, nil
+		}
+		if entity.kind == .Constant && info.mode == .Value && info.entity != 0 && entity_get(resolver.scopes, info.entity).kind == .Procedure {
+			binding := entity_get(resolver.scopes, id)
+			binding.alias = info.entity
 			binding.type = info.type
 			return true, nil
 		}

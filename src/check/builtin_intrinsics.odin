@@ -145,19 +145,23 @@ expression_intrinsic_call :: proc(
 		hint := types.Type_Id(0)
 		switch shape {
 		case .Overflow:
-			hint = element if index == 1 else checker.default_integer
+			hint = element if index == 1 else 0
 		case .Value_Pair:
 			hint = element if index == 1 else 0
 		case .Store, .Update, .Compare_Exchange:
 			hint = element if index > 0 else 0
 		case .Bytes_Copy, .Bytes_Zero:
-			hint = int_type if index == value_count - 1 else 0
+			hint = 0
 		case .None, .Load, .Fence, .Integer_Unary:
 		}
 		value := check_expression(checker, view, scope, argument, hint) or_return
 		if value.state == .Invalid { return expression_poison(scope), nil }
-		if shape == .Integer_Unary && types.is_untyped(store, value.type) {
-			value = check_expression(checker, view, scope, argument, types.default_type_of_untyped(store, value.type)) or_return
+		if types.is_untyped(store, value.type) {
+			if shape == .Integer_Unary || shape == .Overflow && index == 0 {
+				value = check_expression(checker, view, scope, argument, types.default_type_of_untyped(store, value.type)) or_return
+			} else if (shape == .Bytes_Copy || shape == .Bytes_Zero) && index == value_count - 1 {
+				value = check_expression(checker, view, scope, argument, int_type) or_return
+			}
 			if value.state == .Invalid { return expression_poison(scope), nil }
 		}
 		descriptor := types.get(store, types.resolve_named(store, value.type))
@@ -185,7 +189,7 @@ expression_intrinsic_call :: proc(
 			}
 		case .Bytes_Copy, .Bytes_Zero:
 			if index == value_count - 1 {
-				valid = value.type == int_type
+				valid = conversion_integer(descriptor.kind)
 			} else {
 				valid = descriptor.kind == .Raw_Pointer || descriptor.kind == .Pointer || descriptor.kind == .Multi_Pointer
 			}

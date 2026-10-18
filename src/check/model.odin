@@ -350,6 +350,7 @@ Procedure_Data :: struct {
 	defers:              []Defer_Registration,
 	generic:             bool,
 	poly_arguments:      []types.Type_Id,
+	poly_constants:      []Const_Id,
 }
 Entity_Data :: union {
 	Variable_Data,
@@ -373,6 +374,7 @@ Entity :: struct {
 	constant:     Const_Id,
 	attributes:   []Attribute,
 	dependencies: []Dependency,
+	alias:        Entity_Id,
 	data:         Entity_Data,
 }
 

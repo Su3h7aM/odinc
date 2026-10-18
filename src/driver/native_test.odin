@@ -70,7 +70,7 @@ native_sections_exit_with_interpreter_results :: proc(t: ^testing.T) {
 		{"numeric_builtins", 127},
 		{"bit_ops", 31},
 		{"constant_log2", 31},
-		{"composite_literals", 41},
+		{"composite_literals", 51},
 		{"procedure_literals", 51},
 		{"type_info_of", 31},
 		{"atomics", 127},

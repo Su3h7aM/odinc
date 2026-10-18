@@ -88,7 +88,14 @@ lower_return :: proc(state: ^Procedure_State, node: syntax.Node_Index, operands:
 	if len(operands) == 0 {
 		for entity, index in named { values[index] = lower_entity_value(state, entity) }
 	} else {
+		projected_until := 0
 		for operand, index in operands {
+			if index < projected_until { continue }
+			if projection, projected := operand.(check.Projection); projected {
+				projected_until = lower_assignment_results(state, node, check.Assignment_Plan{conversions = conversions}, projection, index, values)
+				if state.failed || job.function.error != nil { return }
+				continue
+			}
 			if index < len(conversions) && conversions[index] != 0 {
 				values[index] = lower_declared_conversion(state, node, conversions[index])
 			} else {

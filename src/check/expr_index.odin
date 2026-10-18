@@ -26,12 +26,15 @@ expression_index :: proc(
 	is_array := base_descriptor.kind == .Array
 	is_string := base_descriptor.kind == .String || base_descriptor.kind == .String16
 	is_multi_pointer := base_descriptor.kind == .Multi_Pointer
-	if (!is_array && !is_string && !is_multi_pointer && base_descriptor.kind != .Slice) || (is_array && base.mode != .Variable) {
+	if !is_array && !is_string && !is_multi_pointer && base_descriptor.kind != .Slice {
 		return expression_unsupported(checker, view, scope, node, "Index_Base")
 	}
 	length := base_descriptor.count
 	element_type := base_descriptor.elem
 	mode := Addressing_Mode.Variable
+	if is_array && base.mode != .Variable {
+		mode = .Value
+	}
 	if is_string {
 		element_width: i64 = 1 if base_descriptor.kind == .String else 2
 		element_type = types.intern(checker.type_checker.store, types.Type{kind = .Integer, count = element_width})
@@ -92,8 +95,11 @@ expression_slice :: proc(
 	bounds := [2]syntax.Node_Index{access.low, access.high}
 	for bound, index in bounds {
 		if bound == 0 { continue }
-		position := check_expression(checker, view, scope, bound, checker.default_integer) or_return
+		position := check_expression(checker, view, scope, bound) or_return
 		if position.state == .Invalid { return expression_poison(scope), nil }
+		if conversion_untyped(types.get(store, position.type).kind) {
+			_ = check_expression(checker, view, scope, bound, checker.default_integer) or_return
+		}
 		operands[index + 1] = Operand(Expression_Ref{view, bound})
 	}
 	policy := Check_Policy.Disabled if checker.unchecked_depth > 0 else Check_Policy.Enabled

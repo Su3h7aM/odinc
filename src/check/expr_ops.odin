@@ -57,11 +57,18 @@ expression_binary :: proc(
 	if binary.op.kind == .In || binary.op.kind == .Not_In {
 		return expression_membership(checker, view, scope, node, binary.op.kind == .Not_In)
 	}
-	left := check_expression(checker, view, scope, binary.left) or_return
-	right_hint := types.Type_Id(0)
-	left_base := types.get(checker.type_checker.store, conversion_base_type(checker.type_checker.store, left.type)).kind
-	if file.ast.nodes[binary.right].kind == .Implicit_Selector_Expr || expression_string_kind(left_base) { right_hint = left.type }
-	right := check_expression(checker, view, scope, binary.right, right_hint) or_return
+	left, right: Expression_Info
+	if file.ast.nodes[binary.left].kind == .Implicit_Selector_Expr && file.ast.nodes[binary.right].kind != .Implicit_Selector_Expr {
+		right = check_expression(checker, view, scope, binary.right) or_return
+		if right.state == .Invalid { return expression_poison(scope), nil }
+		left = check_expression(checker, view, scope, binary.left, right.type) or_return
+	} else {
+		left = check_expression(checker, view, scope, binary.left) or_return
+		right_hint := types.Type_Id(0)
+		left_base := types.get(checker.type_checker.store, conversion_base_type(checker.type_checker.store, left.type)).kind
+		if file.ast.nodes[binary.right].kind == .Implicit_Selector_Expr || expression_string_kind(left_base) { right_hint = left.type }
+		right = check_expression(checker, view, scope, binary.right, right_hint) or_return
+	}
 	if left.state == .Invalid || right.state == .Invalid { return expression_poison(scope), nil }
 	if !expression_value(left) || !expression_value(right) { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
 	store := checker.type_checker.store

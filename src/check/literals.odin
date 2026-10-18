@@ -2,7 +2,6 @@ package check
 
 import "base:runtime"
 import "core:math/big"
-import "core:strconv"
 import "oc:syntax"
 import "oc:types"
 
@@ -260,7 +259,7 @@ literal_rune :: proc(pool: ^Constant_Pool, text: string, type: types.Type_Id) ->
 	if len(text) < 3 || text[0] != '\'' || text[len(text) - 1] != '\'' {
 		return 0, Literal_Diagnostic.Invalid_Rune_Literal
 	}
-	r, _, tail, ok := strconv.unquote_char(text[1:len(text) - 1], '\'')
+	r, _, tail, ok := literal_unquote_char(text[1:len(text) - 1], '\'')
 	if !ok || len(tail) != 0 { return 0, Literal_Diagnostic.Invalid_Rune_Literal }
 	value: big.Int
 	big.int_set_from_integer(&value, i64(r), allocator = context.temp_allocator) or_return

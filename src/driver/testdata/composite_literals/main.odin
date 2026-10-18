@@ -15,6 +15,7 @@ Levels :: enum {
 	Mid,
 	High,
 }
+ROWS :: [2]int{6, 7}
 
 main :: proc "contextless" () {
 	input := 9
@@ -24,11 +25,11 @@ main :: proc "contextless" () {
 	}
 	constant := [2]int{4, 5}
 	mask := bit_set[Flags]{.A, .C}
-	levels := [Levels]int {
+	levels := #partial [Levels]int {
 		.Mid  = 9,
 		.High = 2,
 	}
 	slots := transmute([3]int)levels
-	code := pair.left + pair.right + array[2] + constant[1] + int(transmute(u8)mask) + slots[1] + slots[2]
+	code := pair.left + pair.right + array[2] + constant[1] + int(transmute(u8)mask) + slots[1] + slots[2] + ROWS[1] + [2]int{input, 3}[input - 8]
 	intrinsics.syscall(60, uintptr(code))
 }

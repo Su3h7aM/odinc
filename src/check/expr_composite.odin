@@ -94,7 +94,7 @@ expression_composite :: proc(
 		values[position] = Operand(Expression_Ref{view, value_node})
 		indices[position] = u32(index)
 		conversions[position] = expression_boxing_plan(checker, value.plan)
-		if value.constant != 0 && expression_conversion_plan(checker, value.plan) == 0 { constants[index] = value.constant }
+		if value.constant != 0 && expression_constant_element(checker, store, is_array, element_type, value.plan) { constants[index] = value.constant }
 	}
 	if len(elements) == count && descriptor.kind != .Bit_Field && !slice.contains(constants, 0) {
 		constant, constant_error := constant_pool_intern_aggregate(checker.constants, type, constants)

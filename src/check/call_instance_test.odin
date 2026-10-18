@@ -125,3 +125,80 @@ main :: proc "contextless" () {
 	if !ok { return }
 	testing.expect(t, procedure.body_state == .Complete)
 }
+
+@(test)
+constant_parameter_binds_value_in_instance_body :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(
+		`package sample
+scale :: proc "contextless" ($N: int, x: int) -> [N]int {
+	result: [N]int
+	return result
+}
+main :: proc "contextless" () {
+	value := scale(3, 4)
+	_ = value
+}
+`,
+	)
+	procedure, ok := check_last_procedure_source(t, source)
+	if !ok { return }
+	testing.expect(t, procedure.body_state == .Complete)
+}
+
+@(test)
+pattern_parameters_bind_from_argument_shape :: proc(t: ^testing.T) {
+
+	@(test)
+	implicit_selector_argument_takes_default_parameter_type :: proc(t: ^testing.T) {
+		source := transmute([]byte)string(
+			`package sample
+Mode :: enum {
+	A,
+	B,
+}
+pick :: proc "contextless" (x: $T, mode := Mode.A) -> int {
+	return int(mode)
+}
+main :: proc "contextless" () {
+	value := pick(1, .B)
+	_ = value
+}
+`,
+		)
+		procedure, ok := check_last_procedure_source(t, source)
+		if !ok { return }
+		testing.expect(t, procedure.body_state == .Complete)
+	}
+	source := transmute([]byte)string(
+		`package sample
+deref :: proc "contextless" (p: ^$T) -> T {
+	return p^
+}
+first :: proc "contextless" (xs: []$T) -> T {
+	return xs[0]
+}
+sum :: proc "contextless" (a: [$N]$T) -> T {
+	total: T
+	for i in 0 ..< N {
+		total += a[i]
+	}
+	return total
+}
+copy_into :: proc "contextless" (dst, src: $T/[]$E) -> int {
+	return len(dst) + len(src)
+}
+main :: proc "contextless" () {
+	x := 5
+	values := [2]int{1, 2}
+	a := deref(&x)
+	b := first(values[:])
+	c := sum(values)
+	d := copy_into(values[:], values[:])
+	_, _, _, _ = a, b, c, d
+}
+`,
+	)
+	procedure, ok := check_last_procedure_source(t, source)
+	if !ok { return }
+	testing.expect(t, procedure.body_state == .Complete)
+}

@@ -18,6 +18,8 @@ Expression_Diagnostic_Kind :: enum u8 {
 	Expected_Integer_Constant,
 	Invalid_Literal,
 	Expected_Boolean_Constant,
+	Ambiguous_Call,
+	No_Matching_Overload,
 }
 Expression_Diagnostic :: struct {
 	kind:       Expression_Diagnostic_Kind,
@@ -174,7 +176,7 @@ check_expression :: proc(
 			info = expression_identifier(checker, file_id, scope, node) or_return
 		case .Basic_Lit:
 			kind := syntax.node_payload(file.ast, node, syntax.Basic_Lit).kind
-			if kind == .String {
+			if kind == .String || kind == .Raw_String {
 				info = expression_string_literal(checker, view, file_id, scope, node, hint) or_return
 				break
 			}
@@ -241,6 +243,8 @@ check_expression :: proc(
 			}
 			if callee.mode == .Builtin {
 				info = expression_builtin_call(checker, view, file_id, scope, node, callee, arguments) or_return
+			} else if callee.mode == .Procedure_Group {
+				info = expression_group_call(checker, view, file_id, scope, node, callee, arguments, call.ellipsis.kind != .Invalid) or_return
 			} else if callee.mode == .Value && callee.entity != 0 && is_generic_procedure(checker, callee.entity) {
 				info = expression_generic_call(checker, view, file_id, scope, node, callee, arguments, call.ellipsis.kind != .Invalid) or_return
 			} else if callee.mode == .Value && callee.entity != 0 && entity_get(checker.type_checker.resolver.scopes, callee.entity).kind == .Procedure {
@@ -309,7 +313,12 @@ expression_boxes :: proc(checker: ^Expression_Checker, target, source: types.Typ
 
 @(private = "package")
 expression_converts_implicitly :: proc(checker: ^Expression_Checker, target, source: types.Type_Id) -> bool {
-	return expression_boxes(checker, target, source) || conversion_implicit_pointer(checker.type_checker.store, source, target)
+	store := checker.type_checker.store
+	return(
+		expression_boxes(checker, target, source) ||
+		conversion_implicit_pointer(store, source, target) ||
+		conversion_implicit_raw_pointer(store, source, target) \
+	)
 }
 
 @(private = "package")
@@ -382,7 +391,9 @@ expression_entity_info :: proc(
 	if state == .Invalid {
 		return expression_poison(scope), nil
 	}
-	binding := entity_get(resolver.scopes, entity)
+	target := entity_get(resolver.scopes, entity).alias
+	if target == 0 { target = entity }
+	binding := entity_get(resolver.scopes, target)
 	if binding.type == types.TYPE_POISON { return expression_poison(scope), nil }
 	if expression_captures_local(resolver.scopes, scope, binding) {
 		return expression_failure(checker, view, scope, node, .Invalid_Operand)
@@ -390,7 +401,7 @@ expression_entity_info :: proc(
 	info = Expression_Info {
 		type     = binding.type,
 		constant = binding.constant,
-		entity   = entity,
+		entity   = target,
 		scope    = scope,
 		state    = .Checked,
 	}
@@ -403,6 +414,8 @@ expression_entity_info :: proc(
 		info.mode = .Type
 	case .Procedure:
 		info.mode = .Value
+	case .Procedure_Group:
+		info.mode = .Procedure_Group
 	case .Builtin:
 		info.mode = .Builtin
 	case:

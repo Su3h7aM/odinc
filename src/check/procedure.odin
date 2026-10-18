@@ -134,7 +134,7 @@ expression_signature_bindings :: proc(
 	if proc_type.params != 0 {
 		for field_node in syntax.node_list(file.ast, syntax.node_payload(file.ast, proc_type.params, syntax.Field_List).list) {
 			field := syntax.node_payload(file.ast, field_node, syntax.Field)
-			if is_type_param_field(file, field) { continue }
+			if is_poly_name_field(file, field) { continue }
 			if field.names.count == 0 {
 				expression_unsupported(checker, view, scope, field_node, "Parameter_Name") or_return
 				return nil
@@ -378,6 +378,10 @@ expression_return :: proc(checker: ^Expression_Checker, view: View_Id, file_id: 
 	}
 	file := checker.type_checker.files[file_id]
 	values := syntax.node_list(file.ast, syntax.node_payload(file.ast, node, syntax.Return_Stmt).results)
+	if len(values) == 1 && len(checker.results) > 1 {
+		handled := expression_returned_call(checker, view, scope, node, values[0]) or_return
+		if handled { return nil }
+	}
 	if len(values) != len(checker.results) && (len(values) != 0 || len(checker.named_results) == 0) {
 		expression_unsupported(checker, view, scope, node, "Return_Arity") or_return
 		return nil
@@ -478,22 +482,25 @@ expression_local_declaration :: proc(
 	conversions := make([]Plan_Id, len(values), allocator) or_return
 	if multi {
 		value := check_expression(checker, view, scope, values[0]) or_return
-		if value.state == .Invalid { return nil }
-		results: []types.Type_Id
-		is_call := false
-		if value.plan != 0 {
-			#partial switch plan in checker.plans[value.plan] {
-			case Call_Plan:
-				results, is_call = plan.results, true
-			case Builtin_Plan:
-				results, is_call = plan.results, true
+		if value.state == .Invalid {
+			for &variable_type in variable_types { variable_type = types.TYPE_POISON }
+		} else {
+			results: []types.Type_Id
+			is_call := false
+			if value.plan != 0 {
+				#partial switch plan in checker.plans[value.plan] {
+				case Call_Plan:
+					results, is_call = plan.results, true
+				case Builtin_Plan:
+					results, is_call = plan.results, true
+				}
 			}
+			if !is_call || target != 0 || len(results) != len(names) {
+				expression_unsupported(checker, view, scope, values[0], "Local_Declaration_Results") or_return
+				return nil
+			}
+			for result, index in results { variable_types[index] = result }
 		}
-		if !is_call || target != 0 || len(results) != len(names) {
-			expression_unsupported(checker, view, scope, values[0], "Local_Declaration_Results") or_return
-			return nil
-		}
-		for result, index in results { variable_types[index] = result }
 	}
 	initializes := make([]bool, len(values), allocator) or_return
 	for index in 0 ..< len(values) {
