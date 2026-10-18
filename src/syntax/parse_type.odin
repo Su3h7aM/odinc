@@ -419,6 +419,13 @@ is_expr_generic :: proc(p: ^Parser, index: Node_Index) -> bool {
 		return node_payload(p.ast, index, Typeid_Type).specialization != 0
 	case .Poly_Type:
 		return true
+	case .Call_Expr:
+		call := node_payload(p.ast, index, Call_Expr)
+		for argument in node_list(p.ast, call.args) {
+			if is_expr_generic(p, argument) { return true }
+		}
+	case .Field_Value:
+		return is_expr_generic(p, node_payload(p.ast, index, Field_Value).value)
 	case .Proc_Type:
 		return node_payload(p.ast, index, Proc_Type).generic
 	case .Pointer_Type:
@@ -547,7 +554,7 @@ parse_proc_expr :: proc(p: ^Parser) -> Node_Index {
 	proc_type.tags = tags
 	p.ast.nodes[type].payload = proc_type
 
-	if p.allow_type && p.expr_level < 0 && p.curr.kind != .Undef {
+	if p.allow_type && p.expr_level < 0 {
 		if where_pos != 0 {
 			report(p, .Invalid_Proc_Signature, where_pos)
 		}

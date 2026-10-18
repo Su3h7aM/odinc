@@ -129,6 +129,7 @@ Type :: struct {
 	backing:                                        Type_Id,
 	endianness:                                     Endian,
 	signed, variadic:                               bool,
+	optional_result:                                bool,
 	convention:                                     Calling_Convention,
 	union_form:                                     Union_Form,
 	soa:                                            Soa_Kind,
@@ -187,6 +188,24 @@ intern :: proc(store: ^Store, descriptor: Type) -> Type_Id {
 	return Type_Id(len(store.types) - 1)
 }
 
+// sized_integer interns the basic integer of `count` bytes under its official name, so it equals the builtin.
+sized_integer :: proc(store: ^Store, count: i64, signed: bool) -> Type_Id {
+	name := ""
+	switch count {
+	case 1:
+		name = "i8" if signed else "u8"
+	case 2:
+		name = "i16" if signed else "u16"
+	case 4:
+		name = "i32" if signed else "u32"
+	case 8:
+		name = "i64" if signed else "u64"
+	case 16:
+		name = "i128" if signed else "u128"
+	}
+	return intern(store, Type{kind = .Integer, name = name, count = count, signed = signed})
+}
+
 get :: proc(store: ^Store, id: Type_Id) -> ^Type {
 	index := int(id)
 	assert(id != TYPE_NONE && index >= 1 && index < len(store.types))
@@ -225,9 +244,9 @@ default_type_of_untyped :: proc(store: ^Store, id: Type_Id) -> Type_Id {
 	case .Untyped_Bool:
 		return intern(store, Type{kind = .Bool})
 	case .Untyped_Integer:
-		return intern(store, Type{kind = .Integer, count = DEFAULT_LAYOUT.int_size, signed = true})
+		return intern(store, Type{kind = .Integer, name = "int", count = DEFAULT_LAYOUT.int_size, signed = true})
 	case .Untyped_Rune:
-		return intern(store, Type{kind = .Rune, count = 4, signed = true})
+		return intern(store, Type{kind = .Rune, name = "rune", count = 4, signed = true})
 	case .Untyped_Float:
 		return intern(store, Type{kind = .Float, count = 8})
 	case .Untyped_Complex:
@@ -274,6 +293,7 @@ descriptors_equal :: proc(a, b: Type) -> bool {
 	   a.endianness != b.endianness ||
 	   a.signed != b.signed ||
 	   a.variadic != b.variadic ||
+	   a.optional_result != b.optional_result ||
 	   a.convention != b.convention ||
 	   a.union_form != b.union_form ||
 	   a.soa != b.soa ||
@@ -354,7 +374,8 @@ layout_internal :: proc(store: ^Store, id: Type_Id, config: Layout_Config, depth
 	case .Untyped_Bool, .Untyped_Integer, .Untyped_Rune, .Untyped_Float, .Untyped_Complex, .Untyped_Quaternion, .Untyped_String, .Untyped_Nil:
 		return 0, 1
 	case .Bool:
-		return 1, 1
+		byte_size := max(t.count, 1)
+		return byte_size, min(byte_size, target_max_align(config))
 	case .Integer, .Float, .Rune:
 		byte_size := t.count
 		if byte_size <= 0 { byte_size = 4 }

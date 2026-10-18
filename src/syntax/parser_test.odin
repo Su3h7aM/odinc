@@ -6,7 +6,34 @@ import "core:reflect"
 import "core:strings"
 import "core:testing"
 
+@(test)
+undefined_body_belongs_to_outer_proc_after_proc_type_result :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(`package sample
+signal :: proc(sig: int, func: proc "c" (int)) -> proc "c" (int) ---
+`)
+	ast: Ast
+	ast_init(&ast, context.allocator)
+	defer ast_destroy(&ast)
+	parser: Parser
+	parser_init(&parser, &ast, source)
+	defer parser_destroy(&parser)
+	parse_file(&parser)
+	testing.expect(t, len(parser.errors) == 0)
+	literals, types: int
+	for node in ast.nodes {
+		#partial switch node.kind {
+		case .Proc_Lit:
+			literals += 1
+		case .Proc_Type:
+			types += 1
+		}
+	}
+	testing.expect_value(t, literals, 1)
+	testing.expect_value(t, types, 3)
+}
+
 parse_expression_for_test :: proc(p: ^Parser, ast: ^Ast, source: string) -> Node_Index {
+
 	parser_init(p, ast, transmute([]byte)source)
 	root := parse_expr(p, false)
 	if is_inserted_semicolon(p.curr) {
