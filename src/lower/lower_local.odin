@@ -162,17 +162,22 @@ lower_local_declaration :: proc(state: ^Procedure_State, node: syntax.Node_Index
 	initials, err := make([]ir.Node_Id, len(names), allocator)
 	if err != nil { state.job.function.error = err; return }
 	conversions: []check.Plan_Id
+	initializes: []bool
 	if declared, declared_found := check.expression_info(state.job.program, state.view, node); declared_found && declared.plan != 0 {
 		plan := check.plan(state.job.program, declared.plan)
 		if plan == nil { lower_fail(state, node, .Local); return }
 		assignment, found := plan^.(check.Assignment_Plan)
 		if !found { lower_fail(state, node, .Local); return }
 		conversions = assignment.conversions
+		initializes = assignment.initializes
 	}
 	for value, index in values {
-		if index < len(conversions) && conversions[index] != 0 {
+		initialize_value := len(initializes) == 0 || initializes[index]
+		if !initialize_value {
+			continue
+		} else if index < len(conversions) && conversions[index] != 0 {
 			initials[index] = lower_declared_conversion(state, value, conversions[index])
-		} else if state.ast.nodes[value].kind != .Undef {
+		} else {
 			initials[index] = lower_value(state, value)
 		}
 	}
@@ -180,7 +185,7 @@ lower_local_declaration :: proc(state: ^Procedure_State, node: syntax.Node_Index
 	for name, index in names {
 		info := lower_info(state, name)
 		if info.entity == 0 { continue }
-		initialize := len(values) == 0 || state.ast.nodes[values[index]].kind != .Undef
+		initialize := len(values) == 0 || len(initializes) == 0 || initializes[index]
 		bind_local(state, info.entity, initials[index], initialize)
 	}
 }

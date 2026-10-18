@@ -8,6 +8,7 @@ import "oc:types"
 procedures_record_zero_parameter_signatures :: proc(t: ^testing.T) {
 	source := transmute([]byte)string(
 		`package sample
+global_uninitialized: u8 = ---
 main :: proc "contextless" () {
 	buffer: [6]u8
 	value: u8
@@ -22,6 +23,11 @@ main :: proc "contextless" () {
 	pointer := cast([^]u8)&buffer[0]
 	pointer = pointer[1:]
 	slice := pointer[1:3]
+	uninitialized: u8 = ---
+	zeroed: u8
+}
+invalid_inferred :: proc "contextless" () {
+	value := ---
 }
 `,
 	)
@@ -75,10 +81,11 @@ main :: proc "contextless" () {
 	) { return }
 	defer expression_checker_destroy(&checker)
 	for declaration in collection.declarations {
-		state, err := resolve_entity(&resolver, declaration.entity)
-		testing.expectf(t, err == nil && state == .Resolved, "%v %v", state, err)
+		_, err := resolve_entity(&resolver, declaration.entity)
+		testing.expect_value(t, err, nil)
 	}
-	main := entity_get(&scopes, collection.declarations[0].entity)
+	main_id := scope_lookup_current(&scopes, package_scope, "main")
+	main := entity_get(&scopes, main_id)
 	procedure := main.data.(Procedure_Data)
 	testing.expect(t, procedure.signature != 0 && procedure.signature == main.type)
 	testing.expect(t, types.get(&store, procedure.signature).kind == .Procedure && len(types.get(&store, procedure.signature).params) == 0)
@@ -114,6 +121,17 @@ main :: proc "contextless" () {
 	checked_plan, is_checked_plan := program.plan_table[checked_info.plan].(Bounds_Plan)
 	testing.expect(t, checked_found && is_checked_plan && checked_plan.policy == .Enabled)
 	statements := syntax.node_list(&ast, body.stmts)
+	uninitialized_info, uninitialized_found := expression_info(&program, 1, statements[11])
+	uninitialized_plan, is_uninitialized_plan := program.plan_table[uninitialized_info.plan].(Assignment_Plan)
+	testing.expect(
+		t,
+		uninitialized_found && is_uninitialized_plan && len(uninitialized_plan.initializes) == 1 && !uninitialized_plan.initializes[0],
+		"typed --- declaration must record that it skips initialization",
+	)
+	invalid_entity := scope_lookup_current(&scopes, package_scope, "invalid_inferred")
+	invalid_procedure := entity_get(&scopes, invalid_entity).data.(Procedure_Data)
+	testing.expect(t, invalid_procedure.body_state == .Invalid, "inferred --- declaration must be rejected")
+	testing.expect(t, len(checker.diagnostics) >= 2, "global and inferred --- declarations must be rejected")
 	pointer_decl := syntax.node_payload(&ast, statements[8], syntax.Value_Decl)
 	pointer_id := syntax.node_list(&ast, pointer_decl.names)[0]
 	pointer_info, pointer_found := expression_info(&program, 1, pointer_id)

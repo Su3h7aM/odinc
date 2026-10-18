@@ -475,6 +475,7 @@ Aggregate_Plan :: struct {
 Assignment_Plan :: struct {
 	destinations, values: []Operand,
 	conversions:          []Plan_Id,
+	initializes:          []bool,
 }
 Bounds_Kind :: enum u8 {
 	Index,

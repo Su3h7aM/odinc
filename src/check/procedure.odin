@@ -474,8 +474,18 @@ expression_local_declaration :: proc(
 		}
 		for result, index in results { variable_types[index] = result }
 	}
+	initializes := make([]bool, len(values), allocator) or_return
 	for index in 0 ..< len(values) {
 		if multi { break }
+		if file.ast.nodes[values[index]].kind == .Undef {
+			if target == 0 {
+				expression_failure(checker, view, scope, values[index], .Unsupported) or_return
+				return nil
+			}
+			variable_types[index] = target
+			continue
+		}
+		initializes[index] = true
 		value := check_expression(checker, view, scope, values[index], target) or_return
 		if value.state == .Invalid { return nil }
 		conversions[index] = expression_boxing_plan(checker, value.plan)
@@ -502,7 +512,11 @@ expression_local_declaration :: proc(
 	if len(values) == 0 {
 		for index in 0 ..< len(names) { variable_types[index] = target }
 	}
-	if expression_any_boxed(conversions) {
+	needs_plan := expression_any_boxed(conversions)
+	for initializes_value in initializes {
+		if !initializes_value { needs_plan = true; break }
+	}
+	if needs_plan {
 		destinations := make([]Operand, len(values), allocator) or_return
 		sources := make([]Operand, len(values), allocator) or_return
 		for value, index in values {
@@ -510,7 +524,10 @@ expression_local_declaration :: proc(
 			sources[index] = Operand(Expression_Ref{view, value})
 		}
 		plan := Plan_Id(len(checker.plans))
-		append(&checker.plans, Plan(Assignment_Plan{destinations = destinations, values = sources, conversions = conversions})) or_return
+		append(
+			&checker.plans,
+			Plan(Assignment_Plan{destinations = destinations, values = sources, conversions = conversions, initializes = initializes}),
+		) or_return
 		expression_store(checker, view, node, Expression_Info{scope = scope, state = .Checked, plan = plan})
 	}
 	scopes := checker.type_checker.resolver.scopes
