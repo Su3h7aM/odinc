@@ -139,6 +139,12 @@ lower_unroll_range :: proc(state: ^Procedure_State, node: syntax.Node_Index, sta
 
 @(private)
 lower_range_parts :: proc(state: ^Procedure_State, node: syntax.Node_Index, parts: Range_Parts) {
+	if info, ok := check.expression_info(state.job.program, state.view, node); ok && info.plan != 0 {
+		if plan, found := check.plan(state.job.program, info.plan)^.(check.Range_Call_Plan); found {
+			lower_range_call(state, node, parts, plan)
+			return
+		}
+	}
 	expression := parts.expr
 	for state.ast.nodes[expression].kind == .Paren_Expr { expression = state.ast.nodes[expression].payload.(syntax.Paren_Expr).expr }
 	if state.ast.nodes[expression].kind == .Binary_Expr {

@@ -31,7 +31,19 @@ lower_compound_assignment :: proc(state: ^Procedure_State, node: syntax.Node_Ind
 		}
 	} else {
 		destination = lower_destination(state, check.Expression_Ref{state.view, left[0]})
+		if destination.lane_count != 0 {
+			value = lower_value(state, right[0])
+			previous := lower_swizzle_read(state, destination)
+			result := lower_compound_operator(state, node, assignment.op.kind, previous, value, destination.type)
+			lower_swizzle_write(state, destination, result)
+			return
+		}
 		value = lower_value(state, right[0])
+	}
+	if destination.lane_count != 0 {
+		result := lower_compound_operator(state, node, assignment.op.kind, lower_swizzle_read(state, destination), value, destination.type)
+		lower_swizzle_write(state, destination, result)
+		return
 	}
 	if state.failed || state.job.function.error != nil { return }
 	if destination.type == 0 { lower_fail(state, node, .Local); return }
@@ -53,6 +65,25 @@ lower_compound_operator :: proc(
 	scalar := scalar_type(state, type)
 	if is_wide_integer(state, type) {
 		return lower_wide_operator(state, node, compound_binary_operator(operator), signed_type(state, type), false, left, right)
+	}
+	if lower_type(state, type).kind == .Array {
+		descriptor := lower_type(state, type)
+		layout := state.job.layouts[type]
+		result := ir.stack_slot(function, state.entry_control, u32(layout.size), u32(layout.align))
+		stride := state.job.layouts[descriptor.elem].size
+		for index in 0 ..< descriptor.count {
+			offset := index * stride
+			lane := lower_compound_operator(
+				state,
+				node,
+				operator,
+				lower_load(state, ir.ptr_offset(function, left, offset), descriptor.elem),
+				lower_load(state, ir.ptr_offset(function, right, offset), descriptor.elem),
+				descriptor.elem,
+			)
+			lower_store(state, ir.ptr_offset(function, result, offset), lane, descriptor.elem)
+		}
+		return result
 	}
 	if scalar == .F16 {
 		result, ok := lower_float16_operation(function, compound_binary_operator(operator), left, right)

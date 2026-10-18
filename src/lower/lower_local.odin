@@ -236,6 +236,8 @@ lower_multi_declaration :: proc(state: ^Procedure_State, node: syntax.Node_Index
 
 @(private)
 Assignment_Destination :: struct {
+	lanes:                [4]ir.Node_Id,
+	lane_count:           u8,
 	entity:               check.Entity_Id,
 	type:                 types.Type_Id,
 	address:              ir.Node_Id,
@@ -259,6 +261,7 @@ lower_destination :: proc(state: ^Procedure_State, operand: check.Operand) -> As
 		}
 		if info.plan != 0 {
 			plan := check.plan(state.job.program, info.plan)
+			if swizzle, is_swizzle := plan^.(check.Swizzle_Plan); is_swizzle { return lower_swizzle_destination(state, swizzle, info.type) }
 			if place, is_place := plan^.(check.Place_Plan); is_place && place.bit_size != 0 { return lower_bit_field_destination(state, place, info.type) }
 		}
 		return {type = info.type, address = lower_operand_address(state, operand)}
@@ -273,6 +276,7 @@ write_destination :: proc(state: ^Procedure_State, destination: Assignment_Desti
 	if destination.type == 0 || state.failed || state.job.function.error != nil { return }
 	scalar := scalar_type(state, destination.type)
 	if scalar != .None && state.job.function.nodes.type[value] != scalar { lower_fail(state, node, .Conversion); return }
+	if destination.lane_count != 0 { lower_swizzle_write(state, destination, value); return }
 	if destination.bit_size != 0 {
 		lower_bit_field_write(state, destination, value)
 		return

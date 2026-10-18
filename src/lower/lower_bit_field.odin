@@ -39,6 +39,7 @@ lower_bit_field_destination :: proc(state: ^Procedure_State, place: check.Place_
 
 @(private)
 lower_destination_read :: proc(state: ^Procedure_State, destination: Assignment_Destination) -> ir.Node_Id {
+	if destination.lane_count != 0 { return lower_swizzle_read(state, destination) }
 	if destination.bit_size == 0 { return lower_load(state, destination.address, destination.type) }
 	container_value := lower_load(state, destination.address, destination.container)
 	return lower_bit_field_extract(

@@ -184,6 +184,8 @@ lower_value :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> ir.Node
 		case check.Place_Plan:
 			if value.bit_size != 0 { return lower_bit_field_value(state, value, info.type) }
 			return lower_load(state, lower_place(state, value, node), info.type)
+		case check.Swizzle_Plan:
+			return lower_swizzle_read(state, lower_swizzle_destination(state, value, info.type))
 		case check.Aggregate_Plan:
 			return lower_aggregate(state, node, value)
 		case check.Slice_Literal_Plan:
@@ -286,6 +288,9 @@ lower_address :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> ir.No
 		#partial switch value in plan^ {
 		case check.Place_Plan:
 			return lower_place(state, value, node)
+		case check.Swizzle_Plan:
+			if value.count != 1 { return lower_fail(state, node, .Place) }
+			return lower_swizzle_destination(state, value, info.type).lanes[0]
 		case check.Bounds_Plan:
 			if value.kind != .Index { return lower_fail(state, node, .Place) }
 			return lower_index_address(state, node, value)

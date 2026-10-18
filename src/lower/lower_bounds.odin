@@ -37,6 +37,16 @@ lower_index_address :: proc(state: ^Procedure_State, node: syntax.Node_Index, pl
 	if function.nodes.type[offset] != .I64 {
 		offset = ir.convert(function, .Sext if signed_type(state, lower_info(state, index.index).type) else .Zext, offset, .I64)
 	}
+	base_info := lower_info(state, index.expr)
+	if base_info.plan != 0 {
+		if swizzle, ok := check.plan(state.job.program, base_info.plan)^.(check.Swizzle_Plan); ok {
+			backing := lower_swizzle_destination(state, swizzle, base_info.type)
+			if plan.policy == .Enabled { lower_check(state, ir.compare(function, .ULt, offset, ir.const_int(function, .I64, i64(swizzle.count)))) }
+			table := ir.stack_slot(function, state.entry_control, u32(swizzle.count) * 8, 8)
+			for lane in 0 ..< int(swizzle.count) { lower_store_word(state, ir.ptr_offset(function, table, i64(lane) * 8), backing.lanes[lane]) }
+			return lower_load_word(state, ir.ptr_index(function, table, offset, 8), .Ptr)
+		}
+	}
 	base, length: ir.Node_Id
 	#partial switch base_type.kind {
 	case .Array:
