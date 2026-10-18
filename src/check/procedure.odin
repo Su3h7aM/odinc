@@ -45,7 +45,7 @@ expression_procedure_declaration :: proc(
 ) {
 	view := expression_file_view(checker, declaration.type.file) or_return
 	if declaration.type.node == 0 {
-		expression_failure(checker, view, scope, declaration.identifier.node, .Unsupported) or_return
+		expression_unsupported(checker, view, scope, declaration.identifier.node, "Procedure_Declaration") or_return
 		return false, nil
 	}
 	if syntax.node_payload(checker.type_checker.files[declaration.type.file].ast, declaration.type.node, syntax.Proc_Type).generic {
@@ -77,6 +77,17 @@ expression_procedure_body :: proc(checker: ^Expression_Checker, resolver: ^Resol
 	defer checker.results = outer_results
 	outer_named_results := checker.named_results
 	defer checker.named_results = outer_named_results
+	outer_control := checker.control
+	checker.control = make([dynamic]Control_Frame, outer_control.allocator) or_return
+	outer_defer_depth := checker.defer_depth
+	outer_unchecked_depth := checker.unchecked_depth
+	checker.defer_depth, checker.unchecked_depth = 0, 0
+	defer {
+		delete(checker.control)
+		checker.control = outer_control
+		checker.defer_depth = outer_defer_depth
+		checker.unchecked_depth = outer_unchecked_depth
+	}
 	expression_signature_bindings(checker, resolver, id, signature, procedure_scope) or_return
 	diagnostics_before := len(checker.diagnostics)
 	defers_first := len(checker.defers)
@@ -125,7 +136,7 @@ expression_signature_bindings :: proc(
 			field := syntax.node_payload(file.ast, field_node, syntax.Field)
 			if is_type_param_field(file, field) { continue }
 			if field.names.count == 0 {
-				expression_failure(checker, view, scope, field_node, .Unsupported) or_return
+				expression_unsupported(checker, view, scope, field_node, "Parameter_Name") or_return
 				return nil
 			}
 			for name_node in syntax.node_list(file.ast, field.names) {
@@ -156,7 +167,7 @@ expression_signature_bindings :: proc(
 				previous, insert_error := scope_insert(resolver.scopes, scope, parameter)
 				if insert_error != nil { return binding_resolve_error(insert_error) }
 				if previous != 0 {
-					expression_failure(checker, view, scope, name_node, .Unsupported) or_return
+					expression_unsupported(checker, view, scope, name_node, "Parameter_Duplicate") or_return
 					return nil
 				}
 				expression_store(
@@ -203,7 +214,7 @@ expression_default_argument :: proc(
 		case "#caller_expression":
 			return Default_Argument{caller_expression = true}, nil
 		}
-		expression_failure(checker, view, scope, node, .Unsupported) or_return
+		expression_unsupported(checker, view, scope, node, "Default_Directive") or_return
 		return {}, nil
 	}
 	if file.ast.nodes[node].kind == .Call_Expr {
@@ -213,7 +224,7 @@ expression_default_argument :: proc(
 			if len(targets) == 1 && file.ast.nodes[targets[0]].kind == .Ident {
 				return Default_Argument{caller_expression = true, caller_expression_target = expression_text(file, targets[0])}, nil
 			}
-			expression_failure(checker, view, scope, node, .Unsupported) or_return
+			expression_unsupported(checker, view, scope, node, "Caller_Expression_Arguments") or_return
 			return {}, nil
 		}
 	}
@@ -221,7 +232,7 @@ expression_default_argument :: proc(
 	if info.state == .Invalid { return {}, nil }
 	if info.constant != 0 { return Default_Argument{value = Operand(info.constant)}, nil }
 	if expression_conversion_plan(checker, info.plan) != 0 {
-		expression_failure(checker, view, scope, node, .Unsupported) or_return
+		expression_unsupported(checker, view, scope, node, "Default_Conversion") or_return
 		return {}, nil
 	}
 	return Default_Argument{value = Operand(Expression_Ref{view, node})}, nil
@@ -281,11 +292,11 @@ expression_statement :: proc(checker: ^Expression_Checker, view: View_Id, file_i
 			classified_expression = syntax.node_payload(file.ast, classified_expression, syntax.Paren_Expr).expr
 		}
 		if info.state != .Invalid && file.ast.nodes[classified_expression].kind == .Or_Return_Expr && info.mode != .No_Value {
-			expression_failure(checker, view, scope, expression, .Unsupported) or_return
+			expression_unsupported(checker, view, scope, expression, "Statement_Or_Return_Value") or_return
 		}
 		return nil
 	case:
-		expression_failure(checker, view, scope, node, .Unsupported) or_return
+		expression_unsupported(checker, view, scope, node, "Statement_Kind") or_return
 		return nil
 	}
 }
@@ -296,8 +307,11 @@ expression_assignment :: proc(checker: ^Expression_Checker, view: View_Id, file_
 	assignment := syntax.node_payload(file.ast, node, syntax.Assign_Stmt)
 	left := syntax.node_list(file.ast, assignment.lhs)
 	right := syntax.node_list(file.ast, assignment.rhs)
+	if assignment.op.kind == .Eq && (len(left) != 1 || len(right) != 1) {
+		return expression_multiple_assignment(checker, view, file_id, scope, node, left, right)
+	}
 	if !expression_assignment_operator(assignment.op.kind) || len(left) != 1 || len(right) != 1 {
-		expression_failure(checker, view, scope, node, .Unsupported) or_return
+		expression_unsupported(checker, view, scope, node, "Assign_Arity") or_return
 		return nil
 	}
 	if assignment.op.kind == .Eq && expression_text(file, left[0]) == "_" {
@@ -306,11 +320,11 @@ expression_assignment :: proc(checker: ^Expression_Checker, view: View_Id, file_
 	destination := check_expression(checker, view, scope, left[0]) or_return
 	if destination.state == .Invalid { return nil }
 	if destination.mode != .Variable && destination.mode != .Context {
-		expression_failure(checker, view, scope, left[0], .Unsupported) or_return
+		expression_unsupported(checker, view, scope, left[0], "Assign_Destination_Mode") or_return
 		return nil
 	}
 	if assigns_named_result_in_defer(checker, destination, assignment.op.kind) {
-		expression_failure(checker, view, scope, left[0], .Unsupported) or_return
+		expression_unsupported(checker, view, scope, left[0], "Assign_Deferred_Result") or_return
 		return nil
 	}
 	value := check_expression(checker, view, scope, right[0], destination.type) or_return
@@ -359,13 +373,13 @@ expression_blank_assignment :: proc(
 @(private = "file")
 expression_return :: proc(checker: ^Expression_Checker, view: View_Id, file_id: File_Id, scope: Scope_Id, node: syntax.Node_Index) -> Resolve_Error {
 	if checker.defer_depth > 0 {
-		expression_failure(checker, view, scope, node, .Unsupported) or_return
+		expression_unsupported(checker, view, scope, node, "Return_In_Defer") or_return
 		return nil
 	}
 	file := checker.type_checker.files[file_id]
 	values := syntax.node_list(file.ast, syntax.node_payload(file.ast, node, syntax.Return_Stmt).results)
 	if len(values) != len(checker.results) && (len(values) != 0 || len(checker.named_results) == 0) {
-		expression_failure(checker, view, scope, node, .Unsupported) or_return
+		expression_unsupported(checker, view, scope, node, "Return_Arity") or_return
 		return nil
 	}
 	allocator := mem.dynamic_arena_allocator(&checker.arena)
@@ -389,12 +403,12 @@ expression_range :: proc(checker: ^Expression_Checker, view: View_Id, file_id: F
 	loop := syntax.node_payload(file.ast, node, syntax.Range_Stmt)
 	variables := syntax.node_list(file.ast, loop.vals)
 	if loop.reverse || len(variables) != 1 || file.ast.nodes[loop.expr].kind != .Binary_Expr {
-		expression_failure(checker, view, scope, node, .Unsupported) or_return
+		expression_unsupported(checker, view, scope, node, "Range_Form") or_return
 		return nil
 	}
 	interval := syntax.node_payload(file.ast, loop.expr, syntax.Binary_Expr)
 	if interval.op.kind != .Range_Half {
-		expression_failure(checker, view, scope, loop.expr, .Unsupported) or_return
+		expression_unsupported(checker, view, scope, loop.expr, "Range_Operator") or_return
 		return nil
 	}
 	low := check_expression(checker, view, scope, interval.left) or_return
@@ -409,7 +423,7 @@ expression_range :: proc(checker: ^Expression_Checker, view: View_Id, file_id: F
 	high = check_expression(checker, view, scope, interval.right, range_type) or_return
 	if low.state == .Invalid || high.state == .Invalid { return nil }
 	if !conversion_integer(types.get(checker.type_checker.store, low.type).kind) {
-		expression_failure(checker, view, scope, loop.expr, .Unsupported) or_return
+		expression_unsupported(checker, view, scope, loop.expr, "Range_Type") or_return
 		return nil
 	}
 	scopes := checker.type_checker.resolver.scopes
@@ -451,7 +465,7 @@ expression_local_declaration :: proc(
 	multi := len(values) == 1 && len(names) > 1
 	if !declaration.is_mutable { return expression_local_constant(checker, view, file_id, scope, node) }
 	if (len(values) != 0 && len(values) != len(names) && !multi) || (declaration.type == 0 && len(values) == 0) {
-		expression_failure(checker, view, scope, node, .Unsupported) or_return
+		expression_unsupported(checker, view, scope, node, "Local_Declaration_Arity") or_return
 		return nil
 	}
 	target: types.Type_Id
@@ -476,7 +490,7 @@ expression_local_declaration :: proc(
 			}
 		}
 		if !is_call || target != 0 || len(results) != len(names) {
-			expression_failure(checker, view, scope, values[0], .Unsupported) or_return
+			expression_unsupported(checker, view, scope, values[0], "Local_Declaration_Results") or_return
 			return nil
 		}
 		for result, index in results { variable_types[index] = result }
@@ -486,7 +500,7 @@ expression_local_declaration :: proc(
 		if multi { break }
 		if file.ast.nodes[values[index]].kind == .Undef {
 			if target == 0 {
-				expression_failure(checker, view, scope, values[index], .Unsupported) or_return
+				expression_unsupported(checker, view, scope, values[index], "Local_Undef_Type") or_return
 				return nil
 			}
 			variable_types[index] = target
@@ -497,7 +511,7 @@ expression_local_declaration :: proc(
 		if value.state == .Invalid { return nil }
 		conversions[index] = expression_boxing_plan(checker, value.plan)
 		if value.mode == .No_Value {
-			expression_failure(checker, view, scope, values[index], .Unsupported) or_return
+			expression_unsupported(checker, view, scope, values[index], "Local_No_Value") or_return
 			return nil
 		}
 		variable_types[index] = target
@@ -554,7 +568,7 @@ expression_local_declaration :: proc(
 		previous, insert_error := scope_insert(scopes, scope, id)
 		if insert_error != nil { return Scope_Error.Invalid_Entity }
 		if previous != 0 {
-			expression_failure(checker, view, scope, name_node, .Unsupported) or_return
+			expression_unsupported(checker, view, scope, name_node, "Local_Duplicate") or_return
 			return nil
 		}
 		expression_store(

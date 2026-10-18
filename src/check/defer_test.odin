@@ -5,7 +5,15 @@ import "oc:syntax"
 import "oc:types"
 
 @(private = "package")
-check_procedure_source :: proc(t: ^testing.T, source: []byte, expect_invalid := false) -> (procedure: Procedure_Data, ok: bool) {
+check_procedure_source :: proc(
+	t: ^testing.T,
+	source: []byte,
+	expected_kind := Expression_Diagnostic_Kind.None,
+	expected_reason := "",
+) -> (
+	procedure: Procedure_Data,
+	ok: bool,
+) {
 	ast: syntax.Ast
 	syntax.ast_init(&ast, context.allocator)
 	defer syntax.ast_destroy(&ast)
@@ -64,9 +72,13 @@ check_procedure_source :: proc(t: ^testing.T, source: []byte, expect_invalid := 
 	checker.packages = []Package{{}, {kind = .User}}
 	for declaration in collection.declarations {
 		state, err := resolve_entity(&resolver, declaration.entity)
-		if !expect_invalid && !testing.expectf(t, err == nil && state == .Resolved, "%v %v %v", state, err, checker.diagnostics) { return {}, false }
+		if expected_kind == .None && !testing.expectf(t, err == nil && state == .Resolved, "%v %v %v", state, err, checker.diagnostics) { return {}, false }
 	}
-	if expect_invalid && !testing.expect(t, len(checker.diagnostics) > 0) { return {}, false }
+	if expected_kind != .None {
+		reported := false
+		for diagnostic in checker.diagnostics { reported ||= diagnostic.kind == expected_kind && diagnostic.reason == expected_reason }
+		if !testing.expectf(t, reported, "expected %v %q, got %v", expected_kind, expected_reason, checker.diagnostics) { return {}, false }
+	}
 	return entity_get(&scopes, collection.declarations[0].entity).data.(Procedure_Data), true
 }
 

@@ -20,7 +20,7 @@ expression_string_literal :: proc(
 	file := checker.type_checker.files[file_id]
 	text := expression_text(file, node)
 	if len(text) < 2 || text[0] != '"' || text[len(text) - 1] != '"' || strings.starts_with(text, `"""`) || strings.contains_rune(text, '\\') {
-		return expression_failure(checker, view, scope, node, .Unsupported)
+		return expression_unsupported(checker, view, scope, node, "String_Literal_Syntax")
 	}
 	string_type := types.intern(checker.type_checker.store, types.Type{kind = .String})
 	literal_type := string_type

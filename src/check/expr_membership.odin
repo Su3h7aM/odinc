@@ -25,10 +25,10 @@ expression_membership :: proc(
 	if descriptor.kind != .Bit_Set { return expression_failure(checker, view, scope, node, .Invalid_Operator) }
 	element := check_expression(checker, view, scope, binary.left, descriptor.elem) or_return
 	if element.state == .Invalid { return expression_poison(scope), nil }
-	if set.mode != .Constant || element.mode != .Constant { return expression_failure(checker, view, scope, node, .Unsupported) }
+	if set.mode != .Constant || element.mode != .Constant { return expression_unsupported(checker, view, scope, node, "Membership_Runtime") }
 	member_value, member_ok := constant_pool_get(checker.constants, element.constant).value.(big.Int)
 	set_value, set_ok := constant_pool_get(checker.constants, set.constant).value.(big.Int)
-	if !member_ok || !set_ok { return expression_failure(checker, view, scope, node, .Unsupported) }
+	if !member_ok || !set_ok { return expression_unsupported(checker, view, scope, node, "Membership_Constant") }
 	member_integer, integer_error := big.int_get_i64(&member_value)
 	if integer_error != nil {
 		expression_constant_failure(checker, checker.views[view].file, node, integer_error) or_return

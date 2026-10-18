@@ -88,7 +88,7 @@ expression_simd_call :: proc(
 	info: Expression_Info,
 	err: Resolve_Error,
 ) {
-	if ellipsis { return expression_failure(checker, view, scope, node, .Unsupported) }
+	if ellipsis { return expression_unsupported(checker, view, scope, node, "Simd_Spread") }
 	store := checker.type_checker.store
 	allocator := mem.dynamic_arena_allocator(&checker.arena)
 	result := types.TYPE_NONE
@@ -130,7 +130,7 @@ expression_simd_call :: proc(
 			return expression_failure(checker, view, scope, node, .Invalid_Operand)
 		}
 		size, _, layout_error := types.layout(store, vector.elem)
-		if layout_error != .None || size > 8 { return expression_failure(checker, view, scope, node, .Unsupported) }
+		if layout_error != .None || size > 8 { return expression_unsupported(checker, view, scope, node, "Simd_Element_Layout") }
 		lane := types.intern(store, types.Type{kind = .Integer, count = size})
 		result = types.intern(store, types.Type{kind = .Simd_Vector, elem = lane, count = vector.count})
 		operands = make([]Operand, 2, allocator) or_return
@@ -159,7 +159,7 @@ expression_simd_call :: proc(
 		operands[2] = Operand(Expression_Ref{view, arguments[2]})
 		result = when_true.type
 	case:
-		return expression_failure(checker, view, scope, node, .Unsupported)
+		return expression_unsupported(checker, view, scope, node, "Simd_Builtin")
 	}
 	plan := Plan_Id(len(checker.plans))
 	append(&checker.plans, Plan(Builtin_Plan{builtin = builtin, arguments = operands})) or_return

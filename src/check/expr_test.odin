@@ -45,6 +45,7 @@ Element :: distinct u8
 named_bytes: []Element
 raw_named := raw_data(named_bytes)
 raw_array := raw_data([2]u8{1, 2})
+raw_slice_literal := raw_data([]u8{1, 2})
 raw_many := raw_data(bytes, bytes)
 `,
 	)
@@ -160,6 +161,7 @@ raw_many := raw_data(bytes, bytes)
 			name == "Mismatch" ||
 			name == "Negative_Shift" ||
 			name == "raw_array" ||
+			name == "raw_slice_literal" ||
 			name == "raw_many" ||
 			name == "raw_cstring" ||
 			name == "raw_slice_type" ||
@@ -167,6 +169,14 @@ raw_many := raw_data(bytes, bytes)
 		testing.expectf(t, err == nil && (state == .Invalid) == invalid, "%s: %v %v", name, state, err)
 	}
 	testing.expect(t, len(type_checker.diagnostics) == 0 && len(resolver.diagnostics) == 0)
+	found_composite_reason := false
+	for diagnostic in checker.diagnostics {
+		if diagnostic.kind == .Unsupported {
+			testing.expect(t, diagnostic.reason != "")
+			if diagnostic.reason == "Composite_Slice" { found_composite_reason = true }
+		}
+	}
+	testing.expect(t, found_composite_reason)
 	program: Checked_Program
 	expression_checker_publish(&checker, &program)
 	program.files = []File{{}, file}

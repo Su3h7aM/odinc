@@ -29,6 +29,11 @@ lower_intrinsic :: proc(
 	order, order_ok := intrinsic_memory_order(state, node, kind, arguments)
 	if !order_ok { return 0 }
 	#partial switch kind {
+	case .Unaligned_Store:
+		if len(plan.arguments) != 2 || function.nodes.type[values[0]] != .Ptr { return lower_fail(state, node, .Builtin) }
+		pointer := lower_type(state, operand_type(state, plan.arguments[0]))
+		lower_store(state, values[0], values[1], pointer.elem)
+		return 0
 	case .Count_Ones, .Count_Zeros, .Count_Leading_Zeros, .Count_Trailing_Zeros, .Reverse_Bits, .Byte_Swap:
 		if !is_integer_value(function, values[0]) || type != function.nodes.type[values[0]] { return lower_fail(state, node, .Builtin) }
 		return lower_bit_intrinsic(state, kind, values[0])

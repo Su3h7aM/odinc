@@ -27,7 +27,7 @@ expression_type_info_of :: proc(
 	info: Expression_Info,
 	err: Resolve_Error,
 ) {
-	if len(arguments) != 1 || ellipsis { return expression_failure(checker, view, scope, node, .Unsupported) }
+	if len(arguments) != 1 || ellipsis { return expression_unsupported(checker, view, scope, node, "Type_Info_Arguments") }
 	operand := check_expression(checker, view, scope, arguments[0]) or_return
 	if operand.state == .Invalid { return expression_poison(scope), nil }
 	store := checker.type_checker.store
@@ -35,15 +35,15 @@ expression_type_info_of :: proc(
 		return expression_failure(checker, view, scope, arguments[0], .Invalid_Operand)
 	}
 	collection := checker.type_checker.collection
-	if collection == nil || collection.runtime_scope == 0 { return expression_failure(checker, view, scope, node, .Unsupported) }
+	if collection == nil || collection.runtime_scope == 0 { return expression_unsupported(checker, view, scope, node, "Type_Info_Runtime") }
 	scopes := checker.type_checker.resolver.scopes
 	if operand.mode != .Type {
 		expression_record_type_info(checker, operand.type) or_return
 		helper := scope_lookup_current(scopes, collection.runtime_scope, "__type_info_of")
-		if helper == 0 { return expression_failure(checker, view, scope, node, .Unsupported) }
+		if helper == 0 { return expression_unsupported(checker, view, scope, node, "Type_Info_Helper") }
 		_, resolve_error := resolve_entity(checker.type_checker.resolver, helper)
 		if resolve_error != nil { return {}, resolve_error }
-		if entity_get(scopes, helper).state != .Resolved { return expression_failure(checker, view, scope, node, .Unsupported) }
+		if entity_get(scopes, helper).state != .Resolved { return expression_unsupported(checker, view, scope, node, "Type_Info_Helper_State") }
 		callee := Expression_Info {
 			entity = helper,
 			type   = entity_get(scopes, helper).type,
@@ -54,7 +54,7 @@ expression_type_info_of :: proc(
 	}
 	info_type := runtime_type_named(checker, "Type_Info")
 	table := scope_lookup_current(scopes, collection.runtime_scope, "type_table")
-	if info_type == 0 || table == 0 { return expression_failure(checker, view, scope, node, .Unsupported) }
+	if info_type == 0 || table == 0 { return expression_unsupported(checker, view, scope, node, "Type_Info_Table") }
 	_, resolve_error := resolve_entity(checker.type_checker.resolver, table)
 	if resolve_error != nil { return {}, resolve_error }
 	expression_record_type_info(checker, operand.type) or_return
@@ -114,7 +114,7 @@ expression_typeid_of :: proc(
 	info: Expression_Info,
 	err: Resolve_Error,
 ) {
-	if len(arguments) != 1 || ellipsis { return expression_failure(checker, view, scope, node, .Unsupported) }
+	if len(arguments) != 1 || ellipsis { return expression_unsupported(checker, view, scope, node, "Typeid_Arguments") }
 	operand := check_expression(checker, view, scope, arguments[0]) or_return
 	if operand.state == .Invalid { return expression_poison(scope), nil }
 	expression_record_type_info(checker, operand.type) or_return

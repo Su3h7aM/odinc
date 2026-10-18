@@ -551,8 +551,12 @@ enumerated_array_type :: proc(
 		return types.TYPE_POISON, nil
 	}
 	count := i64(0)
-	if descriptor.count > 0 { count = descriptor.upper_bound - descriptor.lower_bound + 1 }
-	return types.intern(checker.store, types.Type{kind = .Enumerated_Array, elem = elem, index = index, count = count}), nil
+	lower_bound := i64(0)
+	if descriptor.count > 0 {
+		count = descriptor.upper_bound - descriptor.lower_bound + 1
+		lower_bound = descriptor.lower_bound
+	}
+	return types.intern(checker.store, types.Type{kind = .Enumerated_Array, elem = elem, index = index, count = count, lower_bound = lower_bound}), nil
 }
 
 array_count :: proc(checker: ^Type_Checker, file_id: File_Id, scope: Scope_Id, node: syntax.Node_Index) -> (count: i64, valid: bool, err: Resolve_Error) {

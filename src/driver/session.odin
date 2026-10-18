@@ -110,10 +110,11 @@ runtime_histogram :: proc(odin_root: string, allocator: runtime.Allocator, write
 		if error := histogram_source(&entries, session, "type", diagnostic.kind, diagnostic.source); error != .None { return error }
 	}
 	for diagnostic in session.checker.diagnostics {
-		if error := histogram_source(&entries, session, "expr", diagnostic.kind, diagnostic.source); error != .None { return error }
+		if error := histogram_source(&entries, session, "expr", diagnostic.kind, diagnostic.source, diagnostic.reason); error != .None { return error }
 	}
 	slice.sort_by(entries[:], histogram_before)
-	for entry in entries {
+	HISTOGRAM_LIMIT :: 32
+	for entry in entries[:min(len(entries), HISTOGRAM_LIMIT)] {
 		fmt.wprintfln(writer, "%6d  %s  first: %s", entry.count, entry.key, entry.sample)
 	}
 	return .None
@@ -172,7 +173,14 @@ histogram_count :: proc(entries: ^[dynamic]Histogram_Entry, key, sample: string)
 }
 
 @(private = "file")
-histogram_source :: proc(entries: ^[dynamic]Histogram_Entry, session: ^Session, stage: string, kind: any, source: check.Source_Span) -> Driver_Error {
+histogram_source :: proc(
+	entries: ^[dynamic]Histogram_Entry,
+	session: ^Session,
+	stage: string,
+	kind: any,
+	source: check.Source_Span,
+	reason: string = "",
+) -> Driver_Error {
 	file := session.files[source.file]
 	line, column := line_column(file.source, source.start)
 	name := fmt.tprintf("%v", kind)
@@ -182,6 +190,12 @@ histogram_source :: proc(entries: ^[dynamic]Histogram_Entry, session: ^Session, 
 		key = fmt.tprintf("%s %s", key, span_node_kind(file.ast, source))
 	case "Undeclared_Name", "Undeclared_Type":
 		key = fmt.tprintf("%s %s", key, string(file.source[source.start:source.end]))
+	}
+	if reason != "" {
+		if name != "Unsupported" && name != "Unsupported_Type_Expression" {
+			key = fmt.tprintf("%s %s", key, span_node_kind(file.ast, source))
+		}
+		key = fmt.tprintf("%s %s", key, reason)
 	}
 	return histogram_count(entries, key, fmt.tprintf("%s:%d:%d", file.display_path, line, column))
 }

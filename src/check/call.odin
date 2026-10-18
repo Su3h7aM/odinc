@@ -22,11 +22,17 @@ expression_call :: proc(
 	procedure := entity_get(scopes, callee.entity).data.(Procedure_Data)
 	descriptor := types.get(checker.type_checker.store, procedure.signature)
 	parameter_count := len(procedure.parameters)
-	if len(descriptor.params) != parameter_count || (descriptor.variadic && descriptor.convention != .Odin) {
-		return expression_failure(checker, view, scope, node, .Unsupported)
+	if len(descriptor.params) != parameter_count {
+		return expression_unsupported(checker, view, scope, node, "Call_Signature")
 	}
-	if spread && (!descriptor.variadic || len(arguments) != parameter_count) || !descriptor.variadic && len(arguments) > parameter_count {
-		return expression_failure(checker, view, scope, node, .Unsupported)
+	if descriptor.variadic && descriptor.convention != .Odin {
+		return expression_unsupported(checker, view, scope, node, "Call_Variadic_Convention")
+	}
+	if spread && (!descriptor.variadic || len(arguments) != parameter_count) {
+		return expression_unsupported(checker, view, scope, node, "Call_Variadic_Spread")
+	}
+	if !descriptor.variadic && len(arguments) > parameter_count {
+		return expression_unsupported(checker, view, scope, node, "Call_Arguments")
 	}
 	packed := descriptor.variadic && !spread
 	fixed_count := parameter_count
@@ -52,7 +58,7 @@ expression_call :: proc(
 		}
 	}
 	for index in fixed_supplied ..< fixed_count {
-		if index >= len(procedure.defaults) { return expression_failure(checker, view, scope, node, .Unsupported) }
+		if index >= len(procedure.defaults) { return expression_unsupported(checker, view, scope, node, "Call_Default_Missing") }
 		argument := Call_Argument {
 			parameter        = procedure.parameters[index],
 			evaluation_order = u32(index),
@@ -83,7 +89,7 @@ expression_call :: proc(
 		case default_argument.value != nil:
 			argument.value = default_argument.value
 		case:
-			return expression_failure(checker, view, scope, node, .Unsupported)
+			return expression_unsupported(checker, view, scope, node, "Call_Default_Value")
 		}
 		call_arguments[index] = argument
 	}
@@ -144,7 +150,7 @@ expression_variadic_argument :: proc(
 		case value.constant != 0:
 			elements[index] = Operand(value.constant)
 		case expression_conversion_plan(checker, value.plan) != 0:
-			expression_failure(checker, view, scope, element, .Unsupported) or_return
+			expression_unsupported(checker, view, scope, element, "Call_Variadic_Conversion") or_return
 			return {}, false, nil
 		case:
 			elements[index] = Operand(Expression_Ref{view, element})

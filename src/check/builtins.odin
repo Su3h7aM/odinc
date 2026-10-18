@@ -152,6 +152,8 @@ intrinsic_builtin_kind :: proc(name: string) -> Builtin_Kind {
 		return .Mem_Zero
 	case "unaligned_load":
 		return .Unaligned_Load
+	case "unaligned_store":
+		return .Unaligned_Store
 	case "simd_indices":
 		return .Simd_Indices
 	case "simd_select":
@@ -192,7 +194,7 @@ expression_intrinsic_declaration :: proc(
 ) {
 	kind := intrinsic_builtin_kind(entity_get(resolver.scopes, id).name)
 	if kind == .None {
-		expression_failure(checker, view, entity_get(resolver.scopes, id).scope, node, .Unsupported) or_return
+		expression_unsupported(checker, view, entity_get(resolver.scopes, id).scope, node, "Builtin_Declaration") or_return
 		return false, nil
 	}
 	builtin := expression_builtin_id(checker, kind) or_return
@@ -236,13 +238,13 @@ expression_builtin_call :: proc(
 		return expression_numeric_builtin(checker, view, scope, node, builtin, kind, arguments, call.ellipsis.kind != .Invalid)
 	}
 	if checker.builtin_kinds[builtin] == .Trap {
-		if len(arguments) != 0 || call.ellipsis.kind != .Invalid { return expression_failure(checker, view, scope, node, .Unsupported) }
+		if len(arguments) != 0 || call.ellipsis.kind != .Invalid { return expression_unsupported(checker, view, scope, node, "Trap_Arguments") }
 		plan := Plan_Id(len(checker.plans))
 		append(&checker.plans, Plan(Builtin_Plan{builtin = builtin})) or_return
 		return Expression_Info{mode = .No_Value, plan = plan, scope = scope, state = .Checked}, nil
 	}
 	if checker.builtin_kinds[builtin] == .Unreachable {
-		if len(arguments) != 0 || call.ellipsis.kind != .Invalid { return expression_failure(checker, view, scope, node, .Unsupported) }
+		if len(arguments) != 0 || call.ellipsis.kind != .Invalid { return expression_unsupported(checker, view, scope, node, "Unreachable_Arguments") }
 		plan := Plan_Id(len(checker.plans))
 		append(&checker.plans, Plan(Builtin_Plan{builtin = builtin})) or_return
 		return Expression_Info{mode = .No_Value, plan = plan, scope = scope, state = .Checked}, nil
@@ -269,7 +271,7 @@ expression_builtin_call :: proc(
 		return expression_intrinsic_call(checker, view, scope, node, builtin, kind, arguments, call.ellipsis.kind != .Invalid)
 	}
 	if checker.builtin_kinds[builtin] != .Syscall || call.ellipsis.kind != .Invalid || len(arguments) < 1 || len(arguments) > 7 {
-		return expression_failure(checker, view, scope, node, .Unsupported)
+		return expression_unsupported(checker, view, scope, node, "Syscall_Arguments")
 	}
 	word := checker.config.uintptr
 	allocator := mem.dynamic_arena_allocator(&checker.arena)
@@ -297,7 +299,7 @@ expression_raw_data :: proc(
 	info: Expression_Info,
 	err: Resolve_Error,
 ) {
-	if len(arguments) != 1 || ellipsis { return expression_failure(checker, view, scope, node, .Unsupported) }
+	if len(arguments) != 1 || ellipsis { return expression_unsupported(checker, view, scope, node, "Raw_Data_Arguments") }
 	operand := check_expression(checker, view, scope, arguments[0]) or_return
 	if operand.state == .Invalid { return expression_poison(scope), nil }
 	#partial switch operand.mode {
@@ -349,7 +351,7 @@ expression_constant_log2 :: proc(
 	info: Expression_Info,
 	err: Resolve_Error,
 ) {
-	if len(arguments) != 1 || ellipsis { return expression_failure(checker, view, scope, node, .Unsupported) }
+	if len(arguments) != 1 || ellipsis { return expression_unsupported(checker, view, scope, node, "Constant_Log2_Arguments") }
 	operand := check_expression(checker, view, scope, arguments[0]) or_return
 	if operand.state == .Invalid { return expression_poison(scope), nil }
 	value := constant_pool_get(checker.constants, operand.constant)
@@ -399,7 +401,7 @@ expression_numeric_builtin :: proc(
 		return expression_extremum_of_type(checker, view, scope, node, kind, arguments[0])
 	}
 	if ellipsis || (kind == .Abs && count != 1) || (kind == .Clamp && count != 3) || ((kind == .Min || kind == .Max) && count < 2) {
-		return expression_failure(checker, view, scope, node, .Unsupported)
+		return expression_unsupported(checker, view, scope, node, "Numeric_Arguments")
 	}
 	allocator := mem.dynamic_arena_allocator(&checker.arena)
 	values := make([]Expression_Info, count, allocator) or_return
@@ -513,7 +515,7 @@ expression_extremum_of_type :: proc(
 		}
 		return expression_enum_member(checker, view, scope, node, operand.type, extreme.name)
 	}
-	if !conversion_integer(descriptor.kind) { return expression_failure(checker, view, scope, node, .Unsupported) }
+	if !conversion_integer(descriptor.kind) { return expression_unsupported(checker, view, scope, node, "Extremum_Type") }
 	size, _, layout_error := types.layout(store, operand.type)
 	if layout_error != .None { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
 	bits := int(size) * 8
@@ -555,7 +557,7 @@ expression_layout_query :: proc(
 	info: Expression_Info,
 	err: Resolve_Error,
 ) {
-	if len(arguments) != 1 || ellipsis { return expression_failure(checker, view, scope, node, .Unsupported) }
+	if len(arguments) != 1 || ellipsis { return expression_unsupported(checker, view, scope, node, "Layout_Query_Arguments") }
 	operand := check_expression(checker, view, scope, arguments[0]) or_return
 	if operand.state == .Invalid { return expression_poison(scope), nil }
 	size, alignment, layout_error := types.layout(checker.type_checker.store, operand.type)
@@ -589,7 +591,7 @@ expression_has_target_feature :: proc(
 	info: Expression_Info,
 	err: Resolve_Error,
 ) {
-	if len(arguments) != 1 || ellipsis { return expression_failure(checker, view, scope, node, .Unsupported) }
+	if len(arguments) != 1 || ellipsis { return expression_unsupported(checker, view, scope, node, "Target_Feature_Arguments") }
 	feature := check_expression(checker, view, scope, arguments[0]) or_return
 	if feature.state == .Invalid { return expression_poison(scope), nil }
 	names, is_string := constant_pool_get(checker.constants, feature.constant).value.(string)
@@ -629,7 +631,7 @@ expression_length :: proc(
 	info: Expression_Info,
 	err: Resolve_Error,
 ) {
-	if len(arguments) != 1 || ellipsis { return expression_failure(checker, view, scope, node, .Unsupported) }
+	if len(arguments) != 1 || ellipsis { return expression_unsupported(checker, view, scope, node, "Length_Arguments") }
 	operand := check_expression(checker, view, scope, arguments[0]) or_return
 	if operand.state == .Invalid { return expression_poison(scope), nil }
 	store := checker.type_checker.store
@@ -649,7 +651,7 @@ expression_length :: proc(
 		}
 		return Expression_Info{type = types.TYPE_UNTYPED_INTEGER, constant = constant, mode = .Constant, scope = scope, state = .Checked}, nil
 	case .Slice, .String, .String16:
-		if kind == .Cap { return expression_failure(checker, view, scope, node, .Unsupported) }
+		if kind == .Cap { return expression_unsupported(checker, view, scope, node, "Capacity_Type") }
 		allocator := mem.dynamic_arena_allocator(&checker.arena)
 		operands := make([]Operand, 1, allocator) or_return
 		operands[0] = Operand(Expression_Ref{view, arguments[0]})

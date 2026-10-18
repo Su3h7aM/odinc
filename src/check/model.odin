@@ -74,6 +74,7 @@ Builtin_Kind :: enum u8 {
 	Typeid_Of,
 	Has_Target_Feature,
 	Unaligned_Load,
+	Unaligned_Store,
 	Simd_Indices,
 	Simd_Select,
 	Simd_Lanes_Ne,

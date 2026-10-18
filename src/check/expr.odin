@@ -24,6 +24,7 @@ Expression_Diagnostic :: struct {
 	source:     Source_Span,
 	conversion: Conversion_Error,
 	constant:   Constant_Error,
+	reason:     string,
 }
 
 // Owns typed rows, plans and diagnostics. Files, resolver, type checker and constant pool are borrowed.
@@ -177,7 +178,7 @@ check_expression :: proc(
 				break
 			}
 			if kind != .Integer && kind != .Rune && kind != .Float {
-				return expression_failure(checker, view, scope, node, .Unsupported)
+				return expression_unsupported(checker, view, scope, node, "Literal_Kind")
 			}
 			untyped := types.TYPE_UNTYPED_INTEGER
 			if kind == .Rune { untyped = types.TYPE_UNTYPED_RUNE }
@@ -229,6 +230,14 @@ check_expression :: proc(
 			}
 			callee := expression_callee(checker, view, file_id, scope, call.expr) or_return
 			arguments := syntax.node_list(file.ast, call.args)
+			if callee.state == .Invalid {
+				for argument in arguments {
+					value := argument
+					if file.ast.nodes[value].kind == .Field_Value { value = syntax.node_payload(file.ast, value, syntax.Field_Value).value }
+					_ = check_expression(checker, view, scope, value) or_return
+				}
+				return expression_poison(scope), nil
+			}
 			if callee.mode == .Builtin {
 				info = expression_builtin_call(checker, view, file_id, scope, node, callee, arguments) or_return
 			} else if callee.mode == .Value && callee.entity != 0 && is_generic_procedure(checker, callee.entity) {
@@ -239,7 +248,7 @@ check_expression :: proc(
 				info = expression_indirect_call(checker, view, scope, node, call.expr, callee, arguments, call.ellipsis.kind != .Invalid) or_return
 			} else {
 				if callee.mode != .Type || len(arguments) != 1 || call.ellipsis.kind != .Invalid {
-					return expression_failure(checker, view, scope, node, .Unsupported)
+					return expression_unsupported(checker, view, scope, node, "Call_Callee")
 				}
 				operand := check_expression(checker, view, scope, arguments[0]) or_return
 				info = expression_conversion(checker, view, scope, node, Operand(Expression_Ref{view, arguments[0]}), operand, callee.type, .Cast) or_return
@@ -264,12 +273,14 @@ check_expression :: proc(
 			info = expression_or_return(checker, view, file_id, scope, node) or_return
 		case .Or_Branch_Expr:
 			info = expression_or_branch(checker, view, file_id, scope, node) or_return
+		case .Proc_Lit:
+			info = expression_procedure_literal(checker, view, file_id, scope, node) or_return
 		case .Slice_Expr:
 			info = expression_slice(checker, view, file_id, scope, node) or_return
 		case .Comp_Lit:
-			info = expression_composite(checker, view, file_id, scope, node) or_return
+			info = expression_composite(checker, view, file_id, scope, node, hint) or_return
 		case:
-			return expression_failure(checker, view, scope, node, .Unsupported)
+			return expression_unsupported(checker, view, scope, node, "Expression_Kind")
 		}
 	}
 	if hint != 0 && info.state != .Invalid && info.type != hint && info.mode != .Constant && expression_boxes(checker, hint, info.type) {
@@ -366,6 +377,9 @@ expression_entity_info :: proc(
 		return expression_poison(scope), nil
 	}
 	binding := entity_get(resolver.scopes, entity)
+	if expression_captures_local(resolver.scopes, scope, binding) {
+		return expression_failure(checker, view, scope, node, .Invalid_Operand)
+	}
 	info = Expression_Info {
 		type     = binding.type,
 		constant = binding.constant,
@@ -385,7 +399,7 @@ expression_entity_info :: proc(
 	case .Builtin:
 		info.mode = .Builtin
 	case:
-		return expression_failure(checker, view, scope, node, .Unsupported)
+		return expression_unsupported(checker, view, scope, node, "Entity_Kind")
 	}
 	return info, nil
 }
@@ -414,7 +428,12 @@ expression_conversion :: proc(
 		span := checker.type_checker.files[checker.views[view].file].ast.nodes[node]
 		append(
 			&checker.diagnostics,
-			Expression_Diagnostic{kind = .Conversion, source = {checker.views[view].file, span.start, span.end}, conversion = diagnostic},
+			Expression_Diagnostic {
+				kind = .Conversion,
+				source = {checker.views[view].file, span.start, span.end},
+				conversion = diagnostic,
+				reason = result.reason,
+			},
 		) or_return
 		return expression_poison(scope), nil
 	}
@@ -437,16 +456,32 @@ expression_failure :: proc(
 	scope: Scope_Id,
 	node: syntax.Node_Index,
 	kind: Expression_Diagnostic_Kind,
+	reason: string = "",
 ) -> (
 	info: Expression_Info,
 	err: Resolve_Error,
 ) {
 	file := checker.views[view].file
 	span := checker.type_checker.files[file].ast.nodes[node]
-	append(&checker.diagnostics, Expression_Diagnostic{kind = kind, source = {file, span.start, span.end}}) or_return
+	assert(kind != .Unsupported || reason != "")
+	append(&checker.diagnostics, Expression_Diagnostic{kind = kind, source = {file, span.start, span.end}, reason = reason}) or_return
 	info = expression_poison(scope)
 	expression_store(checker, view, node, info)
 	return info, nil
+}
+
+@(private = "package")
+expression_unsupported :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	scope: Scope_Id,
+	node: syntax.Node_Index,
+	reason: string,
+) -> (
+	info: Expression_Info,
+	err: Resolve_Error,
+) {
+	return expression_failure(checker, view, scope, node, .Unsupported, reason)
 }
 
 @(private = "package")

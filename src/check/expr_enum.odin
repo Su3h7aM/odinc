@@ -19,7 +19,7 @@ expression_implicit_selector :: proc(
 	file := checker.type_checker.files[checker.views[view].file]
 	store := checker.type_checker.store
 	if hint == 0 || types.get(store, types.resolve_named(store, hint)).kind != .Enum {
-		return expression_failure(checker, view, scope, node, .Unsupported)
+		return expression_unsupported(checker, view, scope, node, "Implicit_Selector_Type")
 	}
 	field := syntax.node_payload(file.ast, node, syntax.Implicit_Selector_Expr).field
 	return expression_enum_member(checker, view, scope, node, hint, expression_text(file, field))
@@ -39,7 +39,7 @@ expression_enum_member :: proc(
 ) {
 	file_id := checker.views[view].file
 	members, found := checker.type_checker.enum_members[types.resolve_named(checker.type_checker.store, enum_type)]
-	if !found { return expression_failure(checker, view, scope, node, .Unsupported) }
+	if !found { return expression_unsupported(checker, view, scope, node, "Enum_Members") }
 	for member in members {
 		if member.name != name { continue }
 		value: big.Int

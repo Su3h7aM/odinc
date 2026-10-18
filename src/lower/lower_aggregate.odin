@@ -30,9 +30,19 @@ lower_aggregate :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: 
 	ir.variable_set(state.builder, ir.MEMORY_VARIABLE, memory)
 	for value, position in plan.values {
 		index := int(plan.field_indices[position])
-		field_type := types.get(store, owner).fields[index].type
-		offset, offset_error := types.field_offset(store, owner, index)
-		if offset_error != .None { return lower_fail(state, node, .Expression) }
+		descriptor := types.get(store, owner)
+		field_type := descriptor.elem
+		offset: i64
+		if descriptor.kind == .Array || descriptor.kind == .Enumerated_Array || descriptor.kind == .Simd_Vector {
+			element_layout := state.job.layouts[field_type]
+			if element_layout.error != .None { return lower_fail(state, node, .Expression) }
+			offset = i64(index) * element_layout.size
+		} else {
+			field_type = descriptor.fields[index].type
+			field_offset, offset_error := types.field_offset(store, owner, index)
+			if offset_error != .None { return lower_fail(state, node, .Expression) }
+			offset = field_offset
+		}
 		field_value: ir.Node_Id
 		if position < len(plan.conversions) && plan.conversions[position] != 0 {
 			field_value = lower_declared_conversion(state, node, plan.conversions[position])

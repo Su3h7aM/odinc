@@ -21,8 +21,9 @@ Conversion_Config :: struct {
 }
 
 Conversion_Result :: struct {
-	info: Expression_Info,
-	plan: Conversion_Plan,
+	info:   Expression_Info,
+	plan:   Conversion_Plan,
+	reason: string,
 }
 
 // Returns facts and a plan for the caller to retain in the existing typed/plan tables.
@@ -73,7 +74,7 @@ check_conversion :: proc(
 		if size != target_size { return {}, .Size_Mismatch, nil }
 		return result, .None, nil
 	}
-	if kind != .Assignment && kind != .Cast { return {}, .Unsupported, nil }
+	if kind != .Assignment && kind != .Cast { return Conversion_Result{reason = "Conversion_Kind"}, .Unsupported, nil }
 	if kind == .Assignment && !untyped && dst.kind == .Any && src.kind != .Any {
 		result.plan.kind = .Box
 		return result, .None, nil
@@ -118,7 +119,9 @@ check_conversion :: proc(
 		return result, .None, nil
 	}
 	if info.mode == .Constant {
-		if !conversion_integer(dst.kind) && !conversion_boolean(dst.kind) && !conversion_float(dst.kind) { return {}, .Unsupported, nil }
+		if !conversion_integer(dst.kind) && !conversion_boolean(dst.kind) && !conversion_float(dst.kind) {
+			return Conversion_Result{reason = "Conversion_Constant_Target"}, .Unsupported, nil
+		}
 		constant, conversion_error := numeric_convert_constant(pool, store, info.constant, info.type, target)
 		if conversion_error.kind == .Internal_Error { return {}, .None, Constant_Pool_Error.Invalid_Operand }
 		if conversion_error.kind != .None { return {}, .Not_Representable, nil }

@@ -58,10 +58,10 @@ expression_generic_call :: proc(
 	info: Expression_Info,
 	err: Resolve_Error,
 ) {
-	if spread { return expression_failure(checker, view, scope, node, .Unsupported) }
+	if spread { return expression_unsupported(checker, view, scope, node, "Generic_Call_Spread") }
 	definition := callee.entity
 	declaration := checker.type_checker.declarations[definition]
-	if declaration.type.node == 0 { return expression_failure(checker, view, scope, node, .Unsupported) }
+	if declaration.type.node == 0 { return expression_unsupported(checker, view, scope, node, "Generic_Call_Declaration") }
 	file := checker.type_checker.files[declaration.type.file]
 	signature := syntax.node_payload(file.ast, declaration.type.node, syntax.Proc_Type)
 	params := syntax.node_payload(file.ast, signature.params, syntax.Field_List)
@@ -77,7 +77,7 @@ expression_generic_call :: proc(
 		field := syntax.node_payload(file.ast, field_node, syntax.Field)
 		for name in syntax.node_list(file.ast, field.names) {
 			if argument_index >= len(arguments) {
-				return expression_failure(checker, view, scope, node, .Unsupported)
+				return expression_unsupported(checker, view, scope, node, "Generic_Call_Arguments")
 			}
 			argument_node := arguments[argument_index]
 			argument_index += 1
@@ -86,7 +86,8 @@ expression_generic_call :: proc(
 			poly_node: syntax.Node_Index
 			bound: types.Type_Id
 			if file.ast.nodes[name].kind == .Poly_Type {
-				if !is_type_param_field(file, field) || argument.mode != .Type { return expression_failure(checker, view, scope, node, .Unsupported) }
+				if !is_type_param_field(file, field) ||
+				   argument.mode != .Type { return expression_unsupported(checker, view, scope, node, "Generic_Call_Type_Parameter") }
 				poly_node = name
 				bound = argument.type
 			} else {
@@ -96,14 +97,14 @@ expression_generic_call :: proc(
 				bound = types.default_type_of_untyped(checker.type_checker.store, argument.type)
 			}
 			poly := syntax.node_payload(file.ast, poly_node, syntax.Poly_Type)
-			if poly.specialization != 0 { return expression_failure(checker, view, scope, node, .Unsupported) }
+			if poly.specialization != 0 { return expression_unsupported(checker, view, scope, node, "Generic_Call_Specialization") }
 			poly_name := expression_text(file, poly.type)
 			slot := slice_index(poly_names[:], poly_name)
 			if slot < 0 {
 				append(&poly_names, poly_name) or_return
 				append(&poly_types, bound) or_return
 			} else if poly_types[slot] != bound {
-				return expression_failure(checker, view, scope, node, .Unsupported)
+				return expression_unsupported(checker, view, scope, node, "Generic_Call_Type_Conflict")
 			}
 		}
 	}

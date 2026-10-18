@@ -27,7 +27,7 @@ expression_index :: proc(
 	is_string := base_descriptor.kind == .String || base_descriptor.kind == .String16
 	is_multi_pointer := base_descriptor.kind == .Multi_Pointer
 	if (!is_array && !is_string && !is_multi_pointer && base_descriptor.kind != .Slice) || (is_array && base.mode != .Variable) {
-		return expression_failure(checker, view, scope, node, .Unsupported)
+		return expression_unsupported(checker, view, scope, node, "Index_Base")
 	}
 	length := base_descriptor.count
 	element_type := base_descriptor.elem
@@ -83,7 +83,7 @@ expression_slice :: proc(
 	base_descriptor := types.get(store, types.resolve_named(store, base.type))
 	is_multi_pointer := base_descriptor.kind == .Multi_Pointer
 	if (base_descriptor.kind != .Array || base.mode != .Variable) && base_descriptor.kind != .Slice && !is_multi_pointer {
-		return expression_failure(checker, view, scope, node, .Unsupported)
+		return expression_unsupported(checker, view, scope, node, "Slice_Base")
 	}
 	slice_type := types.intern(store, types.Type{kind = .Slice, elem = base_descriptor.elem})
 	allocator := mem.dynamic_arena_allocator(&checker.arena)

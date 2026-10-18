@@ -28,7 +28,7 @@ expression_runtime_comparison :: proc(
 	name := runtime_comparison_name(kind, operator)
 	plan, supported, plan_error := runtime_comparison_plan(checker, name, Operand(Expression_Ref{view, left_node}), Operand(Expression_Ref{view, right_node}))
 	if plan_error != nil { return {}, plan_error }
-	if !supported { return expression_failure(checker, view, scope, node, .Unsupported) }
+	if !supported { return expression_unsupported(checker, view, scope, node, "String_Comparison_Helper") }
 	return Expression_Info{type = checker.boolean, mode = .Value, plan = plan, scope = scope, state = .Checked}, nil
 }
 

@@ -274,7 +274,14 @@ lower_assignment_plan :: proc(state: ^Procedure_State, node: syntax.Node_Index, 
 	values, value_error := make([]ir.Node_Id, len(plan.values), allocator)
 	if value_error != nil { state.job.function.error = value_error; return }
 	for destination, index in plan.destinations { destinations[index] = lower_destination(state, destination) }
+	projected_until := 0
 	for value, index in plan.values {
+		if index < projected_until { continue }
+		if projection, projected := value.(check.Projection); projected {
+			projected_until = lower_assignment_results(state, node, plan, projection, index, values)
+			if state.failed || state.job.function.error != nil { return }
+			continue
+		}
 		if len(plan.conversions) != 0 && plan.conversions[index] != 0 {
 			conversion := check.plan(state.job.program, plan.conversions[index])
 			assert(conversion != nil)
@@ -282,6 +289,15 @@ lower_assignment_plan :: proc(state: ^Procedure_State, node: syntax.Node_Index, 
 			   ok { values[index] = lower_conversion(state, converted, node) } else { lower_fail(state, node, .Conversion); return }
 		} else {
 			values[index] = lower_operand(state, value, destinations[index].type)
+			if !state.failed && destinations[index].type != 0 && scalar_type(state, destinations[index].type) == .None {
+				values[index] = lower_same_layout_conversion(
+					state,
+					node,
+					check.Conversion_Plan{target = destinations[index].type},
+					destinations[index].type,
+					values[index],
+				)
+			}
 		}
 	}
 	if state.failed { return }

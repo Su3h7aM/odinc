@@ -31,7 +31,7 @@ expression_result_bindings :: proc(
 		for name_node in syntax.node_list(file.ast, syntax.node_payload(file.ast, field_node, syntax.Field).names) {
 			index := len(entities)
 			if index >= len(result_types) || expression_text(file, name_node) == "" {
-				expression_failure(checker, view, scope, name_node, .Unsupported) or_return
+				expression_unsupported(checker, view, scope, name_node, "Result_Name") or_return
 				return nil, false, nil
 			}
 			result, create_error := entity_create(
@@ -49,7 +49,7 @@ expression_result_bindings :: proc(
 			previous, insert_error := scope_insert(resolver.scopes, scope, result)
 			if insert_error != nil { return nil, false, binding_resolve_error(insert_error) }
 			if previous != 0 {
-				expression_failure(checker, view, scope, name_node, .Unsupported) or_return
+				expression_unsupported(checker, view, scope, name_node, "Result_Duplicate") or_return
 				return nil, false, nil
 			}
 			expression_store(

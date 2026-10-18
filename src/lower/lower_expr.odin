@@ -205,7 +205,7 @@ lower_value :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> ir.Node
 	#partial switch ast_node.kind {
 	case .Implicit:
 		return state.context_pointer
-	case .Ident:
+	case .Ident, .Proc_Lit:
 		assert(info.entity != 0)
 		return lower_entity_value(state, info.entity)
 	case .Call_Expr, .Selector_Call_Expr:

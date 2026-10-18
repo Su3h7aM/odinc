@@ -8,14 +8,26 @@ import "oc:types"
 @(private)
 lower_conversion :: proc(state: ^Procedure_State, plan: check.Conversion_Plan, node: syntax.Node_Index) -> ir.Node_Id {
 	assert(plan.kind != .Invalid, "missing checked conversion kind")
-	if plan.kind == .Box { return lower_box(state, node, plan) }
-	if plan.kind == .Union_Injection || len(plan.path) != 0 { return lower_fail(state, node, .Conversion) }
 	source_id := operand_type(state, plan.source)
 	if state.failed { return 0 }
 	constant_target := types.Type_Id(0)
 	if types.is_untyped(check.type_store(state.job.program), source_id) { constant_target = plan.target }
 	value := lower_operand(state, plan.source, constant_target)
 	if state.failed { return 0 }
+	return lower_conversion_value(state, plan, node, source_id, value)
+}
+
+@(private)
+lower_conversion_value :: proc(
+	state: ^Procedure_State,
+	plan: check.Conversion_Plan,
+	node: syntax.Node_Index,
+	source_id: types.Type_Id,
+	initial_value: ir.Node_Id,
+) -> ir.Node_Id {
+	value := initial_value
+	if plan.kind == .Box { return lower_box_value(state, node, source_id, value) }
+	if plan.kind == .Union_Injection || len(plan.path) != 0 { return lower_fail(state, node, .Conversion) }
 	if scalar_type(state, source_id) != .None && lower_type(state, plan.target).kind == .Simd_Vector {
 		return lower_simd_broadcast(state, plan.target, value)
 	}
@@ -34,7 +46,7 @@ lower_conversion :: proc(state: ^Procedure_State, plan: check.Conversion_Plan, n
 	if plan.kind == .Transmute {
 		return ir.convert(function, .Bitcast, value, target)
 	}
-	source_signed := signed_type(state, operand_type(state, plan.source))
+	source_signed := signed_type(state, source_id)
 	if source == .Ptr || target == .Ptr {
 		if source != .I64 && source != .Ptr || target != .I64 && target != .Ptr { return lower_fail(state, node, .Conversion) }
 		return ir.convert(function, .Bitcast, value, target)
@@ -79,13 +91,9 @@ lower_conversion :: proc(state: ^Procedure_State, plan: check.Conversion_Plan, n
 
 // `any(value)`: a stack copy of the value, and an `any` slot holding its data pointer and typeid.
 @(private)
-lower_box :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: check.Conversion_Plan) -> ir.Node_Id {
-	source_id := operand_type(state, plan.source)
-	if state.failed { return 0 }
+lower_box_value :: proc(state: ^Procedure_State, node: syntax.Node_Index, source_id: types.Type_Id, value: ir.Node_Id) -> ir.Node_Id {
 	source_layout := state.job.layouts[source_id]
 	if source_layout.error != .None { return lower_fail(state, node, .Conversion) }
-	value := lower_operand(state, plan.source, 0)
-	if state.failed { return 0 }
 	function := state.job.function
 	data := ir.stack_slot(function, state.entry_control, u32(max(source_layout.size, 1)), u32(source_layout.align))
 	lower_store(state, data, value, source_id)

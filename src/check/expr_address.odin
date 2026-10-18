@@ -40,7 +40,7 @@ expression_address :: proc(
 	operand := syntax.node_payload(file.ast, node, syntax.Unary_Expr).expr
 	target := check_expression(checker, view, scope, operand) or_return
 	if target.state == .Invalid { return expression_poison(scope), nil }
-	if target.mode != .Variable { return expression_failure(checker, view, scope, node, .Unsupported) }
+	if target.mode != .Variable { return expression_unsupported(checker, view, scope, node, "Address_Mode") }
 	pointer := types.intern(checker.type_checker.store, types.Type{kind = .Pointer, elem = target.type})
 	return Expression_Info{type = pointer, mode = .Value, scope = scope, state = .Checked}, nil
 }
@@ -92,7 +92,7 @@ expression_import_member :: proc(
 	selector := syntax.node_payload(file.ast, node, syntax.Selector_Expr)
 	scopes := checker.type_checker.resolver.scopes
 	package_id := entity_get(scopes, import_name).data.(Import_Data).package_id
-	if int(package_id) >= len(checker.packages) { return expression_failure(checker, view, scope, node, .Unsupported) }
+	if int(package_id) >= len(checker.packages) { return expression_unsupported(checker, view, scope, node, "Selector_Package") }
 	member := scope_lookup_current(scopes, checker.packages[package_id].scope, expression_text(file, selector.field))
 	if member == 0 { return expression_failure(checker, view, scope, node, .Undeclared_Name) }
 	return expression_entity_info(checker, file_id, scope, node, member)
@@ -120,7 +120,7 @@ expression_field :: proc(
 	if indirect { owner = types.resolve_named(store, types.get(store, owner).elem) }
 	descriptor := types.get(store, owner)
 	if descriptor.kind != .Struct || (!indirect && base.mode != .Variable && base.mode != .Value && base.mode != .Immutable_Value && base.mode != .Context) {
-		return expression_failure(checker, view, scope, node, .Unsupported)
+		return expression_unsupported(checker, view, scope, node, "Selector_Base")
 	}
 	allocator := mem.dynamic_arena_allocator(&checker.arena)
 	path := make([dynamic]Member_Step, 0, allocator) or_return

@@ -28,8 +28,13 @@ expression_indirect_call :: proc(
 	err: Resolve_Error,
 ) {
 	descriptor := types.get(checker.type_checker.store, types.resolve_named(checker.type_checker.store, callee.type))
-	if spread || descriptor.variadic || len(arguments) != len(descriptor.params) || (descriptor.convention != .Odin && descriptor.convention != .Contextless) {
-		return expression_failure(checker, view, scope, node, .Unsupported)
+	if spread { return expression_unsupported(checker, view, scope, node, "Indirect_Call_Spread") }
+	if descriptor.variadic { return expression_unsupported(checker, view, scope, node, "Indirect_Call_Variadic") }
+	if len(arguments) != len(descriptor.params) {
+		return expression_unsupported(checker, view, scope, node, "Indirect_Call_Arguments")
+	}
+	if descriptor.convention != .Odin && descriptor.convention != .Contextless {
+		return expression_unsupported(checker, view, scope, node, "Indirect_Call_Convention")
 	}
 	allocator := mem.dynamic_arena_allocator(&checker.arena)
 	call_arguments := make([]Call_Argument, len(arguments), allocator) or_return

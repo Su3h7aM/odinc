@@ -32,7 +32,7 @@ intrinsic_shape :: proc(kind: Builtin_Kind) -> Intrinsic_Shape {
 		return .Overflow
 	case .Volatile_Load, .Atomic_Load, .Atomic_Load_Explicit, .Unaligned_Load:
 		return .Load
-	case .Volatile_Store, .Atomic_Store, .Atomic_Store_Explicit:
+	case .Volatile_Store, .Atomic_Store, .Atomic_Store_Explicit, .Unaligned_Store:
 		return .Store
 	case .Atomic_Add, .Atomic_Sub, .Atomic_And, .Atomic_Nand, .Atomic_Or, .Atomic_Xor, .Atomic_Exchange:
 		return .Update
@@ -128,7 +128,7 @@ expression_intrinsic_call :: proc(
 	order_type := types.Type_Id(0)
 	if order_count > 0 {
 		order_type = atomic_order_type(checker) or_return
-		if order_type == 0 { return expression_failure(checker, view, scope, node, .Unsupported) }
+		if order_type == 0 { return expression_unsupported(checker, view, scope, node, "Atomic_Order_Type") }
 	}
 	allocator := mem.dynamic_arena_allocator(&checker.arena)
 	operands := make([]Operand, len(arguments), allocator) or_return

@@ -11,7 +11,7 @@ expression_defer :: proc(checker: ^Expression_Checker, view: View_Id, file_id: F
 	file := checker.type_checker.files[file_id]
 	statement := syntax.node_payload(file.ast, node, syntax.Defer_Stmt).stmt
 	if file.ast.nodes[statement].kind == .Value_Decl {
-		expression_failure(checker, view, scope, node, .Unsupported) or_return
+		expression_unsupported(checker, view, scope, node, "Defer_Declaration") or_return
 		return nil
 	}
 	outer_control := checker.control

@@ -18,9 +18,9 @@ expression_config :: proc(
 ) {
 	file := checker.type_checker.files[file_id]
 	if len(arguments) != 2 || file.ast.nodes[arguments[0]].kind != .Ident {
-		return expression_failure(checker, view, scope, node, .Unsupported)
+		return expression_unsupported(checker, view, scope, node, "Config_Arguments")
 	}
 	defaulted := check_expression(checker, view, scope, arguments[1]) or_return
-	if defaulted.mode != .Constant { return expression_failure(checker, view, scope, node, .Unsupported) }
+	if defaulted.mode != .Constant { return expression_unsupported(checker, view, scope, node, "Config_Default") }
 	return defaulted, nil
 }

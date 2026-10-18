@@ -94,7 +94,7 @@ expression_declaration :: proc(resolver: ^Resolver, id: Entity_Id, user_data: ra
 	if entity.kind == .Import_Name { return true, nil }
 	if entity.kind == .Procedure { return expression_procedure_declaration(checker, resolver, id, declaration, entity.scope) }
 	if entity.kind != .Constant && entity.kind != .Variable {
-		expression_failure(checker, view, entity.scope, declaration.identifier.node, .Unsupported) or_return
+		expression_unsupported(checker, view, entity.scope, declaration.identifier.node, "Declaration_Kind") or_return
 		return false, nil
 	}
 	target := types.TYPE_NONE

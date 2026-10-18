@@ -18,7 +18,7 @@ main :: proc "contextless" () {
 	unreachable(1)
 }
 `)
-	rejected, rejected_ok := check_procedure_source(t, with_argument, true)
+	rejected, rejected_ok := check_procedure_source(t, with_argument, .Unsupported, "Unreachable_Arguments")
 	if !rejected_ok { return }
 	testing.expect(t, rejected.body_state == .Invalid)
 }

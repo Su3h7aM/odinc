@@ -16,13 +16,13 @@ expression_context :: proc(
 ) {
 	file := checker.type_checker.files[file_id]
 	if syntax.node_payload(file.ast, node, syntax.Implicit).kind != .Context {
-		return expression_failure(checker, view, scope, node, .Unsupported)
+		return expression_unsupported(checker, view, scope, node, "Implicit_Kind")
 	}
 	collection := checker.type_checker.collection
 	scopes := checker.type_checker.resolver.scopes
-	if collection == nil || collection.runtime_scope == 0 { return expression_failure(checker, view, scope, node, .Unsupported) }
+	if collection == nil || collection.runtime_scope == 0 { return expression_unsupported(checker, view, scope, node, "Context_Runtime") }
 	entity := scope_lookup_current(scopes, collection.runtime_scope, "Context")
-	if entity == 0 { return expression_failure(checker, view, scope, node, .Unsupported) }
+	if entity == 0 { return expression_unsupported(checker, view, scope, node, "Context_Type") }
 	if _, resolve_error := resolve_entity(checker.type_checker.resolver, entity); resolve_error != nil { return {}, resolve_error }
 	return Expression_Info{type = entity_get(scopes, entity).type, mode = .Context, scope = scope, state = .Checked}, nil
 }

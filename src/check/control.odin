@@ -42,7 +42,7 @@ expression_switch :: proc(checker: ^Expression_Checker, view: View_Id, file_id: 
 					plan, supported, plan_error := runtime_comparison_plan(checker, comparison_name, Operand(tag_entity), Operand(Expression_Ref{view, value}))
 					if plan_error != nil { return plan_error }
 					if !supported {
-						expression_failure(checker, view, switch_scope, value, .Unsupported) or_return
+						expression_unsupported(checker, view, switch_scope, value, "Switch_Comparison") or_return
 						return nil
 					}
 					append(&comparisons, plan) or_return
@@ -107,7 +107,7 @@ expression_when :: proc(checker: ^Expression_Checker, view: View_Id, file_id: Fi
 	if condition.state == .Invalid { return nil }
 	value, is_bool := constant_pool_get(checker.constants, condition.constant).value.(bool)
 	if condition.mode != .Constant || !is_bool {
-		expression_failure(checker, view, scope, statement.cond, .Unsupported) or_return
+		expression_unsupported(checker, view, scope, statement.cond, "When_Condition") or_return
 		return nil
 	}
 	taken, skipped := statement.body, statement.else_stmt
@@ -165,14 +165,18 @@ expression_local_constant :: proc(checker: ^Expression_Checker, view: View_Id, f
 	names := syntax.node_list(file.ast, declaration.names)
 	values := syntax.node_list(file.ast, declaration.values)
 	if declaration.type != 0 || len(names) == 0 || len(values) != len(names) {
-		expression_failure(checker, view, scope, node, .Unsupported) or_return
+		expression_unsupported(checker, view, scope, node, "Local_Constant_Declaration") or_return
 		return nil
 	}
 	for name_node, index in names {
+		if file.ast.nodes[values[index]].kind == .Proc_Lit {
+			_ = expression_procedure_literal(checker, view, file_id, scope, values[index], name_node) or_return
+			continue
+		}
 		value := check_expression(checker, view, scope, values[index]) or_return
 		if value.state == .Invalid { return nil }
 		if value.mode != .Constant {
-			expression_failure(checker, view, scope, values[index], .Unsupported) or_return
+			expression_unsupported(checker, view, scope, values[index], "Local_Constant_Value") or_return
 			return nil
 		}
 		constant, create_error := entity_create(
@@ -183,7 +187,7 @@ expression_local_constant :: proc(checker: ^Expression_Checker, view: View_Id, f
 		previous, insert_error := scope_insert(checker.type_checker.resolver.scopes, scope, constant)
 		if insert_error != nil { return binding_resolve_error(insert_error) }
 		if previous != 0 {
-			expression_failure(checker, view, scope, name_node, .Unsupported) or_return
+			expression_unsupported(checker, view, scope, name_node, "Local_Constant_Duplicate") or_return
 			return nil
 		}
 	}
@@ -202,7 +206,7 @@ expression_branch :: proc(checker: ^Expression_Checker, view: View_Id, file_id: 
 	case .Continue:
 		exit_kind = .Continue
 	case:
-		expression_failure(checker, view, scope, node, .Unsupported) or_return
+		expression_unsupported(checker, view, scope, node, "Branch_Kind") or_return
 		return nil
 	}
 	label := expression_label(file, statement.label)
@@ -216,7 +220,7 @@ expression_branch :: proc(checker: ^Expression_Checker, view: View_Id, file_id: 
 		expression_store(checker, view, node, Expression_Info{scope = scope, state = .Checked, plan = plan})
 		return nil
 	}
-	expression_failure(checker, view, scope, node, .Unsupported) or_return
+	expression_unsupported(checker, view, scope, node, "Branch_Target") or_return
 	return nil
 }
 
