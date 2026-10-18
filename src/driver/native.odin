@@ -61,16 +61,25 @@ STARTUP_SLOT_NAMES := [STARTUP_SLOT_COUNT]string{"runtime.argc", "runtime.argv",
 build_file :: proc(odin_root, main_path: string, log: io.Writer, allocator: runtime.Allocator) -> (image: []byte, err: Build_Error) {
 	session, driver_err := check_program(odin_root, main_path, allocator)
 	defer session_destroy(session)
-	if driver_err == .Check_Failed { write_diagnostics(session, log) }
+	if driver_err == .Check_Failed || driver_err == .Unsupported_Import || driver_err == .Parse_Failed || driver_err == .Import_Cycle {
+		write_diagnostics(session, log)
+		fmt.wprintfln(log, "check stage failed: %v", driver_err)
+	}
 	if driver_err != .None {
-		if driver_err != .Check_Failed { fmt.wprintfln(log, "driver error: %v", driver_err) }
+		if driver_err != .Check_Failed &&
+		   driver_err != .Unsupported_Import &&
+		   driver_err != .Parse_Failed &&
+		   driver_err != .Import_Cycle { fmt.wprintfln(log, "driver error: %v", driver_err) }
 		return nil, driver_err
 	}
 
 	module: ir.Module
 	lower_errors, lower_err := lower.lower_program(&session.program, &module, allocator)
 	defer delete(lower_errors, allocator)
-	if lower_err != nil { return nil, lower_err }
+	if lower_err != nil {
+		write_build_error(log, lower_err)
+		return nil, lower_err
+	}
 	defer ir.module_destroy(&module)
 	if len(lower_errors) > 0 {
 		write_lower_errors(session, log, lower_errors)
@@ -105,7 +114,10 @@ build_image :: proc(module: ^ir.Module, log: io.Writer, allocator: runtime.Alloc
 	for function, index in module.functions {
 		if function.name == "main" { main_index = index }
 	}
-	if main_index < 0 { return nil, Missing_Main{} }
+	if main_index < 0 {
+		write_build_error(log, Missing_Main{})
+		return nil, Missing_Main{}
+	}
 	init_index := -1
 	for function, index in module.functions {
 		if function.name == lower.GLOBAL_INITIALIZER_NAME { init_index = index }
@@ -124,7 +136,10 @@ build_image :: proc(module: ^ir.Module, log: io.Writer, allocator: runtime.Alloc
 	assert(args_index >= 0, "lowering declares the runtime args global")
 
 	scratch: virtual.Arena
-	virtual.arena_init_growing(&scratch) or_return
+	if arena_err := virtual.arena_init_growing(&scratch); arena_err != nil {
+		fmt.wprintfln(log, "image build: scratch arena allocation failed: %v", arena_err)
+		return nil, arena_err
+	}
 	defer virtual.arena_destroy(&scratch)
 	defer if err != nil { write_build_error(log, err) }
 	scratch_allocator := virtual.arena_allocator(&scratch)

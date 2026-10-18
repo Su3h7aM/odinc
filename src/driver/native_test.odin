@@ -2,6 +2,7 @@ package driver
 
 import "core:os"
 import "core:path/filepath"
+import "core:strings"
 import "core:sync"
 import "core:testing"
 
@@ -58,6 +59,8 @@ native_sections_exit_with_interpreter_results :: proc(t: ^testing.T) {
 		{"section_30", 26},
 		{"section_31", 5},
 		{"section_32", 100},
+		{"range_loops", 0},
+		{"range_loops_more", 0},
 		{"or_else", 50},
 		{"or_return", 0},
 		{"or_break", 73},
@@ -76,6 +79,32 @@ native_sections_exit_with_interpreter_results :: proc(t: ^testing.T) {
 		{"atomics", 127},
 		{"multiple_assignment", 127},
 		{"bit_field", 63},
+		{"map_cell_info", 15},
+		{"map_info", 63},
+		{"named_arguments", 36},
+		{"type_predicates", 255},
+		{"pointer_arithmetic", 59},
+		{"entry_point_noop", 7},
+		{"x86_raw_operations", 7},
+		{"atomic_pointers", 14},
+		{"main_implicit_context", 0},
+		{"variadic_defaults", 28},
+		{"polymorphic_records", 127},
+		{"type_assertions", 255},
+		{"demo_section_implicit_selector_expression", 3},
+		{"demo_section_the_basics", 14},
+		{"demo_section_control_flow", 22},
+		{"demo_section_named_proc_return_parameters", 11},
+		{"demo_section_variadic_procedures", 9},
+		{"demo_section_explicit_procedure_overloading", 5},
+		{"demo_section_struct_type", 13},
+		{"demo_section_implicit_context_system", 5},
+		{"demo_section_parametric_polymorphism", 8},
+		{"demo_section_unroll_for_statement", 75},
+		{"demo_section_deprecated_attribute", 5},
+		{"demo_section_union_maybe", 248},
+		{"demo_section_union_type", 12},
+		{"demo_section_bit_field_type", 30},
 	}
 	odin_root, _ := filepath.join({#directory, "..", ".."}, context.temp_allocator)
 	directory, directory_err := os.make_directory_temp("", "driver-native-*", context.temp_allocator)
@@ -83,8 +112,10 @@ native_sections_exit_with_interpreter_results :: proc(t: ^testing.T) {
 	defer os.remove_all(directory)
 	for entry in expected {
 		main_path, _ := filepath.join({#directory, "testdata", entry.section, "main.odin"}, context.temp_allocator)
-		image, err := build_file(odin_root, main_path, {}, context.allocator)
-		if !testing.expectf(t, err == nil, "%s: %v", entry.section, err) { continue }
+		build_log: strings.Builder
+		defer strings.builder_destroy(&build_log)
+		image, err := build_file(odin_root, main_path, strings.to_writer(&build_log), context.allocator)
+		if !testing.expectf(t, err == nil, "%s: %v\n%s", entry.section, err, strings.to_string(build_log)) { continue }
 		defer delete(image)
 		path, _ := filepath.join({directory, entry.section}, context.temp_allocator)
 		if !testing.expect(t, write_executable(path, image) == nil, "executable must be written") { continue }

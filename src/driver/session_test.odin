@@ -11,7 +11,7 @@ run_section :: proc(t: ^testing.T, section: string) -> (result: ir.Interp_Result
 	main_path, _ := filepath.join({#directory, "testdata", section, "main.odin"}, context.temp_allocator)
 	session, err := check_program(odin_root, main_path, context.allocator)
 	defer session_destroy(session)
-	if !testing.expectf(t, err == .None, "%v %v", err, session.checker.diagnostics) { return }
+	if !testing.expectf(t, err == .None, "%v", err) { return }
 
 	module: ir.Module
 	lower_errors, lower_error := lower.lower_program(&session.program, &module, context.allocator)
@@ -24,7 +24,9 @@ run_section :: proc(t: ^testing.T, section: string) -> (result: ir.Interp_Result
 		if function.name == "main" { main_function = function }
 	}
 	if !testing.expect(t, main_function != nil) { return }
-	run_result, run_error := ir.interp_run(&module, main_function, nil, 100_000, context.allocator)
+	// Zeroed arguments include the implicit context pointer, which the fixtures never read.
+	arguments := make([]u64, len(main_function.signatures[main_function.signature].params), context.temp_allocator)
+	run_result, run_error := ir.interp_run(&module, main_function, arguments, 100_000, context.allocator)
 	testing.expect(t, run_error == nil)
 	return run_result, run_error == nil
 }
@@ -75,6 +77,12 @@ section_24_switch_exits_with_result :: proc(t: ^testing.T) {
 @(test)
 section_25_structs_exit_with_result :: proc(t: ^testing.T) {
 	expect_exit(t, "section_25", 37)
+}
+
+// Passing f64 to a union parameter injects it, so lowering must read the source type f64, not the union.
+@(test)
+union_argument_injection_lowers_from_the_source_type :: proc(t: ^testing.T) {
+	expect_exit(t, "demo_section_union_type", 12)
 }
 
 @(test)

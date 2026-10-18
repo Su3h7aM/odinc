@@ -7,6 +7,33 @@ import "oc:lower"
 
 // Writes one line per checker diagnostic as `path:line:column: kind`.
 write_diagnostics :: proc(session: ^Session, writer: io.Writer) {
+	if unresolved := session.unresolved_when; unresolved.set {
+		if unresolved.reason == nil {
+			fmt.wprintfln(
+				writer,
+				"%s:%d:%d: unresolved when: condition is not a boolean constant",
+				unresolved.display_path,
+				unresolved.line,
+				unresolved.column,
+			)
+		} else {
+			fmt.wprintfln(writer, "%s:%d:%d: unresolved when: %v", unresolved.display_path, unresolved.line, unresolved.column, unresolved.reason)
+		}
+	}
+	for path in session.load_failures {
+		fmt.wprintfln(writer, "%s: parse failed", path)
+	}
+	if span, found := session.cyclic_import.?; found {
+		file := session.files[span.file]
+		line, column := line_column(file.source, span.start)
+		fmt.wprintfln(writer, "%s:%d:%d: import cycle", file.display_path, line, column)
+	}
+	for item in session.unsupported_imports {
+		file := session.files[item.source.file]
+		if session.packages[file.package_id].kind == .Runtime { continue }
+		line, column := line_column(file.source, item.source.start)
+		fmt.wprintfln(writer, "%s:%d:%d: unsupported import %q", file.display_path, line, column, item.path)
+	}
 	for diagnostic in session.collection.diagnostics {
 		write_diagnostic(session, writer, diagnostic.kind, diagnostic.source)
 	}

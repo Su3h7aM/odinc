@@ -20,6 +20,7 @@ Driver_Error :: enum u8 {
 	Unsupported_Import,
 	Import_Failed,
 	Check_Failed,
+	Import_Cycle,
 }
 
 // Records how far initialization got, so session_destroy releases exactly what was initialized.
@@ -33,6 +34,19 @@ Session_Stage :: enum u8 {
 	Resolver,
 	Type_Checker,
 	Expression_Checker,
+}
+
+// An import the driver cannot load, located at its path literal.
+Unsupported_Import :: struct {
+	path:   string,
+	source: check.Source_Span,
+}
+
+// An import edge between loaded packages, located at its import declaration.
+Import_Edge_Record :: struct {
+	from:   check.Package_Id,
+	to:     check.Package_Id,
+	source: check.Source_Span,
 }
 
 // Heap-allocated: the checkers keep pointers to its fields. Diagnostics stay inspectable after Check_Failed.
@@ -56,21 +70,25 @@ Session :: struct {
 	asts:                [dynamic]^syntax.Ast,
 	sources:             [dynamic][]byte,
 	owned_strings:       [dynamic]string,
-	unsupported_imports: [dynamic]string,
+	unsupported_imports: [dynamic]Unsupported_Import,
+	unresolved_when:     Unresolved_When,
+	load_failures:       [dynamic]string,
+	import_edges:        [dynamic]Import_Edge_Record,
+	cyclic_import:       Maybe(check.Source_Span),
 	program_files:       [dynamic]check.File,
 	program:             check.Checked_Program,
 }
 
 // Checks the main file and the library packages it imports. Imports made by library packages are bound
-// unloaded (package 0) and only referenced declarations are resolved. On Check_Failed the session is
-// returned so its diagnostics can be inspected; the caller destroys it in every case.
+// unloaded (package 0) and only referenced declarations are resolved. On Check_Failed and Unsupported_Import
+// the session is returned so its diagnostics can be inspected; the caller destroys it in every case.
 check_program :: proc(odin_root, main_path: string, allocator: runtime.Allocator) -> (session: ^Session, err: Driver_Error) {
 	allocated, allocation_error := new(Session, allocator)
 	if allocation_error != nil { return nil, .Allocation_Failed }
 	session = allocated
 	session.allocator = allocator
 	err = check_session(session, odin_root, main_path)
-	if err != nil && err != .Check_Failed {
+	if err != nil && err != .Check_Failed && err != .Unsupported_Import && err != .Parse_Failed && err != .Import_Cycle {
 		session_destroy(session)
 		session = nil
 	}
@@ -87,7 +105,7 @@ runtime_histogram :: proc(odin_root: string, allocator: runtime.Allocator, write
 	if error := session_prepare(session, odin_root); error != .None { return error }
 	runtime_package, runtime_error := load_runtime(session)
 	if runtime_error != .None { return runtime_error }
-	if error := bind_imports(session, true); error != .None { return error }
+	if error := bind_imports(session); error != .None { return error }
 	if error := session_init_checkers(session); error != .None { return error }
 	if error := bind_whens(session); error != .None { return error }
 	for declaration in session.collection.declarations {
@@ -97,8 +115,8 @@ runtime_histogram :: proc(odin_root: string, allocator: runtime.Allocator, write
 
 	entries: [dynamic]Histogram_Entry
 	defer delete(entries)
-	for import_path in session.unsupported_imports {
-		if error := histogram_count(&entries, fmt.tprintf("import %s", import_path), ""); error != .None { return error }
+	for item in session.unsupported_imports {
+		if error := histogram_count(&entries, fmt.tprintf("import %s", item.path), ""); error != .None { return error }
 	}
 	for diagnostic in session.collection.diagnostics {
 		if error := histogram_source(&entries, session, "collect", diagnostic.kind, diagnostic.source); error != .None { return error }
@@ -110,7 +128,9 @@ runtime_histogram :: proc(odin_root: string, allocator: runtime.Allocator, write
 		if error := histogram_source(&entries, session, "type", diagnostic.kind, diagnostic.source); error != .None { return error }
 	}
 	for diagnostic in session.checker.diagnostics {
-		if error := histogram_source(&entries, session, "expr", diagnostic.kind, diagnostic.source, diagnostic.reason); error != .None { return error }
+		reason := diagnostic.reason
+		if diagnostic.kind == .Conversion { reason = fmt.tprint(diagnostic.conversion) }
+		if error := histogram_source(&entries, session, "expr", diagnostic.kind, diagnostic.source, reason); error != .None { return error }
 	}
 	slice.sort_by(entries[:], histogram_before)
 	HISTOGRAM_LIMIT :: 32
@@ -146,6 +166,8 @@ session_destroy :: proc(session: ^Session) {
 	delete(session.sources)
 	delete(session.owned_strings)
 	delete(session.unsupported_imports)
+	delete(session.load_failures)
+	delete(session.import_edges)
 	delete(session.program_files)
 	free(session, allocator)
 }
@@ -222,7 +244,13 @@ check_session :: proc(session: ^Session, odin_root, main_path: string) -> Driver
 	main_file, load_error := load_file(session, main_path, main_package, main_scope)
 	if load_error != .None { return load_error }
 	if check.collect_file(&session.collection, session.files[main_file], main_file, {}) != nil { return .Check_Failed }
-	if error := bind_imports(session, false); error != .None { return error }
+	if error := bind_imports(session); error != .None { return error }
+	if len(session.unsupported_imports) != 0 { return .Unsupported_Import }
+	if len(session.load_failures) != 0 { return .Parse_Failed }
+	if cycle, found := find_import_cycle(session); found {
+		session.cyclic_import = cycle
+		return .Import_Cycle
+	}
 	if error := session_init_checkers(session); error != .None { return error }
 	if error := bind_whens(session); error != .None { return error }
 
@@ -293,6 +321,7 @@ session_init_checkers :: proc(session: ^Session) -> Driver_Error {
 		&session.checker,
 		allocator,
 	)
+	session.type_checker.packages = session.packages[:]
 	session.stage = .Expression_Checker
 	if !check.bind_universe_build_context(&session.type_checker, session.universe, &session.constants, session.build) { return .Check_Failed }
 	checker_error := check.expression_checker_init(
@@ -311,29 +340,89 @@ session_init_checkers :: proc(session: ^Session) -> Driver_Error {
 }
 
 // A pending `when` waits for its condition, which needs the expression checker, so it is bound after the checkers exist.
+// A condition may name a constant that a later pending `when` declares, so unresolved conditions are retried in passes
+// until none progresses. Diagnostics of a failed attempt are dropped; the first unresolved condition is re-evaluated last.
 @(private = "file")
 bind_whens :: proc(session: ^Session) -> Driver_Error {
-	for index := 0; index < len(session.collection.pending); index += 1 {
-		pending := session.collection.pending[index]
-		if pending.handled || pending.kind != .When { continue }
-		file := session.files[pending.declaration.file]
-		statement := syntax.node_payload(file.ast, pending.declaration.node, syntax.When_Stmt)
-		condition, ok, evaluate_error := session.type_checker.evaluate_boolean(
-			&session.type_checker,
-			file.scope,
-			pending.declaration.file,
-			statement.cond,
-			session.type_checker.user_data,
-		)
-		if evaluate_error != nil || !ok { return .Check_Failed }
-		if check.collect_when_arm(&session.collection, file, index, condition) != nil { return .Check_Failed }
+	for {
+		progressed := false
+		first_unresolved := -1
+		for index := 0; index < len(session.collection.pending); index += 1 {
+			pending := session.collection.pending[index]
+			if pending.handled || pending.kind != .When { continue }
+			mark := diagnostic_mark(session)
+			condition, ok, evaluate_error := evaluate_when(session, pending)
+			if evaluate_error != nil {
+				record_unresolved_when(session, pending, evaluate_error)
+				return .Check_Failed
+			}
+			if !ok {
+				diagnostic_rollback(session, mark)
+				if first_unresolved < 0 { first_unresolved = index }
+				continue
+			}
+			file := session.files[pending.declaration.file]
+			if check.collect_when_arm(&session.collection, file, index, condition) != nil { return .Check_Failed }
+			progressed = true
+		}
+		if first_unresolved < 0 { return .None }
+		if !progressed {
+			pending := session.collection.pending[first_unresolved]
+			_, _, reason := evaluate_when(session, pending)
+			record_unresolved_when(session, pending, reason)
+			return .Check_Failed
+		}
 	}
-	return .None
 }
 
-// With tolerant set, an import that cannot be loaded is recorded and bound unloaded instead of failing.
 @(private = "file")
-bind_imports :: proc(session: ^Session, tolerant: bool) -> Driver_Error {
+evaluate_when :: proc(session: ^Session, pending: check.Pending_Declaration) -> (condition, ok: bool, err: check.Resolve_Error) {
+	file := session.files[pending.declaration.file]
+	statement := syntax.node_payload(file.ast, pending.declaration.node, syntax.When_Stmt)
+	return session.type_checker.evaluate_boolean(&session.type_checker, file.scope, pending.declaration.file, statement.cond, session.type_checker.user_data)
+}
+
+@(private = "file")
+Diagnostic_Mark :: struct {
+	collection, resolver, type_checker, checker: int,
+}
+
+@(private = "file")
+diagnostic_mark :: proc(session: ^Session) -> Diagnostic_Mark {
+	return {len(session.collection.diagnostics), len(session.resolver.diagnostics), len(session.type_checker.diagnostics), len(session.checker.diagnostics)}
+}
+
+@(private = "file")
+diagnostic_rollback :: proc(session: ^Session, mark: Diagnostic_Mark) {
+	resize(&session.collection.diagnostics, mark.collection)
+	resize(&session.resolver.diagnostics, mark.resolver)
+	resize(&session.type_checker.diagnostics, mark.type_checker)
+	resize(&session.checker.diagnostics, mark.checker)
+}
+
+Unresolved_When :: struct {
+	set:          bool,
+	display_path: string,
+	line, column: int,
+	reason:       check.Resolve_Error,
+}
+
+@(private = "file")
+record_unresolved_when :: proc(session: ^Session, pending: check.Pending_Declaration, reason: check.Resolve_Error) {
+	file := session.files[pending.declaration.file]
+	line, column := line_column(file.source, file.ast.nodes[pending.declaration.node].start)
+	session.unresolved_when = Unresolved_When {
+		set          = true,
+		display_path = file.display_path,
+		line         = line,
+		column       = column,
+		reason       = reason,
+	}
+}
+
+// Unresolvable imports are recorded and bound unloaded (package 0), so every one is reported in a single run.
+@(private = "file")
+bind_imports :: proc(session: ^Session) -> Driver_Error {
 	// Loading appends pending imports, so the count is re-read on every step.
 	for index := 0; index < len(session.collection.pending); index += 1 {
 		pending := session.collection.pending[index]
@@ -342,14 +431,25 @@ bind_imports :: proc(session: ^Session, tolerant: bool) -> Driver_Error {
 		import_decl := syntax.node_payload(importer.ast, pending.declaration.node, syntax.Import_Decl)
 		span := importer.ast.nodes[import_decl.relpath]
 		import_path := strings.trim(string(importer.source[span.start:span.end]), "\"")
+		source := check.Source_Span{pending.declaration.file, span.start, span.end}
 		package_id, package_error := import_package(session, pending.declaration.file, import_path)
+		if package_error == .Allocation_Failed { return package_error }
 		if package_error != .None {
-			if !tolerant && session.packages[importer.package_id].kind != .Runtime { return package_error }
-			if error := push(&session.unsupported_imports, import_path); error != .None { return error }
+			if error := push(&session.unsupported_imports, Unsupported_Import{path = import_path, source = source}); error != .None {
+				return error
+			}
 			package_id = 0
+		} else if package_id != 0 && package_id != importer.package_id {
+			edge := Import_Edge_Record {
+				from   = importer.package_id,
+				to     = package_id,
+				source = source,
+			}
+			if error := push(&session.import_edges, edge); error != .None { return error }
 		}
 		name := import_path
 		if separator := strings.last_index(name, ":"); separator >= 0 { name = name[separator + 1:] }
+		if separator := strings.last_index(name, "/"); separator >= 0 { name = name[separator + 1:] }
 		if binding_error := check.collect_import_name(&session.collection, importer, index, name, package_id); binding_error != nil { return .Check_Failed }
 	}
 	return .None
@@ -359,20 +459,24 @@ bind_imports :: proc(session: ^Session, tolerant: bool) -> Driver_Error {
 import_package :: proc(session: ^Session, importer_id: check.File_Id, import_path: string) -> (check.Package_Id, Driver_Error) {
 	importer := session.files[importer_id]
 	if session.packages[importer.package_id].kind == .Intrinsics { return 0, .None }
-	if import_path != "base:intrinsics" { return 0, .Unsupported_Import }
-	directory, resolve_error := resolve_collection_import(&session.collections, import_path, filepath.dir(importer.path), session.allocator)
+	if import_path == "base:builtin" || import_path == "core:builtin" { return builtin_package(session) }
+	directory, resolve_error := import_directory(&session.collections, import_path, filepath.dir(importer.path), session.allocator)
 	if resolve_error != .None { return 0, .Import_Failed }
 	if error := push(&session.owned_strings, directory); error != .None { return 0, error }
 	for package_value, id in session.packages {
 		if id != 0 && package_value.key == directory { return check.Package_Id(id), .None }
 	}
-	package_id, package_scope, package_error := add_package(session, directory, "intrinsics", .Intrinsics)
+	kind := check.Package_Kind.User
+	if import_path == "base:intrinsics" || import_path == "core:intrinsics" { kind = .Intrinsics }
+	package_id, package_scope, package_error := add_package(session, directory, filepath.base(directory), kind)
 	if package_error != .None { return 0, package_error }
-	return package_id, load_directory(session, directory, package_id, package_scope)
+	return package_id, load_package(session, directory, package_id, package_scope)
 }
 
+// Loads every target-selected .odin file of a directory. A file that fails to parse is recorded and skipped,
+// so all parse failures of a run are reported together.
 @(private = "file")
-load_directory :: proc(session: ^Session, directory: string, package_id: check.Package_Id, package_scope: check.Scope_Id) -> Driver_Error {
+load_package :: proc(session: ^Session, directory: string, package_id: check.Package_Id, package_scope: check.Scope_Id) -> Driver_Error {
 	handle, open_error := os.open(directory)
 	if open_error != nil { return .Import_Failed }
 	defer os.close(handle)
@@ -380,6 +484,7 @@ load_directory :: proc(session: ^Session, directory: string, package_id: check.P
 	if read_error != nil { return .Import_Failed }
 	defer os.file_info_slice_delete(infos, session.allocator)
 	slice.sort_by(infos, proc(a, b: os.File_Info) -> bool { return a.name < b.name })
+	loaded := 0
 	for info in infos {
 		if info.type == .Directory || !strings.has_suffix(info.name, ".odin") || strings.has_suffix(info.name, "_test.odin") { continue }
 		source, source_error := os.read_entire_file_from_path(info.fullpath, session.allocator)
@@ -390,13 +495,59 @@ load_directory :: proc(session: ^Session, directory: string, package_id: check.P
 			continue
 		}
 		file_id, load_error := load_source(session, info.fullpath, source, package_id, package_scope)
+		if load_error == .Parse_Failed {
+			failed_path, path_error := own(session, info.fullpath)
+			if path_error != .None { return path_error }
+			if error := push(&session.load_failures, failed_path); error != .None { return error }
+			continue
+		}
 		if load_error != .None { return load_error }
+		loaded += 1
 		order := check.Source_Order {
 			file_order = u32(file_id),
 		}
 		if check.collect_file(&session.collection, session.files[file_id], file_id, order) != nil { return .Check_Failed }
 	}
+	if loaded == 0 { return .Import_Failed }
 	return .None
+}
+
+// base:builtin names the universal scope, as checker.cpp builtin_pkg does: its members are the universe builtins.
+@(private = "file")
+builtin_package :: proc(session: ^Session) -> (check.Package_Id, Driver_Error) {
+	for package_value, id in session.packages {
+		if id != 0 && package_value.kind == .Builtin { return check.Package_Id(id), .None }
+	}
+	if error := push(&session.packages, check.Package{key = "builtin", name = "builtin", kind = .Builtin, scope = session.universe}); error != .None {
+		return 0, error
+	}
+	return check.Package_Id(len(session.packages) - 1), .None
+}
+
+// Depth-first search over the import edges. An edge into a package still on the search path closes a cycle.
+@(private = "file")
+find_import_cycle :: proc(session: ^Session) -> (source: check.Source_Span, found: bool) {
+	states := make([]u8, len(session.packages), context.temp_allocator)
+	for id in 1 ..< len(session.packages) {
+		source, found = find_cycle_from(session, states, check.Package_Id(id))
+		if found { return }
+	}
+	return {}, false
+}
+
+@(private = "file")
+find_cycle_from :: proc(session: ^Session, states: []u8, package_id: check.Package_Id) -> (source: check.Source_Span, found: bool) {
+	states[package_id] = 1
+	for edge in session.import_edges {
+		if edge.from != package_id { continue }
+		if states[edge.to] == 1 { return edge.source, true }
+		if states[edge.to] == 0 {
+			source, found = find_cycle_from(session, states, edge.to)
+			if found { return }
+		}
+	}
+	states[package_id] = 2
+	return {}, false
 }
 
 @(private = "file")
@@ -409,7 +560,7 @@ load_runtime :: proc(session: ^Session) -> (check.Package_Id, Driver_Error) {
 	if package_error != .None { return 0, package_error }
 	session.collection.runtime_package = runtime_package
 	session.collection.runtime_scope = runtime_scope
-	return runtime_package, load_directory(session, directory, runtime_package, runtime_scope)
+	return runtime_package, load_package(session, directory, runtime_package, runtime_scope)
 }
 
 @(private = "file")
