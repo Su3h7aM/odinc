@@ -104,7 +104,7 @@ lower_call_results :: proc(state: ^Procedure_State, node: syntax.Node_Index, inf
 	context_count := 0
 	if signature.cc == .Odin {
 		context_count = 1
-	} else if signature.cc != .Contextless {
+	} else if signature.cc != .Contextless && signature.cc != .C {
 		lower_fail(state, node, .Call); return
 	}
 	if signature.variadic { lower_fail(state, node, .Call); return }
