@@ -29,6 +29,9 @@ Type_Diagnostic_Kind :: enum u8 {
 	Bit_Set_Out_Of_Range,
 	Invalid_Simd_Count,
 	Invalid_Simd_Element,
+	Invalid_Bit_Field_Backing,
+	Invalid_Bit_Field_Field,
+	Bit_Field_Out_Of_Range,
 }
 
 
@@ -299,6 +302,8 @@ type_expression :: proc(
 		return type_of_type(checker, file_id, file, scope, node)
 	case .Bit_Set_Type:
 		return bit_set_type(checker, file_id, file, scope, node)
+	case .Bit_Field_Type:
+		return bit_field_type(checker, file_id, file, scope, node)
 	case .Typeid_Type:
 		if syntax.node_payload(file.ast, node, syntax.Typeid_Type).specialization == 0 {
 			return types.intern(checker.store, types.Type{kind = .Type_Id}), nil
@@ -569,7 +574,6 @@ array_count :: proc(checker: ^Type_Checker, file_id: File_Id, scope: Scope_Id, n
 	return value, ok, nil
 }
 
-@(private = "file")
 integer_expression :: proc(
 	checker: ^Type_Checker,
 	file_id: File_Id,

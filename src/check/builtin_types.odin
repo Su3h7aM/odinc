@@ -92,6 +92,8 @@ UNIVERSE_TYPEID_OF :: Builtin_Id(9)
 UNIVERSE_UNREACHABLE :: Builtin_Id(10)
 UNIVERSE_RAW_DATA :: Builtin_Id(11)
 UNIVERSE_TYPE_INFO_OF :: Builtin_Id(13)
+UNIVERSE_OFFSET_OF :: Builtin_Id(14)
+UNIVERSE_OFFSET_OF_BY_STRING :: Builtin_Id(15)
 
 // Binds the universal builtin procedures as builtin entities in the universal scope.
 bind_universe_builtins :: proc(scopes: ^Scope_Store, universe: Scope_Id) -> Binding_Error {
@@ -111,6 +113,8 @@ bind_universe_builtins :: proc(scopes: ^Scope_Store, universe: Scope_Id) -> Bind
 		{"type_info_of", UNIVERSE_TYPE_INFO_OF},
 		{"unreachable", UNIVERSE_UNREACHABLE},
 		{"raw_data", UNIVERSE_RAW_DATA},
+		{"offset_of", UNIVERSE_OFFSET_OF},
+		{"offset_of_by_string", UNIVERSE_OFFSET_OF_BY_STRING},
 	}
 	for binding in bindings {
 		id, create_error := entity_create(scopes, Entity{name = binding.name, kind = .Builtin, scope = universe, state = .Resolved, data = binding.builtin})

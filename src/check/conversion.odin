@@ -85,12 +85,11 @@ check_conversion :: proc(
 		allowed ||= conversion_float(src.kind) && conversion_float(dst.kind)
 		allowed ||= conversion_integer(src.kind) && conversion_float(dst.kind)
 		allowed ||= conversion_float(src.kind) && conversion_integer(dst.kind)
-		allowed ||= src.kind == .Untyped_Nil && conversion_nilable(dst.kind)
+		allowed ||= src.kind == .Untyped_Nil && conversion_nilable(dst)
 	}
 	if kind == .Assignment && !untyped {
 		allowed ||= dst.kind == .Raw_Pointer && (src.kind == .Pointer || src.kind == .Multi_Pointer)
-		allowed ||= dst.kind == .Pointer && src.kind == .Multi_Pointer && dst.elem == src.elem
-		allowed ||= dst.kind == .Multi_Pointer && src.kind == .Pointer && dst.elem == src.elem
+		allowed ||= conversion_implicit_pointer(store, info.type, target)
 		allowed ||= simd_broadcast_allowed(dst, info.type)
 	}
 	if kind == .Cast {
@@ -161,8 +160,26 @@ conversion_pointer :: proc(kind: types.Kind) -> bool {
 	return kind == .Pointer || kind == .Multi_Pointer || kind == .Raw_Pointer
 }
 
-conversion_nilable :: proc(kind: types.Kind) -> bool {
-	return conversion_pointer(kind) || kind == .CString || kind == .CString16 || kind == .Procedure
+// ^T and [^]T of one element type convert implicitly in either direction.
+conversion_implicit_pointer :: proc(store: ^types.Store, source, target: types.Type_Id) -> bool {
+	src := types.get(store, conversion_base_type(store, source))^
+	dst := types.get(store, conversion_base_type(store, target))^
+	if src.elem != dst.elem { return false }
+	return src.kind == .Pointer && dst.kind == .Multi_Pointer || src.kind == .Multi_Pointer && dst.kind == .Pointer
+}
+
+// Matches official type_has_nil: the types that accept a nil constant.
+conversion_nilable :: proc(descriptor: types.Type) -> bool {
+	if conversion_pointer(descriptor.kind) { return true }
+	#partial switch descriptor.kind {
+	case .Union:
+		return descriptor.union_form != .No_Nil
+	case .Struct:
+		return descriptor.soa == .Slice || descriptor.soa == .Dynamic
+	case .Soa_Pointer, .CString, .CString16, .Procedure, .Slice, .Dynamic_Array, .Map, .Enum, .Bit_Set, .Any, .Type_Id:
+		return true
+	}
+	return false
 }
 
 // []u8 and string share one layout, so either converts to the other with a cast (not cstring).

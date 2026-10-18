@@ -11,6 +11,7 @@ lower_aggregate :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: 
 	if state.failed || state.job.function.error != nil { return 0 }
 	store := check.type_store(state.job.program)
 	owner := types.resolve_named(store, plan.type)
+	if types.get(store, owner).kind == .Bit_Field { return lower_bit_field_aggregate(state, node, plan, owner) }
 	layout := state.job.layouts[plan.type]
 	if layout.error != .None || layout.size > i64(max(u32)) || len(plan.field_indices) != len(plan.values) { return lower_fail(state, node, .Expression) }
 	function := state.job.function

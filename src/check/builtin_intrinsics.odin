@@ -144,8 +144,6 @@ expression_intrinsic_call :: proc(
 		}
 		hint := types.Type_Id(0)
 		switch shape {
-		case .Integer_Unary:
-			hint = checker.default_integer
 		case .Overflow:
 			hint = element if index == 1 else checker.default_integer
 		case .Value_Pair:
@@ -154,10 +152,14 @@ expression_intrinsic_call :: proc(
 			hint = element if index > 0 else 0
 		case .Bytes_Copy, .Bytes_Zero:
 			hint = int_type if index == value_count - 1 else 0
-		case .None, .Load, .Fence:
+		case .None, .Load, .Fence, .Integer_Unary:
 		}
 		value := check_expression(checker, view, scope, argument, hint) or_return
 		if value.state == .Invalid { return expression_poison(scope), nil }
+		if shape == .Integer_Unary && types.is_untyped(store, value.type) {
+			value = check_expression(checker, view, scope, argument, types.default_type_of_untyped(store, value.type)) or_return
+			if value.state == .Invalid { return expression_poison(scope), nil }
+		}
 		descriptor := types.get(store, types.resolve_named(store, value.type))
 		valid := false
 		switch shape {

@@ -179,6 +179,7 @@ lower_value :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> ir.Node
 		case check.Conversion_Plan:
 			return lower_conversion(state, value, node)
 		case check.Place_Plan:
+			if value.bit_size != 0 { return lower_bit_field_value(state, value, info.type) }
 			return lower_load(state, lower_place(state, value, node), info.type)
 		case check.Aggregate_Plan:
 			return lower_aggregate(state, node, value)

@@ -10,14 +10,15 @@ import "oc:regalloc"
 import "oc:sched"
 import "oc:types"
 
+Integer_Boundary_Case :: struct {
+	kind:                ir.Node_Kind,
+	type:                ir.Value_Type,
+	first, second, want: i64,
+}
+
 @(test)
 selected_integer_boundaries :: proc(t: ^testing.T) {
-	Case :: struct {
-		kind:                ir.Node_Kind,
-		type:                ir.Value_Type,
-		first, second, want: i64,
-	}
-	cases := []Case {
+	cases := []Integer_Boundary_Case {
 		{.Add, .I8, 127, 1, -128},
 		{.Sub, .I16, -32768, 1, 32767},
 		{.Mul, .I32, 65536, 65536, 0},
@@ -38,39 +39,77 @@ selected_integer_boundaries :: proc(t: ^testing.T) {
 		{.Sext, .I8, -1, 0, -1},
 		{.Sext, .I32, i64(min(i32)), 0, i64(min(i32))},
 		{.Trunc, .I64, 0x12345678, 0, 0x78},
+		{.Clz, .I8, 1, 0, 7},
+		{.Clz, .I8, 0, 0, 8},
+		{.Clz, .I16, 0x0100, 0, 7},
+		{.Clz, .I32, 0, 0, 32},
+		{.Clz, .I64, 1, 0, 63},
+		{.Clz, .I64, 0, 0, 64},
+		{.Ctz, .I8, 0x80, 0, 7},
+		{.Ctz, .I8, 0, 0, 8},
+		{.Ctz, .I16, 0x8000, 0, 15},
+		{.Ctz, .I32, 0x80000000, 0, 31},
+		{.Ctz, .I64, 0x100000000, 0, 32},
+		{.Ctz, .I64, 0, 0, 64},
+		{.Popcnt, .I8, -1, 0, 8},
+		{.Popcnt, .I16, 0x1234, 0, 5},
+		{.Popcnt, .I32, -1, 0, 32},
+		{.Popcnt, .I64, 0x5555555555555555, 0, 32},
+		{.Popcnt, .I64, -1, 0, 64},
+		{.Bswap, .I16, 0x1234, 0, 0x3412},
+		{.Bswap, .I32, 0x12345678, 0, 0x78563412},
+		{.Bswap, .I64, 0x0102030405060708, 0, 0x0807060504030201},
 	}
-	for c in cases {
-		function, make_err := ir.function_make(context.allocator, 0, "_start", 0)
-		testing.expect_value(t, make_err, nil)
-		if make_err != nil { return }
-		defer ir.function_destroy(function)
-		ir.add_signature(function, ir.Signature{cc = .C})
-		entry := ir.start(function)
-		first := ir.const_int(function, c.type, c.first)
-		second := ir.const_int(function, c.type, c.second)
-		value: ir.Node_Id
-		result_type := c.type
-		#partial switch c.kind {
-		case .SDiv, .UDiv, .SRem, .URem:
-			value = ir.divide(function, c.kind, entry.control, first, second)
-		case .Zext, .Sext:
-			result_type = .I64
-			value = ir.convert(function, c.kind, first, result_type)
-		case .Trunc:
-			result_type = .I8
-			value = ir.convert(function, c.kind, first, result_type)
-		case:
-			second = ir.binary(function, .Or, second, ir.const_int(function, c.type, 0))
-			value = ir.binary(function, c.kind, first, second)
-		}
-		correct := ir.compare(function, .Eq, value, ir.const_int(function, result_type, c.want))
-		code := ir.select(function, correct, ir.const_int(function, .I64, 55), ir.const_int(function, .I64, 1))
-		call := ir.add_node(function, .Syscall, .Tuple, {entry.control, entry.memory, ir.const_int(function, .I64, 231), code})
-		memory := ir.add_node(function, .Proj, .Memory, {call}, {index = 0})
-		ir.unreachable(function, entry.control, memory)
-		testing.expect_value(t, ir.function_finish(function), nil)
-		selected_test_run(t, function, 55)
+	for c in cases { selected_integer_check(t, c, false) }
+	constant_shifts := []Integer_Boundary_Case {
+		{.Shl, .I8, 1, 7, -128},
+		{.Shl, .I16, 1, 15, -32768},
+		{.Shl, .I32, 1, 31, -2147483648},
+		{.Shl, .I64, 1, 63, min(i64)},
+		{.Shr, .I8, -1, 4, 15},
+		{.Shr, .I32, -1, 1, 0x7fffffff},
+		{.Shr, .I64, -1, 1, max(i64)},
+		{.Sar, .I8, -128, 3, -16},
+		{.Sar, .I16, -128, 1, -64},
+		{.Sar, .I64, min(i64), 56, -128},
 	}
+	for c in constant_shifts { selected_integer_check(t, c, true) }
+}
+
+@(private)
+selected_integer_check :: proc(t: ^testing.T, c: Integer_Boundary_Case, constant_count: bool) {
+	function, make_err := ir.function_make(context.allocator, 0, "_start", 0)
+	testing.expect_value(t, make_err, nil)
+	if make_err != nil { return }
+	defer ir.function_destroy(function)
+	ir.add_signature(function, ir.Signature{cc = .C})
+	entry := ir.start(function)
+	first := ir.const_int(function, c.type, c.first)
+	second := ir.const_int(function, c.type, c.second)
+	value: ir.Node_Id
+	result_type := c.type
+	#partial switch c.kind {
+	case .SDiv, .UDiv, .SRem, .URem:
+		value = ir.divide(function, c.kind, entry.control, first, second)
+	case .Zext, .Sext:
+		result_type = .I64
+		value = ir.convert(function, c.kind, first, result_type)
+	case .Trunc:
+		result_type = .I8
+		value = ir.convert(function, c.kind, first, result_type)
+	case .Clz, .Ctz, .Popcnt, .Bswap:
+		value = ir.unary(function, c.kind, first)
+	case:
+		if !constant_count { second = ir.binary(function, .Or, second, ir.const_int(function, c.type, 0)) }
+		value = ir.binary(function, c.kind, first, second)
+	}
+	correct := ir.compare(function, .Eq, value, ir.const_int(function, result_type, c.want))
+	code := ir.select(function, correct, ir.const_int(function, .I64, 55), ir.const_int(function, .I64, 1))
+	call := ir.add_node(function, .Syscall, .Tuple, {entry.control, entry.memory, ir.const_int(function, .I64, 231), code})
+	memory := ir.add_node(function, .Proj, .Memory, {call}, {index = 0})
+	ir.unreachable(function, entry.control, memory)
+	testing.expect_value(t, ir.function_finish(function), nil)
+	selected_test_run(t, function, 55)
 }
 
 @(private)

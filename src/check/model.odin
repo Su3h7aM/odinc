@@ -23,6 +23,8 @@ Builtin_Kind :: enum u8 {
 	Raw_Data,
 	Size_Of,
 	Align_Of,
+	Offset_Of,
+	Offset_Of_By_String,
 	Trap,
 	Unreachable,
 	Min,

@@ -55,3 +55,41 @@ conversions_preserve_identity_range_and_source :: proc(t: ^testing.T) {
 	_, diagnostic, err = check_conversion(&pool, &store, value, info, integer, .Transmute, config)
 	testing.expect(t, err == nil && diagnostic == .Untyped_Transmute)
 }
+
+@(test)
+nil_converts_only_to_nilable_targets :: proc(t: ^testing.T) {
+	store := types.init()
+	defer types.destroy(&store)
+	pool: Constant_Pool
+	if !testing.expect(t, constant_pool_init(&pool, context.allocator) == nil) { return }
+	defer constant_pool_destroy(&pool)
+	byte_type := types.intern(&store, types.Type{kind = .Integer, count = 1})
+	config := Conversion_Config {
+		layout = types.DEFAULT_LAYOUT,
+	}
+	info := Expression_Info {
+		type  = types.TYPE_UNTYPED_NIL,
+		mode  = .Value,
+		state = .Checked,
+	}
+	source := Operand(Expression_Ref{view = 1, node = 2})
+	nilable := [?]types.Type {
+		{kind = .Slice, elem = byte_type},
+		{kind = .Dynamic_Array, elem = byte_type},
+		{kind = .Map, elem = byte_type, index = byte_type},
+		{kind = .Enum, elem = byte_type},
+		{kind = .Bit_Set, elem = byte_type},
+		{kind = .Any},
+		{kind = .Type_Id},
+		{kind = .Union, union_form = .Tagged},
+		{kind = .Struct, soa = .Slice},
+	}
+	for descriptor in nilable {
+		target := types.intern(&store, descriptor)
+		converted, diagnostic, err := check_conversion(&pool, &store, source, info, target, .Assignment, config)
+		testing.expect(t, err == nil && diagnostic == .None && converted.info.mode == .Constant && converted.info.type == target)
+	}
+	no_nil_union := types.intern(&store, types.Type{kind = .Union, union_form = .No_Nil})
+	_, diagnostic, err := check_conversion(&pool, &store, source, info, no_nil_union, .Assignment, config)
+	testing.expect(t, err == nil && diagnostic == .Not_Assignable)
+}

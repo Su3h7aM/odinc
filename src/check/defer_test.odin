@@ -10,6 +10,7 @@ check_procedure_source :: proc(
 	source: []byte,
 	expected_kind := Expression_Diagnostic_Kind.None,
 	expected_reason := "",
+	diagnostic_count := -1,
 ) -> (
 	procedure: Procedure_Data,
 	ok: bool,
@@ -78,6 +79,10 @@ check_procedure_source :: proc(
 		reported := false
 		for diagnostic in checker.diagnostics { reported ||= diagnostic.kind == expected_kind && diagnostic.reason == expected_reason }
 		if !testing.expectf(t, reported, "expected %v %q, got %v", expected_kind, expected_reason, checker.diagnostics) { return {}, false }
+	}
+	if diagnostic_count >= 0 &&
+	   !testing.expectf(t, len(checker.diagnostics) == diagnostic_count, "expected %d diagnostics, got %v", diagnostic_count, checker.diagnostics) {
+		return {}, false
 	}
 	return entity_get(&scopes, collection.declarations[0].entity).data.(Procedure_Data), true
 }

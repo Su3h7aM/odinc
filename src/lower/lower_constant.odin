@@ -33,6 +33,7 @@ lower_constant :: proc(state: ^Procedure_State, id: check.Const_Id, target: type
 		return lower_constant_aggregate(state, constant.type, aggregate)
 	}
 	scalar := scalar_type(state, type)
+	if _, is_nil := constant.value.(check.Nil_Value); is_nil && scalar == .None { return lower_zeroed_aggregate(state, type) }
 	if is_wide_integer(state, type) {
 		if integer, is_integer := constant.value.(big.Int); is_integer { return lower_wide_constant(state, integer) }
 	}
@@ -71,6 +72,29 @@ lower_constant :: proc(state: ^Procedure_State, id: check.Const_Id, target: type
 	case:
 		return lower_fail(state, state.job.procedure.body.node, .Constant)
 	}
+}
+
+// A nil aggregate is all zero bytes, addressed like any other aggregate value.
+@(private)
+lower_zeroed_aggregate :: proc(state: ^Procedure_State, type: types.Type_Id) -> ir.Node_Id {
+	layout := state.job.layouts[type]
+	if layout.error != .None { return lower_fail(state, state.job.procedure.body.node, .Constant) }
+	function := state.job.function
+	slot := ir.stack_slot(function, state.entry_control, u32(layout.size), u32(layout.align))
+	memory := ir.add_node(
+		function,
+		.Mem_Set,
+		.Memory,
+		{
+			state.builder.control,
+			ir.variable_get(state.builder, ir.MEMORY_VARIABLE),
+			slot,
+			ir.const_int(function, .I8, 0),
+			ir.const_int(function, .I64, layout.size),
+		},
+	)
+	ir.variable_set(state.builder, ir.MEMORY_VARIABLE, memory)
+	return slot
 }
 
 // A constant aggregate is built like a literal: a stack slot with one field store per element.

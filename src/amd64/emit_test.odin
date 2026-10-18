@@ -3,6 +3,7 @@ package amd64
 import "core:mem/virtual"
 import "core:os"
 import "core:path/filepath"
+import "core:slice"
 import "core:sync"
 import "core:testing"
 import "oc:ir"
@@ -95,4 +96,57 @@ emitted_add_links_and_exits_with_seven :: proc(t: ^testing.T) {
 	state, wait_err := os.process_wait(process)
 	testing.expect(t, wait_err == nil, "process must be waited on")
 	testing.expect_value(t, state.exit_code, 7)
+}
+@(test)
+emitted_shift_by_immediate_uses_imm8_form :: proc(t: ^testing.T) {
+	// The 64-bit shift by 1 comes first, so a cached shift-by-1 form would be reused for the 56.
+	shift_by_one_64 := [?]byte{0x55, 0x48, 0x89, 0xe5, 0x48, 0xc1, 0xef, 0x01, 0x48, 0x89, 0xf8, 0x5d, 0xc3}
+	shift_by_56_64 := [?]byte{0x55, 0x48, 0x89, 0xe5, 0x48, 0xc1, 0xef, 0x38, 0x48, 0x89, 0xf8, 0x5d, 0xc3}
+	shift_by_5_32 := [?]byte{0x55, 0x48, 0x89, 0xe5, 0xc1, 0xef, 0x05, 0x48, 0x89, 0xf8, 0x5d, 0xc3}
+	shift_by_3_16 := [?]byte{0x55, 0x48, 0x89, 0xe5, 0x66, 0xc1, 0xef, 0x03, 0x48, 0x89, 0xf8, 0x5d, 0xc3}
+	shift_by_7_8 := [?]byte{0x55, 0x48, 0x89, 0xe5, 0x40, 0xc0, 0xef, 0x07, 0x48, 0x89, 0xf8, 0x5d, 0xc3}
+	expect_emitted_shift(t, 8, 1, shift_by_one_64[:])
+	expect_emitted_shift(t, 8, 56, shift_by_56_64[:])
+	expect_emitted_shift(t, 4, 5, shift_by_5_32[:])
+	expect_emitted_shift(t, 2, 3, shift_by_3_16[:])
+	expect_emitted_shift(t, 1, 7, shift_by_7_8[:])
+}
+
+@(private = "file")
+expect_emitted_shift :: proc(t: ^testing.T, width: u8, count: i64, expected: []byte) {
+	arena: virtual.Arena
+	testing.expect_value(t, virtual.arena_init_growing(&arena), nil)
+	defer virtual.arena_destroy(&arena)
+	allocator := virtual.arena_allocator(&arena)
+
+	signature := ir.Signature {
+		cc      = .C,
+		params  = []ir.Param{{type = .I64}},
+		results = []ir.Result{{type = .I64}},
+	}
+	assignment, abi_err := assign_signature(signature, allocator)
+	testing.expect_value(t, abi_err, nil)
+
+	function: Machine_Function
+	testing.expect_value(t, machine_function_init(&function, "shift"), nil)
+	defer machine_function_destroy(&function)
+	block, _ := add_block(&function)
+	params, start_err := lower_start(&function, block, signature, assignment, allocator)
+	testing.expect_value(t, start_err, nil)
+	input := params[0].(Vreg)
+	shifted, _ := new_vreg(&function, .Int)
+	testing.expect_value(t, emit(&function, block, .SHR, width, shifted, input, Immediate(count)), nil)
+	testing.expect_value(t, lower_return(&function, block, signature, assignment, params, []Vreg{shifted}, allocator), nil)
+	testing.expect_value(t, verify_machine(&function), Verify_Error{})
+
+	program, program_err := build_program(&function, allocator)
+	testing.expect_value(t, program_err, nil)
+	result, allocation_err := regalloc.allocate(&program)
+	defer regalloc.result_destroy(&result)
+	testing.expect_value(t, allocation_err.kind, regalloc.Allocation_Error.None)
+
+	atom, emit_err := emit_function(&function, &result, {}, context.allocator)
+	testing.expect_value(t, emit_err, nil)
+	defer atom_destroy(&atom, context.allocator)
+	testing.expectf(t, slice.equal(atom.bytes, expected), "width %v count %v emitted % x", width, count, atom.bytes)
 }

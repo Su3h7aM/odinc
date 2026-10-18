@@ -80,6 +80,8 @@ scan_view_addresses :: proc(scan: ^Address_Scan, view: check.View_Id) {
 		#partial switch value in plan^ {
 		case check.Conversion_Plan:
 			if value.kind == .Box { mark_address_taken(scan, value.source) }
+		case check.Place_Plan:
+			if value.bit_size != 0 && !value.path[0].indirect { mark_address_taken(scan, value.root) }
 		case check.Call_Plan:
 			for argument in value.arguments {
 				if argument.parameter == 0 || int(argument.parameter) >= len(scan.program.entities) { continue }
@@ -229,9 +231,11 @@ lower_multi_declaration :: proc(state: ^Procedure_State, node: syntax.Node_Index
 
 @(private)
 Assignment_Destination :: struct {
-	entity:  check.Entity_Id,
-	type:    types.Type_Id,
-	address: ir.Node_Id,
+	entity:               check.Entity_Id,
+	type:                 types.Type_Id,
+	address:              ir.Node_Id,
+	container:            types.Type_Id,
+	bit_offset, bit_size: u32,
 }
 
 @(private)
@@ -248,6 +252,10 @@ lower_destination :: proc(state: ^Procedure_State, operand: check.Operand) -> As
 		if state.ast.nodes[value.node].kind == .Ident && info.entity != 0 && state.locals[info.entity].kind == .Variable {
 			return {entity = info.entity, type = info.type}
 		}
+		if info.plan != 0 {
+			plan := check.plan(state.job.program, info.plan)
+			if place, is_place := plan^.(check.Place_Plan); is_place && place.bit_size != 0 { return lower_bit_field_destination(state, place, info.type) }
+		}
 		return {type = info.type, address = lower_operand_address(state, operand)}
 	case:
 		lower_fail(state, state.job.procedure.body.node, .Place)
@@ -260,6 +268,10 @@ write_destination :: proc(state: ^Procedure_State, destination: Assignment_Desti
 	if destination.type == 0 || state.failed || state.job.function.error != nil { return }
 	scalar := scalar_type(state, destination.type)
 	if scalar != .None && state.job.function.nodes.type[value] != scalar { lower_fail(state, node, .Conversion); return }
+	if destination.bit_size != 0 {
+		lower_bit_field_write(state, destination, value)
+		return
+	}
 	if destination.entity !=
 	   0 { ir.variable_set(state.builder, state.locals[destination.entity].variable, value) } else { lower_store(state, destination.address, value, destination.type) }
 }

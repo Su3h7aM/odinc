@@ -524,11 +524,56 @@ lower_instruction :: proc(emitter: ^Emitter, instruction: Machine_Instruction, b
 		}
 		lowered.operand_count += 1
 	}
+	if len(explicit) == 3 && (instruction.mnemonic == .SHL || instruction.mnemonic == .SHR || instruction.mnemonic == .SAR) {
+		if _, is_immediate := explicit[2].(Immediate); is_immediate {
+			lowered.enc_hint = shift_immediate_hint(instruction.mnemonic, instruction.width)
+		}
+	}
 	append(&emitter.instructions, lowered) or_return
 	for store in emitter.stores[:emitter.store_count] {
 		store_spill(emitter, store.class, store.number, store.slot) or_return
 	}
 	return nil
+}
+
+// The encoder's form-match cache keys an immediate by value class, and -128..127 is one class, but only
+// the D0/D1 shift-by-one forms match exactly 1. The builders pin the imm8 form (C0/C1 /n ib) instead;
+// SAL, ROL, ROR, RCL and RCR would need the same hint if they were ever emitted with an immediate.
+@(private = "file")
+shift_immediate_hint :: proc(mnemonic: x86.Mnemonic, width: u8) -> u16 {
+	#partial switch mnemonic {
+	case .SHL:
+		switch width {
+		case 1:
+			return x86.inst_shl_r8_imm8(.AL, 0).enc_hint
+		case 2:
+			return x86.inst_shl_r16_imm8(.AX, 0).enc_hint
+		case 4:
+			return x86.inst_shl_r32_imm8(.EAX, 0).enc_hint
+		}
+		return x86.inst_shl_r64_imm8(.RAX, 0).enc_hint
+	case .SHR:
+		switch width {
+		case 1:
+			return x86.inst_shr_r8_imm8(.AL, 0).enc_hint
+		case 2:
+			return x86.inst_shr_r16_imm8(.AX, 0).enc_hint
+		case 4:
+			return x86.inst_shr_r32_imm8(.EAX, 0).enc_hint
+		}
+		return x86.inst_shr_r64_imm8(.RAX, 0).enc_hint
+	case .SAR:
+		switch width {
+		case 1:
+			return x86.inst_sar_r8_imm8(.AL, 0).enc_hint
+		case 2:
+			return x86.inst_sar_r16_imm8(.AX, 0).enc_hint
+		case 4:
+			return x86.inst_sar_r32_imm8(.EAX, 0).enc_hint
+		}
+		return x86.inst_sar_r64_imm8(.RAX, 0).enc_hint
+	}
+	return 0
 }
 
 @(private = "file")

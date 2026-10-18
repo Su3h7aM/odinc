@@ -32,7 +32,7 @@ expression_composite :: proc(
 	descriptor := types.get(store, owner)^
 	if descriptor.kind == .Bit_Set { return expression_composite_bit_set(checker, view, scope, node, type) }
 	is_array := descriptor.kind == .Array || descriptor.kind == .Enumerated_Array || descriptor.kind == .Simd_Vector
-	if descriptor.kind != .Struct && !is_array {
+	if descriptor.kind != .Struct && descriptor.kind != .Bit_Field && !is_array {
 		reason := "Composite_Type"
 		#partial switch descriptor.kind {
 		case .Slice:
@@ -96,7 +96,7 @@ expression_composite :: proc(
 		conversions[position] = expression_boxing_plan(checker, value.plan)
 		if value.constant != 0 && expression_conversion_plan(checker, value.plan) == 0 { constants[index] = value.constant }
 	}
-	if len(elements) == count && !slice.contains(constants, 0) {
+	if len(elements) == count && descriptor.kind != .Bit_Field && !slice.contains(constants, 0) {
 		constant, constant_error := constant_pool_intern_aggregate(checker.constants, type, constants)
 		if constant_error != nil {
 			expression_constant_failure(checker, file_id, node, constant_error) or_return

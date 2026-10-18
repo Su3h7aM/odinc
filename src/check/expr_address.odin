@@ -41,6 +41,11 @@ expression_address :: proc(
 	target := check_expression(checker, view, scope, operand) or_return
 	if target.state == .Invalid { return expression_poison(scope), nil }
 	if target.mode != .Variable { return expression_unsupported(checker, view, scope, node, "Address_Mode") }
+	if target.plan != 0 {
+		if place, is_place := checker.plans[target.plan].(Place_Plan); is_place && place.bit_size != 0 {
+			return expression_unsupported(checker, view, scope, node, "Address_Bit_Field")
+		}
+	}
 	pointer := types.intern(checker.type_checker.store, types.Type{kind = .Pointer, elem = target.type})
 	return Expression_Info{type = pointer, mode = .Value, scope = scope, state = .Checked}, nil
 }
@@ -119,7 +124,8 @@ expression_field :: proc(
 	indirect := types.get(store, owner).kind == .Pointer
 	if indirect { owner = types.resolve_named(store, types.get(store, owner).elem) }
 	descriptor := types.get(store, owner)
-	if descriptor.kind != .Struct || (!indirect && base.mode != .Variable && base.mode != .Value && base.mode != .Immutable_Value && base.mode != .Context) {
+	if (descriptor.kind != .Struct && descriptor.kind != .Bit_Field) ||
+	   (!indirect && base.mode != .Variable && base.mode != .Value && base.mode != .Immutable_Value && base.mode != .Context) {
 		return expression_unsupported(checker, view, scope, node, "Selector_Base")
 	}
 	allocator := mem.dynamic_arena_allocator(&checker.arena)
@@ -127,7 +133,12 @@ expression_field :: proc(
 	field_type, found := field_path(checker, owner, indirect, expression_text(file, selector.field), &path)
 	if !found { return expression_failure(checker, view, scope, selector.field, .Undeclared_Name) }
 	plan := Plan_Id(len(checker.plans))
-	append(&checker.plans, Plan(Place_Plan{root = Operand(Expression_Ref{view, selector.expr}), path = path[:]})) or_return
+	place := Place_Plan {
+		root = Operand(Expression_Ref{view, selector.expr}),
+		path = path[:],
+	}
+	if descriptor.kind == .Bit_Field { place.bit_offset, place.bit_size = types.bit_field_slot(store, owner, int(path[0].field_index)) }
+	append(&checker.plans, Plan(place)) or_return
 	mode := base.mode
 	if indirect || base.mode == .Context { mode = .Variable }
 	return Expression_Info{type = field_type, mode = mode, plan = plan, scope = scope, state = .Checked}, nil

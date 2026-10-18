@@ -89,6 +89,7 @@ expression_checker_init :: proc(
 	append(&checker.builtin_kinds, Builtin_Kind.Raw_Data) or_return
 	append(&checker.builtin_kinds, Builtin_Kind.Has_Target_Feature) or_return
 	append(&checker.builtin_kinds, Builtin_Kind.Type_Info_Of) or_return
+	append(&checker.builtin_kinds, Builtin_Kind.Offset_Of, Builtin_Kind.Offset_Of_By_String) or_return
 	return nil
 }
 
@@ -283,7 +284,7 @@ check_expression :: proc(
 			return expression_unsupported(checker, view, scope, node, "Expression_Kind")
 		}
 	}
-	if hint != 0 && info.state != .Invalid && info.type != hint && info.mode != .Constant && expression_boxes(checker, hint, info.type) {
+	if hint != 0 && info.state != .Invalid && info.type != hint && info.mode != .Constant && expression_converts_implicitly(checker, hint, info.type) {
 		// The node keeps its own row as the source; the boxing conversion is returned to the caller.
 		expression_store(checker, view, node, info)
 		return expression_conversion(checker, view, scope, node, Operand(Expression_Ref{view, node}), info, hint, .Assignment)
@@ -304,6 +305,11 @@ check_expression :: proc(
 expression_boxes :: proc(checker: ^Expression_Checker, target, source: types.Type_Id) -> bool {
 	store := checker.type_checker.store
 	return types.get(store, conversion_base_type(store, target)).kind == .Any && types.get(store, conversion_base_type(store, source)).kind != .Any
+}
+
+@(private = "package")
+expression_converts_implicitly :: proc(checker: ^Expression_Checker, target, source: types.Type_Id) -> bool {
+	return expression_boxes(checker, target, source) || conversion_implicit_pointer(checker.type_checker.store, source, target)
 }
 
 @(private = "package")
@@ -377,6 +383,7 @@ expression_entity_info :: proc(
 		return expression_poison(scope), nil
 	}
 	binding := entity_get(resolver.scopes, entity)
+	if binding.type == types.TYPE_POISON { return expression_poison(scope), nil }
 	if expression_captures_local(resolver.scopes, scope, binding) {
 		return expression_failure(checker, view, scope, node, .Invalid_Operand)
 	}

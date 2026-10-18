@@ -22,6 +22,7 @@ bits :: (3 | 4) &~ 2
 quotient :: -7 / 3
 remainder :: -7 %% 3
 pointer: ^u8
+many: [^]u8 = pointer
 address := uintptr(pointer)
 restored := cast(^u8)address
 reinterpreted := transmute(u8)negative

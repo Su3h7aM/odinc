@@ -25,9 +25,16 @@ Element :: type_elem_type([4]u8)
 Backing :: type_bit_set_underlying_type(bit_set[Flag])
 upper :: saturating_add(u8(240), 30)
 lower :: saturating_sub(i8(-120), 30)
+Pair :: struct { a: u8, b: u16, c: int }
+Holder :: struct { pad: u8, pair: Pair }
+offset_c :: offset_of(Pair, c)
+offset_b :: offset_of_by_string(Pair, "b")
+offset_pair :: offset_of(Holder{}.pair)
+unsigned_leading_zeros: uint = count_leading_zeros(uint(3))
 bad_query :: type_is_array(42)
 bad_field :: type_field_type(Record, "missing")
 bad_saturation :: saturating_add(1, 2)
+bad_offset :: offset_of(Pair, missing)
 `,
 	)
 	ast: syntax.Ast
@@ -79,7 +86,7 @@ bad_saturation :: saturating_add(1, 2)
 		expression_checker_init(&checker, &type_checker, &pool, {uintptr = word, layout = types.DEFAULT_LAYOUT}, integer, boolean, context.allocator) == nil,
 	) { return }
 	defer expression_checker_destroy(&checker)
-	for name in ([]string{"type_is_numeric", "type_is_array", "type_is_integer", "type_is_unsigned", "type_is_internally_pointer_like", "type_struct_field_count", "type_has_field", "type_field_type", "type_elem_type", "type_bit_set_underlying_type", "saturating_add", "saturating_sub"}) {
+	for name in ([]string{"type_is_numeric", "type_is_array", "type_is_integer", "type_is_unsigned", "type_is_internally_pointer_like", "type_struct_field_count", "type_has_field", "type_field_type", "type_elem_type", "type_bit_set_underlying_type", "saturating_add", "saturating_sub", "count_leading_zeros"}) {
 		builtin, failure := expression_builtin_id(&checker, intrinsic_builtin_kind(name))
 		id, creation := entity_create(&scopes, Entity{name = name, kind = .Builtin, scope = universe, state = .Resolved, data = builtin})
 		_, insertion := scope_insert(&scopes, universe, id)
@@ -88,7 +95,7 @@ bad_saturation :: saturating_add(1, 2)
 	for declaration in collection.declarations {
 		state, failure := resolve_entity(&resolver, declaration.entity)
 		name := entity_get(&scopes, declaration.entity).name
-		invalid := name == "bad_query" || name == "bad_field" || name == "bad_saturation"
+		invalid := name == "bad_query" || name == "bad_field" || name == "bad_saturation" || name == "bad_offset"
 		testing.expectf(t, failure == nil && (state == .Invalid) == invalid, "%s: %v %v", name, state, failure)
 	}
 	for name in ([]string{"numeric_enum_yes", "array_yes", "integer_yes", "pointer_yes", "has_value"}) {
@@ -111,7 +118,7 @@ bad_saturation :: saturating_add(1, 2)
 	for expected in ([]struct {
 			name:  string,
 			value: i64,
-		}{{"fields", 1}, {"upper", 255}, {"lower", -128}}) {
+		}{{"fields", 1}, {"upper", 255}, {"lower", -128}, {"offset_c", 8}, {"offset_b", 2}, {"offset_pair", 8}}) {
 		entity := entity_get(&scopes, scope_lookup_current(&scopes, package_scope, expected.name))
 		constant := constant_pool_get(&pool, entity.constant)
 		if !testing.expectf(t, constant != nil, "%s", expected.name) { continue }

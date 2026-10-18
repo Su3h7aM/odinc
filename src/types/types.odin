@@ -122,6 +122,7 @@ Type :: struct {
 	name:                                           string,
 	elem, index:                                    Type_Id,
 	fields:                                         []Type_Field,
+	bit_sizes:                                      []u8,
 	variants:                                       []Type_Id,
 	params, results:                                []Type_Id,
 	count, lower_bound, upper_bound:                i64,
@@ -285,10 +286,12 @@ descriptors_equal :: proc(a, b: Type) -> bool {
 	   a.is_nominal != b.is_nominal ||
 	   a.is_complete != b.is_complete ||
 	   len(a.fields) != len(b.fields) ||
+	   len(a.bit_sizes) != len(b.bit_sizes) ||
 	   len(a.variants) != len(b.variants) {
 		return false
 	}
 	for i in 0 ..< len(a.fields) { if a.fields[i] != b.fields[i] { return false } }
+	for i in 0 ..< len(a.bit_sizes) { if a.bit_sizes[i] != b.bit_sizes[i] { return false } }
 	for i in 0 ..< len(a.variants) { if a.variants[i] != b.variants[i] { return false } }
 	if len(a.params) != len(b.params) || len(a.results) != len(b.results) { return false }
 	for i in 0 ..< len(a.params) { if a.params[i] != b.params[i] { return false } }
@@ -546,6 +549,13 @@ fields_layout :: proc(
 	if min_field_align > 0 { max_align = max(max_align, min_field_align) }
 	if max_field_align != 0 { max_align = min(max_align, max_field_align) }
 	return align_up(offset, max_align), max_align
+}
+
+// The bit offset and width of a bit_field's field. Offsets are prefix sums counted from the least significant bit.
+bit_field_slot :: proc(store: ^Store, id: Type_Id, index: int) -> (offset, size: u32) {
+	descriptor := get(store, id)
+	for previous in 0 ..< index { offset += u32(descriptor.bit_sizes[previous]) }
+	return offset, u32(descriptor.bit_sizes[index])
 }
 
 sum_field_sizes :: proc(store: ^Store, fields: []Type_Field, config: Layout_Config) -> i64 {

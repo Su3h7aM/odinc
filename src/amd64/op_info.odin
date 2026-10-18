@@ -43,6 +43,9 @@ op_info :: proc(mnemonic: x86.Mnemonic) -> (info: Op_Info, known: bool) {
 		info.access = {.Def, .Use, .None, .None}
 		info.two_address = true
 		info.writes_flags = mnemonic == .NEG
+	case .BSR, .BSF:
+		info.access = {.Def, .Use, .None, .None}
+		info.writes_flags = true
 	case .ADDSS, .ADDSD, .SUBSS, .SUBSD, .MULSS, .MULSD, .DIVSS, .DIVSD, .XORPS:
 		info.access = {.Def, .Use, .Use, .None}
 		info.two_address = true

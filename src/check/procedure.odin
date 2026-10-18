@@ -508,7 +508,10 @@ expression_local_declaration :: proc(
 		}
 		initializes[index] = true
 		value := check_expression(checker, view, scope, values[index], target) or_return
-		if value.state == .Invalid { return nil }
+		if value.state == .Invalid {
+			variable_types[index] = target if target != 0 else types.TYPE_POISON
+			continue
+		}
 		conversions[index] = expression_boxing_plan(checker, value.plan)
 		if value.mode == .No_Value {
 			expression_unsupported(checker, view, scope, values[index], "Local_No_Value") or_return

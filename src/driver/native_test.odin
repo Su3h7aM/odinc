@@ -75,6 +75,7 @@ native_sections_exit_with_interpreter_results :: proc(t: ^testing.T) {
 		{"type_info_of", 31},
 		{"atomics", 127},
 		{"multiple_assignment", 127},
+		{"bit_field", 63},
 	}
 	odin_root, _ := filepath.join({#directory, "..", ".."}, context.temp_allocator)
 	directory, directory_err := os.make_directory_temp("", "driver-native-*", context.temp_allocator)

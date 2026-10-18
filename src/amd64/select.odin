@@ -295,6 +295,8 @@ select_node :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Status {
 		return select_failure(selector, .Malformed_Input)
 	case .Add, .Sub, .Mul, .And, .Or, .Xor, .Shl, .Shr, .Sar, .SDiv, .UDiv, .SRem, .URem, .Eq, .Ne, .SLt, .SLe, .ULt, .ULe, .Trunc, .Zext, .Sext:
 		return select_integer(selector, node)
+	case .Clz, .Ctz, .Popcnt, .Bswap:
+		return select_bit_op(selector, node)
 	case .Select, .Bitcast:
 		return select_scalar(selector, node)
 	case .FAdd,

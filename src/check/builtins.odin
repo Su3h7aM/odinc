@@ -252,6 +252,9 @@ expression_builtin_call :: proc(
 	if kind := checker.builtin_kinds[builtin]; kind == .Size_Of || kind == .Align_Of {
 		return expression_layout_query(checker, view, scope, node, kind, arguments, call.ellipsis.kind != .Invalid)
 	}
+	if kind := checker.builtin_kinds[builtin]; kind == .Offset_Of || kind == .Offset_Of_By_String {
+		return expression_offset_of(checker, view, file_id, scope, node, kind, arguments, call.ellipsis.kind != .Invalid)
+	}
 	if checker.builtin_kinds[builtin] == .Typeid_Of {
 		return expression_typeid_of(checker, view, scope, node, arguments, call.ellipsis.kind != .Invalid)
 	}

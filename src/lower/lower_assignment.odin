@@ -36,7 +36,7 @@ lower_compound_assignment :: proc(state: ^Procedure_State, node: syntax.Node_Ind
 	if state.failed || state.job.function.error != nil { return }
 	if destination.type == 0 { lower_fail(state, node, .Local); return }
 	previous :=
-		ir.variable_get(state.builder, state.locals[destination.entity].variable) if destination.entity != 0 else lower_load(state, destination.address, destination.type)
+		ir.variable_get(state.builder, state.locals[destination.entity].variable) if destination.entity != 0 else lower_destination_read(state, destination)
 	result := lower_compound_operator(state, node, assignment.op.kind, previous, value, destination.type)
 	write_destination(state, destination, result, node)
 }

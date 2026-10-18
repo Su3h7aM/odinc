@@ -145,3 +145,15 @@ invalid_inferred :: proc "contextless" () {
 	slice_info, slice_found := expression_info(&program, 1, slice_value)
 	testing.expect(t, slice_found && types.get(&store, slice_info.type).kind == .Slice)
 }
+
+@(test)
+invalid_local_initializer_keeps_its_name_declared :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(`package sample
+main :: proc "contextless" () {
+	value := !"s"
+	if value != 0 { value = 1 }
+}
+`)
+	_, ok := check_procedure_source(t, source, .Invalid_Operator, "", 1)
+	testing.expect(t, ok)
+}

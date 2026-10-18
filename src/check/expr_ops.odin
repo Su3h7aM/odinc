@@ -65,15 +65,17 @@ expression_binary :: proc(
 	if left.state == .Invalid || right.state == .Invalid { return expression_poison(scope), nil }
 	if !expression_value(left) || !expression_value(right) { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
 	store := checker.type_checker.store
-	left_kind := types.get(store, conversion_base_type(store, left.type)).kind
-	right_kind := types.get(store, conversion_base_type(store, right.type)).kind
+	left_descriptor := types.get(store, conversion_base_type(store, left.type))^
+	right_descriptor := types.get(store, conversion_base_type(store, right.type))^
+	left_kind := left_descriptor.kind
+	right_kind := right_descriptor.kind
 	integer := conversion_integer(left_kind) && conversion_integer(right_kind)
 	boolean := conversion_boolean(left_kind) && conversion_boolean(right_kind)
 	enum_pair := left_kind == .Enum && right_kind == .Enum
 	type_id_pair := left_kind == .Type_Id && right_kind == .Type_Id
 	string_pair := expression_string_kind(left_kind) && expression_string_kind(right_kind)
 	pointer_pair := conversion_pointer(left_kind) && conversion_pointer(right_kind)
-	pointer_pair ||= left_kind == .Untyped_Nil && conversion_nilable(right_kind) || right_kind == .Untyped_Nil && conversion_nilable(left_kind)
+	pointer_pair ||= left_kind == .Untyped_Nil && conversion_nilable(right_descriptor) || right_kind == .Untyped_Nil && conversion_nilable(left_descriptor)
 	float_side := conversion_float(left_kind) || conversion_float(right_kind)
 	float_pair :=
 		float_side && (conversion_float(left_kind) || conversion_integer(left_kind)) && (conversion_float(right_kind) || conversion_integer(right_kind))
