@@ -37,6 +37,8 @@ Lower_Feature :: enum u8 {
 	Context,
 	Builtin,
 	Syscall,
+	Map_Info_Hasher,
+	Unchecked_Expression,
 }
 
 Lower_Error :: struct {

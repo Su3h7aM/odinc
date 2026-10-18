@@ -84,6 +84,7 @@ append_generated_procedure :: proc(
 	allocator_arena := virtual.arena_allocator(&function.arena)
 	job := Procedure_Job {
 		program         = program,
+		module          = module,
 		function        = function,
 		symbols         = symbols,
 		default_context = default_context,
@@ -114,6 +115,7 @@ append_generated_procedure :: proc(
 		case nil:
 		}
 	}
+	if job.allocation_error != nil { return job.allocation_error }
 	for lower_error in job.errors { append(errors, lower_error) or_return }
 	return nil
 }

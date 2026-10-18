@@ -20,7 +20,10 @@ lower_fail :: proc(state: ^Procedure_State, node: syntax.Node_Index, feature: Lo
 @(private)
 lower_info :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> check.Expression_Info {
 	info, ok := check.expression_info(state.job.program, state.view, node)
-	assert(ok && info.state == .Checked && (info.type != 0 || info.mode == .No_Value), "missing checked expression fact")
+	if !ok || info.state != .Checked || (info.type == 0 && info.mode != .No_Value) {
+		lower_fail(state, node, .Unchecked_Expression)
+		return check.Expression_Info{}
+	}
 	return info
 }
 
@@ -183,6 +186,8 @@ lower_value :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> ir.Node
 			return lower_load(state, lower_place(state, value, node), info.type)
 		case check.Aggregate_Plan:
 			return lower_aggregate(state, node, value)
+		case check.Slice_Literal_Plan:
+			return lower_slice_literal(state, node, value)
 		case check.Bounds_Plan:
 			if value.kind == .Slice { return lower_slice_expression(state, node, value) }
 			return lower_load(state, lower_index_address(state, node, value), info.type)
@@ -194,6 +199,13 @@ lower_value :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> ir.Node
 			return lower_typeid(state, node, value)
 		case check.Type_Info_Plan:
 			return lower_type_info_of(state, node, value)
+		case check.Type_Assertion_Plan:
+			result, _ := lower_type_assertion(state, node, value)
+			return result
+		case check.Map_Info_Plan:
+			return lower_map_info_of(state, node, value)
+		case check.Map_Cell_Info_Plan:
+			return lower_map_cell_info_of(state, node, value)
 		case check.Propagation_Plan:
 			if state.ast.nodes[node].kind == .Or_Return_Expr { return lower_or_return(state, node, value) }
 			if state.ast.nodes[node].kind == .Or_Branch_Expr { return lower_or_branch(state, node, value) }
@@ -285,7 +297,8 @@ lower_address :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> ir.No
 	#partial switch ast_node.kind {
 	case .Implicit:
 		return state.context_pointer
-	case .Ident:
+	case .Ident, .Selector_Expr:
+		if ast_node.kind == .Selector_Expr && info.entity == 0 { break }
 		binding := state.locals[info.entity]
 		if binding.kind == .Address { return binding.address }
 		symbol := check.entity_symbol(state.job.program, info.entity)

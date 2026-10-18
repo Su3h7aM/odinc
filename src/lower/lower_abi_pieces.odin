@@ -72,7 +72,7 @@ results_tile :: proc(results: []ir.Result, size: i64) -> bool {
 @(private)
 is_aggregate :: proc(state: ^Procedure_State, type: types.Type_Id) -> bool {
 	#partial switch lower_type(state, type).kind {
-	case .Struct, .Array, .String, .Slice, .Any:
+	case .Struct, .Array, .String, .String16, .Slice, .Any, .Union:
 		return true
 	}
 	return false
@@ -83,7 +83,7 @@ is_aggregate :: proc(state: ^Procedure_State, type: types.Type_Id) -> bool {
 bind_parameter :: proc(state: ^Procedure_State, parameters: []types.Abi_Param, values: []ir.Node_Id) -> bool {
 	job := state.job
 	first := parameters[0]
-	if first.source < 0 || int(first.source) >= len(job.procedure.parameters) || first.attr == .By_Value {
+	if first.source < 0 || int(first.source) >= len(job.procedure.parameters) {
 		report_procedure_error(job, .Unsupported, .Parameter)
 		return false
 	}
@@ -102,7 +102,7 @@ bind_parameter :: proc(state: ^Procedure_State, parameters: []types.Abi_Param, v
 	#partial switch lower_type(state, type).kind {
 	case .Bool:
 		value = ir.convert(job.function, .Trunc, value, .Bool)
-	case .Integer, .Enum, .Rune, .Float, .Raw_Pointer, .Pointer, .Multi_Pointer, .CString, .CString16, .Procedure, .Type_Id:
+	case .Integer, .Enum, .Bit_Field, .Bit_Set, .Rune, .Float, .Raw_Pointer, .Pointer, .Multi_Pointer, .CString, .CString16, .Procedure, .Type_Id:
 	case:
 		report_procedure_error(job, .Unsupported, .Parameter)
 		return false
@@ -115,7 +115,7 @@ bind_parameter :: proc(state: ^Procedure_State, parameters: []types.Abi_Param, v
 @(private)
 bind_aggregate_parameter :: proc(state: ^Procedure_State, entity: check.Entity_Id, parameters: []types.Abi_Param, values: []ir.Node_Id) -> bool {
 	job := state.job
-	if len(parameters) == 1 && parameters[0].attr == .Indirect {
+	if len(parameters) == 1 && (parameters[0].attr == .Indirect || parameters[0].attr == .By_Value) {
 		bind_local(state, entity, values[0], true)
 	} else {
 		layout := job.layouts[job.program.entities[entity].type]
@@ -135,7 +135,7 @@ bind_aggregate_parameter :: proc(state: ^Procedure_State, entity: check.Entity_I
 	return !state.failed && job.function.error == nil
 }
 
-// The aggregate is its address: an Indirect parameter receives the address, a register one a load per piece.
+// The aggregate is its address: an Indirect or By_Value parameter receives the address, a register one a load per piece.
 @(private)
 pass_aggregate_argument :: proc(
 	state: ^Procedure_State,
@@ -145,7 +145,7 @@ pass_aggregate_argument :: proc(
 	arguments: []ir.Node_Id,
 ) -> bool {
 	function := state.job.function
-	if len(parameters) == 1 && parameters[0].attr == .Indirect {
+	if len(parameters) == 1 && (parameters[0].attr == .Indirect || parameters[0].attr == .By_Value) {
 		arguments[0] = value
 		return true
 	}

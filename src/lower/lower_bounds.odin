@@ -34,13 +34,15 @@ lower_index_address :: proc(state: ^Procedure_State, node: syntax.Node_Index, pl
 	base_type := lower_type(state, lower_info(state, index.expr).type)
 	offset := lower_value(state, index.index)
 	if state.failed { return 0 }
+	if function.nodes.type[offset] != .I64 {
+		offset = ir.convert(function, .Sext if signed_type(state, lower_info(state, index.index).type) else .Zext, offset, .I64)
+	}
 	base, length: ir.Node_Id
 	#partial switch base_type.kind {
 	case .Array:
 		base = lower_array_base(state, index.expr)
-		length = ir.const_int(function, function.nodes.type[offset], base_type.count)
+		length = ir.const_int(function, .I64, base_type.count)
 	case .Slice, .String, .String16:
-		if function.nodes.type[offset] != .I64 { return lower_fail(state, node, .Bounds) }
 		header := lower_value(state, index.expr)
 		base = lower_load_word(state, header, .Ptr)
 		length = lower_load_word(state, ir.ptr_offset(function, header, 8), .I64)
@@ -67,26 +69,34 @@ lower_slice_expression :: proc(state: ^Procedure_State, node: syntax.Node_Index,
 	function := state.job.function
 	base_type := lower_type(state, lower_info(state, expression.expr).type)
 	base, length: ir.Node_Id
+	element_size: i64
 	#partial switch base_type.kind {
 	case .Array:
 		base = lower_address(state, expression.expr)
 		length = ir.const_int(function, .I64, base_type.count)
+		element_size = state.job.layouts[base_type.elem].size
 	case .Slice:
 		header := lower_value(state, expression.expr)
 		base = lower_load_word(state, header, .Ptr)
 		length = lower_load_word(state, ir.ptr_offset(function, header, 8), .I64)
+		element_size = state.job.layouts[base_type.elem].size
 	case .Multi_Pointer:
 		base = lower_value(state, expression.expr)
+		element_size = state.job.layouts[base_type.elem].size
+	case .String, .String16:
+		header := lower_value(state, expression.expr)
+		base = lower_load_word(state, header, .Ptr)
+		length = lower_load_word(state, ir.ptr_offset(function, header, 8), .I64)
+		element_size = 1 if base_type.kind == .String else 2
 	case:
 		return lower_fail(state, node, .Place)
 	}
 	low := lower_bound(state, plan.operands[1], ir.const_int(function, .I64, 0))
-	layout := state.job.layouts[base_type.elem]
-	assert(layout.error == .None && layout.size <= i64(max(u32)))
+	assert(element_size <= i64(max(u32)))
 	if state.failed || function.error != nil { return 0 }
 	if function.nodes.type[low] != .I64 { return lower_fail(state, node, .Bounds) }
 	if base_type.kind == .Multi_Pointer && plan.operands[2] == nil {
-		return ir.ptr_index(function, base, low, u32(layout.size))
+		return ir.ptr_index(function, base, low, u32(element_size))
 	}
 	high := lower_bound(state, plan.operands[2], length)
 	if state.failed || function.error != nil { return 0 }
@@ -96,7 +106,7 @@ lower_slice_expression :: proc(state: ^Procedure_State, node: syntax.Node_Index,
 		lower_check(state, ir.compare(function, .ULe, low, high))
 	}
 	slot := ir.stack_slot(function, state.entry_control, 16, 8)
-	lower_store_word(state, slot, ir.ptr_index(function, base, low, u32(layout.size)))
+	lower_store_word(state, slot, ir.ptr_index(function, base, low, u32(element_size)))
 	lower_store_word(state, ir.ptr_offset(function, slot, 8), ir.binary(function, .Sub, high, low))
 	return slot
 }
@@ -104,7 +114,10 @@ lower_slice_expression :: proc(state: ^Procedure_State, node: syntax.Node_Index,
 @(private)
 lower_bound :: proc(state: ^Procedure_State, operand: check.Operand, default_value: ir.Node_Id) -> ir.Node_Id {
 	if operand == nil { return default_value }
-	return lower_operand(state, operand)
+	function := state.job.function
+	value := lower_operand(state, operand)
+	if state.failed || function.error != nil || function.nodes.type[value] == .I64 || !is_integer_value(function, value) { return value }
+	return ir.convert(function, .Sext if signed_type(state, operand_type(state, operand)) else .Zext, value, .I64)
 }
 
 // len of a slice or string reads the length word of its header.

@@ -217,6 +217,11 @@ lower_multi_declaration :: proc(state: ^Procedure_State, node: syntax.Node_Index
 	case check.Builtin_Plan:
 		if len(variant.results) != len(names) { lower_fail(state, node, .Local); return }
 		lower_intrinsic_tuple(state, value, variant, state.job.program.builtin_kinds[variant.builtin], results)
+	case check.Type_Assertion_Plan:
+		if len(names) != 2 || !variant.comma_ok { lower_fail(state, node, .Local); return }
+		asserted, ok := lower_type_assertion(state, value, variant)
+		results[0] = asserted
+		results[1] = ok
 	case:
 		lower_fail(state, node, .Local)
 		return

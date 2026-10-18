@@ -25,8 +25,9 @@ lower_or_else :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: ch
 		if state.job.function.nodes.type[values[1]] != .Bool { return lower_fail(state, node, .Expression) }
 		condition = values[1]
 	case .Nil:
-		if state.job.function.nodes.type[values[1]] != .Ptr { return lower_fail(state, node, .Expression) }
-		condition = ir.compare(state.job.function, .Eq, values[1], ir.const_int(state.job.function, .Ptr, 0))
+		nil_condition, nil_ok := propagation_nil_condition(state.job.function, values[1])
+		if !nil_ok { return lower_fail(state, node, .Expression) }
+		condition = nil_condition
 	}
 	result_type := lower_info(state, node).type
 	scalar := scalar_type(state, result_type)
@@ -74,8 +75,9 @@ lower_or_branch :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: 
 		if state.job.function.nodes.type[values[status_index]] != .Bool { return lower_fail(state, node, .Expression) }
 		condition = values[status_index]
 	case .Nil:
-		if state.job.function.nodes.type[values[status_index]] != .Ptr { return lower_fail(state, node, .Expression) }
-		condition = ir.compare(state.job.function, .Eq, values[status_index], ir.const_int(state.job.function, .Ptr, 0))
+		nil_condition, nil_ok := propagation_nil_condition(state.job.function, values[status_index])
+		if !nil_ok { return lower_fail(state, node, .Expression) }
+		condition = nil_condition
 	}
 	if plan.failure == 0 { return lower_fail(state, node, .Control) }
 	exit_plan := check.plan(state.job.program, plan.failure)
@@ -125,8 +127,9 @@ lower_or_return :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: 
 		if state.job.function.nodes.type[values[status_index]] != .Bool { return lower_fail(state, node, .Expression) }
 		condition = values[status_index]
 	case .Nil:
-		if state.job.function.nodes.type[values[status_index]] != .Ptr { return lower_fail(state, node, .Expression) }
-		condition = ir.compare(state.job.function, .Eq, values[status_index], ir.const_int(state.job.function, .Ptr, 0))
+		nil_condition, nil_ok := propagation_nil_condition(state.job.function, values[status_index])
+		if !nil_ok { return lower_fail(state, node, .Expression) }
+		condition = nil_condition
 	}
 	if plan.failure == 0 { return lower_fail(state, node, .Result) }
 	exit_plan := check.plan(state.job.program, plan.failure)
@@ -157,4 +160,16 @@ lower_or_return :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: 
 	if len(plan.values) == 0 { return 0 }
 	if len(plan.values) != 1 || status_index != 1 { return lower_fail(state, node, .Result) }
 	return values[0]
+}
+
+// Official `x == nil` for a status: zero for pointers and integer-backed types (enums, bit_sets).
+@(private)
+propagation_nil_condition :: proc(function: ^ir.Function, value: ir.Node_Id) -> (condition: ir.Node_Id, ok: bool) {
+	value_type := function.nodes.type[value]
+	#partial switch value_type {
+	case .Ptr, .I8, .I16, .I32, .I64:
+	case:
+		return 0, false
+	}
+	return ir.compare(function, .Eq, value, ir.const_int(function, value_type, 0)), true
 }

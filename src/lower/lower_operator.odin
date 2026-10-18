@@ -3,6 +3,7 @@ package lower
 import "oc:check"
 import "oc:ir"
 import "oc:syntax"
+import "oc:types"
 
 @(private)
 lower_binary :: proc(state: ^Procedure_State, node: syntax.Node_Index, expression: syntax.Binary_Expr) -> ir.Node_Id {
@@ -14,6 +15,11 @@ lower_binary :: proc(state: ^Procedure_State, node: syntax.Node_Index, expressio
 	right := lower_value(state, expression.right)
 	if state.failed { return 0 }
 	if is_wide_integer(state, lower_info(state, expression.left).type) { return lower_wide_binary(state, node, expression, left, right) }
+	if is_slice_nil_comparison(state, expression) { return lower_slice_nil_comparison(state, expression, left, right) }
+	if (expression.op.kind == .Cmp_Eq || expression.op.kind == .Not_Eq) &&
+	   (lower_union_type(state, expression.left) != types.TYPE_NONE || lower_union_type(state, expression.right) != types.TYPE_NONE) {
+		return lower_union_comparison(state, node, expression, left, right)
+	}
 	function := state.job.function
 	type := function.nodes.type[left]
 	signed := signed_type(state, lower_info(state, expression.left).type)
@@ -62,6 +68,79 @@ lower_binary :: proc(state: ^Procedure_State, node: syntax.Node_Index, expressio
 		kind := ir.Node_Kind.FLe if floating else (ir.Node_Kind.SLe if signed else ir.Node_Kind.ULe)
 		if expression.op.kind == .Gt_Eq { left, right = right, left }
 		return ir.compare(function, kind, left, right)
+	}
+	return lower_fail(state, node, .Operator)
+}
+
+// The operand's resolved type id when it is a union, otherwise types.TYPE_NONE.
+@(private)
+lower_union_type :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> types.Type_Id {
+	info := lower_info(state, node)
+	store := check.type_store(state.job.program)
+	resolved := types.resolve_named(store, info.type)
+	if types.get(store, resolved).kind != .Union { return types.TYPE_NONE }
+	return resolved
+}
+
+// One operand is the nil constant the checker unified into the union type; the other is the union value.
+@(private)
+lower_union_nil_operand :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> bool {
+	info := lower_info(state, node)
+	if info.constant == 0 { return false }
+	constant := check.constant(state.job.program, info.constant)
+	_, is_nil := constant.value.(check.Nil_Value)
+	return is_nil
+}
+
+@(private)
+lower_union_comparison :: proc(state: ^Procedure_State, node: syntax.Node_Index, expression: syntax.Binary_Expr, left, right: ir.Node_Id) -> ir.Node_Id {
+	if state.failed { return 0 }
+	union_type := lower_union_type(state, expression.left)
+	if union_type == types.TYPE_NONE { union_type = lower_union_type(state, expression.right) }
+	if lower_union_nil_operand(state, expression.left) {
+		return lower_union_nil_comparison(state, union_type, expression.op.kind, right)
+	}
+	if lower_union_nil_operand(state, expression.right) {
+		return lower_union_nil_comparison(state, union_type, expression.op.kind, left)
+	}
+	return lower_union_equality(state, node, expression, union_type, left, right)
+}
+
+// Mirrors lb_emit_comp_against_nil: a zero-size union is always nil, a maybe-pointer union is its pointer word,
+// every other union is its variant tag, which is zero for the nil variant.
+@(private)
+lower_union_nil_comparison :: proc(state: ^Procedure_State, union_type: types.Type_Id, operator: syntax.Token_Kind, address: ir.Node_Id) -> ir.Node_Id {
+	function := state.job.function
+	store := check.type_store(state.job.program)
+	descriptor := types.get(store, union_type)
+	size, _, _ := types.layout(store, union_type)
+	kind := ir.Node_Kind.Eq if operator == .Cmp_Eq else ir.Node_Kind.Ne
+	if size == 0 { return ir.const_int(function, .Bool, i64(kind == .Eq)) }
+	if descriptor.union_form == .Maybe_Pointer {
+		word := lower_load_word(state, address, .Ptr)
+		return ir.compare(function, kind, word, ir.const_int(function, .Ptr, 0))
+	}
+	layout, layout_error := types.union_layout(store, union_type)
+	if layout_error != .None || layout.tag_size == 0 { return lower_fail(state, state.job.procedure.body.node, .Operator) }
+	tag, tag_type := generated_union_tag(state, address, layout)
+	return ir.compare(function, kind, tag, ir.const_int(function, tag_type, 0))
+}
+
+// Two union values compare through the generated equality body, mirroring lb_compare_records.
+@(private)
+lower_union_equality :: proc(
+	state: ^Procedure_State,
+	node: syntax.Node_Index,
+	expression: syntax.Binary_Expr,
+	union_type: types.Type_Id,
+	left, right: ir.Node_Id,
+) -> ir.Node_Id {
+	function := state.job.function
+	for procedure in check.procedures(state.job.program) {
+		if procedure.generated != (check.Generated_Body{kind = .Equality, type = union_type}) { continue }
+		call := generated_procedure_call(state, state.job.symbols[procedure.symbol], procedure.signature, []ir.Node_Id{left, right})
+		if expression.op.kind == .Not_Eq { call = ir.binary(function, .Xor, call, ir.const_int(function, .Bool, 1)) }
+		return call
 	}
 	return lower_fail(state, node, .Operator)
 }

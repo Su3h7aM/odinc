@@ -31,7 +31,7 @@ prepare_declarations :: proc(
 ) {
 	declarations = make([]Procedure_Declaration, entity_count, allocator) or_return
 	for job in jobs {
-		if len(job.errors) != 0 { continue }
+		if len(job.errors) != 0 || job.procedure.generated.kind != .None { continue }
 		assert(job.procedure.entity != 0 && int(job.procedure.entity) < entity_count)
 		declarations[job.procedure.entity] = {
 			type       = job.procedure.signature,

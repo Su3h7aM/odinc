@@ -73,6 +73,14 @@ fill_globals :: proc(
 			output.relocs[index] = {u32(relocation.offset), symbols[relocation.target], relocation.addend}
 		}
 		if global.initializer != 0 {
+			if text, is_string := check.constant(program, global.initializer).value.(string); is_string {
+				bytes, relocs, string_error := global_string_image(module, text, output.relocs, allocator)
+				if string_error != nil { return string_error }
+				output = &module.globals[symbol.index]
+				output.bytes = bytes
+				output.relocs = relocs
+				continue
+			}
 			bytes, relocs, encoded, image_error := global_constant_image(program, global.initializer, output.size, symbols, output.relocs, allocator)
 			if image_error != nil { return image_error }
 			if !encoded {

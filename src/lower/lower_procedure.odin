@@ -56,7 +56,7 @@ prepare_procedure :: proc(job: ^Procedure_Job, allocator: runtime.Allocator) -> 
 	store := check.type_store(job.program)
 	descriptor := types.get(store, types.resolve_named(store, job.procedure.signature))
 	assert(descriptor.kind == .Procedure && descriptor.convention == job.procedure.convention)
-	assert(len(descriptor.params) == len(job.procedure.parameters))
+	assert(job.procedure.generated.kind != .None || len(descriptor.params) == len(job.procedure.parameters))
 	by_pointer := make([]bool, len(descriptor.params), allocator) or_return
 	for entity, index in job.procedure.parameters {
 		assert(int(entity) > 0 && int(entity) < len(job.program.entities))
@@ -116,8 +116,7 @@ run_procedure :: proc(task: thread.Task) {
 lower_procedure :: proc(job: ^Procedure_Job) -> (err: runtime.Allocator_Error) {
 	procedure := &job.procedure
 	if procedure.generated.kind != .None {
-		report_procedure_error(job, .Unsupported, .Generated_Body)
-		return job.allocation_error
+		return lower_generated_procedure(job)
 	}
 	files := check.sources(job.program)
 	assert(int(procedure.body.file) > 0 && int(procedure.body.file) <= len(files))

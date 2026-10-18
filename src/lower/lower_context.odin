@@ -23,7 +23,9 @@ push_context :: proc(state: ^Procedure_State, implicit: syntax.Node_Index) {
 	type := lower_info(state, implicit).type
 	layout := state.job.layouts[type]
 	slot := ir.stack_slot(state.job.function, state.entry_control, u32(layout.size), u32(layout.align))
-	lower_store(state, slot, state.context_pointer, type)
+	source := state.context_pointer
+	if source == 0 { source = ir.symbol_addr(state.job.function, state.job.default_context) }
+	lower_store(state, slot, source, type)
 	state.context_pointer = slot
 }
 

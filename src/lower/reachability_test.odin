@@ -11,14 +11,25 @@ import "oc:types"
 unreached_runtime_body_errors_only_when_reached :: proc(t: ^testing.T) {
 	store := types.init()
 	defer types.destroy(&store)
+	ast: syntax.Ast
+	syntax.ast_init(&ast, context.allocator)
+	defer syntax.ast_destroy(&ast)
 	signature := types.intern(&store, types.Type{kind = .Procedure, convention = .Contextless})
+	raw := types.intern(&store, types.Type{kind = .Raw_Pointer})
+	boolean := types.intern(&store, types.Type{kind = .Bool})
+	equal_signature := types.intern(
+		&store,
+		types.Type{kind = .Procedure, convention = .Contextless, params = []types.Type_Id{raw, raw}, results = []types.Type_Id{boolean}},
+	)
+	empty := types.intern(&store, types.Type{kind = .Struct})
 	program := check.Checked_Program {
 		type_data      = &store,
 		packages       = {{}, {kind = .Runtime}},
-		entities       = {{}, {name = "helper", kind = .Procedure, state = .Resolved, type = signature, package_id = 1}},
+		files          = {{}, {ast = &ast}},
+		entities       = {{}, {name = "helper", kind = .Procedure, state = .Resolved, type = signature, package_id = 1, declaration = {file = 1}}},
 		symbol_table   = {{}, {entity = 1, kind = .Procedure, name = "helper", type = signature}},
 		entity_symbols = {0, 1},
-		procedure_list = {{entity = 1, symbol = 1, signature = signature, convention = .Contextless, generated = {kind = .Equality, type = signature}}},
+		procedure_list = {{entity = 1, symbol = 1, signature = equal_signature, convention = .Contextless, generated = {kind = .Equality, type = empty}}},
 	}
 
 	unreached: ir.Module

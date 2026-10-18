@@ -1,5 +1,6 @@
 package lower
 
+import "core:math/big"
 import "oc:check"
 import "oc:ir"
 import "oc:syntax"
@@ -19,8 +20,36 @@ lower_simd_builtin :: proc(
 	handled: bool,
 ) {
 	#partial switch kind {
-	case .Unaligned_Load, .Simd_Indices, .Simd_Select, .Simd_Lanes_Ne, .Simd_Reduce_Or, .Simd_Reduce_Min:
+	case .Unaligned_Load,
+	     .Simd_Extract,
+	     .Simd_Replace,
+	     .Simd_Indices,
+	     .Simd_Select,
+	     .Simd_Lanes_Eq,
+	     .Simd_Lanes_Ne,
+	     .Simd_Lanes_Lt,
+	     .Simd_Lanes_Le,
+	     .Simd_Lanes_Gt,
+	     .Simd_Lanes_Ge,
+	     .Simd_Add,
+	     .Simd_Sub,
+	     .Simd_Mul,
+	     .Simd_Div,
+	     .Simd_Bit_And,
+	     .Simd_Bit_Or,
+	     .Simd_Bit_Xor,
+	     .Simd_Bit_And_Not,
+	     .Simd_Min,
+	     .Simd_Max,
+	     .Simd_Reduce_Or,
+	     .Simd_Shl,
+	     .Simd_Shr,
+	     .Simd_Shl_Masked,
+	     .Simd_Shr_Masked,
+	     .Simd_Reduce_Min:
 		return lower_simd_operation(state, node, info, plan, kind), true
+	case .Simd_Shuffle:
+		return lower_simd_shuffle(state, node, info, plan), true
 	}
 	return 0, false
 }
@@ -33,7 +62,7 @@ lower_simd_operation :: proc(
 	plan: check.Builtin_Plan,
 	kind: check.Builtin_Kind,
 ) -> ir.Node_Id {
-	if info.type == 0 { return lower_fail(state, node, .Builtin) }
+	if info.type == 0 || kind == .Simd_Extract && len(plan.arguments) != 2 { return lower_fail(state, node, .Builtin) }
 	values, ok := lower_intrinsic_operands(state, node, plan)
 	if !ok { return 0 }
 	function := state.job.function
@@ -44,15 +73,44 @@ lower_simd_operation :: proc(
 		copy := simd_slot(state, info.type)
 		lower_store(state, copy, values[0], info.type)
 		return copy
+	case .Simd_Extract:
+		vector := lower_type(state, operand_type(state, plan.arguments[0]))
+		if vector.kind != .Simd_Vector || vector.elem != info.type || function.nodes.type[values[0]] != .Ptr || !is_integer_value(function, values[1]) {
+			return lower_fail(state, node, .Builtin)
+		}
+		layout := state.job.layouts[vector.elem]
+		if layout.error != .None || layout.size <= 0 || layout.size > i64(max(u32)) { return lower_fail(state, node, .Builtin) }
+		return lower_load(state, ir.ptr_index(function, values[0], simd_lane_operand(state, plan.arguments[1], values[1]), u32(layout.size)), vector.elem)
+	case .Simd_Replace:
+		vector := lower_type(state, operand_type(state, plan.arguments[0]))
+		if len(plan.arguments) != 3 ||
+		   vector.kind != .Simd_Vector ||
+		   vector.elem != operand_type(state, plan.arguments[2]) ||
+		   function.nodes.type[values[0]] != .Ptr ||
+		   !is_integer_value(function, values[1]) {
+			return lower_fail(state, node, .Builtin)
+		}
+		layout := state.job.layouts[vector.elem]
+		if layout.error != .None || layout.size <= 0 || layout.size > i64(max(u32)) { return lower_fail(state, node, .Builtin) }
+		copy := simd_slot(state, info.type)
+		lower_store(state, copy, values[0], info.type)
+		lower_store(state, ir.ptr_index(function, copy, simd_lane_operand(state, plan.arguments[1], values[1]), u32(layout.size)), values[2], vector.elem)
+		return copy
 	case .Simd_Indices:
 		if len(plan.arguments) != 0 { return lower_fail(state, node, .Builtin) }
 		return lower_simd_indices(state, node, info.type)
 	case .Simd_Select:
 		if len(plan.arguments) != 3 { return lower_fail(state, node, .Builtin) }
 		return lower_simd_select(state, info.type, operand_type(state, plan.arguments[0]), values)
-	case .Simd_Lanes_Ne:
+	case .Simd_Lanes_Eq, .Simd_Lanes_Ne, .Simd_Lanes_Lt, .Simd_Lanes_Le, .Simd_Lanes_Gt, .Simd_Lanes_Ge:
 		if len(plan.arguments) != 2 { return lower_fail(state, node, .Builtin) }
-		return lower_simd_lanes_ne(state, info.type, operand_type(state, plan.arguments[0]), values)
+		return lower_simd_lanes(state, info.type, operand_type(state, plan.arguments[0]), kind, values)
+	case .Simd_Add, .Simd_Sub, .Simd_Mul, .Simd_Div, .Simd_Bit_And, .Simd_Bit_Or, .Simd_Bit_Xor, .Simd_Bit_And_Not, .Simd_Min, .Simd_Max:
+		if len(plan.arguments) != 2 { return lower_fail(state, node, .Builtin) }
+		return lower_simd_lanewise(state, info.type, kind, values)
+	case .Simd_Shl, .Simd_Shr, .Simd_Shl_Masked, .Simd_Shr_Masked:
+		if len(plan.arguments) != 2 { return lower_fail(state, node, .Builtin) }
+		return lower_simd_shift(state, info.type, operand_type(state, plan.arguments[1]), kind, values)
 	case .Simd_Reduce_Or, .Simd_Reduce_Min:
 		if len(plan.arguments) != 1 { return lower_fail(state, node, .Builtin) }
 		return lower_simd_reduce(state, node, kind, operand_type(state, plan.arguments[0]), values[0])
@@ -65,7 +123,7 @@ lower_simd_indices :: proc(state: ^Procedure_State, node: syntax.Node_Index, typ
 	function := state.job.function
 	elem, lanes := simd_shape(state, type)
 	lane_type := scalar_type(state, elem)
-	if !is_integer_type(lane_type) && lane_type != .F32 && lane_type != .F64 { return lower_fail(state, node, .Builtin) }
+	if !is_integer_type(lane_type) && lane_type != .F16 && lane_type != .F32 && lane_type != .F64 { return lower_fail(state, node, .Builtin) }
 	address := simd_slot(state, type)
 	for lane in 0 ..< lanes {
 		if state.failed || function.error != nil { return 0 }
@@ -81,8 +139,17 @@ simd_lane_index :: proc(function: ^ir.Function, lane_type: ir.Value_Type, lane: 
 		return ir.const_float(function, lane_type, u64(transmute(u32)f32(lane)))
 	case .F64:
 		return ir.const_float(function, lane_type, transmute(u64)f64(lane))
+	case .F16:
+		return float16_narrow(function, ir.const_float(function, .F64, transmute(u64)f64(lane)))
 	}
 	return ir.const_int(function, lane_type, lane)
+}
+
+@(private)
+simd_lane_operand :: proc(state: ^Procedure_State, operand: check.Operand, value: ir.Node_Id) -> ir.Node_Id {
+	function := state.job.function
+	if function.nodes.type[value] == .I64 { return value }
+	return ir.convert(function, .Sext if signed_type(state, operand_type(state, operand)) else .Zext, value, .I64)
 }
 
 @(private)
@@ -105,26 +172,40 @@ lower_simd_select :: proc(state: ^Procedure_State, type, mask_type: types.Type_I
 }
 
 @(private)
-lower_simd_lanes_ne :: proc(state: ^Procedure_State, type, operand: types.Type_Id, values: [5]ir.Node_Id) -> ir.Node_Id {
+lower_simd_lanes :: proc(state: ^Procedure_State, type, operand: types.Type_Id, kind: check.Builtin_Kind, values: [5]ir.Node_Id) -> ir.Node_Id {
 	function := state.job.function
 	input_elem, lanes := simd_shape(state, operand)
 	output_elem, _ := simd_shape(state, type)
-	compare_kind := ir.Node_Kind.FNe if lower_type(state, input_elem).kind == .Float else .Ne
+	floating := lower_type(state, input_elem).kind == .Float
+	compare_kind := simd_compare_kind(kind, floating, signed_type(state, input_elem))
 	lane_type := scalar_type(state, output_elem)
 	all_ones := ir.const_int(function, lane_type, -1)
 	none := ir.const_int(function, lane_type, 0)
 	address := simd_slot(state, type)
 	for lane in 0 ..< lanes {
 		if state.failed || function.error != nil { return 0 }
-		different := ir.compare(
-			function,
-			compare_kind,
-			simd_lane_value(state, values[0], lane, input_elem),
-			simd_lane_value(state, values[1], lane, input_elem),
-		)
-		lower_store(state, simd_lane_address(state, address, lane, output_elem), ir.select(function, different, all_ones, none), output_elem)
+		left := simd_lane_value(state, values[0], lane, input_elem)
+		right := simd_lane_value(state, values[1], lane, input_elem)
+		if kind == .Simd_Lanes_Gt || kind == .Simd_Lanes_Ge { left, right = right, left }
+		holds := ir.compare(function, compare_kind, left, right)
+		lower_store(state, simd_lane_address(state, address, lane, output_elem), ir.select(function, holds, all_ones, none), output_elem)
 	}
 	return address
+}
+
+@(private)
+simd_compare_kind :: proc(kind: check.Builtin_Kind, floating, signed: bool) -> ir.Node_Kind {
+	#partial switch kind {
+	case .Simd_Lanes_Eq:
+		return .FEq if floating else .Eq
+	case .Simd_Lanes_Ne:
+		return .FNe if floating else .Ne
+	case .Simd_Lanes_Lt, .Simd_Lanes_Gt:
+		if floating { return .FLt }
+		return .SLt if signed else .ULt
+	}
+	if floating { return .FLe }
+	return .SLe if signed else .ULe
 }
 
 @(private)
@@ -204,4 +285,110 @@ simd_lane_address :: proc(state: ^Procedure_State, vector: ir.Node_Id, lane: i64
 @(private)
 simd_lane_value :: proc(state: ^Procedure_State, vector: ir.Node_Id, lane: i64, elem: types.Type_Id) -> ir.Node_Id {
 	return lower_load(state, simd_lane_address(state, vector, lane, elem), elem)
+}
+
+// Each result lane copies one lane of the operands; indices at or past the operand width select from the second operand.
+@(private)
+lower_simd_shuffle :: proc(state: ^Procedure_State, node: syntax.Node_Index, info: check.Expression_Info, plan: check.Builtin_Plan) -> ir.Node_Id {
+	if len(plan.arguments) < 3 || !call_operand_valid(state, plan.arguments[0]) || !call_operand_valid(state, plan.arguments[1]) {
+		return lower_fail(state, node, .Builtin)
+	}
+	function := state.job.function
+	left := lower_operand(state, plan.arguments[0])
+	right := lower_operand(state, plan.arguments[1])
+	if state.failed || function.error != nil { return 0 }
+	input_elem, input_lanes := simd_shape(state, operand_type(state, plan.arguments[0]))
+	elem, lanes := simd_shape(state, info.type)
+	if elem != input_elem || lanes != i64(len(plan.arguments) - 2) { return lower_fail(state, node, .Builtin) }
+	address := simd_slot(state, info.type)
+	for lane in 0 ..< lanes {
+		if state.failed || function.error != nil { return 0 }
+		index_constant, is_constant := plan.arguments[lane + 2].(check.Const_Id)
+		if !is_constant { return lower_fail(state, node, .Builtin) }
+		integer := check.constant(state.job.program, index_constant).value.(big.Int)
+		index, index_error := big.int_get_i64(&integer)
+		if index_error != nil || index < 0 || index >= 2 * input_lanes { return lower_fail(state, node, .Builtin) }
+		source, source_lane := left, index
+		if index >= input_lanes { source, source_lane = right, index - input_lanes }
+		lower_store(state, simd_lane_address(state, address, lane, elem), simd_lane_value(state, source, source_lane, elem), elem)
+	}
+	return address
+}
+@(private)
+lower_simd_lanewise :: proc(state: ^Procedure_State, type: types.Type_Id, kind: check.Builtin_Kind, values: [5]ir.Node_Id) -> ir.Node_Id {
+	function := state.job.function
+	elem, lanes := simd_shape(state, type)
+	floating := lower_type(state, elem).kind == .Float
+	signed := signed_type(state, elem)
+	lane_type := scalar_type(state, elem)
+	address := simd_slot(state, type)
+	for lane in 0 ..< lanes {
+		if state.failed || function.error != nil { return 0 }
+		left := simd_lane_value(state, values[0], lane, elem)
+		right := simd_lane_value(state, values[1], lane, elem)
+		result: ir.Node_Id
+		#partial switch kind {
+		case .Simd_Min, .Simd_Max:
+			less_kind := ir.Node_Kind.FLt if floating else ir.Node_Kind.SLt if signed else ir.Node_Kind.ULt
+			less := ir.compare(function, less_kind, left, right)
+			result = ir.select(function, less, left, right) if kind == .Simd_Min else ir.select(function, less, right, left)
+		case .Simd_Bit_And_Not:
+			not_right := ir.binary(function, .Xor, right, ir.const_int(function, lane_type, -1))
+			result = ir.binary(function, .And, left, not_right)
+		case:
+			result = ir.binary(function, simd_arithmetic_kind(kind, floating), left, right)
+		}
+		lower_store(state, simd_lane_address(state, address, lane, elem), result, elem)
+	}
+	return address
+}
+
+@(private)
+simd_arithmetic_kind :: proc(kind: check.Builtin_Kind, floating: bool) -> ir.Node_Kind {
+	#partial switch kind {
+	case .Simd_Add:
+		return .FAdd if floating else .Add
+	case .Simd_Sub:
+		return .FSub if floating else .Sub
+	case .Simd_Mul:
+		return .FMul if floating else .Mul
+	case .Simd_Div:
+		return .FDiv
+	case .Simd_Bit_And:
+		return .And
+	case .Simd_Bit_Or:
+		return .Or
+	}
+	return .Xor
+}
+
+@(private)
+lower_simd_shift :: proc(state: ^Procedure_State, type, amount_type: types.Type_Id, kind: check.Builtin_Kind, values: [5]ir.Node_Id) -> ir.Node_Id {
+	function := state.job.function
+	elem, lanes := simd_shape(state, type)
+	amount_elem, _ := simd_shape(state, amount_type)
+	lane_type := scalar_type(state, elem)
+	amount_type_value := scalar_type(state, amount_elem)
+	bits := state.job.layouts[elem].size * 8
+	shift_kind := ir.Node_Kind.Shl
+	if kind == .Simd_Shr || kind == .Simd_Shr_Masked {
+		shift_kind = .Sar if signed_type(state, elem) else .Shr
+	}
+	masked := kind == .Simd_Shl_Masked || kind == .Simd_Shr_Masked
+	address := simd_slot(state, type)
+	for lane in 0 ..< lanes {
+		if state.failed || function.error != nil { return 0 }
+		value := simd_lane_value(state, values[0], lane, elem)
+		amount := simd_lane_value(state, values[1], lane, amount_elem)
+		in_range := ir.compare(function, .ULt, amount, ir.const_int(function, amount_type_value, bits))
+		if amount_type_value != lane_type {
+			amount = ir.convert(function, .Trunc if state.job.layouts[amount_elem].size > state.job.layouts[elem].size else .Zext, amount, lane_type)
+		}
+		amount = ir.binary(function, .And, amount, ir.const_int(function, lane_type, bits - 1))
+		shifted := ir.binary(function, shift_kind, value, amount)
+		result := shifted
+		if !masked { result = ir.select(function, in_range, shifted, ir.const_int(function, lane_type, 0)) }
+		lower_store(state, simd_lane_address(state, address, lane, elem), result, elem)
+	}
+	return address
 }

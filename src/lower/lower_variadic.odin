@@ -21,8 +21,13 @@ lower_variadic_slice :: proc(state: ^Procedure_State, node: syntax.Node_Index, a
 	}
 	storage := ir.stack_slot(function, state.entry_control, u32(element_layout.size) * u32(count), u32(element_layout.align))
 	for element, index in argument.variadic_elements {
-		if !call_operand_valid(state, element) { return lower_fail(state, node, .Call_Argument) }
-		value := lower_operand(state, element, element_type)
+		value: ir.Node_Id
+		if argument.variadic_conversions[index] != 0 {
+			value = lower_conversion(state, check.plan(state.job.program, argument.variadic_conversions[index])^.(check.Conversion_Plan), node)
+		} else {
+			if !call_operand_valid(state, element) { return lower_fail(state, node, .Call_Argument) }
+			value = lower_operand(state, element, element_type)
+		}
 		if state.failed || function.error != nil { return 0 }
 		lower_store(state, ir.ptr_offset(function, storage, i64(index) * element_layout.size), value, element_type)
 	}

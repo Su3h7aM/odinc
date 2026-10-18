@@ -72,7 +72,7 @@ direct_call_callee :: proc(state: ^Procedure_State, plan: check.Call_Plan) -> bo
 }
 
 // lower_call returns the single result, or 0 for void and multiple results. Multiple results
-// are read through lower_call_results.
+// are read through lower_call_results. An #optional_ok call used as a single value yields its first result.
 @(private)
 lower_call :: proc(state: ^Procedure_State, node: syntax.Node_Index, info: check.Expression_Info, plan: check.Call_Plan) -> ir.Node_Id {
 	single: [1]ir.Node_Id
@@ -87,6 +87,7 @@ lower_call :: proc(state: ^Procedure_State, node: syntax.Node_Index, info: check
 		values = allocated
 	}
 	lower_call_results(state, node, info, plan, values[:count])
+	if info.mode == .Optional_Ok { return values[0] }
 	if count != 1 { return 0 }
 	return single[0]
 }

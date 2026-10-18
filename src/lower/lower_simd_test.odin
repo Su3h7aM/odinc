@@ -14,6 +14,7 @@ Simd_Call :: struct {
 	kind:      check.Builtin_Kind,
 	type:      types.Type_Id,
 	arguments: []int,
+	indices:   []i64,
 }
 
 // Procedure `() -> result` returning the last call of `calls`. The global `guard` of type `guard` is initialized
@@ -42,6 +43,8 @@ run_simd_expression :: proc(
 	nodes := make([]syntax.Node_Index, len(calls), allocator)
 	kinds := make([]check.Builtin_Kind, len(calls) + 1, allocator)
 	plans := make([]check.Plan, len(calls) + 1, allocator)
+	index_constants: [dynamic]check.Constant
+	defer delete(index_constants)
 	for call, index in calls {
 		arguments: [dynamic]syntax.Node_Index
 		operands: [dynamic]check.Operand
@@ -52,6 +55,16 @@ run_simd_expression :: proc(
 		for argument in call.arguments {
 			append(&arguments, nodes[argument])
 			append(&operands, check.Expression_Ref{1, nodes[argument]})
+		}
+		for value in call.indices {
+			index_value: big.Int
+			testing.expect_value(t, big.int_set_from_integer(&index_value, value, allocator = allocator), big.Error.None)
+			append(&arguments, syntax.ast_add_node(&ast, .Ident, 0, 1, syntax.Ident{}))
+			append(&operands, check.Const_Id(2 + len(index_constants)))
+			append(
+				&index_constants,
+				check.Constant{type = types.intern(store, types.Type{kind = .Integer, name = "int", count = 8, signed = true}), value = index_value},
+			)
 		}
 		callee := syntax.ast_add_node(&ast, .Ident, 0, 1, syntax.Ident{})
 		nodes[index] = syntax.ast_add_node(&ast, .Call_Expr, 0, 1, syntax.Call_Expr{expr = callee, args = syntax.ast_add_list(&ast, arguments[:])})
@@ -105,7 +118,10 @@ run_simd_expression :: proc(
 	)
 	program.entity_symbols = fixture_clone([]check.Symbol_Id{0, 1, 2}, allocator)
 	program.global_list = fixture_clone([]check.Global{{entity = 2, symbol = 2, type = guard, alignment = 16, initializer = 1}}, allocator)
-	program.constant_table = fixture_clone([]check.Constant{{}, {type = guard, value = initial_value}}, allocator)
+	constants := make([dynamic]check.Constant, 0, 2 + len(index_constants), allocator)
+	append(&constants, check.Constant{}, check.Constant{type = guard, value = initial_value})
+	for constant in index_constants { append(&constants, constant) }
+	program.constant_table = constants[:]
 	module: ir.Module
 	errors, err := lower_program(&program, &module)
 	defer delete(errors)
@@ -310,4 +326,212 @@ simd_lanes_ne_nan_lanes_differ :: proc(t: ^testing.T) {
 	}
 	value, ok := run_simd_expression(t, &store, allocator, vector, word, NAN_LANES, calls[:])
 	if ok { testing.expect_value(t, value, u64(0xffffffff)) }
+}
+
+@(test)
+simd_extract_loads_dynamic_integer_and_float_lanes :: proc(t: ^testing.T) {
+	arena: virtual.Arena
+	if !testing.expect_value(t, virtual.arena_init_growing(&arena), nil) { return }
+	defer virtual.arena_destroy(&arena)
+	allocator := virtual.arena_allocator(&arena)
+	store := types.init()
+	defer types.destroy(&store)
+	byte, bytes := simd_test_types(&store)
+	float := types.intern(&store, types.Type{kind = .Float, count = 4})
+	floats := types.intern(&store, types.Type{kind = .Simd_Vector, elem = float, count = 4})
+	index_pair := types.intern(&store, types.Type{kind = .Simd_Vector, elem = byte, count = 2})
+	for example in ([?]struct {
+			vector, element, indices: types.Type_Id,
+			initial:                  string,
+			expected:                 u64,
+		}{{bytes, byte, bytes, BYTE_LANES_1_TO_16, 16}, {floats, float, index_pair, FLOAT_LANES, 0x40000000}}) {
+		calls := [?]Simd_Call {
+			{kind = .Unaligned_Load, type = example.vector},
+			{kind = .Simd_Indices, type = example.indices},
+			{kind = .Simd_Reduce_Or, type = byte, arguments = []int{1}},
+			{kind = .Simd_Extract, type = example.element, arguments = []int{0, 2}},
+		}
+		value, ok := run_simd_expression(t, &store, allocator, example.vector, example.element, example.initial, calls[:])
+		if ok { testing.expect_value(t, value, example.expected) }
+	}
+}
+
+@(test)
+simd_replace_writes_one_lane_of_a_copy :: proc(t: ^testing.T) {
+	arena: virtual.Arena
+	if !testing.expect_value(t, virtual.arena_init_growing(&arena), nil) { return }
+	defer virtual.arena_destroy(&arena)
+	allocator := virtual.arena_allocator(&arena)
+	store := types.init()
+	defer types.destroy(&store)
+	byte, bytes := simd_test_types(&store)
+	calls := [?]Simd_Call {
+		{kind = .Unaligned_Load, type = bytes},
+		{kind = .Simd_Indices, type = bytes},
+		{kind = .Simd_Reduce_Or, type = byte, arguments = []int{1}},
+		{kind = .Simd_Extract, type = byte, arguments = []int{0, 2}},
+		{kind = .Simd_Reduce_Min, type = byte, arguments = []int{1}},
+		{kind = .Simd_Replace, type = bytes, arguments = []int{0, 4, 3}},
+		{kind = .Simd_Extract, type = byte, arguments = []int{5, 4}},
+	}
+	value, ok := run_simd_expression(t, &store, allocator, bytes, byte, BYTE_LANES_1_TO_16, calls[:])
+	if ok { testing.expect_value(t, value, u64(16)) }
+}
+
+// Guard lanes 1..16 doubled: their minimum is 2.
+@(test)
+simd_add_doubles_lanes :: proc(t: ^testing.T) {
+	arena: virtual.Arena
+	testing.expect_value(t, virtual.arena_init_growing(&arena), nil)
+	defer virtual.arena_destroy(&arena)
+	allocator := virtual.arena_allocator(&arena)
+	store := types.init()
+	defer types.destroy(&store)
+	byte, vector := simd_test_types(&store)
+	calls := [?]Simd_Call {
+		{kind = .Unaligned_Load, type = vector},
+		{kind = .Simd_Add, type = vector, arguments = []int{0, 0}},
+		{kind = .Simd_Reduce_Min, type = byte, arguments = []int{1}},
+	}
+	value, ok := run_simd_expression(t, &store, allocator, vector, byte, BYTE_LANES_1_TO_16, calls[:])
+	if ok { testing.expect_value(t, value, u64(2)) }
+}
+
+// Lanes 1..16 doubled are 2..32. Result lane 2 takes index 15 of the second operand, which is 32.
+@(test)
+simd_shuffle_selects_lanes_from_both_operands :: proc(t: ^testing.T) {
+	arena: virtual.Arena
+	testing.expect_value(t, virtual.arena_init_growing(&arena), nil)
+	defer virtual.arena_destroy(&arena)
+	allocator := virtual.arena_allocator(&arena)
+	store := types.init()
+	defer types.destroy(&store)
+	byte, vector := simd_test_types(&store)
+	pair := types.intern(&store, types.Type{kind = .Simd_Vector, elem = byte, count = 4})
+	calls := [?]Simd_Call {
+		{kind = .Unaligned_Load, type = vector},
+		{kind = .Simd_Add, type = vector, arguments = []int{0, 0}},
+		{kind = .Simd_Shuffle, type = pair, arguments = []int{0, 1}, indices = []i64{17, 2, 31, 0}},
+		{kind = .Simd_Extract, type = byte, arguments = []int{2}, indices = []i64{2}},
+	}
+	value, ok := run_simd_expression(t, &store, allocator, vector, byte, BYTE_LANES_1_TO_16, calls[:])
+	if ok { testing.expect_value(t, value, u64(32)) }
+}
+
+// Minimum of the indices 0..15 and the guard lanes 1..16 is 0..15, whose bitwise or is 15.
+@(test)
+simd_min_takes_smaller_lanes :: proc(t: ^testing.T) {
+	arena: virtual.Arena
+	testing.expect_value(t, virtual.arena_init_growing(&arena), nil)
+	defer virtual.arena_destroy(&arena)
+	allocator := virtual.arena_allocator(&arena)
+	store := types.init()
+	defer types.destroy(&store)
+	byte, vector := simd_test_types(&store)
+	calls := [?]Simd_Call {
+		{kind = .Simd_Indices, type = vector},
+		{kind = .Unaligned_Load, type = vector},
+		{kind = .Simd_Min, type = vector, arguments = []int{0, 1}},
+		{kind = .Simd_Reduce_Or, type = byte, arguments = []int{2}},
+	}
+	value, ok := run_simd_expression(t, &store, allocator, vector, byte, BYTE_LANES_1_TO_16, calls[:])
+	if ok { testing.expect_value(t, value, u64(15)) }
+}
+
+// Lane i of guard & ~index is (i+1) & ~i; the or over all lanes is 1|2|4|8|16 = 31.
+@(test)
+simd_bit_and_not_clears_index_bits :: proc(t: ^testing.T) {
+	arena: virtual.Arena
+	testing.expect_value(t, virtual.arena_init_growing(&arena), nil)
+	defer virtual.arena_destroy(&arena)
+	allocator := virtual.arena_allocator(&arena)
+	store := types.init()
+	defer types.destroy(&store)
+	byte, vector := simd_test_types(&store)
+	calls := [?]Simd_Call {
+		{kind = .Simd_Indices, type = vector},
+		{kind = .Unaligned_Load, type = vector},
+		{kind = .Simd_Bit_And_Not, type = vector, arguments = []int{1, 0}},
+		{kind = .Simd_Reduce_Or, type = byte, arguments = []int{2}},
+	}
+	value, ok := run_simd_expression(t, &store, allocator, vector, byte, BYTE_LANES_1_TO_16, calls[:])
+	if ok { testing.expect_value(t, value, u64(31)) }
+}
+
+// Every guard lane (i+1) is greater than its index i, so the all-ones mask covers each lane.
+@(test)
+simd_lanes_gt_compares_left_to_right :: proc(t: ^testing.T) {
+	arena: virtual.Arena
+	testing.expect_value(t, virtual.arena_init_growing(&arena), nil)
+	defer virtual.arena_destroy(&arena)
+	allocator := virtual.arena_allocator(&arena)
+	store := types.init()
+	defer types.destroy(&store)
+	byte, vector := simd_test_types(&store)
+	calls := [?]Simd_Call {
+		{kind = .Simd_Indices, type = vector},
+		{kind = .Unaligned_Load, type = vector},
+		{kind = .Simd_Lanes_Gt, type = vector, arguments = []int{1, 0}},
+		{kind = .Simd_Reduce_Or, type = byte, arguments = []int{2}},
+	}
+	value, ok := run_simd_expression(t, &store, allocator, vector, byte, BYTE_LANES_1_TO_16, calls[:])
+	if ok { testing.expect_value(t, value, u64(0xff)) }
+}
+
+// Counts 2i give lanes (i+1) << 2i, zero for counts of 8 or more: their or is 1|8|48 = 57.
+@(test)
+simd_shl_zeroes_counts_past_the_width :: proc(t: ^testing.T) {
+	arena: virtual.Arena
+	testing.expect_value(t, virtual.arena_init_growing(&arena), nil)
+	defer virtual.arena_destroy(&arena)
+	allocator := virtual.arena_allocator(&arena)
+	store := types.init()
+	defer types.destroy(&store)
+	byte, vector := simd_test_types(&store)
+	calls := [?]Simd_Call {
+		{kind = .Simd_Indices, type = vector},
+		{kind = .Simd_Add, type = vector, arguments = []int{0, 0}},
+		{kind = .Unaligned_Load, type = vector},
+		{kind = .Simd_Shl, type = vector, arguments = []int{2, 1}},
+		{kind = .Simd_Reduce_Or, type = byte, arguments = []int{3}},
+	}
+	value, ok := run_simd_expression(t, &store, allocator, vector, byte, BYTE_LANES_1_TO_16, calls[:])
+	if ok { testing.expect_value(t, value, u64(57)) }
+}
+
+// The same counts masked to the width: the lanes (i+1) << (2i & 7) have or 253.
+@(test)
+simd_shl_masked_wraps_counts :: proc(t: ^testing.T) {
+	arena: virtual.Arena
+	testing.expect_value(t, virtual.arena_init_growing(&arena), nil)
+	defer virtual.arena_destroy(&arena)
+	allocator := virtual.arena_allocator(&arena)
+	store := types.init()
+	defer types.destroy(&store)
+	byte, vector := simd_test_types(&store)
+	calls := [?]Simd_Call {
+		{kind = .Simd_Indices, type = vector},
+		{kind = .Simd_Add, type = vector, arguments = []int{0, 0}},
+		{kind = .Unaligned_Load, type = vector},
+		{kind = .Simd_Shl_Masked, type = vector, arguments = []int{2, 1}},
+		{kind = .Simd_Reduce_Or, type = byte, arguments = []int{3}},
+	}
+	value, ok := run_simd_expression(t, &store, allocator, vector, byte, BYTE_LANES_1_TO_16, calls[:])
+	if ok { testing.expect_value(t, value, u64(253)) }
+}
+
+// Float16 index lane 2 is 2.0, whose half-precision bits are 0x4000.
+@(test)
+simd_indices_float16_lanes :: proc(t: ^testing.T) {
+	arena: virtual.Arena
+	testing.expect_value(t, virtual.arena_init_growing(&arena), nil)
+	defer virtual.arena_destroy(&arena)
+	allocator := virtual.arena_allocator(&arena)
+	store := types.init()
+	defer types.destroy(&store)
+	float := types.intern(&store, types.Type{kind = .Float, count = 2})
+	vector := types.intern(&store, types.Type{kind = .Simd_Vector, elem = float, count = 4})
+	calls := [?]Simd_Call{{kind = .Simd_Indices, type = vector}, {kind = .Simd_Extract, type = float, arguments = []int{0}, indices = []i64{2}}}
+	value, ok := run_simd_expression(t, &store, allocator, vector, float, "0", calls[:])
+	if ok { testing.expect_value(t, value, u64(0x4000)) }
 }

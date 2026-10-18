@@ -1,0 +1,35 @@
+package lower
+
+import "base:runtime"
+import "core:fmt"
+import "core:mem/virtual"
+import "oc:ir"
+
+// A string initializer is a header {data, length} whose data points at a read-only module blob holding the bytes.
+@(private)
+global_string_image :: proc(
+	module: ^ir.Module,
+	text: string,
+	relocs: []ir.Data_Reloc,
+	allocator: runtime.Allocator,
+) -> (
+	bytes: []byte,
+	out_relocs: []ir.Data_Reloc,
+	err: runtime.Allocator_Error,
+) {
+	module_allocator := virtual.arena_allocator(&module.arena)
+	index := len(module.globals)
+	blob_bytes := make([]byte, len(text), module_allocator) or_return
+	copy(blob_bytes, text)
+	name := fmt.aprintf("__odinc_internal_string_%d", index, allocator = module_allocator)
+	append(&module.globals, ir.Global{name = name, size = u32(len(text)), align = 1, bytes = blob_bytes}) or_return
+	bytes = make([]byte, 16, allocator) or_return
+	write_scalar(bytes, 8, u64(len(text)), 8)
+	out_relocs = make([]ir.Data_Reloc, len(relocs) + 1, allocator) or_return
+	copy(out_relocs, relocs)
+	out_relocs[len(relocs)] = {
+		offset = 0,
+		target = ir.Symbol_Ref{space = .Global, index = u32(index)},
+	}
+	return bytes, out_relocs, nil
+}

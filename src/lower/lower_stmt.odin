@@ -26,10 +26,12 @@ lower_statement :: proc(state: ^Procedure_State, node: syntax.Node_Index) {
 	case .Range_Stmt:
 		lower_range(state, node, ast_node.payload.(syntax.Range_Stmt))
 	case .Unroll_Range_Stmt:
-		lower_fail(state, node, .Range)
+		lower_unroll_range(state, node, ast_node.payload.(syntax.Unroll_Range_Stmt))
 	case .Switch_Stmt:
 		lower_switch(state, node, ast_node.payload.(syntax.Switch_Stmt))
-	case .Type_Switch_Stmt, .Case_Clause:
+	case .Type_Switch_Stmt:
+		lower_type_switch(state, node, ast_node.payload.(syntax.Type_Switch_Stmt))
+	case .Case_Clause:
 		lower_fail(state, node, .Switch)
 	case .Value_Decl:
 		lower_local_declaration(state, node, ast_node.payload.(syntax.Value_Decl))

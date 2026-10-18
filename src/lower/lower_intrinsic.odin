@@ -16,7 +16,7 @@ lower_intrinsic :: proc(
 	kind: check.Builtin_Kind,
 ) -> ir.Node_Id {
 	if len(plan.results) != 0 {
-		results: [2]ir.Node_Id
+		results: [4]ir.Node_Id
 		lower_intrinsic_tuple(state, node, plan, kind, results[:])
 		return results[0]
 	}
@@ -37,14 +37,18 @@ lower_intrinsic :: proc(
 	case .Count_Ones, .Count_Zeros, .Count_Leading_Zeros, .Count_Trailing_Zeros, .Reverse_Bits, .Byte_Swap:
 		if !is_integer_value(function, values[0]) || type != function.nodes.type[values[0]] { return lower_fail(state, node, .Builtin) }
 		return lower_bit_intrinsic(state, kind, values[0])
+	case .Read_Cycle_Counter:
+		results: [1]ir.Node_Id
+		lower_target_op(state, node, .Rdtsc, nil, results[:])
+		return results[0]
 	case .Expect:
 		if type != function.nodes.type[values[0]] || type != function.nodes.type[values[1]] { return lower_fail(state, node, .Builtin) }
 		return values[0]
 	case .Volatile_Load, .Atomic_Load, .Atomic_Load_Explicit:
-		if !is_integer_type(type) || function.nodes.type[values[0]] != .Ptr { return lower_fail(state, node, .Builtin) }
+		if !is_atomic_type(type) || function.nodes.type[values[0]] != .Ptr { return lower_fail(state, node, .Builtin) }
 		return lower_ordered_load(state, values[0], type, order)
 	case .Volatile_Store, .Atomic_Store, .Atomic_Store_Explicit:
-		if function.nodes.type[values[0]] != .Ptr || !is_integer_value(function, values[1]) { return lower_fail(state, node, .Builtin) }
+		if function.nodes.type[values[0]] != .Ptr || !is_atomic_type(function.nodes.type[values[1]]) { return lower_fail(state, node, .Builtin) }
 		memory := ir.add_node(
 			function,
 			.Store,
@@ -91,6 +95,31 @@ lower_intrinsic :: proc(
 		if function.nodes.type[values[0]] != .Ptr || function.nodes.type[values[1]] != .I64 { return lower_fail(state, node, .Builtin) }
 		zero := ir.const_int(function, .I8, 0)
 		return lower_memory_effect(state, .Mem_Set, values[0], zero, values[1])
+	case .Sqrt:
+		if !is_float_type(type) || type != function.nodes.type[values[0]] { return lower_fail(state, node, .Builtin) }
+		return ir.unary(function, .FSqrt, values[0])
+	case .Ptr_Offset:
+		if function.nodes.type[values[0]] != .Ptr || !is_integer_value(function, values[1]) { return lower_fail(state, node, .Builtin) }
+		pointer := lower_type(state, operand_type(state, plan.arguments[0]))
+		layout := state.job.layouts[pointer.elem]
+		if layout.error != .None || layout.size > i64(max(u32)) { return lower_fail(state, node, .Builtin) }
+		offset := values[1]
+		if function.nodes.type[offset] != .I64 {
+			offset = ir.convert(function, .Sext if signed_type(state, operand_type(state, plan.arguments[1])) else .Zext, offset, .I64)
+		}
+		return ir.ptr_index(function, values[0], offset, u32(layout.size))
+	case .Ptr_Sub:
+		if function.nodes.type[values[0]] != .Ptr || function.nodes.type[values[1]] != .Ptr { return lower_fail(state, node, .Builtin) }
+		pointer := lower_type(state, operand_type(state, plan.arguments[0]))
+		layout := state.job.layouts[pointer.elem]
+		if layout.error != .None || layout.size <= 0 || layout.size > i64(max(u32)) { return lower_fail(state, node, .Builtin) }
+		first := ir.convert(function, .Bitcast, values[0], .I64)
+		second := ir.convert(function, .Bitcast, values[1], .I64)
+		difference := ir.binary(function, .Sub, first, second)
+		return ir.divide(function, .SDiv, state.builder.control, difference, ir.const_int(function, .I64, layout.size))
+	case .Entry_Point:
+		lower_entry_point_call(state, node)
+		return 0
 	}
 	return lower_fail(state, node, .Builtin)
 }
@@ -109,6 +138,10 @@ lower_intrinsic_tuple :: proc(state: ^Procedure_State, node: syntax.Node_Index, 
 			return
 		}
 		results[0], results[1] = lower_overflow(state, kind, signed_type(state, plan.results[0]), values[0], values[1])
+	case .X86_Cpuid:
+		lower_target_op(state, node, .Cpuid, arguments, results)
+	case .X86_Xgetbv:
+		lower_target_op(state, node, .Xgetbv, arguments, results)
 	case .Atomic_Compare_Exchange_Strong, .Atomic_Compare_Exchange_Weak, .Atomic_Compare_Exchange_Strong_Explicit, .Atomic_Compare_Exchange_Weak_Explicit:
 		success, success_ok := intrinsic_memory_order(state, node, kind, arguments)
 		if !success_ok { return }
@@ -208,6 +241,16 @@ is_integer_value :: proc(function: ^ir.Function, value: ir.Node_Id) -> bool {
 @(private)
 is_integer_type :: proc(type: ir.Value_Type) -> bool {
 	return type >= .I8 && type <= .I64
+}
+
+@(private)
+is_atomic_type :: proc(type: ir.Value_Type) -> bool {
+	return is_integer_type(type) || type == .Ptr
+}
+
+@(private)
+is_float_type :: proc(type: ir.Value_Type) -> bool {
+	return type == .F32 || type == .F64
 }
 
 @(private)

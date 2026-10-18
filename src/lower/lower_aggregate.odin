@@ -14,8 +14,17 @@ lower_aggregate :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: 
 	if types.get(store, owner).kind == .Bit_Field { return lower_bit_field_aggregate(state, node, plan, owner) }
 	layout := state.job.layouts[plan.type]
 	if layout.error != .None || layout.size > i64(max(u32)) || len(plan.field_indices) != len(plan.values) { return lower_fail(state, node, .Expression) }
+	address := ir.stack_slot(state.job.function, state.entry_control, u32(layout.size), u32(layout.align))
+	return lower_aggregate_into(state, node, plan, address, layout.size)
+}
+
+// Fills the size bytes at address with the plan's values, zeroing the rest first.
+@(private)
+lower_aggregate_into :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: check.Aggregate_Plan, address: ir.Node_Id, size: i64) -> ir.Node_Id {
+	if state.failed || state.job.function.error != nil { return 0 }
+	store := check.type_store(state.job.program)
+	owner := types.resolve_named(store, plan.type)
 	function := state.job.function
-	address := ir.stack_slot(function, state.entry_control, u32(layout.size), u32(layout.align))
 	memory := ir.add_node(
 		function,
 		.Mem_Set,
@@ -25,7 +34,7 @@ lower_aggregate :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: 
 			ir.variable_get(state.builder, ir.MEMORY_VARIABLE),
 			address,
 			ir.const_int(function, .I8, 0),
-			ir.const_int(function, .I64, layout.size),
+			ir.const_int(function, .I64, size),
 		},
 	)
 	ir.variable_set(state.builder, ir.MEMORY_VARIABLE, memory)

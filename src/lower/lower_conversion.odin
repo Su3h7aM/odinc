@@ -10,6 +10,7 @@ lower_conversion :: proc(state: ^Procedure_State, plan: check.Conversion_Plan, n
 	assert(plan.kind != .Invalid, "missing checked conversion kind")
 	source_id := operand_type(state, plan.source)
 	if state.failed { return 0 }
+	if plan.kind == .Union_Injection && plan.source_type != 0 { source_id = plan.source_type }
 	constant_target := types.Type_Id(0)
 	if types.is_untyped(check.type_store(state.job.program), source_id) { constant_target = plan.target }
 	value := lower_operand(state, plan.source, constant_target)
@@ -27,7 +28,17 @@ lower_conversion_value :: proc(
 ) -> ir.Node_Id {
 	value := initial_value
 	if plan.kind == .Box { return lower_box_value(state, node, source_id, value) }
-	if plan.kind == .Union_Injection || len(plan.path) != 0 { return lower_fail(state, node, .Conversion) }
+	if plan.kind == .Union_Injection { return lower_union_injection(state, node, plan, source_id, value) }
+	if len(plan.path) != 0 { return lower_fail(state, node, .Conversion) }
+	store := check.type_store(state.job.program)
+	source_kind := types.get(store, types.resolve_named(store, source_id)).kind
+	target_kind := types.get(store, types.resolve_named(store, plan.target)).kind
+	if source_kind == .CString && target_kind == .String {
+		return lower_cstring_to_string(state, node, value, 1, .I8, plan.target)
+	}
+	if source_kind == .CString16 && target_kind == .String16 {
+		return lower_cstring_to_string(state, node, value, 2, .I16, plan.target)
+	}
 	if scalar_type(state, source_id) != .None && lower_type(state, plan.target).kind == .Simd_Vector {
 		return lower_simd_broadcast(state, plan.target, value)
 	}
@@ -45,6 +56,10 @@ lower_conversion_value :: proc(
 	if target == .None { return lower_fail(state, node, .Conversion) }
 	if plan.kind == .Transmute {
 		return ir.convert(function, .Bitcast, value, target)
+	}
+	if source == .Bool && target >= .I8 && target <= .I64 {
+		value = ir.convert(function, .Zext, value, .I8)
+		source = .I8
 	}
 	source_signed := signed_type(state, source_id)
 	if source == .Ptr || target == .Ptr {
@@ -103,6 +118,36 @@ lower_box_value :: proc(state: ^Procedure_State, node: syntax.Node_Index, source
 	lower_store_word(state, any_slot, data)
 	lower_store_word(state, ir.ptr_offset(function, any_slot, 8), typeid_value)
 	return any_slot
+}
+
+// `value` as a union variant: the payload at offset 0, then the tag word (none for maybe-pointer unions).
+@(private)
+lower_union_injection :: proc(
+	state: ^Procedure_State,
+	node: syntax.Node_Index,
+	plan: check.Conversion_Plan,
+	source_id: types.Type_Id,
+	value: ir.Node_Id,
+) -> ir.Node_Id {
+	store := check.type_store(state.job.program)
+	union_id := types.resolve_named(store, plan.target)
+	layout, layout_error := types.union_layout(store, union_id)
+	if layout_error != .None { return lower_fail(state, node, .Conversion) }
+	descriptor := types.get(store, union_id)
+	function := state.job.function
+	union_slot := ir.stack_slot(function, state.entry_control, u32(max(layout.size, 1)), u32(layout.alignment))
+	lower_store(state, union_slot, value, source_id)
+	if state.failed || state.job.function.error != nil { return 0 }
+	if descriptor.union_form == .Maybe_Pointer { return union_slot }
+	for variant, index in descriptor.variants {
+		if variant != source_id { continue }
+		tag := i64(index)
+		if descriptor.union_form != .No_Nil { tag += 1 }
+		tag_address := ir.ptr_offset(function, union_slot, layout.variant_block_size)
+		lower_store_word(state, tag_address, ir.const_int(function, tag_value_type(layout.tag_size), tag))
+		return union_slot
+	}
+	return lower_fail(state, node, .Conversion)
 }
 
 @(private)

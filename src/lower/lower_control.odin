@@ -157,6 +157,8 @@ scan_assigned_variables :: proc(state: ^Procedure_State, node: syntax.Node_Index
 	case syntax.Range_Stmt:
 		scan_assigned_variables(state, statement.init, assigned)
 		scan_assigned_variables(state, statement.body, assigned)
+	case syntax.Unroll_Range_Stmt:
+		scan_assigned_variables(state, statement.body, assigned)
 	case syntax.Tag_Stmt:
 		scan_assigned_variables(state, statement.stmt, assigned)
 	case syntax.Defer_Stmt:
