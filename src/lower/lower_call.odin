@@ -262,7 +262,23 @@ pick_ordered :: proc(function: ^ir.Function, less_kind: ir.Node_Kind, left, righ
 @(private)
 lower_numeric_builtin :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: check.Builtin_Plan, kind: check.Builtin_Kind) -> ir.Node_Id {
 	count := len(plan.arguments)
-	if count < 1 || count > 3 { return lower_fail(state, node, .Builtin) }
+	if count < 1 { return lower_fail(state, node, .Builtin) }
+	if kind == .Min || kind == .Max {
+		value := lower_operand(state, plan.arguments[0])
+		if state.failed { return 0 }
+		type := state.job.function.nodes.type[value]
+		floating := type == .F32 || type == .F64
+		signed := signed_type(state, operand_type(state, plan.arguments[0]))
+		less_kind := ir.Node_Kind.FLt if floating else (ir.Node_Kind.SLt if signed else ir.Node_Kind.ULt)
+		for argument in plan.arguments[1:] {
+			if !call_operand_valid(state, argument) { return lower_fail(state, node, .Builtin) }
+			right := lower_operand(state, argument)
+			if state.failed { return 0 }
+			value = pick_ordered(state.job.function, less_kind, value, right, kind == .Min)
+		}
+		return value
+	}
+	if count > 3 { return lower_fail(state, node, .Builtin) }
 	values: [3]ir.Node_Id
 	for argument, index in plan.arguments {
 		if !call_operand_valid(state, argument) { return lower_fail(state, node, .Builtin) }
@@ -287,6 +303,12 @@ lower_numeric_builtin :: proc(state: ^Procedure_State, node: syntax.Node_Index, 
 		return pick_ordered(function, less_kind, upper, values[2], true)
 	case .Abs:
 		if !floating && !signed { return values[0] }
+		if floating {
+			integer_type := ir.Value_Type.I32 if type == .F32 else ir.Value_Type.I64
+			bits := ir.convert(function, .Bitcast, values[0], integer_type)
+			mask := ir.const_int(function, integer_type, 0x7fff_ffff if type == .F32 else 0x7fff_ffff_ffff_ffff)
+			return ir.convert(function, .Bitcast, ir.binary(function, .And, bits, mask), type)
+		}
 		zero := ir.const_float(function, type, 0) if floating else ir.const_int(function, type, 0)
 		negative := ir.compare(function, less_kind, values[0], zero)
 		flipped := ir.unary(function, .FNeg, values[0]) if floating else ir.binary(function, .Sub, zero, values[0])

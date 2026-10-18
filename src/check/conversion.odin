@@ -93,6 +93,7 @@ check_conversion :: proc(
 		allowed ||= simd_broadcast_allowed(dst, info.type)
 	}
 	if kind == .Cast {
+		allowed ||= src.kind == .Enum && conversion_integer(dst.kind)
 		allowed ||= conversion_integer(src.kind) && conversion_integer(dst.kind) || conversion_boolean(src.kind) && conversion_boolean(dst.kind)
 		allowed ||= conversion_float(src.kind) && conversion_float(dst.kind)
 		allowed ||= conversion_integer(src.kind) && conversion_float(dst.kind)

@@ -191,6 +191,8 @@ lower_value :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> ir.Node
 			return lower_builtin(state, node, info, value)
 		case check.Typeid_Plan:
 			return lower_typeid(state, node, value)
+		case check.Type_Info_Plan:
+			return lower_type_info_of(state, node, value)
 		case check.Propagation_Plan:
 			if state.ast.nodes[node].kind == .Or_Return_Expr { return lower_or_return(state, node, value) }
 			if state.ast.nodes[node].kind == .Or_Branch_Expr { return lower_or_branch(state, node, value) }

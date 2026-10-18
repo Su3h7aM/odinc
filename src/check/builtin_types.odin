@@ -91,6 +91,7 @@ UNIVERSE_CLAMP :: Builtin_Id(8)
 UNIVERSE_TYPEID_OF :: Builtin_Id(9)
 UNIVERSE_UNREACHABLE :: Builtin_Id(10)
 UNIVERSE_RAW_DATA :: Builtin_Id(11)
+UNIVERSE_TYPE_INFO_OF :: Builtin_Id(13)
 
 // Binds the universal builtin procedures as builtin entities in the universal scope.
 bind_universe_builtins :: proc(scopes: ^Scope_Store, universe: Scope_Id) -> Binding_Error {
@@ -107,6 +108,7 @@ bind_universe_builtins :: proc(scopes: ^Scope_Store, universe: Scope_Id) -> Bind
 		{"abs", UNIVERSE_ABS},
 		{"clamp", UNIVERSE_CLAMP},
 		{"typeid_of", UNIVERSE_TYPEID_OF},
+		{"type_info_of", UNIVERSE_TYPE_INFO_OF},
 		{"unreachable", UNIVERSE_UNREACHABLE},
 		{"raw_data", UNIVERSE_RAW_DATA},
 	}

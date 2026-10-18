@@ -87,6 +87,7 @@ expression_checker_init :: proc(
 	append(&checker.builtin_kinds, Builtin_Kind.Unreachable) or_return
 	append(&checker.builtin_kinds, Builtin_Kind.Raw_Data) or_return
 	append(&checker.builtin_kinds, Builtin_Kind.Has_Target_Feature) or_return
+	append(&checker.builtin_kinds, Builtin_Kind.Type_Info_Of) or_return
 	return nil
 }
 

@@ -397,10 +397,17 @@ expression_range :: proc(checker: ^Expression_Checker, view: View_Id, file_id: F
 		expression_failure(checker, view, scope, loop.expr, .Unsupported) or_return
 		return nil
 	}
-	low := check_expression(checker, view, scope, interval.left, checker.default_integer) or_return
+	low := check_expression(checker, view, scope, interval.left) or_return
 	if low.state == .Invalid { return nil }
-	high := check_expression(checker, view, scope, interval.right, low.type) or_return
+	high := check_expression(checker, view, scope, interval.right) or_return
 	if high.state == .Invalid { return nil }
+	store := checker.type_checker.store
+	range_type := low.type
+	if types.is_untyped(store, range_type) { range_type = high.type }
+	if types.is_untyped(store, range_type) { range_type = checker.default_integer }
+	low = check_expression(checker, view, scope, interval.left, range_type) or_return
+	high = check_expression(checker, view, scope, interval.right, range_type) or_return
+	if low.state == .Invalid || high.state == .Invalid { return nil }
 	if !conversion_integer(types.get(checker.type_checker.store, low.type).kind) {
 		expression_failure(checker, view, scope, loop.expr, .Unsupported) or_return
 		return nil

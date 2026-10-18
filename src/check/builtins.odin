@@ -10,6 +10,8 @@ import "oc:types"
 // Declared names of procedures in package base:intrinsics that the checker lowers as builtins.
 intrinsic_builtin_kind :: proc(name: string) -> Builtin_Kind {
 	switch name {
+	case "constant_log2":
+		return .Constant_Log2
 	case "syscall":
 		return .Syscall
 	case "trap":
@@ -160,6 +162,12 @@ expression_builtin_call :: proc(
 	file := checker.type_checker.files[file_id]
 	call := syntax.node_payload(file.ast, node, syntax.Call_Expr)
 	builtin := entity_get(checker.type_checker.resolver.scopes, callee.entity).data.(Builtin_Id)
+	if checker.builtin_kinds[builtin] == .Constant_Log2 {
+		return expression_constant_log2(checker, view, scope, node, arguments, call.ellipsis.kind != .Invalid)
+	}
+	if checker.builtin_kinds[builtin] == .Type_Info_Of {
+		return expression_type_info_of(checker, view, scope, node, arguments, call.ellipsis.kind != .Invalid)
+	}
 	if kind := checker.builtin_kinds[builtin]; kind == .Min || kind == .Max || kind == .Abs || kind == .Clamp {
 		return expression_numeric_builtin(checker, view, scope, node, builtin, kind, arguments, call.ellipsis.kind != .Invalid)
 	}
@@ -265,7 +273,48 @@ expression_raw_data :: proc(
 	return Expression_Info{type = result, mode = .Value, plan = plan, scope = scope, state = .Checked}, nil
 }
 
-// min, max, abs and clamp take runtime operands of one integer or float type; constant operands fold in no builtin yet.
+@(private = "file")
+expression_constant_log2 :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	scope: Scope_Id,
+	node: syntax.Node_Index,
+	arguments: []syntax.Node_Index,
+	ellipsis: bool,
+) -> (
+	info: Expression_Info,
+	err: Resolve_Error,
+) {
+	if len(arguments) != 1 || ellipsis { return expression_failure(checker, view, scope, node, .Unsupported) }
+	operand := check_expression(checker, view, scope, arguments[0]) or_return
+	if operand.state == .Invalid { return expression_poison(scope), nil }
+	value := constant_pool_get(checker.constants, operand.constant)
+	if operand.mode != .Constant ||
+	   value == nil ||
+	   !conversion_integer(types.get(checker.type_checker.store, conversion_base_type(checker.type_checker.store, operand.type)).kind) {
+		return expression_failure(checker, view, scope, arguments[0], .Invalid_Operand)
+	}
+	integer, is_integer := value.value.(big.Int)
+	if !is_integer { return expression_failure(checker, view, scope, arguments[0], .Invalid_Operand) }
+	count, count_error := big.count_bits(&integer)
+	if count_error != nil {
+		expression_constant_failure(checker, checker.views[view].file, node, count_error) or_return
+		return expression_poison(scope), nil
+	}
+	result: big.Int
+	defer big.destroy(&result)
+	if failure := big.set(&result, count - 1); failure != nil {
+		expression_constant_failure(checker, checker.views[view].file, node, failure) or_return
+		return expression_poison(scope), nil
+	}
+	constant, failure := constant_pool_intern_integer(checker.constants, &result, types.TYPE_UNTYPED_INTEGER)
+	if failure != nil {
+		expression_constant_failure(checker, checker.views[view].file, node, failure) or_return
+		return expression_poison(scope), nil
+	}
+	return Expression_Info{type = types.TYPE_UNTYPED_INTEGER, constant = constant, mode = .Constant, scope = scope, state = .Checked}, nil
+}
+
 @(private = "file")
 expression_numeric_builtin :: proc(
 	checker: ^Expression_Checker,
@@ -281,35 +330,99 @@ expression_numeric_builtin :: proc(
 	err: Resolve_Error,
 ) {
 	store := checker.type_checker.store
-	count := 2
-	if kind == .Abs { count = 1 } else if kind == .Clamp { count = 3 }
-	if (kind == .Min || kind == .Max) && len(arguments) == 1 && !ellipsis {
+	count := len(arguments)
+	if (kind == .Min || kind == .Max) && count == 1 && !ellipsis {
 		return expression_extremum_of_type(checker, view, scope, node, kind, arguments[0])
 	}
-	if len(arguments) != count || ellipsis { return expression_failure(checker, view, scope, node, .Unsupported) }
-	first := check_expression(checker, view, scope, arguments[0]) or_return
-	if first.state == .Invalid { return expression_poison(scope), nil }
-	first_kind := types.get(store, types.resolve_named(store, first.type)).kind
-	if !(conversion_integer(first_kind) || first_kind == .Float) { return expression_failure(checker, view, scope, node, .Unsupported) }
-	constant := first.mode == .Constant
-	for index in 1 ..< count {
-		operand := check_expression(checker, view, scope, arguments[index], first.type) or_return
-		if operand.state == .Invalid { return expression_poison(scope), nil }
-		if operand.type != first.type { return expression_failure(checker, view, scope, node, .Unsupported) }
-		constant = constant && operand.mode == .Constant
-	}
-	if constant {
+	if ellipsis || (kind == .Abs && count != 1) || (kind == .Clamp && count != 3) || ((kind == .Min || kind == .Max) && count < 2) {
 		return expression_failure(checker, view, scope, node, .Unsupported)
 	}
 	allocator := mem.dynamic_arena_allocator(&checker.arena)
+	values := make([]Expression_Info, count, allocator) or_return
+	result_type: types.Type_Id
+	constant := true
+	for argument, index in arguments {
+		value := check_expression(checker, view, scope, argument) or_return
+		if value.state == .Invalid { return expression_poison(scope), nil }
+		descriptor := types.get(store, types.resolve_named(store, value.type))
+		if value.mode == .Type || !(conversion_integer(descriptor.kind) || conversion_float(descriptor.kind)) {
+			return expression_failure(checker, view, scope, argument, .Invalid_Operand)
+		}
+		values[index] = value
+		constant &&= value.mode == .Constant
+		if result_type == 0 ||
+		   conversion_untyped(types.get(store, result_type).kind) && (!conversion_untyped(descriptor.kind) || descriptor.kind == .Untyped_Float) {
+			result_type = value.type
+		}
+	}
+	for argument, index in arguments {
+		values[index] = check_expression(checker, view, scope, argument, result_type) or_return
+		if values[index].state == .Invalid { return expression_poison(scope), nil }
+	}
+	if constant {
+		result, failure := constant_numeric_builtin(checker.constants, store, kind, values, result_type)
+		if failure != nil {
+			expression_constant_failure(checker, checker.views[view].file, node, failure) or_return
+			return expression_poison(scope), nil
+		}
+		return Expression_Info{type = result_type, constant = result, mode = .Constant, scope = scope, state = .Checked}, nil
+	}
 	operands := make([]Operand, count, allocator) or_return
 	for argument, index in arguments { operands[index] = Operand(Expression_Ref{view, argument}) }
 	plan := Plan_Id(len(checker.plans))
 	append(&checker.plans, Plan(Builtin_Plan{builtin = builtin, arguments = operands})) or_return
-	return Expression_Info{type = first.type, mode = .Value, plan = plan, scope = scope, state = .Checked}, nil
+	return Expression_Info{type = result_type, mode = .Value, plan = plan, scope = scope, state = .Checked}, nil
 }
 
-// min(T) and max(T) of an integer type are its extreme constants, typed T.
+@(private = "file")
+constant_numeric_builtin :: proc(
+	pool: ^Constant_Pool,
+	store: ^types.Store,
+	kind: Builtin_Kind,
+	values: []Expression_Info,
+	result_type: types.Type_Id,
+) -> (
+	result: Const_Id,
+	err: Constant_Error,
+) {
+	result = values[0].constant
+	if kind == .Abs {
+		constant := constant_pool_get(pool, result)^
+		#partial switch &value in constant.value {
+		case big.Int:
+			absolute: big.Int
+			defer big.destroy(&absolute)
+			big.abs(&absolute, &value) or_return
+			constant := constant_pool_intern_integer(pool, &absolute, result_type) or_return
+			return constant_unary_operator(pool, .Add, constant, result_type, store)
+		case big.Rat:
+			absolute: big.Rat
+			defer big.destroy(&absolute)
+			big.abs(&absolute, &value) or_return
+			return constant_pool_intern_rational(pool, &absolute, result_type)
+		case Float_Value:
+			value.bits &= ~(u64(1) << (value.width - 1))
+			return constant_pool_intern_float(pool, value, result_type)
+		}
+		return 0, Constant_Pool_Error.Invalid_Operand
+	}
+	if kind == .Clamp {
+		below := constant_compare_operator(pool, .Lt, result, values[1].constant) or_return
+		if constant_pool_get(pool, below).value.(bool) { return values[1].constant, nil }
+		above := constant_compare_operator(pool, .Gt, result, values[2].constant) or_return
+		if constant_pool_get(pool, above).value.(bool) { return values[2].constant, nil }
+		return result, nil
+	}
+	for value in values[1:] {
+		want_min := kind == .Min
+		comparison := constant_compare_operator(pool, .Lt, result, value.constant) or_return
+		less := constant_pool_get(pool, comparison).value.(bool)
+		if less != want_min { result = value.constant }
+	}
+	return result, nil
+}
+
+// min(T) and max(T) preserve the queried type.
 @(private = "file")
 expression_extremum_of_type :: proc(
 	checker: ^Expression_Checker,
@@ -326,7 +439,17 @@ expression_extremum_of_type :: proc(
 	if operand.state == .Invalid { return expression_poison(scope), nil }
 	store := checker.type_checker.store
 	descriptor := types.get(store, types.resolve_named(store, operand.type))
-	if operand.mode != .Type || !conversion_integer(descriptor.kind) { return expression_failure(checker, view, scope, node, .Unsupported) }
+	if operand.mode != .Type { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
+	if descriptor.kind == .Enum {
+		members := checker.type_checker.enum_members[types.resolve_named(store, operand.type)]
+		if len(members) == 0 { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
+		extreme := members[0]
+		for member in members[1:] {
+			if kind == .Min && member.value < extreme.value || kind == .Max && member.value > extreme.value { extreme = member }
+		}
+		return expression_enum_member(checker, view, scope, node, operand.type, extreme.name)
+	}
+	if !conversion_integer(descriptor.kind) { return expression_failure(checker, view, scope, node, .Unsupported) }
 	size, _, layout_error := types.layout(store, operand.type)
 	if layout_error != .None { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
 	bits := int(size) * 8

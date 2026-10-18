@@ -639,6 +639,19 @@ lower_typeid :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: che
 }
 
 @(private)
+lower_type_info_of :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: check.Type_Info_Plan) -> ir.Node_Id {
+	for entry in check.runtime_requirements(state.job.program).type_info {
+		if entry.type != plan.type { continue }
+		symbol := check.entity_symbol(state.job.program, plan.table)
+		if symbol == 0 { return lower_fail(state, node, .Runtime_Type_Info) }
+		address := ir.symbol_addr(state.job.function, state.job.symbols[symbol])
+		data := lower_load_word(state, address, .Ptr)
+		return lower_load_word(state, ir.ptr_offset(state.job.function, data, i64(entry.slot) * 8), .Ptr)
+	}
+	return lower_fail(state, node, .Runtime_Type_Info)
+}
+
+@(private)
 lower_runtime_typeid :: proc(state: ^Procedure_State, node: syntax.Node_Index, type: types.Type_Id) -> ir.Node_Id {
 	for entry in check.runtime_requirements(state.job.program).type_info {
 		if entry.type == type {

@@ -74,6 +74,8 @@ Builtin_Kind :: enum u8 {
 	Simd_Lanes_Ne,
 	Simd_Reduce_Or,
 	Simd_Reduce_Min,
+	Constant_Log2,
+	Type_Info_Of,
 }
 
 
@@ -544,6 +546,7 @@ Plan :: union {
 	Propagation_Plan,
 	Context_Plan,
 	Typeid_Plan,
+	Type_Info_Plan,
 	Switch_Plan,
 }
 Switch_Plan :: struct {

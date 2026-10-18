@@ -385,3 +385,20 @@ Budget: an explicit instantiation limit (count and nesting depth) produces its o
 Divergence to track: the official compiler probes deferred untyped arguments in a first pass; our first slice binds only from typed arguments and reports `Unsupported` for deferred untyped arguments until step 2.
 
 Divergence to track (temporary): `intrinsics.has_target_feature` reads `Build_Configuration.target_features`, which is empty, so `sse2` reports false and `base:runtime` `memory_compare` takes its scalar path. The official x86-64 baseline reports `sse2` true. SIMD pending: `#simd` types, `unaligned_load`, `simd_lanes_ne`, `simd_reduce_or`, `simd_indices`, `simd_select`, `simd_reduce_min`, and V128 lowering. Enabling it later is a data change to the target feature list.
+
+## Appendix B. Runtime builtin call batch
+
+The initial runtime histogram had 150 `expr Unsupported Call_Expr` diagnostics. Inspecting their complete source spans found many calls to procedures whose bodies were already invalid, rather than 150 missing builtins. The first root was `max(Heap_Slab_Class)` at `base/runtime/heap_allocator_implementation.odin:732:21`. Other independent roots included `intrinsics.constant_log2`, constant and multi-argument `max`, and six calls to the unbound `type_info_of`. Maps, dynamic arrays and type switches are outside this batch.
+
+Existing `Builtin_Plan`, exact constant operations, enum member metadata and the runtime type-info writer are reused. `core:math/big.count_bits` supplies the magnitude bit count for `constant_log2`; no integer implementation is added. Searches of `base/`, `core/`, the fork's `vendor/`, the official Odin/examples/package-documentation repositories and `/home/su3h7am/Projects/refs/Odin-upstream` found no separate reusable semantic checker. The implementation follows the simple explicit plans described in [research/01](research/01-gingerbill-vision.md), without adding syntax or language rules.
+
+References read before implementation, under `/home/su3h7am/Projects/Odin/src`:
+
+- `check_builtin.cpp:check_builtin_procedure`, `BuiltinProc_min`, `BuiltinProc_max`, `BuiltinProc_abs`, `BuiltinProc_clamp`, `BuiltinProc_constant_log2` and `BuiltinProc_type_info_of`. Enum extrema use actual member values, not the bounds of their backing integer. Numeric calls fold exact constants or retain runtime operands in source order. `constant_log2` returns an untyped integer, including -1 for zero and the magnitude logarithm for negative integers.
+- `llvm_backend_proc.cpp:lb_build_builtin_proc`. Multi-argument min/max reduce left to right; floating abs clears the sign bit. Type operands to `type_info_of` address their descriptor; runtime typeids call `runtime.__type_info_of`.
+- `big_int.cpp:big_int_log2`, which returns the magnitude bit count minus one. This builtin folds entirely in the checker and needs no runtime instruction.
+- `check_expr.cpp:check_is_castable_to` and `check_range`. The enum query fixture needs an explicit enum-to-integer cast. The existing runtime `__type_info_of` loop needs `0..<n` to infer the typed upper bound rather than force `int`. Both reuse existing conversion and range lowering.
+
+The static `type_info_of` plan names the queried type and the existing `runtime.type_table` global. Lowering loads the descriptor at its published slot. The dynamic form is an ordinary checked call to the unchanged runtime helper, so invalid IDs and collisions follow that helper's search. This retains the project's existing slot-based typeid encoding; it does not introduce another encoding or lookup implementation.
+
+Remaining builtin families are not claimed here: float/boolean/enumerated-array type extrema, runtime string/enum min/max, complex/quaternion abs, swizzle, offset queries, additional layout variants and unsupported intrinsics still need their own bounded work. The batch does not change the existing RTTI encoding compatibility decision.

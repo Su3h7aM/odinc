@@ -10,6 +10,60 @@ Typeid_Plan :: struct {
 	type: types.Type_Id,
 }
 
+Type_Info_Plan :: struct {
+	type:  types.Type_Id,
+	table: Entity_Id,
+}
+
+@(private = "package")
+expression_type_info_of :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	scope: Scope_Id,
+	node: syntax.Node_Index,
+	arguments: []syntax.Node_Index,
+	ellipsis: bool,
+) -> (
+	info: Expression_Info,
+	err: Resolve_Error,
+) {
+	if len(arguments) != 1 || ellipsis { return expression_failure(checker, view, scope, node, .Unsupported) }
+	operand := check_expression(checker, view, scope, arguments[0]) or_return
+	if operand.state == .Invalid { return expression_poison(scope), nil }
+	store := checker.type_checker.store
+	if operand.mode != .Type && types.get(store, types.resolve_named(store, operand.type)).kind != .Type_Id {
+		return expression_failure(checker, view, scope, arguments[0], .Invalid_Operand)
+	}
+	collection := checker.type_checker.collection
+	if collection == nil || collection.runtime_scope == 0 { return expression_failure(checker, view, scope, node, .Unsupported) }
+	scopes := checker.type_checker.resolver.scopes
+	if operand.mode != .Type {
+		expression_record_type_info(checker, operand.type) or_return
+		helper := scope_lookup_current(scopes, collection.runtime_scope, "__type_info_of")
+		if helper == 0 { return expression_failure(checker, view, scope, node, .Unsupported) }
+		_, resolve_error := resolve_entity(checker.type_checker.resolver, helper)
+		if resolve_error != nil { return {}, resolve_error }
+		if entity_get(scopes, helper).state != .Resolved { return expression_failure(checker, view, scope, node, .Unsupported) }
+		callee := Expression_Info {
+			entity = helper,
+			type   = entity_get(scopes, helper).type,
+			mode   = .Value,
+			state  = .Checked,
+		}
+		return expression_call(checker, view, checker.views[view].file, scope, node, callee, arguments, false)
+	}
+	info_type := runtime_type_named(checker, "Type_Info")
+	table := scope_lookup_current(scopes, collection.runtime_scope, "type_table")
+	if info_type == 0 || table == 0 { return expression_failure(checker, view, scope, node, .Unsupported) }
+	_, resolve_error := resolve_entity(checker.type_checker.resolver, table)
+	if resolve_error != nil { return {}, resolve_error }
+	expression_record_type_info(checker, operand.type) or_return
+	plan := Plan_Id(len(checker.plans))
+	append(&checker.plans, Plan(Type_Info_Plan{type = operand.type, table = table})) or_return
+	result := types.intern(store, types.Type{kind = .Pointer, elem = info_type})
+	return Expression_Info{type = result, mode = .Value, plan = plan, scope = scope, state = .Checked}, nil
+}
+
 // Kinds of the typeid encoding; the numbering matches the official compiler's Typeid_Kind.
 Typeid_Kind :: enum u8 {
 	Invalid,
