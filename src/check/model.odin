@@ -77,9 +77,31 @@ Builtin_Kind :: enum u8 {
 	Has_Target_Feature,
 	Unaligned_Load,
 	Unaligned_Store,
+	Simd_Extract,
+	Simd_Replace,
 	Simd_Indices,
 	Simd_Select,
+	Simd_Shuffle,
 	Simd_Lanes_Ne,
+	Simd_Lanes_Eq,
+	Simd_Lanes_Lt,
+	Simd_Lanes_Le,
+	Simd_Lanes_Gt,
+	Simd_Lanes_Ge,
+	Simd_Add,
+	Simd_Sub,
+	Simd_Mul,
+	Simd_Div,
+	Simd_Bit_And,
+	Simd_Bit_Or,
+	Simd_Bit_Xor,
+	Simd_Bit_And_Not,
+	Simd_Min,
+	Simd_Max,
+	Simd_Shl,
+	Simd_Shr,
+	Simd_Shl_Masked,
+	Simd_Shr_Masked,
 	Simd_Reduce_Or,
 	Simd_Reduce_Min,
 	Constant_Log2,
@@ -108,6 +130,29 @@ Builtin_Kind :: enum u8 {
 	Type_Bit_Set_Underlying_Type,
 	Type_Elem_Type,
 	Type_Info_Of,
+	Type_Map_Info,
+	Type_Map_Cell_Info,
+	Type_Comparable,
+	Type_Ordered,
+	Type_Ordered_Numeric,
+	Type_Simple_Compare,
+	Type_Enumerated_Array,
+	Type_Base_Type,
+	Type_Core_Type,
+	Sqrt,
+	Ptr_Offset,
+	Ptr_Sub,
+	Entry_Point,
+	Read_Cycle_Counter,
+	X86_Cpuid,
+	X86_Xgetbv,
+	Complex,
+	Quaternion,
+	Real,
+	Imag,
+	Jmag,
+	Kmag,
+	Conj,
 }
 
 
@@ -343,6 +388,7 @@ Procedure_Data :: struct {
 	defaults:            []Default_Argument,
 	signature:           types.Type_Id,
 	convention:          types.Calling_Convention,
+	variadic_index:      int,
 	body:                Node_Ref,
 	body_state:          Body_State,
 	definition:          Entity_Id,
@@ -466,12 +512,14 @@ Conversion_Kind :: enum u8 {
 	Subtype,
 	Box,
 	Union_Injection,
+	Type_Assertion,
 }
 Conversion_Plan :: struct {
-	kind:   Conversion_Kind,
-	source: Operand,
-	target: types.Type_Id,
-	path:   []Member_Step,
+	kind:        Conversion_Kind,
+	source:      Operand,
+	target:      types.Type_Id,
+	source_type: types.Type_Id,
+	path:        []Member_Step,
 }
 Place_Plan :: struct {
 	root:                 Operand,
@@ -479,13 +527,14 @@ Place_Plan :: struct {
 	bit_offset, bit_size: u32,
 }
 Call_Argument :: struct {
-	value:             Operand,
-	parameter:         Entity_Id,
-	conversion:        Plan_Id,
-	evaluation_order:  u32,
-	caller_location:   bool,
-	variadic_pack:     bool,
-	variadic_elements: []Operand,
+	value:                Operand,
+	parameter:            Entity_Id,
+	conversion:           Plan_Id,
+	evaluation_order:     u32,
+	caller_location:      bool,
+	variadic_pack:        bool,
+	variadic_elements:    []Operand,
+	variadic_conversions: []Plan_Id,
 }
 Call_Plan :: struct {
 	callee:       Operand,
@@ -507,6 +556,10 @@ Aggregate_Plan :: struct {
 	values:        []Operand,
 	field_indices: []u32,
 	conversions:   []Plan_Id,
+}
+Slice_Literal_Plan :: struct {
+	type:    types.Type_Id,
+	backing: Aggregate_Plan,
 }
 Assignment_Plan :: struct {
 	destinations, values: []Operand,
@@ -573,6 +626,7 @@ Plan :: union {
 	Call_Plan,
 	Builtin_Plan,
 	Aggregate_Plan,
+	Slice_Literal_Plan,
 	Assignment_Plan,
 	Bounds_Plan,
 	Union_Plan,
@@ -581,11 +635,34 @@ Plan :: union {
 	Context_Plan,
 	Typeid_Plan,
 	Type_Info_Plan,
+	Map_Info_Plan,
+	Map_Cell_Info_Plan,
+	Comparison_Plan,
 	Switch_Plan,
+	Type_Switch_Plan,
+	Type_Assertion_Plan,
 }
 Switch_Plan :: struct {
 	tag:         Entity_Id,
 	comparisons: []Plan_Id,
+}
+Type_Switch_Clause :: struct {
+	entity:   Entity_Id,
+	variants: []types.Type_Id,
+}
+// Clause variants are the case types; types.TYPE_UNTYPED_NIL marks `nil`, and no variants marks the default clause.
+Type_Switch_Plan :: struct {
+	subject:      Operand,
+	subject_type: types.Type_Id,
+	reference:    bool,
+	clauses:      []Type_Switch_Clause,
+}
+Type_Assertion_Plan :: struct {
+	source:      Operand,
+	source_type: types.Type_Id,
+	target_type: types.Type_Id,
+	variant:     int,
+	comma_ok:    bool,
 }
 Defer_Registration :: struct {
 	scope:        Scope_Id,
@@ -681,6 +758,8 @@ Runtime_Requirements :: struct {
 	type_info_type:                   types.Type_Id,
 	type_info_parameters_type:        types.Type_Id,
 	enum_members:                     []Enum_Type_Members,
+	map_cell_info:                    []Map_Cell_Info_Entry,
+	map_info:                         []Map_Info_Entry,
 	type_table:                       Symbol_Id,
 	entry_point:                      Entity_Id,
 	tests:                            []Entity_Id,

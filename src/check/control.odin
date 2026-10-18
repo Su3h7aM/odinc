@@ -5,10 +5,11 @@ import "oc:syntax"
 import "oc:types"
 
 Control_Frame :: struct {
-	node:      syntax.Node_Index,
-	label:     string,
-	is_loop:   bool,
-	is_switch: bool,
+	node:       syntax.Node_Index,
+	label:      string,
+	is_loop:    bool,
+	is_switch:  bool,
+	is_barrier: bool,
 }
 
 @(private = "package")
@@ -53,7 +54,9 @@ expression_switch :: proc(checker: ^Expression_Checker, view: View_Id, file_id: 
 		}
 		clause_scope, clause_error := scope_create(checker.type_checker.resolver.scopes, switch_scope, .Block)
 		if clause_error != nil { return binding_resolve_error(clause_error) }
-		for statement_node in syntax.node_list(file.ast, case_clause.body) {
+		clause_statements := syntax.node_list(file.ast, case_clause.body)
+		expression_predeclare_constants(checker, view, file_id, clause_scope, clause_statements) or_return
+		for statement_node in clause_statements {
 			expression_statement(checker, view, file_id, clause_scope, statement_node) or_return
 		}
 		expression_store(checker, view, clause, Expression_Info{scope = clause_scope, state = .Checked})
@@ -152,10 +155,77 @@ expression_ternary_when :: proc(
 expression_when_body :: proc(checker: ^Expression_Checker, view: View_Id, file_id: File_Id, scope: Scope_Id, node: syntax.Node_Index) -> Resolve_Error {
 	file := checker.type_checker.files[file_id]
 	if file.ast.nodes[node].kind != .Block_Stmt { return expression_statement(checker, view, file_id, scope, node) }
-	for stmt in syntax.node_list(file.ast, syntax.node_payload(file.ast, node, syntax.Block_Stmt).stmts) {
+	statements := syntax.node_list(file.ast, syntax.node_payload(file.ast, node, syntax.Block_Stmt).stmts)
+	expression_predeclare_constants(checker, view, file_id, scope, statements) or_return
+	for stmt in statements {
 		expression_statement(checker, view, file_id, scope, stmt) or_return
 	}
 	return nil
+}
+
+// Official check_scope_decls: constants of a statement list are visible in the whole list and resolve on first use.
+@(private = "package")
+expression_predeclare_constants :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	file_id: File_Id,
+	scope: Scope_Id,
+	statements: []syntax.Node_Index,
+) -> Resolve_Error {
+	file := checker.type_checker.files[file_id]
+	scopes := checker.type_checker.resolver.scopes
+	for statement in statements {
+		if file.ast.nodes[statement].kind != .Value_Decl { continue }
+		declaration := syntax.node_payload(file.ast, statement, syntax.Value_Decl)
+		if declaration.is_mutable || declaration.type != 0 { continue }
+		names := syntax.node_list(file.ast, declaration.names)
+		values := syntax.node_list(file.ast, declaration.values)
+		if len(names) == 0 || len(values) != len(names) { continue }
+		for name_node, index in names {
+			if value_kind := file.ast.nodes[values[index]].kind; .Typeid_Type <= value_kind && value_kind <= .Bit_Field_Type { continue }
+			constant, create_error := entity_create(
+				scopes,
+				Entity {
+					name = expression_text(file, name_node),
+					kind = .Constant,
+					scope = scope,
+					package_id = file.package_id,
+					declaration = {file_id, name_node},
+					state = .Unresolved,
+				},
+			)
+			if create_error != nil { return binding_resolve_error(create_error) }
+			previous, insert_error := scope_insert(scopes, scope, constant)
+			if insert_error != nil { return binding_resolve_error(insert_error) }
+			if previous != 0 {
+				expression_unsupported(checker, view, scope, name_node, "Local_Constant_Duplicate") or_return
+				return nil
+			}
+			checker.type_checker.declarations[constant] = Collected_Declaration {
+				entity     = constant,
+				identifier = {file_id, name_node},
+				value      = {file_id, values[index]},
+			}
+		}
+	}
+	return nil
+}
+
+@(private = "file")
+expression_predeclared_constant :: proc(
+	checker: ^Expression_Checker,
+	file_id: File_Id,
+	scope: Scope_Id,
+	name_node: syntax.Node_Index,
+) -> (
+	entity: Entity_Id,
+	found: bool,
+) {
+	file := checker.type_checker.files[file_id]
+	entity = scope_lookup_current(checker.type_checker.resolver.scopes, scope, expression_text(file, name_node))
+	if entity == 0 { return 0, false }
+	record, declared := checker.type_checker.declarations[entity]
+	return entity, declared && record.identifier.node == name_node
 }
 
 @(private = "package")
@@ -169,20 +239,40 @@ expression_local_constant :: proc(checker: ^Expression_Checker, view: View_Id, f
 		return nil
 	}
 	for name_node, index in names {
+		if predeclared, declared := expression_predeclared_constant(checker, file_id, scope, name_node); declared {
+			_, resolve_error := resolve_entity(checker.type_checker.resolver, predeclared)
+			if resolve_error != nil { return resolve_error }
+			continue
+		}
 		if file.ast.nodes[values[index]].kind == .Proc_Lit {
 			_ = expression_procedure_literal(checker, view, file_id, scope, values[index], name_node) or_return
 			continue
 		}
-		value := check_expression(checker, view, scope, values[index]) or_return
-		if value.state == .Invalid { return nil }
-		if value.mode != .Constant {
-			expression_unsupported(checker, view, scope, values[index], "Local_Constant_Value") or_return
-			return nil
+		entity := Entity {
+			name  = expression_text(file, name_node),
+			kind  = .Constant,
+			scope = scope,
+			state = .Resolved,
 		}
-		constant, create_error := entity_create(
-			checker.type_checker.resolver.scopes,
-			Entity{name = expression_text(file, name_node), kind = .Constant, scope = scope, state = .Resolved, type = value.type, constant = value.constant},
-		)
+		if value_kind := file.ast.nodes[values[index]].kind; .Typeid_Type <= value_kind && value_kind <= .Bit_Field_Type {
+			target := type_expression(checker.type_checker, file_id, scope, values[index], true) or_return
+			if target == types.TYPE_POISON { return nil }
+			entity.kind, entity.type = .Type_Name, target
+		} else {
+			value := check_expression(checker, view, scope, values[index]) or_return
+			if value.state == .Invalid { return nil }
+			if value.mode == .Builtin {
+				entity.kind = .Builtin
+				entity.data = entity_get(checker.type_checker.resolver.scopes, value.entity).data
+			} else {
+				if value.mode != .Constant {
+					expression_unsupported(checker, view, scope, values[index], "Local_Constant_Value") or_return
+					return nil
+				}
+				entity.type, entity.constant = value.type, value.constant
+			}
+		}
+		constant, create_error := entity_create(checker.type_checker.resolver.scopes, entity)
 		if create_error != nil { return binding_resolve_error(create_error) }
 		previous, insert_error := scope_insert(checker.type_checker.resolver.scopes, scope, constant)
 		if insert_error != nil { return binding_resolve_error(insert_error) }
@@ -212,6 +302,7 @@ expression_branch :: proc(checker: ^Expression_Checker, view: View_Id, file_id: 
 	label := expression_label(file, statement.label)
 	for index := len(checker.control) - 1; index >= 0; index -= 1 {
 		frame := checker.control[index]
+		if label == "" && frame.is_barrier { break }
 		if label != "" && frame.label != label { continue }
 		if label == "" && !frame.is_loop && (exit_kind == .Continue || !frame.is_switch) { continue }
 		if exit_kind == .Continue && !frame.is_loop { break }
@@ -244,7 +335,7 @@ expression_condition :: proc(checker: ^Expression_Checker, view: View_Id, scope:
 	return nil
 }
 
-@(private = "file")
+@(private = "package")
 expression_label :: proc(file: ^File, label: syntax.Node_Index) -> string {
 	if label == 0 { return "" }
 	return expression_text(file, label)

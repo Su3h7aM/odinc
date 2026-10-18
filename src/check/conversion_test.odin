@@ -77,7 +77,7 @@ nil_converts_only_to_nilable_targets :: proc(t: ^testing.T) {
 		{kind = .Slice, elem = byte_type},
 		{kind = .Dynamic_Array, elem = byte_type},
 		{kind = .Map, elem = byte_type, index = byte_type},
-		{kind = .Enum, elem = byte_type},
+		{kind = .Enum, backing = byte_type},
 		{kind = .Bit_Set, elem = byte_type},
 		{kind = .Any},
 		{kind = .Type_Id},
@@ -92,4 +92,70 @@ nil_converts_only_to_nilable_targets :: proc(t: ^testing.T) {
 	no_nil_union := types.intern(&store, types.Type{kind = .Union, union_form = .No_Nil})
 	_, diagnostic, err := check_conversion(&pool, &store, source, info, no_nil_union, .Assignment, config)
 	testing.expect(t, err == nil && diagnostic == .Not_Assignable)
+}
+
+@(test)
+cast_unwraps_named_enums_and_converts_booleans_to_integers :: proc(t: ^testing.T) {
+	store := types.init()
+	defer types.destroy(&store)
+	pool: Constant_Pool
+	if !testing.expect(t, constant_pool_init(&pool, context.allocator) == nil) { return }
+	defer constant_pool_destroy(&pool)
+	byte_type := types.intern(&store, types.Type{kind = .Integer, count = 1})
+	unsigned := types.intern(&store, types.Type{kind = .Integer, count = 8})
+	boolean := types.intern(&store, types.Type{kind = .Bool, count = 1})
+	enum_type := types.intern(&store, types.Type{kind = .Enum, backing = byte_type})
+	mode := types.intern(&store, types.Type{kind = .Named, name = "Mode", elem = enum_type})
+	config := Conversion_Config {
+		layout = types.DEFAULT_LAYOUT,
+	}
+	value := Operand(Expression_Ref{view = 1, node = 2})
+	info := Expression_Info {
+		type  = mode,
+		mode  = .Value,
+		state = .Checked,
+	}
+	_, diagnostic, err := check_conversion(&pool, &store, value, info, unsigned, .Cast, config)
+	testing.expect(t, err == nil && diagnostic == .None)
+	info.type = boolean
+	_, diagnostic, err = check_conversion(&pool, &store, value, info, unsigned, .Cast, config)
+	testing.expect(t, err == nil && diagnostic == .None)
+}
+
+@(test)
+untyped_constant_converts_to_the_only_union_variant_that_accepts_it :: proc(t: ^testing.T) {
+	store := types.init()
+	defer types.destroy(&store)
+	pool: Constant_Pool
+	if !testing.expect(t, constant_pool_init(&pool, context.allocator) == nil) { return }
+	defer constant_pool_destroy(&pool)
+	config := Conversion_Config {
+		layout = types.DEFAULT_LAYOUT,
+	}
+	integer := types.intern(&store, types.Type{kind = .Integer, name = "int", count = 8, signed = true})
+	text := types.intern(&store, types.Type{kind = .String})
+	unique_variants := [?]types.Type_Id{integer, text}
+	unique := types.intern(&store, types.Type{kind = .Union, union_form = .Tagged, variants = unique_variants[:]})
+	narrow := types.intern(&store, types.Type{kind = .Integer, count = 4, signed = true})
+	wide := types.intern(&store, types.Type{kind = .Integer, name = "i64", count = 8, signed = true})
+	ambiguous_variants := [?]types.Type_Id{narrow, wide}
+	ambiguous := types.intern(&store, types.Type{kind = .Union, union_form = .Tagged, variants = ambiguous_variants[:]})
+	default_variants := [?]types.Type_Id{narrow, integer}
+	defaulted := types.intern(&store, types.Type{kind = .Union, union_form = .Tagged, variants = default_variants[:]})
+	literal, literal_error := literal_constant(&pool, .Integer, "123")
+	if !testing.expect(t, literal_error == nil) { return }
+	info := Expression_Info {
+		type     = types.TYPE_UNTYPED_INTEGER,
+		constant = literal,
+		mode     = .Constant,
+		state    = .Checked,
+	}
+	value := Operand(Expression_Ref{view = 1, node = 2})
+	converted, diagnostic, err := check_conversion(&pool, &store, value, info, unique, .Assignment, config)
+	testing.expect(t, err == nil && diagnostic == .None && converted.info.type == unique)
+	testing.expect(t, converted.plan.kind == .Union_Injection && converted.plan.target == unique)
+	_, diagnostic, err = check_conversion(&pool, &store, value, info, ambiguous, .Assignment, config)
+	testing.expect(t, err == nil && diagnostic == .Not_Assignable)
+	converted, diagnostic, err = check_conversion(&pool, &store, value, info, defaulted, .Assignment, config)
+	testing.expect(t, err == nil && diagnostic == .None && converted.plan.target == defaulted)
 }

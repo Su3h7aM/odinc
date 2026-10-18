@@ -22,6 +22,15 @@ bits :: (3 | 4) &~ 2
 quotient :: -7 / 3
 remainder :: -7 %% 3
 pointer: ^u8
+other_pointer: ^u8
+pointer_ordered := pointer < other_pointer
+pointer_array: ^[2]u8
+pointer_array_element := pointer_array[0]
+inferred_array := [?]u8{1, 2}
+constant_float_division :: 4 / 2.0
+TRIG_PI :: 0h400921fb54442d18
+trig_inverse := 4 / TRIG_PI
+CONFIG_SELF_REFERENCE :: #config(CONFIG_SELF_REFERENCE, false)
 many: [^]u8 = pointer
 address := uintptr(pointer)
 restored := cast(^u8)address
@@ -39,6 +48,7 @@ raw := raw_data(bytes)
 utf16: string16
 raw_utf16 := raw_data(utf16)
 text_pointer: cstring
+cstring_as_string := string(text_pointer)
 raw_cstring := raw_data(text_pointer)
 raw_slice_type := raw_data([]u8)
 raw_string16_type := raw_data(string16)
@@ -46,7 +56,7 @@ Element :: distinct u8
 named_bytes: []Element
 raw_named := raw_data(named_bytes)
 raw_array := raw_data([2]u8{1, 2})
-raw_slice_literal := raw_data([]u8{1, 2})
+raw_dynamic_literal := raw_data([dynamic]u8{1, 2})
 raw_many := raw_data(bytes, bytes)
 `,
 	)
@@ -62,7 +72,8 @@ raw_many := raw_data(bytes, bytes)
 	defer types.destroy(&store)
 	integer := types.intern(&store, types.Type{kind = .Integer, name = "int", count = 8, signed = true})
 	byte_type := types.intern(&store, types.Type{kind = .Integer, count = 1})
-	u16_type := types.intern(&store, types.Type{kind = .Integer, count = 2})
+	u16_type := types.intern(&store, types.Type{kind = .Integer, name = "u16", count = 2})
+	string_type := types.intern(&store, types.Type{kind = .String})
 	string16_type := types.intern(&store, types.Type{kind = .String16})
 	cstring_type := types.intern(&store, types.Type{kind = .CString})
 	signed_byte := types.intern(&store, types.Type{kind = .Integer, count = 1, signed = true})
@@ -86,6 +97,7 @@ raw_many := raw_data(bytes, bytes)
 		{"int", integer},
 		{"u8", byte_type},
 		{"u16", u16_type},
+		{"string", string_type},
 		{"i8", signed_byte},
 		{"uintptr", word},
 		{"bool", boolean},
@@ -162,7 +174,7 @@ raw_many := raw_data(bytes, bytes)
 			name == "Mismatch" ||
 			name == "Negative_Shift" ||
 			name == "raw_array" ||
-			name == "raw_slice_literal" ||
+			name == "raw_dynamic_literal" ||
 			name == "raw_many" ||
 			name == "raw_cstring" ||
 			name == "raw_slice_type" ||
@@ -174,7 +186,7 @@ raw_many := raw_data(bytes, bytes)
 	for diagnostic in checker.diagnostics {
 		if diagnostic.kind == .Unsupported {
 			testing.expect(t, diagnostic.reason != "")
-			if diagnostic.reason == "Composite_Slice" { found_composite_reason = true }
+			if diagnostic.reason == "Composite_Dynamic_Array" { found_composite_reason = true }
 		}
 	}
 	testing.expect(t, found_composite_reason)

@@ -22,7 +22,16 @@ expression_index :: proc(
 	access := syntax.node_payload(file.ast, node, syntax.Index_Expr)
 	base := check_expression(checker, view, scope, access.expr) or_return
 	if base.state == .Invalid { return expression_poison(scope), nil }
-	base_descriptor := types.get(checker.type_checker.store, base.type)
+	store := checker.type_checker.store
+	base_descriptor := types.get(store, types.resolve_named(store, base.type))
+	is_pointer_to_array := false
+	if base_descriptor.kind == .Pointer {
+		pointed_descriptor := types.get(store, types.resolve_named(store, base_descriptor.elem))
+		if pointed_descriptor.kind == .Array {
+			base_descriptor = pointed_descriptor
+			is_pointer_to_array = true
+		}
+	}
 	is_array := base_descriptor.kind == .Array
 	is_string := base_descriptor.kind == .String || base_descriptor.kind == .String16
 	is_multi_pointer := base_descriptor.kind == .Multi_Pointer
@@ -32,12 +41,12 @@ expression_index :: proc(
 	length := base_descriptor.count
 	element_type := base_descriptor.elem
 	mode := Addressing_Mode.Variable
-	if is_array && base.mode != .Variable {
+	if is_array && !is_pointer_to_array && base.mode != .Variable {
 		mode = .Value
 	}
 	if is_string {
 		element_width: i64 = 1 if base_descriptor.kind == .String else 2
-		element_type = types.intern(checker.type_checker.store, types.Type{kind = .Integer, count = element_width})
+		element_type = types.sized_integer(checker.type_checker.store, element_width, false)
 		mode = .Value
 	}
 	position := check_expression(checker, view, scope, access.index) or_return
@@ -85,7 +94,8 @@ expression_slice :: proc(
 	store := checker.type_checker.store
 	base_descriptor := types.get(store, types.resolve_named(store, base.type))
 	is_multi_pointer := base_descriptor.kind == .Multi_Pointer
-	if (base_descriptor.kind != .Array || base.mode != .Variable) && base_descriptor.kind != .Slice && !is_multi_pointer {
+	is_string := base_descriptor.kind == .String || base_descriptor.kind == .String16
+	if (base_descriptor.kind != .Array || base.mode != .Variable) && base_descriptor.kind != .Slice && !is_multi_pointer && !is_string {
 		return expression_unsupported(checker, view, scope, node, "Slice_Base")
 	}
 	slice_type := types.intern(store, types.Type{kind = .Slice, elem = base_descriptor.elem})
@@ -108,6 +118,6 @@ expression_slice :: proc(
 	append(&checker.plans, Plan(Bounds_Plan{kind = .Slice, operands = operands, policy = policy})) or_return
 	// ptr[low:] is ptr + low and keeps the multi-pointer type; ptr[low:high] yields a slice.
 	result_type := slice_type
-	if is_multi_pointer && access.high == 0 { result_type = base.type }
+	if is_string || (is_multi_pointer && access.high == 0) { result_type = base.type }
 	return Expression_Info{type = result_type, mode = .Value, plan = plan, scope = scope, state = .Checked}, nil
 }

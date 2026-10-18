@@ -20,6 +20,9 @@ Expression_Diagnostic_Kind :: enum u8 {
 	Expected_Boolean_Constant,
 	Ambiguous_Call,
 	No_Matching_Overload,
+	Invalid_Range_Operator,
+	Invalid_Reverse_Range,
+	Missing_Type,
 }
 Expression_Diagnostic :: struct {
 	kind:       Expression_Diagnostic_Kind,
@@ -57,6 +60,12 @@ Expression_Checker :: struct {
 	defers:          [dynamic]Defer_Registration,
 	defer_depth:     int,
 	active_instance: Instance_Id,
+	invalid_rows:    [dynamic]Invalid_Row,
+}
+
+Invalid_Row :: struct {
+	view: View_Id,
+	node: syntax.Node_Index,
 }
 
 expression_checker_init :: proc(
@@ -71,12 +80,15 @@ expression_checker_init :: proc(
 ) {
 	assert(checker != nil && checker.type_checker == nil && type_checker != nil && pool != nil)
 	checker.type_checker, checker.constants, checker.config = type_checker, pool, config
+	type_checker.evaluate_record_argument = expression_record_argument_evaluator
 	type_checker.evaluate_boolean = expression_boolean_evaluator
+	type_checker.bind_enum_member = expression_enum_member_binder
 	type_checker.evaluate_default_type = expression_default_type_evaluator
 	checker.default_integer, checker.boolean, checker.allocator = default_integer, boolean, allocator
 	mem.dynamic_arena_init(&checker.arena, block_allocator = allocator, array_allocator = allocator)
 	checker.views.allocator, checker.plans.allocator, checker.diagnostics.allocator = allocator, allocator, allocator
 	checker.control.allocator = allocator
+	checker.invalid_rows.allocator = allocator
 	checker.defers.allocator = allocator
 	checker.symbols.allocator, checker.entity_symbols.allocator, checker.procedures.allocator = allocator, allocator, allocator
 	checker.builtin_kinds.allocator = allocator
@@ -92,6 +104,7 @@ expression_checker_init :: proc(
 	append(&checker.builtin_kinds, Builtin_Kind.Has_Target_Feature) or_return
 	append(&checker.builtin_kinds, Builtin_Kind.Type_Info_Of) or_return
 	append(&checker.builtin_kinds, Builtin_Kind.Offset_Of, Builtin_Kind.Offset_Of_By_String) or_return
+	append(&checker.builtin_kinds, Builtin_Kind.Complex, .Quaternion, .Real, .Imag, .Jmag, .Kmag, .Conj) or_return
 	return nil
 }
 
@@ -108,6 +121,7 @@ expression_checker_destroy :: proc(checker: ^Expression_Checker) {
 	delete(checker.diagnostics)
 	delete(checker.control)
 	delete(checker.defers)
+	delete(checker.invalid_rows)
 	mem.dynamic_arena_destroy(&checker.arena)
 	checker^ = {}
 }
@@ -126,15 +140,17 @@ expression_checker_publish :: proc(checker: ^Expression_Checker, program: ^Check
 
 @(require_results)
 expression_file_view :: proc(checker: ^Expression_Checker, file: File_Id) -> (view: View_Id, err: runtime.Allocator_Error) {
+	instance := checker.active_instance
+	if checker.type_checker.record_instance != 0 { instance = checker.type_checker.record_instance }
 	for typed, index in checker.views {
-		if typed.file == file && typed.instance == checker.active_instance && file != 0 { return View_Id(index), nil }
+		if typed.file == file && typed.instance == instance && file != 0 { return View_Id(index), nil }
 	}
 	assert(file != 0 && int(file) < len(checker.type_checker.files))
 	count := len(checker.type_checker.files[file].ast.nodes)
 	allocator := mem.dynamic_arena_allocator(&checker.arena)
 	typed := Typed_View {
 		file     = file,
-		instance = checker.active_instance,
+		instance = instance,
 	}
 	typed.nodes.types = make([]types.Type_Id, count, allocator) or_return
 	typed.nodes.constants = make([]Const_Id, count, allocator) or_return
@@ -201,8 +217,18 @@ check_expression :: proc(
 			info.type = untyped
 			info.constant, info.mode = literal, .Constant
 		case .Paren_Expr:
-			info = check_expression(checker, view, scope, syntax.node_payload(file.ast, node, syntax.Paren_Expr).expr) or_return
-		case .Pointer_Type, .Multi_Pointer_Type:
+			info = check_expression(checker, view, scope, syntax.node_payload(file.ast, node, syntax.Paren_Expr).expr, hint) or_return
+		case .Pointer_Type,
+		     .Multi_Pointer_Type,
+		     .Proc_Type,
+		     .Array_Type,
+		     .Dynamic_Array_Type,
+		     .Fixed_Capacity_Dynamic_Array_Type,
+		     .Struct_Type,
+		     .Union_Type,
+		     .Enum_Type,
+		     .Bit_Set_Type,
+		     .Map_Type:
 			type := type_expression(checker.type_checker, file_id, scope, node, true) or_return
 			info = Expression_Info {
 				type  = type,
@@ -227,8 +253,31 @@ check_expression :: proc(
 			info = expression_conversion(checker, view, scope, node, Operand(Expression_Ref{view, conversion.expr}), operand, target, kind) or_return
 		case .Call_Expr:
 			call := syntax.node_payload(file.ast, node, syntax.Call_Expr)
-			if file.ast.nodes[call.expr].kind == .Basic_Directive && expression_text(file, call.expr) == "#config" {
-				info = expression_config(checker, view, file_id, scope, node, syntax.node_list(file.ast, call.args)) or_return
+			if file.ast.nodes[call.expr].kind == .Basic_Directive {
+				arguments := syntax.node_list(file.ast, call.args)
+				switch expression_text(file, call.expr) {
+				case "#config":
+					info = expression_config(checker, view, file_id, scope, node, arguments) or_return
+					expression_store(checker, view, node, info)
+					return info, nil
+				case "#assert":
+					info = expression_assert(checker, view, scope, node, arguments) or_return
+					expression_store(checker, view, node, info)
+					return info, nil
+				}
+			}
+			if definition := record_call_definition(checker.type_checker, file_id, file, scope, node) or_return; definition != 0 {
+				type := record_type_call(checker.type_checker, file_id, file, scope, node) or_return
+				if type == types.TYPE_POISON {
+					info = expression_poison(scope)
+				} else {
+					info = Expression_Info {
+						scope = scope,
+						mode  = .Type,
+						type  = type,
+						state = .Checked,
+					}
+				}
 				break
 			}
 			callee := expression_callee(checker, view, file_id, scope, call.expr) or_return
@@ -244,13 +293,25 @@ check_expression :: proc(
 			if callee.mode == .Builtin {
 				info = expression_builtin_call(checker, view, file_id, scope, node, callee, arguments) or_return
 			} else if callee.mode == .Procedure_Group {
-				info = expression_group_call(checker, view, file_id, scope, node, callee, arguments, call.ellipsis.kind != .Invalid) or_return
+				info = expression_optional_result(
+					checker,
+					expression_group_call(checker, view, file_id, scope, node, callee, arguments, call.ellipsis.kind != .Invalid) or_return,
+				)
 			} else if callee.mode == .Value && callee.entity != 0 && is_generic_procedure(checker, callee.entity) {
-				info = expression_generic_call(checker, view, file_id, scope, node, callee, arguments, call.ellipsis.kind != .Invalid) or_return
+				info = expression_optional_result(
+					checker,
+					expression_generic_call(checker, view, file_id, scope, node, callee, arguments, call.ellipsis.kind != .Invalid) or_return,
+				)
 			} else if callee.mode == .Value && callee.entity != 0 && entity_get(checker.type_checker.resolver.scopes, callee.entity).kind == .Procedure {
-				info = expression_call(checker, view, file_id, scope, node, callee, arguments, call.ellipsis.kind != .Invalid) or_return
+				info = expression_optional_result(
+					checker,
+					expression_call(checker, view, file_id, scope, node, callee, arguments, call.ellipsis.kind != .Invalid) or_return,
+				)
 			} else if (callee.mode == .Value || callee.mode == .Variable || callee.mode == .Immutable_Value) && is_procedure_value(checker, callee.type) {
-				info = expression_indirect_call(checker, view, scope, node, call.expr, callee, arguments, call.ellipsis.kind != .Invalid) or_return
+				info = expression_optional_result(
+					checker,
+					expression_indirect_call(checker, view, scope, node, call.expr, callee, arguments, call.ellipsis.kind != .Invalid) or_return,
+				)
 			} else {
 				if callee.mode != .Type || len(arguments) != 1 || call.ellipsis.kind != .Invalid {
 					return expression_unsupported(checker, view, scope, node, "Call_Callee")
@@ -262,6 +323,8 @@ check_expression :: proc(
 			info = expression_index(checker, view, file_id, scope, node) or_return
 		case .Deref_Expr:
 			info = expression_deref(checker, view, file_id, scope, node) or_return
+		case .Type_Assertion:
+			info = expression_type_assertion(checker, view, file_id, scope, node, hint) or_return
 		case .Selector_Expr:
 			info = expression_selector(checker, view, file_id, scope, node) or_return
 		case .Implicit_Selector_Expr:
@@ -287,6 +350,12 @@ check_expression :: proc(
 		case:
 			return expression_unsupported(checker, view, scope, node, "Expression_Kind")
 		}
+	}
+	if failed, reported, missing_error := expression_missing_type(checker, view, scope, node, info); reported || missing_error != nil {
+		return failed, missing_error
+	}
+	if hint != 0 && info.state != .Invalid && info.mode == .Type && types.get(checker.type_checker.store, hint).kind == .Type_Id {
+		info = expression_typeid_value(checker, scope, info.type) or_return
 	}
 	if hint != 0 && info.state != .Invalid && info.type != hint && info.mode != .Constant && expression_converts_implicitly(checker, hint, info.type) {
 		// The node keeps its own row as the source; the boxing conversion is returned to the caller.
@@ -316,16 +385,24 @@ expression_converts_implicitly :: proc(checker: ^Expression_Checker, target, sou
 	store := checker.type_checker.store
 	return(
 		expression_boxes(checker, target, source) ||
+		expression_injects_union(store, target, source) ||
 		conversion_implicit_pointer(store, source, target) ||
 		conversion_implicit_raw_pointer(store, source, target) \
 	)
+}
+
+// A typed value of one of a union's variants assigned to the union is injected by a conversion plan.
+@(private = "package")
+expression_injects_union :: proc(store: ^types.Store, target, source: types.Type_Id) -> bool {
+	descriptor := types.get(store, conversion_base_type(store, target))
+	return descriptor.kind == .Union && conversion_union_variant(store, descriptor.variants, source)
 }
 
 @(private = "package")
 expression_boxing_plan :: proc(checker: ^Expression_Checker, plan: Plan_Id) -> Plan_Id {
 	if plan == 0 { return 0 }
 	conversion, found := checker.plans[plan].(Conversion_Plan)
-	if found && conversion.kind == .Box { return plan }
+	if found && (conversion.kind == .Box || conversion.kind == .Union_Injection) { return plan }
 	return 0
 }
 
@@ -342,6 +419,17 @@ expression_store :: proc(checker: ^Expression_Checker, view: View_Id, node: synt
 	index := int(node - checker.views[view].first_node)
 	rows.types[index], rows.constants[index], rows.modes[index], rows.entities[index] = info.type, info.constant, info.mode, info.entity
 	rows.plans[index], rows.scopes[index], rows.states[index] = info.plan, info.scope, info.state
+	if info.state == .Invalid { _, _ = append(&checker.invalid_rows, Invalid_Row{view, node}) }
+}
+
+// Attempts that fail for now (see expression_boolean_evaluator) reset the rows they stored as invalid.
+@(private = "package")
+expression_rollback_invalid_rows :: proc(checker: ^Expression_Checker, mark: int) {
+	for row in checker.invalid_rows[mark:] {
+		rows := checker.views[row.view].nodes
+		rows.states[int(row.node - checker.views[row.view].first_node)] = .Unseen
+	}
+	resize(&checker.invalid_rows, mark)
 }
 
 @(private = "package")
@@ -411,6 +499,9 @@ expression_entity_info :: proc(
 	case .Variable:
 		info.mode = .Immutable_Value if .Immutable in binding.flags else .Variable
 	case .Type_Name:
+		if _, generic := checker.type_checker.generic_records[target]; generic {
+			return expression_failure(checker, view, scope, node, .Invalid_Operand)
+		}
 		info.mode = .Type
 	case .Procedure:
 		info.mode = .Value
@@ -439,6 +530,20 @@ expression_conversion :: proc(
 	err: Resolve_Error,
 ) {
 	if info.state == .Invalid || target == types.TYPE_POISON { return expression_poison(scope), nil }
+	if kind == .Assignment && info.mode == .Constant && expression_untyped_to_any(checker, info.type, target) {
+		typed := expression_conversion(
+			checker,
+			view,
+			scope,
+			node,
+			Operand(info.constant),
+			info,
+			types.default_type_of_untyped(checker.type_checker.store, info.type),
+			kind,
+		) or_return
+		if typed.state == .Invalid { return typed, nil }
+		return expression_conversion(checker, view, scope, node, Operand(typed.constant), typed, target, kind)
+	}
 	result, diagnostic, failure := check_conversion(checker.constants, checker.type_checker.store, source, info, target, kind, checker.config)
 	if failure != nil {
 		expression_constant_failure(checker, checker.views[view].file, node, failure) or_return
@@ -467,6 +572,18 @@ expression_conversion :: proc(
 @(private = "package")
 expression_poison :: proc(scope: Scope_Id) -> Expression_Info {
 	return Expression_Info{type = types.TYPE_POISON, state = .Invalid, scope = scope}
+}
+
+// Official check_assignment converts an untyped constant to its default type before boxing it into `any`.
+@(private = "file")
+expression_untyped_to_any :: proc(checker: ^Expression_Checker, source, target: types.Type_Id) -> bool {
+	store := checker.type_checker.store
+	if types.get(store, conversion_base_type(store, target)).kind != .Any { return false }
+	#partial switch types.get(store, source).kind {
+	case .Untyped_Bool, .Untyped_Integer, .Untyped_Rune, .Untyped_Float, .Untyped_Complex, .Untyped_Quaternion, .Untyped_String:
+		return true
+	}
+	return false
 }
 
 @(private = "package")

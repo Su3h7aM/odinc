@@ -38,6 +38,13 @@ poly_pattern_has_poly :: proc(file: ^File, pattern: syntax.Node_Index) -> bool {
 	#partial switch file.ast.nodes[pattern].kind {
 	case .Poly_Type:
 		return true
+	case .Call_Expr:
+		call := syntax.node_payload(file.ast, pattern, syntax.Call_Expr)
+		for argument in syntax.node_list(file.ast, call.args) {
+			if poly_pattern_has_poly(file, argument) { return true }
+		}
+	case .Field_Value:
+		return poly_pattern_has_poly(file, syntax.node_payload(file.ast, pattern, syntax.Field_Value).value)
 	case .Pointer_Type:
 		return poly_pattern_has_poly(file, syntax.node_payload(file.ast, pattern, syntax.Pointer_Type).elem)
 	case .Multi_Pointer_Type:
@@ -63,6 +70,8 @@ poly_pattern_has_poly :: proc(file: ^File, pattern: syntax.Node_Index) -> bool {
 poly_match_pattern :: proc(match: ^Poly_Match, pattern: syntax.Node_Index, argument: types.Type_Id) -> (matched: bool, err: Resolve_Error) {
 	file := match.checker.type_checker.files[match.definition_file]
 	#partial switch file.ast.nodes[pattern].kind {
+	case .Call_Expr:
+		return poly_match_record(match, pattern, argument)
 	case .Poly_Type:
 		poly := syntax.node_payload(file.ast, pattern, syntax.Poly_Type)
 		bound := poly_bind(match.bindings, expression_text(file, poly.type), argument, 0) or_return

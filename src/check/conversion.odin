@@ -54,6 +54,8 @@ check_conversion :: proc(
 	src := types.get(store, conversion_base_type(store, info.type))^
 	dst := types.get(store, conversion_base_type(store, target))^
 	untyped := conversion_untyped(src.kind)
+	core_source := types.get(store, conversion_core_type(store, info.type))^
+	core_target := types.get(store, conversion_core_type(store, target))^
 	result.info = Expression_Info {
 		type  = target,
 		mode  = .Value,
@@ -79,6 +81,14 @@ check_conversion :: proc(
 		result.plan.kind = .Box
 		return result, .None, nil
 	}
+	if kind == .Assignment && !untyped && dst.kind == .Union && info.type != target && conversion_union_variant(store, dst.variants, info.type) {
+		result.plan.kind = .Union_Injection
+		result.plan.source_type = info.type
+		return result, .None, nil
+	}
+	if kind == .Assignment && untyped && src.kind != .Untyped_Nil && dst.kind == .Union {
+		return conversion_untyped_union_variant(pool, store, source, info, target, config)
+	}
 	allowed := info.type == target
 	if kind == .Assignment && untyped {
 		allowed = conversion_integer(src.kind) && conversion_integer(dst.kind) || conversion_boolean(src.kind) && conversion_boolean(dst.kind)
@@ -86,6 +96,7 @@ check_conversion :: proc(
 		allowed ||= conversion_integer(src.kind) && conversion_float(dst.kind)
 		allowed ||= conversion_float(src.kind) && conversion_integer(dst.kind)
 		allowed ||= src.kind == .Untyped_Nil && conversion_nilable(dst)
+		allowed ||= src.kind == .Untyped_String && dst.kind == .String
 	}
 	if kind == .Assignment && !untyped {
 		allowed ||= conversion_implicit_raw_pointer(store, info.type, target)
@@ -93,18 +104,26 @@ check_conversion :: proc(
 		allowed ||= simd_broadcast_allowed(dst, info.type)
 	}
 	if kind == .Cast {
-		allowed ||= src.kind == .Enum && conversion_integer(dst.kind)
-		allowed ||= conversion_integer(src.kind) && conversion_integer(dst.kind) || conversion_boolean(src.kind) && conversion_boolean(dst.kind)
-		allowed ||= conversion_float(src.kind) && conversion_float(dst.kind)
-		allowed ||= conversion_integer(src.kind) && conversion_float(dst.kind)
-		allowed ||= conversion_float(src.kind) && conversion_integer(dst.kind)
-		allowed ||= conversion_pointer(src.kind) && conversion_pointer(dst.kind)
-		allowed ||= src.kind == .CString && conversion_code_unit_pointer(store, dst, 1) || conversion_code_unit_pointer(store, src, 1) && dst.kind == .CString
+		allowed ||= conversion_core_type(store, info.type) == conversion_core_type(store, target)
+		allowed ||= conversion_boolean_or_integer(core_source.kind) && conversion_boolean_or_integer(core_target.kind)
+		allowed ||= conversion_float(core_source.kind) && conversion_float(core_target.kind)
+		allowed ||= conversion_integer(core_source.kind) && conversion_float(core_target.kind)
+		allowed ||= conversion_float(core_source.kind) && conversion_integer(core_target.kind)
+		allowed ||= conversion_pointer(core_source.kind) && conversion_pointer(core_target.kind)
 		allowed ||=
-			src.kind == .CString16 && conversion_code_unit_pointer(store, dst, 2) || conversion_code_unit_pointer(store, src, 2) && dst.kind == .CString16
-		allowed ||= src.kind == .CString && dst.kind == .Raw_Pointer || src.kind == .Raw_Pointer && dst.kind == .CString
-		allowed ||= conversion_byte_slice(store, src) && dst.kind == .String || src.kind == .String && conversion_byte_slice(store, dst)
-		allowed ||= info.type == config.uintptr && conversion_pointer(dst.kind) || conversion_pointer(src.kind) && target == config.uintptr
+			core_source.kind == .CString && conversion_code_unit_pointer(store, core_target, 1) ||
+			conversion_code_unit_pointer(store, core_source, 1) && core_target.kind == .CString
+		allowed ||=
+			core_source.kind == .CString16 && conversion_code_unit_pointer(store, core_target, 2) ||
+			conversion_code_unit_pointer(store, core_source, 2) && core_target.kind == .CString16
+		allowed ||= core_source.kind == .CString && core_target.kind == .String || core_source.kind == .CString16 && core_target.kind == .String16
+		allowed ||= core_source.kind == .CString && core_target.kind == .Raw_Pointer || core_source.kind == .Raw_Pointer && core_target.kind == .CString
+		allowed ||=
+			conversion_byte_slice(store, core_source) && core_target.kind == .String ||
+			core_source.kind == .String && conversion_byte_slice(store, core_target)
+		allowed ||= info.type == config.uintptr && conversion_pointer(core_target.kind) || conversion_pointer(core_source.kind) && target == config.uintptr
+		// Official check_is_castable_to: rawptr <-> procedure, both directions.
+		allowed ||= core_source.kind == .Raw_Pointer && core_target.kind == .Procedure || core_source.kind == .Procedure && core_target.kind == .Raw_Pointer
 	}
 	if !allowed {
 		return {}, .Not_Assignable if kind == .Assignment else .Not_Castable, nil
@@ -118,7 +137,16 @@ check_conversion :: proc(
 		return result, .None, nil
 	}
 	if info.mode == .Constant {
-		if !conversion_integer(dst.kind) && !conversion_boolean(dst.kind) && !conversion_float(dst.kind) {
+		if src.kind == .Untyped_String && dst.kind == .String {
+			text, is_text := constant_pool_get(pool, info.constant).value.(string)
+			if !is_text { return {}, .Invalid_Value, nil }
+			constant, string_error := constant_pool_intern_string(pool, text, target)
+			if string_error != nil { return {}, .None, string_error }
+			result.info.mode = .Constant
+			result.info.constant = constant
+			return result, .None, nil
+		}
+		if !conversion_integer(core_target.kind) && !conversion_boolean(core_target.kind) && !conversion_float(core_target.kind) {
 			return Conversion_Result{reason = "Conversion_Constant_Target"}, .Unsupported, nil
 		}
 		constant, conversion_error := numeric_convert_constant(pool, store, info.constant, info.type, target)
@@ -140,12 +168,34 @@ conversion_base_type :: proc(store: ^types.Store, id: types.Type_Id) -> types.Ty
 	return types.TYPE_POISON
 }
 
+// Matches official core_type: named, enum and bit_field types unwrap to their underlying type.
+conversion_core_type :: proc(store: ^types.Store, id: types.Type_Id) -> types.Type_Id {
+	id := id
+	for _ in 0 ..< len(store.types) {
+		descriptor := types.get(store, id)
+		#partial switch descriptor.kind {
+		case .Named:
+			id = descriptor.elem
+		case .Enum, .Bit_Field:
+			id = descriptor.backing
+		case:
+			return id
+		}
+	}
+	return types.TYPE_POISON
+}
+
 conversion_integer :: proc(kind: types.Kind) -> bool {
 	return kind == .Integer || kind == .Rune || kind == .Untyped_Integer || kind == .Untyped_Rune
 }
 
 conversion_boolean :: proc(kind: types.Kind) -> bool {
 	return kind == .Bool || kind == .Untyped_Bool
+}
+
+// Official check_is_castable_to: booleans and integers cast to each other.
+conversion_boolean_or_integer :: proc(kind: types.Kind) -> bool {
+	return conversion_boolean(kind) || conversion_integer(kind)
 }
 
 conversion_float :: proc(kind: types.Kind) -> bool {
@@ -174,6 +224,65 @@ conversion_implicit_pointer :: proc(store: ^types.Store, source, target: types.T
 	dst := types.get(store, conversion_base_type(store, target))^
 	if src.elem != dst.elem { return false }
 	return src.kind == .Pointer && dst.kind == .Multi_Pointer || src.kind == .Multi_Pointer && dst.kind == .Pointer
+}
+
+// Matches official type_conversion_is_variant for a typed source: an identical variant, or a procedure variant whose base type is the source.
+conversion_union_variant :: proc(store: ^types.Store, variants: []types.Type_Id, source: types.Type_Id) -> bool {
+	for variant in variants {
+		if variant == source { return true }
+		base := conversion_base_type(store, variant)
+		if base == source && types.get(store, base).kind == .Procedure { return true }
+	}
+	return false
+}
+
+conversion_untyped_union_variant :: proc(
+	pool: ^Constant_Pool,
+	store: ^types.Store,
+	source: Operand,
+	info: Expression_Info,
+	target: types.Type_Id,
+	config: Conversion_Config,
+) -> (
+	result: Conversion_Result,
+	diagnostic: Conversion_Error,
+	err: Constant_Error,
+) {
+	union_descriptor := types.get(store, conversion_base_type(store, target))^
+	matched: Conversion_Result
+	matches := 0
+	default_type := types.default_type_of_untyped(store, info.type)
+	default_matched: Conversion_Result
+	default_matches := 0
+	for variant in union_descriptor.variants {
+		if types.get(store, conversion_base_type(store, variant)).kind == .Union { continue }
+		candidate, candidate_diagnostic, candidate_err := check_conversion(pool, store, source, info, variant, .Assignment, config)
+		if candidate_err != nil { return {}, .None, candidate_err }
+		if candidate_diagnostic != .None { continue }
+		matched = candidate
+		matches += 1
+		if conversion_base_type(store, variant) == default_type {
+			default_matched = candidate
+			default_matches += 1
+		}
+	}
+	if matches != 1 {
+		if default_matches != 1 { return {}, .Not_Assignable, nil }
+		matched = default_matched
+	}
+	if matched.info.mode != .Constant { return Conversion_Result{reason = "Conversion_Untyped_Value"}, .Unsupported, nil }
+	result.info = Expression_Info {
+		type  = target,
+		mode  = .Value,
+		scope = info.scope,
+		state = .Checked,
+	}
+	result.plan = Conversion_Plan {
+		kind   = .Union_Injection,
+		source = Operand(matched.info.constant),
+		target = target,
+	}
+	return result, .None, nil
 }
 
 // Matches official type_has_nil: the types that accept a nil constant.

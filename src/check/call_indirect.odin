@@ -33,9 +33,6 @@ expression_indirect_call :: proc(
 	if len(arguments) != len(descriptor.params) {
 		return expression_unsupported(checker, view, scope, node, "Indirect_Call_Arguments")
 	}
-	if descriptor.convention != .Odin && descriptor.convention != .Contextless {
-		return expression_unsupported(checker, view, scope, node, "Indirect_Call_Convention")
-	}
 	allocator := mem.dynamic_arena_allocator(&checker.arena)
 	call_arguments := make([]Call_Argument, len(arguments), allocator) or_return
 	for argument, index in arguments {

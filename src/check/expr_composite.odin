@@ -23,7 +23,29 @@ expression_composite :: proc(
 	literal := syntax.node_payload(file.ast, node, syntax.Comp_Lit)
 	type := hint
 	if literal.type != 0 {
-		type = type_expression(checker.type_checker, file_id, scope, literal.type, true) or_return
+		literal_type := literal.type
+		for file.ast.nodes[literal_type].kind == .Paren_Expr {
+			literal_type = syntax.node_payload(file.ast, literal_type, syntax.Paren_Expr).expr
+		}
+		if file.ast.nodes[literal_type].kind == .Array_Type {
+			array := syntax.node_payload(file.ast, literal_type, syntax.Array_Type)
+			length := array.len
+			for length != 0 && file.ast.nodes[length].kind == .Paren_Expr {
+				length = syntax.node_payload(file.ast, length, syntax.Paren_Expr).expr
+			}
+			if length != 0 && file.ast.nodes[length].kind == .Unary_Expr && syntax.node_payload(file.ast, length, syntax.Unary_Expr).op.kind == .Question {
+				element := type_expression(checker.type_checker, file_id, scope, array.elem, true) or_return
+				if element == types.TYPE_POISON { return expression_poison(scope), nil }
+				type = types.intern(
+					checker.type_checker.store,
+					types.Type{kind = .Array, elem = element, count = i64(len(syntax.node_list(file.ast, literal.elems)))},
+				)
+			} else {
+				type = type_expression(checker.type_checker, file_id, scope, literal.type, true) or_return
+			}
+		} else {
+			type = type_expression(checker.type_checker, file_id, scope, literal.type, true) or_return
+		}
 	}
 	if type == 0 { return expression_unsupported(checker, view, scope, node, "Composite_Implicit_Type") }
 	if type == types.TYPE_POISON { return expression_poison(scope), nil }
@@ -31,6 +53,7 @@ expression_composite :: proc(
 	owner := types.resolve_named(store, type)
 	descriptor := types.get(store, owner)^
 	if descriptor.kind == .Bit_Set { return expression_composite_bit_set(checker, view, scope, node, type) }
+	if descriptor.kind == .Slice { return expression_slice_literal(checker, view, file_id, scope, node, type, descriptor.elem) }
 	is_array := descriptor.kind == .Array || descriptor.kind == .Enumerated_Array || descriptor.kind == .Simd_Vector
 	if descriptor.kind != .Struct && descriptor.kind != .Bit_Field && !is_array {
 		reason := "Composite_Type"

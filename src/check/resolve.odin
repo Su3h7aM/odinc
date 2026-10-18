@@ -43,10 +43,13 @@ Resolver :: struct {
 	scopes:            ^Scope_Store,
 	allocator:         mem.Allocator,
 	check_declaration: Declaration_Resolver,
+	check_body:        Declaration_Resolver,
 	user_data:         rawptr,
 	stack:             [dynamic]Entity_Id,
 	dependencies:      [dynamic][dynamic]Dependency,
 	diagnostics:       [dynamic]Resolution_Diagnostic,
+	pending_bodies:    [dynamic]Entity_Id,
+	poisoned:          [dynamic]Entity_Id,
 }
 
 resolver_init :: proc(resolver: ^Resolver, scopes: ^Scope_Store, callback: Declaration_Resolver, user_data: rawptr, allocator: mem.Allocator) {
@@ -60,6 +63,8 @@ resolver_init :: proc(resolver: ^Resolver, scopes: ^Scope_Store, callback: Decla
 	resolver.stack.allocator = allocator
 	resolver.dependencies.allocator = allocator
 	resolver.diagnostics.allocator = allocator
+	resolver.pending_bodies.allocator = allocator
+	resolver.poisoned.allocator = allocator
 }
 
 resolver_destroy :: proc(resolver: ^Resolver) {
@@ -72,6 +77,8 @@ resolver_destroy :: proc(resolver: ^Resolver) {
 	delete(resolver.dependencies)
 	delete(resolver.stack)
 	delete(resolver.diagnostics)
+	delete(resolver.pending_bodies)
+	delete(resolver.poisoned)
 	resolver^ = {}
 }
 
@@ -79,6 +86,26 @@ resolver_destroy :: proc(resolver: ^Resolver) {
 // Callback/allocation errors poison active declarations and abort the checking session, not a retry.
 @(require_results)
 resolve_entity :: proc(resolver: ^Resolver, id: Entity_Id, need := Resolution_Need.Complete) -> (state: Resolution_State, err: Resolve_Error) {
+	state, err = resolve_entity_signature(resolver, id, need)
+	if err != nil || len(resolver.stack) != 0 { return }
+	err = resolver_check_pending_bodies(resolver)
+	return
+}
+
+// Bodies wait until no declaration is active, so a body may refer to any procedure without a declaration cycle.
+@(private = "package")
+resolver_check_pending_bodies :: proc(resolver: ^Resolver) -> Resolve_Error {
+	for len(resolver.pending_bodies) > 0 {
+		id := pop_front(&resolver.pending_bodies)
+		if resolver.check_body == nil { return Resolver_Failure.No_Callback }
+		_, body_err := resolver.check_body(resolver, id, resolver.user_data)
+		if body_err != nil { return body_err }
+	}
+	return nil
+}
+
+@(private = "file")
+resolve_entity_signature :: proc(resolver: ^Resolver, id: Entity_Id, need: Resolution_Need) -> (state: Resolution_State, err: Resolve_Error) {
 	if resolver == nil || resolver.scopes == nil { return .Invalid, Scope_Error.Uninitialized }
 	entity := entity_get(resolver.scopes, id)
 	if entity == nil { return .Invalid, Scope_Error.Invalid_Entity }
@@ -157,9 +184,24 @@ resolution_diagnostic_format :: proc(kind: Resolution_Diagnostic_Kind) -> string
 @(private = "file")
 resolver_poison :: proc(resolver: ^Resolver, id: Entity_Id) {
 	entity := entity_get(resolver.scopes, id)
+	if entity.state != .Invalid { _, _ = append(&resolver.poisoned, id) }
 	entity.state = .Invalid
 	entity.type = types.TYPE_POISON
 	entity.constant = 0
+}
+
+// Resets the entities poisoned since `mark` to Unresolved, so a later attempt resolves them again.
+@(private = "package")
+resolver_rollback_poison :: proc(resolver: ^Resolver, mark: int) {
+	for id in resolver.poisoned[mark:] {
+		entity := entity_get(resolver.scopes, id)
+		entity.state = .Unresolved
+		entity.type = types.TYPE_NONE
+		entity.constant = 0
+		entity.dependencies = nil
+		if int(id) < len(resolver.dependencies) { clear(&resolver.dependencies[id]) }
+	}
+	resize(&resolver.poisoned, mark)
 }
 
 @(private = "file")

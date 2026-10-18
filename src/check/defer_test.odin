@@ -43,10 +43,21 @@ check_procedure_source :: proc(
 	_, byte_insert_error := scope_insert(&scopes, universe, byte_id)
 	bool_id, bool_create_error := entity_create(&scopes, Entity{name = "bool", kind = .Type_Name, scope = universe, state = .Resolved, type = boolean})
 	_, bool_insert_error := scope_insert(&scopes, universe, bool_id)
+	rawptr_id, rawptr_create_error := entity_create(
+		&scopes,
+		Entity{name = "rawptr", kind = .Type_Name, scope = universe, state = .Resolved, type = types.intern(&store, types.Type{kind = .Raw_Pointer})},
+	)
+	_, rawptr_insert_error := scope_insert(&scopes, universe, rawptr_id)
 	builtin_error := bind_universe_builtins(&scopes, universe)
 	if !testing.expect(
 		t,
-		byte_create_error == nil && byte_insert_error == nil && bool_create_error == nil && bool_insert_error == nil && builtin_error == nil,
+		byte_create_error == nil &&
+		byte_insert_error == nil &&
+		bool_create_error == nil &&
+		bool_insert_error == nil &&
+		rawptr_create_error == nil &&
+		rawptr_insert_error == nil &&
+		builtin_error == nil,
 	) { return {}, false }
 	file := File {
 		package_id = 1,
@@ -84,7 +95,9 @@ check_procedure_source :: proc(
 	   !testing.expectf(t, len(checker.diagnostics) == diagnostic_count, "expected %d diagnostics, got %v", diagnostic_count, checker.diagnostics) {
 		return {}, false
 	}
-	return entity_get(&scopes, collection.declarations[0].entity).data.(Procedure_Data), true
+	main_procedure, is_procedure := entity_get(&scopes, collection.declarations[0].entity).data.(Procedure_Data)
+	if !testing.expectf(t, is_procedure, "main has no procedure data, diagnostics %v", checker.diagnostics) { return {}, false }
+	return main_procedure, true
 }
 
 @(test)
@@ -108,4 +121,17 @@ main :: proc "contextless" () {
 	rejected, rejected_ok := check_procedure_source(t, invalid)
 	if !rejected_ok { return }
 	testing.expect(t, rejected.body_state == .Invalid)
+}
+
+
+@(test)
+assert_directive_checks_constant_boolean :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(`package sample
+main :: proc "contextless" () {
+	#assert(1 == 1)
+}
+`)
+	procedure, ok := check_procedure_source(t, source)
+	if !ok { return }
+	testing.expect(t, procedure.body_state == .Complete)
 }

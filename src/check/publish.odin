@@ -45,6 +45,9 @@ expression_checker_publish_procedures :: proc(checker: ^Expression_Checker, prog
 	}
 	expression_checker_publish_globals(checker, program) or_return
 	expression_checker_publish_type_info(checker, program) or_return
+	expression_checker_publish_map_cell_info(checker, program) or_return
+	expression_checker_publish_map_info(checker, program) or_return
+	expression_checker_publish_comparison_procedures(checker) or_return
 	program.symbol_table = checker.symbols[:]
 	program.entity_symbols = checker.entity_symbols[:]
 	program.procedure_list = checker.procedures[:]

@@ -53,7 +53,33 @@ expression_multiple_assignment :: proc(
 				results = plan.results
 			}
 		}
-		if len(results) > 1 {
+		if assertion, is_assertion := checker.plans[value.plan].(Type_Assertion_Plan); is_assertion && len(left) - len(values) == 2 {
+			assertion.comma_ok = true
+			checker.plans[value.plan] = Plan(assertion)
+			for result_index in 0 ..< 2 {
+				result_type := assertion.target_type if result_index == 0 else checker.boolean
+				target := targets[len(values)]
+				if target != 0 && target != result_type {
+					converted := expression_conversion(
+						checker,
+						view,
+						scope,
+						source,
+						Operand(Projection{Expression_Ref{view, source}, u32(result_index)}),
+						Expression_Info{type = result_type, mode = .Value, scope = scope, state = .Checked},
+						target,
+						.Assignment,
+					) or_return
+					if converted.state == .Invalid { return nil }
+					append(&conversions, converted.plan) or_return
+				} else {
+					append(&conversions, Plan_Id(0)) or_return
+				}
+				append(&values, Operand(Projection{Expression_Ref{view, source}, u32(result_index)})) or_return
+			}
+			continue
+		}
+		if len(results) > 1 && value.mode != .Optional_Ok {
 			for result, index in results {
 				if len(values) >= len(left) {
 					expression_unsupported(checker, view, scope, node, "Assign_Arity") or_return
@@ -87,6 +113,27 @@ expression_multiple_assignment :: proc(
 		if value.mode == .No_Value || value.mode == .Type || value.mode == .Builtin || value.mode == .Procedure_Group {
 			expression_unsupported(checker, view, scope, source, "Assign_Value_Mode") or_return
 			return nil
+		}
+		if value.mode == .Optional_Ok && len(results) > 1 {
+			operand := Operand(Projection{Expression_Ref{view, source}, 0})
+			if target := targets[len(values)]; target != 0 && target != results[0] {
+				converted := expression_conversion(
+					checker,
+					view,
+					scope,
+					source,
+					operand,
+					Expression_Info{type = results[0], mode = .Value, scope = scope, state = .Checked},
+					target,
+					.Assignment,
+				) or_return
+				if converted.state == .Invalid { return nil }
+				append(&conversions, converted.plan) or_return
+			} else {
+				append(&conversions, Plan_Id(0)) or_return
+			}
+			append(&values, operand) or_return
+			continue
 		}
 		target := targets[len(values)]
 		if target == 0 { target = types.default_type_of_untyped(checker.type_checker.store, value.type) }

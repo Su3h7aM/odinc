@@ -22,11 +22,22 @@ expression_procedure_group_declaration :: proc(
 	allocator := mem.dynamic_arena_allocator(&checker.arena)
 	members := make([dynamic]Entity_Id, 0, len(syntax.node_list(file.ast, group.args)), allocator) or_return
 	for argument in syntax.node_list(file.ast, group.args) {
+		member_node := argument
 		if file.ast.nodes[argument].kind == .Binary_Expr {
-			expression_unsupported(checker, view, scope, argument, "Proc_Group_Where") or_return
-			return false, nil
+			conditional := syntax.node_payload(file.ast, argument, syntax.Binary_Expr)
+			if conditional.op.kind != .Where { continue }
+			condition, ok := checker.type_checker.evaluate_boolean(
+				checker.type_checker,
+				scope,
+				declaration.value.file,
+				conditional.right,
+				checker.type_checker.user_data,
+			) or_return
+			if !ok { return false, nil }
+			if !condition { continue }
+			member_node = conditional.left
 		}
-		member := check_expression(checker, view, scope, argument) or_return
+		member := check_expression(checker, view, scope, member_node) or_return
 		if member.state == .Invalid { return false, nil }
 		if member.mode != .Value || entity_get(resolver.scopes, member.entity).kind != .Procedure {
 			expression_unsupported(checker, view, scope, argument, "Proc_Group_Member") or_return
@@ -114,7 +125,6 @@ group_member_rejection :: proc(checker: ^Expression_Checker, member: Entity_Id) 
 	scopes := checker.type_checker.resolver.scopes
 	procedure := entity_get(scopes, member).data.(Procedure_Data)
 	if !procedure.generic {
-		if types.get(checker.type_checker.store, procedure.signature).variadic { return "Proc_Group_Variadic" }
 		return ""
 	}
 	declaration := checker.type_checker.declarations[member]
@@ -124,7 +134,6 @@ group_member_rejection :: proc(checker: ^Expression_Checker, member: Entity_Id) 
 	params := syntax.node_payload(file.ast, signature.params, syntax.Field_List)
 	for field_node in syntax.node_list(file.ast, params.list) {
 		field := syntax.node_payload(file.ast, field_node, syntax.Field)
-		if field.type != 0 && file.ast.nodes[field.type].kind == .Ellipsis { return "Proc_Group_Variadic" }
 		if is_poly_name_field(file, field) && !is_type_param_field(file, field) { return "Proc_Group_Polymorphic" }
 	}
 	return ""
@@ -148,16 +157,29 @@ group_member_score :: proc(
 	}
 	procedure := entity_get(checker.type_checker.resolver.scopes, member).data.(Procedure_Data)
 	descriptor := types.get(checker.type_checker.store, procedure.signature)
-	if len(arguments) > len(descriptor.params) { return 0, false, nil }
-	for index in len(arguments) ..< len(descriptor.params) {
+	parameter_count := len(descriptor.params)
+	variadic_index := procedure.variadic_index
+	fixed_count := parameter_count
+	if descriptor.variadic { fixed_count = variadic_index }
+	if !descriptor.variadic && len(arguments) > parameter_count { return 0, false, nil }
+	for index in len(arguments) ..< fixed_count {
 		if index >= len(procedure.defaults) { return 0, false, nil }
 		default_argument := procedure.defaults[index]
 		if default_argument.value == nil && !default_argument.caller_location && !default_argument.caller_expression { return 0, false, nil }
 	}
-	for argument, index in arguments {
-		argument_score, matched := group_argument_score(checker, view, argument, argument_infos[index], descriptor.params[index]) or_return
+	for index in 0 ..< min(len(arguments), fixed_count) {
+		argument_score, matched := group_argument_score(checker, view, arguments[index], argument_infos[index], descriptor.params[index]) or_return
 		if !matched { return 0, false, nil }
 		score += argument_score
+	}
+	if descriptor.variadic {
+		variadic_slice := types.get(checker.type_checker.store, descriptor.params[variadic_index])
+		score -= 1
+		for index in fixed_count ..< len(arguments) {
+			argument_score, matched := group_argument_score(checker, view, arguments[index], argument_infos[index], variadic_slice.elem) or_return
+			if !matched { return 0, false, nil }
+			score += argument_score - 1
+		}
 	}
 	return score, true, nil
 }
@@ -200,6 +222,28 @@ group_generic_member_score :: proc(
 	for field_node in syntax.node_list(file.ast, params.list) {
 		field := syntax.node_payload(file.ast, field_node, syntax.Field)
 		specialized = specialized || group_field_specialized(file, field)
+		if field.type != 0 && file.ast.nodes[field.type].kind == .Ellipsis {
+			variadic := syntax.node_payload(file.ast, field.type, syntax.Ellipsis)
+			pattern := variadic.expr
+			first_variadic_argument := index
+			for index < len(arguments) {
+				info := argument_infos[index]
+				if poly_pattern_has_poly(file, pattern) {
+					matched := poly_match_pattern(&match, pattern, types.default_type_of_untyped(store, info.type)) or_return
+					if !matched { return 0, false, nil }
+				} else {
+					expected := type_expression(checker.type_checker, declaration.type.file, definition_scope, pattern, true) or_return
+					if expected == types.TYPE_POISON { return 0, false, nil }
+					argument_score, matched := group_argument_score(checker, view, arguments[index], info, expected) or_return
+					if !matched { return 0, false, nil }
+					score += argument_score
+				}
+				index += 1
+				score -= 1
+			}
+			if index == first_variadic_argument && poly_pattern_has_poly(file, pattern) { return 0, false, nil }
+			continue
+		}
 		for name in syntax.node_list(file.ast, field.names) {
 			if index >= len(arguments) {
 				if field.default_value == 0 || file.ast.nodes[name].kind == .Poly_Type { return 0, false, nil }

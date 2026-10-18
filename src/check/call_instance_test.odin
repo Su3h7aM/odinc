@@ -4,7 +4,7 @@ import "core:testing"
 import "oc:syntax"
 import "oc:types"
 
-@(private = "file")
+@(private = "package")
 check_last_procedure_source :: proc(t: ^testing.T, source: []byte) -> (procedure: Procedure_Data, ok: bool) {
 	ast: syntax.Ast
 	syntax.ast_init(&ast, context.allocator)
@@ -53,6 +53,12 @@ check_last_procedure_source :: proc(t: ^testing.T, source: []byte) -> (procedure
 	defer collection_destroy(&collection)
 	collection.runtime_scope = runtime_scope
 	if !testing.expect(t, collect_file(&collection, &file, 1, {}) == nil && len(collection.diagnostics) == 0) { return {}, false }
+	last_declaration := collection.declarations[len(collection.declarations) - 1].entity
+	for pending, index in collection.pending {
+		if pending.kind == .Foreign_Block {
+			if !testing.expect(t, collect_foreign_block(&collection, &file, index, .Public) == nil) { return {}, false }
+		}
+	}
 	checker: Expression_Checker
 	resolver: Resolver
 	resolver_init(&resolver, &scopes, expression_declaration, &checker, context.allocator)
@@ -67,9 +73,18 @@ check_last_procedure_source :: proc(t: ^testing.T, source: []byte) -> (procedure
 	defer expression_checker_destroy(&checker)
 	for declaration in collection.declarations {
 		state, err := resolve_entity(&resolver, declaration.entity)
-		if !testing.expectf(t, err == nil && state == .Resolved, "%v %v", state, err) { return {}, false }
+		if !testing.expectf(
+			t,
+			err == nil && state == .Resolved,
+			"%s: %v %v; type %v; expression %v",
+			entity_get(&scopes, declaration.entity).name,
+			state,
+			err,
+			type_checker.diagnostics,
+			checker.diagnostics,
+		) { return {}, false }
 	}
-	return entity_get(&scopes, collection.declarations[len(collection.declarations) - 1].entity).data.(Procedure_Data), true
+	return entity_get(&scopes, last_declaration).data.(Procedure_Data), true
 }
 
 @(test)
@@ -195,6 +210,44 @@ main :: proc "contextless" () {
 	c := sum(values)
 	d := copy_into(values[:], values[:])
 	_, _, _, _ = a, b, c, d
+}
+`,
+	)
+	procedure, ok := check_last_procedure_source(t, source)
+	if !ok { return }
+	testing.expect(t, procedure.body_state == .Complete)
+}
+
+@(test)
+named_arguments_bind_by_name_and_fill_defaults :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(
+		`package sample
+pick :: proc "contextless" (a: u8, b: u8 = 2, c: u8 = 4) -> u8 {
+	return a + b + c
+}
+main :: proc "contextless" () {
+	value := pick(c = 3, a = 1)
+	_ = value
+}
+`,
+	)
+	procedure, ok := check_last_procedure_source(t, source)
+	if !ok { return }
+	testing.expect(t, procedure.body_state == .Complete)
+}
+
+@(test)
+bodyless_procedures_bind_parameters_for_direct_calls :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(
+		`package sample
+foreign {
+ external :: proc "c" (first: u8, second: u8 = 7) -> u8 ---
+ unnamed :: proc "c" (u8) -> u8 ---
+}
+main :: proc "contextless" () {
+ _ = external(5)
+ _ = unnamed(9)
+ _ = external(second = 3, first = 2)
 }
 `,
 	)

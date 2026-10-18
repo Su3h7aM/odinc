@@ -109,6 +109,49 @@ constant_binary_operator :: proc(
 	if left == nil || right == nil { return 0, Constant_Operation_Error_Kind.Invalid_Operand }
 	type := result_type
 	if type == 0 { type = left.type }
+	if left_integer, ok := left.value.(big.Int); ok {
+		if _, is_rational := right.value.(big.Rat); is_rational {
+			value: big.Rat
+			defer big.destroy(&value)
+			big.rat_set_int(&value, &left_integer, allocator = context.temp_allocator) or_return
+			converted, failure := constant_pool_intern_rational(pool, &value, left.type)
+			if failure != nil { return 0, failure }
+			return constant_binary_operator(pool, operator, converted, right_id, result_type, division_by_zero, type_store)
+		}
+		if right_float, is_float := right.value.(Float_Value); is_float {
+			value, failure := big.int_get_float(&left_integer, allocator = context.temp_allocator)
+			if failure != nil { return 0, failure }
+			return constant_float_binary_operator(pool, operator, value, constant_float_to_f64(right_float), right_float.width, type)
+		}
+	}
+	if left_float, ok := left.value.(Float_Value); ok {
+		if right_rational, is_rational := right.value.(big.Rat); is_rational {
+			value, _, failure := numeric_rational_to_f64(&right_rational, left_float.width)
+			if failure { return 0, Constant_Operation_Error_Kind.Invalid_Operand }
+			return constant_float_binary_operator(pool, operator, constant_float_to_f64(left_float), value, left_float.width, type)
+		}
+		if right_integer, is_integer := right.value.(big.Int); is_integer {
+			value, failure := big.int_get_float(&right_integer, allocator = context.temp_allocator)
+			if failure != nil { return 0, failure }
+			return constant_float_binary_operator(pool, operator, constant_float_to_f64(left_float), value, left_float.width, type)
+		}
+	}
+	if _, ok := left.value.(big.Rat); ok {
+		left_rational := left.value.(big.Rat)
+		if right_float, is_float := right.value.(Float_Value); is_float {
+			value, _, failure := numeric_rational_to_f64(&left_rational, right_float.width)
+			if failure { return 0, Constant_Operation_Error_Kind.Invalid_Operand }
+			return constant_float_binary_operator(pool, operator, value, constant_float_to_f64(right_float), right_float.width, type)
+		}
+		if right_integer, is_integer := right.value.(big.Int); is_integer {
+			value: big.Rat
+			defer big.destroy(&value)
+			big.rat_set_int(&value, &right_integer, allocator = context.temp_allocator) or_return
+			converted, failure := constant_pool_intern_rational(pool, &value, right.type)
+			if failure != nil { return 0, failure }
+			return constant_binary_operator(pool, operator, left_id, converted, result_type, division_by_zero, type_store)
+		}
+	}
 	#partial switch &left_value in left.value {
 	case bool:
 		right_value, ok := right.value.(bool)
@@ -262,6 +305,33 @@ constant_binary_operator :: proc(
 		return constant_pool_intern_string16(pool, joined, type)
 	}
 	return 0, Constant_Operation_Error_Kind.Invalid_Operand
+}
+
+@(private = "file")
+constant_float_binary_operator :: proc(
+	pool: ^Constant_Pool,
+	operator: syntax.Token_Kind,
+	left, right: f64,
+	width: u8,
+	type: types.Type_Id,
+) -> (
+	id: Const_Id,
+	err: Constant_Operation_Error,
+) {
+	result: f64
+	#partial switch operator {
+	case .Add:
+		result = left + right
+	case .Sub:
+		result = left - right
+	case .Mul:
+		result = left * right
+	case .Quo:
+		result = left / right
+	case:
+		return 0, Constant_Operation_Error_Kind.Unsupported_Operator
+	}
+	return constant_pool_intern_float(pool, constant_float_from_f64(result, width), type)
 }
 
 // Compares two constant values and interns the Boolean result in pool.

@@ -11,6 +11,10 @@ any_declarations_assignments_and_returns_record_boxing_conversions :: proc(t: ^t
 main :: proc "contextless" () {
 	value: int
 	boxed: any = value
+	asserted, ok := boxed.(int)
+	single := boxed.(int)
+	data := boxed.data
+	id := boxed.id
 	slot: any
 	slot = value
 }
@@ -82,6 +86,29 @@ give :: proc "contextless" (value: int) -> any {
 	program: Checked_Program
 	expression_checker_publish(&checker, &program)
 	program.files = []File{{}, file}
+	assertion := syntax.node_payload(&ast, statements[2], syntax.Value_Decl)
+	assertion_rhs := syntax.node_list(&ast, assertion.values)[0]
+	assertion_info, assertion_found := expression_info(&program, 1, assertion_rhs)
+	assertion_plan, is_assertion := program.plan_table[assertion_info.plan].(Type_Assertion_Plan)
+	testing.expect(
+		t,
+		assertion_found && assertion_info.mode == .Optional_Ok && is_assertion && assertion_plan.target_type == integer && assertion_plan.comma_ok,
+	)
+	single_declaration := syntax.node_payload(&ast, statements[3], syntax.Value_Decl)
+	single_expression := syntax.node_list(&ast, single_declaration.values)[0]
+	single_info, single_found := expression_info(&program, 1, single_expression)
+	single_plan, is_single_assertion := program.plan_table[single_info.plan].(Type_Assertion_Plan)
+	testing.expect(t, single_found && is_single_assertion && !single_plan.comma_ok)
+	data_declaration := syntax.node_payload(&ast, statements[4], syntax.Value_Decl)
+	data_expression := syntax.node_list(&ast, data_declaration.values)[0]
+	data_info, data_found := expression_info(&program, 1, data_expression)
+	data_place, data_is_place := program.plan_table[data_info.plan].(Place_Plan)
+	testing.expect(t, data_found && data_is_place && len(data_place.path) == 1 && data_place.path[0].field_index == 0)
+	id_declaration := syntax.node_payload(&ast, statements[5], syntax.Value_Decl)
+	id_expression := syntax.node_list(&ast, id_declaration.values)[0]
+	id_info, id_found := expression_info(&program, 1, id_expression)
+	id_place, id_is_place := program.plan_table[id_info.plan].(Place_Plan)
+	testing.expect(t, id_found && id_is_place && len(id_place.path) == 1 && id_place.path[0].field_index == 1)
 	declaration_info, declaration_found := expression_info(&program, 1, statements[1])
 	declared, is_declared := program.plan_table[declaration_info.plan].(Assignment_Plan)
 	testing.expect(t, declaration_found && is_declared && len(declared.conversions) == 1 && declared.conversions[0] != 0)
@@ -89,7 +116,7 @@ give :: proc "contextless" (value: int) -> any {
 		conversion, is_conversion := program.plan_table[declared.conversions[0]].(Conversion_Plan)
 		testing.expect(t, is_conversion && conversion.kind == .Box && conversion.target == any_type)
 	}
-	assignment_info, assignment_found := expression_info(&program, 1, statements[3])
+	assignment_info, assignment_found := expression_info(&program, 1, statements[7])
 	assigned, is_assigned := program.plan_table[assignment_info.plan].(Assignment_Plan)
 	testing.expect(t, assignment_found && is_assigned && assigned.conversions[0] != 0)
 	give := entity_get(&scopes, collection.declarations[1].entity).data.(Procedure_Data)

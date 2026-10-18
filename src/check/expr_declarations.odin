@@ -34,6 +34,48 @@ expression_integer_evaluator :: proc(
 	return 0, false, nil
 }
 
+expression_enum_member_binder :: proc(
+	type_checker: ^Type_Checker,
+	scope: Scope_Id,
+	file: File_Id,
+	name: string,
+	value: i64,
+	backing: types.Type_Id,
+	expression: syntax.Node_Index,
+	user_data: rawptr,
+) -> Resolve_Error {
+	checker := cast(^Expression_Checker)user_data
+	assert(checker != nil && checker.type_checker == type_checker)
+	constant: Const_Id
+	if expression != 0 {
+		view := expression_file_view(checker, file) or_return
+		info := check_expression(checker, view, scope, expression) or_return
+		if info.state == .Invalid || info.mode != .Constant { return nil }
+		constant = info.constant
+	} else {
+		integer: big.Int
+		defer big.destroy(&integer)
+		if failure := big.set(&integer, value); failure != nil {
+			expression_constant_failure(checker, file, 0, failure) or_return
+			return nil
+		}
+		failure: Constant_Error
+		constant, failure = constant_pool_intern_integer(checker.constants, &integer, backing)
+		if failure != nil {
+			expression_constant_failure(checker, file, 0, failure) or_return
+			return nil
+		}
+	}
+	entity, create_error := entity_create(
+		type_checker.resolver.scopes,
+		Entity{name = name, kind = .Constant, scope = scope, state = .Resolved, type = backing, constant = constant},
+	)
+	if create_error != nil { return binding_resolve_error(create_error) }
+	_, insert_error := scope_insert(type_checker.resolver.scopes, scope, entity)
+	if insert_error != nil { return binding_resolve_error(insert_error) }
+	return nil
+}
+
 // Install as Type_Checker.evaluate_default_type with the Expression_Checker as its user_data.
 expression_default_type_evaluator :: proc(
 	type_checker: ^Type_Checker,
@@ -69,8 +111,20 @@ expression_boolean_evaluator :: proc(
 	checker := cast(^Expression_Checker)user_data
 	assert(checker != nil && checker.type_checker == type_checker)
 	view := expression_file_view(checker, file) or_return
+	poisoned := len(type_checker.resolver.poisoned)
+	resolver_diagnostics := len(type_checker.resolver.diagnostics)
+	checker_diagnostics := len(checker.diagnostics)
+	type_diagnostics := len(type_checker.diagnostics)
+	invalid_rows := len(checker.invalid_rows)
 	info := check_expression(checker, view, scope, node) or_return
-	if info.state == .Invalid { return }
+	if info.state == .Invalid {
+		expression_rollback_invalid_rows(checker, invalid_rows)
+		resolver_rollback_poison(type_checker.resolver, poisoned)
+		resize(&type_checker.resolver.diagnostics, resolver_diagnostics)
+		resize(&checker.diagnostics, checker_diagnostics)
+		resize(&type_checker.diagnostics, type_diagnostics)
+		return false, false, nil
+	}
 	if info.mode == .Constant {
 		if constant, is_bool := constant_pool_get(checker.constants, info.constant).value.(bool); is_bool { return constant, true, nil }
 	}
@@ -82,6 +136,7 @@ expression_boolean_evaluator :: proc(
 // Type declarations are attempted first so aliases and constant-dependent layouts use one resolver.
 expression_declaration :: proc(resolver: ^Resolver, id: Entity_Id, user_data: rawptr) -> (valid: bool, err: Resolve_Error) {
 	checker := cast(^Expression_Checker)user_data
+	resolver.check_body = expression_procedure_body_declaration
 	handled, type_valid := type_declaration(checker.type_checker, id) or_return
 	if handled { return type_valid, nil }
 	declaration, found := checker.type_checker.declarations[id]
@@ -91,12 +146,25 @@ expression_declaration :: proc(resolver: ^Resolver, id: Entity_Id, user_data: ra
 	if entity.kind == .Procedure && expression_in_intrinsics(checker, entity.package_id) && entity.data.(Procedure_Data).body.node == 0 {
 		return expression_intrinsic_declaration(checker, resolver, id, view, declaration.identifier.node)
 	}
-	if entity.kind == .Import_Name { return true, nil }
+	if entity.kind == .Import_Name || entity.kind == .Library_Name { return true, nil }
 	if entity.kind == .Procedure { return expression_procedure_declaration(checker, resolver, id, declaration, entity.scope) }
 	if entity.kind == .Procedure_Group { return expression_procedure_group_declaration(checker, resolver, id, declaration, entity.scope) }
 	if entity.kind != .Constant && entity.kind != .Variable {
 		expression_unsupported(checker, view, entity.scope, declaration.identifier.node, "Declaration_Kind") or_return
 		return false, nil
+	}
+	if entity.kind == .Constant && declaration.type.node == 0 && declaration.value.node != 0 {
+		file := checker.type_checker.files[declaration.value.file]
+		value := type_unparen(file, declaration.value.node)
+		if file.ast.nodes[value].kind == .Ident {
+			target, _ := scope_lookup(resolver.scopes, entity.scope, expression_text(file, value))
+			if target != 0 && entity_get(resolver.scopes, target).kind == .Import_Name {
+				imported := entity_get(resolver.scopes, target)^
+				binding := entity_get(resolver.scopes, id)
+				binding.kind, binding.data = .Import_Name, imported.data
+				return true, nil
+			}
+		}
 	}
 	target := types.TYPE_NONE
 	if declaration.type.node != 0 {
@@ -151,4 +219,14 @@ expression_declaration :: proc(resolver: ^Resolver, id: Entity_Id, user_data: ra
 	if entity.kind == .Variable { info.mode, info.constant, info.plan = .Variable, 0, 0 }
 	expression_store(checker, view, declaration.identifier.node, info)
 	return true, nil
+}
+
+@(private = "file")
+expression_procedure_body_declaration :: proc(resolver: ^Resolver, id: Entity_Id, user_data: rawptr) -> (valid: bool, err: Resolve_Error) {
+	checker := cast(^Expression_Checker)user_data
+	declaration := checker.type_checker.declarations[id]
+	outer_instance := checker.active_instance
+	checker.active_instance = entity_get(resolver.scopes, id).data.(Procedure_Data).instance
+	defer checker.active_instance = outer_instance
+	return expression_procedure_body(checker, resolver, id, declaration.type)
 }

@@ -79,20 +79,38 @@ expression_generic_call :: proc(
 		scope           = definition_scope,
 		bindings        = &bindings,
 	}
-	argument_index := 0
+	caller := checker.type_checker.files[file_id]
+	names := declared_parameter_names(file, params, allocator) or_return
+	if variadic_index := procedure_variadic_index(file, declaration.type.node); variadic_index >= 0 && variadic_index != len(names) - 1 {
+		return expression_unsupported(checker, view, scope, node, "Generic_Call_Variadic_Not_Last")
+	}
+	slots := make([]Call_Slot, len(names), allocator) or_return
+	if reason := call_bind_arguments(caller, arguments, names, len(names), slots); reason != "" {
+		return expression_unsupported(checker, view, scope, node, reason)
+	}
+	positional_count := call_positional_count(caller, arguments)
+	if positional_count > len(names) && positional_count < len(arguments) {
+		return expression_unsupported(checker, view, scope, node, "Generic_Call_Named_Variadic")
+	}
+	is_runtime := make([]bool, len(arguments), allocator) or_return
+	for index in len(names) ..< positional_count {
+		is_runtime[index] = true
+	}
+	parameter_index := 0
 	runtime_arguments: [dynamic]syntax.Node_Index
 	runtime_arguments.allocator = allocator
 	for field_node in syntax.node_list(file.ast, params.list) {
 		field := syntax.node_payload(file.ast, field_node, syntax.Field)
 		for name in syntax.node_list(file.ast, field.names) {
-			if argument_index >= len(arguments) {
+			slot := slots[parameter_index]
+			parameter_index += 1
+			if slot.value == 0 {
 				if field.default_value == 0 || file.ast.nodes[name].kind == .Poly_Type {
 					return expression_unsupported(checker, view, scope, node, "Generic_Call_Arguments")
 				}
 				continue
 			}
-			argument_node := arguments[argument_index]
-			argument_index += 1
+			argument_node := slot.value
 			if file.ast.nodes[name].kind == .Poly_Type && !is_type_param_field(file, field) {
 				constant_type := type_expression(checker.type_checker, declaration.type.file, definition_scope, field.type, true) or_return
 				if constant_type == types.TYPE_POISON { return expression_poison(scope), nil }
@@ -116,7 +134,6 @@ expression_generic_call :: proc(
 				continue
 			}
 			argument_hint: types.Type_Id
-			caller := checker.type_checker.files[file_id]
 			if caller.ast.nodes[argument_node].kind == .Implicit_Selector_Expr && !poly_pattern_has_poly(file, field.type) {
 				if field.type != 0 {
 					argument_hint = type_expression(checker.type_checker, declaration.type.file, definition_scope, field.type, true) or_return
@@ -145,15 +162,15 @@ expression_generic_call :: proc(
 				if !matched { return expression_unsupported(checker, view, scope, node, "Generic_Call_Type_Conflict") }
 				continue
 			}
-			append(&runtime_arguments, argument_node) or_return
+			is_runtime[slot.position] = true
 			if !poly_pattern_has_poly(file, field.type) { continue }
 			poly_argument := types.default_type_of_untyped(checker.type_checker.store, argument.type)
 			matched := poly_match_pattern(&match, field.type, poly_argument) or_return
 			if !matched { return expression_unsupported(checker, view, scope, node, "Generic_Call_Pattern") }
 		}
 	}
-	for remaining in arguments[argument_index:] {
-		append(&runtime_arguments, remaining) or_return
+	for argument, index in arguments {
+		if is_runtime[index] { append(&runtime_arguments, argument) or_return }
 	}
 	scopes := checker.type_checker.resolver.scopes
 	for entity, id in scopes.entities {
@@ -278,6 +295,7 @@ expression_new_instance :: proc(
 	procedure = &entity.data.(Procedure_Data)
 	procedure.signature = signature
 	procedure.convention = descriptor.convention
+	procedure.variadic_index = procedure_variadic_index(checker.type_checker.files[declaration.type.file], declaration.type.node)
 	outer_instance := checker.active_instance
 	checker.active_instance = Instance_Id(instance)
 	valid, body_error := expression_procedure_body(checker, resolver, instance, declaration.type)

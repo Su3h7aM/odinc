@@ -35,12 +35,12 @@ expression_ternary_if :: proc(
 		x = check_expression(checker, view, scope, ternary.x, y.type) or_return
 	}
 	if x.state == .Invalid { return expression_poison(scope), nil }
+	if !expression_value(x) || !expression_value(y) { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
 	if hint == 0 && conversion_untyped(types.get(store, x.type).kind) && conversion_untyped(types.get(store, y.type).kind) {
 		target := types.default_type_of_untyped(store, x.type)
 		x = check_expression(checker, view, scope, ternary.x, target) or_return
 		y = check_expression(checker, view, scope, ternary.y, target) or_return
 	}
-	if !expression_value(x) || !expression_value(y) { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
 	if x.type != y.type { return expression_failure(checker, view, scope, node, .Mismatched_Types) }
 	return Expression_Info{type = x.type, mode = .Value, scope = scope, state = .Checked}, nil
 }

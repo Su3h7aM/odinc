@@ -41,6 +41,7 @@ expression_procedure_literal :: proc(
 			data = Procedure_Data {
 				signature = signature,
 				convention = descriptor.convention,
+				variadic_index = procedure_variadic_index(file, literal.type),
 				body = {file_id, literal.body},
 				instance = checker.active_instance,
 			},
@@ -54,8 +55,15 @@ expression_procedure_literal :: proc(
 		}
 		scope_get(scopes, scope).lookup[binding_name] = id
 	}
-	valid := expression_procedure_body(checker, checker.type_checker.resolver, id, {file_id, literal.type}) or_return
-	if !valid || entity_get(scopes, id).data.(Procedure_Data).body_state != .Complete { return expression_poison(scope), nil }
+	// Bodies wait for an empty resolver stack like expression_procedure_declaration, so recursion through literal name bindings is not a declaration cycle. The declaration records the literal's signature node for expression_procedure_body_declaration.
+	resolver := checker.type_checker.resolver
+	checker.type_checker.declarations[id] = Collected_Declaration {
+		entity     = id,
+		identifier = {file_id, node},
+		type       = {file_id, literal.type},
+	}
+	_, defer_error := append(&resolver.pending_bodies, id)
+	if defer_error != nil { return {}, defer_error }
 	info = Expression_Info {
 		type   = signature,
 		mode   = .Value,

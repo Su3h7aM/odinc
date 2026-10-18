@@ -28,3 +28,18 @@ main :: proc "contextless" () -> u8 {
 	if !rejected_ok { return }
 	testing.expect(t, rejected.body_state == .Invalid)
 }
+
+@(test)
+indirect_call_accepts_c_convention_and_proc_type_casts :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(
+		`package sample
+main :: proc "contextless" (value: proc "c" (u8, u8) -> u8) -> u8 {
+	operation := (proc "c" (u8, u8) -> u8)(value)
+	return operation(1, 2)
+}
+`,
+	)
+	procedure, ok := check_procedure_source(t, source)
+	if !ok { return }
+	testing.expect(t, procedure.body_state == .Complete)
+}

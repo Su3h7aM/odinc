@@ -4,7 +4,7 @@ import "core:math/big"
 import "oc:syntax"
 import "oc:types"
 
-// `element in set` over a bit_set. Only constant operands fold; a runtime membership test is not supported yet.
+// `element in set` over a bit_set or a map key. Constant bit_set operands fold; other operands yield a runtime bool.
 @(private = "package")
 expression_membership :: proc(
 	checker: ^Expression_Checker,
@@ -21,11 +21,16 @@ expression_membership :: proc(
 	store := checker.type_checker.store
 	set := check_expression(checker, view, scope, binary.right) or_return
 	if set.state == .Invalid { return expression_poison(scope), nil }
-	descriptor := types.get(store, types.resolve_named(store, set.type))
+	descriptor := types.get(store, types.resolve_named(store, set.type))^
+	if descriptor.kind == .Map {
+		key := check_expression(checker, view, scope, binary.left, descriptor.index) or_return
+		if key.state == .Invalid { return expression_poison(scope), nil }
+		return expression_membership_value(checker, scope), nil
+	}
 	if descriptor.kind != .Bit_Set { return expression_failure(checker, view, scope, node, .Invalid_Operator) }
 	element := check_expression(checker, view, scope, binary.left, descriptor.elem) or_return
 	if element.state == .Invalid { return expression_poison(scope), nil }
-	if set.mode != .Constant || element.mode != .Constant { return expression_unsupported(checker, view, scope, node, "Membership_Runtime") }
+	if set.mode != .Constant || element.mode != .Constant { return expression_membership_value(checker, scope), nil }
 	member_value, member_ok := constant_pool_get(checker.constants, element.constant).value.(big.Int)
 	set_value, set_ok := constant_pool_get(checker.constants, set.constant).value.(big.Int)
 	if !member_ok || !set_ok { return expression_unsupported(checker, view, scope, node, "Membership_Constant") }
@@ -55,4 +60,9 @@ expression_membership :: proc(
 		return expression_poison(scope), nil
 	}
 	return Expression_Info{type = checker.boolean, mode = .Constant, constant = constant, scope = scope, state = .Checked}, nil
+}
+
+@(private = "file")
+expression_membership_value :: proc(checker: ^Expression_Checker, scope: Scope_Id) -> Expression_Info {
+	return Expression_Info{type = checker.boolean, mode = .Value, scope = scope, state = .Checked}
 }

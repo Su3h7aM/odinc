@@ -124,13 +124,29 @@ expression_field :: proc(
 	indirect := types.get(store, owner).kind == .Pointer
 	if indirect { owner = types.resolve_named(store, types.get(store, owner).elem) }
 	descriptor := types.get(store, owner)
-	if (descriptor.kind != .Struct && descriptor.kind != .Bit_Field) ||
+	if (descriptor.kind != .Struct && descriptor.kind != .Bit_Field && descriptor.kind != .Any) ||
 	   (!indirect && base.mode != .Variable && base.mode != .Value && base.mode != .Immutable_Value && base.mode != .Context) {
 		return expression_unsupported(checker, view, scope, node, "Selector_Base")
 	}
 	allocator := mem.dynamic_arena_allocator(&checker.arena)
 	path := make([dynamic]Member_Step, 0, allocator) or_return
-	field_type, found := field_path(checker, owner, indirect, expression_text(file, selector.field), &path)
+	field_type: types.Type_Id
+	found := false
+	if descriptor.kind == .Any {
+		field := expression_text(file, selector.field)
+		index := -1
+		if field == "data" {
+			index, field_type = 0, types.intern(store, types.Type{kind = .Raw_Pointer})
+		} else if field == "id" {
+			index, field_type = 1, types.intern(store, types.Type{kind = .Type_Id})
+		}
+		if index >= 0 {
+			append(&path, Member_Step{type = owner, field_index = u32(index), indirect = indirect}) or_return
+			found = true
+		}
+	} else {
+		field_type, found = field_path(checker, owner, indirect, expression_text(file, selector.field), &path)
+	}
 	if !found { return expression_failure(checker, view, scope, selector.field, .Undeclared_Name) }
 	plan := Plan_Id(len(checker.plans))
 	place := Place_Plan {

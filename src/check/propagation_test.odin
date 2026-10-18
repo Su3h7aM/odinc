@@ -164,6 +164,15 @@ named :: proc "contextless" (ok: bool) -> (value: u8, failed: bool) {
 	_ = status(ok) or_return
 	return
 }
+enum_status :: proc "contextless" (ok: bool) -> Mode {
+	if ok { return .None }
+	return .Failed
+}
+enum_check :: proc "contextless" (ok: bool) -> Mode {
+	enum_status(ok) or_return
+	return .None
+}
+Mode :: enum u8 { None, Failed }
 `,
 	)
 	procedure, ok := check_procedure_source(t, valid)

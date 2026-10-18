@@ -4,6 +4,21 @@ import "core:mem"
 import "oc:syntax"
 import "oc:types"
 
+@(private = "file")
+propagation_results :: proc(checker: ^Expression_Checker, plan_id: Plan_Id, pair: ^[2]types.Type_Id) -> []types.Type_Id {
+	#partial switch plan in checker.plans[plan_id] {
+	case Call_Plan:
+		return plan.results
+	case Type_Assertion_Plan:
+		assertion := plan
+		assertion.comma_ok = true
+		checker.plans[plan_id] = Plan(assertion)
+		pair^ = {assertion.target_type, checker.boolean}
+		return pair[:]
+	}
+	return nil
+}
+
 @(private = "package")
 expression_or_else :: proc(
 	checker: ^Expression_Checker,
@@ -21,23 +36,20 @@ expression_or_else :: proc(
 	operand := check_expression(checker, view, scope, expression.x) or_return
 	if operand.state == .Invalid { return expression_poison(scope), nil }
 	if operand.plan == 0 { return expression_unsupported(checker, view, scope, node, "Or_Else_Plan") }
-	call, is_call := checker.plans[operand.plan].(Call_Plan)
-	if !is_call || len(call.results) != 2 {
+	pair: [2]types.Type_Id
+	results := propagation_results(checker, operand.plan, &pair)
+	if len(results) != 2 {
 		return expression_unsupported(checker, view, scope, node, "Or_Else_Results")
 	}
 	store := checker.type_checker.store
-	payload_type := call.results[0]
-	status_type := types.get(store, types.resolve_named(store, call.results[1]))
-	if types.get(store, types.resolve_named(store, payload_type)).kind == .Union {
-		return expression_unsupported(checker, view, scope, node, "Or_Else_Union")
-	}
+	payload_type := results[0]
+	status_type := types.get(store, types.resolve_named(store, results[1]))
 	test: Optional_Test
-	#partial switch status_type.kind {
-	case .Bool, .Untyped_Bool:
+	if status_type.kind == .Bool || status_type.kind == .Untyped_Bool {
 		test = .Boolean_True
-	case .Pointer:
+	} else if conversion_nilable(status_type^) {
 		test = .Nil
-	case:
+	} else {
 		return expression_unsupported(checker, view, scope, node, "Or_Else_Status")
 	}
 	value := check_expression(checker, view, scope, expression.y, payload_type) or_return
@@ -74,27 +86,22 @@ expression_or_branch :: proc(
 	operand := check_expression(checker, view, scope, expression.expr) or_return
 	if operand.state == .Invalid { return expression_poison(scope), nil }
 	if operand.plan == 0 { return expression_unsupported(checker, view, scope, node, "Or_Branch_Plan") }
-	call, is_call := checker.plans[operand.plan].(Call_Plan)
-	if !is_call || (len(call.results) != 1 && len(call.results) != 2) {
+	pair: [2]types.Type_Id
+	results := propagation_results(checker, operand.plan, &pair)
+	if len(results) != 1 && len(results) != 2 {
 		return expression_unsupported(checker, view, scope, node, "Or_Branch_Results")
 	}
 	store := checker.type_checker.store
-	status_index := len(call.results) - 1
-	status := call.results[status_index]
+	status_index := len(results) - 1
+	status := results[status_index]
 	status_type := types.get(store, types.resolve_named(store, status))
 	test: Optional_Test
-	#partial switch status_type.kind {
-	case .Bool:
+	if status_type.kind == .Bool {
 		test = .Boolean_True
-	case .Pointer:
+	} else if conversion_nilable(status_type^) {
 		test = .Nil
-	case:
+	} else {
 		return expression_unsupported(checker, view, scope, node, "Or_Branch_Status")
-	}
-	for result in call.results {
-		if types.get(store, types.resolve_named(store, result)).kind == .Union {
-			return expression_unsupported(checker, view, scope, node, "Or_Branch_Union")
-		}
 	}
 	target: Node_Ref
 	label := expression_text(checker.type_checker.files[file_id], expression.label)
@@ -128,7 +135,7 @@ expression_or_branch :: proc(
 		mode  = .No_Value,
 		state = .Checked,
 	}
-	if status_index != 0 { info.type, info.mode = call.results[0], .Value }
+	if status_index != 0 { info.type, info.mode = results[0], .Value }
 	return info, nil
 }
 
@@ -149,27 +156,22 @@ expression_or_return :: proc(
 	operand := check_expression(checker, view, scope, expression.expr) or_return
 	if operand.state == .Invalid { return expression_poison(scope), nil }
 	if operand.plan == 0 { return expression_unsupported(checker, view, scope, node, "Or_Return_Plan") }
-	call, is_call := checker.plans[operand.plan].(Call_Plan)
-	if !is_call || (len(call.results) != 1 && len(call.results) != 2) {
+	pair: [2]types.Type_Id
+	results := propagation_results(checker, operand.plan, &pair)
+	if len(results) != 1 && len(results) != 2 {
 		return expression_unsupported(checker, view, scope, node, "Or_Return_Results")
 	}
 	store := checker.type_checker.store
-	status_index := len(call.results) - 1
-	status := call.results[status_index]
+	status_index := len(results) - 1
+	status := results[status_index]
 	status_type := types.get(store, types.resolve_named(store, status))
 	test: Optional_Test
-	#partial switch status_type.kind {
-	case .Bool:
+	if status_type.kind == .Bool {
 		test = .Boolean_True
-	case .Pointer:
+	} else if conversion_nilable(status_type^) {
 		test = .Nil
-	case:
+	} else {
 		return expression_unsupported(checker, view, scope, node, "Or_Return_Status")
-	}
-	for result in call.results {
-		if types.get(store, types.resolve_named(store, result)).kind == .Union {
-			return expression_unsupported(checker, view, scope, node, "Or_Return_Union")
-		}
 	}
 	returnable := len(checker.results) == 1 && expression_propagation_result_matches(checker, status, checker.results[0])
 	if len(checker.results) > 1 &&
@@ -198,7 +200,7 @@ expression_or_return :: proc(
 		plan  = plan,
 		mode  = .No_Value,
 	}
-	if len(values) == 1 { info.type, info.mode = call.results[0], .Value }
+	if len(values) == 1 { info.type, info.mode = results[0], .Value }
 	return info, nil
 }
 

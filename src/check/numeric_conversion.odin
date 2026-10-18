@@ -299,7 +299,7 @@ numeric_constant_to_float :: proc(constant: ^Constant, target_width: u8) -> (res
 	return Float_Value{bits = transmute(u64)value, width = 64}, false, false
 }
 
-@(private = "file")
+@(private = "package")
 numeric_rational_to_f64 :: proc(value: ^big.Rat, target_width: u8) -> (result: f64, exact, err: bool) {
 	switch target_width {
 	case 16:

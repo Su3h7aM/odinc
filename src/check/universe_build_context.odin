@@ -56,6 +56,15 @@ Error_Pos_Style :: enum u8 {
 	Unix,
 }
 
+// Values of BuildContext.optimization_level in official build_settings.cpp; the zero value is `-o:minimal`.
+Optimization_Mode :: enum i8 {
+	None = -1,
+	Minimal = 0,
+	Size,
+	Speed,
+	Aggressive,
+}
+
 // Source of the ODIN_* universe constants. The driver fills it; `defines` is the slot for `-define:` values read by `#config`.
 Build_Configuration :: struct {
 	os:                         Target_Os,
@@ -64,6 +73,7 @@ Build_Configuration :: struct {
 	subtarget:                  Platform_Subtarget,
 	build_mode:                 Build_Mode,
 	error_pos_style:            Error_Pos_Style,
+	optimization_mode:          Optimization_Mode,
 	debug:                      bool,
 	disable_assert:             bool,
 	no_bounds_check:            bool,
@@ -87,6 +97,7 @@ DEFAULT_BUILD_CONFIGURATION :: Build_Configuration {
 	os     = .Linux,
 	arch   = .amd64,
 	endian = .Little,
+	no_crt = true,
 }
 
 // Names from official build_settings.cpp `target_os_names`, `target_arch_names` and `target_endian_names`.
@@ -126,6 +137,7 @@ target_endian_names := [Target_Endian]string {
 // Publishes the ODIN_* constants of the configuration into the universe, as official checker.cpp does.
 bind_universe_build_context :: proc(checker: ^Type_Checker, universe: Scope_Id, pool: ^Constant_Pool, configuration: Build_Configuration) -> bool {
 	string_type := types.intern(checker.store, types.Type{kind = .String})
+	f16_supported := configuration.arch != .wasm32 && configuration.arch != .wasm64p32 && (configuration.os != .Darwin || configuration.arch != .amd64)
 	texts := [?]struct {
 		name:  string,
 		value: string,
@@ -143,6 +155,7 @@ bind_universe_build_context :: proc(checker: ^Type_Checker, universe: Scope_Id, 
 		value: bool,
 	} {
 		{"ODIN_DEBUG", configuration.debug},
+		{"__ODIN_LLVM_F16_SUPPORTED", f16_supported},
 		{"ODIN_DISABLE_ASSERT", configuration.disable_assert},
 		{"ODIN_NO_BOUNDS_CHECK", configuration.no_bounds_check},
 		{"ODIN_NO_TYPE_ASSERT", configuration.no_type_assert},
@@ -180,8 +193,68 @@ bind_universe_build_context :: proc(checker: ^Type_Checker, universe: Scope_Id, 
 	if !publish_enum_constant(checker, universe, pool, "Odin_Error_Pos_Style_Type", "ODIN_ERROR_POS_STYLE", Error_Pos_Style, configuration.error_pos_style) {
 		return false
 	}
+	if !publish_optimization_mode(checker, universe, pool, configuration.optimization_mode) { return false }
 	if !publish_sanitizer_flags(checker, universe, pool) { return false }
+	if !publish_intrinsics_fast_math(checker) { return false }
 	return bind_universe_calling_convention(checker, universe, pool)
+}
+
+@(private = "file")
+Fast_Math_Flag :: enum u8 {
+	Allow_Reassoc,
+	No_NaNs,
+	No_Infs,
+	No_Signed_Zeros,
+	Allow_Reciprocal,
+	Allow_Contract,
+	Approx_Func,
+}
+
+@(private = "file")
+publish_intrinsics_fast_math :: proc(checker: ^Type_Checker) -> bool {
+	for intrinsics_package in checker.packages {
+		if intrinsics_package.kind != .Intrinsics { continue }
+		names := reflect.enum_field_names(Fast_Math_Flag)
+		members, allocation_error := make([]Enum_Member, len(names), checker.arena_allocator)
+		if allocation_error != nil { return false }
+		for name, index in names {members[index] = Enum_Member {
+				name  = name,
+				value = i64(index),
+			}}
+		backing := types.intern(checker.store, types.Type{kind = .Integer, count = 1})
+		enum_type := types.intern(
+			checker.store,
+			types.Type {
+				kind = .Enum,
+				name = "Fast_Math_Flag",
+				backing = backing,
+				count = i64(len(members)),
+				lower_bound = 0,
+				upper_bound = i64(len(members) - 1),
+			},
+		)
+		flag_type := types.intern(checker.store, types.Type{kind = .Named, name = "Fast_Math_Flag", elem = enum_type})
+		checker.enum_members[enum_type] = members
+		checker.enum_members[flag_type] = members
+		if !publish_package_type(checker, intrinsics_package.scope, "Fast_Math_Flag", flag_type) { return false }
+		u32_type := types.intern(checker.store, types.Type{kind = .Integer, count = 4})
+		flags_bit_set := types.intern(
+			checker.store,
+			types.Type{kind = .Bit_Set, elem = flag_type, backing = u32_type, lower_bound = 0, upper_bound = i64(len(members) - 1)},
+		)
+		flags_type := types.intern(checker.store, types.Type{kind = .Named, name = "Fast_Math_Flags", elem = flags_bit_set})
+		if !publish_package_type(checker, intrinsics_package.scope, "Fast_Math_Flags", flags_type) { return false }
+		return true
+	}
+	return true
+}
+
+@(private = "file")
+publish_package_type :: proc(checker: ^Type_Checker, scope: Scope_Id, name: string, type: types.Type_Id) -> bool {
+	id, create_error := entity_create(checker.resolver.scopes, Entity{name = name, kind = .Type_Name, scope = scope, state = .Resolved, type = type})
+	if create_error != nil { return false }
+	_, insert_error := scope_insert(checker.resolver.scopes, scope, id)
+	return insert_error == nil
 }
 
 // The enum type takes the member order of `E`, whose values count from 0 as in the official tables.
@@ -197,9 +270,21 @@ publish_enum_constant :: proc(
 ) -> bool {
 	enum_type, ok := publish_enum_type(checker, E, type_name)
 	if !ok { return false }
+	return publish_enum_value(checker, universe, pool, enum_type, constant_name, i64(selected))
+}
+
+@(private = "file")
+publish_enum_value :: proc(
+	checker: ^Type_Checker,
+	universe: Scope_Id,
+	pool: ^Constant_Pool,
+	enum_type: types.Type_Id,
+	constant_name: string,
+	selected: i64,
+) -> bool {
 	value: big.Int
 	defer big.destroy(&value)
-	if set_error := big.set(&value, i64(selected)); set_error != nil { return false }
+	if set_error := big.set(&value, selected); set_error != nil { return false }
 	constant, constant_error := constant_pool_intern_integer(pool, &value, enum_type)
 	if constant_error != nil { return false }
 	return publish_universe_constant(checker, universe, constant_name, enum_type, constant)
@@ -214,15 +299,41 @@ publish_enum_type :: proc(checker: ^Type_Checker, $E: typeid, type_name: string)
 			name  = name,
 			value = i64(index),
 		}}
-	backing := types.intern(checker.store, types.Type{kind = .Integer, count = types.DEFAULT_LAYOUT.int_size, signed = true})
+	return publish_enum_members(checker, type_name, members)
+}
+
+@(private = "file")
+publish_enum_members :: proc(checker: ^Type_Checker, type_name: string, members: []Enum_Member) -> (enum_type: types.Type_Id, ok: bool) {
+	lower, upper := members[0].value, members[0].value
+	for member in members {
+		lower = min(lower, member.value)
+		upper = max(upper, member.value)
+	}
+	backing := types.intern(checker.store, types.Type{kind = .Integer, name = "int", count = types.DEFAULT_LAYOUT.int_size, signed = true})
 	enum_type = types.intern(
 		checker.store,
-		types.Type{kind = .Enum, name = type_name, backing = backing, count = i64(len(names)), lower_bound = 0, upper_bound = i64(len(names) - 1)},
+		types.Type{kind = .Enum, name = type_name, backing = backing, count = i64(len(members)), lower_bound = lower, upper_bound = upper},
 	)
 	_, stored, inserted, map_error := map_entry(&checker.enum_members, enum_type)
 	if map_error != nil { return 0, false }
 	if inserted { stored^ = members }
 	return enum_type, true
+}
+
+@(private = "file")
+publish_optimization_mode :: proc(checker: ^Type_Checker, universe: Scope_Id, pool: ^Constant_Pool, selected: Optimization_Mode) -> bool {
+	names := reflect.enum_field_names(Optimization_Mode)
+	members, members_error := make([]Enum_Member, len(names), checker.arena_allocator)
+	if members_error != nil { return false }
+	for mode, index in Optimization_Mode {
+		members[index] = Enum_Member {
+			name  = names[index],
+			value = i64(mode),
+		}
+	}
+	enum_type, ok := publish_enum_members(checker, "Odin_Optimization_Mode", members)
+	if !ok { return false }
+	return publish_enum_value(checker, universe, pool, enum_type, "ODIN_OPTIMIZATION_MODE", i64(selected))
 }
 
 // Official checker.cpp declares ODIN_SANITIZER_FLAGS as a bit_set of Odin_Sanitizer_Flag over u32; no sanitizer is enabled.
