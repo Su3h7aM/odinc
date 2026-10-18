@@ -533,6 +533,12 @@ Swizzle_Plan :: struct {
 	count:    u8,
 	indirect: bool,
 }
+Range_Call_Plan :: struct {
+	call:            Expression_Ref,
+	value_types:     []types.Type_Id,
+	value_count:     u32,
+	condition_index: u32,
+}
 Call_Argument :: struct {
 	value:                Operand,
 	parameter:            Entity_Id,
@@ -631,6 +637,7 @@ Plan :: union {
 	Conversion_Plan,
 	Place_Plan,
 	Swizzle_Plan,
+	Range_Call_Plan,
 	Call_Plan,
 	Builtin_Plan,
 	Aggregate_Plan,

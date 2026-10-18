@@ -1,6 +1,7 @@
 package check
 
 import "base:runtime"
+import "core:fmt"
 import "core:math/big"
 import "core:mem"
 import "oc:syntax"
@@ -313,6 +314,7 @@ check_expression :: proc(
 					expression_indirect_call(checker, view, scope, node, call.expr, callee, arguments, call.ellipsis.kind != .Invalid) or_return,
 				)
 			} else {
+				if callee.type == types.TYPE_NONE { return expression_missing_operand_type(checker, view, scope, call.expr, callee.mode) }
 				if callee.mode != .Type || len(arguments) != 1 || call.ellipsis.kind != .Invalid {
 					return expression_unsupported(checker, view, scope, node, "Call_Callee")
 				}
@@ -376,6 +378,7 @@ check_expression :: proc(
 // A runtime value of a non-`any` type assigned to `any` is boxed by a conversion plan.
 @(private = "package")
 expression_boxes :: proc(checker: ^Expression_Checker, target, source: types.Type_Id) -> bool {
+	if target == types.TYPE_NONE || source == types.TYPE_NONE { return false }
 	store := checker.type_checker.store
 	return types.get(store, conversion_base_type(store, target)).kind == .Any && types.get(store, conversion_base_type(store, source)).kind != .Any
 }
@@ -394,6 +397,7 @@ expression_converts_implicitly :: proc(checker: ^Expression_Checker, target, sou
 // A typed value of one of a union's variants assigned to the union is injected by a conversion plan.
 @(private = "package")
 expression_injects_union :: proc(store: ^types.Store, target, source: types.Type_Id) -> bool {
+	if target == types.TYPE_NONE { return false }
 	descriptor := types.get(store, conversion_base_type(store, target))
 	return descriptor.kind == .Union && conversion_union_variant(store, descriptor.variants, source)
 }
@@ -635,4 +639,19 @@ expression_constant_failure :: proc(checker: ^Expression_Checker, file: File_Id,
 	span := checker.type_checker.files[file].ast.nodes[node]
 	_, err := append(&checker.diagnostics, Expression_Diagnostic{kind = .Constant_Operation, source = {file, span.start, span.end}, constant = failure})
 	return err
+}
+
+@(private = "package")
+expression_missing_operand_type :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	scope: Scope_Id,
+	node: syntax.Node_Index,
+	mode: Addressing_Mode,
+) -> (
+	info: Expression_Info,
+	err: Resolve_Error,
+) {
+	reason := fmt.aprintf("expression has no type, mode %v", mode, allocator = mem.dynamic_arena_allocator(&checker.arena))
+	return expression_failure(checker, view, scope, node, .Missing_Type, reason)
 }

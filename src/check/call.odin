@@ -20,6 +20,7 @@ expression_call :: proc(
 ) {
 	scopes := checker.type_checker.resolver.scopes
 	procedure := entity_get(scopes, callee.entity).data.(Procedure_Data)
+	if procedure.signature == types.TYPE_NONE { return expression_missing_operand_type(checker, view, scope, node, callee.mode) }
 	descriptor := types.get(checker.type_checker.store, procedure.signature)
 	parameter_count := len(procedure.parameters)
 	if len(descriptor.params) != parameter_count {

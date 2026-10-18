@@ -159,6 +159,7 @@ check_conversion :: proc(
 }
 
 conversion_base_type :: proc(store: ^types.Store, id: types.Type_Id) -> types.Type_Id {
+	if id == types.TYPE_NONE { return types.TYPE_NONE }
 	id := id
 	for _ in 0 ..< len(store.types) {
 		descriptor := types.get(store, id)
@@ -213,6 +214,7 @@ conversion_pointer :: proc(kind: types.Kind) -> bool {
 
 // Any ^T or [^]T converts implicitly to rawptr.
 conversion_implicit_raw_pointer :: proc(store: ^types.Store, source, target: types.Type_Id) -> bool {
+	if source == types.TYPE_NONE || target == types.TYPE_NONE { return false }
 	src := types.get(store, conversion_base_type(store, source))^
 	dst := types.get(store, conversion_base_type(store, target))^
 	return dst.kind == .Raw_Pointer && (src.kind == .Pointer || src.kind == .Multi_Pointer)
@@ -220,6 +222,7 @@ conversion_implicit_raw_pointer :: proc(store: ^types.Store, source, target: typ
 
 // ^T and [^]T of one element type convert implicitly in either direction.
 conversion_implicit_pointer :: proc(store: ^types.Store, source, target: types.Type_Id) -> bool {
+	if source == types.TYPE_NONE || target == types.TYPE_NONE { return false }
 	src := types.get(store, conversion_base_type(store, source))^
 	dst := types.get(store, conversion_base_type(store, target))^
 	if src.elem != dst.elem { return false }

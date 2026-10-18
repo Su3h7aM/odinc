@@ -20,6 +20,7 @@ expression_deref :: proc(
 	file := checker.type_checker.files[file_id]
 	pointer := check_expression(checker, view, scope, syntax.node_payload(file.ast, node, syntax.Deref_Expr).expr) or_return
 	if pointer.state == .Invalid { return expression_poison(scope), nil }
+	if pointer.type == types.TYPE_NONE { return expression_missing_operand_type(checker, view, scope, node, pointer.mode) }
 	descriptor := types.get(checker.type_checker.store, pointer.type)
 	if descriptor.kind != .Pointer { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
 	return Expression_Info{type = descriptor.elem, mode = .Variable, scope = scope, state = .Checked}, nil
@@ -83,6 +84,7 @@ expression_selector :: proc(
 		if name != 0 && entity_get(scopes, name).kind == .Type_Name {
 			if _, resolve_error := resolve_entity(checker.type_checker.resolver, name); resolve_error != nil { return {}, resolve_error }
 			enum_type := entity_get(scopes, name).type
+			if enum_type == types.TYPE_NONE { return expression_missing_operand_type(checker, view, scope, selector.expr, .Type) }
 			if types.get(checker.type_checker.store, types.resolve_named(checker.type_checker.store, enum_type)).kind == .Enum {
 				return expression_enum_member(checker, view, scope, node, enum_type, expression_text(file, selector.field))
 			}
@@ -130,6 +132,7 @@ expression_field :: proc(
 	selector := syntax.node_payload(file.ast, node, syntax.Selector_Expr)
 	base := check_expression(checker, view, scope, selector.expr) or_return
 	if base.state == .Invalid { return expression_poison(scope), nil }
+	if base.type == types.TYPE_NONE { return expression_missing_operand_type(checker, view, scope, selector.expr, base.mode) }
 	store := checker.type_checker.store
 	owner := types.resolve_named(store, base.type)
 	indirect := types.get(store, owner).kind == .Pointer

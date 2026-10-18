@@ -27,6 +27,7 @@ expression_indirect_call :: proc(
 	info: Expression_Info,
 	err: Resolve_Error,
 ) {
+	if callee.type == types.TYPE_NONE { return expression_missing_operand_type(checker, view, scope, callee_node, callee.mode) }
 	descriptor := types.get(checker.type_checker.store, types.resolve_named(checker.type_checker.store, callee.type))
 	if spread { return expression_unsupported(checker, view, scope, node, "Indirect_Call_Spread") }
 	if descriptor.variadic { return expression_unsupported(checker, view, scope, node, "Indirect_Call_Variadic") }

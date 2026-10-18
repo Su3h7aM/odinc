@@ -148,19 +148,27 @@ expression_binary :: proc(
 		}
 	}
 	valid := false
+	array_pair := false
+	left_base := types.get(checker.type_checker.store, types.resolve_named(checker.type_checker.store, left.type))
+	right_base := types.get(checker.type_checker.store, types.resolve_named(checker.type_checker.store, right.type))
+	if left_base.kind == .Array && left_base.kind == right_base.kind && left_base.elem == right_base.elem && left_base.count == right_base.count {
+		array_pair = true
+	}
 	#partial switch operator {
 	case .Add, .Sub, .Mul, .Quo:
-		valid = integer || float_pair
+		valid = integer || float_pair || array_pair
 	case .Mod, .Mod_Mod, .Shl, .Shr:
-		valid = integer
+		valid = integer || (array_pair && (operator == .Mod || operator == .Mod_Mod || operator == .Shl || operator == .Shr))
 	case .And, .Or, .Xor, .And_Not:
-		valid = integer || boolean
+		valid = integer || boolean || array_pair
 	case .Cmp_And, .Cmp_Or:
 		valid = boolean
 	case .Cmp_Eq, .Not_Eq:
-		valid = integer || boolean || float_pair || enum_pair || type_id_pair || string_pair || pointer_pair || union_pair
+		valid = integer || boolean || float_pair || enum_pair || type_id_pair || string_pair || pointer_pair || union_pair || array_pair
 	case .Lt, .Gt, .Lt_Eq, .Gt_Eq:
-		valid = integer || float_pair || enum_pair || string_pair || pointer_pair
+		valid = integer || float_pair || enum_pair || string_pair || pointer_pair || array_pair
+	case .Eq:
+		valid = true
 	}
 	if !valid { return expression_failure(checker, view, scope, node, .Invalid_Operator) }
 	left_untyped, right_untyped := conversion_untyped(left_kind), conversion_untyped(right_kind)

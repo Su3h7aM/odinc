@@ -22,6 +22,7 @@ expression_index :: proc(
 	access := syntax.node_payload(file.ast, node, syntax.Index_Expr)
 	base := check_expression(checker, view, scope, access.expr) or_return
 	if base.state == .Invalid { return expression_poison(scope), nil }
+	if base.type == types.TYPE_NONE { return expression_missing_operand_type(checker, view, scope, access.expr, base.mode) }
 	store := checker.type_checker.store
 	base_descriptor := types.get(store, types.resolve_named(store, base.type))
 	is_pointer_to_array := false
@@ -91,6 +92,7 @@ expression_slice :: proc(
 	access := syntax.node_payload(file.ast, node, syntax.Slice_Expr)
 	base := check_expression(checker, view, scope, access.expr) or_return
 	if base.state == .Invalid { return expression_poison(scope), nil }
+	if base.type == types.TYPE_NONE { return expression_missing_operand_type(checker, view, scope, access.expr, base.mode) }
 	store := checker.type_checker.store
 	base_descriptor := types.get(store, types.resolve_named(store, base.type))
 	is_multi_pointer := base_descriptor.kind == .Multi_Pointer

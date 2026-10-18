@@ -133,14 +133,14 @@ expression_range_loop :: proc(
 	parts: Range_Parts,
 ) -> Resolve_Error {
 	file := checker.type_checker.files[file_id]
-	if len(parts.names) > 2 {
-		expression_unsupported(checker, view, scope, node, "Range_Form") or_return
-		return nil
-	}
 	range_scope, scope_error := scope_create(checker.type_checker.resolver.scopes, scope, .Block)
 	if scope_error != nil { return binding_resolve_error(scope_error) }
 	if parts.init != 0 { expression_statement(checker, view, file_id, range_scope, parts.init) or_return }
 	if interval, is_interval := range_interval(file, parts.expr); is_interval {
+		if len(parts.names) > 2 {
+			expression_unsupported(checker, view, scope, node, "Range_Form") or_return
+			return nil
+		}
 		return expression_range_interval(checker, view, file_id, scope, range_scope, node, parts, interval)
 	}
 	return expression_range_container(checker, view, file_id, scope, range_scope, node, parts)
@@ -273,6 +273,19 @@ expression_range_container :: proc(
 	file := checker.type_checker.files[file_id]
 	container := check_expression(checker, view, range_scope, parts.expr) or_return
 	if container.state == .Invalid { return nil }
+	if container.plan != 0 {
+		if call, is_call := checker.plans[container.plan].(Call_Plan); is_call && len(call.results) > 1 {
+			return expression_range_call(checker, view, file_id, scope, range_scope, node, parts, call)
+		}
+	}
+	if len(parts.names) > 2 {
+		expression_unsupported(checker, view, scope, node, "Range_Form") or_return
+		return nil
+	}
+	if container.type == types.TYPE_NONE {
+		expression_missing_operand_type(checker, view, scope, parts.expr, container.mode) or_return
+		return nil
+	}
 	if container.mode == .Type {
 		return expression_range_enum(checker, view, file_id, scope, range_scope, node, parts, container.type)
 	}
@@ -355,5 +368,60 @@ expression_range_enum :: proc(
 	if !declared { return nil }
 	expression_range_body(checker, view, file_id, node, range_scope, parts) or_return
 	expression_store(checker, view, node, Expression_Info{scope = scope, state = .Checked})
+	return nil
+}
+
+@(private = "file")
+expression_range_call :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	file_id: File_Id,
+	scope, range_scope: Scope_Id,
+	node: syntax.Node_Index,
+	parts: Range_Parts,
+	call: Call_Plan,
+) -> Resolve_Error {
+	file := checker.type_checker.files[file_id]
+	if parts.reverse || parts.constant_bounds {
+		expression_unsupported(checker, view, scope, node, "Range_Call_Form") or_return
+		return nil
+	}
+	if len(call.results) > 20 || len(parts.names) >= len(call.results) {
+		expression_unsupported(checker, view, scope, node, "Range_Call_Results") or_return
+		return nil
+	}
+	condition_index := len(call.results) - 1
+	store := checker.type_checker.store
+	condition_type := call.results[condition_index]
+	if condition_type == types.TYPE_NONE {
+		expression_missing_operand_type(checker, view, scope, parts.expr, .No_Value) or_return
+		return nil
+	}
+	if types.get(store, types.resolve_named(store, condition_type)).kind != .Bool {
+		expression_failure(checker, view, scope, parts.expr, .Invalid_Operand, "The final type of a multiple-valued expression must be a boolean") or_return
+		return nil
+	}
+	for name, index in parts.names {
+		ident, by_reference := range_name(file, name)
+		if by_reference {
+			expression_unsupported(checker, view, scope, name, "Range_Reference") or_return
+			return nil
+		}
+		range_declare(checker, view, file, range_scope, ident, call.results[index]) or_return
+	}
+	expression_range_body(checker, view, file_id, node, range_scope, parts) or_return
+	plan := Plan_Id(len(checker.plans))
+	append(
+		&checker.plans,
+		Plan(
+			Range_Call_Plan {
+				call = {view, parts.expr},
+				value_types = call.results[:condition_index],
+				value_count = u32(len(parts.names)),
+				condition_index = u32(condition_index),
+			},
+		),
+	) or_return
+	expression_store(checker, view, node, Expression_Info{scope = scope, state = .Checked, plan = plan})
 	return nil
 }
