@@ -9,6 +9,7 @@ import "oc:types"
 Intrinsic_Shape :: enum u8 {
 	None,
 	Integer_Unary, // (x: T) -> T, T integer
+	Float_Unary, // (x: T) -> T, T float
 	Value_Pair, // (x: T, expected: T) -> T
 	Overflow, // (x, y: T) -> (T, bool), T integer
 	Load, // (dst: ^T) -> T
@@ -18,6 +19,8 @@ Intrinsic_Shape :: enum u8 {
 	Fence, // ()
 	Bytes_Copy, // (dst, src: rawptr, len: int)
 	Bytes_Zero, // (ptr: rawptr, len: int)
+	Pointer_Offset, // (ptr: ^T or [^]T, offset: int) -> the pointer type
+	Pointer_Difference, // (a, b: ^T or [^]T) -> int, (a - b) / size_of(T)
 }
 
 @(private = "package")
@@ -52,6 +55,12 @@ intrinsic_shape :: proc(kind: Builtin_Kind) -> Intrinsic_Shape {
 		return .Fence
 	case .Mem_Copy, .Mem_Copy_Non_Overlapping:
 		return .Bytes_Copy
+	case .Sqrt:
+		return .Float_Unary
+	case .Ptr_Offset:
+		return .Pointer_Offset
+	case .Ptr_Sub:
+		return .Pointer_Difference
 
 	}
 	return .None
@@ -76,9 +85,9 @@ intrinsic_argument_count :: proc(shape: Intrinsic_Shape) -> int {
 	switch shape {
 	case .None, .Fence:
 		return 0
-	case .Integer_Unary, .Load:
+	case .Integer_Unary, .Load, .Float_Unary:
 		return 1
-	case .Value_Pair, .Overflow, .Store, .Update, .Bytes_Zero:
+	case .Value_Pair, .Overflow, .Store, .Update, .Bytes_Zero, .Pointer_Offset, .Pointer_Difference:
 		return 2
 	case .Compare_Exchange, .Bytes_Copy:
 		return 3
@@ -152,12 +161,14 @@ expression_intrinsic_call :: proc(
 			hint = element if index > 0 else 0
 		case .Bytes_Copy, .Bytes_Zero:
 			hint = 0
-		case .None, .Load, .Fence, .Integer_Unary:
+		case .Pointer_Offset, .Pointer_Difference:
+			hint = 0
+		case .None, .Load, .Fence, .Integer_Unary, .Float_Unary:
 		}
 		value := check_expression(checker, view, scope, argument, hint) or_return
 		if value.state == .Invalid { return expression_poison(scope), nil }
 		if types.is_untyped(store, value.type) {
-			if shape == .Integer_Unary || shape == .Overflow && index == 0 {
+			if shape == .Integer_Unary || shape == .Float_Unary || shape == .Overflow && index == 0 || shape == .Pointer_Offset && index == 1 {
 				value = check_expression(checker, view, scope, argument, types.default_type_of_untyped(store, value.type)) or_return
 			} else if (shape == .Bytes_Copy || shape == .Bytes_Zero) && index == value_count - 1 {
 				value = check_expression(checker, view, scope, argument, int_type) or_return
@@ -170,6 +181,25 @@ expression_intrinsic_call :: proc(
 		case .Integer_Unary:
 			valid = descriptor.kind == .Integer
 			element = value.type
+		case .Float_Unary:
+			valid = descriptor.kind == .Float
+			element = value.type
+		case .Pointer_Offset:
+			if index == 0 {
+				valid = descriptor.kind == .Pointer || descriptor.kind == .Multi_Pointer
+				element = value.type
+			} else {
+				valid = descriptor.kind == .Integer
+			}
+		case .Pointer_Difference:
+			is_pointer := descriptor.kind == .Pointer || descriptor.kind == .Multi_Pointer
+			if index == 0 {
+				element = value.type
+				size, _, failure := types.layout(store, descriptor.elem)
+				valid = is_pointer && failure == .None && size > 0
+			} else {
+				valid = is_pointer && value.type == element
+			}
 		case .Overflow:
 			if index == 0 {
 				valid = descriptor.kind == .Integer
@@ -213,8 +243,11 @@ expression_intrinsic_call :: proc(
 		state = .Checked,
 	}
 	#partial switch shape {
-	case .Integer_Unary, .Value_Pair, .Load, .Update:
+	case .Integer_Unary, .Float_Unary, .Value_Pair, .Load, .Update, .Pointer_Offset:
 		info.type = element
+		info.mode = .Value
+	case .Pointer_Difference:
+		info.type = checker.default_integer
 		info.mode = .Value
 	}
 	return info, nil

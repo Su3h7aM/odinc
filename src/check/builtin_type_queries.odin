@@ -4,6 +4,29 @@ import "core:math/big"
 import "oc:syntax"
 import "oc:types"
 
+// Resolves the operand of a type query. A poison type comes back as an invalid expression for the caller to report.
+@(private = "package")
+type_query_operand :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	scope: Scope_Id,
+	argument: syntax.Node_Index,
+) -> (
+	operand: Expression_Info,
+	err: Resolve_Error,
+) {
+	file_id := checker.views[view].file
+	file := checker.type_checker.files[file_id]
+	type_argument := argument
+	for file.ast.nodes[type_argument].kind == .Paren_Expr { type_argument = syntax.node_payload(file.ast, type_argument, syntax.Paren_Expr).expr }
+	if syntax_kind := file.ast.nodes[type_argument].kind; .Typeid_Type <= syntax_kind && syntax_kind <= .Bit_Field_Type {
+		type := type_expression(checker.type_checker, file_id, scope, type_argument, true) or_return
+		if type == types.TYPE_POISON { return expression_poison(scope), nil }
+		return Expression_Info{type = type, mode = .Type, scope = scope, state = .Checked}, nil
+	}
+	return check_expression(checker, view, scope, argument)
+}
+
 @(private = "package")
 expression_type_query :: proc(
 	checker: ^Expression_Checker,
@@ -19,23 +42,7 @@ expression_type_query :: proc(
 ) {
 	count := 2 if kind == .Type_Has_Field || kind == .Type_Field_Type else 1
 	if len(arguments) != count || ellipsis { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
-	operand: Expression_Info
-	file_id := checker.views[view].file
-	file := checker.type_checker.files[file_id]
-	argument := arguments[0]
-	for file.ast.nodes[argument].kind == .Paren_Expr { argument = syntax.node_payload(file.ast, argument, syntax.Paren_Expr).expr }
-	if syntax_kind := file.ast.nodes[argument].kind; .Typeid_Type <= syntax_kind && syntax_kind <= .Bit_Field_Type {
-		type := type_expression(checker.type_checker, file_id, scope, argument, true) or_return
-		if type == types.TYPE_POISON { return expression_poison(scope), nil }
-		operand = Expression_Info {
-			type  = type,
-			mode  = .Type,
-			scope = scope,
-			state = .Checked,
-		}
-	} else {
-		operand = check_expression(checker, view, scope, arguments[0]) or_return
-	}
+	operand := type_query_operand(checker, view, scope, arguments[0]) or_return
 	if operand.state == .Invalid { return expression_poison(scope), nil }
 	if operand.mode != .Type { return expression_failure(checker, view, scope, arguments[0], .Invalid_Operand) }
 	store := checker.type_checker.store
@@ -122,9 +129,9 @@ expression_type_query :: proc(
 		if result_type == 0 {
 			size, _, failure := types.layout(store, owner)
 			if failure != .None { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
-			if size <= 16 {result_type = types.intern(store, types.Type{kind = .Integer, count = size})
+			if size <= 16 {result_type = types.sized_integer(store, size, false)
 			} else {
-				byte := types.intern(store, types.Type{kind = .Integer, count = 1})
+				byte := types.sized_integer(store, 1, false)
 				result_type = types.intern(store, types.Type{kind = .Array, elem = byte, count = size})
 			}
 		}

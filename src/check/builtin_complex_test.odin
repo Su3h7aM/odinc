@@ -1,0 +1,24 @@
+package check
+
+import "core:testing"
+
+@(test)
+complex_and_quaternion_builtins_check_constants :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(
+		`package sample
+main :: proc "contextless" () {
+	complex_value :: complex(1.0, 2.0)
+	quaternion_value :: quaternion(imag = 1.0, jmag = 2.0, kmag = 3.0, real = 4.0)
+	real(complex_value)
+	imag(complex_value)
+	real(quaternion_value)
+	jmag(quaternion_value)
+	kmag(quaternion_value)
+	conj(quaternion_value)
+}
+`,
+	)
+	procedure, ok := check_procedure_source(t, source)
+	if !ok { return }
+	testing.expect(t, procedure.body_state == .Complete)
+}

@@ -54,6 +54,38 @@ intrinsic_builtin_kind :: proc(name: string) -> Builtin_Kind {
 		return .Type_Bit_Set_Underlying_Type
 	case "type_elem_type":
 		return .Type_Elem_Type
+	case "type_map_info":
+		return .Type_Map_Info
+	case "type_map_cell_info":
+		return .Type_Map_Cell_Info
+	case "type_is_comparable":
+		return .Type_Comparable
+	case "type_is_ordered":
+		return .Type_Ordered
+	case "type_is_ordered_numeric":
+		return .Type_Ordered_Numeric
+	case "type_is_simple_compare":
+		return .Type_Simple_Compare
+	case "type_is_enumerated_array":
+		return .Type_Enumerated_Array
+	case "type_base_type":
+		return .Type_Base_Type
+	case "type_core_type":
+		return .Type_Core_Type
+	case "sqrt":
+		return .Sqrt
+	case "ptr_offset":
+		return .Ptr_Offset
+	case "ptr_sub":
+		return .Ptr_Sub
+	case "__entry_point":
+		return .Entry_Point
+	case "read_cycle_counter":
+		return .Read_Cycle_Counter
+	case "x86_cpuid":
+		return .X86_Cpuid
+	case "x86_xgetbv":
+		return .X86_Xgetbv
 	case "constant_log2":
 		return .Constant_Log2
 	case "saturating_add":
@@ -154,12 +186,56 @@ intrinsic_builtin_kind :: proc(name: string) -> Builtin_Kind {
 		return .Unaligned_Load
 	case "unaligned_store":
 		return .Unaligned_Store
+	case "simd_extract":
+		return .Simd_Extract
+	case "simd_replace":
+		return .Simd_Replace
 	case "simd_indices":
 		return .Simd_Indices
 	case "simd_select":
 		return .Simd_Select
+	case "simd_shuffle":
+		return .Simd_Shuffle
 	case "simd_lanes_ne":
 		return .Simd_Lanes_Ne
+	case "simd_lanes_eq":
+		return .Simd_Lanes_Eq
+	case "simd_lanes_lt":
+		return .Simd_Lanes_Lt
+	case "simd_lanes_le":
+		return .Simd_Lanes_Le
+	case "simd_lanes_gt":
+		return .Simd_Lanes_Gt
+	case "simd_lanes_ge":
+		return .Simd_Lanes_Ge
+	case "simd_add":
+		return .Simd_Add
+	case "simd_sub":
+		return .Simd_Sub
+	case "simd_mul":
+		return .Simd_Mul
+	case "simd_div":
+		return .Simd_Div
+	case "simd_bit_and":
+		return .Simd_Bit_And
+	case "simd_bit_or":
+		return .Simd_Bit_Or
+	case "simd_bit_xor":
+		return .Simd_Bit_Xor
+	case "simd_bit_and_not":
+		return .Simd_Bit_And_Not
+	case "simd_min":
+		return .Simd_Min
+	case "simd_max":
+		return .Simd_Max
+	case "simd_shl":
+		return .Simd_Shl
+	case "simd_shr":
+		return .Simd_Shr
+	case "simd_shl_masked":
+		return .Simd_Shl_Masked
+	case "simd_shr_masked":
+		return .Simd_Shr_Masked
 	case "simd_reduce_or":
 		return .Simd_Reduce_Or
 	case "simd_reduce_min":
@@ -225,6 +301,9 @@ expression_builtin_call :: proc(
 	if kind := checker.builtin_kinds[builtin]; kind >= .Type_Array && kind <= .Type_Elem_Type {
 		return expression_type_query(checker, view, scope, node, kind, arguments, call.ellipsis.kind != .Invalid)
 	}
+	if kind := checker.builtin_kinds[builtin]; kind >= .Type_Comparable && kind <= .Type_Core_Type {
+		return expression_type_predicate(checker, view, scope, node, kind, arguments, call.ellipsis.kind != .Invalid)
+	}
 	if kind := checker.builtin_kinds[builtin]; kind == .Saturating_Add || kind == .Saturating_Sub {
 		return expression_saturating(checker, view, scope, node, builtin, kind, arguments, call.ellipsis.kind != .Invalid)
 	}
@@ -234,8 +313,17 @@ expression_builtin_call :: proc(
 	if checker.builtin_kinds[builtin] == .Type_Info_Of {
 		return expression_type_info_of(checker, view, scope, node, arguments, call.ellipsis.kind != .Invalid)
 	}
+	if kind := checker.builtin_kinds[builtin]; kind == .Type_Map_Info || kind == .Type_Map_Cell_Info {
+		return expression_map_info(checker, view, scope, node, kind, arguments, call.ellipsis.kind != .Invalid)
+	}
 	if kind := checker.builtin_kinds[builtin]; kind == .Min || kind == .Max || kind == .Abs || kind == .Clamp {
 		return expression_numeric_builtin(checker, view, scope, node, builtin, kind, arguments, call.ellipsis.kind != .Invalid)
+	}
+	if checker.builtin_kinds[builtin] == .Entry_Point {
+		if len(arguments) != 0 || call.ellipsis.kind != .Invalid { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
+		plan := Plan_Id(len(checker.plans))
+		append(&checker.plans, Plan(Builtin_Plan{builtin = builtin})) or_return
+		return Expression_Info{mode = .No_Value, plan = plan, scope = scope, state = .Checked}, nil
 	}
 	if checker.builtin_kinds[builtin] == .Trap {
 		if len(arguments) != 0 || call.ellipsis.kind != .Invalid { return expression_unsupported(checker, view, scope, node, "Trap_Arguments") }
@@ -258,6 +346,9 @@ expression_builtin_call :: proc(
 	if checker.builtin_kinds[builtin] == .Typeid_Of {
 		return expression_typeid_of(checker, view, scope, node, arguments, call.ellipsis.kind != .Invalid)
 	}
+	if kind := checker.builtin_kinds[builtin]; kind >= .Complex && kind <= .Conj {
+		return expression_complex_builtin(checker, view, scope, node, builtin, kind, arguments, call.ellipsis.kind != .Invalid)
+	}
 	if checker.builtin_kinds[builtin] == .Has_Target_Feature {
 		return expression_has_target_feature(checker, view, scope, node, arguments, call.ellipsis.kind != .Invalid)
 	}
@@ -269,6 +360,9 @@ expression_builtin_call :: proc(
 	}
 	if kind := checker.builtin_kinds[builtin]; simd_builtin_kind(kind) {
 		return expression_simd_call(checker, view, scope, node, builtin, kind, arguments, call.ellipsis.kind != .Invalid)
+	}
+	if kind := checker.builtin_kinds[builtin]; target_op_kind(kind) {
+		return expression_target_op(checker, view, scope, node, builtin, kind, arguments, call.ellipsis.kind != .Invalid)
 	}
 	if kind := checker.builtin_kinds[builtin]; intrinsic_shape(kind) != .None {
 		return expression_intrinsic_call(checker, view, scope, node, builtin, kind, arguments, call.ellipsis.kind != .Invalid)
@@ -327,9 +421,9 @@ expression_raw_data :: proc(
 	case .Slice:
 		element = descriptor.elem
 	case .String:
-		element = types.intern(store, types.Type{kind = .Integer, count = 1})
+		element = types.sized_integer(store, 1, false)
 	case .String16:
-		element = types.intern(store, types.Type{kind = .Integer, count = 2})
+		element = types.sized_integer(store, 2, false)
 	case:
 		return expression_failure(checker, view, scope, arguments[0], .Invalid_Operand)
 	}
@@ -639,6 +733,9 @@ expression_length :: proc(
 	if operand.state == .Invalid { return expression_poison(scope), nil }
 	store := checker.type_checker.store
 	descriptor := types.get(store, types.resolve_named(store, operand.type))
+	if descriptor.kind == .Pointer {
+		descriptor = types.get(store, types.resolve_named(store, descriptor.elem))
+	}
 	#partial switch descriptor.kind {
 	case .Array:
 		value: big.Int

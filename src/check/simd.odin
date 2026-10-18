@@ -1,5 +1,6 @@
 package check
 
+import "core:math/big"
 import "core:mem"
 import "oc:syntax"
 import "oc:types"
@@ -48,7 +49,13 @@ simd_array_type :: proc(
 
 simd_builtin_kind :: proc(kind: Builtin_Kind) -> bool {
 	#partial switch kind {
-	case .Simd_Indices, .Simd_Select, .Simd_Lanes_Ne, .Simd_Reduce_Or, .Simd_Reduce_Min:
+	case .Simd_Extract, .Simd_Replace, .Simd_Indices, .Simd_Select, .Simd_Shuffle, .Simd_Reduce_Or, .Simd_Reduce_Min:
+		return true
+	case .Simd_Lanes_Eq, .Simd_Lanes_Ne, .Simd_Lanes_Lt, .Simd_Lanes_Le, .Simd_Lanes_Gt, .Simd_Lanes_Ge:
+		return true
+	case .Simd_Add, .Simd_Sub, .Simd_Mul, .Simd_Div, .Simd_Bit_And, .Simd_Bit_Or, .Simd_Bit_Xor, .Simd_Bit_And_Not, .Simd_Min, .Simd_Max:
+		return true
+	case .Simd_Shl, .Simd_Shr, .Simd_Shl_Masked, .Simd_Shr_Masked:
 		return true
 	}
 	return false
@@ -69,6 +76,23 @@ simd_vector :: proc(store: ^types.Store, id: types.Type_Id) -> (vector: types.Ty
 @(private = "file")
 simd_element_kind :: proc(store: ^types.Store, elem: types.Type_Id) -> types.Kind {
 	return types.get(store, types.resolve_named(store, elem)).kind
+}
+
+@(private = "file")
+simd_compare_allowed :: proc(kind: Builtin_Kind, element: types.Kind) -> bool {
+	if kind == .Simd_Lanes_Eq || kind == .Simd_Lanes_Ne { return element == .Integer || element == .Float || element == .Bool }
+	return element == .Integer || element == .Float
+}
+
+@(private = "file")
+simd_lanewise_allowed :: proc(kind: Builtin_Kind, element: types.Kind) -> bool {
+	#partial switch kind {
+	case .Simd_Add, .Simd_Sub, .Simd_Mul:
+		return element == .Integer || element == .Float
+	case .Simd_Div:
+		return element == .Float
+	}
+	return element == .Integer
 }
 
 // Checks the `#simd` intrinsics the checker plans, with the result rules of the official check_builtin.cpp:
@@ -94,6 +118,68 @@ expression_simd_call :: proc(
 	result := types.TYPE_NONE
 	operands: []Operand
 	#partial switch kind {
+	case .Simd_Extract:
+		if len(arguments) != 2 { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
+		value := check_expression(checker, view, scope, arguments[0]) or_return
+		if value.state == .Invalid { return expression_poison(scope), nil }
+		vector, is_vector := simd_vector(store, value.type)
+		if !is_vector || !expression_value(value) { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
+		position := check_expression(checker, view, scope, arguments[1]) or_return
+		if position.state == .Invalid { return expression_poison(scope), nil }
+		if types.is_untyped(store, position.type) {
+			position = check_expression(checker, view, scope, arguments[1], checker.default_integer) or_return
+			if position.state == .Invalid { return expression_poison(scope), nil }
+		}
+		position_kind := types.get(store, types.resolve_named(store, position.type)).kind
+		if !expression_value(position) || position_kind != .Integer && position_kind != .Enum {
+			return expression_failure(checker, view, scope, arguments[1], .Invalid_Operand)
+		}
+		if position.mode == .Constant &&
+		   checker.unchecked_depth == 0 &&
+		   checker.type_checker.files[checker.views[view].file].policy.bounds_check != .Disabled {
+			integer := constant_pool_get(checker.constants, position.constant).value.(big.Int)
+			index, index_error := big.int_get_i64(&integer)
+			if index_error != nil || index < 0 || index >= vector.count {
+				return expression_failure(checker, view, scope, arguments[1], .Invalid_Operand)
+			}
+		}
+		operands = make([]Operand, 2, allocator) or_return
+		operands[0] = Operand(Expression_Ref{view, arguments[0]})
+		operands[1] = Operand(Expression_Ref{view, arguments[1]})
+		result = vector.elem
+	case .Simd_Replace:
+		if len(arguments) != 3 { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
+		value := check_expression(checker, view, scope, arguments[0]) or_return
+		if value.state == .Invalid { return expression_poison(scope), nil }
+		vector, is_vector := simd_vector(store, value.type)
+		if !is_vector || !expression_value(value) { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
+		position := check_expression(checker, view, scope, arguments[1]) or_return
+		if position.state == .Invalid { return expression_poison(scope), nil }
+		if types.is_untyped(store, position.type) {
+			position = check_expression(checker, view, scope, arguments[1], checker.default_integer) or_return
+			if position.state == .Invalid { return expression_poison(scope), nil }
+		}
+		position_kind := types.get(store, types.resolve_named(store, position.type)).kind
+		if !expression_value(position) || position_kind != .Integer && position_kind != .Enum {
+			return expression_failure(checker, view, scope, arguments[1], .Invalid_Operand)
+		}
+		if position.mode == .Constant &&
+		   checker.unchecked_depth == 0 &&
+		   checker.type_checker.files[checker.views[view].file].policy.bounds_check != .Disabled {
+			integer := constant_pool_get(checker.constants, position.constant).value.(big.Int)
+			index, index_error := big.int_get_i64(&integer)
+			if index_error != nil || index < 0 || index >= vector.count {
+				return expression_failure(checker, view, scope, arguments[1], .Invalid_Operand)
+			}
+		}
+		element := check_expression(checker, view, scope, arguments[2], vector.elem) or_return
+		if element.state == .Invalid { return expression_poison(scope), nil }
+		if element.type != vector.elem { return expression_failure(checker, view, scope, arguments[2], .Mismatched_Types) }
+		operands = make([]Operand, 3, allocator) or_return
+		operands[0] = Operand(Expression_Ref{view, arguments[0]})
+		operands[1] = Operand(Expression_Ref{view, arguments[1]})
+		operands[2] = Operand(Expression_Ref{view, arguments[2]})
+		result = value.type
 	case .Simd_Indices:
 		if len(arguments) != 1 { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
 		vector_type := type_expression(checker.type_checker, checker.views[view].file, scope, arguments[0], true) or_return
@@ -117,7 +203,7 @@ expression_simd_call :: proc(
 		operands = make([]Operand, 1, allocator) or_return
 		operands[0] = Operand(Expression_Ref{view, arguments[0]})
 		result = vector.elem
-	case .Simd_Lanes_Ne:
+	case .Simd_Lanes_Eq, .Simd_Lanes_Ne, .Simd_Lanes_Lt, .Simd_Lanes_Le, .Simd_Lanes_Gt, .Simd_Lanes_Ge:
 		if len(arguments) != 2 { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
 		left := check_expression(checker, view, scope, arguments[0]) or_return
 		if left.state == .Invalid { return expression_poison(scope), nil }
@@ -126,16 +212,54 @@ expression_simd_call :: proc(
 		vector, ok := simd_vector(store, left.type)
 		if !ok || right.type != left.type { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
 		element := simd_element_kind(store, vector.elem)
-		if element != .Integer && element != .Float && element != .Bool {
+		if !simd_compare_allowed(kind, element) {
 			return expression_failure(checker, view, scope, node, .Invalid_Operand)
 		}
 		size, _, layout_error := types.layout(store, vector.elem)
 		if layout_error != .None || size > 8 { return expression_unsupported(checker, view, scope, node, "Simd_Element_Layout") }
-		lane := types.intern(store, types.Type{kind = .Integer, count = size})
+		lane := types.sized_integer(store, size, false)
 		result = types.intern(store, types.Type{kind = .Simd_Vector, elem = lane, count = vector.count})
 		operands = make([]Operand, 2, allocator) or_return
 		operands[0] = Operand(Expression_Ref{view, arguments[0]})
 		operands[1] = Operand(Expression_Ref{view, arguments[1]})
+	case .Simd_Add, .Simd_Sub, .Simd_Mul, .Simd_Div, .Simd_Bit_And, .Simd_Bit_Or, .Simd_Bit_Xor, .Simd_Bit_And_Not, .Simd_Min, .Simd_Max:
+		if len(arguments) != 2 { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
+		left := check_expression(checker, view, scope, arguments[0]) or_return
+		if left.state == .Invalid { return expression_poison(scope), nil }
+		right := check_expression(checker, view, scope, arguments[1], left.type) or_return
+		if right.state == .Invalid { return expression_poison(scope), nil }
+		vector, ok := simd_vector(store, left.type)
+		if !ok || right.type != left.type || !expression_value(left) || !expression_value(right) {
+			return expression_failure(checker, view, scope, node, .Invalid_Operand)
+		}
+		if !simd_lanewise_allowed(kind, simd_element_kind(store, vector.elem)) {
+			return expression_failure(checker, view, scope, node, .Invalid_Operand)
+		}
+		operands = make([]Operand, 2, allocator) or_return
+		operands[0] = Operand(Expression_Ref{view, arguments[0]})
+		operands[1] = Operand(Expression_Ref{view, arguments[1]})
+		result = left.type
+	case .Simd_Shl, .Simd_Shr, .Simd_Shl_Masked, .Simd_Shr_Masked:
+		if len(arguments) != 2 { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
+		value := check_expression(checker, view, scope, arguments[0]) or_return
+		if value.state == .Invalid { return expression_poison(scope), nil }
+		amount := check_expression(checker, view, scope, arguments[1]) or_return
+		if amount.state == .Invalid { return expression_poison(scope), nil }
+		vector, ok := simd_vector(store, value.type)
+		amounts, amounts_ok := simd_vector(store, amount.type)
+		if !ok || !amounts_ok || amounts.count != vector.count || !expression_value(value) || !expression_value(amount) {
+			return expression_failure(checker, view, scope, node, .Invalid_Operand)
+		}
+		if simd_element_kind(store, vector.elem) != .Integer || simd_element_kind(store, amounts.elem) != .Integer {
+			return expression_failure(checker, view, scope, node, .Invalid_Operand)
+		}
+		if types.get(store, types.resolve_named(store, amounts.elem)).signed {
+			return expression_failure(checker, view, scope, node, .Invalid_Operand)
+		}
+		operands = make([]Operand, 2, allocator) or_return
+		operands[0] = Operand(Expression_Ref{view, arguments[0]})
+		operands[1] = Operand(Expression_Ref{view, arguments[1]})
+		result = value.type
 	case .Simd_Select:
 		if len(arguments) != 3 { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
 		condition := check_expression(checker, view, scope, arguments[0]) or_return
@@ -158,6 +282,38 @@ expression_simd_call :: proc(
 		operands[1] = Operand(Expression_Ref{view, arguments[1]})
 		operands[2] = Operand(Expression_Ref{view, arguments[2]})
 		result = when_true.type
+	case .Simd_Shuffle:
+		if len(arguments) < 3 { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
+		left := check_expression(checker, view, scope, arguments[0]) or_return
+		if left.state == .Invalid { return expression_poison(scope), nil }
+		right := check_expression(checker, view, scope, arguments[1], left.type) or_return
+		if right.state == .Invalid { return expression_poison(scope), nil }
+		vector, is_vector := simd_vector(store, left.type)
+		if !is_vector || right.type != left.type || !expression_value(left) || !expression_value(right) {
+			return expression_failure(checker, view, scope, node, .Invalid_Operand)
+		}
+		lane_count := i64(len(arguments) - 2)
+		if lane_count > SIMD_ELEMENT_COUNT_MAX || (lane_count & (lane_count - 1)) != 0 {
+			return expression_failure(checker, view, scope, node, .Invalid_Operand)
+		}
+		operands = make([]Operand, len(arguments), allocator) or_return
+		operands[0] = Operand(Expression_Ref{view, arguments[0]})
+		operands[1] = Operand(Expression_Ref{view, arguments[1]})
+		for argument, index in arguments[2:] {
+			position := check_expression(checker, view, scope, argument, checker.default_integer) or_return
+			if position.state == .Invalid { return expression_poison(scope), nil }
+			position_kind := types.get(store, types.resolve_named(store, position.type)).kind
+			if position.mode != .Constant || position_kind != .Integer {
+				return expression_failure(checker, view, scope, argument, .Invalid_Operand)
+			}
+			integer := constant_pool_get(checker.constants, position.constant).value.(big.Int)
+			lane, lane_error := big.int_get_i64(&integer)
+			if lane_error != nil || lane < 0 || lane >= 2 * vector.count {
+				return expression_failure(checker, view, scope, argument, .Invalid_Operand)
+			}
+			operands[index + 2] = Operand(position.constant)
+		}
+		result = types.intern(store, types.Type{kind = .Simd_Vector, elem = vector.elem, count = lane_count})
 	case:
 		return expression_unsupported(checker, view, scope, node, "Simd_Builtin")
 	}

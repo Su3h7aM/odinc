@@ -12,6 +12,7 @@ Bytes :: #simd[16]u8
 Lanes :: #simd[4]f32
 Odd :: #simd[3]u8
 Text :: #simd[4]string
+simd_extract :: proc(a: #simd[N]T, idx: uint) -> T ---
 left: Bytes
 right: Bytes
 mask: Bytes
@@ -20,10 +21,23 @@ lanes := simd_lanes_ne(left, right)
 selected := simd_select(lanes, indices, mask)
 low := simd_reduce_min(selected)
 any_lane := simd_reduce_or(lanes)
+index: int
+extracted := simd_extract(left, 15)
+dynamic_lane := simd_extract(left, index)
+float_lane := simd_extract(float_lanes, 0)
+past_end := simd_extract(left, 16)
+negative := simd_extract(left, -1)
+noninteger := simd_extract(left, 1.5)
+nonvector := simd_extract(index, 0)
 float_lanes: Lanes
 float_mask := simd_lanes_ne(float_lanes, float_lanes)
 broadcast: Bytes = u8(0xFF)
 bad := simd_lanes_ne(left, float_lanes)
+replaced := simd_replace(left, 0, 1)
+bad_replace := simd_replace(left, 0, 1.5)
+shuffled := simd_shuffle(left, right, 0, 16, 1, 17)
+shuffled_bad := simd_shuffle(left, right, 0, 1, 2)
+shuffled_past := simd_shuffle(left, right, 0, 32)
 `,
 	)
 	ast: syntax.Ast
@@ -38,10 +52,10 @@ bad := simd_lanes_ne(left, float_lanes)
 	store := types.init()
 	defer types.destroy(&store)
 	integer := types.intern(&store, types.Type{kind = .Integer, name = "int", count = 8, signed = true})
-	byte_type := types.intern(&store, types.Type{kind = .Integer, count = 1})
+	byte_type := types.intern(&store, types.Type{kind = .Integer, name = "u8", count = 1})
 	float32 := types.intern(&store, types.Type{kind = .Float, count = 4})
 	string_type := types.intern(&store, types.Type{kind = .String})
-	unsigned32 := types.intern(&store, types.Type{kind = .Integer, count = 4})
+	unsigned32 := types.intern(&store, types.Type{kind = .Integer, name = "u32", count = 4})
 	word := types.intern(&store, types.Type{kind = .Integer, name = "uintptr", count = 8})
 	boolean := types.intern(&store, types.Type{kind = .Bool})
 	pool: Constant_Pool
@@ -86,12 +100,15 @@ bad := simd_lanes_ne(left, float_lanes)
 		expression_checker_init(&checker, &type_checker, &pool, {uintptr = word, layout = types.DEFAULT_LAYOUT}, integer, boolean, context.allocator) == nil,
 	) { return }
 	defer expression_checker_destroy(&checker)
+	checker.packages = []Package{{}, {kind = .Intrinsics}}
 	intrinsics := []struct {
 		name: string,
 		kind: Builtin_Kind,
 	} {
 		{"simd_indices", .Simd_Indices},
+		{"simd_replace", .Simd_Replace},
 		{"simd_select", .Simd_Select},
+		{"simd_shuffle", .Simd_Shuffle},
 		{"simd_lanes_ne", .Simd_Lanes_Ne},
 		{"simd_reduce_min", .Simd_Reduce_Min},
 		{"simd_reduce_or", .Simd_Reduce_Or},
@@ -105,7 +122,17 @@ bad := simd_lanes_ne(left, float_lanes)
 	for declaration in collection.declarations {
 		state, err := resolve_entity(&resolver, declaration.entity)
 		name := entity_get(&scopes, declaration.entity).name
-		invalid := name == "Odd" || name == "Text" || name == "bad"
+		invalid :=
+			name == "Odd" ||
+			name == "Text" ||
+			name == "bad" ||
+			name == "past_end" ||
+			name == "negative" ||
+			name == "noninteger" ||
+			name == "nonvector" ||
+			name == "bad_replace" ||
+			name == "shuffled_bad" ||
+			name == "shuffled_past"
 		testing.expectf(t, err == nil && (state == .Invalid) == invalid, "%s: %v %v", name, state, err)
 	}
 	count_reported, element_reported := false, false
@@ -132,6 +159,11 @@ bad := simd_lanes_ne(left, float_lanes)
 	testing.expect(t, lookup(&scopes, package_scope, "broadcast") == bytes)
 	testing.expect(t, lookup(&scopes, package_scope, "low") == byte_type)
 	testing.expect(t, lookup(&scopes, package_scope, "any_lane") == byte_type)
+	testing.expect(t, lookup(&scopes, package_scope, "extracted") == byte_type)
+	testing.expect(t, lookup(&scopes, package_scope, "dynamic_lane") == byte_type)
+	testing.expect(t, lookup(&scopes, package_scope, "float_lane") == float32)
+	extractor := entity_get(&scopes, scope_lookup_current(&scopes, package_scope, "simd_extract"))
+	testing.expect(t, extractor.kind == .Builtin && checker.builtin_kinds[extractor.data.(Builtin_Id)] == .Simd_Extract)
 	float_mask := types.get(&store, lookup(&scopes, package_scope, "float_mask"))^
 	testing.expect(t, float_mask.kind == .Simd_Vector && float_mask.count == 4 && float_mask.elem == unsigned32)
 }
