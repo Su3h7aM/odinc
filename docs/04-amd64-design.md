@@ -280,6 +280,13 @@ Symbols: one `link.Symbol` per `ir.Function` (defined in `.text`, size = code si
 
 The startup is a subset-first ticket: **H8a** (`_start` that loads `argc/argv`, calls the entry symbol and `exit_group`s with its result; no TLS) is enough for milestones M0/M1; **H8b** is the full sequence above (M2). The stubs are tested by running executables and by decoding the emitted bytes with `rexcode`'s decoder against the reference listing (one round-trip test per symbol). Undefined `_start_odin`, `_odin_linux_stack_guard` and `_odin_linux_tls_header` are ordinary runtime symbols resolved by name in `link`. No stack protector is inserted into generated code in v0 (`__stack_chk_fail` exists only because the runtime references it).
 
+**Current state.** `start_atom` in `src/driver/native.odin` implements H8a and the single-thread part of H8b:
+
+- `_start` stores argc, argv and envp in the `runtime.argc`, `runtime.argv`, `runtime.envp` slots and `runtime.args__`, runs global initialization (which calls the runtime's `__init_context`), passes the default context in `rdi`, and calls `main`.
+- TLS uses the local-exec model. The linker places `.tdata` and `.tbss` in the image below the thread pointer, and the `.Tcb` atom holds a self pointer at `fs:0` (`place_atoms` in `src/link/link.odin`). `_start` sets `fs` to that TCB with `arch_prctl`. There is no PT_TLS copy and no `mmap`: the image already has the variant II layout for one thread. `section_30` covers `@(thread_local)`.
+- Not implemented, with no consumer yet: the auxv scan (`AT_PHDR`, `AT_RANDOM`), `_odin_linux_tls_layout`, and the stack guard. The runtime reads the guard only in its own `_start` and TLS code, and no stack protector is emitted.
+- Follow-up, once the runtime compiles: replace `call main` with `_startup_runtime`, `__entry_point`, `drain_atexit`, `_cleanup_runtime`, then `exit_group`, as `_start_odin` does. Threads need a per-thread TLS copy built from the same layout; the same follow-up covers it.
+
 ## 12. Package `link`, stage 1
 
 Input types (the seam of `docs/research/08` stage 0; `amd64` imports `link` for these types only):
