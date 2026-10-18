@@ -32,6 +32,27 @@ Type_Diagnostic_Kind :: enum u8 {
 	Invalid_Bit_Field_Backing,
 	Invalid_Bit_Field_Field,
 	Bit_Field_Out_Of_Range,
+	Invalid_Record_Arguments,
+	Unsatisfied_Where_Clause,
+	Invalid_Optional_Result,
+}
+
+@(private = "file")
+runtime_allocator_error :: proc(checker: ^Type_Checker) -> types.Type_Id {
+	collection := checker.collection
+	if collection == nil || collection.runtime_scope == 0 { return types.TYPE_NONE }
+	scopes := checker.resolver.scopes
+	entity := scope_lookup_current(scopes, collection.runtime_scope, "Allocator_Error")
+	if entity == 0 { return types.TYPE_NONE }
+	if _, resolve_error := resolve_entity(checker.resolver, entity); resolve_error != nil { return types.TYPE_NONE }
+	return entity_get(scopes, entity).type
+}
+
+@(private = "file")
+optional_result_valid :: proc(checker: ^Type_Checker, result_types: []types.Type_Id, allocator: bool) -> bool {
+	if len(result_types) != 2 { return false }
+	if allocator { return result_types[1] == runtime_allocator_error(checker) }
+	return types.get(checker.store, types.resolve_named(checker.store, result_types[1])).kind == .Bool
 }
 
 
@@ -66,6 +87,17 @@ Integer_Evaluator :: #type proc(
 	err: Resolve_Error,
 )
 
+Enum_Member_Binder :: #type proc(
+	checker: ^Type_Checker,
+	scope: Scope_Id,
+	file: File_Id,
+	name: string,
+	value: i64,
+	backing: types.Type_Id,
+	expression: syntax.Node_Index,
+	user_data: rawptr,
+) -> Resolve_Error
+
 // Evaluates a boolean constant condition in `scope`. False means the evaluator diagnosed it already.
 Boolean_Evaluator :: #type proc(
 	checker: ^Type_Checker,
@@ -96,25 +128,31 @@ Default_Type_Evaluator :: #type proc(
 // Owns member arrays, enum metadata, diagnostics and lookup tables. `files` is indexed by File_Id.
 // The declaration dispatcher passed to resolver_init calls type_declaration for each entity first.
 Type_Checker :: struct {
-	resolver:              ^Resolver,
-	collection:            ^Collection,
-	store:                 ^types.Store,
-	files:                 []^File,
-	evaluate_integer:      Integer_Evaluator,
-	evaluate_boolean:      Boolean_Evaluator,
-	evaluate_default_type: Default_Type_Evaluator,
-	user_data:             rawptr,
-	instantiating:         bool,
-	allocator:             mem.Allocator,
-	arena:                 mem.Dynamic_Arena,
-	arena_allocator:       mem.Allocator,
-	declarations:          map[Entity_Id]Collected_Declaration,
-	synced:                int,
-	enum_members:          map[types.Type_Id][]Enum_Member,
-	field_flags:           map[types.Type_Id][]syntax.Field_Flags,
-	nominals:              [dynamic]Nominal_Type,
-	layouts_checked:       int,
-	diagnostics:           [dynamic]Type_Diagnostic,
+	resolver:                 ^Resolver,
+	collection:               ^Collection,
+	store:                    ^types.Store,
+	files:                    []^File,
+	packages:                 []Package,
+	evaluate_integer:         Integer_Evaluator,
+	bind_enum_member:         Enum_Member_Binder,
+	evaluate_boolean:         Boolean_Evaluator,
+	evaluate_default_type:    Default_Type_Evaluator,
+	user_data:                rawptr,
+	instantiating:            bool,
+	record_instance:          Instance_Id,
+	evaluate_record_argument: Record_Argument_Evaluator,
+	generic_records:          map[Entity_Id]Node_Ref,
+	record_instances:         [dynamic]Record_Instance,
+	allocator:                mem.Allocator,
+	arena:                    mem.Dynamic_Arena,
+	arena_allocator:          mem.Allocator,
+	declarations:             map[Entity_Id]Collected_Declaration,
+	synced:                   int,
+	enum_members:             map[types.Type_Id][]Enum_Member,
+	field_flags:              map[types.Type_Id][]syntax.Field_Flags,
+	nominals:                 [dynamic]Nominal_Type,
+	layouts_checked:          int,
+	diagnostics:              [dynamic]Type_Diagnostic,
 }
 
 type_checker_init :: proc(
@@ -138,6 +176,8 @@ type_checker_init :: proc(
 	checker.allocator = allocator
 	mem.dynamic_arena_init(&checker.arena, block_allocator = allocator, array_allocator = allocator)
 	checker.arena_allocator = mem.dynamic_arena_allocator(&checker.arena)
+	checker.generic_records = make(map[Entity_Id]Node_Ref, checker.arena_allocator)
+	checker.record_instances.allocator = checker.arena_allocator
 	checker.declarations = make(map[Entity_Id]Collected_Declaration, allocator)
 	checker.enum_members = make(map[types.Type_Id][]Enum_Member, allocator)
 	checker.field_flags = make(map[types.Type_Id][]syntax.Field_Flags, allocator)
@@ -178,6 +218,14 @@ type_declaration :: proc(checker: ^Type_Checker, id: Entity_Id) -> (handled, val
 		entity.kind = .Type_Name
 	}
 	handled = true
+	record := value
+	if file.ast.nodes[record].kind == .Distinct_Type {
+		record = type_unparen(file, syntax.node_payload(file.ast, record, syntax.Distinct_Type).type)
+	}
+	if record_poly_params(file, record) != 0 {
+		checker.generic_records[id] = Node_Ref{file_id, record}
+		return true, true, nil
+	}
 	#partial switch file.ast.nodes[value].kind {
 	case .Struct_Type:
 		type := publish_nominal(checker, id, .Struct, name) or_return
@@ -248,6 +296,12 @@ type_value_is_type :: proc(
 	#partial switch file.ast.nodes[node].kind {
 	case .Ident:
 		return type_alias_target(checker, file_id, file, scope, node)
+	case .Selector_Expr:
+		return type_alias_target(checker, file_id, file, scope, node)
+	case .Call_Expr:
+		if is_type_of_call(file, node) { return true, nil }
+		definition := record_call_definition(checker, file_id, file, scope, node) or_return
+		return definition != 0, nil
 	case .Ternary_When_Expr:
 		branch, selected, branch_error := type_ternary_when_branch(checker, file_id, file, scope, node)
 		if branch_error != nil || !selected { return false, branch_error }
@@ -275,6 +329,8 @@ type_expression :: proc(
 	#partial switch file.ast.nodes[node].kind {
 	case .Ident:
 		return type_identifier(checker, file_id, file, scope, node, direct)
+	case .Selector_Expr:
+		return type_selector(checker, file_id, file, scope, node, direct)
 	case .Ternary_When_Expr:
 		branch, selected, branch_error := type_ternary_when_branch(checker, file_id, file, scope, node)
 		if branch_error != nil || !selected { return types.TYPE_POISON, branch_error }
@@ -299,7 +355,8 @@ type_expression :: proc(
 	case .Array_Type:
 		return array_type(checker, file_id, file, scope, node)
 	case .Call_Expr:
-		return type_of_type(checker, file_id, file, scope, node)
+		if is_type_of_call(file, node) { return type_of_type(checker, file_id, file, scope, node) }
+		return record_type_call(checker, file_id, file, scope, node)
 	case .Bit_Set_Type:
 		return bit_set_type(checker, file_id, file, scope, node)
 	case .Bit_Field_Type:
@@ -390,7 +447,7 @@ type_alias_target :: proc(
 	err: Resolve_Error,
 ) {
 	scopes := checker.resolver.scopes
-	target, _ := scope_lookup(scopes, scope, type_node_text(file, node))
+	target := type_name_entity(checker, file, scope, node)
 	if target == 0 { return false, nil }
 	if entity_get(scopes, target).kind == .Constant {
 		state := resolve_type_dependency(checker, target, type_node_span(file_id, file, node), .Name) or_return
@@ -399,7 +456,32 @@ type_alias_target :: proc(
 	return entity_get(scopes, target).kind == .Type_Name, nil
 }
 
+// The entity a name in a type position refers to: a name in scope, or a member of an imported package.
+@(private = "package")
+type_name_entity :: proc(checker: ^Type_Checker, file: ^File, scope: Scope_Id, node: syntax.Node_Index) -> Entity_Id {
+	if file.ast.nodes[node].kind == .Ident {
+		target, _ := scope_lookup(checker.resolver.scopes, scope, type_node_text(file, node))
+		return target
+	}
+	selector := syntax.node_payload(file.ast, node, syntax.Selector_Expr)
+	package_scope, is_package := type_package_scope(checker, file, scope, selector.expr)
+	if !is_package { return 0 }
+	return scope_lookup_current(checker.resolver.scopes, package_scope, type_node_text(file, selector.field))
+}
+
+// The scope of the package that an import name binds. False when the qualifier is not an import name.
 @(private = "file")
+type_package_scope :: proc(checker: ^Type_Checker, file: ^File, scope: Scope_Id, qualifier: syntax.Node_Index) -> (package_scope: Scope_Id, found: bool) {
+	if file.ast.nodes[qualifier].kind != .Ident { return 0, false }
+	scopes := checker.resolver.scopes
+	import_name, _ := scope_lookup(scopes, scope, type_node_text(file, qualifier))
+	if import_name == 0 || entity_get(scopes, import_name).kind != .Import_Name { return 0, false }
+	package_id := entity_get(scopes, import_name).data.(Import_Data).package_id
+	if int(package_id) >= len(checker.packages) { return 0, false }
+	return checker.packages[package_id].scope, true
+}
+
+@(private = "package")
 publish_nominal :: proc(checker: ^Type_Checker, id: Entity_Id, kind: types.Kind, name: string) -> (type: types.Type_Id, err: runtime.Allocator_Error) {
 	type = types.reserve_nominal(checker.store, kind, name)
 	append(&checker.nominals, Nominal_Type{entity = id, type = type}) or_return
@@ -426,16 +508,66 @@ type_identifier :: proc(
 		type_report(checker, file_id, file, node, .Undeclared_Type, name) or_return
 		return types.TYPE_POISON, nil
 	}
+	return type_of_entity(checker, file_id, file, node, found, direct)
+}
+
+// The type a type-name entity denotes. Its declaration is resolved first; poison is returned after a diagnostic.
+@(private = "file")
+type_of_entity :: proc(
+	checker: ^Type_Checker,
+	file_id: File_Id,
+	file: ^File,
+	node: syntax.Node_Index,
+	found: Entity_Id,
+	direct: bool,
+) -> (
+	type: types.Type_Id,
+	err: Resolve_Error,
+) {
 	kind := Dependency_Kind.Name
 	if direct { kind = .Layout }
 	state := resolve_type_dependency(checker, found, type_node_span(file_id, file, node), kind) or_return
 	if state == .Invalid { return types.TYPE_POISON, nil }
-	entity := entity_get(scopes, found)
+	entity := entity_get(checker.resolver.scopes, found)
 	if entity.kind != .Type_Name || entity.type == types.TYPE_NONE {
-		type_report(checker, file_id, file, node, .Not_A_Type, name) or_return
+		type_report(checker, file_id, file, node, .Not_A_Type, type_node_text(file, node)) or_return
 		return types.TYPE_POISON, nil
 	}
 	return entity.type, nil
+}
+
+// `pkg.Name` names a type that an imported package declares. Other selectors are values, not types.
+@(private = "file")
+type_selector :: proc(
+	checker: ^Type_Checker,
+	file_id: File_Id,
+	file: ^File,
+	scope: Scope_Id,
+	node: syntax.Node_Index,
+	direct: bool,
+) -> (
+	type: types.Type_Id,
+	err: Resolve_Error,
+) {
+	selector := syntax.node_payload(file.ast, node, syntax.Selector_Expr)
+	if file.ast.nodes[selector.expr].kind == .Ident {
+		qualifier, _ := scope_lookup(checker.resolver.scopes, scope, type_node_text(file, selector.expr))
+		if qualifier == 0 {
+			type_report(checker, file_id, file, selector.expr, .Undeclared_Type, type_node_text(file, selector.expr)) or_return
+			return types.TYPE_POISON, nil
+		}
+	}
+	package_scope, is_package := type_package_scope(checker, file, scope, selector.expr)
+	if !is_package {
+		type_report(checker, file_id, file, node, .Not_A_Type, type_node_text(file, node)) or_return
+		return types.TYPE_POISON, nil
+	}
+	member := scope_lookup_current(checker.resolver.scopes, package_scope, type_node_text(file, selector.field))
+	if member == 0 {
+		type_report(checker, file_id, file, selector.field, .Undeclared_Type, type_node_text(file, selector.field)) or_return
+		return types.TYPE_POISON, nil
+	}
+	return type_of_entity(checker, file_id, file, node, member, direct)
 }
 
 // `type_of(x)` declares a type name, as it does in a type position.
@@ -479,7 +611,7 @@ type_of_type :: proc(
 	return entity_get(scopes, found).type, nil
 }
 
-@(private = "file")
+@(private = "package")
 resolve_type_dependency :: proc(
 	checker: ^Type_Checker,
 	target: Entity_Id,
@@ -617,7 +749,7 @@ alignment_expression :: proc(
 	return value, true, nil
 }
 
-@(private = "file")
+@(private = "package")
 struct_descriptor :: proc(
 	checker: ^Type_Checker,
 	file_id: File_Id,
@@ -633,7 +765,7 @@ struct_descriptor :: proc(
 ) {
 	record := syntax.node_payload(file.ast, node, syntax.Struct_Type)
 	valid = true
-	if record.poly_params != 0 || record.where_clauses.count != 0 {
+	if record.poly_params != 0 && checker.record_instance == 0 || record.poly_params == 0 && record.where_clauses.count != 0 {
 		type_report(checker, file_id, file, node, .Unsupported_Type_Expression) or_return
 		valid = false
 	}
@@ -652,7 +784,7 @@ struct_descriptor :: proc(
 	return descriptor, field_flags, valid && fields_valid && align_valid && min_valid && max_valid, nil
 }
 
-@(private = "file")
+@(private = "package")
 union_descriptor :: proc(
 	checker: ^Type_Checker,
 	file_id: File_Id,
@@ -667,7 +799,7 @@ union_descriptor :: proc(
 ) {
 	record := syntax.node_payload(file.ast, node, syntax.Union_Type)
 	valid = true
-	if record.poly_params != 0 || record.where_clauses.count != 0 {
+	if record.poly_params != 0 && checker.record_instance == 0 || record.poly_params == 0 && record.where_clauses.count != 0 {
 		type_report(checker, file_id, file, node, .Unsupported_Type_Expression) or_return
 		valid = false
 	}
@@ -726,8 +858,10 @@ enum_descriptor :: proc(
 	err: Resolve_Error,
 ) {
 	record := syntax.node_payload(file.ast, node, syntax.Enum_Type)
+	enum_scope, scope_error := scope_create(checker.resolver.scopes, scope, .Block)
+	if scope_error != nil { return {}, nil, false, binding_resolve_error(scope_error) }
 	valid = true
-	base := types.intern(checker.store, types.Type{kind = .Integer, count = types.DEFAULT_LAYOUT.int_size, signed = true})
+	base := types.intern(checker.store, types.Type{kind = .Integer, name = "int", count = types.DEFAULT_LAYOUT.int_size, signed = true})
 	if record.base_type != 0 {
 		base = type_expression(checker, file_id, scope, record.base_type, true) or_return
 		if base == types.TYPE_POISON {
@@ -755,7 +889,7 @@ enum_descriptor :: proc(
 		member_name := type_node_text(file, name_node)
 		value := next
 		if value_node != 0 {
-			evaluated, ok := integer_expression(checker, file_id, file, scope, value_node) or_return
+			evaluated, ok := integer_expression(checker, file_id, file, enum_scope, value_node) or_return
 			if !ok {
 				valid = false
 				continue
@@ -780,6 +914,9 @@ enum_descriptor :: proc(
 			value  = value,
 			source = type_node_span(file_id, file, name_node),
 		}
+		if member_name != "_" && checker.bind_enum_member != nil {
+			checker.bind_enum_member(checker, enum_scope, file_id, member_name, value, base, value_node, checker.user_data) or_return
+		}
 		if count == 0 || value < lower { lower = value }
 		if count == 0 || value > upper { upper = value }
 		count += 1
@@ -798,7 +935,7 @@ enum_descriptor :: proc(
 }
 
 // Records each field's flags (`using`, `#subtype`), aligned with the descriptor fields, when any field has flags.
-@(private = "file")
+@(private = "package")
 register_field_flags :: proc(checker: ^Type_Checker, type: types.Type_Id, field_flags: []syntax.Field_Flags) -> runtime.Allocator_Error {
 	any_flagged := false
 	for flags in field_flags { any_flagged ||= flags != {} }
@@ -853,9 +990,23 @@ procedure_type :: proc(
 	result_types := make([]types.Type_Id, len(results), checker.arena_allocator) or_return
 	for parameter, index in parameters { parameter_types[index] = parameter.type }
 	for result, index in results { result_types[index] = result.type }
+	optional_ok := .Optional_Ok in signature.tags
+	optional_allocator := .Optional_Allocator_Error in signature.tags
+	if optional_ok && optional_allocator || (optional_ok || optional_allocator) && !optional_result_valid(checker, result_types, optional_allocator) {
+		type_report(checker, file_id, file, signature.results, .Invalid_Optional_Result) or_return
+		return types.TYPE_POISON, nil
+	}
+	optional_result := optional_ok || optional_allocator
 	return types.intern(
 			checker.store,
-			types.Type{kind = .Procedure, params = parameter_types, results = result_types, convention = convention, variadic = variadic},
+			types.Type {
+				kind = .Procedure,
+				params = parameter_types,
+				results = result_types,
+				convention = convention,
+				variadic = variadic,
+				optional_result = optional_result,
+			},
 		),
 		nil
 }
@@ -1054,20 +1205,20 @@ integer_fits :: proc(integer: ^types.Type, value: i64) -> bool {
 	return 0 <= value && value < i64(1) << bits
 }
 
-@(private = "file")
+@(private = "package")
 type_unparen :: proc(file: ^File, node: syntax.Node_Index) -> syntax.Node_Index {
 	node := node
 	for node != 0 && file.ast.nodes[node].kind == .Paren_Expr { node = syntax.node_payload(file.ast, node, syntax.Paren_Expr).expr }
 	return node
 }
 
-@(private = "file")
+@(private = "package")
 type_node_text :: proc(file: ^File, node: syntax.Node_Index) -> string {
 	span := file.ast.nodes[node]
 	return string(file.source[span.start:span.end])
 }
 
-@(private = "file")
+@(private = "package")
 type_node_span :: proc(file_id: File_Id, file: ^File, node: syntax.Node_Index) -> Source_Span {
 	span := file.ast.nodes[node]
 	return {file_id, span.start, span.end}

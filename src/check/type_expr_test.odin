@@ -7,8 +7,9 @@ import "oc:types"
 
 @(private = "file")
 Type_Test_Data :: struct {
-	checker: Type_Checker,
-	integer: types.Type_Id,
+	checker:     Type_Checker,
+	integer:     types.Type_Id,
+	enum_values: map[string]i64,
 }
 
 @(test)
@@ -17,6 +18,7 @@ type_expressions_resolve_recursive_nominals_and_report_errors :: proc(t: ^testin
 		`package sample
 Count :: 3
 Color :: enum u8 { Red, Green = 5, Blue }
+Sequence :: enum { A = 1, B = A, C }
 Node :: struct { next: ^Node, value: int, tag: Color, items: [Count]int, list: []Node }
 A :: struct { b: ^B }
 B :: struct { a: A }
@@ -77,8 +79,10 @@ Loop :: ^Loop
 	if !testing.expect(t, collect_file(&collection, &file, 1, {}) == nil && len(collection.diagnostics) == 0) { return }
 
 	data := Type_Test_Data {
-		integer = integer,
+		integer     = integer,
+		enum_values = make(map[string]i64, context.allocator),
 	}
+	defer delete(data.enum_values)
 	resolver: Resolver
 	resolver_init(&resolver, &store, test_type_resolver, &data, context.allocator)
 	defer resolver_destroy(&resolver)
@@ -86,10 +90,12 @@ Loop :: ^Loop
 	type_checker_init(&data.checker, &resolver, &collection, &type_store, files, test_integer_evaluator, nil, context.allocator)
 	defer type_checker_destroy(&data.checker)
 	data.checker.user_data = &data
+	data.checker.bind_enum_member = test_enum_member_binder
 
 	names := []string {
 		"Count",
 		"Color",
+		"Sequence",
 		"Node",
 		"A",
 		"B",
@@ -106,7 +112,7 @@ Loop :: ^Loop
 		"Direct",
 		"Loop",
 	}
-	states: [17]Resolution_State
+	states: [18]Resolution_State
 	for name, index in names {
 		state, err := resolve_entity(&resolver, scope_lookup_current(&store, package_scope, name))
 		testing.expect(t, err == nil)
@@ -140,6 +146,11 @@ Loop :: ^Loop
 	testing.expect(t, color.kind == .Enum && color.backing == byte_type && color.lower_bound == 0 && color.upper_bound == 6)
 	if testing.expect(t, len(members) == 3) {
 		testing.expect(t, members[0].name == "Red" && members[1].value == 5 && members[2].name == "Blue" && members[2].value == 6)
+	}
+	sequence_id := lookup(&store, package_scope, "Sequence").type
+	sequence_members := data.checker.enum_members[sequence_id]
+	if testing.expect(t, len(sequence_members) == 3) {
+		testing.expect(t, sequence_members[0].value == 1 && sequence_members[1].value == 1 && sequence_members[2].value == 2)
 	}
 	handle := types.get(&type_store, lookup(&store, package_scope, "Handle").type)
 	testing.expect(t, handle.kind == .Named && handle.is_nominal && handle.elem == integer)
@@ -193,6 +204,30 @@ test_integer_evaluator :: proc(
 	span := source.ast.nodes[expression]
 	text := string(source.source[span.start:span.end])
 	if text == "Count" { return 3, true, nil }
+	data := cast(^Type_Test_Data)checker.user_data
+	if id, _ := scope_lookup(checker.resolver.scopes, scope, text); id != 0 {
+		if member_value, found := data.enum_values[text]; found { return member_value, true, nil }
+	}
 	parsed, parsed_ok := strconv.parse_i64(text)
 	return parsed, parsed_ok, nil
+}
+
+@(private = "file")
+test_enum_member_binder :: proc(
+	checker: ^Type_Checker,
+	scope: Scope_Id,
+	file: File_Id,
+	name: string,
+	value: i64,
+	backing: types.Type_Id,
+	expression: syntax.Node_Index,
+	user_data: rawptr,
+) -> Resolve_Error {
+	data := (^Type_Test_Data)(user_data)
+	data.enum_values[name] = value
+	entity, create_error := entity_create(checker.resolver.scopes, Entity{name = name, kind = .Constant, scope = scope, state = .Resolved, type = backing})
+	if create_error != nil { return binding_resolve_error(create_error) }
+	_, insert_error := scope_insert(checker.resolver.scopes, scope, entity)
+	if insert_error != nil { return binding_resolve_error(insert_error) }
+	return nil
 }

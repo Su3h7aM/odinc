@@ -117,9 +117,15 @@ expression_typeid_of :: proc(
 	if len(arguments) != 1 || ellipsis { return expression_unsupported(checker, view, scope, node, "Typeid_Arguments") }
 	operand := check_expression(checker, view, scope, arguments[0]) or_return
 	if operand.state == .Invalid { return expression_poison(scope), nil }
-	expression_record_type_info(checker, operand.type) or_return
+	return expression_typeid_value(checker, scope, operand.type)
+}
+
+// The value of `typeid_of(type)`: a type used where a `typeid` is expected takes this value too.
+@(private = "package")
+expression_typeid_value :: proc(checker: ^Expression_Checker, scope: Scope_Id, type: types.Type_Id) -> (info: Expression_Info, err: Resolve_Error) {
+	expression_record_type_info(checker, type) or_return
 	plan := Plan_Id(len(checker.plans))
-	append(&checker.plans, Plan(Typeid_Plan{type = operand.type})) or_return
+	append(&checker.plans, Plan(Typeid_Plan{type = type})) or_return
 	typeid_type := types.intern(checker.type_checker.store, types.Type{kind = .Type_Id})
 	return Expression_Info{type = typeid_type, mode = .Value, plan = plan, scope = scope, state = .Checked}, nil
 }
@@ -177,7 +183,7 @@ union_tag_type :: proc(store: ^types.Store, union_type: types.Type_Id) -> types.
 }
 
 // The runtime declaration of `name`, resolved so that its layout is known to lowering.
-@(private = "file")
+@(private = "package")
 runtime_type_named :: proc(checker: ^Expression_Checker, name: string) -> types.Type_Id {
 	collection := checker.type_checker.collection
 	if collection == nil || collection.runtime_scope == 0 { return types.TYPE_NONE }
