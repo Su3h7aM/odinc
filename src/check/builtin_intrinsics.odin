@@ -22,6 +22,7 @@ Intrinsic_Shape :: enum u8 {
 
 @(private = "package")
 intrinsic_shape :: proc(kind: Builtin_Kind) -> Intrinsic_Shape {
+	if shape := memory_misc_shape(kind); shape != .None { return shape }
 	#partial switch kind {
 	case .Count_Ones, .Count_Zeros, .Count_Leading_Zeros, .Count_Trailing_Zeros, .Reverse_Bits, .Byte_Swap:
 		return .Integer_Unary
@@ -33,9 +34,15 @@ intrinsic_shape :: proc(kind: Builtin_Kind) -> Intrinsic_Shape {
 		return .Load
 	case .Volatile_Store, .Atomic_Store, .Atomic_Store_Explicit:
 		return .Store
-	case .Atomic_Add, .Atomic_Sub, .Atomic_And, .Atomic_Or, .Atomic_Xor, .Atomic_Exchange:
+	case .Atomic_Add, .Atomic_Sub, .Atomic_And, .Atomic_Nand, .Atomic_Or, .Atomic_Xor, .Atomic_Exchange:
 		return .Update
-	case .Atomic_Add_Explicit, .Atomic_Sub_Explicit, .Atomic_And_Explicit, .Atomic_Or_Explicit, .Atomic_Xor_Explicit, .Atomic_Exchange_Explicit:
+	case .Atomic_Add_Explicit,
+	     .Atomic_Sub_Explicit,
+	     .Atomic_And_Explicit,
+	     .Atomic_Nand_Explicit,
+	     .Atomic_Or_Explicit,
+	     .Atomic_Xor_Explicit,
+	     .Atomic_Exchange_Explicit:
 		return .Update
 	case .Atomic_Compare_Exchange_Strong, .Atomic_Compare_Exchange_Weak:
 		return .Compare_Exchange
@@ -45,8 +52,7 @@ intrinsic_shape :: proc(kind: Builtin_Kind) -> Intrinsic_Shape {
 		return .Fence
 	case .Mem_Copy, .Mem_Copy_Non_Overlapping:
 		return .Bytes_Copy
-	case .Mem_Zero:
-		return .Bytes_Zero
+
 	}
 	return .None
 }
@@ -57,7 +63,7 @@ intrinsic_order_count :: proc(kind: Builtin_Kind) -> int {
 	#partial switch kind {
 	case .Atomic_Compare_Exchange_Strong_Explicit, .Atomic_Compare_Exchange_Weak_Explicit:
 		return 2
-	case .Atomic_Load_Explicit, .Atomic_Store_Explicit, .Atomic_Add_Explicit, .Atomic_Sub_Explicit, .Atomic_And_Explicit:
+	case .Atomic_Load_Explicit, .Atomic_Store_Explicit, .Atomic_Add_Explicit, .Atomic_Sub_Explicit, .Atomic_And_Explicit, .Atomic_Nand_Explicit:
 		return 1
 	case .Atomic_Or_Explicit, .Atomic_Xor_Explicit, .Atomic_Exchange_Explicit, .Atomic_Thread_Fence, .Atomic_Signal_Fence:
 		return 1
@@ -143,7 +149,7 @@ expression_intrinsic_call :: proc(
 		case .Overflow:
 			hint = element if index == 1 else checker.default_integer
 		case .Value_Pair:
-			hint = element if index == 1 else checker.default_integer
+			hint = element if index == 1 else 0
 		case .Store, .Update, .Compare_Exchange:
 			hint = element if index > 0 else 0
 		case .Bytes_Copy, .Bytes_Zero:

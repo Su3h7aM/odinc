@@ -136,6 +136,7 @@ Target_Op :: enum u32 {
 	Cpuid,
 	Xgetbv,
 	Pause,
+	Debug_Trap,
 	Rdtsc,
 }
 
@@ -153,6 +154,7 @@ target_op_info := [Target_Op]Target_Op_Info {
 	.Cpuid = {name = "cpuid", arg_count = 2, args = {.I32, .I32}, result_count = 4, results = {.I32, .I32, .I32, .I32}},
 	.Xgetbv = {name = "xgetbv", arg_count = 1, args = {.I32, .None}, result_count = 2, results = {.I32, .I32, .None, .None}},
 	.Pause = {name = "pause"},
+	.Debug_Trap = {name = "debug_trap"},
 	.Rdtsc = {name = "rdtsc", result_count = 1, results = {.I64, .None, .None, .None}},
 }
 

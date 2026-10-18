@@ -52,12 +52,14 @@ lower_intrinsic :: proc(
 	case .Atomic_Add,
 	     .Atomic_Sub,
 	     .Atomic_And,
+	     .Atomic_Nand,
 	     .Atomic_Or,
 	     .Atomic_Xor,
 	     .Atomic_Exchange,
 	     .Atomic_Add_Explicit,
 	     .Atomic_Sub_Explicit,
 	     .Atomic_And_Explicit,
+	     .Atomic_Nand_Explicit,
 	     .Atomic_Or_Explicit,
 	     .Atomic_Xor_Explicit,
 	     .Atomic_Exchange_Explicit:
@@ -160,6 +162,7 @@ intrinsic_memory_order :: proc(
 	     .Atomic_Add_Explicit,
 	     .Atomic_Sub_Explicit,
 	     .Atomic_And_Explicit,
+	     .Atomic_Nand_Explicit,
 	     .Atomic_Or_Explicit,
 	     .Atomic_Xor_Explicit,
 	     .Atomic_Exchange_Explicit,
@@ -211,6 +214,8 @@ rmw_operation :: proc(kind: check.Builtin_Kind) -> ir.Rmw_Op {
 		return .Sub
 	case .Atomic_And, .Atomic_And_Explicit:
 		return .And
+	case .Atomic_Nand, .Atomic_Nand_Explicit:
+		return .Nand
 	case .Atomic_Or, .Atomic_Or_Explicit:
 		return .Or
 	case .Atomic_Xor, .Atomic_Xor_Explicit:

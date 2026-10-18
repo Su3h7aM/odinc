@@ -136,6 +136,7 @@ Pseudo :: enum u8 {
 	Return,
 	Copy,
 	Syscall,
+	Atomic,
 }
 
 // operands[:explicit_count] go to the encoder; the rest only constrain the allocator.

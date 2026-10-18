@@ -299,6 +299,11 @@ print_attributes :: proc(w: io.Writer, function: ^Function, id: Node_Id) -> io.E
 	case .Target_Op:
 		put(w, " op=") or_return
 		put(w, target_op_info[Target_Op(data.index)].name) or_return
+	case .Mem_Set:
+		if data.access.order != .Plain {
+			put(w, " order=") or_return
+			put(w, MEMORY_ORDER_NAMES[data.access.order]) or_return
+		}
 	case .Symbol_Addr, .Tls_Addr:
 		put(w, " sym=") or_return
 		print_symbol_ref(w, data.symbol) or_return

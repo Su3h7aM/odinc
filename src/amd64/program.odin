@@ -105,7 +105,7 @@ pseudo_access :: proc(pseudo: Pseudo, index: int) -> Op_Access {
 		return .Def if index == 0 else .Use
 	case .Call:
 		return .Use if index == 0 else .None
-	case .Syscall:
+	case .Syscall, .Atomic:
 		return .Use
 	case .None, .Entry, .Return:
 	}

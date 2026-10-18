@@ -134,7 +134,7 @@ expression_field :: proc(
 }
 
 // Finds a field by name in a struct, then in its by-value `using` fields, depth first. The path lists each member step from owner.
-@(private = "file")
+@(private = "package")
 field_path :: proc(
 	checker: ^Expression_Checker,
 	owner: types.Type_Id,

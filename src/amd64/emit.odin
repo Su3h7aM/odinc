@@ -58,17 +58,18 @@ Pending_Store :: struct {
 
 @(private = "file")
 Emitter :: struct {
-	function:      ^Machine_Function,
-	result:        ^regalloc.Result,
-	layout:        Frame_Layout,
-	symbols:       Symbol_Indices,
-	instructions:  [dynamic]x86.Instruction,
-	block_first:   []u32,
-	externals:     [dynamic]External_Reference,
-	branches:      [dynamic]Branch,
-	scratch_taken: [Register_Class]int,
-	stores:        [4]Pending_Store,
-	store_count:   int,
+	function:       ^Machine_Function,
+	result:         ^regalloc.Result,
+	layout:         Frame_Layout,
+	symbols:        Symbol_Indices,
+	instructions:   [dynamic]x86.Instruction,
+	block_first:    []u32,
+	externals:      [dynamic]External_Reference,
+	branches:       [dynamic]Branch,
+	local_branches: [dynamic]Branch,
+	scratch_taken:  [Register_Class]int,
+	stores:         [4]Pending_Store,
+	store_count:    int,
 }
 
 // Emits `function` as one text atom. `result` is the allocation of `build_program(function)`.
@@ -158,6 +159,9 @@ relax_and_encode :: proc(emitter: ^Emitter) -> (code: []byte, unresolved: []x86.
 	block_count := len(emitter.function.blocks)
 	instruction_count := len(emitter.instructions)
 	instruction_label_base := block_count + len(emitter.externals)
+	for branch in emitter.local_branches {
+		emitter.instructions[branch.instruction] = x86.inst_rel(branch.mnemonic, u32(instruction_label_base) + branch.block, 1)
+	}
 	label_defs := make([]x86.Label_Definition, instruction_label_base + instruction_count) or_return
 	buffer := make([]byte, (instruction_count + 1) * x86.MAX_INST_SIZE) or_return
 	relocations := make([dynamic]x86.Relocation) or_return
@@ -236,6 +240,8 @@ emit_instruction_body :: proc(emitter: ^Emitter, instruction: Machine_Instructio
 		}
 		append(&emitter.instructions, x86.inst_none(.SYSCALL)) or_return
 		return nil
+	case .Atomic:
+		return emit_atomic(emitter, instruction)
 	case .Call, .None:
 		return lower_instruction(emitter, instruction, block)
 	}
@@ -521,6 +527,59 @@ lower_instruction :: proc(emitter: ^Emitter, instruction: Machine_Instruction, b
 	append(&emitter.instructions, lowered) or_return
 	for store in emitter.stores[:emitter.store_count] {
 		store_spill(emitter, store.class, store.number, store.slot) or_return
+	}
+	return nil
+}
+
+@(private = "file")
+emit_atomic :: proc(emitter: ^Emitter, instruction: Machine_Instruction) -> Emit_Error {
+	emitter.scratch_taken = {}
+	emitter.store_count = 0
+	address, address_ok := instruction.operands[0].(Memory_Ref)
+	accumulator, accumulator_ok := instruction.operands[1].(Fixed_Vreg)
+	if !address_ok || !accumulator_ok { return Emit_Failure.Bad_Operand }
+	memory := lower_memory(emitter, address) or_return
+	width := instruction.width
+	register := register_of_width(.Int, u8(accumulator.register), width)
+	mnemonic := instruction.mnemonic
+	if mnemonic == .XADD || mnemonic == .XCHG {
+		atomic := x86.inst_m_r(mnemonic, memory, width, register)
+		atomic.flags.lock = mnemonic == .XADD
+		if address.segment_fs { atomic.flags.segment = FS_SEGMENT_INDEX }
+		append(&emitter.instructions, atomic) or_return
+		return nil
+	}
+	operand: x86.Register
+	if mnemonic == .CMPXCHG {
+		value, value_ok := instruction.operands[2].(Vreg)
+		if !value_ok { return Emit_Failure.Bad_Operand }
+		operand = vreg_register(emitter, value, {reads = true}, width) or_return
+	} else {
+		value, value_ok := instruction.operands[2].(Fixed_Vreg)
+		if !value_ok || value.register != gpr(.RCX) { return Emit_Failure.Bad_Operand }
+		operand = register_of_width(.Int, u8(value.register), width)
+	}
+	replacement := operand
+	loop_start: u32
+	if mnemonic != .CMPXCHG {
+		temporary, temporary_ok := instruction.operands[3].(Fixed_Vreg)
+		if !temporary_ok { return Emit_Failure.Bad_Operand }
+		replacement = register_of_width(.Int, u8(temporary.register), width)
+		load := x86.inst_r_m(.MOVZX if width < 4 else .MOV, register_of_width(.Int, u8(accumulator.register), max(4, width)), memory, width)
+		if address.segment_fs { load.flags.segment = FS_SEGMENT_INDEX }
+		append(&emitter.instructions, load) or_return
+		loop_start = u32(len(emitter.instructions))
+		append(&emitter.instructions, x86.inst_r_r(.MOV, replacement, register)) or_return
+		append(&emitter.instructions, x86.inst_r_r(.AND if mnemonic == .NOT else mnemonic, replacement, operand)) or_return
+		if mnemonic == .NOT { append(&emitter.instructions, x86.inst_r(.NOT, replacement)) or_return }
+	}
+	atomic := x86.inst_m_r(.CMPXCHG, memory, width, replacement)
+	atomic.flags.lock = true
+	if address.segment_fs { atomic.flags.segment = FS_SEGMENT_INDEX }
+	append(&emitter.instructions, atomic) or_return
+	if mnemonic != .CMPXCHG {
+		append(&emitter.local_branches, Branch{u32(len(emitter.instructions)), loop_start, .JNE}) or_return
+		append(&emitter.instructions, x86.inst_rel(.JNE, 0, 1)) or_return
 	}
 	return nil
 }

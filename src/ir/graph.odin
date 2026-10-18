@@ -281,4 +281,4 @@ use_table_destroy :: proc(table: ^Use_Table, allocator: runtime.Allocator) {
 Index_Kinds :: bit_set[Node_Kind]{.Proj, .Switch, .Stack_Alloc, .Ptr_Index, .Call, .Target_Op}
 
 @(private = "file")
-Access_Kinds :: bit_set[Node_Kind]{.Load, .Load_Ordered, .Store, .Atomic_Rmw, .Atomic_Cas, .Fence}
+Access_Kinds :: bit_set[Node_Kind]{.Load, .Load_Ordered, .Store, .Atomic_Rmw, .Atomic_Cas, .Fence, .Mem_Set}

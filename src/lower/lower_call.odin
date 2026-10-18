@@ -351,11 +351,14 @@ lower_builtin :: proc(state: ^Procedure_State, node: syntax.Node_Index, info: ch
 		ir.emit_unreachable(state.builder)
 		return 0
 	}
+	if value, handled := lower_memory_misc(state, node, plan, check.builtin_kind(state.job.program, plan.builtin)); handled { return value }
 	if check.builtin_kind(state.job.program, plan.builtin) == .Raw_Data { return lower_raw_data(state, node, info, plan) }
 	if check.builtin_kind(state.job.program, plan.builtin) == .Len { return lower_length(state, node, info, plan) }
 	if value, handled := lower_simd_builtin(state, node, info, plan, check.builtin_kind(state.job.program, plan.builtin)); handled {
 		return value
 	}
+	if kind := check.builtin_kind(state.job.program, plan.builtin);
+	   kind == .Saturating_Add || kind == .Saturating_Sub { return lower_saturating(state, node, info, plan, kind) }
 	if kind := check.builtin_kind(state.job.program, plan.builtin); kind != .Syscall { return lower_intrinsic(state, node, info, plan, kind) }
 	if check.builtin_kind(state.job.program, plan.builtin) != .Syscall || len(plan.helpers) != 0 { return lower_fail(state, node, .Builtin) }
 	if info.type == 0 ||

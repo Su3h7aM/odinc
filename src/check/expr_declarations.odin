@@ -112,6 +112,12 @@ expression_declaration :: proc(resolver: ^Resolver, id: Entity_Id, user_data: ra
 			binding.data = entity_get(resolver.scopes, info.entity).data
 			return true, nil
 		}
+		if entity.kind == .Constant && info.mode == .Type {
+			binding := entity_get(resolver.scopes, id)
+			binding.kind = .Type_Name
+			binding.type = info.type
+			return true, nil
+		}
 		if entity.kind == .Constant && info.mode != .Constant {
 			expression_failure(checker, view, entity.scope, declaration.value.node, .Invalid_Operand) or_return
 			return false, nil

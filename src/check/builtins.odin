@@ -10,10 +10,64 @@ import "oc:types"
 // Declared names of procedures in package base:intrinsics that the checker lowers as builtins.
 intrinsic_builtin_kind :: proc(name: string) -> Builtin_Kind {
 	switch name {
+	case "type_is_array":
+		return .Type_Array
+	case "type_is_pointer":
+		return .Type_Pointer
+	case "type_is_struct":
+		return .Type_Struct
+	case "type_is_slice":
+		return .Type_Slice
+	case "type_is_integer":
+		return .Type_Integer
+	case "type_is_float":
+		return .Type_Float
+	case "type_is_numeric":
+		return .Type_Numeric
+	case "type_is_unsigned":
+		return .Type_Unsigned
+	case "type_is_proc":
+		return .Type_Proc
+	case "type_is_internally_pointer_like":
+		return .Type_Internally_Pointer_Like
+	case "type_is_boolean":
+		return .Type_Boolean
+	case "type_is_multi_pointer":
+		return .Type_Multi_Pointer
+	case "type_is_dynamic_array":
+		return .Type_Dynamic_Array
+	case "type_is_map":
+		return .Type_Map
+	case "type_is_union":
+		return .Type_Union
+	case "type_is_enum":
+		return .Type_Enum
+	case "type_is_bit_set":
+		return .Type_Bit_Set
+	case "type_struct_field_count":
+		return .Type_Struct_Field_Count
+	case "type_has_field":
+		return .Type_Has_Field
+	case "type_field_type":
+		return .Type_Field_Type
+	case "type_bit_set_underlying_type":
+		return .Type_Bit_Set_Underlying_Type
+	case "type_elem_type":
+		return .Type_Elem_Type
 	case "constant_log2":
 		return .Constant_Log2
+	case "saturating_add":
+		return .Saturating_Add
+	case "saturating_sub":
+		return .Saturating_Sub
 	case "syscall":
 		return .Syscall
+	case "mem_zero_volatile":
+		return .Mem_Zero_Volatile
+	case "cpu_relax":
+		return .Cpu_Relax
+	case "debug_trap":
+		return .Debug_Trap
 	case "trap":
 		return .Trap
 	case "count_ones":
@@ -46,6 +100,8 @@ intrinsic_builtin_kind :: proc(name: string) -> Builtin_Kind {
 		return .Atomic_Sub
 	case "atomic_and":
 		return .Atomic_And
+	case "atomic_nand":
+		return .Atomic_Nand
 	case "atomic_or":
 		return .Atomic_Or
 	case "atomic_xor":
@@ -66,6 +122,8 @@ intrinsic_builtin_kind :: proc(name: string) -> Builtin_Kind {
 		return .Atomic_Sub_Explicit
 	case "atomic_and_explicit":
 		return .Atomic_And_Explicit
+	case "atomic_nand_explicit":
+		return .Atomic_Nand_Explicit
 	case "atomic_or_explicit":
 		return .Atomic_Or_Explicit
 	case "atomic_xor_explicit":
@@ -162,6 +220,12 @@ expression_builtin_call :: proc(
 	file := checker.type_checker.files[file_id]
 	call := syntax.node_payload(file.ast, node, syntax.Call_Expr)
 	builtin := entity_get(checker.type_checker.resolver.scopes, callee.entity).data.(Builtin_Id)
+	if kind := checker.builtin_kinds[builtin]; kind >= .Type_Array && kind <= .Type_Elem_Type {
+		return expression_type_query(checker, view, scope, node, kind, arguments, call.ellipsis.kind != .Invalid)
+	}
+	if kind := checker.builtin_kinds[builtin]; kind == .Saturating_Add || kind == .Saturating_Sub {
+		return expression_saturating(checker, view, scope, node, builtin, kind, arguments, call.ellipsis.kind != .Invalid)
+	}
 	if checker.builtin_kinds[builtin] == .Constant_Log2 {
 		return expression_constant_log2(checker, view, scope, node, arguments, call.ellipsis.kind != .Invalid)
 	}

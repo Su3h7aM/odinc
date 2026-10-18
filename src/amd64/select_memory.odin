@@ -85,7 +85,6 @@ select_memory :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Status {
 		emit(output, selector.block, .IMUL, 8, product, index, scale) or_return
 		return emit(output, selector.block, .LEA, 8, destination, Memory_Ref{base = base, index = product, has_index = true, scale = 1})
 	case .Load:
-		if input.nodes.data[node].access.order != .Plain { return select_failure(selector) }
 		address := select_address(selector, inputs[2]) or_return
 		if mnemonic, width, is_float := float_move(input.nodes.type[node]); is_float {
 			return emit(output, selector.block, mnemonic, width, destination, address)
@@ -94,13 +93,15 @@ select_memory :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Status {
 		if width == 0 { return select_failure(selector) }
 		return emit(output, selector.block, .MOVZX if width < 4 else .MOV, width, destination, address)
 	case .Store:
-		if input.nodes.data[node].access.order != .Plain { return select_failure(selector) }
 		address := select_address(selector, inputs[2]) or_return
 		value := select_value(selector, inputs[3]) or_return
 		if mnemonic, width, is_float := float_move(input.nodes.type[inputs[3]]); is_float {
-			return emit(output, selector.block, mnemonic, width, address, value)
+			emit(output, selector.block, mnemonic, width, address, value) or_return
+		} else {
+			emit(output, selector.block, .MOV, select_width(input.nodes.type[inputs[3]]), address, value) or_return
 		}
-		return emit(output, selector.block, .MOV, select_width(input.nodes.type[inputs[3]]), address, value)
+		if input.nodes.data[node].access.order == .Seq_Cst { return emit(output, selector.block, .MFENCE, 0) }
+		return nil
 	case .Mem_Copy, .Mem_Set:
 		return select_copy_set(selector, node)
 	}

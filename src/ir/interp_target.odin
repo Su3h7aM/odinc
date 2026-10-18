@@ -14,6 +14,9 @@ interp_cpuid :: proc(leaf: u32) -> [4]u64 {
 interp_target_op :: proc(s: ^Interp_State, id: Node_Id) -> (ok: bool) {
 	results: [4]u64
 	#partial switch Target_Op(s.fn.nodes.data[id].index) {
+	case .Debug_Trap:
+		interp_fail(s, .Trap, id)
+		return false
 	case .Cpuid:
 		leaf := interp_operand(s, id, 2) or_return
 		results = interp_cpuid(u32(leaf))

@@ -314,8 +314,12 @@ select_node :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Status {
 	     .Float_Ext,
 	     .Float_Trunc:
 		return select_float(selector, node)
+	case .Load_Ordered, .Atomic_Rmw, .Atomic_Cas, .Fence:
+		return select_atomic(selector, node)
 	case .Load, .Store, .Ptr_Offset, .Ptr_Index, .Stack_Slot, .Stack_Alloc, .Mem_Copy, .Mem_Set:
 		return select_memory(selector, node)
+	case .Target_Op:
+		return select_memory_misc(selector, node)
 	case .Call, .Syscall:
 		return select_call(selector, node)
 	case .Const_Int, .Const_Float, .Symbol_Addr, .Tls_Addr, .Undef:
