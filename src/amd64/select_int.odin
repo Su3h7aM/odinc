@@ -18,6 +18,8 @@ select_integer :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Status {
 		return emit_pseudo(output, selector.block, .Copy, destination, value)
 	case .SDiv, .UDiv, .SRem, .URem:
 		return select_division(selector, node)
+	case .Mul_Hi_U, .Mul_Hi_S:
+		return select_multiply_high(selector, node)
 	case .Trunc, .Zext, .Sext:
 		value := select_value(selector, inputs[0]) or_return
 		from_width := select_width(input.nodes.type[inputs[0]])
@@ -206,4 +208,23 @@ select_division :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Status 
 		Machine_Instruction{mnemonic = .IDIV if signed else .DIV, width = width, explicit_count = 1, operands = operands[:]},
 	) or_return
 	return emit_pseudo(output, selector.block, .Copy, selector.values[node], remainder if kind == .SRem || kind == .URem else quotient)
+}
+
+@(private)
+select_multiply_high :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Status {
+	input, output := selector.input, selector.output
+	signed := input.nodes.kind[node] == .Mul_Hi_S
+	first := select_value(selector, ir.node_input(input, node, 0)) or_return
+	second := select_value(selector, ir.node_input(input, node, 1)) or_return
+	multiplicand := new_vreg(output, .Int) or_return
+	low := new_vreg(output, .Int) or_return
+	high := new_vreg(output, .Int) or_return
+	emit_pseudo(output, selector.block, .Copy, multiplicand, first) or_return
+	operands := [?]Machine_Operand{second, fixed(multiplicand, gpr(.RAX), .Use), fixed(low, gpr(.RAX), .Def), fixed(high, gpr(.RDX), .Def)}
+	emit_instruction(
+		output,
+		selector.block,
+		Machine_Instruction{mnemonic = .IMUL if signed else .MUL, width = 8, explicit_count = 1, operands = operands[:]},
+	) or_return
+	return emit_pseudo(output, selector.block, .Copy, selector.values[node], high)
 }

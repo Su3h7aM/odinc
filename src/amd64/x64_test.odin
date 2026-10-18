@@ -128,19 +128,22 @@ call_sequence_builds_a_verified_program :: proc(t: ^testing.T) {
 	want := `machine caller outgoing=0
 b0:
   Entry v0@7, v1@6
-  Copy v3, v0
-  Copy v4, v2
-  MOV.4 v5, #1
-  Call sym1.1+0, v3@7, v4@0, v5@0, v6@0
-  Copy v7, v6
-  Return v7@0
+  Copy v2, v0
+  Copy v3, v1
+  Copy v5, v2
+  Copy v6, v4
+  MOV.4 v7, #1
+  Call sym1.1+0, v5@7, v6@0, v7@0, v8@0
+  Copy v9, v8
+  Copy v10, v9
+  Return v10@0
 `
 	testing.expect_value(t, strings.to_string(builder), want)
 
 	program, program_err := build_program(&function, allocator)
 	testing.expect_value(t, program_err, nil)
 	instructions := program.blocks[0].instructions
-	call := instructions[4]
+	call := instructions[6]
 	testing.expect(t, call.is_call)
 	testing.expect_value(t, call.operands[0].constraint, regalloc.Constraint.Fixed)
 	testing.expect_value(t, call.operands[0].fixed, regalloc.Register(Gpr.RDI))

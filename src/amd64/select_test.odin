@@ -22,6 +22,7 @@ selected_integer_boundaries :: proc(t: ^testing.T) {
 		{.Add, .I8, 127, 1, -128},
 		{.Sub, .I16, -32768, 1, 32767},
 		{.Mul, .I32, 65536, 65536, 0},
+		{.Mul_Hi_U, .I64, -1, -1, -2},
 		{.And, .I64, 0x1234, 0xff, 0x34},
 		{.Or, .I64, 0x1200, 0x34, 0x1234},
 		{.Xor, .I64, -1, 0xff, -256},

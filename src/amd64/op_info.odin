@@ -66,6 +66,7 @@ op_info :: proc(mnemonic: x86.Mnemonic) -> (info: Op_Info, known: bool) {
 		info.writes_flags = true
 	case .MFENCE, .XCHG:
 	case .CQO, .CDQ, .MOVSB, .STOSB, .STD, .CLD, .PAUSE, .INT3:
+	case .CPUID, .XGETBV, .RDTSC:
 	case .SYSCALL:
 		info.writes_flags = true
 	case .JE, .JNE, .JL, .JLE, .JG, .JGE, .JB, .JBE, .JA, .JAE, .JP, .JNP:

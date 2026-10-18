@@ -153,13 +153,25 @@ lower_start :: proc(
 		append(&defined, fixed(vreg, location.register, .Def)) or_return
 	}
 	emit_pseudo(function, block, .Entry, ..defined[:]) or_return
+	for location, index in assignment.params {
+		// An incoming register is caller-saved, so the piece must be handed out immediately:
+		// keeping the pinned vreg for the body would leave it live across calls that destroy the register.
+		if location.kind == .Stack {
+			continue
+		}
+		handed := new_vreg(function, location.class) or_return
+		emit_pseudo(function, block, .Copy, handed, params[index].(Vreg)) or_return
+		params[index] = handed
+	}
 	return params, nil
 }
 
 // Emits the call sequence for `signature` and returns one vreg per result piece.
 // `args` has one vreg per parameter piece; for `By_Value` it holds the address of the
 // object. Stack pieces are stored first, register pieces become fixed operands of the
-// `Call` pseudo, and a variadic callee gets the vector register count in `eax`.
+// `Call` pseudo, and a variadic callee gets the vector register count in `eax`. Results
+// are `Fixed` defs at the `Call`, copied out to fresh vregs immediately: a result
+// register is caller-saved, so the returned vregs must not live across a later call.
 lower_call :: proc(
 	function: ^Machine_Function,
 	block: u32,
@@ -201,9 +213,10 @@ lower_call :: proc(
 		append(&operands, fixed(count, gpr(.RAX), .Use)) or_return
 	}
 	results = make([]Vreg, len(signature.results), allocator) or_return
+	pinned := make([]Vreg, len(signature.results), allocator) or_return
 	for location, index in assignment.results {
-		results[index] = new_vreg(function, location.class) or_return
-		append(&operands, fixed(results[index], location.register, .Def)) or_return
+		pinned[index] = new_vreg(function, location.class) or_return
+		append(&operands, fixed(pinned[index], location.register, .Def)) or_return
 	}
 	function.outgoing_bytes = max(function.outgoing_bytes, align_up(assignment.stack_bytes, 16))
 	emit_instruction(
@@ -211,6 +224,13 @@ lower_call :: proc(
 		block,
 		Machine_Instruction{mnemonic = .CALL, pseudo = .Call, explicit_count = 1, operands = operands[:], clobbers = CALL_CLOBBERS},
 	) or_return
+	// A result register is caller-saved, so the hand-off copies each piece out of its
+	// pinned vreg at once; the returned vregs may then live anywhere across later calls.
+	for location, index in assignment.results {
+		handed := new_vreg(function, location.class) or_return
+		emit_pseudo(function, block, .Copy, handed, pinned[index]) or_return
+		results[index] = handed
+	}
 	return results, nil
 }
 
