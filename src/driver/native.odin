@@ -58,8 +58,16 @@ STARTUP_SLOT_NAMES := [STARTUP_SLOT_COUNT]string{"runtime.argc", "runtime.argv",
 
 // Checks and lowers `main_path`, then builds a static Linux executable image. Checker diagnostics and lowering
 // errors go to `log`. The caller frees the image with `allocator`.
-build_file :: proc(odin_root, main_path: string, log: io.Writer, allocator: runtime.Allocator) -> (image: []byte, err: Build_Error) {
-	session, driver_err := check_program(odin_root, main_path, allocator)
+build_file :: proc(
+	odin_root, main_path: string,
+	log: io.Writer,
+	allocator: runtime.Allocator,
+	user_collections: []Collection = nil,
+) -> (
+	image: []byte,
+	err: Build_Error,
+) {
+	session, driver_err := check_program(odin_root, main_path, allocator, user_collections)
 	defer session_destroy(session)
 	if driver_err == .Check_Failed || driver_err == .Unsupported_Import || driver_err == .Parse_Failed || driver_err == .Import_Cycle {
 		write_diagnostics(session, log)

@@ -82,12 +82,19 @@ Session :: struct {
 // Checks the main file and the library packages it imports. Imports made by library packages are bound
 // unloaded (package 0) and only referenced declarations are resolved. On Check_Failed and Unsupported_Import
 // the session is returned so its diagnostics can be inspected; the caller destroys it in every case.
-check_program :: proc(odin_root, main_path: string, allocator: runtime.Allocator) -> (session: ^Session, err: Driver_Error) {
+check_program :: proc(
+	odin_root, main_path: string,
+	allocator: runtime.Allocator,
+	user_collections: []Collection = nil,
+) -> (
+	session: ^Session,
+	err: Driver_Error,
+) {
 	allocated, allocation_error := new(Session, allocator)
 	if allocation_error != nil { return nil, .Allocation_Failed }
 	session = allocated
 	session.allocator = allocator
-	err = check_session(session, odin_root, main_path)
+	err = check_session(session, odin_root, main_path, user_collections)
 	if err != nil && err != .Check_Failed && err != .Unsupported_Import && err != .Parse_Failed && err != .Import_Cycle {
 		session_destroy(session)
 		session = nil
@@ -234,16 +241,26 @@ span_node_kind :: proc(ast: ^syntax.Ast, source: check.Source_Span) -> string {
 }
 
 @(private = "file")
-check_session :: proc(session: ^Session, odin_root, main_path: string) -> Driver_Error {
-	if error := session_prepare(session, odin_root); error != .None { return error }
+check_session :: proc(session: ^Session, odin_root, main_path: string, user_collections: []Collection) -> Driver_Error {
+	if error := session_prepare(session, odin_root, user_collections); error != .None { return error }
 	if _, runtime_error := load_runtime(session); runtime_error != .None { return runtime_error }
-	main_key, key_error := own(session, main_path)
+	main_key, absolute_error := filepath.abs(main_path, session.allocator)
+	if absolute_error != nil { return .Read_Failed }
+	key_error := push(&session.owned_strings, main_key)
 	if key_error != .None { return key_error }
 	main_package, main_scope, package_error := add_package(session, main_key, "main", .User)
 	if package_error != .None { return package_error }
-	main_file, load_error := load_file(session, main_path, main_package, main_scope)
-	if load_error != .None { return load_error }
-	if check.collect_file(&session.collection, session.files[main_file], main_file, {}) != nil { return .Check_Failed }
+	info, stat_error := os.stat(main_key, session.allocator)
+	if stat_error != nil { return .Read_Failed }
+	is_directory := info.type == .Directory
+	os.file_info_delete(info, session.allocator)
+	if is_directory {
+		if error := load_package(session, main_key, main_package, main_scope); error != .None { return error }
+	} else {
+		main_file, load_error := load_file(session, main_key, main_package, main_scope)
+		if load_error != .None { return load_error }
+		if check.collect_file(&session.collection, session.files[main_file], main_file, {}) != nil { return .Check_Failed }
+	}
 	if error := bind_imports(session); error != .None { return error }
 	if len(session.unsupported_imports) != 0 { return .Unsupported_Import }
 	if len(session.load_failures) != 0 { return .Parse_Failed }
@@ -277,13 +294,16 @@ check_session :: proc(session: ^Session, odin_root, main_path: string) -> Driver
 }
 
 @(private = "file")
-session_prepare :: proc(session: ^Session, odin_root: string) -> Driver_Error {
+session_prepare :: proc(session: ^Session, odin_root: string, user_collections: []Collection = nil) -> Driver_Error {
 	allocator := session.allocator
 	session.store = types.init()
 	session.stage = .Store
 	session.build = check.DEFAULT_BUILD_CONFIGURATION
 	session.stage = .Collections
 	if collection_table_init(&session.collections, odin_root, allocator) != .None { return .Collection_Failed }
+	for collection in user_collections {
+		if collection_add(&session.collections, collection.name, collection.path) != .None { return .Collection_Failed }
+	}
 	collection_table_freeze(&session.collections)
 	session.stage = .Constants
 	if check.constant_pool_init(&session.constants, allocator) != nil { return .Allocation_Failed }

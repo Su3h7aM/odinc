@@ -104,6 +104,7 @@ native_sections_exit_with_interpreter_results :: proc(t: ^testing.T) {
 		{"demo_section_deprecated_attribute", 5},
 		{"demo_section_union_maybe", 248},
 		{"demo_section_union_type", 12},
+		{"demo_section_explicit_context_definition", 7},
 		{"demo_section_bit_field_type", 30},
 	}
 	odin_root, _ := filepath.join({#directory, "..", ".."}, context.temp_allocator)

@@ -4,6 +4,7 @@ import "base:runtime"
 import "core:os"
 import "core:path/filepath"
 import "core:strings"
+import "core:unicode"
 
 Collection :: struct {
 	name: string,
@@ -44,10 +45,13 @@ collection_table_init :: proc(table: ^Collection_Table, odin_root: string, alloc
 	return .None
 }
 
+// Matches main.cpp BuildFlag_Collection and string.cpp string_is_valid_identifier.
 collection_add :: proc(table: ^Collection_Table, name, path: string) -> Collection_Error {
 	if table == nil ||
 	   table.frozen ||
-	   name == "" ||
+	   !valid_collection_name(name) ||
+	   name == "_" ||
+	   name == "system" ||
 	   path == "" ||
 	   strings.index(name, ":") >= 0 ||
 	   strings.index(name, "/") >= 0 ||
@@ -56,7 +60,12 @@ collection_add :: proc(table: ^Collection_Table, name, path: string) -> Collecti
 		if collection.name == name { return .Duplicate_Collection }
 	}
 	absolute, err := filepath.abs(path, table.allocator)
-	if err != nil { return .Invalid_Collection }
+	if err != nil { return .Missing_Directory }
+	info, stat_error := os.stat(absolute, table.allocator)
+	if stat_error != nil { delete(absolute, table.allocator); return .Missing_Directory }
+	is_directory := info.type == .Directory
+	os.file_info_delete(info, table.allocator)
+	if !is_directory { delete(absolute, table.allocator); return .Missing_Directory }
 	owned_name, clone_err := strings.clone(name, table.allocator)
 	if clone_err != nil { delete(absolute, table.allocator); return .Invalid_Collection }
 	append(&table.collections, Collection{owned_name, absolute})
@@ -135,11 +144,8 @@ resolve_collection_import :: proc(
 @(private = "file")
 valid_collection_name :: proc(name: string) -> bool {
 	if name == "" { return false }
-	for index, character in name {
-		if !(character == '_' ||
-			   character >= 'a' && character <= 'z' ||
-			   character >= 'A' && character <= 'Z' ||
-			   index > 0 && character >= '0' && character <= '9') {
+	for character, index in name {
+		if !(character == '_' || unicode.is_letter(character) || index > 0 && unicode.is_digit(character)) {
 			return false
 		}
 	}

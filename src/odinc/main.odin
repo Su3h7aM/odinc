@@ -5,14 +5,24 @@ import "core:os"
 import "core:strings"
 import "oc:driver"
 
-USAGE :: "usage: odinc <main.odin> -out:<executable> | odinc -runtime-histogram"
+USAGE :: "usage: odinc <directory|main.odin> -out:<executable> [-collection:<name>=<path>] | odinc -runtime-histogram"
 
 main :: proc() {
 	file, out: string
+	collections: [dynamic]driver.Collection
+	defer delete(collections)
 	histogram := false
 	for arg in os.args[1:] {
 		if arg == "-runtime-histogram" {
 			histogram = true
+		} else if strings.has_prefix(arg, "-collection:") {
+			value := arg[len("-collection:"):]
+			separator := strings.index(value, "=")
+			if separator <= 0 || separator == len(value) - 1 {
+				fmt.eprintln("expected -collection:name=path")
+				os.exit(2)
+			}
+			append(&collections, driver.Collection{value[:separator], value[separator + 1:]})
 		} else if strings.has_prefix(arg, "-out:") {
 			out = arg[len("-out:"):]
 		} else {
@@ -36,7 +46,7 @@ main :: proc() {
 		os.exit(2)
 	}
 
-	image, err := driver.build_file(odin_root, file, os.to_writer(os.stderr), context.allocator)
+	image, err := driver.build_file(odin_root, file, os.to_writer(os.stderr), context.allocator, collections[:])
 	if err != nil {
 		fmt.eprintln("build failed")
 		os.exit(1)
