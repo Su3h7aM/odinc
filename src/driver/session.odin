@@ -102,24 +102,48 @@ check_program :: proc(
 	return session, err
 }
 
-// Checks package base:runtime without stopping at the first error, then lists checker diagnostics and
-// unsupported imports, most frequent first, with the first location seen for each.
-runtime_histogram :: proc(odin_root: string, allocator: runtime.Allocator, writer: io.Writer) -> Driver_Error {
+// Loads a user program like check_program does, then resolves and checks every declaration of every loaded
+// package without stopping at the first error, then lists checker diagnostics and unsupported imports, most
+// frequent first, with the first location seen for each.
+program_histogram :: proc(
+	odin_root, main_path: string,
+	allocator: runtime.Allocator,
+	writer: io.Writer,
+	user_collections: []Collection = nil,
+) -> Driver_Error {
 	session, allocation_error := new(Session, allocator)
 	if allocation_error != nil { return .Allocation_Failed }
 	session.allocator = allocator
 	defer session_destroy(session)
-	if error := session_prepare(session, odin_root); error != .None { return error }
-	runtime_package, runtime_error := load_runtime(session)
-	if runtime_error != .None { return runtime_error }
-	if error := bind_imports(session); error != .None { return error }
-	if error := session_init_checkers(session); error != .None { return error }
-	if error := bind_whens(session); error != .None { return error }
+	if error := session_prepare(session, odin_root, user_collections); error != .None { return error }
+	if _, runtime_error := load_runtime(session); runtime_error != .None { return runtime_error }
+	main_key, absolute_error := filepath.abs(main_path, allocator)
+	if absolute_error != nil { return .Read_Failed }
+	if key_error := push(&session.owned_strings, main_key); key_error != .None { return key_error }
+	main_package, main_scope, package_error := add_package(session, main_key, "main", .User)
+	if package_error != .None { return package_error }
+	info, stat_error := os.stat(main_key, allocator)
+	if stat_error != nil { return .Read_Failed }
+	is_directory := info.type == .Directory
+	os.file_info_delete(info, allocator)
+	if is_directory {
+		if error := load_package(session, main_key, main_package, main_scope); error != .None { return error }
+	} else {
+		main_file, load_error := load_file(session, main_key, main_package, main_scope)
+		if load_error != .None { return load_error }
+		if check.collect_file(&session.collection, session.files[main_file], main_file, {}) != nil { return .Check_Failed }
+	}
+	if check_error := bind_imports(session); check_error != .None { return check_error }
+	if check_error := session_init_checkers(session); check_error != .None { return check_error }
+	_ = bind_whens(session)
 	for declaration in session.collection.declarations {
-		if check.entity_get(&session.scopes, declaration.entity).package_id != runtime_package { continue }
 		_, _ = check.resolve_entity(&session.resolver, declaration.entity)
 	}
+	return histogram_print(session, writer)
+}
 
+@(private = "file")
+histogram_print :: proc(session: ^Session, writer: io.Writer) -> Driver_Error {
 	entries: [dynamic]Histogram_Entry
 	defer delete(entries)
 	for item in session.unsupported_imports {

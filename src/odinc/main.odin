@@ -5,7 +5,7 @@ import "core:os"
 import "core:strings"
 import "oc:driver"
 
-USAGE :: "usage: odinc <directory|main.odin> -out:<executable> [-collection:<name>=<path>] | odinc -runtime-histogram"
+USAGE :: "usage: odinc <file-or-dir> -histogram [-collection:<name>=<path>] | odinc <directory|main.odin> -out:<executable> [-collection:<name>=<path>]"
 
 main :: proc() {
 	file, out: string
@@ -13,7 +13,7 @@ main :: proc() {
 	defer delete(collections)
 	histogram := false
 	for arg in os.args[1:] {
-		if arg == "-runtime-histogram" {
+		if arg == "-histogram" {
 			histogram = true
 		} else if strings.has_prefix(arg, "-collection:") {
 			value := arg[len("-collection:"):]
@@ -35,7 +35,11 @@ main :: proc() {
 		os.exit(2)
 	}
 	if histogram {
-		if err := driver.runtime_histogram(odin_root, context.allocator, os.to_writer(os.stdout)); err != nil {
+		if file == "" {
+			fmt.eprintln(USAGE)
+			os.exit(2)
+		}
+		if err := driver.program_histogram(odin_root, file, context.allocator, os.to_writer(os.stdout), collections[:]); err != nil {
 			fmt.eprintfln("histogram failed: %v", err)
 			os.exit(1)
 		}
