@@ -289,7 +289,7 @@ expression_binary :: proc(
 			bit_set_pair ||
 			procedure_pair
 	case .Lt, .Gt, .Lt_Eq, .Gt_Eq:
-		valid = integer || float_pair || enum_pair || string_pair || pointer_pair || array_pair
+		valid = integer || float_pair || enum_pair || string_pair || pointer_pair || array_pair || bit_set_pair
 	case .Eq:
 		valid = true
 	}
@@ -426,7 +426,12 @@ expression_binary :: proc(
 			// N2's comparison API names equality Eq; parsed equality is Cmp_Eq.
 			comparison_operator := operator
 			if comparison_operator == .Cmp_Eq { comparison_operator = .Eq }
-			constant, failure = constant_compare_operator(checker.constants, comparison_operator, left.constant, right.constant, info.type)
+			// Official subset ordering compares bit patterns with masks, not integer order.
+			if (operator == .Lt || operator == .Gt || operator == .Lt_Eq || operator == .Gt_Eq) && left_kind == .Bit_Set {
+				constant, failure = expression_bit_set_ordering(checker, operator, left, right, info.type)
+			} else {
+				constant, failure = constant_compare_operator(checker.constants, comparison_operator, left.constant, right.constant, info.type)
+			}
 		} else {
 			constant, failure = constant_binary_operator(checker.constants, operator, left.constant, right.constant, info.type, .Trap, store)
 		}
@@ -448,6 +453,34 @@ expression_binary :: proc(
 		}
 	}
 	return info, nil
+}
+
+// Official bit-set ordering is subset comparison through masks: a <= b holds when (a & b) == a.
+@(private = "file")
+expression_bit_set_ordering :: proc(
+	checker: ^Expression_Checker,
+	operator: syntax.Token_Kind,
+	left, right: Expression_Info,
+	bool_type: types.Type_Id,
+) -> (
+	id: Const_Id,
+	err: Constant_Error,
+) {
+	store := checker.type_checker.store
+	both, and_error := constant_binary_operator(checker.constants, .And, left.constant, right.constant, left.type, .Trap, store)
+	if and_error != nil { return 0, and_error }
+	anchor := left.constant
+	if operator == .Gt || operator == .Gt_Eq { anchor = right.constant }
+	included_id, include_error := constant_compare_operator(checker.constants, .Eq, both, anchor, bool_type)
+	if include_error != nil { return 0, include_error }
+	included := constant_pool_get(checker.constants, included_id).value.(bool)
+	if operator == .Lt_Eq || operator == .Gt_Eq {
+		return constant_pool_intern_bool(checker.constants, included, bool_type)
+	}
+	separate_id, separate_error := constant_compare_operator(checker.constants, .Not_Eq, left.constant, right.constant, bool_type)
+	if separate_error != nil { return 0, separate_error }
+	differ := constant_pool_get(checker.constants, separate_id).value.(bool)
+	return constant_pool_intern_bool(checker.constants, included && differ, bool_type)
 }
 
 @(private = "package")

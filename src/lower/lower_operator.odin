@@ -24,6 +24,12 @@ lower_binary :: proc(state: ^Procedure_State, node: syntax.Node_Index, expressio
 	type := function.nodes.type[left]
 	signed := signed_type(state, lower_info(state, expression.left).type)
 	if scalar_type(state, lower_info(state, expression.left).type) == .None { return lower_fail(state, node, .Operator) }
+	// Ordered bit-set comparison is subset comparison through masks; a plain integer comparison would miscompile it.
+	if expression.op.kind == .Lt || expression.op.kind == .Gt || expression.op.kind == .Lt_Eq || expression.op.kind == .Gt_Eq {
+		if lower_operand_is_bit_set(state, expression.left) || lower_operand_is_bit_set(state, expression.right) {
+			return lower_fail(state, node, .Operator)
+		}
+	}
 	floating := type == .F32 || type == .F64
 	if type == .F16 {
 		result, ok := lower_float16_operation(function, expression.op.kind, left, right)
@@ -80,6 +86,14 @@ lower_union_type :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> ty
 	resolved := types.resolve_named(store, info.type)
 	if types.get(store, resolved).kind != .Union { return types.TYPE_NONE }
 	return resolved
+}
+
+// Whether the operand's resolved type is a bit set, whose ordered comparison needs masks.
+@(private)
+lower_operand_is_bit_set :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> bool {
+	info := lower_info(state, node)
+	store := check.type_store(state.job.program)
+	return types.get(store, types.resolve_named(store, info.type)).kind == .Bit_Set
 }
 
 // One operand is the nil constant the checker unified into the union type; the other is the union value.

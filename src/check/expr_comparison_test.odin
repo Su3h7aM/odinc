@@ -34,3 +34,18 @@ main :: proc "contextless" (a, b: complex64, c, d: quaternion128) -> bool {
 	if !ok { return }
 	testing.expect(t, procedure.body_state == .Complete)
 }
+
+@(test)
+comparison_accepts_bit_set_subset_ordering :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(
+		`package sample
+Letters :: bit_set['A' ..= 'Z']
+main :: proc "contextless" (a, b: Letters) -> bool {
+	return a >= b && b <= a && a > b && b < a
+}
+`,
+	)
+	procedure, ok := check_procedure_source(t, source)
+	if !ok { return }
+	testing.expect(t, procedure.body_state == .Complete)
+}
