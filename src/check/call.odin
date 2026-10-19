@@ -230,15 +230,15 @@ expression_call_argument :: proc(
 	any_integer := .Any_Integer in entity_get(checker.type_checker.resolver.scopes, parameter).flags
 	value := expression_argument(checker, view, scope, value_node, target, any_integer) or_return
 	if value.state == .Invalid { return {}, false, nil }
+	operand := Operand(Expression_Ref{view, value_node})
+	if value.mode == .Constant { operand = Operand(value.constant) }
 	conversion := expression_conversion_plan(checker, value.plan)
 	if conversion != 0 {
 		retained := checker.plans[conversion].(Conversion_Plan)
-		retained.source = Operand(Expression_Ref{view, value_node})
+		retained.source = operand
 		conversion = Plan_Id(len(checker.plans))
 		append(&checker.plans, Plan(retained)) or_return
 	}
-	operand := Operand(Expression_Ref{view, value_node})
-	if value.mode == .Constant { operand = Operand(value.constant) }
 	return Call_Argument{value = operand, parameter = parameter, conversion = conversion, evaluation_order = order}, true, nil
 }
 
