@@ -7,6 +7,10 @@ memory_misc_shape :: proc(kind: Builtin_Kind) -> Intrinsic_Shape {
 		return .Fence
 	case .Mem_Zero, .Mem_Zero_Volatile:
 		return .Bytes_Zero
+	case .Non_Temporal_Load:
+		return .Load
+	case .Non_Temporal_Store:
+		return .Store
 	}
 	return .None
 }
