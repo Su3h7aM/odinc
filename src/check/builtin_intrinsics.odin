@@ -269,6 +269,9 @@ expression_intrinsic_call :: proc(
 	case .Pointer_Difference:
 		info.type = checker.default_integer
 		info.mode = .Value
+	case .Compare_Exchange:
+		info.type = element
+		info.mode = .Optional_Ok
 	}
 	return info, nil
 }
