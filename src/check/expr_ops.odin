@@ -214,13 +214,25 @@ expression_binary :: proc(
 	} else if right_base.kind == .Array && left_base.kind != .Array && operand_assignable(checker, view, binary.left, left, right.type) {
 		broadcast_pair = true
 	}
+	// Official arithmetic and equality on two identical simd vectors works element-wise.
+	simd_both := left_base.kind == .Simd_Vector && left_base.kind == right_base.kind
+	simd_arithmetic := false
+	simd_quotient := false
+	if simd_both {
+		element_kind := types.get(checker.type_checker.store, left_base.elem).kind
+		// Official division is not allowed with integer elements.
+		simd_quotient = conversion_float(element_kind)
+		simd_arithmetic = simd_quotient || conversion_integer(element_kind)
+	}
 	#partial switch operator {
 	case .Add, .Sub:
-		valid = integer || float_pair || array_pair || bit_set_pair || broadcast_pair
+		valid = integer || float_pair || array_pair || bit_set_pair || broadcast_pair || simd_arithmetic
 		// Official string concatenation requires constant strings on both sides.
 		if operator == .Add && string_pair && left.mode == .Constant && right.mode == .Constant { valid = true }
-	case .Mul, .Quo:
-		valid = integer || float_pair || array_pair || broadcast_pair
+	case .Mul:
+		valid = integer || float_pair || array_pair || broadcast_pair || simd_arithmetic
+	case .Quo:
+		valid = integer || float_pair || array_pair || broadcast_pair || simd_quotient
 	case .Mod, .Mod_Mod, .Shl, .Shr:
 		valid = integer || (array_pair && (operator == .Mod || operator == .Mod_Mod || operator == .Shl || operator == .Shr))
 		valid ||= broadcast_pair && (operator == .Mod || operator == .Mod_Mod)
@@ -240,6 +252,7 @@ expression_binary :: proc(
 			union_pair ||
 			struct_pair ||
 			array_pair ||
+			simd_both ||
 			broadcast_pair ||
 			bit_set_pair ||
 			procedure_pair

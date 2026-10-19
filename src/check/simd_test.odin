@@ -42,6 +42,21 @@ main :: proc(a: #simd[4]f32) -> #simd[4]f32 { return sqrt(a) }
 }
 
 @(test)
+simd_arithmetic_and_equality_check_element_wise :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(
+		`package sample
+main :: proc(a, b: #simd[4]i32) -> #simd[4]i32 { return a + b - a * b }
+floats :: proc(a, b: #simd[4]f32) -> #simd[4]f32 { return (a + b) / b }
+equal :: proc(a, b: #simd[4]i32) -> bool { return a == b }
+`,
+	)
+	for name in ([?]string{"main", "floats", "equal"}) {
+		procedure, ok := check_procedure_source(t, source, procedure_name = name)
+		if ok { testing.expect(t, procedure.body_state == .Complete) }
+	}
+}
+
+@(test)
 simd_types_layouts_and_intrinsic_results_check :: proc(t: ^testing.T) {
 	source := transmute([]byte)string(
 		`package sample
