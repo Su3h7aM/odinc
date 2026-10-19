@@ -24,6 +24,7 @@ duplicate := [2]int{0 = 1, 0 = 2}
 bounds := [2]int{2 = 1}
 pairs :: [2]Pair{{1, 2}, {3, 4}}
 ranged := [?]int{5 ..= 6 = 54}
+gapped :: [4]int{3 = 2}
 `,
 	)
 	ast: syntax.Ast
