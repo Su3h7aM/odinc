@@ -44,6 +44,29 @@ pair :: proc "contextless" () -> (u8, bool) { return 1, 1 < 2 }
 }
 
 @(test)
+logical_assignment_requires_boolean_destination :: proc(t: ^testing.T) {
+	valid := transmute([]byte)string(`package sample
+main :: proc "contextless" () {
+	ok, flag: bool
+	ok ||= flag
+	ok &&= flag
+}
+`)
+	procedure, ok := check_procedure_source(t, valid)
+	if !ok { return }
+	testing.expect(t, procedure.body_state == .Complete)
+	rejected, rejected_ok := check_procedure_source(
+		t,
+		transmute([]byte)string(`package sample
+main :: proc "contextless" () { count: int; count ||= true }
+`),
+		.Invalid_Operator,
+		"",
+	)
+	if rejected_ok { testing.expect(t, rejected.body_state == .Invalid) }
+}
+
+@(test)
 ternary_with_untyped_branches_takes_the_context_type :: proc(t: ^testing.T) {
 	valid := transmute([]byte)string(
 		`package sample

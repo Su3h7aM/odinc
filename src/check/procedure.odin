@@ -15,7 +15,7 @@ expression_conversion_plan :: proc(checker: ^Expression_Checker, plan: Plan_Id) 
 @(private = "file")
 expression_assignment_operator :: proc(kind: syntax.Token_Kind) -> bool {
 	#partial switch kind {
-	case .Eq, .Add_Eq, .Sub_Eq, .Mul_Eq, .Quo_Eq, .Mod_Eq, .Mod_Mod_Eq, .And_Eq, .Or_Eq, .Xor_Eq, .And_Not_Eq, .Shl_Eq, .Shr_Eq:
+	case .Eq, .Add_Eq, .Sub_Eq, .Mul_Eq, .Quo_Eq, .Mod_Eq, .Mod_Mod_Eq, .And_Eq, .Or_Eq, .Xor_Eq, .And_Not_Eq, .Shl_Eq, .Shr_Eq, .Cmp_And_Eq, .Cmp_Or_Eq:
 		return true
 	}
 	return false
@@ -367,6 +367,13 @@ expression_assignment :: proc(checker: ^Expression_Checker, view: View_Id, file_
 	if !expression_assignable(checker, destination) {
 		expression_unsupported(checker, view, scope, left[0], "Assign_Destination_Mode") or_return
 		return nil
+	}
+	if assignment.op.kind == .Cmp_And_Eq || assignment.op.kind == .Cmp_Or_Eq {
+		destination_kind := types.get(checker.type_checker.store, types.resolve_named(checker.type_checker.store, destination.type)).kind
+		if !conversion_boolean(destination_kind) {
+			_, failure := expression_failure(checker, view, scope, node, .Invalid_Operator)
+			return failure
+		}
 	}
 	if assigns_named_result_in_defer(checker, destination, assignment.op.kind) {
 		expression_unsupported(checker, view, scope, left[0], "Assign_Deferred_Result") or_return
