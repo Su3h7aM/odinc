@@ -51,6 +51,8 @@ expression_multiple_assignment :: proc(
 				results = plan.results
 			case Builtin_Plan:
 				results = plan.results
+			case Propagation_Plan:
+				if len(plan.results) > 1 { results = plan.results }
 			}
 		}
 		if value_type, is_pair := comma_ok_value_type(checker, value, len(left) - len(values) == 2); is_pair {

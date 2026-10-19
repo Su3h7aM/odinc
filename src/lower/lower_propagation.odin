@@ -3,6 +3,7 @@ package lower
 import "oc:check"
 import "oc:ir"
 import "oc:syntax"
+import "oc:types"
 
 @(private)
 lower_or_else :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: check.Propagation_Plan) -> ir.Node_Id {
@@ -145,6 +146,9 @@ lower_or_return :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: 
 	results := state.job.procedure.results
 	if len(results) <= 1 {
 		if len(results) == 1 && results[0] != 0 {
+			if !or_return_status_storable(state, results[0], call.results[status_index], values[status_index]) {
+				return lower_fail(state, node, .Result)
+			}
 			store_result_entity(state, results[0], values[status_index])
 			lower_return(state, node, nil, nil)
 		} else {
@@ -152,6 +156,9 @@ lower_or_return :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: 
 		}
 	} else {
 		if results[len(results) - 1] == 0 { return lower_fail(state, node, .Result) }
+		if !or_return_status_storable(state, results[len(results) - 1], call.results[status_index], values[status_index]) {
+			return lower_fail(state, node, .Result)
+		}
 		store_result_entity(state, results[len(results) - 1], values[status_index])
 		lower_return(state, node, nil, nil)
 	}
@@ -172,4 +179,17 @@ propagation_nil_condition :: proc(function: ^ir.Function, value: ir.Node_Id) -> 
 		return 0, false
 	}
 	return ir.compare(function, .Eq, value, ir.const_int(function, value_type, 0)), true
+}
+
+// A converted status (an enum into an error union) is not stored raw. Identical types and booleans whose
+// register types match are the shapes this lowering already emits.
+@(private)
+or_return_status_storable :: proc(state: ^Procedure_State, entity: check.Entity_Id, status: types.Type_Id, value: ir.Node_Id) -> bool {
+	if entity == 0 { return false }
+	destination := state.job.program.entities[entity].type
+	if destination == status { return true }
+	destination_type := lower_type(state, destination)
+	status_type := lower_type(state, status)
+	if destination_type.kind != .Bool || status_type.kind != .Bool { return false }
+	return state.job.function.nodes.type[value] == scalar_type(state, destination)
 }

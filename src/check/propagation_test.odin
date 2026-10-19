@@ -254,3 +254,53 @@ Status_Ptr :: distinct ^u8
 	if !testing.expect(t, rejected_ok) { return }
 	testing.expect(t, rejected.body_state == .Invalid)
 }
+
+@(test)
+or_return_assigns_status_and_unpacks_extra_results :: proc(t: ^testing.T) {
+	valid := transmute([]byte)string(
+		`package sample
+Status :: enum u8 { None, Failed }
+Failure :: union #shared_nil { Status }
+main :: proc "contextless" (ok: bool) -> (value: u8, err: Failure) {
+	value = status(ok) or_return
+	counted(ok) or_return
+	return
+}
+status :: proc "contextless" (ok: bool) -> (u8, Status) {
+	if ok { return 7, .None }
+	return 0, .Failed
+}
+counted :: proc "contextless" (ok: bool) -> (int, Status) { return 1, .None }
+split :: proc "contextless" (ok: bool) -> (a: u8, b: u8, err: Failure) {
+	a, b = triple(ok) or_return
+	return
+}
+declare :: proc "contextless" (ok: bool) -> (err: Failure) {
+	a, b := triple(ok) or_return
+	return
+}
+triple :: proc "contextless" (ok: bool) -> (u8, u8, Status) { return 1, 2, .None }
+`,
+	)
+	for name in ([?]string{"main", "split", "declare"}) {
+		procedure, ok := check_procedure_source(t, valid, procedure_name = name)
+		if !ok { return }
+		testing.expect(t, procedure.body_state == .Complete)
+	}
+
+	invalid := transmute([]byte)string(
+		`package sample
+Status :: enum u8 { None, Failed }
+Other :: enum u8 { None }
+Failure :: union #shared_nil { Status }
+main :: proc "contextless" () -> (value: u8, err: Failure) {
+	value = other() or_return
+	return
+}
+other :: proc "contextless" () -> (u8, Other) { return 1, .None }
+`,
+	)
+	rejected, rejected_ok := check_procedure_source(t, invalid)
+	if !testing.expect(t, rejected_ok) { return }
+	testing.expect(t, rejected.body_state == .Invalid)
+}

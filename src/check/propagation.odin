@@ -158,7 +158,7 @@ expression_or_return :: proc(
 	if operand.plan == 0 { return expression_unsupported(checker, view, scope, node, "Or_Return_Plan") }
 	pair: [2]types.Type_Id
 	results := propagation_results(checker, operand.plan, &pair)
-	if len(results) != 1 && len(results) != 2 {
+	if len(results) == 0 {
 		return expression_unsupported(checker, view, scope, node, "Or_Return_Results")
 	}
 	store := checker.type_checker.store
@@ -173,11 +173,14 @@ expression_or_return :: proc(
 	} else {
 		return expression_unsupported(checker, view, scope, node, "Or_Return_Status")
 	}
-	returnable := len(checker.results) == 1 && expression_propagation_result_matches(checker, status, checker.results[0])
-	if len(checker.results) > 1 &&
-	   len(checker.named_results) == len(checker.results) &&
-	   expression_propagation_result_matches(checker, status, checker.results[len(checker.results) - 1]) {
-		returnable = true
+	// Official check_or_return_expr: the status assigns to the procedure's last result. More than one
+	// result requires every result to be named (check_expr.cpp:11204).
+	returnable := false
+	if len(checker.results) >= 1 {
+		returnable = expression_status_assignable(checker, scope, status, checker.results[len(checker.results) - 1])
+	}
+	if len(checker.results) > 1 {
+		if len(checker.named_results) != len(checker.results) { returnable = false }
 		for result in checker.named_results {
 			if result == 0 { returnable = false; break }
 		}
@@ -192,8 +195,16 @@ expression_or_return :: proc(
 	for index in 0 ..< status_index {
 		values[index] = Operand(Projection{Expression_Ref{view, expression.expr}, u32(index)})
 	}
+	payloads: []types.Type_Id
+	if len(values) > 1 {
+		payloads = make([]types.Type_Id, len(values), allocator) or_return
+		copy(payloads, results[:len(values)])
+	}
 	plan := Plan_Id(len(checker.plans))
-	append(&checker.plans, Plan(Propagation_Plan{operand = Expression_Ref{view, expression.expr}, test = test, values = values, failure = failure})) or_return
+	append(
+		&checker.plans,
+		Plan(Propagation_Plan{operand = Expression_Ref{view, expression.expr}, test = test, values = values, failure = failure, results = payloads}),
+	) or_return
 	info = Expression_Info {
 		scope = scope,
 		state = .Checked,
@@ -211,4 +222,21 @@ expression_propagation_result_matches :: proc(checker: ^Expression_Checker, stat
 	status_type := types.get(store, types.resolve_named(store, status))
 	result_type := types.get(store, types.resolve_named(store, result))
 	return status_type.kind == .Bool && result_type.kind == .Bool
+}
+
+// Official check_or_return_expr allows any boolean status into a boolean result, and otherwise
+// check_is_assignable_to (a union variant into the procedure's error union).
+@(private = "file")
+expression_status_assignable :: proc(checker: ^Expression_Checker, scope: Scope_Id, status, result: types.Type_Id) -> bool {
+	if expression_propagation_result_matches(checker, status, result) { return true }
+	_, diagnostic, failure := check_conversion(
+		checker.constants,
+		checker.type_checker.store,
+		Operand(Expression_Ref{}),
+		Expression_Info{type = status, mode = .Value, scope = scope, state = .Checked},
+		result,
+		.Assignment,
+		checker.config,
+	)
+	return failure == nil && diagnostic == .None
 }

@@ -782,6 +782,8 @@ Propagation_Plan :: struct {
 	test:    Optional_Test,
 	values:  []Operand,
 	failure: Plan_Id,
+	// Payload types of an or_return with more than one value. Empty for or_else and a single payload.
+	results: []types.Type_Id,
 }
 Context_Plan :: struct {
 	parent: Plan_Id,
