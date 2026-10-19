@@ -12,6 +12,8 @@ check_procedure_source :: proc(
 	expected_reason := "",
 	diagnostic_count := -1,
 	procedure_name := "",
+	intrinsic_names: []string = nil,
+	package_kind: Package_Kind = .User,
 ) -> (
 	procedure: Procedure_Data,
 	ok: bool,
@@ -29,7 +31,6 @@ check_procedure_source :: proc(
 	integer := types.intern(&store, types.Type{kind = .Integer, name = "int", count = 8, signed = true})
 	boolean := types.intern(&store, types.Type{kind = .Bool})
 	word := types.intern(&store, types.Type{kind = .Integer, name = "uintptr", count = 8})
-	byte_type := types.intern(&store, types.Type{kind = .Integer, count = 1})
 	pool: Constant_Pool
 	if !testing.expect(t, constant_pool_init(&pool, context.allocator) == nil) { return {}, false }
 	defer constant_pool_destroy(&pool)
@@ -40,9 +41,6 @@ check_procedure_source :: proc(
 	package_scope, package_error := scope_create(&scopes, universe, .Package)
 	file_scope, file_error := scope_create(&scopes, package_scope, .File)
 	if !testing.expect(t, universe_error == nil && package_error == nil && file_error == nil) { return {}, false }
-	integer_id, integer_create_error := entity_create(&scopes, Entity{name = "int", kind = .Type_Name, scope = universe, state = .Resolved, type = integer})
-	_, integer_insert_error := scope_insert(&scopes, universe, integer_id)
-	if !testing.expect(t, integer_create_error == nil && integer_insert_error == nil) { return {}, false }
 	for value in ([2]bool{false, true}) {
 		constant, constant_error := constant_pool_intern_bool(&pool, value, types.TYPE_UNTYPED_BOOL)
 		if !testing.expect(t, constant_error == nil) { return {}, false }
@@ -54,26 +52,9 @@ check_procedure_source :: proc(
 		_, insert_error := scope_insert(&scopes, universe, entity)
 		if !testing.expect(t, create_error == nil && insert_error == nil) { return {}, false }
 	}
-	byte_id, byte_create_error := entity_create(&scopes, Entity{name = "u8", kind = .Type_Name, scope = universe, state = .Resolved, type = byte_type})
-	_, byte_insert_error := scope_insert(&scopes, universe, byte_id)
-	bool_id, bool_create_error := entity_create(&scopes, Entity{name = "bool", kind = .Type_Name, scope = universe, state = .Resolved, type = boolean})
-	_, bool_insert_error := scope_insert(&scopes, universe, bool_id)
-	rawptr_id, rawptr_create_error := entity_create(
-		&scopes,
-		Entity{name = "rawptr", kind = .Type_Name, scope = universe, state = .Resolved, type = types.intern(&store, types.Type{kind = .Raw_Pointer})},
-	)
-	_, rawptr_insert_error := scope_insert(&scopes, universe, rawptr_id)
+	if !testing.expect(t, bind_builtin_types(&scopes, universe, seed_builtin_types(&store)) == nil) { return {}, false }
 	builtin_error := bind_universe_builtins(&scopes, universe)
-	if !testing.expect(
-		t,
-		byte_create_error == nil &&
-		byte_insert_error == nil &&
-		bool_create_error == nil &&
-		bool_insert_error == nil &&
-		rawptr_create_error == nil &&
-		rawptr_insert_error == nil &&
-		builtin_error == nil,
-	) { return {}, false }
+	if !testing.expect(t, builtin_error == nil) { return {}, false }
 	file := File {
 		package_id = 1,
 		ast        = &ast,
@@ -96,7 +77,13 @@ check_procedure_source :: proc(
 		expression_checker_init(&checker, &type_checker, &pool, {uintptr = word, layout = types.DEFAULT_LAYOUT}, integer, boolean, context.allocator) == nil,
 	) { return {}, false }
 	defer expression_checker_destroy(&checker)
-	checker.packages = []Package{{}, {kind = .User}}
+	checker.packages = []Package{{}, {kind = package_kind, scope = package_scope}}
+	for name in intrinsic_names {
+		builtin, failure := expression_builtin_id(&checker, intrinsic_builtin_kind(name))
+		id, creation := entity_create(&scopes, Entity{name = name, kind = .Builtin, scope = universe, state = .Resolved, data = builtin})
+		_, insertion := scope_insert(&scopes, universe, id)
+		if !testing.expect(t, failure == nil && creation == nil && insertion == nil) { return {}, false }
+	}
 	for declaration in collection.declarations {
 		state, err := resolve_entity(&resolver, declaration.entity)
 		if expected_kind == .None && !testing.expectf(t, err == nil && state == .Resolved, "%v %v %v", state, err, checker.diagnostics) { return {}, false }
@@ -110,8 +97,9 @@ check_procedure_source :: proc(
 	   !testing.expectf(t, len(checker.diagnostics) == diagnostic_count, "expected %d diagnostics, got %v", diagnostic_count, checker.diagnostics) {
 		return {}, false
 	}
-	procedure_entity := collection.declarations[0].entity
+	procedure_entity := scope_lookup_current(&scopes, package_scope, procedure_name if procedure_name != "" else "main")
 	if procedure_name != "" { procedure_entity = scope_lookup_current(&scopes, package_scope, procedure_name) }
+	if !testing.expectf(t, procedure_entity != 0, "no procedure named %q", procedure_name if procedure_name != "" else "main") { return {}, false }
 	main_procedure, is_procedure := entity_get(&scopes, procedure_entity).data.(Procedure_Data)
 	if !testing.expectf(t, is_procedure, "main has no procedure data, diagnostics %v", checker.diagnostics) { return {}, false }
 	return main_procedure, true

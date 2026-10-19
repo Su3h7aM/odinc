@@ -49,11 +49,13 @@ simd_array_type :: proc(
 
 simd_builtin_kind :: proc(kind: Builtin_Kind) -> bool {
 	#partial switch kind {
-	case .Simd_Extract, .Simd_Replace, .Simd_Indices, .Simd_Select, .Simd_Shuffle, .Simd_Reduce_Or, .Simd_Reduce_Min:
+	case .Simd_Extract, .Simd_Replace, .Simd_Indices, .Simd_Select, .Simd_Shuffle:
 		return true
 	case .Simd_Lanes_Eq, .Simd_Lanes_Ne, .Simd_Lanes_Lt, .Simd_Lanes_Le, .Simd_Lanes_Gt, .Simd_Lanes_Ge:
 		return true
 	case .Simd_Add, .Simd_Sub, .Simd_Mul, .Simd_Div, .Simd_Bit_And, .Simd_Bit_Or, .Simd_Bit_Xor, .Simd_Bit_And_Not, .Simd_Min, .Simd_Max:
+		return true
+	case .Simd_Saturating_Add, .Simd_Saturating_Sub:
 		return true
 	case .Simd_Shl, .Simd_Shr, .Simd_Shl_Masked, .Simd_Shr_Masked:
 		return true
@@ -96,8 +98,7 @@ simd_lanewise_allowed :: proc(kind: Builtin_Kind, element: types.Kind) -> bool {
 }
 
 // Checks the `#simd` intrinsics the checker plans, with the result rules of the official check_builtin.cpp:
-// lanes_ne yields the unsigned integer of the element size per lane, select tests mask lanes for nonzero,
-// and reduce_or and reduce_min yield the element type.
+// lanes_ne yields the unsigned integer of the element size per lane and select tests mask lanes for nonzero.
 @(private = "package")
 expression_simd_call :: proc(
 	checker: ^Expression_Checker,
@@ -190,19 +191,6 @@ expression_simd_call :: proc(
 			return expression_failure(checker, view, scope, node, .Invalid_Operand)
 		}
 		result = vector_type
-	case .Simd_Reduce_Or, .Simd_Reduce_Min:
-		if len(arguments) != 1 { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
-		value := check_expression(checker, view, scope, arguments[0]) or_return
-		if value.state == .Invalid { return expression_poison(scope), nil }
-		vector, ok := simd_vector(store, value.type)
-		if !ok { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
-		element := simd_element_kind(store, vector.elem)
-		allowed := element == .Integer || element == .Bool
-		if kind == .Simd_Reduce_Min { allowed = element == .Integer || element == .Float }
-		if !allowed { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
-		operands = make([]Operand, 1, allocator) or_return
-		operands[0] = Operand(Expression_Ref{view, arguments[0]})
-		result = vector.elem
 	case .Simd_Lanes_Eq, .Simd_Lanes_Ne, .Simd_Lanes_Lt, .Simd_Lanes_Le, .Simd_Lanes_Gt, .Simd_Lanes_Ge:
 		if len(arguments) != 2 { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
 		left := check_expression(checker, view, scope, arguments[0]) or_return
@@ -222,7 +210,18 @@ expression_simd_call :: proc(
 		operands = make([]Operand, 2, allocator) or_return
 		operands[0] = Operand(Expression_Ref{view, arguments[0]})
 		operands[1] = Operand(Expression_Ref{view, arguments[1]})
-	case .Simd_Add, .Simd_Sub, .Simd_Mul, .Simd_Div, .Simd_Bit_And, .Simd_Bit_Or, .Simd_Bit_Xor, .Simd_Bit_And_Not, .Simd_Min, .Simd_Max:
+	case .Simd_Add,
+	     .Simd_Sub,
+	     .Simd_Mul,
+	     .Simd_Div,
+	     .Simd_Bit_And,
+	     .Simd_Bit_Or,
+	     .Simd_Bit_Xor,
+	     .Simd_Bit_And_Not,
+	     .Simd_Min,
+	     .Simd_Max,
+	     .Simd_Saturating_Add,
+	     .Simd_Saturating_Sub:
 		if len(arguments) != 2 { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
 		left := check_expression(checker, view, scope, arguments[0]) or_return
 		if left.state == .Invalid { return expression_poison(scope), nil }

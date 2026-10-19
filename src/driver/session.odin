@@ -180,7 +180,7 @@ histogram_print :: proc(session: ^Session, writer: io.Writer) -> Driver_Error {
 		if error := histogram_source(&entries, session, "expr", diagnostic.kind, diagnostic.source, reason); error != .None { return error }
 	}
 	slice.sort_by(entries[:], histogram_before)
-	HISTOGRAM_LIMIT :: 32
+	HISTOGRAM_LIMIT :: 256
 	for entry, index in entries {
 		if index >= HISTOGRAM_LIMIT && !strings.has_prefix(entry.key, "import ") { continue }
 		fmt.wprintfln(writer, "%6d  %s  first: %s", entry.count, entry.key, entry.sample)

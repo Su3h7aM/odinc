@@ -8,7 +8,7 @@ import "oc:types"
 // rather than by an intrinsic shape.
 @(private = "package")
 target_op_kind :: proc(kind: Builtin_Kind) -> bool {
-	return kind == .Read_Cycle_Counter || kind == .X86_Cpuid || kind == .X86_Xgetbv
+	return kind == .Read_Cycle_Counter || kind == .X86_Cpuid || kind == .X86_Xgetbv || kind == .Valgrind_Client_Request
 }
 
 @(private = "package")
@@ -30,6 +30,7 @@ expression_target_op :: proc(
 	u32_type := types.sized_integer(store, 4, false)
 	i64_type := types.sized_integer(store, 8, true)
 	operand_count := 0
+	operand_type := u32_type
 	results: []types.Type_Id
 	#partial switch kind {
 	case .X86_Cpuid:
@@ -38,20 +39,26 @@ expression_target_op :: proc(
 	case .X86_Xgetbv:
 		operand_count = 1
 		results = make([]types.Type_Id, 2, allocator) or_return
+	case .Valgrind_Client_Request:
+		operand_count = 7
+		operand_type = checker.config.uintptr
 	}
 	for &result in results { result = u32_type }
 	if ellipsis || len(arguments) != operand_count { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
 	operands := make([]Operand, len(arguments), allocator) or_return
 	for argument, index in arguments {
-		value := check_expression(checker, view, scope, argument, u32_type) or_return
+		value := check_expression(checker, view, scope, argument, operand_type) or_return
 		if value.state == .Invalid { return expression_poison(scope), nil }
-		if value.type != u32_type { return expression_failure(checker, view, scope, argument, .Invalid_Operand) }
+		if value.type != operand_type { return expression_failure(checker, view, scope, argument, .Invalid_Operand) }
 		operands[index] = Operand(Expression_Ref{view, argument})
 	}
 	plan := Plan_Id(len(checker.plans))
 	append(&checker.plans, Plan(Builtin_Plan{builtin = builtin, arguments = operands, results = results})) or_return
 	if kind == .Read_Cycle_Counter {
 		return Expression_Info{type = i64_type, mode = .Value, plan = plan, scope = scope, state = .Checked}, nil
+	}
+	if kind == .Valgrind_Client_Request {
+		return Expression_Info{type = checker.config.uintptr, mode = .Value, plan = plan, scope = scope, state = .Checked}, nil
 	}
 	return Expression_Info{mode = .No_Value, plan = plan, scope = scope, state = .Checked}, nil
 }

@@ -174,6 +174,8 @@ expression_signature_bindings :: proc(
 				return nil
 			}
 			names := syntax.node_list(file.ast, field.names)
+			parameter_flags: Entity_Flags
+			if .C_Vararg in field.flags { parameter_flags = {.C_Variadic} }
 			for name_index in 0 ..< max(len(names), 1) {
 				name_node: syntax.Node_Index
 				name := ""
@@ -200,6 +202,7 @@ expression_signature_bindings :: proc(
 						kind = .Variable,
 						scope = scope,
 						state = .Resolved,
+						flags = parameter_flags,
 						type = parameter_types[len(parameters)],
 						data = Variable_Data{storage = .Local},
 					},
@@ -335,14 +338,7 @@ expression_statement :: proc(checker: ^Expression_Checker, view: View_Id, file_i
 		return expression_unroll_range(checker, view, file_id, scope, node)
 	case .Expr_Stmt:
 		expression := syntax.node_payload(file.ast, node, syntax.Expr_Stmt).expr
-		info := check_expression(checker, view, scope, expression) or_return
-		classified_expression := expression
-		for file.ast.nodes[classified_expression].kind == .Paren_Expr {
-			classified_expression = syntax.node_payload(file.ast, classified_expression, syntax.Paren_Expr).expr
-		}
-		if info.state != .Invalid && file.ast.nodes[classified_expression].kind == .Or_Return_Expr && info.mode != .No_Value {
-			expression_unsupported(checker, view, scope, expression, "Statement_Or_Return_Value") or_return
-		}
+		_ = check_expression(checker, view, scope, expression) or_return
 		return nil
 	case:
 		expression_unsupported(checker, view, scope, node, "Statement_Kind") or_return

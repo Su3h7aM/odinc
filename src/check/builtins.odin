@@ -118,6 +118,316 @@ intrinsic_builtin_kind :: proc(name: string) -> Builtin_Kind {
 		return .Expect
 	case "has_target_feature":
 		return .Has_Target_Feature
+	case "address_of_return_address":
+		return .Address_Of_Return_Address
+	case "alloca":
+		return .Alloca
+	case "atomic_type_is_lock_free":
+		return .Atomic_Type_Is_Lock_Free
+	case "concatenate":
+		return .Concatenate
+	case "constant_ceil":
+		return .Constant_Ceil
+	case "constant_floor":
+		return .Constant_Floor
+	case "constant_round":
+		return .Constant_Round
+	case "constant_trunc":
+		return .Constant_Trunc
+	case "constant_utf16_cstring":
+		return .Constant_Utf16_Cstring
+	case "count_leading_ones":
+		return .Count_Leading_Ones
+	case "count_trailing_ones":
+		return .Count_Trailing_Ones
+	case "c_va_arg":
+		return .C_Va_Arg
+	case "c_va_copy":
+		return .C_Va_Copy
+	case "c_va_end":
+		return .C_Va_End
+	case "c_va_start":
+		return .C_Va_Start
+	case "fixed_point_div":
+		return .Fixed_Point_Div
+	case "fixed_point_div_sat":
+		return .Fixed_Point_Div_Sat
+	case "fixed_point_mul":
+		return .Fixed_Point_Mul
+	case "fixed_point_mul_sat":
+		return .Fixed_Point_Mul_Sat
+	case "frame_address":
+		return .Frame_Address
+	case "fused_mul_add":
+		return .Fused_Mul_Add
+	case "hadamard_product":
+		return .Hadamard_Product
+	case "is_package_imported":
+		return .Is_Package_Imported
+	case "likely":
+		return .Likely
+	case "matrix_flatten":
+		return .Matrix_Flatten
+	case "non_temporal_load":
+		return .Non_Temporal_Load
+	case "non_temporal_store":
+		return .Non_Temporal_Store
+	case "objc_block":
+		return .Objc_Block
+	case "objc_find_class":
+		return .Objc_Find_Class
+	case "objc_find_selector":
+		return .Objc_Find_Selector
+	case "objc_ivar_get":
+		return .Objc_Ivar_Get
+	case "objc_register_class":
+		return .Objc_Register_Class
+	case "objc_register_selector":
+		return .Objc_Register_Selector
+	case "objc_super":
+		return .Objc_Super
+	case "outer_product":
+		return .Outer_Product
+	case "prefetch_read_data":
+		return .Prefetch_Read_Data
+	case "prefetch_read_instruction":
+		return .Prefetch_Read_Instruction
+	case "prefetch_write_data":
+		return .Prefetch_Write_Data
+	case "prefetch_write_instruction":
+		return .Prefetch_Write_Instruction
+	case "procedure_of":
+		return .Procedure_Of
+	case "read_cycle_counter_frequency":
+		return .Read_Cycle_Counter_Frequency
+	case "return_address":
+		return .Return_Address
+	case "simd_abs":
+		return .Simd_Abs
+	case "simd_approx_recip":
+		return .Simd_Approx_Recip
+	case "simd_approx_recip_sqrt":
+		return .Simd_Approx_Recip_Sqrt
+	case "simd_ceil":
+		return .Simd_Ceil
+	case "simd_clamp":
+		return .Simd_Clamp
+	case "simd_deinterleave":
+		return .Simd_Deinterleave
+	case "simd_extract_lsbs":
+		return .Simd_Extract_Lsbs
+	case "simd_extract_msbs":
+		return .Simd_Extract_Msbs
+	case "simd_floor":
+		return .Simd_Floor
+	case "simd_gather":
+		return .Simd_Gather
+	case "simd_interleave":
+		return .Simd_Interleave
+	case "simd_lanes_reverse":
+		return .Simd_Lanes_Reverse
+	case "simd_lanes_rotate_left":
+		return .Simd_Lanes_Rotate_Left
+	case "simd_lanes_rotate_right":
+		return .Simd_Lanes_Rotate_Right
+	case "simd_masked_compress_store":
+		return .Simd_Masked_Compress_Store
+	case "simd_masked_expand_load":
+		return .Simd_Masked_Expand_Load
+	case "simd_masked_load":
+		return .Simd_Masked_Load
+	case "simd_masked_store":
+		return .Simd_Masked_Store
+	case "simd_nearest":
+		return .Simd_Nearest
+	case "simd_neg":
+		return .Simd_Neg
+	case "simd_odd_even":
+		return .Simd_Odd_Even
+	case "simd_pairwise_add":
+		return .Simd_Pairwise_Add
+	case "simd_pairwise_sub":
+		return .Simd_Pairwise_Sub
+	case "simd_reduce_add_bisect":
+		return .Simd_Reduce_Add_Bisect
+	case "simd_reduce_add_ordered":
+		return .Simd_Reduce_Add_Ordered
+	case "simd_reduce_add_pairs":
+		return .Simd_Reduce_Add_Pairs
+	case "simd_reduce_all":
+		return .Simd_Reduce_All
+	case "simd_reduce_and":
+		return .Simd_Reduce_And
+	case "simd_reduce_any":
+		return .Simd_Reduce_Any
+	case "simd_reduce_max":
+		return .Simd_Reduce_Max
+	case "simd_reduce_mul_bisect":
+		return .Simd_Reduce_Mul_Bisect
+	case "simd_reduce_mul_ordered":
+		return .Simd_Reduce_Mul_Ordered
+	case "simd_reduce_mul_pairs":
+		return .Simd_Reduce_Mul_Pairs
+	case "simd_reduce_xor":
+		return .Simd_Reduce_Xor
+	case "simd_runtime_swizzle":
+		return .Simd_Runtime_Swizzle
+	case "simd_saturating_add":
+		return .Simd_Saturating_Add
+	case "simd_saturating_sub":
+		return .Simd_Saturating_Sub
+	case "simd_scatter":
+		return .Simd_Scatter
+	case "simd_sums_of_n":
+		return .Simd_Sums_Of_N
+	case "simd_to_bits":
+		return .Simd_To_Bits
+	case "simd_to_bits_signed":
+		return .Simd_To_Bits_Signed
+	case "simd_trunc":
+		return .Simd_Trunc
+	case "soa_copy_from_slice":
+		return .Soa_Copy_From_Slice
+	case "soa_struct":
+		return .Soa_Struct
+	case "stack_pointer":
+		return .Stack_Pointer
+	case "syscall_bsd":
+		return .Syscall_Bsd
+	case "transpose":
+		return .Transpose
+	case "type_bit_set_elem_type":
+		return .Type_Bit_Set_Elem_Type
+	case "type_canonical_name":
+		return .Type_Canonical_Name
+	case "type_convert_variants_to_pointers":
+		return .Type_Convert_Variants_To_Pointers
+	case "type_enum_is_contiguous":
+		return .Type_Enum_Is_Contiguous
+	case "type_equal_proc":
+		return .Type_Equal_Proc
+	case "type_field_bit_offset":
+		return .Type_Field_Bit_Offset
+	case "type_field_bit_size":
+		return .Type_Field_Bit_Size
+	case "type_field_index_of":
+		return .Type_Field_Index_Of
+	case "type_fixed_capacity_dynamic_array_len_offset":
+		return .Type_Fixed_Capacity_Dynamic_Array_Len_Offset
+	case "type_hasher_proc":
+		return .Type_Hasher_Proc
+	case "type_has_nil":
+		return .Type_Has_Nil
+	case "type_has_shared_fields":
+		return .Type_Has_Shared_Fields
+	case "type_integer_to_signed":
+		return .Type_Integer_To_Signed
+	case "type_integer_to_unsigned":
+		return .Type_Integer_To_Unsigned
+	case "type_is_any":
+		return .Type_Is_Any
+	case "type_is_bit_field":
+		return .Type_Is_Bit_Field
+	case "type_is_complex":
+		return .Type_Is_Complex
+	case "type_is_cstring":
+		return .Type_Is_Cstring
+	case "type_is_cstring16":
+		return .Type_Is_Cstring16
+	case "type_is_dereferenceable":
+		return .Type_Is_Dereferenceable
+	case "type_is_endian_big":
+		return .Type_Is_Endian_Big
+	case "type_is_endian_little":
+		return .Type_Is_Endian_Little
+	case "type_is_endian_platform":
+		return .Type_Is_Endian_Platform
+	case "type_is_fixed_capacity_dynamic_array":
+		return .Type_Is_Fixed_Capacity_Dynamic_Array
+	case "type_is_indexable":
+		return .Type_Is_Indexable
+	case "type_is_matrix":
+		return .Type_Is_Matrix
+	case "type_is_matrix_column_major":
+		return .Type_Is_Matrix_Column_Major
+	case "type_is_matrix_row_major":
+		return .Type_Is_Matrix_Row_Major
+	case "type_is_named":
+		return .Type_Is_Named
+	case "type_is_nearly_simple_compare":
+		return .Type_Is_Nearly_Simple_Compare
+	case "type_is_quaternion":
+		return .Type_Is_Quaternion
+	case "type_is_rune":
+		return .Type_Is_Rune
+	case "type_is_simd_vector":
+		return .Type_Is_Simd_Vector
+	case "type_is_sliceable":
+		return .Type_Is_Sliceable
+	case "type_is_specialization_of":
+		return .Type_Is_Specialization_Of
+	case "type_is_specialized_polymorphic_record":
+		return .Type_Is_Specialized_Polymorphic_Record
+	case "type_is_string":
+		return .Type_Is_String
+	case "type_is_string16":
+		return .Type_Is_String16
+	case "type_is_subtype_of":
+		return .Type_Is_Subtype_Of
+	case "type_is_superset_of":
+		return .Type_Is_Superset_Of
+	case "type_is_typeid":
+		return .Type_Is_Typeid
+	case "type_is_unspecialized_polymorphic_record":
+		return .Type_Is_Unspecialized_Polymorphic_Record
+	case "type_is_valid_map_key":
+		return .Type_Is_Valid_Map_Key
+	case "type_is_valid_matrix_elements":
+		return .Type_Is_Valid_Matrix_Elements
+	case "type_is_variant_of":
+		return .Type_Is_Variant_Of
+	case "type_merge":
+		return .Type_Merge
+	case "type_polymorphic_record_parameter_count":
+		return .Type_Polymorphic_Record_Parameter_Count
+	case "type_polymorphic_record_parameter_value":
+		return .Type_Polymorphic_Record_Parameter_Value
+	case "type_proc_calling_convention":
+		return .Type_Proc_Calling_Convention
+	case "type_proc_parameter_count":
+		return .Type_Proc_Parameter_Count
+	case "type_proc_parameter_type":
+		return .Type_Proc_Parameter_Type
+	case "type_proc_return_count":
+		return .Type_Proc_Return_Count
+	case "type_proc_return_type":
+		return .Type_Proc_Return_Type
+	case "type_struct_has_implicit_padding":
+		return .Type_Struct_Has_Implicit_Padding
+	case "type_union_base_tag_value":
+		return .Type_Union_Base_Tag_Value
+	case "type_union_tag_offset":
+		return .Type_Union_Tag_Offset
+	case "type_union_tag_type":
+		return .Type_Union_Tag_Type
+	case "type_union_variant_count":
+		return .Type_Union_Variant_Count
+	case "type_variant_index_of":
+		return .Type_Variant_Index_Of
+	case "type_variant_type_of":
+		return .Type_Variant_Type_Of
+	case "unlikely":
+		return .Unlikely
+	case "valgrind_client_request":
+		return .Valgrind_Client_Request
+	case "wasm_memory_atomic_notify32":
+		return .Wasm_Memory_Atomic_Notify32
+	case "wasm_memory_atomic_wait32":
+		return .Wasm_Memory_Atomic_Wait32
+	case "wasm_memory_grow":
+		return .Wasm_Memory_Grow
+	case "wasm_memory_size":
+		return .Wasm_Memory_Size
 	case "volatile_load":
 		return .Volatile_Load
 	case "volatile_store":
@@ -367,7 +677,16 @@ expression_builtin_call :: proc(
 	if kind := checker.builtin_kinds[builtin]; intrinsic_shape(kind) != .None {
 		return expression_intrinsic_call(checker, view, scope, node, builtin, kind, arguments, call.ellipsis.kind != .Invalid)
 	}
-	if checker.builtin_kinds[builtin] != .Syscall || call.ellipsis.kind != .Invalid || len(arguments) < 1 || len(arguments) > 7 {
+	if simd_reduction_kind(checker.builtin_kinds[builtin]) {
+		return expression_simd_reduction(checker, view, scope, node, builtin, arguments, call.ellipsis.kind != .Invalid)
+	}
+	if kind := checker.builtin_kinds[builtin]; kind >= .C_Va_Arg && kind <= .C_Va_Start {
+		return expression_c_varargs(checker, view, scope, node, builtin, arguments, call.ellipsis.kind != .Invalid)
+	}
+	if checker.builtin_kinds[builtin] != .Syscall {
+		return expression_unsupported(checker, view, scope, node, entity_get(checker.type_checker.resolver.scopes, callee.entity).name)
+	}
+	if call.ellipsis.kind != .Invalid || len(arguments) < 1 || len(arguments) > 7 {
 		return expression_unsupported(checker, view, scope, node, "Syscall_Arguments")
 	}
 	word := checker.config.uintptr
@@ -750,8 +1069,11 @@ expression_length :: proc(
 			return expression_poison(scope), nil
 		}
 		return Expression_Info{type = types.TYPE_UNTYPED_INTEGER, constant = constant, mode = .Constant, scope = scope, state = .Checked}, nil
-	case .Slice, .String, .String16:
-		if kind == .Cap { return expression_unsupported(checker, view, scope, node, "Capacity_Type") }
+	case .Slice, .Dynamic_Array, .Map, .String, .String16:
+		if kind == .Cap && descriptor.kind != .Dynamic_Array && descriptor.kind != .Map {
+			return expression_failure(checker, view, scope, node, .Invalid_Operand)
+		}
+		if operand.mode == .Type { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
 		allocator := mem.dynamic_arena_allocator(&checker.arena)
 		operands := make([]Operand, 1, allocator) or_return
 		operands[0] = Operand(Expression_Ref{view, arguments[0]})
