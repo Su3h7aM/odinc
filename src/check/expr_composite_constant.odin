@@ -34,7 +34,7 @@ expression_zero_fill_supported :: proc(checker: ^Expression_Checker, store: ^typ
 	#partial switch descriptor.kind {
 	case .Bool, .Integer, .Rune, .Float, .String, .String16:
 		return true
-	case .Enum:
+	case .Enum, .Bit_Set:
 		return true
 	case .Struct:
 		for field in descriptor.fields {
@@ -58,7 +58,7 @@ expression_zero_fill_constants :: proc(
 	#partial switch descriptor.kind {
 	case .Bool:
 		return constant_pool_intern_bool(checker.constants, false, element_type)
-	case .Integer, .Rune, .Enum:
+	case .Integer, .Rune, .Enum, .Bit_Set:
 		zero: big.Int
 		defer big.destroy(&zero)
 		if set_error := big.int_set_from_integer(&zero, 0); set_error != nil {

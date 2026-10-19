@@ -27,6 +27,8 @@ ranged := [?]int{5 ..= 6 = 54}
 gapped :: [4]int{3 = 2}
 defaults :: [2]Pair{{}, {}}
 nested :: [1]struct {inner: Pair}{{}}
+Styled :: struct {flags: bit_set[Flags], count: int}
+styled :: Styled{count = 1}
 `,
 	)
 	ast: syntax.Ast
@@ -92,6 +94,8 @@ nested :: [1]struct {inner: Pair}{{}}
 		invalid := name == "duplicate" || name == "bounds" || name == "partial_levels"
 		testing.expectf(t, err == nil && (state == .Invalid) == invalid, "%s: %v %v", name, state, err)
 	}
+	styled := entity_get(&scopes, scope_lookup_current(&scopes, package_scope, "styled"))
+	testing.expect(t, styled.state == .Resolved)
 	shifted := entity_get(&scopes, scope_lookup_current(&scopes, package_scope, "shifted"))
 	shifted_array := types.get(&store, shifted.type)
 	testing.expect(t, shifted_array.kind == .Enumerated_Array && shifted_array.lower_bound == 1 && shifted_array.count == 3)
