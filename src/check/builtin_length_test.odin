@@ -9,9 +9,10 @@ length_of_dynamic_array_checks_through_pointer_and_value :: proc(t: ^testing.T) 
 Builder :: struct { buf: [dynamic]byte }
 through_pointer :: proc "contextless" (b: ^Builder) -> int { return len(b.buf) }
 through_value :: proc "contextless" (values: [dynamic]u8) -> int { return len(values) }
+through_cstrings :: proc(text: cstring, wide: cstring16) -> int { return len(text) + len(wide) }
 `,
 	)
-	for name in ([?]string{"through_pointer", "through_value"}) {
+	for name in ([?]string{"through_pointer", "through_value", "through_cstrings"}) {
 		procedure, ok := check_procedure_source(t, source, procedure_name = name)
 		if ok { testing.expect(t, procedure.body_state == .Complete) }
 	}

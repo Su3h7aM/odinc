@@ -1069,7 +1069,7 @@ expression_length :: proc(
 			return expression_poison(scope), nil
 		}
 		return Expression_Info{type = types.TYPE_UNTYPED_INTEGER, constant = constant, mode = .Constant, scope = scope, state = .Checked}, nil
-	case .Slice, .Dynamic_Array, .Map, .String, .String16:
+	case .Slice, .Dynamic_Array, .Map, .String, .String16, .CString, .CString16:
 		if kind == .Cap && descriptor.kind != .Dynamic_Array && descriptor.kind != .Map {
 			return expression_failure(checker, view, scope, node, .Invalid_Operand)
 		}
