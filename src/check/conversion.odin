@@ -77,6 +77,18 @@ check_conversion :: proc(
 		target_size, _, target_error := types.layout(store, target, config.layout)
 		if source_error != .None || target_error != .None { return {}, .Invalid_Type, nil }
 		if size != target_size { return {}, .Size_Mismatch, nil }
+		// Official check_transmute keeps same-size integer and integer-to-bit-set transmutes of constants.
+		if info.mode == .Constant &&
+		   info.constant != 0 &&
+		   conversion_integer(core_source.kind) &&
+		   (conversion_integer(core_target.kind) || core_target.kind == .Bit_Set) &&
+		   core_source.endianness == core_target.endianness {
+			transmuted, transmute_error := constant_transmute_integer(pool, info.constant, core_source.signed, core_target.signed, size * 8, target)
+			if transmute_error != nil { return {}, .None, transmute_error }
+			result.info.mode = .Constant
+			result.info.constant = transmuted
+			return result, .None, nil
+		}
 		return result, .None, nil
 	}
 	if kind != .Assignment && kind != .Cast { return Conversion_Result{reason = "Conversion_Kind"}, .Unsupported, nil }

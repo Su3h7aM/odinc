@@ -548,3 +548,50 @@ constant_string16_compare :: proc(left, right: []u16) -> int {
 	if len(left) > len(right) { return 1 }
 	return 0
 }
+
+// Mirrors official check_transmute: same-size integer and integer-to-bit-set transmutes of constants keep
+// their bit pattern, re-expressed for the target's signedness instead of failing representability.
+@(private = "package")
+constant_transmute_integer :: proc(
+	pool: ^Constant_Pool,
+	constant: Const_Id,
+	source_signed: bool,
+	target_signed: bool,
+	bits: i64,
+	target: types.Type_Id,
+) -> (
+	id: Const_Id,
+	err: Constant_Error,
+) {
+	source_value := constant_pool_get(pool, constant)
+	if source_value == nil { return 0, Constant_Operation_Error_Kind.Invalid_Operand }
+	source_integer, is_integer := source_value.value.(big.Int)
+	if !is_integer { return 0, Constant_Operation_Error_Kind.Invalid_Operand }
+	adjusted: big.Int
+	big.int_copy(&adjusted, &source_integer, allocator = context.temp_allocator) or_return
+	defer big.int_destroy(&adjusted)
+	if bits > 0 && source_signed != target_signed {
+		one, limit, maximum: big.Int
+		defer big.int_destroy(&one, &limit, &maximum)
+		big.int_set_from_integer(&one, 1, allocator = context.temp_allocator) or_return
+		big.int_copy(&limit, &one, allocator = context.temp_allocator) or_return
+		big.int_shl(&limit, &limit, int(bits), allocator = context.temp_allocator) or_return
+		big.int_copy(&maximum, &limit, allocator = context.temp_allocator) or_return
+		big.int_shr_signed(&maximum, &maximum, 1, allocator = context.temp_allocator) or_return
+		big.int_sub(&maximum, &maximum, &one, allocator = context.temp_allocator) or_return
+		if !source_signed && target_signed {
+			comparison, compare_error := big.int_compare(&adjusted, &maximum, allocator = context.temp_allocator)
+			if compare_error != nil { return 0, compare_error }
+			if comparison > 0 {
+				big.int_sub(&adjusted, &adjusted, &limit, allocator = context.temp_allocator) or_return
+			}
+		} else if source_signed && !target_signed {
+			negative, negative_error := big.int_is_negative(&adjusted, allocator = context.temp_allocator)
+			if negative_error != nil { return 0, negative_error }
+			if negative {
+				big.int_add(&adjusted, &adjusted, &limit, allocator = context.temp_allocator) or_return
+			}
+		}
+	}
+	return constant_pool_intern_integer(pool, &adjusted, target)
+}

@@ -1,5 +1,6 @@
 package check
 
+import "core:math/big"
 import "core:testing"
 import "oc:types"
 
@@ -54,6 +55,25 @@ conversions_preserve_identity_range_and_source :: proc(t: ^testing.T) {
 	info.type = types.TYPE_UNTYPED_INTEGER
 	_, diagnostic, err = check_conversion(&pool, &store, value, info, integer, .Transmute, config)
 	testing.expect(t, err == nil && diagnostic == .Untyped_Transmute)
+	source_integer, source_error := literal_constant(&pool, .Integer, "200")
+	if !testing.expect(t, source_error == nil) { return }
+	transmuted_info := Expression_Info {
+		type     = byte_type,
+		constant = source_integer,
+		mode     = .Constant,
+		state    = .Checked,
+	}
+	signed_byte := types.intern(&store, types.Type{kind = .Integer, count = 1, signed = true})
+	converted, diagnostic, err = check_conversion(&pool, &store, value, transmuted_info, signed_byte, .Transmute, config)
+	testing.expect(t, err == nil && diagnostic == .None && converted.info.mode == .Constant && converted.info.type == signed_byte)
+	if testing.expect(t, converted.info.constant != 0) {
+		transmuted := constant_pool_get(&pool, converted.info.constant).value.(big.Int)
+		bits, bits_error := big.int_get_i64(&transmuted)
+		testing.expect(t, bits_error == nil && bits == -56)
+	}
+	set_type := types.intern(&store, types.Type{kind = .Bit_Set, backing = byte_type})
+	converted, diagnostic, err = check_conversion(&pool, &store, value, transmuted_info, set_type, .Transmute, config)
+	testing.expect(t, err == nil && diagnostic == .None && converted.info.mode == .Constant && converted.info.type == set_type)
 	code_unit := types.intern(&store, types.Type{kind = .Integer, count = 2})
 	info.type = types.intern(&store, types.Type{kind = .Slice, elem = code_unit})
 	text16 := types.intern(&store, types.Type{kind = .String16})
