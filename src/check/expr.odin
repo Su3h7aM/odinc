@@ -410,6 +410,23 @@ check_expression :: proc(
 			.Assignment,
 		)
 	}
+	if hint != 0 &&
+	   info.state != .Invalid &&
+	   info.mode != .Constant &&
+	   info.type != hint &&
+	   expression_untyped_boolean_source(checker, view, node, info, hint) {
+		expression_store(checker, view, node, info)
+		return expression_conversion(
+			checker,
+			view,
+			scope,
+			node,
+			expression_value_operand(checker, view, node, info),
+			expression_single_value(info),
+			hint,
+			.Cast,
+		)
+	}
 	if hint != 0 && info.state != .Invalid && info.type != hint {
 		// A constant is its own retained source. Runtime expressions need a separate cast node.
 		if info.mode != .Constant {

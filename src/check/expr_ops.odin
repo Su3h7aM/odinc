@@ -412,3 +412,39 @@ expression_length_call :: proc(file: ^File, node: syntax.Node_Index) -> bool {
 	name := expression_text(file, callee)
 	return name == "len" || name == "cap"
 }
+
+// Official comparisons and logical operators over comparisons are untyped booleans, which convert to any boolean type.
+@(private = "package")
+expression_untyped_boolean_source :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	node: syntax.Node_Index,
+	info: Expression_Info,
+	hint: types.Type_Id,
+) -> bool {
+	store := checker.type_checker.store
+	if info.type == types.TYPE_NONE || hint == types.TYPE_NONE { return false }
+	if !conversion_boolean(types.get(store, conversion_base_type(store, info.type)).kind) { return false }
+	if !conversion_boolean(types.get(store, conversion_base_type(store, hint)).kind) { return false }
+	return expression_untyped_boolean(checker.type_checker.files[checker.views[view].file], node)
+}
+
+@(private = "file")
+expression_untyped_boolean :: proc(file: ^File, node: syntax.Node_Index) -> bool {
+	current := node
+	for file.ast.nodes[current].kind == .Paren_Expr {
+		current = syntax.node_payload(file.ast, current, syntax.Paren_Expr).expr
+	}
+	#partial switch file.ast.nodes[current].kind {
+	case .Unary_Expr:
+		unary := syntax.node_payload(file.ast, current, syntax.Unary_Expr)
+		return unary.op.kind == .Not && expression_untyped_boolean(file, unary.expr)
+	case .Binary_Expr:
+		binary := syntax.node_payload(file.ast, current, syntax.Binary_Expr)
+		if binary.op.kind == .Cmp_And || binary.op.kind == .Cmp_Or {
+			return expression_untyped_boolean(file, binary.left) && expression_untyped_boolean(file, binary.right)
+		}
+		return syntax.Token_Kind.B_Comparison_Begin < binary.op.kind && binary.op.kind < .B_Comparison_End
+	}
+	return false
+}
