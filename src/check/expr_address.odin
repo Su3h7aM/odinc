@@ -140,6 +140,9 @@ expression_field :: proc(
 	indirect := types.get(store, owner).kind == .Pointer
 	if indirect { owner = types.resolve_named(store, types.get(store, owner).elem) }
 	descriptor := types.get(store, owner)
+	if base.mode == .Type && descriptor.kind == .Enum {
+		return expression_enum_member(checker, view, scope, node, base.type, expression_text(file, selector.field))
+	}
 	if descriptor.kind == .Array {
 		return expression_array_selector(checker, view, file_id, scope, node, base, descriptor^, indirect, hint)
 	}

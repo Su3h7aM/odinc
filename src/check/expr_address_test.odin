@@ -4,12 +4,16 @@ import "core:testing"
 
 @(test)
 address_of_composite_literal_is_addressable :: proc(t: ^testing.T) {
-	source := transmute([]byte)string(`package sample
+	source := transmute([]byte)string(
+		`package sample
 Info :: struct {writer: u8}
+Error :: enum {Short_Buffer}
 main :: proc "contextless" () {
 	pointer := &Info{writer = 1}
+	error := (Error).Short_Buffer
 }
-`)
+`,
+	)
 	procedure, ok := check_procedure_source(t, source, diagnostic_count = 0)
 	if !ok { return }
 	testing.expect(t, procedure.body_state == .Complete)
