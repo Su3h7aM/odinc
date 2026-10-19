@@ -195,6 +195,11 @@ expression_intrinsic_call :: proc(
 			element = value.type
 		case .Float_Unary:
 			valid = descriptor.kind == .Float
+			// Official sqrt also accepts a #simd vector of floats, working element-wise.
+			if !valid && descriptor.kind == .Simd_Vector {
+				element_kind := types.get(store, types.resolve_named(store, descriptor.elem)).kind
+				valid = element_kind == .Float
+			}
 			element = value.type
 		case .Boolean_Identity:
 			valid = descriptor.kind == .Bool

@@ -33,6 +33,15 @@ main :: proc(a: #simd[8]u32) -> #simd[8]u32 { return simd_shr(a, 1) }
 }
 
 @(test)
+simd_sqrt_accepts_float_vector :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(`package sample
+main :: proc(a: #simd[4]f32) -> #simd[4]f32 { return sqrt(a) }
+`)
+	procedure, ok := check_procedure_source(t, source, procedure_name = "main", intrinsic_names = []string{"sqrt"})
+	if ok { testing.expect(t, procedure.body_state == .Complete) }
+}
+
+@(test)
 simd_types_layouts_and_intrinsic_results_check :: proc(t: ^testing.T) {
 	source := transmute([]byte)string(
 		`package sample
