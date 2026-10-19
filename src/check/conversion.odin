@@ -94,6 +94,19 @@ check_conversion :: proc(
 			if element_diagnostic != .None { return {}, .Not_Castable, nil }
 			return result, .None, nil
 		}
+		if core_target.kind == .Simd_Vector {
+			scalar, scalar_diagnostic, scalar_error := check_conversion(pool, store, source, info, core_target.elem, .Cast, config)
+			if scalar_error != nil { return {}, .None, scalar_error }
+			if scalar_diagnostic != .None { return {}, .Not_Castable, nil }
+			if scalar.info.mode == .Constant {
+				lanes := make([]Const_Id, int(core_target.count), context.temp_allocator) or_return
+				defer delete(lanes, context.temp_allocator)
+				for &lane in lanes { lane = scalar.info.constant }
+				result.info.mode = .Constant
+				result.info.constant, err = constant_pool_intern_aggregate(pool, target, lanes)
+			}
+			return result, .None, err
+		}
 	}
 	if kind == .Assignment && !untyped && dst.kind == .Any && src.kind != .Any {
 		result.plan.kind = .Box

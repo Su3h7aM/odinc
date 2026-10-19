@@ -10,6 +10,7 @@ Lanes :: #simd[4]u8
 MIN_LANES: Lanes : u8(0xff)
 probe :: proc "contextless" () -> Lanes {
 	wide := (#simd[4]u16)(MIN_LANES)
+	broadcast := Lanes(7)
 	return Lanes(wide)
 }
 `,
