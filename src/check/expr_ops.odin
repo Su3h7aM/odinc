@@ -178,12 +178,14 @@ expression_binary :: proc(
 		array_pair = true
 	}
 	#partial switch operator {
-	case .Add, .Sub, .Mul, .Quo:
+	case .Add, .Sub:
+		valid = integer || float_pair || array_pair || bit_set_pair
+	case .Mul, .Quo:
 		valid = integer || float_pair || array_pair
 	case .Mod, .Mod_Mod, .Shl, .Shr:
 		valid = integer || (array_pair && (operator == .Mod || operator == .Mod_Mod || operator == .Shl || operator == .Shr))
 	case .And, .Or, .Xor, .And_Not:
-		valid = integer || boolean || array_pair
+		valid = integer || boolean || array_pair || bit_set_pair
 	case .Cmp_And, .Cmp_Or:
 		valid = boolean
 	case .Cmp_Eq, .Not_Eq:

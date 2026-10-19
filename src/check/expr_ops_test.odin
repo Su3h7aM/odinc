@@ -44,3 +44,18 @@ is_target :: proc "contextless" (value: proc "contextless" ()) -> bool { return 
 	procedure, ok := check_procedure_source(t, source, procedure_name = "is_target")
 	if ok { testing.expect(t, procedure.body_state == .Complete) }
 }
+
+@(test)
+bit_set_accepts_set_union_difference_and_logic :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(
+		`package sample
+Flag :: enum {A, B, C}
+Flags :: bit_set[Flag; u8]
+combine :: proc "contextless" (first, second: Flags) -> Flags {
+	return ((first + second) - second) & (first | second) ~ (first &~ second)
+}
+`,
+	)
+	procedure, ok := check_procedure_source(t, source, procedure_name = "combine")
+	if ok { testing.expect(t, procedure.body_state == .Complete) }
+}
