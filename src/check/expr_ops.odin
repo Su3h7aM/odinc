@@ -191,6 +191,19 @@ expression_binary :: proc(
 		!conversion_untyped(left_kind) &&
 		generator_supported(store, right.type) &&
 		operand_assignable(checker, view, binary.left, left, right.type)
+	// Official comparison converts an untyped operand into the union when it converts into a variant.
+	union_pair ||=
+		left_kind == .Union &&
+		conversion_untyped(right_kind) &&
+		right_kind != .Untyped_Nil &&
+		generator_supported(store, left.type) &&
+		operand_assignable(checker, view, binary.right, right, left.type)
+	union_pair ||=
+		right_kind == .Union &&
+		conversion_untyped(left_kind) &&
+		left_kind != .Untyped_Nil &&
+		generator_supported(store, right.type) &&
+		operand_assignable(checker, view, binary.left, left, right.type)
 	struct_pair :=
 		left_kind == .Struct &&
 		right_kind == .Struct &&
