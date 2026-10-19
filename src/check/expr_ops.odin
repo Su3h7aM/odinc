@@ -217,6 +217,8 @@ expression_binary :: proc(
 	#partial switch operator {
 	case .Add, .Sub:
 		valid = integer || float_pair || array_pair || bit_set_pair || broadcast_pair
+		// Official string concatenation requires constant strings on both sides.
+		if operator == .Add && string_pair && left.mode == .Constant && right.mode == .Constant { valid = true }
 	case .Mul, .Quo:
 		valid = integer || float_pair || array_pair || broadcast_pair
 	case .Mod, .Mod_Mod, .Shl, .Shr:

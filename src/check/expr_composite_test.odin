@@ -35,6 +35,7 @@ carrier :: Carrier{count = 1}
 painted :: Carrier{choice = 7, count = 2}
 casted :: Carrier{choice = Choice(u8(3)), count = 4}
 banners :: []int{1, 2}
+greeting :: "Hello, " + "World!"
 `,
 	)
 	ast: syntax.Ast
@@ -108,6 +109,8 @@ banners :: []int{1, 2}
 	testing.expect(t, painted.state == .Resolved)
 	casted := entity_get(&scopes, scope_lookup_current(&scopes, package_scope, "casted"))
 	testing.expect(t, casted.state == .Resolved)
+	greeting := entity_get(&scopes, scope_lookup_current(&scopes, package_scope, "greeting"))
+	testing.expect(t, greeting.state == .Resolved)
 	banners := entity_get(&scopes, scope_lookup_current(&scopes, package_scope, "banners"))
 	testing.expect(t, banners.state == .Resolved)
 	shifted := entity_get(&scopes, scope_lookup_current(&scopes, package_scope, "shifted"))
