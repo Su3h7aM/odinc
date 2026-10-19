@@ -148,6 +148,18 @@ expression_binary :: proc(
 	float_pair :=
 		float_side && (conversion_float(left_kind) || conversion_integer(left_kind)) && (conversion_float(right_kind) || conversion_integer(right_kind))
 	union_pair := left_kind == .Union && right_kind == .Union && generator_supported(store, left.type) && generator_supported(store, right.type)
+	union_pair ||=
+		left_kind == .Union &&
+		right_kind != .Union &&
+		!conversion_untyped(right_kind) &&
+		generator_supported(store, left.type) &&
+		operand_assignable(checker, view, binary.right, right, left.type)
+	union_pair ||=
+		right_kind == .Union &&
+		left_kind != .Union &&
+		!conversion_untyped(left_kind) &&
+		generator_supported(store, right.type) &&
+		operand_assignable(checker, view, binary.left, left, right.type)
 	struct_pair :=
 		left_kind == .Struct &&
 		right_kind == .Struct &&
@@ -260,7 +272,9 @@ expression_binary :: proc(
 	}
 	if left.state == .Invalid || right.state == .Invalid { return expression_poison(scope), nil }
 	if comparison && (union_pair || struct_pair) && (left.mode != .Constant || right.mode != .Constant) {
-		append(&checker.plans, Plan(Comparison_Plan{type = types.resolve_named(store, left.type)})) or_return
+		compared_type := left.type
+		if left_kind != .Union && right_kind == .Union { compared_type = right.type }
+		append(&checker.plans, Plan(Comparison_Plan{type = types.resolve_named(store, compared_type)})) or_return
 	}
 	// A dynamic integer paired with an untyped operand needs concrete rows at both runtime uses.
 	if left.mode != .Constant || right.mode != .Constant {

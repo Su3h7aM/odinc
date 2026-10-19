@@ -103,6 +103,9 @@ lower_union_comparison :: proc(state: ^Procedure_State, node: syntax.Node_Index,
 	if lower_union_nil_operand(state, expression.right) {
 		return lower_union_nil_comparison(state, union_type, expression.op.kind, left)
 	}
+	if lower_union_type(state, expression.left) != union_type || lower_union_type(state, expression.right) != union_type {
+		return lower_fail(state, node, .Operator)
+	}
 	return lower_union_equality(state, node, expression, union_type, left, right)
 }
 

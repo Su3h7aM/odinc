@@ -46,6 +46,19 @@ is_target :: proc "contextless" (value: proc "contextless" ()) -> bool { return 
 }
 
 @(test)
+union_equality_accepts_assignable_variant :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(
+		`package sample
+Error_Kind :: enum {None, EOF}
+Error :: union {Error_Kind, u8}
+is_eof :: proc "contextless" (err: Error) -> bool { return err == Error_Kind.EOF || Error_Kind.EOF == err }
+`,
+	)
+	procedure, ok := check_procedure_source(t, source, procedure_name = "is_eof")
+	if ok { testing.expect(t, procedure.body_state == .Complete) }
+}
+
+@(test)
 bit_set_accepts_set_union_difference_and_logic :: proc(t: ^testing.T) {
 	source := transmute([]byte)string(
 		`package sample
