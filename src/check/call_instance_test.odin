@@ -255,3 +255,21 @@ main :: proc "contextless" () {
 	if !ok { return }
 	testing.expect(t, procedure.body_state == .Complete)
 }
+
+@(test)
+any_integer_parameter_casts_enum_argument :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(
+		`package sample
+Color :: enum u8 { Red, Blue }
+takes :: proc "contextless" (#any_int n: u8) -> u8 { return n }
+main :: proc "contextless" () {
+	color: Color = .Blue
+	_ = takes(color)
+	_ = takes(7)
+}
+`,
+	)
+	procedure, ok := check_last_procedure_source(t, source)
+	if !ok { return }
+	testing.expect(t, procedure.body_state == .Complete)
+}

@@ -176,6 +176,7 @@ expression_signature_bindings :: proc(
 			names := syntax.node_list(file.ast, field.names)
 			parameter_flags: Entity_Flags
 			if .C_Vararg in field.flags { parameter_flags = {.C_Variadic} }
+			if .Any_Int in field.flags { parameter_flags += {.Any_Integer} }
 			for name_index in 0 ..< max(len(names), 1) {
 				name_node: syntax.Node_Index
 				name := ""

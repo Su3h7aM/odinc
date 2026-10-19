@@ -37,7 +37,7 @@ expression_indirect_call :: proc(
 	allocator := mem.dynamic_arena_allocator(&checker.arena)
 	call_arguments := make([]Call_Argument, len(arguments), allocator) or_return
 	for argument, index in arguments {
-		value := expression_argument(checker, view, scope, argument, descriptor.params[index]) or_return
+		value := expression_argument(checker, view, scope, argument, descriptor.params[index], false) or_return
 		if value.state == .Invalid { return expression_poison(scope), nil }
 		conversion := expression_conversion_plan(checker, value.plan)
 		if conversion != 0 {

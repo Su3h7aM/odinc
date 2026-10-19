@@ -156,7 +156,8 @@ expression_call_argument :: proc(
 	valid: bool,
 	err: Resolve_Error,
 ) {
-	value := expression_argument(checker, view, scope, value_node, target) or_return
+	any_integer := .Any_Integer in entity_get(checker.type_checker.resolver.scopes, parameter).flags
+	value := expression_argument(checker, view, scope, value_node, target, any_integer) or_return
 	if value.state == .Invalid { return {}, false, nil }
 	conversion := expression_conversion_plan(checker, value.plan)
 	if conversion != 0 {
@@ -165,9 +166,9 @@ expression_call_argument :: proc(
 		conversion = Plan_Id(len(checker.plans))
 		append(&checker.plans, Plan(retained)) or_return
 	}
-	return Call_Argument{value = Operand(Expression_Ref{view, value_node}), parameter = parameter, conversion = conversion, evaluation_order = order},
-		true,
-		nil
+	operand := Operand(Expression_Ref{view, value_node})
+	if value.mode == .Constant { operand = Operand(value.constant) }
+	return Call_Argument{value = operand, parameter = parameter, conversion = conversion, evaluation_order = order}, true, nil
 }
 
 // The trailing arguments of a variadic call become the elements of one slice argument. Non-constant
