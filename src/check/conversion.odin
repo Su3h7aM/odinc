@@ -146,6 +146,7 @@ check_conversion :: proc(
 		allowed ||= src.kind == .Untyped_String && (dst.kind == .String || dst.kind == .CString)
 	}
 	if kind == .Assignment && !untyped {
+		allowed ||= info.mode == .Constant && src.kind == .String && dst.kind == .CString
 		allowed ||= conversion_implicit_raw_pointer(store, info.type, target)
 		allowed ||= conversion_implicit_pointer(store, info.type, target)
 		allowed ||= simd_broadcast_allowed(dst, info.type)
@@ -198,13 +199,15 @@ check_conversion :: proc(
 		return result, .None, nil
 	}
 	if info.mode == .Constant {
-		if (src.kind == .Untyped_String || kind == .Cast && core_source.kind == .String) && (dst.kind == .String || dst.kind == .CString) {
+		if (src.kind == .Untyped_String || core_source.kind == .String && (kind == .Cast || dst.kind == .CString)) &&
+		   (dst.kind == .String || dst.kind == .CString) {
 			text, is_text := constant_pool_get(pool, info.constant).value.(string)
 			if !is_text { return {}, .Invalid_Value, nil }
 			constant, string_error := constant_pool_intern_string(pool, text, target)
 			if string_error != nil { return {}, .None, string_error }
 			result.info.mode = .Constant
 			result.info.constant = constant
+			result.plan.source = Operand(constant)
 			return result, .None, nil
 		}
 		if !conversion_integer(core_target.kind) &&

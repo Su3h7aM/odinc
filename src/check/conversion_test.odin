@@ -79,6 +79,9 @@ conversions_preserve_identity_range_and_source :: proc(t: ^testing.T) {
 	info.type = types.intern(&store, types.Type{kind = .String})
 	converted, diagnostic, err = check_conversion(&pool, &store, value, info, cstring_type, .Cast, config)
 	testing.expect(t, err == nil && diagnostic == .None && converted.info.mode == .Constant && converted.info.type == cstring_type)
+	converted, diagnostic, err = check_conversion(&pool, &store, value, info, cstring_type, .Assignment, config)
+	testing.expect(t, err == nil && diagnostic == .None && converted.info.mode == .Constant && converted.info.type == cstring_type)
+	testing.expect(t, converted.plan.source == Operand(converted.info.constant))
 }
 
 @(test)
