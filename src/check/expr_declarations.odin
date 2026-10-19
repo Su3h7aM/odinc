@@ -194,8 +194,20 @@ expression_declaration :: proc(resolver: ^Resolver, id: Entity_Id, user_data: ra
 			return true, nil
 		}
 		if entity.kind == .Constant && info.mode != .Constant {
-			expression_failure(checker, view, entity.scope, declaration.value.node, .Invalid_Operand) or_return
-			return false, nil
+			// Official file-scope `::` bindings of composite literals live in static storage, so they demote to
+			// read-only globals instead of failing. Procedure-scope `::` still requires a constant.
+			if !expression_demotable_global(checker, resolver, entity.scope, declaration.value.file, declaration.value.node, info) {
+				expression_failure(checker, view, entity.scope, declaration.value.node, .Invalid_Operand) or_return
+				return false, nil
+			}
+			demoted := entity_get(resolver.scopes, id)
+			demoted.kind = .Variable
+			demoted.flags += {.Immutable}
+			demoted.data = Variable_Data {
+				storage     = .Global,
+				initializer = declaration.value,
+			}
+			entity.kind = .Variable
 		}
 		if entity.kind == .Variable && conversion_untyped(types.get(checker.type_checker.store, info.type).kind) {
 			default_type := checker.default_integer
@@ -218,9 +230,34 @@ expression_declaration :: proc(resolver: ^Resolver, id: Entity_Id, user_data: ra
 	binding.type = info.type
 	binding.constant = info.constant if entity.kind == .Constant else 0
 	info.entity = id
-	if entity.kind == .Variable { info.mode, info.constant, info.plan = .Variable, 0, 0 }
+	if entity.kind == .Variable {
+		info.mode, info.constant, info.plan = .Variable, 0, 0
+		if .Immutable in binding.flags { info.mode = .Immutable_Value }
+	}
 	expression_store(checker, view, declaration.identifier.node, info)
 	return true, nil
+}
+
+// A file-scope `::` composite literal, or an alias of a demoted global, initializes static storage.
+@(private = "file")
+expression_demotable_global :: proc(
+	checker: ^Expression_Checker,
+	resolver: ^Resolver,
+	scope: Scope_Id,
+	file: File_Id,
+	node: syntax.Node_Index,
+	info: Expression_Info,
+) -> bool {
+	if info.mode != .Value && info.mode != .Immutable_Value { return false }
+	enclosing := scope_get(resolver.scopes, scope)
+	if enclosing == nil || (enclosing.kind != .File && enclosing.kind != .Package) { return false }
+	if info.mode == .Immutable_Value { return true }
+	source := checker.type_checker.files[file]
+	value := node
+	for source.ast.nodes[value].kind == .Paren_Expr {
+		value = syntax.node_payload(source.ast, value, syntax.Paren_Expr).expr
+	}
+	return source.ast.nodes[value].kind == .Comp_Lit
 }
 
 @(private = "file")

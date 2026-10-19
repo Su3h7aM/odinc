@@ -34,6 +34,7 @@ Carrier :: struct {choice: Choice, count: int}
 carrier :: Carrier{count = 1}
 painted :: Carrier{choice = 7, count = 2}
 casted :: Carrier{choice = Choice(u8(3)), count = 4}
+banners :: []int{1, 2}
 `,
 	)
 	ast: syntax.Ast
@@ -107,6 +108,8 @@ casted :: Carrier{choice = Choice(u8(3)), count = 4}
 	testing.expect(t, painted.state == .Resolved)
 	casted := entity_get(&scopes, scope_lookup_current(&scopes, package_scope, "casted"))
 	testing.expect(t, casted.state == .Resolved)
+	banners := entity_get(&scopes, scope_lookup_current(&scopes, package_scope, "banners"))
+	testing.expect(t, banners.state == .Resolved)
 	shifted := entity_get(&scopes, scope_lookup_current(&scopes, package_scope, "shifted"))
 	shifted_array := types.get(&store, shifted.type)
 	testing.expect(t, shifted_array.kind == .Enumerated_Array && shifted_array.lower_bound == 1 && shifted_array.count == 3)
