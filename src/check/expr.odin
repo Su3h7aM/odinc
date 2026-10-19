@@ -265,7 +265,7 @@ check_expression :: proc(
 				view,
 				scope,
 				node,
-				Operand(Expression_Ref{view, conversion.expr}),
+				expression_value_operand(checker, view, conversion.expr, operand),
 				expression_single_value(operand),
 				target,
 				kind,
@@ -352,7 +352,7 @@ check_expression :: proc(
 					view,
 					scope,
 					node,
-					Operand(Expression_Ref{view, argument}),
+					expression_value_operand(checker, view, argument, operand),
 					expression_single_value(operand),
 					callee.type,
 					.Cast,
@@ -399,7 +399,16 @@ check_expression :: proc(
 	if hint != 0 && info.state != .Invalid && info.type != hint && info.mode != .Constant && expression_converts_implicitly(checker, hint, info.type) {
 		// The node keeps its own row as the source; the boxing conversion is returned to the caller.
 		expression_store(checker, view, node, info)
-		return expression_conversion(checker, view, scope, node, Operand(Expression_Ref{view, node}), info, hint, .Assignment)
+		return expression_conversion(
+			checker,
+			view,
+			scope,
+			node,
+			expression_value_operand(checker, view, node, info),
+			expression_single_value(info),
+			hint,
+			.Assignment,
+		)
 	}
 	if hint != 0 && info.state != .Invalid && info.type != hint {
 		// A constant is its own retained source. Runtime expressions need a separate cast node.
