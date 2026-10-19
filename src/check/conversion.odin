@@ -127,7 +127,7 @@ check_conversion :: proc(
 		allowed ||= conversion_integer(src.kind) && conversion_float(dst.kind)
 		allowed ||= conversion_float(src.kind) && conversion_integer(dst.kind)
 		allowed ||= src.kind == .Untyped_Nil && conversion_nilable(dst)
-		allowed ||= src.kind == .Untyped_String && dst.kind == .String
+		allowed ||= src.kind == .Untyped_String && (dst.kind == .String || dst.kind == .CString)
 	}
 	if kind == .Assignment && !untyped {
 		allowed ||= conversion_implicit_raw_pointer(store, info.type, target)
@@ -136,6 +136,7 @@ check_conversion :: proc(
 	}
 	if kind == .Cast {
 		allowed ||= conversion_core_type(store, info.type) == conversion_core_type(store, target)
+		allowed ||= info.mode == .Constant && core_source.kind == .String && core_target.kind == .CString
 		allowed ||= conversion_boolean_or_integer(core_source.kind) && conversion_boolean_or_integer(core_target.kind)
 		allowed ||= conversion_float(core_source.kind) && conversion_float(core_target.kind)
 		allowed ||= conversion_integer(core_source.kind) && conversion_float(core_target.kind)
@@ -181,7 +182,7 @@ check_conversion :: proc(
 		return result, .None, nil
 	}
 	if info.mode == .Constant {
-		if src.kind == .Untyped_String && dst.kind == .String {
+		if (src.kind == .Untyped_String || kind == .Cast && core_source.kind == .String) && (dst.kind == .String || dst.kind == .CString) {
 			text, is_text := constant_pool_get(pool, info.constant).value.(string)
 			if !is_text { return {}, .Invalid_Value, nil }
 			constant, string_error := constant_pool_intern_string(pool, text, target)

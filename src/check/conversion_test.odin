@@ -65,6 +65,20 @@ conversions_preserve_identity_range_and_source :: proc(t: ^testing.T) {
 		converted, diagnostic, err = check_conversion(&pool, &store, value, info, wide, .Cast, config)
 		testing.expect(t, err == nil && diagnostic == .None && converted.info.type == wide)
 	}
+	text, text_error := constant_pool_intern_string(&pool, "literal", types.TYPE_UNTYPED_STRING)
+	if !testing.expect(t, text_error == nil) { return }
+	info = Expression_Info {
+		type     = types.TYPE_UNTYPED_STRING,
+		mode     = .Constant,
+		constant = text,
+		state    = .Checked,
+	}
+	cstring_type := types.intern(&store, types.Type{kind = .CString})
+	converted, diagnostic, err = check_conversion(&pool, &store, value, info, cstring_type, .Cast, config)
+	testing.expect(t, err == nil && diagnostic == .None && converted.info.mode == .Constant && converted.info.type == cstring_type)
+	info.type = types.intern(&store, types.Type{kind = .String})
+	converted, diagnostic, err = check_conversion(&pool, &store, value, info, cstring_type, .Cast, config)
+	testing.expect(t, err == nil && diagnostic == .None && converted.info.mode == .Constant && converted.info.type == cstring_type)
 }
 
 @(test)
