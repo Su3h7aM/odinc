@@ -82,6 +82,23 @@ conversions_preserve_identity_range_and_source :: proc(t: ^testing.T) {
 }
 
 @(test)
+using_field_converts_to_embedded_type :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(
+		`package sample
+Allocator :: struct {data: rawptr}
+Guard :: struct {using allocator: Allocator}
+take :: proc "contextless" (allocator: Allocator) {}
+main :: proc "contextless" () {
+	guard: Guard
+	take(guard)
+}
+`,
+	)
+	procedure, ok := check_procedure_source(t, source, diagnostic_count = 0)
+	if ok { testing.expect(t, procedure.body_state == .Complete) }
+}
+
+@(test)
 nil_converts_only_to_nilable_targets :: proc(t: ^testing.T) {
 	store := types.init()
 	defer types.destroy(&store)

@@ -1,5 +1,7 @@
 package check
 
+import "core:slice"
+import "oc:syntax"
 import "oc:types"
 
 Conversion_Error :: enum u8 {
@@ -16,8 +18,9 @@ Conversion_Error :: enum u8 {
 
 // uintptr is a configured builtin identity, never inferred from its spelling or width.
 Conversion_Config :: struct {
-	uintptr: types.Type_Id,
-	layout:  types.Layout_Config,
+	uintptr:     types.Type_Id,
+	layout:      types.Layout_Config,
+	field_flags: ^map[types.Type_Id][]syntax.Field_Flags,
 }
 
 Conversion_Result :: struct {
@@ -120,6 +123,19 @@ check_conversion :: proc(
 	if kind == .Assignment && untyped && src.kind != .Untyped_Nil && dst.kind == .Union {
 		return conversion_untyped_union_variant(pool, store, source, info, target, config)
 	}
+	if kind == .Assignment && info.type != target && config.field_flags != nil {
+		path := make([dynamic]Member_Step, 0, context.temp_allocator) or_return
+		defer delete(path)
+		found, path_error := conversion_subtype_path(store, config.field_flags^, info.type, target, &path)
+		if path_error != nil { return {}, .None, path_error }
+		if found {
+			result.plan.kind = .Subtype
+			result.plan.source_type = info.type
+			result.plan.path, err = slice.clone(path[:], pool.allocator)
+			if err != nil { return {}, .None, err }
+			return result, .None, nil
+		}
+	}
 	allowed := info.type == target
 	if kind == .Assignment && untyped {
 		allowed = conversion_integer(src.kind) && conversion_integer(dst.kind) || conversion_boolean(src.kind) && conversion_boolean(dst.kind)
@@ -205,6 +221,45 @@ check_conversion :: proc(
 		result.info.constant = constant
 	}
 	return result, .None, nil
+}
+
+@(private = "file")
+conversion_subtype_path :: proc(
+	store: ^types.Store,
+	flags: map[types.Type_Id][]syntax.Field_Flags,
+	source, target: types.Type_Id,
+	path: ^[dynamic]Member_Step,
+	source_pointer := false,
+	depth := 0,
+) -> (
+	found: bool,
+	err: Constant_Error,
+) {
+	if depth >= len(store.types) { return false, nil }
+	owner := types.resolve_named(store, source)
+	descriptor := types.get(store, owner)
+	indirect := descriptor.kind == .Pointer
+	if indirect {
+		owner = types.resolve_named(store, descriptor.elem)
+		descriptor = types.get(store, owner)
+	}
+	if descriptor.kind != .Struct { return false, nil }
+	field_flags := flags[owner]
+	was_pointer := source_pointer || indirect
+	target_descriptor := types.get(store, types.resolve_named(store, target))
+	for field, index in descriptor.fields {
+		if index >= len(field_flags) || (.Using not_in field_flags[index] && .Subtype not_in field_flags[index]) { continue }
+		mark := len(path)
+		append(path, Member_Step{type = owner, field_index = u32(index), indirect = indirect}) or_return
+		if field.type == target || was_pointer && target_descriptor.kind == .Pointer && field.type == target_descriptor.elem {
+			return true, nil
+		}
+		matched, nested_error := conversion_subtype_path(store, flags, field.type, target, path, was_pointer, depth + 1)
+		if nested_error != nil { return false, nested_error }
+		if matched { return true, nil }
+		resize(path, mark)
+	}
+	return false, nil
 }
 
 conversion_base_type :: proc(store: ^types.Store, id: types.Type_Id) -> types.Type_Id {

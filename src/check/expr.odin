@@ -87,6 +87,7 @@ expression_checker_init :: proc(
 ) {
 	assert(checker != nil && checker.type_checker == nil && type_checker != nil && pool != nil)
 	checker.type_checker, checker.constants, checker.config = type_checker, pool, config
+	checker.config.field_flags = &type_checker.field_flags
 	type_checker.evaluate_record_argument = expression_record_argument_evaluator
 	type_checker.evaluate_boolean = expression_boolean_evaluator
 	type_checker.bind_enum_member = expression_enum_member_binder
