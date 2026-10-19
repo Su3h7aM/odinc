@@ -113,6 +113,15 @@ expression_binary :: proc(
 		right = check_expression(checker, view, scope, binary.right, right_hint) or_return
 	}
 	if left.state == .Invalid || right.state == .Invalid { return expression_poison(scope), nil }
+	if binary.op.kind == .Cmp_Eq || binary.op.kind == .Not_Eq {
+		store := checker.type_checker.store
+		if left.mode == .Type && right.mode != .Type && types.get(store, conversion_base_type(store, right.type)).kind == .Type_Id {
+			left = expression_typeid_value(checker, scope, left.type) or_return
+		}
+		if right.mode == .Type && left.mode != .Type && types.get(store, conversion_base_type(store, left.type)).kind == .Type_Id {
+			right = expression_typeid_value(checker, scope, right.type) or_return
+		}
+	}
 	if left.mode == .Type && right.mode == .Type && (binary.op.kind == .Cmp_Eq || binary.op.kind == .Not_Eq) {
 		value := left.type == right.type
 		if binary.op.kind == .Not_Eq { value = !value }
