@@ -36,6 +36,7 @@ painted :: Carrier{choice = 7, count = 2}
 casted :: Carrier{choice = Choice(u8(3)), count = 4}
 banners :: []int{1, 2}
 greeting :: "Hello, " + "World!"
+spread :: []int{0 = 7, 5 ..= 6 = 54, 10 ..< 12 = 8}
 `,
 	)
 	ast: syntax.Ast
@@ -113,6 +114,8 @@ greeting :: "Hello, " + "World!"
 	testing.expect(t, greeting.state == .Resolved)
 	banners := entity_get(&scopes, scope_lookup_current(&scopes, package_scope, "banners"))
 	testing.expect(t, banners.state == .Resolved)
+	spread := entity_get(&scopes, scope_lookup_current(&scopes, package_scope, "spread"))
+	testing.expect(t, spread.state == .Resolved)
 	shifted := entity_get(&scopes, scope_lookup_current(&scopes, package_scope, "shifted"))
 	shifted_array := types.get(&store, shifted.type)
 	testing.expect(t, shifted_array.kind == .Enumerated_Array && shifted_array.lower_bound == 1 && shifted_array.count == 3)
