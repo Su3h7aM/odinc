@@ -12,6 +12,9 @@ through_value :: proc "contextless" (values: [dynamic]u8) -> int { return len(va
 through_cstrings :: proc(text: cstring, wide: cstring16) -> int { return len(text) + len(wide) }
 Sparse :: enum { A = 2, B = 5, C = 11 }
 constant_lengths :: proc() { #assert(len(Sparse) == 3); #assert(len(#sparse[Sparse]int) == 10) }
+marker :: "> "
+kind :: "steer    "
+lead :: len(marker) + len(kind) + 1
 `,
 	)
 	for name in ([?]string{"through_pointer", "through_value", "through_cstrings", "constant_lengths"}) {

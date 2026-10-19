@@ -1032,7 +1032,7 @@ target_feature_enabled :: proc(features: []string, name: string) -> bool {
 	return false
 }
 
-// len and cap of a fixed array are constants. len of a slice or string is read from its header during lowering.
+// len and cap of a fixed array, and len of a constant string, are constants. len of a slice or runtime string is read from its header during lowering.
 @(private = "file")
 expression_length :: proc(
 	checker: ^Expression_Checker,
@@ -1073,6 +1073,23 @@ expression_length :: proc(
 		}
 		return Expression_Info{type = types.TYPE_UNTYPED_INTEGER, constant = constant, mode = .Constant, scope = scope, state = .Checked}, nil
 	case .Slice, .Dynamic_Array, .Map, .String, .String16, .CString, .CString16:
+		if kind == .Len && operand.mode == .Constant && operand.constant != 0 {
+			length, known := constant_string_length(checker, operand.constant)
+			if known {
+				value: big.Int
+				defer big.destroy(&value)
+				if set_error := big.set(&value, i64(length)); set_error != nil {
+					expression_constant_failure(checker, checker.views[view].file, node, set_error) or_return
+					return expression_poison(scope), nil
+				}
+				constant, constant_error := constant_pool_intern_integer(checker.constants, &value, types.TYPE_UNTYPED_INTEGER)
+				if constant_error != nil {
+					expression_constant_failure(checker, checker.views[view].file, node, constant_error) or_return
+					return expression_poison(scope), nil
+				}
+				return Expression_Info{type = types.TYPE_UNTYPED_INTEGER, constant = constant, mode = .Constant, scope = scope, state = .Checked}, nil
+			}
+		}
 		if kind == .Cap && descriptor.kind != .Dynamic_Array && descriptor.kind != .Map {
 			return expression_failure(checker, view, scope, node, .Invalid_Operand)
 		}
@@ -1085,4 +1102,17 @@ expression_length :: proc(
 		return Expression_Info{type = checker.default_integer, mode = .Value, plan = plan, scope = scope, state = .Checked}, nil
 	}
 	return expression_failure(checker, view, scope, node, .Invalid_Operand)
+}
+
+@(private = "file")
+constant_string_length :: proc(checker: ^Expression_Checker, id: Const_Id) -> (length: int, known: bool) {
+	constant := constant_pool_get(checker.constants, id)
+	if constant == nil { return 0, false }
+	#partial switch text in constant.value {
+	case string:
+		return len(text), true
+	case []u16:
+		return len(text), true
+	}
+	return 0, false
 }
