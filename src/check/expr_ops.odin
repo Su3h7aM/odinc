@@ -104,7 +104,7 @@ expression_binary :: proc(
 		left = check_expression(checker, view, scope, binary.left, left_hint) or_return
 		right_hint := types.Type_Id(0)
 		left_base := types.get(checker.type_checker.store, conversion_base_type(checker.type_checker.store, left.type)).kind
-		if file.ast.nodes[binary.right].kind == .Implicit_Selector_Expr || expression_string_kind(left_base) { right_hint = left.type }
+		if file.ast.nodes[binary.right].kind == .Implicit_Selector_Expr || left.mode != .Type && expression_string_kind(left_base) { right_hint = left.type }
 		is_equality := binary.op.kind == .Cmp_Eq || binary.op.kind == .Not_Eq
 		if is_equality && file.ast.nodes[binary.right].kind == .Comp_Lit && syntax.node_payload(file.ast, binary.right, syntax.Comp_Lit).type == 0 {
 			right_hint = left.type
