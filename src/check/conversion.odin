@@ -109,6 +109,10 @@ check_conversion :: proc(
 		allowed ||= conversion_float(core_source.kind) && conversion_float(core_target.kind)
 		allowed ||= conversion_integer(core_source.kind) && conversion_float(core_target.kind)
 		allowed ||= conversion_float(core_source.kind) && conversion_integer(core_target.kind)
+		allowed ||=
+			(conversion_float(core_source.kind) || core_source.kind == .Complex || core_source.kind == .Untyped_Complex) &&
+			(core_target.kind == .Complex || core_target.kind == .Quaternion)
+		allowed ||= (core_source.kind == .Quaternion || core_source.kind == .Untyped_Quaternion) && core_target.kind == .Quaternion
 		allowed ||= conversion_pointer(core_source.kind) && conversion_pointer(core_target.kind)
 		allowed ||=
 			core_source.kind == .CString && conversion_code_unit_pointer(store, core_target, 1) ||
@@ -155,7 +159,11 @@ check_conversion :: proc(
 			result.info.constant = constant
 			return result, .None, nil
 		}
-		if !conversion_integer(core_target.kind) && !conversion_boolean(core_target.kind) && !conversion_float(core_target.kind) {
+		if !conversion_integer(core_target.kind) &&
+		   !conversion_boolean(core_target.kind) &&
+		   !conversion_float(core_target.kind) &&
+		   core_target.kind != .Complex &&
+		   core_target.kind != .Quaternion {
 			return Conversion_Result{reason = "Conversion_Constant_Target"}, .Unsupported, nil
 		}
 		constant, conversion_error := numeric_convert_constant(pool, store, info.constant, info.type, target)

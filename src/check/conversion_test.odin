@@ -59,6 +59,12 @@ conversions_preserve_identity_range_and_source :: proc(t: ^testing.T) {
 	text16 := types.intern(&store, types.Type{kind = .String16})
 	converted, diagnostic, err = check_conversion(&pool, &store, value, info, text16, .Cast, config)
 	testing.expect(t, err == nil && diagnostic == .None && converted.info.type == text16)
+	for kind in ([?]types.Kind{.Complex, .Quaternion}) {
+		info.type = types.intern(&store, types.Type{kind = kind, count = 8})
+		wide := types.intern(&store, types.Type{kind = kind, count = 16})
+		converted, diagnostic, err = check_conversion(&pool, &store, value, info, wide, .Cast, config)
+		testing.expect(t, err == nil && diagnostic == .None && converted.info.type == wide)
+	}
 }
 
 @(test)
