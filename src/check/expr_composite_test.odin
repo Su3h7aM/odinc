@@ -29,6 +29,9 @@ defaults :: [2]Pair{{}, {}}
 nested :: [1]struct {inner: Pair}{{}}
 Styled :: struct {flags: bit_set[Flags], count: int}
 styled :: Styled{count = 1}
+Choice :: union {int, u8}
+Carrier :: struct {choice: Choice, count: int}
+carrier :: Carrier{count = 1}
 `,
 	)
 	ast: syntax.Ast
@@ -96,6 +99,8 @@ styled :: Styled{count = 1}
 	}
 	styled := entity_get(&scopes, scope_lookup_current(&scopes, package_scope, "styled"))
 	testing.expect(t, styled.state == .Resolved)
+	carrier := entity_get(&scopes, scope_lookup_current(&scopes, package_scope, "carrier"))
+	testing.expect(t, carrier.state == .Resolved)
 	shifted := entity_get(&scopes, scope_lookup_current(&scopes, package_scope, "shifted"))
 	shifted_array := types.get(&store, shifted.type)
 	testing.expect(t, shifted_array.kind == .Enumerated_Array && shifted_array.lower_bound == 1 && shifted_array.count == 3)

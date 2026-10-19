@@ -36,6 +36,8 @@ expression_zero_fill_supported :: proc(checker: ^Expression_Checker, store: ^typ
 		return true
 	case .Enum, .Bit_Set:
 		return true
+	case .Union:
+		return expression_union_variant_constant(store, element_type)
 	case .Struct:
 		for field in descriptor.fields {
 			if !expression_zero_fill_supported(checker, store, field.type) { return false }
@@ -79,6 +81,41 @@ expression_zero_fill_constants :: proc(
 		return constant_pool_intern_aggregate(checker.constants, element_type, element_ids)
 	case .String16:
 		return constant_pool_intern_string16(checker.constants, nil, element_type)
+	case .Union:
+		return constant_pool_intern_nil(checker.constants, element_type)
 	}
 	return 0, Constant_Pool_Error.Invalid_Operand
+}
+
+// Mirrors is_type_constant_type (types.cpp:1522): the basic constant types, bit sets, procedures and their arrays.
+@(private = "file")
+expression_constant_basic :: proc(store: ^types.Store, type: types.Type_Id) -> bool {
+	descriptor := types.get(store, conversion_base_type(store, type))^
+	#partial switch descriptor.kind {
+	case .Bool, .Integer, .Float, .Rune, .Complex, .Quaternion, .String, .String16, .CString, .CString16, .Raw_Pointer, .Type_Id, .Bit_Set, .Procedure:
+		return true
+	case .Array, .Enumerated_Array, .Simd_Vector, .Matrix:
+		return expression_constant_basic(store, descriptor.elem)
+	}
+	return false
+}
+
+// Mirrors is_type_constant_type_for_unions and is_type_union_constantable (types.cpp:2837, 2871): a union is constant
+// when every variant is, and structs qualify when every field does.
+@(private = "file")
+expression_union_variant_constant :: proc(store: ^types.Store, type: types.Type_Id) -> bool {
+	descriptor := types.get(store, conversion_base_type(store, type))^
+	#partial switch descriptor.kind {
+	case .Struct:
+		for field in descriptor.fields {
+			if !expression_union_variant_constant(store, field.type) { return false }
+		}
+		return true
+	case .Union:
+		for variant in descriptor.variants {
+			if !expression_union_variant_constant(store, variant) { return false }
+		}
+		return true
+	}
+	return expression_constant_basic(store, type)
 }
