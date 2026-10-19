@@ -14,12 +14,10 @@ program_histogram_reports_checker_errors :: proc(t: ^testing.T) {
 	err := program_histogram(odin_root, main_path, context.allocator, strings.to_writer(&builder))
 	testing.expectf(t, err == .None, "%v", err)
 	output := strings.to_string(builder)
-	testing.expectf(t, strings.contains(output, "1  expr Undeclared_Name missing_name  first: "), "%s", output)
-	testing.expectf(t, strings.contains(output, "histogram_program/main.odin:6:11"), "%s", output)
-	testing.expectf(t, strings.contains(output, "1  expr Conversion Basic_Lit Not_Assignable  first: "), "%s", output)
-	testing.expectf(t, strings.contains(output, "histogram_program/main.odin:7:17"), "%s", output)
-	testing.expectf(t, strings.contains(output, "1  import missing:package  first: "), "%s", output)
-	testing.expectf(t, strings.contains(output, "histogram_program/main.odin:3:"), "%s", output)
+	testing.expectf(t, strings.contains(output, "1 expr Undeclared_Name missing_name\n"), "%s", output)
+	testing.expectf(t, strings.contains(output, "1 expr Conversion Basic_Lit Not_Assignable\n"), "%s", output)
+	testing.expectf(t, strings.contains(output, "1 import missing:package\n"), "%s", output)
+	testing.expectf(t, strings.contains(output, "total "), "%s", output)
 }
 
 @(test)
@@ -39,5 +37,5 @@ program_histogram_reports_load_failures :: proc(t: ^testing.T) {
 	output := strings.to_string(builder)
 	testing.expectf(t, err == .Parse_Failed, "%v", err)
 	testing.expectf(t, strings.contains(output, "load parse"), "%s", output)
-	testing.expectf(t, strings.contains(output, "main.odin"), "%s", output)
+	testing.expectf(t, strings.contains(output, "1 load parse\ntotal 1\n"), "%s", output)
 }

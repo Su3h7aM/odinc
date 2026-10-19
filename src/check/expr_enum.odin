@@ -1,6 +1,5 @@
 package check
 
-import "core:fmt"
 import "core:math/big"
 import "oc:syntax"
 import "oc:types"
@@ -20,11 +19,6 @@ expression_implicit_selector :: proc(
 	file := checker.type_checker.files[checker.views[view].file]
 	field := syntax.node_payload(file.ast, node, syntax.Implicit_Selector_Expr).field
 	name := expression_text(file, field)
-	fmt.eprintf("SELECTOR_HINT %s:%d name=%q hint=%d\n", file.display_path, file.ast.nodes[node].start, name, hint)
-	if hint != 0 {
-		hint_descriptor := types.get(checker.type_checker.store, types.resolve_named(checker.type_checker.store, hint))^
-		fmt.eprintf("SELECTOR_HINTKIND %v\n", hint_descriptor.kind)
-	}
 	if enum_type, found := implicit_selector_enum(checker, hint, name); found {
 		return expression_enum_member(checker, view, scope, node, enum_type, name)
 	}

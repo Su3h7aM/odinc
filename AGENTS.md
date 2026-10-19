@@ -77,6 +77,7 @@ Keep the number of tests to the minimum necessary. Write only tests that provide
 - Test the higher-level procedure rather than each helper it calls, unless a helper is reused elsewhere or fails in ways the caller test would not reveal.
 - Do not add a test for every procedure, enum or struct.
 - Before adding a test, ask what bug it would catch that no existing test would.
+- Tests never print to stdout or stderr: no `fmt.print*`, `fmt.eprint*`, `os.write` or debug output in tests or in code that runs under `mise run test`. Printing breaks the test runner interface. Assert with `testing.expect` and `testing.expectf`; put details in the failure message. Compiler debug output is removed before reporting, not left behind.
 
 ## Workflow
 

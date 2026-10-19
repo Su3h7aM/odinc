@@ -16,8 +16,8 @@ run_section :: proc(t: ^testing.T, section: string) -> (result: ir.Interp_Result
 	module: ir.Module
 	lower_errors, lower_error := lower.lower_program(&session.program, &module, context.allocator)
 	defer delete(lower_errors, context.allocator)
-	if !testing.expectf(t, lower_error == nil && len(lower_errors) == 0, "%v %v", lower_error, lower_errors) { return }
 	defer ir.module_destroy(&module)
+	if !testing.expectf(t, lower_error == nil && len(lower_errors) == 0, "%v %v", lower_error, lower_errors) { return }
 
 	main_function: ^ir.Function
 	for function in module.functions {

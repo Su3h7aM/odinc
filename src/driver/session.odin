@@ -180,13 +180,13 @@ histogram_print :: proc(session: ^Session, writer: io.Writer) -> Driver_Error {
 		if error := histogram_source(&entries, session, "expr", diagnostic.kind, diagnostic.source, reason); error != .None { return error }
 	}
 	slice.sort_by(entries[:], histogram_before)
-	HISTOGRAM_LIMIT :: 256
+	total := 0
+	for entry in entries { total += entry.count }
 	for entry, index in entries {
-		if index >= HISTOGRAM_LIMIT && !strings.has_prefix(entry.key, "import ") { continue }
-		fmt.wprintf(writer, "%6d  %s  first: %s", entry.count, entry.key, entry.samples[0])
-		for sample_index in 1 ..< entry.sample_count { fmt.wprintf(writer, "; %s", entry.samples[sample_index]) }
-		fmt.wprintln(writer)
+		if index >= 20 { break }
+		fmt.wprintf(writer, "%d %s\n", entry.count, entry.key)
 	}
+	fmt.wprintf(writer, "total %d\n", total)
 	return .None
 }
 
