@@ -737,7 +737,7 @@ expression_raw_data :: proc(
 	descriptor := types.get(store, types.resolve_named(store, operand.type))
 	element: types.Type_Id
 	#partial switch descriptor.kind {
-	case .Slice:
+	case .Slice, .Dynamic_Array:
 		element = descriptor.elem
 	case .String:
 		element = types.sized_integer(store, 1, false)
