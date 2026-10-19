@@ -248,8 +248,19 @@ expression_binary :: proc(
 			if float_side { target = types.TYPE_UNTYPED_FLOAT }
 		}
 		if !left_untyped && !right_untyped {
-			if !comparison { return expression_failure(checker, view, scope, node, .Mismatched_Types) }
-			if operand_assignable(checker, view, binary.left, left, right.type) {
+			if !comparison {
+				if operator != .Cmp_And && operator != .Cmp_Or { return expression_failure(checker, view, scope, node, .Mismatched_Types) }
+				right = expression_conversion(
+					checker,
+					view,
+					scope,
+					binary.right,
+					expression_value_operand(checker, view, binary.right, right),
+					right,
+					left.type,
+					.Cast,
+				) or_return
+			} else if operand_assignable(checker, view, binary.left, left, right.type) {
 				left = expression_conversion(
 					checker,
 					view,

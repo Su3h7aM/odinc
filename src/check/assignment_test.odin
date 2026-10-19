@@ -44,6 +44,23 @@ pair :: proc "contextless" () -> (u8, bool) { return 1, 1 < 2 }
 }
 
 @(test)
+logical_operators_accept_different_boolean_types :: proc(t: ^testing.T) {
+	valid := transmute([]byte)string(
+		`package sample
+Chan :: struct { closed: b16 }
+main :: proc "contextless" (c: ^Chan, ok: bool) -> bool {
+	if c.closed && ok || !c.closed && ok { return true }
+	joined := ok || c.closed
+	return joined
+}
+`,
+	)
+	procedure, ok := check_procedure_source(t, valid)
+	if !ok { return }
+	testing.expect(t, procedure.body_state == .Complete)
+}
+
+@(test)
 untyped_rune_declaration_defaults_to_rune :: proc(t: ^testing.T) {
 	valid := transmute([]byte)string(
 		`package sample
