@@ -241,3 +241,35 @@ untyped_constant_converts_to_the_only_union_variant_that_accepts_it :: proc(t: ^
 	converted, diagnostic, err = check_conversion(&pool, &store, value, info, defaulted, .Assignment, config)
 	testing.expect(t, err == nil && diagnostic == .None && converted.plan.target == defaulted)
 }
+
+@(test)
+untyped_scalar_broadcasts_to_arrays_through_the_element_type :: proc(t: ^testing.T) {
+	store := types.init()
+	defer types.destroy(&store)
+	pool: Constant_Pool
+	if !testing.expect(t, constant_pool_init(&pool, context.allocator) == nil) { return }
+	defer constant_pool_destroy(&pool)
+	config := Conversion_Config {
+		layout = types.DEFAULT_LAYOUT,
+	}
+	byte_type := types.intern(&store, types.Type{kind = .Integer, count = 1})
+	bytes_type := types.intern(&store, types.Type{kind = .Array, elem = byte_type, count = 4})
+	literal, literal_error := literal_constant(&pool, .Integer, "0")
+	if !testing.expect(t, literal_error == nil) { return }
+	info := Expression_Info {
+		type     = types.TYPE_UNTYPED_INTEGER,
+		constant = literal,
+		mode     = .Constant,
+		state    = .Checked,
+	}
+	value := Operand(Expression_Ref{view = 1, node = 2})
+	converted, diagnostic, err := check_conversion(&pool, &store, value, info, bytes_type, .Assignment, config)
+	testing.expect(t, err == nil && diagnostic == .None)
+	testing.expect(t, converted.info.type == bytes_type && converted.info.mode == .Value)
+	testing.expect(t, converted.plan.kind == .Broadcast && converted.plan.target == bytes_type)
+	wide, wide_error := literal_constant(&pool, .Integer, "300")
+	if !testing.expect(t, wide_error == nil) { return }
+	info.constant = wide
+	_, diagnostic, err = check_conversion(&pool, &store, value, info, bytes_type, .Assignment, config)
+	testing.expect(t, err == nil && diagnostic == .Not_Representable)
+}

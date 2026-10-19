@@ -158,6 +158,16 @@ check_conversion :: proc(
 		allowed ||= conversion_float(src.kind) && conversion_integer(dst.kind)
 		allowed ||= src.kind == .Untyped_Nil && conversion_nilable(dst)
 		allowed ||= src.kind == .Untyped_String && (dst.kind == .String || dst.kind == .CString)
+		// Official array programming converts an untyped scalar to the array type when its type converts to the element type.
+		if untyped && dst.kind == .Array {
+			element_kind := types.get(store, dst.elem).kind
+			allowed ||=
+				conversion_integer(src.kind) && conversion_integer(element_kind) ||
+				conversion_float(src.kind) && conversion_float(element_kind) ||
+				conversion_integer(src.kind) && conversion_float(element_kind) ||
+				conversion_float(src.kind) && conversion_integer(element_kind) ||
+				conversion_boolean(src.kind) && conversion_boolean(element_kind)
+		}
 	}
 	if kind == .Assignment && !untyped {
 		allowed ||= info.mode == .Constant && src.kind == .String && dst.kind == .CString
@@ -198,6 +208,14 @@ check_conversion :: proc(
 		return {}, .Not_Assignable if kind == .Assignment else .Not_Castable, nil
 	}
 	if kind == .Assignment && info.mode != .Constant && array_broadcast_allowed(dst, info.type) {
+		result.plan.kind = .Broadcast
+		return result, .None, nil
+	}
+	// Official array programming converts an untyped scalar to the array type when it converts to the element type.
+	if kind == .Assignment && untyped && dst.kind == .Array && (conversion_integer(src.kind) || conversion_float(src.kind) || conversion_boolean(src.kind)) {
+		_, element_diagnostic, element_error := check_conversion(pool, store, source, info, dst.elem, .Assignment, config)
+		if element_error != nil { return {}, .None, element_error }
+		if element_diagnostic != .None { return {}, element_diagnostic, nil }
 		result.plan.kind = .Broadcast
 		return result, .None, nil
 	}
