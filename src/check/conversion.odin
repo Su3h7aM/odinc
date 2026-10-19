@@ -119,8 +119,9 @@ check_conversion :: proc(
 		allowed ||= core_source.kind == .CString && core_target.kind == .String || core_source.kind == .CString16 && core_target.kind == .String16
 		allowed ||= core_source.kind == .CString && core_target.kind == .Raw_Pointer || core_source.kind == .Raw_Pointer && core_target.kind == .CString
 		allowed ||=
-			conversion_byte_slice(store, core_source) && core_target.kind == .String ||
-			core_source.kind == .String && conversion_byte_slice(store, core_target)
+			conversion_code_unit_slice(store, core_source, 1) && core_target.kind == .String ||
+			core_source.kind == .String && conversion_code_unit_slice(store, core_target, 1)
+		allowed ||= conversion_code_unit_slice(store, core_source, 2) && core_target.kind == .String16
 		allowed ||= info.type == config.uintptr && conversion_pointer(core_target.kind) || conversion_pointer(core_source.kind) && target == config.uintptr
 		// Official check_is_castable_to: rawptr <-> procedure, both directions.
 		allowed ||= core_source.kind == .Raw_Pointer && core_target.kind == .Procedure || core_source.kind == .Procedure && core_target.kind == .Raw_Pointer
@@ -319,12 +320,11 @@ conversion_code_unit_pointer :: proc(store: ^types.Store, descriptor: types.Type
 	return element.kind == .Integer && element.count == width && !element.signed
 }
 
-// []u8 and string share one layout, so either converts to the other with a cast (not cstring).
 @(private = "file")
-conversion_byte_slice :: proc(store: ^types.Store, descriptor: types.Type) -> bool {
+conversion_code_unit_slice :: proc(store: ^types.Store, descriptor: types.Type, width: i64) -> bool {
 	if descriptor.kind != .Slice { return false }
 	element := types.get(store, conversion_base_type(store, descriptor.elem))^
-	return element.kind == .Integer && element.count == 1 && !element.signed
+	return element.kind == .Integer && element.count == width && !element.signed
 }
 
 @(private = "file")

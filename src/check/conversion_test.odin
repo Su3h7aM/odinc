@@ -54,6 +54,11 @@ conversions_preserve_identity_range_and_source :: proc(t: ^testing.T) {
 	info.type = types.TYPE_UNTYPED_INTEGER
 	_, diagnostic, err = check_conversion(&pool, &store, value, info, integer, .Transmute, config)
 	testing.expect(t, err == nil && diagnostic == .Untyped_Transmute)
+	code_unit := types.intern(&store, types.Type{kind = .Integer, count = 2})
+	info.type = types.intern(&store, types.Type{kind = .Slice, elem = code_unit})
+	text16 := types.intern(&store, types.Type{kind = .String16})
+	converted, diagnostic, err = check_conversion(&pool, &store, value, info, text16, .Cast, config)
+	testing.expect(t, err == nil && diagnostic == .None && converted.info.type == text16)
 }
 
 @(test)
