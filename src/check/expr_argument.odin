@@ -23,6 +23,13 @@ expression_argument :: proc(
 	}
 	info = check_expression(checker, view, scope, node) or_return
 	if info.state == .Invalid || info.type == target { return info, nil }
-	if info.mode == .Constant { return check_expression(checker, view, scope, node, target) }
+	if info.mode == .Constant || (info.mode == .Type && expression_is_typeid(checker, target)) {
+		return check_expression(checker, view, scope, node, target)
+	}
 	return expression_conversion(checker, view, scope, node, Operand(Expression_Ref{view, node}), info, target, .Assignment)
+}
+
+@(private = "file")
+expression_is_typeid :: proc(checker: ^Expression_Checker, target: types.Type_Id) -> bool {
+	return target != types.TYPE_NONE && types.get(checker.type_checker.store, target).kind == .Type_Id
 }

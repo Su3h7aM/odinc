@@ -30,6 +30,18 @@ main :: proc "contextless" () -> u8 {
 }
 
 @(test)
+call_passes_type_to_typeid_parameter :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(
+		`package sample
+is_pointer :: proc "contextless" (id: typeid) -> bool { return id == rawptr }
+main :: proc "contextless" () -> bool { return is_pointer(int) }
+`,
+	)
+	procedure, ok := check_procedure_source(t, source)
+	if ok { testing.expect(t, procedure.body_state == .Complete) }
+}
+
+@(test)
 indirect_call_accepts_c_convention_and_proc_type_casts :: proc(t: ^testing.T) {
 	source := transmute([]byte)string(
 		`package sample
