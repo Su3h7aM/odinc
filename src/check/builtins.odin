@@ -744,6 +744,15 @@ expression_raw_data :: proc(
 		element = types.sized_integer(store, 1, false)
 	case .String16:
 		element = types.sized_integer(store, 2, false)
+	case .Pointer, .Multi_Pointer:
+		// Official raw_data also takes pointers to arrays, returning a multi-pointer to the element.
+		pointed := types.get(store, types.resolve_named(store, descriptor.elem))^
+		#partial switch pointed.kind {
+		case .Array, .Enumerated_Array, .Simd_Vector:
+			element = pointed.elem
+		case:
+			return expression_failure(checker, view, scope, arguments[0], .Invalid_Operand)
+		}
 	case:
 		return expression_failure(checker, view, scope, arguments[0], .Invalid_Operand)
 	}
