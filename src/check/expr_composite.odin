@@ -183,11 +183,13 @@ expression_composite :: proc(
 			if constant_element { constants[index] = value.constant }
 		}
 	}
-	if i64(len(values)) < descriptor.count && len(values) > 0 && expression_zero_fill_supported(checker, store, descriptor.elem) {
-		counter, fill_error := expression_zero_fill_constants(checker, store, descriptor.elem)
-		if fill_error == nil {
-			for id, index in constants { if id == 0 { constants[index] = counter } }
-		}
+	for _, index in constants {
+		if seen[index] { continue }
+		element_type := descriptor.elem
+		if !is_array { element_type = fields[index].type }
+		if !expression_zero_fill_supported(checker, store, element_type) { continue }
+		zero, fill_error := expression_zero_fill_constants(checker, store, element_type)
+		if fill_error == nil { constants[index] = zero }
 	}
 	if count > 0 && descriptor.kind != .Bit_Field && descriptor.kind != .Any && !slice.contains(constants, 0) {
 		constant, constant_error := constant_pool_intern_aggregate(checker.constants, type, constants)

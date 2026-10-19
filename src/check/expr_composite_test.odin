@@ -25,6 +25,8 @@ bounds := [2]int{2 = 1}
 pairs :: [2]Pair{{1, 2}, {3, 4}}
 ranged := [?]int{5 ..= 6 = 54}
 gapped :: [4]int{3 = 2}
+defaults :: [2]Pair{{}, {}}
+nested :: [1]struct {inner: Pair}{{}}
 `,
 	)
 	ast: syntax.Ast

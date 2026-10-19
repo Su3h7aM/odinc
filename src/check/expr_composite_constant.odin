@@ -32,9 +32,14 @@ expression_constant_element :: proc(checker: ^Expression_Checker, store: ^types.
 expression_zero_fill_supported :: proc(checker: ^Expression_Checker, store: ^types.Store, element_type: types.Type_Id) -> bool {
 	descriptor := types.get(store, types.resolve_named(store, element_type))^
 	#partial switch descriptor.kind {
-	case .Bool, .Integer, .Rune, .String, .String16:
+	case .Bool, .Integer, .Rune, .Float, .String, .String16:
 		return true
 	case .Enum:
+		return true
+	case .Struct:
+		for field in descriptor.fields {
+			if !expression_zero_fill_supported(checker, store, field.type) { return false }
+		}
 		return true
 	}
 	return false
@@ -63,6 +68,15 @@ expression_zero_fill_constants :: proc(
 		return result, intern_error
 	case .String:
 		return constant_pool_intern_string(checker.constants, "", element_type)
+	case .Float:
+		return constant_pool_intern_float(checker.constants, Float_Value{width = u8(descriptor.count * 8)}, element_type)
+	case .Struct:
+		element_ids := make([]Const_Id, len(descriptor.fields), checker.allocator) or_return
+		defer delete(element_ids, checker.allocator)
+		for field, index in descriptor.fields {
+			element_ids[index] = expression_zero_fill_constants(checker, store, field.type) or_return
+		}
+		return constant_pool_intern_aggregate(checker.constants, element_type, element_ids)
 	case .String16:
 		return constant_pool_intern_string16(checker.constants, nil, element_type)
 	}
