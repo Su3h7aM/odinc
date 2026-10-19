@@ -14,6 +14,7 @@ expression_complex_builtin :: proc(
 	kind: Builtin_Kind,
 	arguments: []syntax.Node_Index,
 	ellipsis: bool,
+	hint: types.Type_Id,
 ) -> (
 	info: Expression_Info,
 	err: Resolve_Error,
@@ -92,6 +93,7 @@ expression_complex_builtin :: proc(
 				} else if component.count == 4 {result_type = types.intern(store, types.Type{kind = .Complex, count = 8})
 				} else if component.count == 8 {result_type = types.intern(store, types.Type{kind = .Complex, count = 16})
 				} else { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
+				if hint != 0 && conversion_base_type(store, hint) == result_type { result_type = hint }
 			} else {
 				if component.count == 2 {result_type = types.intern(store, types.Type{kind = .Quaternion, count = 8})
 				} else if component.count == 4 {result_type = types.intern(store, types.Type{kind = .Quaternion, count = 16})
