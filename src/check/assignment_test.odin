@@ -44,6 +44,22 @@ pair :: proc "contextless" () -> (u8, bool) { return 1, 1 < 2 }
 }
 
 @(test)
+untyped_rune_declaration_defaults_to_rune :: proc(t: ^testing.T) {
+	valid := transmute([]byte)string(
+		`package sample
+main :: proc "contextless" () -> bool {
+	letter := 'a'
+	target: rune = letter
+	return letter == target
+}
+`,
+	)
+	procedure, ok := check_procedure_source(t, valid)
+	if !ok { return }
+	testing.expect(t, procedure.body_state == .Complete)
+}
+
+@(test)
 logical_assignment_requires_boolean_destination :: proc(t: ^testing.T) {
 	valid := transmute([]byte)string(`package sample
 main :: proc "contextless" () {

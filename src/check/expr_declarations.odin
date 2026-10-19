@@ -200,7 +200,9 @@ expression_declaration :: proc(resolver: ^Resolver, id: Entity_Id, user_data: ra
 		if entity.kind == .Variable && conversion_untyped(types.get(checker.type_checker.store, info.type).kind) {
 			default_type := checker.default_integer
 			if info.type == types.TYPE_UNTYPED_BOOL { default_type = checker.boolean }
-			if info.type == types.TYPE_UNTYPED_FLOAT { default_type = types.default_type_of_untyped(checker.type_checker.store, info.type) }
+			if info.type == types.TYPE_UNTYPED_FLOAT || info.type == types.TYPE_UNTYPED_RUNE {
+				default_type = types.default_type_of_untyped(checker.type_checker.store, info.type)
+			}
 			info = check_expression(checker, view, entity.scope, declaration.value.node, default_type) or_return
 			if info.state == .Invalid { return false, nil }
 		}
