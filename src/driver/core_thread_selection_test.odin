@@ -1,6 +1,5 @@
 package driver
 
-import "core:fmt"
 import "core:os"
 import "core:path/filepath"
 import "core:slice"
@@ -26,8 +25,6 @@ core_thread_selected_files_linux_amd64 :: proc(t: ^testing.T) {
 		if !target_source_excluded(info.name, string(source)) { append(&selected, info.name) }
 	}
 	slice.sort(selected[:])
-	fmt.printfln("selected core/thread files: %v", selected)
-
 	testing.expect(t, slice.contains(selected[:], "thread.odin"))
 	testing.expect(t, slice.contains(selected[:], "thread_unix.odin"))
 	testing.expect(t, slice.contains(selected[:], "thread_linux_no_crt.odin"))

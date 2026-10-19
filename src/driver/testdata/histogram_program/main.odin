@@ -1,5 +1,7 @@
 package main
 
+import "missing:package"
+
 main :: proc() {
 	value := missing_name + 1
 	other := "a" + 1

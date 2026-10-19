@@ -115,21 +115,32 @@ program_histogram :: proc(
 	if allocation_error != nil { return .Allocation_Failed }
 	session.allocator = allocator
 	defer session_destroy(session)
+	err := program_histogram_collect(session, odin_root, main_path, user_collections)
+	print_error := histogram_print(session, writer)
+	if err != .None { return err }
+	return print_error
+}
+
+@(private = "file")
+program_histogram_collect :: proc(session: ^Session, odin_root, main_path: string, user_collections: []Collection) -> Driver_Error {
 	if error := session_prepare(session, odin_root, user_collections); error != .None { return error }
 	if _, runtime_error := load_runtime(session); runtime_error != .None { return runtime_error }
-	main_key, absolute_error := filepath.abs(main_path, allocator)
+	main_key, absolute_error := filepath.abs(main_path, session.allocator)
 	if absolute_error != nil { return .Read_Failed }
 	if key_error := push(&session.owned_strings, main_key); key_error != .None { return key_error }
 	main_package, main_scope, package_error := add_package(session, main_key, "main", .User)
 	if package_error != .None { return package_error }
-	info, stat_error := os.stat(main_key, allocator)
+	info, stat_error := os.stat(main_key, session.allocator)
 	if stat_error != nil { return .Read_Failed }
 	is_directory := info.type == .Directory
-	os.file_info_delete(info, allocator)
+	os.file_info_delete(info, session.allocator)
 	if is_directory {
 		if error := load_package(session, main_key, main_package, main_scope); error != .None { return error }
 	} else {
 		main_file, load_error := load_file(session, main_key, main_package, main_scope)
+		if load_error == .Parse_Failed {
+			if error := push(&session.load_failures, main_key); error != .None { return error }
+		}
 		if load_error != .None { return load_error }
 		if check.collect_file(&session.collection, session.files[main_file], main_file, {}) != nil { return .Check_Failed }
 	}
@@ -139,7 +150,7 @@ program_histogram :: proc(
 	for declaration in session.collection.declarations {
 		_, _ = check.resolve_entity(&session.resolver, declaration.entity)
 	}
-	return histogram_print(session, writer)
+	return .None
 }
 
 @(private = "file")
@@ -147,7 +158,12 @@ histogram_print :: proc(session: ^Session, writer: io.Writer) -> Driver_Error {
 	entries: [dynamic]Histogram_Entry
 	defer delete(entries)
 	for item in session.unsupported_imports {
-		if error := histogram_count(&entries, fmt.tprintf("import %s", item.path), ""); error != .None { return error }
+		if error := histogram_count(&entries, fmt.tprintf("import %s", item.path), histogram_location(session, item.source)); error != .None {
+			return error
+		}
+	}
+	for path in session.load_failures {
+		if error := histogram_count(&entries, "load parse", path); error != .None { return error }
 	}
 	for diagnostic in session.collection.diagnostics {
 		if error := histogram_source(&entries, session, "collect", diagnostic.kind, diagnostic.source); error != .None { return error }
@@ -165,10 +181,20 @@ histogram_print :: proc(session: ^Session, writer: io.Writer) -> Driver_Error {
 	}
 	slice.sort_by(entries[:], histogram_before)
 	HISTOGRAM_LIMIT :: 32
-	for entry in entries[:min(len(entries), HISTOGRAM_LIMIT)] {
+	for entry, index in entries {
+		if index >= HISTOGRAM_LIMIT && !strings.has_prefix(entry.key, "import ") { continue }
 		fmt.wprintfln(writer, "%6d  %s  first: %s", entry.count, entry.key, entry.sample)
 	}
 	return .None
+}
+
+@(private = "file")
+histogram_location :: proc(session: ^Session, source: check.Source_Span) -> string {
+	if int(source.file) >= len(session.files) { return "" }
+	file := session.files[source.file]
+	if file == nil { return "" }
+	line, column := line_column(file.source, source.start)
+	return fmt.tprintf("%s:%d:%d", file.display_path, line, column)
 }
 
 session_destroy :: proc(session: ^Session) {
