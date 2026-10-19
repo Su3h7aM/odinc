@@ -24,6 +24,7 @@ expression_argument :: proc(
 		return check_expression(checker, view, scope, node, target)
 	}
 	info = check_expression(checker, view, scope, node) or_return
+	info = expression_single_value(info)
 	if info.state == .Invalid || info.type == target { return info, nil }
 	if any_integer && expression_any_integer_source(checker, info, target) {
 		source := Operand(Expression_Ref{view, node})
@@ -34,6 +35,17 @@ expression_argument :: proc(
 		return check_expression(checker, view, scope, node, target)
 	}
 	return expression_conversion(checker, view, scope, node, Operand(Expression_Ref{view, node}), info, target, .Assignment)
+}
+
+// An optional-ok or map-index operand used as one value is a value; the mode only marks the comma-ok form.
+@(private = "package")
+expression_single_value :: proc(info: Expression_Info) -> Expression_Info {
+	result := info
+	#partial switch info.mode {
+	case .Map_Index, .Optional_Ok, .Optional_Ok_Pointer:
+		result.mode = .Value
+	}
+	return result
 }
 
 @(private = "file")

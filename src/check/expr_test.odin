@@ -312,3 +312,21 @@ write :: proc "contextless" () -> int {
 		if ok { testing.expect(t, procedure.body_state == .Complete) }
 	}
 }
+
+@(test)
+single_value_type_assertion_converts_by_cast :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(
+		`package sample
+String :: distinct string
+Value :: union {
+	String,
+	u8,
+}
+text :: proc "contextless" (value: Value) -> string {
+	return string(value.(String))
+}
+`,
+	)
+	procedure, ok := check_procedure_source(t, source, procedure_name = "text")
+	if ok { testing.expect(t, procedure.body_state == .Complete) }
+}

@@ -260,7 +260,16 @@ check_expression :: proc(
 			operand := check_expression(checker, view, scope, conversion.expr) or_return
 			kind := Conversion_Kind.Cast
 			if conversion.token.kind == .Transmute { kind = .Transmute }
-			info = expression_conversion(checker, view, scope, node, Operand(Expression_Ref{view, conversion.expr}), operand, target, kind) or_return
+			info = expression_conversion(
+				checker,
+				view,
+				scope,
+				node,
+				Operand(Expression_Ref{view, conversion.expr}),
+				expression_single_value(operand),
+				target,
+				kind,
+			) or_return
 		case .Call_Expr:
 			call := syntax.node_payload(file.ast, node, syntax.Call_Expr)
 			if file.ast.nodes[call.expr].kind == .Basic_Directive {
@@ -338,7 +347,16 @@ check_expression :: proc(
 				operand_hint := types.TYPE_NONE
 				if file.ast.nodes[argument].kind == .Implicit_Selector_Expr { operand_hint = callee.type }
 				operand := check_expression(checker, view, scope, argument, operand_hint) or_return
-				info = expression_conversion(checker, view, scope, node, Operand(Expression_Ref{view, argument}), operand, callee.type, .Cast) or_return
+				info = expression_conversion(
+					checker,
+					view,
+					scope,
+					node,
+					Operand(Expression_Ref{view, argument}),
+					expression_single_value(operand),
+					callee.type,
+					.Cast,
+				) or_return
 			}
 		case .Index_Expr:
 			info = expression_index(checker, view, file_id, scope, node) or_return
