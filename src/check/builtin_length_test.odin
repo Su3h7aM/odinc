@@ -31,12 +31,19 @@ array :: proc(values: [dynamic]u8) -> int { return cap(values) }
 map_value :: proc(values: map[string]int) -> int { return cap(values) }
 map_pointer :: proc(values: ^map[string]int) -> int { return len(values) }
 bad :: proc(values: []u8) -> int { return cap(values) }
+into_uint :: proc(values: [dynamic]u8) -> uint {
+	n: uint = len(values)
+	return (n + 1) % cap(values)
+}
+narrow :: proc(values: []u8) -> u8 { return len(values) }
 `,
 	)
-	for name in ([?]string{"array", "map_value", "map_pointer"}) {
+	for name in ([?]string{"array", "map_value", "map_pointer", "into_uint"}) {
 		procedure, ok := check_procedure_source(t, source, procedure_name = name)
 		if ok { testing.expect(t, procedure.body_state == .Complete) }
 	}
-	procedure, ok := check_procedure_source(t, source, procedure_name = "bad")
-	if ok { testing.expect(t, procedure.body_state == .Invalid) }
+	for name in ([?]string{"bad", "narrow"}) {
+		procedure, ok := check_procedure_source(t, source, procedure_name = name)
+		if ok { testing.expect(t, procedure.body_state == .Invalid) }
+	}
 }

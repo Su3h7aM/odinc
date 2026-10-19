@@ -600,6 +600,7 @@ expression_builtin_call :: proc(
 	node: syntax.Node_Index,
 	callee: Expression_Info,
 	arguments: []syntax.Node_Index,
+	hint: types.Type_Id,
 ) -> (
 	info: Expression_Info,
 	err: Resolve_Error,
@@ -663,7 +664,7 @@ expression_builtin_call :: proc(
 		return expression_has_target_feature(checker, view, scope, node, arguments, call.ellipsis.kind != .Invalid)
 	}
 	if kind := checker.builtin_kinds[builtin]; kind == .Len || kind == .Cap {
-		return expression_length(checker, view, scope, node, builtin, kind, arguments, call.ellipsis.kind != .Invalid)
+		return expression_length(checker, view, scope, node, builtin, kind, arguments, call.ellipsis.kind != .Invalid, hint)
 	}
 	if checker.builtin_kinds[builtin] == .Raw_Data {
 		return expression_raw_data(checker, view, scope, node, builtin, arguments, call.ellipsis.kind != .Invalid)
@@ -1043,6 +1044,7 @@ expression_length :: proc(
 	kind: Builtin_Kind,
 	arguments: []syntax.Node_Index,
 	ellipsis: bool,
+	hint: types.Type_Id,
 ) -> (
 	info: Expression_Info,
 	err: Resolve_Error,
@@ -1099,9 +1101,20 @@ expression_length :: proc(
 		operands[0] = Operand(Expression_Ref{view, arguments[0]})
 		plan := Plan_Id(len(checker.plans))
 		append(&checker.plans, Plan(Builtin_Plan{builtin = builtin, arguments = operands})) or_return
-		return Expression_Info{type = checker.default_integer, mode = .Value, plan = plan, scope = scope, state = .Checked}, nil
+		result := checker.default_integer
+		if hinted := length_integer_hint(checker, hint); hinted != 0 { result = hinted }
+		return Expression_Info{type = result, mode = .Value, plan = plan, scope = scope, state = .Checked}, nil
 	}
 	return expression_failure(checker, view, scope, node, .Invalid_Operand)
+}
+
+// Runtime len and cap follow an int or uint hint. Any other hint stays int.
+@(private = "package")
+length_integer_hint :: proc(checker: ^Expression_Checker, hint: types.Type_Id) -> types.Type_Id {
+	if hint == 0 { return 0 }
+	name := types.get(checker.type_checker.store, hint).name
+	if name == "int" || name == "uint" { return hint }
+	return 0
 }
 
 @(private = "file")

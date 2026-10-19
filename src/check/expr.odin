@@ -314,7 +314,7 @@ check_expression :: proc(
 				return expression_poison(scope), nil
 			}
 			if callee.mode == .Builtin {
-				info = expression_builtin_call(checker, view, file_id, scope, node, callee, arguments) or_return
+				info = expression_builtin_call(checker, view, file_id, scope, node, callee, arguments, hint) or_return
 			} else if callee.mode == .Procedure_Group {
 				info = expression_optional_result(
 					checker,

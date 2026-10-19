@@ -99,6 +99,8 @@ expression_binary :: proc(
 	} else {
 		left_hint := types.Type_Id(0)
 		if expression_has_runtime_shift(checker, view, scope, file, binary.left) or_return { left_hint = integer_operand_hint(checker, hint) }
+		comparison := syntax.Token_Kind.B_Comparison_Begin < binary.op.kind && binary.op.kind < .B_Comparison_End
+		if left_hint == 0 && !comparison && expression_length_call(file, binary.left) { left_hint = length_integer_hint(checker, hint) }
 		left = check_expression(checker, view, scope, binary.left, left_hint) or_return
 		right_hint := types.Type_Id(0)
 		left_base := types.get(checker.type_checker.store, conversion_base_type(checker.type_checker.store, left.type)).kind
@@ -112,6 +114,13 @@ expression_binary :: proc(
 				right_hint = left.type
 			} else {
 				right_hint = integer_operand_hint(checker, hint)
+			}
+		}
+		if right_hint == 0 && expression_length_call(file, binary.right) {
+			if left.mode != .Type && length_integer_hint(checker, left.type) != 0 {
+				right_hint = left.type
+			} else if !comparison {
+				right_hint = length_integer_hint(checker, hint)
 			}
 		}
 		unwrapped_right := binary.right
@@ -375,4 +384,20 @@ expression_has_runtime_shift :: proc(
 	}
 	if expression_has_runtime_shift(checker, view, scope, file, binary.left) or_return { return true, nil }
 	return expression_has_runtime_shift(checker, view, scope, file, binary.right)
+}
+
+@(private = "file")
+expression_length_call :: proc(file: ^File, node: syntax.Node_Index) -> bool {
+	current := node
+	for file.ast.nodes[current].kind == .Paren_Expr {
+		current = syntax.node_payload(file.ast, current, syntax.Paren_Expr).expr
+	}
+	if file.ast.nodes[current].kind != .Call_Expr { return false }
+	callee := syntax.node_payload(file.ast, current, syntax.Call_Expr).expr
+	if file.ast.nodes[callee].kind == .Selector_Expr {
+		callee = syntax.node_payload(file.ast, callee, syntax.Selector_Expr).field
+	}
+	if file.ast.nodes[callee].kind != .Ident { return false }
+	name := expression_text(file, callee)
+	return name == "len" || name == "cap"
 }
