@@ -193,6 +193,12 @@ expression_declaration :: proc(resolver: ^Resolver, id: Entity_Id, user_data: ra
 			binding.type = info.type
 			return true, nil
 		}
+		if entity.kind == .Constant && info.mode == .Procedure_Group && info.entity != 0 && entity_get(resolver.scopes, info.entity).kind == .Procedure_Group {
+			binding := entity_get(resolver.scopes, id)
+			binding.alias = info.entity
+			binding.type = info.type
+			return true, nil
+		}
 		if entity.kind == .Constant && info.mode != .Constant {
 			// Official file-scope `::` bindings of composite literals live in static storage, so they demote to
 			// read-only globals instead of failing. Procedure-scope `::` still requires a constant.

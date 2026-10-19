@@ -24,6 +24,8 @@ repeated :: proc (value: int, rest: ..int) -> int { return value }
 pick_variadic :: proc{fixed, repeated}
 variadic_choice := pick_variadic(1, 2, 3)
 integer_choice := pick(3)
+again :: pick
+again_choice := again(3)
 float_choice := pick(2.5)
 integer_value: int
 generic_choice := pick_generic(integer_value)
@@ -100,6 +102,8 @@ defaulted_choice := pick_defaulted(1)
 		call, is_call := checker.plans[checker.views[view].nodes.plans[declaration.value.node]].(Call_Plan)
 		switch name {
 		case "integer_choice":
+			testing.expect(t, is_call && call.entity == scope_lookup_current(&scopes, package_scope, "first"))
+		case "again_choice":
 			testing.expect(t, is_call && call.entity == scope_lookup_current(&scopes, package_scope, "first"))
 		case "variadic_choice":
 			testing.expect(t, is_call && call.entity == scope_lookup_current(&scopes, package_scope, "repeated"))
