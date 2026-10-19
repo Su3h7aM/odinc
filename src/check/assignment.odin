@@ -166,6 +166,11 @@ comma_ok_value_type :: proc(checker: ^Expression_Checker, info: Expression_Info,
 		indexed.comma_ok = true
 		checker.plans[info.plan] = Plan(indexed)
 		return info.type, true
+	case Address_Plan:
+		address := plan
+		address.comma_ok = true
+		checker.plans[info.plan] = Plan(address)
+		return info.type, true
 	}
 	return 0, false
 }

@@ -813,6 +813,7 @@ Plan :: union {
 	Interval_Plan,
 	Type_Assertion_Plan,
 	Map_Index_Plan,
+	Address_Plan,
 }
 Switch_Plan :: struct {
 	tag:         Entity_Id,

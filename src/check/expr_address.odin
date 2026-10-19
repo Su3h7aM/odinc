@@ -60,7 +60,17 @@ expression_address :: proc(
 	is_addressable := target.mode == .Variable || target.mode == .Map_Index || is_composite_literal || expression_assertion_addressable(checker, target)
 	if !is_addressable { return expression_unsupported(checker, view, scope, node, "Address_Mode") }
 	pointer := types.intern(checker.type_checker.store, types.Type{kind = .Pointer, elem = target.type})
+	if target.mode == .Map_Index || target.mode == .Optional_Ok {
+		plan := Plan_Id(len(checker.plans))
+		append(&checker.plans, Plan(Address_Plan{})) or_return
+		return Expression_Info{type = pointer, mode = .Value, plan = plan, scope = scope, state = .Checked}, nil
+	}
 	return Expression_Info{type = pointer, mode = .Value, scope = scope, state = .Checked}, nil
+}
+
+// `&m[k]` and `&x.(T)` have the optional-ok form (check_expr.cpp:3322-3326): a pointer and a bool in a two-target context.
+Address_Plan :: struct {
+	comma_ok: bool,
 }
 
 // A type assertion on a pointer or `any`, or on a union variable, names an addressable value (check_expr.cpp:3111-3131).

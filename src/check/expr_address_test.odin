@@ -35,6 +35,24 @@ main :: proc "contextless" () {
 }
 
 @(test)
+address_of_optional_element_pairs_with_comma_ok :: proc(t: ^testing.T) {
+	valid := transmute([]byte)string(
+		`package sample
+Shape :: union {u8}
+main :: proc "contextless" () {
+	records: map[int]int
+	if record, found := &records[1]; found { record^ = 3 }
+	shape: Shape
+	if value, is_u8 := &shape.(u8); is_u8 { value^ = 2 }
+}
+`,
+	)
+	procedure, ok := check_procedure_source(t, valid, diagnostic_count = 0)
+	if !ok { return }
+	testing.expect(t, procedure.body_state == .Complete)
+}
+
+@(test)
 address_of_type_assertion_follows_its_source :: proc(t: ^testing.T) {
 	valid := transmute([]byte)string(
 		`package sample
