@@ -104,7 +104,7 @@ check_program :: proc(
 
 // Loads a user program like check_program does, then resolves and checks every declaration of every loaded
 // package without stopping at the first error, then lists checker diagnostics and unsupported imports, most
-// frequent first, with the first location seen for each.
+// frequent first, with up to five distinct source lines for each.
 program_histogram :: proc(
 	odin_root, main_path: string,
 	allocator: runtime.Allocator,
@@ -183,7 +183,9 @@ histogram_print :: proc(session: ^Session, writer: io.Writer) -> Driver_Error {
 	HISTOGRAM_LIMIT :: 256
 	for entry, index in entries {
 		if index >= HISTOGRAM_LIMIT && !strings.has_prefix(entry.key, "import ") { continue }
-		fmt.wprintfln(writer, "%6d  %s  first: %s", entry.count, entry.key, entry.sample)
+		fmt.wprintf(writer, "%6d  %s  first: %s", entry.count, entry.key, entry.samples[0])
+		for sample_index in 1 ..< entry.sample_count { fmt.wprintf(writer, "; %s", entry.samples[sample_index]) }
+		fmt.wprintln(writer)
 	}
 	return .None
 }
@@ -230,9 +232,10 @@ session_destroy :: proc(session: ^Session) {
 }
 
 Histogram_Entry :: struct {
-	key:    string,
-	count:  int,
-	sample: string,
+	key:          string,
+	count:        int,
+	samples:      [5]string,
+	sample_count: int,
 }
 
 @(private = "file")
@@ -245,10 +248,26 @@ histogram_count :: proc(entries: ^[dynamic]Histogram_Entry, key, sample: string)
 	for &entry in entries^ {
 		if entry.key == key {
 			entry.count += 1
+			if entry.sample_count == len(entry.samples) { return .None }
+			site := sample
+			if separator := strings.last_index(sample, ":"); separator >= 0 { site = sample[:separator] }
+			for previous in entry.samples[:entry.sample_count] {
+				previous_site := previous
+				if separator := strings.last_index(previous, ":"); separator >= 0 { previous_site = previous[:separator] }
+				if previous_site == site { return .None }
+			}
+			entry.samples[entry.sample_count] = sample
+			entry.sample_count += 1
 			return .None
 		}
 	}
-	return push(entries, Histogram_Entry{key = key, count = 1, sample = sample})
+	entry := Histogram_Entry {
+		key          = key,
+		count        = 1,
+		sample_count = 1,
+	}
+	entry.samples[0] = sample
+	return push(entries, entry)
 }
 
 @(private = "file")
