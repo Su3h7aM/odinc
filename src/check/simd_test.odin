@@ -5,6 +5,15 @@ import "oc:syntax"
 import "oc:types"
 
 @(test)
+simd_rounding_preserves_vector_type :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(`package sample
+main :: proc(a: #simd[4]f32) -> #simd[4]f32 { return simd_floor(simd_ceil(a)) }
+`)
+	procedure, ok := check_procedure_source(t, source, intrinsic_names = []string{"simd_floor", "simd_ceil"})
+	if ok { testing.expect(t, procedure.body_state == .Complete) }
+}
+
+@(test)
 simd_types_layouts_and_intrinsic_results_check :: proc(t: ^testing.T) {
 	source := transmute([]byte)string(
 		`package sample
