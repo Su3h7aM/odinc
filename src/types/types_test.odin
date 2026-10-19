@@ -2,6 +2,19 @@ package types
 
 import "core:testing"
 
+@(test)
+descriptor_address_survives_store_growth :: proc(t: ^testing.T) {
+	store := init()
+	defer destroy(&store)
+	first := intern(&store, Type{kind = .Integer, name = "stable", count = 8, signed = true})
+	pointer := get(&store, first)
+	for count in 1 ..< 1000 {
+		_ = intern(&store, Type{kind = .Array, elem = TYPE_POISON, count = i64(count)})
+	}
+	testing.expect(t, get(&store, first) == pointer, "a descriptor keeps its address as the store grows")
+	testing.expect_value(t, pointer.name, "stable")
+}
+
 Layout_Case :: struct {
 	type:            Type_Id,
 	size, alignment: i64,

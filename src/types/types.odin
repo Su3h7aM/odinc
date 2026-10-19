@@ -1,5 +1,7 @@
 package types
 
+import "base:runtime"
+
 // Type_Id is a stable index into Store.types. Zero denotes no type; TYPE_POISON
 // is the reserved error-recovery type whose layout is always an error.
 Type_Id :: distinct u32
@@ -136,6 +138,7 @@ Type :: struct {
 	custom_align, min_field_align, max_field_align: i64,
 	row_major:                                      bool,
 	packed, raw_union:                              bool,
+	sparse:                                         bool,
 	is_nominal, is_complete:                        bool,
 	layout_state:                                   Layout_State,
 }
@@ -147,34 +150,52 @@ Layout_Config :: struct {
 }
 DEFAULT_LAYOUT :: Layout_Config{8, 8, 16, 512}
 
+// Each descriptor is allocated once, so a pointer from get stays valid until destroy, as official alloc_type does
+// (Odin/src/types.cpp:1061-1068). Type_Id stays the handle.
 Store :: struct {
-	types: [dynamic]Type,
+	types:     [dynamic]^Type,
+	allocator: runtime.Allocator,
 }
 
 init :: proc() -> Store {
-	store := Store{}
+	store := Store {
+		allocator = context.allocator,
+	}
 	reserve_slots(&store)
 	return store
 }
 
 reserve_slots :: proc(store: ^Store) {
 	if len(store.types) == 0 {
-		append(&store.types, Type{})
-		append(&store.types, Type{kind = .Poison})
-		append(&store.types, Type{kind = .Untyped_Bool})
-		append(&store.types, Type{kind = .Untyped_Integer})
-		append(&store.types, Type{kind = .Untyped_Rune})
-		append(&store.types, Type{kind = .Untyped_Float})
-		append(&store.types, Type{kind = .Untyped_Complex})
-		append(&store.types, Type{kind = .Untyped_Quaternion})
-		append(&store.types, Type{kind = .Untyped_String})
-		append(&store.types, Type{kind = .Untyped_Nil})
+		append_type(store, Type{})
+		append_type(store, Type{kind = .Poison})
+		append_type(store, Type{kind = .Untyped_Bool})
+		append_type(store, Type{kind = .Untyped_Integer})
+		append_type(store, Type{kind = .Untyped_Rune})
+		append_type(store, Type{kind = .Untyped_Float})
+		append_type(store, Type{kind = .Untyped_Complex})
+		append_type(store, Type{kind = .Untyped_Quaternion})
+		append_type(store, Type{kind = .Untyped_String})
+		append_type(store, Type{kind = .Untyped_Nil})
 	}
 }
 
 destroy :: proc(store: ^Store) {
+	for descriptor in store.types { _ = free(descriptor, store.allocator) }
 	delete(store.types)
 	store^ = Store{}
+}
+
+append_type :: proc(store: ^Store, descriptor: Type) -> Type_Id {
+	allocated, allocation_error := new(Type, store.allocator)
+	if allocation_error != nil { panic("type store is out of memory") }
+	allocated^ = descriptor
+	append(&store.types, allocated)
+	return Type_Id(len(store.types) - 1)
+}
+
+pop_type :: proc(store: ^Store) {
+	_ = free(pop(&store.types), store.allocator)
 }
 
 // Intern returns a deterministic id, reusing a structurally identical descriptor.
@@ -182,10 +203,9 @@ intern :: proc(store: ^Store, descriptor: Type) -> Type_Id {
 	assert(descriptor.kind != .Invalid)
 	reserve_slots(store)
 	for i in 0 ..< len(store.types) {
-		if descriptors_equal(store.types[i], descriptor) { return Type_Id(i) }
+		if descriptors_equal(store.types[i]^, descriptor) { return Type_Id(i) }
 	}
-	append(&store.types, descriptor)
-	return Type_Id(len(store.types) - 1)
+	return append_type(store, descriptor)
 }
 
 // sized_integer interns the basic integer of `count` bytes under its official name, so it equals the builtin.
@@ -209,7 +229,7 @@ sized_integer :: proc(store: ^Store, count: i64, signed: bool) -> Type_Id {
 get :: proc(store: ^Store, id: Type_Id) -> ^Type {
 	index := int(id)
 	assert(id != TYPE_NONE && index >= 1 && index < len(store.types))
-	return &store.types[index]
+	return store.types[index]
 }
 
 is_untyped :: proc(store: ^Store, id: Type_Id) -> bool {
@@ -265,8 +285,7 @@ default_type_of_untyped :: proc(store: ^Store, id: Type_Id) -> Type_Id {
 reserve_nominal :: proc(store: ^Store, kind: Kind, name: string) -> Type_Id {
 	assert(kind == .Named || kind == .Struct || kind == .Union || kind == .Enum || kind == .Procedure)
 	reserve_slots(store)
-	append(&store.types, Type{kind = kind, name = name, is_nominal = true})
-	return Type_Id(len(store.types) - 1)
+	return append_type(store, Type{kind = kind, name = name, is_nominal = true})
 }
 
 // complete_nominal fills a reserved nominal, including a named type's base, without changing its id.

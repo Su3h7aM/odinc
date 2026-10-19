@@ -154,7 +154,7 @@ plan_abi :: proc(
 			return_id = tuple_of(store, proc_type.results)
 		}
 		err = plan_result(store, return_id, false, config, &params, &results)
-		if !split_results { _ = pop(&store.types) }
+		if !split_results { pop_type(store) }
 	}
 	if err != .None { return {}, err }
 
@@ -186,8 +186,7 @@ push :: proc(list: ^[dynamic]Abi_Param, param: Abi_Param) -> bool {
 tuple_of :: proc(store: ^Store, members: []Type_Id) -> Type_Id {
 	fields := make([]Type_Field, len(members), context.temp_allocator)
 	for member, index in members { fields[index] = Type_Field{"", member} }
-	append(&store.types, Type{kind = .Tuple, fields = fields})
-	return Type_Id(len(store.types) - 1)
+	return append_type(store, Type{kind = .Tuple, fields = fields})
 }
 
 @(private = "file")
