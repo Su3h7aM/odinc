@@ -57,6 +57,8 @@ simd_builtin_kind :: proc(kind: Builtin_Kind) -> bool {
 		return true
 	case .Simd_Saturating_Add, .Simd_Saturating_Sub:
 		return true
+	case .Simd_Gather, .Simd_Scatter, .Simd_Masked_Load, .Simd_Masked_Store, .Simd_Masked_Expand_Load, .Simd_Masked_Compress_Store:
+		return true
 	case .Simd_Shl, .Simd_Shr, .Simd_Shl_Masked, .Simd_Shr_Masked:
 		return true
 	}
@@ -117,8 +119,42 @@ expression_simd_call :: proc(
 	store := checker.type_checker.store
 	allocator := mem.dynamic_arena_allocator(&checker.arena)
 	result := types.TYPE_NONE
+	mode := Addressing_Mode.Value
 	operands: []Operand
 	#partial switch kind {
+	case .Simd_Gather, .Simd_Scatter, .Simd_Masked_Load, .Simd_Masked_Store, .Simd_Masked_Expand_Load, .Simd_Masked_Compress_Store:
+		if len(arguments) != 3 { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
+		address := check_expression(checker, view, scope, arguments[0]) or_return
+		values := check_expression(checker, view, scope, arguments[1]) or_return
+		mask := check_expression(checker, view, scope, arguments[2]) or_return
+		if address.state == .Invalid || values.state == .Invalid || mask.state == .Invalid { return expression_poison(scope), nil }
+		vector, vector_ok := simd_vector(store, values.type)
+		mask_vector, mask_ok := simd_vector(store, mask.type)
+		if !vector_ok || !mask_ok || !expression_value(address) || !expression_value(values) || !expression_value(mask) {
+			return expression_failure(checker, view, scope, node, .Invalid_Operand)
+		}
+		mask_element := simd_element_kind(store, mask_vector.elem)
+		if vector.count != mask_vector.count || (mask_element != .Integer && mask_element != .Bool) {
+			return expression_failure(checker, view, scope, arguments[2], .Invalid_Operand)
+		}
+		if kind == .Simd_Gather || kind == .Simd_Scatter {
+			addresses, addresses_ok := simd_vector(store, address.type)
+			if !addresses_ok || addresses.count != vector.count || simd_element_kind(store, addresses.elem) != .Raw_Pointer {
+				return expression_failure(checker, view, scope, arguments[0], .Invalid_Operand)
+			}
+		} else {
+			address_kind := types.get(store, types.resolve_named(store, address.type)).kind
+			if address_kind != .Pointer && address_kind != .Raw_Pointer {
+				return expression_failure(checker, view, scope, arguments[0], .Invalid_Operand)
+			}
+		}
+		operands = make([]Operand, 3, allocator) or_return
+		for argument, index in arguments { operands[index] = Operand(Expression_Ref{view, argument}) }
+		if kind == .Simd_Gather || kind == .Simd_Masked_Load || kind == .Simd_Masked_Expand_Load {
+			result = values.type
+		} else {
+			mode = .No_Value
+		}
 	case .Simd_Extract:
 		if len(arguments) != 2 { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
 		value := check_expression(checker, view, scope, arguments[0]) or_return
@@ -318,5 +354,5 @@ expression_simd_call :: proc(
 	}
 	plan := Plan_Id(len(checker.plans))
 	append(&checker.plans, Plan(Builtin_Plan{builtin = builtin, arguments = operands})) or_return
-	return Expression_Info{type = result, mode = .Value, plan = plan, scope = scope, state = .Checked}, nil
+	return Expression_Info{type = result, mode = mode, plan = plan, scope = scope, state = .Checked}, nil
 }
