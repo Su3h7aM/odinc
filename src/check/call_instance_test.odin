@@ -273,3 +273,20 @@ main :: proc "contextless" () {
 	if !ok { return }
 	testing.expect(t, procedure.body_state == .Complete)
 }
+
+@(test)
+multi_result_call_expands_into_parameters :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(
+		`package sample
+pair :: proc "contextless" () -> (u8, u8) { return 1, 2 }
+take :: proc "contextless" (a: u8, b: u8, c: u8) -> u8 { return a + b + c }
+main :: proc "contextless" () {
+	_ = take(pair(), 3)
+	_ = take(3, pair())
+}
+`,
+	)
+	procedure, ok := check_last_procedure_source(t, source)
+	if !ok { return }
+	testing.expect(t, procedure.body_state == .Complete)
+}

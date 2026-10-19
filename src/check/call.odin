@@ -34,7 +34,15 @@ expression_call :: proc(
 	if spread && (!descriptor.variadic || len(arguments) != parameter_count || positional_count != len(arguments)) {
 		return expression_unsupported(checker, view, scope, node, "Call_Variadic_Spread")
 	}
-	if !descriptor.variadic && len(arguments) > parameter_count {
+	expansions := call_expansions(checker, view, scope, file, arguments[:positional_count]) or_return
+	expanded_count := len(arguments)
+	for results in expansions {
+		if results != nil { expanded_count += len(results) - 1 }
+	}
+	if expansions != nil && descriptor.variadic {
+		return expression_unsupported(checker, view, scope, node, "Call_Tuple_Variadic")
+	}
+	if !descriptor.variadic && expanded_count > parameter_count {
 		return expression_unsupported(checker, view, scope, node, "Call_Arguments")
 	}
 	packed := descriptor.variadic && !spread
@@ -47,7 +55,7 @@ expression_call :: proc(
 		names[index] = entity_get(scopes, parameter).name
 	}
 	slots := make([]Call_Slot, parameter_count, allocator) or_return
-	if reason := call_bind_arguments(file, arguments, names, fixed_count, slots); reason != "" {
+	if reason := call_bind_arguments(file, arguments, names, fixed_count, slots, expansions); reason != "" {
 		return expression_unsupported(checker, view, scope, node, reason)
 	}
 	if packed && slots[variadic_index].value != 0 {
@@ -59,14 +67,14 @@ expression_call :: proc(
 	call_arguments := make([]Call_Argument, parameter_count, allocator) or_return
 	for index in 0 ..< parameter_count {
 		if slots[index].value != 0 {
-			argument, valid := expression_call_argument(
+			argument, valid := expression_call_slot_argument(
 				checker,
 				view,
 				scope,
-				slots[index].value,
+				slots[index],
+				expansions,
 				descriptor.params[index],
 				procedure.parameters[index],
-				u32(slots[index].position),
 			) or_return
 			if !valid { return expression_poison(scope), nil }
 			call_arguments[index] = argument
@@ -139,6 +147,69 @@ expression_call :: proc(
 	}
 	if len(results) == 1 { info.type, info.mode = results[0], .Value }
 	return info, nil
+}
+
+// A supplied argument, or one result of a multi-result call, converted to its parameter type.
+@(private = "file")
+expression_call_slot_argument :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	scope: Scope_Id,
+	slot: Call_Slot,
+	expansions: [][]types.Type_Id,
+	target: types.Type_Id,
+	parameter: Entity_Id,
+) -> (
+	argument: Call_Argument,
+	valid: bool,
+	err: Resolve_Error,
+) {
+	order := u32(slot.position)
+	if slot.element == 0 {
+		return expression_call_argument(checker, view, scope, slot.value, target, parameter, order)
+	}
+	return expression_call_tuple_argument(
+		checker,
+		view,
+		scope,
+		slot.value,
+		expansions[slot.position][slot.element - 1],
+		target,
+		parameter,
+		slot.element,
+		order,
+	)
+}
+
+// One result of a multi-result call converted to its parameter type. The argument names the call and the result it
+// supplies; lowering rejects it, so the call is never evaluated once per result.
+@(private = "file")
+expression_call_tuple_argument :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	scope: Scope_Id,
+	value_node: syntax.Node_Index,
+	result: types.Type_Id,
+	target: types.Type_Id,
+	parameter: Entity_Id,
+	element: int,
+	order: u32,
+) -> (
+	argument: Call_Argument,
+	valid: bool,
+	err: Resolve_Error,
+) {
+	info := Expression_Info {
+		type  = result,
+		mode  = .Value,
+		scope = scope,
+		state = .Checked,
+	}
+	converted := expression_conversion(checker, view, scope, value_node, Operand(Expression_Ref{view, value_node}), info, target, .Assignment) or_return
+	if converted.state == .Invalid { return {}, false, nil }
+	return Call_Argument{value = Operand(Expression_Ref{view, value_node}), parameter = parameter, evaluation_order = order, tuple_element = element},
+		true,
+		nil
 }
 
 // A supplied argument converted to its parameter type. The call retains the conversion plan, if any.

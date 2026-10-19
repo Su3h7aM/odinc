@@ -703,6 +703,7 @@ Call_Argument :: struct {
 	variadic_pack:        bool,
 	variadic_elements:    []Operand,
 	variadic_conversions: []Plan_Id,
+	tuple_element:        int,
 }
 Call_Plan :: struct {
 	callee:       Operand,

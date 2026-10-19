@@ -129,6 +129,9 @@ lower_call_results :: proc(state: ^Procedure_State, node: syntax.Node_Index, inf
 	}
 	function := state.job.function
 	allocator := virtual.arena_allocator(&function.arena)
+	for argument in plan.arguments {
+		if argument.tuple_element != 0 { lower_fail(state, node, .Call_Argument); return }
+	}
 	ordered, ordered_error := make([]Call_Argument_Order, count, allocator)
 	arguments, arguments_error := make([]ir.Node_Id, len(signature.params), allocator)
 	slots, slots_error := make([]ir.Node_Id, split_count, allocator)
