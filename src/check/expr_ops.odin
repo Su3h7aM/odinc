@@ -224,6 +224,10 @@ expression_binary :: proc(
 		simd_quotient = conversion_float(element_kind)
 		simd_arithmetic = simd_quotient || conversion_integer(element_kind)
 	}
+	// Official equality on two complex or two quaternion values compares them directly.
+	complex_pair := (left_base.kind == .Complex || left_base.kind == .Untyped_Complex) && (right_base.kind == .Complex || right_base.kind == .Untyped_Complex)
+	quaternion_pair :=
+		(left_base.kind == .Quaternion || left_base.kind == .Untyped_Quaternion) && (right_base.kind == .Quaternion || right_base.kind == .Untyped_Quaternion)
 	#partial switch operator {
 	case .Add, .Sub:
 		valid = integer || float_pair || array_pair || bit_set_pair || broadcast_pair || simd_arithmetic
@@ -253,6 +257,8 @@ expression_binary :: proc(
 			struct_pair ||
 			array_pair ||
 			simd_both ||
+			complex_pair ||
+			quaternion_pair ||
 			broadcast_pair ||
 			bit_set_pair ||
 			procedure_pair

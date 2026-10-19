@@ -20,3 +20,17 @@ type_parameter_kind :: proc "contextless" (value: $T) -> int {
 	if !ok { return }
 	testing.expect(t, procedure.body_state == .Complete)
 }
+
+@(test)
+comparison_accepts_complex_and_quaternion_equality :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(
+		`package sample
+main :: proc "contextless" (a, b: complex64, c, d: quaternion128) -> bool {
+	return a == b && a != b && c == d && c != d
+}
+`,
+	)
+	procedure, ok := check_procedure_source(t, source)
+	if !ok { return }
+	testing.expect(t, procedure.body_state == .Complete)
+}
