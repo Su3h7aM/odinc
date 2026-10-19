@@ -3,15 +3,20 @@ package check
 import "core:math/big"
 import "oc:types"
 
-// Mirrors official is_type_constant_type: such an element keeps an array or simd literal constant.
+// Official keys array element constness on the operand mode (check_expr.cpp:10337); enums and structs of constant fields qualify.
 @(private = "file")
 expression_constant_type :: proc(store: ^types.Store, type: types.Type_Id) -> bool {
 	descriptor := types.get(store, conversion_base_type(store, type))^
 	#partial switch descriptor.kind {
-	case .Bool, .Integer, .Float, .Rune, .Complex, .Quaternion, .String, .String16, .CString, .CString16, .Raw_Pointer, .Type_Id, .Bit_Set, .Procedure:
+	case .Bool, .Integer, .Float, .Rune, .Complex, .Quaternion, .String, .String16, .CString, .CString16, .Raw_Pointer, .Type_Id, .Bit_Set, .Procedure, .Enum:
 		return true
 	case .Array, .Enumerated_Array, .Simd_Vector, .Matrix:
 		return expression_constant_type(store, descriptor.elem)
+	case .Struct:
+		for field in descriptor.fields {
+			if !expression_constant_type(store, field.type) { return false }
+		}
+		return true
 	}
 	return false
 }
@@ -20,7 +25,7 @@ expression_constant_type :: proc(store: ^types.Store, type: types.Type_Id) -> bo
 expression_constant_element :: proc(checker: ^Expression_Checker, store: ^types.Store, is_array: bool, element_type: types.Type_Id, plan: Plan_Id) -> bool {
 	if expression_boxing_plan(checker, plan) != 0 { return false }
 	if is_array { return expression_constant_type(store, element_type) }
-	return expression_conversion_plan(checker, plan) == 0
+	return true
 }
 
 @(private = "package")
