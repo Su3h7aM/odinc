@@ -431,7 +431,7 @@ check_expression :: proc(
 		// A constant is its own retained source. Runtime expressions need a separate cast node.
 		if info.mode != .Constant {
 			destination := types.get(checker.type_checker.store, conversion_base_type(checker.type_checker.store, hint))^
-			if simd_broadcast_allowed(destination, info.type) {
+			if simd_broadcast_allowed(destination, info.type) || array_broadcast_allowed(destination, info.type) {
 				expression_store(checker, view, node, info)
 				return expression_conversion(
 					checker,

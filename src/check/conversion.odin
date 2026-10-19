@@ -150,6 +150,7 @@ check_conversion :: proc(
 		allowed ||= conversion_implicit_raw_pointer(store, info.type, target)
 		allowed ||= conversion_implicit_pointer(store, info.type, target)
 		allowed ||= simd_broadcast_allowed(dst, info.type)
+		allowed ||= array_broadcast_allowed(dst, info.type)
 	}
 	if kind == .Cast {
 		allowed ||= conversion_core_type(store, info.type) == conversion_core_type(store, target)
@@ -181,6 +182,10 @@ check_conversion :: proc(
 	}
 	if !allowed {
 		return {}, .Not_Assignable if kind == .Assignment else .Not_Castable, nil
+	}
+	if kind == .Assignment && info.mode != .Constant && array_broadcast_allowed(dst, info.type) {
+		result.plan.kind = .Broadcast
+		return result, .None, nil
 	}
 	if dst.kind == .Simd_Vector {
 		if info.mode != .Constant || !simd_broadcast_allowed(dst, info.type) {
@@ -302,6 +307,11 @@ conversion_integer :: proc(kind: types.Kind) -> bool {
 
 conversion_boolean :: proc(kind: types.Kind) -> bool {
 	return kind == .Bool || kind == .Untyped_Bool
+}
+
+// Official array programming: a typed scalar assigned to an array fills every element.
+array_broadcast_allowed :: proc(target: types.Type, source: types.Type_Id) -> bool {
+	return target.kind == .Array && target.elem == source
 }
 
 // Official check_is_castable_to: booleans and integers cast to each other.

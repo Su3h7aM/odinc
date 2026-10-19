@@ -103,6 +103,23 @@ main :: proc "contextless" () { count: int; count ||= true }
 }
 
 @(test)
+scalar_assignment_broadcasts_into_array :: proc(t: ^testing.T) {
+	valid := transmute([]byte)string(
+		`package sample
+main :: proc "contextless" (value: u8) {
+	lanes: [3]u8
+	lanes = value
+	rows: [2][3]u8
+	rows[0] = value
+}
+`,
+	)
+	procedure, ok := check_procedure_source(t, valid)
+	if !ok { return }
+	testing.expect(t, procedure.body_state == .Complete)
+}
+
+@(test)
 ternary_with_untyped_branches_takes_the_context_type :: proc(t: ^testing.T) {
 	valid := transmute([]byte)string(
 		`package sample
