@@ -175,7 +175,14 @@ expression_field :: proc(
 	}
 	is_container := descriptor.kind == .Dynamic_Array || descriptor.kind == .Map
 	if (descriptor.kind != .Struct && descriptor.kind != .Bit_Field && descriptor.kind != .Any && !is_container) ||
-	   (!indirect && base.mode != .Variable && base.mode != .Value && base.mode != .Immutable_Value && base.mode != .Context && base.mode != .Constant) {
+	   (!indirect &&
+			   base.mode != .Variable &&
+			   base.mode != .Value &&
+			   base.mode != .Immutable_Value &&
+			   base.mode != .Context &&
+			   base.mode != .Constant &&
+			   base.mode != .Optional_Ok &&
+			   base.mode != .Map_Index) {
 		return expression_unsupported(checker, view, scope, node, "Selector_Base")
 	}
 	allocator := mem.dynamic_arena_allocator(&checker.arena)
@@ -227,6 +234,7 @@ expression_field :: proc(
 	if descriptor.kind == .Bit_Field { place.bit_offset, place.bit_size = types.bit_field_slot(store, owner, int(path[0].field_index)) }
 	append(&checker.plans, Plan(place)) or_return
 	mode := base.mode
+	if mode == .Optional_Ok || mode == .Map_Index { mode = .Value }
 	if indirect || base.mode == .Context { mode = .Variable }
 	return Expression_Info{type = field_type, mode = mode, plan = plan, scope = scope, state = .Checked}, nil
 }

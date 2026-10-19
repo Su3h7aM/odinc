@@ -8,10 +8,15 @@ address_of_composite_literal_is_addressable :: proc(t: ^testing.T) {
 		`package sample
 Info :: struct {writer: u8}
 Error :: enum {Short_Buffer}
+Variant :: union {Info, int}
 main :: proc "contextless" () {
 	pointer := &Info{writer = 1}
 	error := (Error).Short_Buffer
 	#assert(Info{writer = 7}.writer == 7)
+	variant: Variant
+	writer := variant.(Info).writer
+	table: map[int]Info
+	mapped_writer := table[1].writer
 }
 `,
 	)
