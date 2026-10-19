@@ -165,6 +165,15 @@ untyped_constant_converts_to_the_only_union_variant_that_accepts_it :: proc(t: ^
 	converted, diagnostic, err := check_conversion(&pool, &store, value, info, unique, .Assignment, config)
 	testing.expect(t, err == nil && diagnostic == .None && converted.info.type == unique)
 	testing.expect(t, converted.plan.kind == .Union_Injection && converted.plan.target == unique)
+	converted, diagnostic, err = check_conversion(&pool, &store, value, info, unique, .Cast, config)
+	testing.expect(t, err == nil && diagnostic == .None && converted.plan.kind == .Union_Injection)
+	typed := Expression_Info {
+		type  = integer,
+		mode  = .Value,
+		state = .Checked,
+	}
+	converted, diagnostic, err = check_conversion(&pool, &store, value, typed, unique, .Cast, config)
+	testing.expect(t, err == nil && diagnostic == .None && converted.plan.kind == .Union_Injection)
 	_, diagnostic, err = check_conversion(&pool, &store, value, info, ambiguous, .Assignment, config)
 	testing.expect(t, err == nil && diagnostic == .Not_Assignable)
 	converted, diagnostic, err = check_conversion(&pool, &store, value, info, defaulted, .Assignment, config)

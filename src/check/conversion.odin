@@ -77,6 +77,11 @@ check_conversion :: proc(
 		return result, .None, nil
 	}
 	if kind != .Assignment && kind != .Cast { return Conversion_Result{reason = "Conversion_Kind"}, .Unsupported, nil }
+	if kind == .Cast {
+		assigned, assignment_diagnostic, assignment_error := check_conversion(pool, store, source, info, target, .Assignment, config)
+		if assignment_error != nil { return {}, .None, assignment_error }
+		if assignment_diagnostic == .None { return assigned, .None, nil }
+	}
 	if kind == .Assignment && !untyped && dst.kind == .Any && src.kind != .Any {
 		result.plan.kind = .Box
 		return result, .None, nil
