@@ -310,7 +310,7 @@ expression_range_container :: proc(
 			expression_unsupported(checker, view, scope, parts.expr, "Range_Helpers") or_return
 			return nil
 		}
-		element = types.intern(store, types.Type{kind = .Rune, count = 4, signed = true})
+		element = types.default_type_of_untyped(store, types.TYPE_UNTYPED_RUNE)
 	}
 	index := checker.default_integer
 	if type.kind == .Enumerated_Array { index = type.index }
