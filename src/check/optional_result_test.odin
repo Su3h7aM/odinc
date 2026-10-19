@@ -8,6 +8,8 @@ optional_results_and_assertions_read_their_first_value :: proc(t: ^testing.T) {
 		`package sample
 main :: proc "contextless" (ok: bool, shape: Shape) -> u8 {
 	value: u8
+	flag: bool
+	value, flag = optional(ok)
 	value = optional(ok)
 	return value + optional(ok) + pick_u8(u8(1)) + shape.(u8) + (shape.(u8) or_else 0)
 }

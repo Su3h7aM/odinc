@@ -77,7 +77,7 @@ expression_multiple_assignment :: proc(
 			}
 			continue
 		}
-		if len(results) > 1 && value.mode != .Optional_Ok {
+		if len(results) > 1 && (value.mode != .Optional_Ok || len(left) - len(values) == 2) {
 			for result, index in results {
 				if len(values) >= len(left) {
 					expression_unsupported(checker, view, scope, node, "Assign_Arity") or_return
