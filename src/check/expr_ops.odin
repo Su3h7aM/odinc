@@ -97,13 +97,22 @@ expression_binary :: proc(
 		) { left_hint = right.type }
 		left = check_expression(checker, view, scope, binary.left, left_hint) or_return
 	} else {
-		left = check_expression(checker, view, scope, binary.left) or_return
+		left_hint := types.Type_Id(0)
+		if expression_has_runtime_shift(checker, view, scope, file, binary.left) or_return { left_hint = integer_operand_hint(checker, hint) }
+		left = check_expression(checker, view, scope, binary.left, left_hint) or_return
 		right_hint := types.Type_Id(0)
 		left_base := types.get(checker.type_checker.store, conversion_base_type(checker.type_checker.store, left.type)).kind
 		if file.ast.nodes[binary.right].kind == .Implicit_Selector_Expr || expression_string_kind(left_base) { right_hint = left.type }
 		is_equality := binary.op.kind == .Cmp_Eq || binary.op.kind == .Not_Eq
 		if is_equality && file.ast.nodes[binary.right].kind == .Comp_Lit && syntax.node_payload(file.ast, binary.right, syntax.Comp_Lit).type == 0 {
 			right_hint = left.type
+		}
+		if right_hint == 0 && (expression_has_runtime_shift(checker, view, scope, file, binary.right) or_return) {
+			if left.mode != .Type && (left_base == .Integer || left_base == .Rune) {
+				right_hint = left.type
+			} else {
+				right_hint = integer_operand_hint(checker, hint)
+			}
 		}
 		unwrapped_right := binary.right
 		for file.ast.nodes[unwrapped_right].kind == .Paren_Expr {
@@ -333,4 +342,37 @@ expression_value :: proc(info: Expression_Info) -> bool {
 		info.mode == .Optional_Ok ||
 		info.mode == .Map_Index \
 	)
+}
+
+@(private = "file")
+integer_operand_hint :: proc(checker: ^Expression_Checker, hint: types.Type_Id) -> types.Type_Id {
+	if hint == 0 { return 0 }
+	kind := types.get(checker.type_checker.store, conversion_base_type(checker.type_checker.store, hint)).kind
+	if kind == .Integer || kind == .Rune { return hint }
+	return 0
+}
+
+@(private = "file")
+expression_has_runtime_shift :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	scope: Scope_Id,
+	file: ^File,
+	node: syntax.Node_Index,
+) -> (
+	runtime: bool,
+	err: Resolve_Error,
+) {
+	current := node
+	for file.ast.nodes[current].kind == .Paren_Expr {
+		current = syntax.node_payload(file.ast, current, syntax.Paren_Expr).expr
+	}
+	if file.ast.nodes[current].kind != .Binary_Expr { return false, nil }
+	binary := syntax.node_payload(file.ast, current, syntax.Binary_Expr)
+	if binary.op.kind == .Shl || binary.op.kind == .Shr {
+		count := check_expression(checker, view, scope, binary.right) or_return
+		return count.mode != .Constant, nil
+	}
+	if expression_has_runtime_shift(checker, view, scope, file, binary.left) or_return { return true, nil }
+	return expression_has_runtime_shift(checker, view, scope, file, binary.right)
 }

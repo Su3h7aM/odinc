@@ -93,6 +93,12 @@ main :: proc "contextless" () {
 	count: u8
 	first <<= count & 7
 	first >>= 1
+	k: uint
+	mask: uint = (1 << k) - 1
+	mant: u64
+	above := mant > 1 << k
+	rest := mant & (1 << k - 1)
+	reciprocal := [1]u64{(1 << 64 + 1) / 2}
 }
 Wide :: distinct u8
 `,
