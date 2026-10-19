@@ -33,3 +33,37 @@ main :: proc "contextless" () {
 	if !ok { return }
 	testing.expect(t, procedure.body_state == .Complete)
 }
+
+@(test)
+address_of_type_assertion_follows_its_source :: proc(t: ^testing.T) {
+	valid := transmute([]byte)string(
+		`package sample
+Shape :: union {u8}
+main :: proc "contextless" () {
+	shape: Shape
+	pointer := &shape.(u8)
+	pointer^ = 3
+	shape_pointer := &shape
+	through := &shape_pointer.(u8)
+	value: any
+	boxed := &value.(int)
+}
+`,
+	)
+	procedure, ok := check_procedure_source(t, valid, diagnostic_count = 0)
+	if !ok { return }
+	testing.expect(t, procedure.body_state == .Complete)
+	rejected, rejected_ok := check_procedure_source(
+		t,
+		transmute([]byte)string(
+			`package sample
+Shape :: union {u8}
+make_shape :: proc "contextless" () -> Shape { return Shape(u8(1)) }
+main :: proc "contextless" () { pointer := &make_shape().(u8) }
+`,
+		),
+		.Unsupported,
+		"Address_Mode",
+	)
+	if rejected_ok { testing.expect(t, rejected.body_state == .Invalid) }
+}

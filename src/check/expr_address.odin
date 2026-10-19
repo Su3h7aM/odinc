@@ -55,13 +55,28 @@ expression_address :: proc(
 			return expression_unsupported(checker, view, scope, node, "Address_Bit_Field")
 		}
 	}
-	// Composite literals are addressable (check_expr.cpp:3134-3135, check_is_not_addressable).
 	is_composite_literal := file.ast.nodes[type_unparen(file, operand)].kind == .Comp_Lit
-	// Map elements are addressable (check_expr.cpp:3105-3110, check_is_not_addressable returns false for MapIndex).
-	is_map_element := target.mode == .Map_Index
-	if target.mode != .Variable && !is_composite_literal && !is_map_element { return expression_unsupported(checker, view, scope, node, "Address_Mode") }
+	// Variables, map elements, composite literals and type assertions are addressable (check_expr.cpp:3105-3135, check_is_not_addressable).
+	is_addressable := target.mode == .Variable || target.mode == .Map_Index || is_composite_literal || expression_assertion_addressable(checker, target)
+	if !is_addressable { return expression_unsupported(checker, view, scope, node, "Address_Mode") }
 	pointer := types.intern(checker.type_checker.store, types.Type{kind = .Pointer, elem = target.type})
 	return Expression_Info{type = pointer, mode = .Value, scope = scope, state = .Checked}, nil
+}
+
+// A type assertion on a pointer or `any`, or on a union variable, names an addressable value (check_expr.cpp:3111-3131).
+@(private = "file")
+expression_assertion_addressable :: proc(checker: ^Expression_Checker, target: Expression_Info) -> bool {
+	if target.mode != .Optional_Ok || target.plan == 0 { return false }
+	assertion, is_assertion := checker.plans[target.plan].(Type_Assertion_Plan)
+	if !is_assertion { return false }
+	store := checker.type_checker.store
+	source_kind := types.get(store, types.resolve_named(store, assertion.source_type)).kind
+	if source_kind == .Pointer || source_kind == .Any { return true }
+	if source_kind != .Union { return false }
+	source, is_expression := assertion.source.(Expression_Ref)
+	if !is_expression { return false }
+	source_view := checker.views[source.view]
+	return source_view.nodes.modes[int(source.node - source_view.first_node)] == .Variable
 }
 
 // A selector on an import name reads a member of the imported package scope; otherwise it names a struct field.
