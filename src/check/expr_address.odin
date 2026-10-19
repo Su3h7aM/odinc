@@ -117,9 +117,57 @@ expression_selector :: proc(
 			if types.get(checker.type_checker.store, types.resolve_named(checker.type_checker.store, enum_type)).kind == .Enum {
 				return expression_enum_member(checker, view, scope, node, enum_type, expression_text(file, selector.field))
 			}
+			// A poly argument selected through its instance type, as `where` clauses do with `C.D`.
+			argument, is_argument, argument_error := expression_poly_argument(checker, scope, name, expression_text(file, selector.field))
+			if argument_error != nil { return {}, argument_error }
+			if is_argument { return argument, nil }
 		}
 	}
 	return expression_field(checker, view, file_id, scope, node, hint)
+}
+
+// The bound argument when a field of a generic record instance names one of its `$` parameters.
+@(private = "file")
+expression_poly_argument :: proc(
+	checker: ^Expression_Checker,
+	scope: Scope_Id,
+	name: Entity_Id,
+	field: string,
+) -> (
+	info: Expression_Info,
+	found: bool,
+	err: Resolve_Error,
+) {
+	store := checker.type_checker.store
+	base := types.resolve_named(store, entity_get(checker.type_checker.resolver.scopes, name).type)
+	if base == types.TYPE_NONE { return {}, false, nil }
+	for instance in checker.type_checker.record_instances {
+		if types.resolve_named(store, instance.type) != base { continue }
+		declaration, has_declaration := checker.type_checker.declarations[instance.definition]
+		if !has_declaration { return {}, false, nil }
+		definition_file := checker.type_checker.files[declaration.type.file]
+		poly_params := record_poly_params(definition_file, declaration.type.node)
+		if poly_params == 0 { return {}, false, nil }
+		params := syntax.node_payload(definition_file.ast, poly_params, syntax.Field_List)
+		names := declared_parameter_names(definition_file, params, context.temp_allocator) or_return
+		for parameter, index in names {
+			if parameter != field || index >= len(instance.arguments) { continue }
+			if index < len(instance.constants) && instance.constants[index] != 0 {
+				return Expression_Info {
+						type = instance.arguments[index],
+						constant = instance.constants[index],
+						mode = .Constant,
+						scope = scope,
+						state = .Checked,
+					},
+					true,
+					nil
+			}
+			return Expression_Info{type = instance.arguments[index], mode = .Type, scope = scope, state = .Checked}, true, nil
+		}
+		return {}, false, nil
+	}
+	return {}, false, nil
 }
 
 @(private = "file")

@@ -88,6 +88,26 @@ main :: proc "contextless" () { pick(true) }
 			.Expected_Boolean_Constant,
 			"'where' clauses expect a constant boolean evaluation",
 		},
+		{
+			`package sample
+Direction :: enum { Send, Both, Recv }
+Box :: struct($T: typeid, $D: Direction) { value: T }
+take :: proc "contextless" (box: $C/Box($T, $D)) where C.D == .Both { _ = box }
+main :: proc "contextless" () { take(Box(int, Direction.Both){value = 1}) }
+`,
+			.None,
+			"",
+		},
+		{
+			`package sample
+Direction :: enum { Send, Both, Recv }
+Box :: struct($T: typeid, $D: Direction) { value: T }
+take :: proc "contextless" (box: $C/Box($T, $D)) where C.D == .Send { _ = box }
+main :: proc "contextless" () { take(Box(int, Direction.Both){value = 1}) }
+`,
+			.Invalid_Operand,
+			"'where' clause evaluated to false:\n\tC.D == .Send",
+		},
 	}
 	for test in cases {
 		count := 1 if test.kind != .None else 0
