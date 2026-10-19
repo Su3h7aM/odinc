@@ -139,6 +139,12 @@ expression_binary :: proc(
 	float_pair :=
 		float_side && (conversion_float(left_kind) || conversion_integer(left_kind)) && (conversion_float(right_kind) || conversion_integer(right_kind))
 	union_pair := left_kind == .Union && right_kind == .Union && generator_supported(store, left.type) && generator_supported(store, right.type)
+	struct_pair :=
+		left_kind == .Struct &&
+		right_kind == .Struct &&
+		left.type == right.type &&
+		types.is_comparable(store, left.type) &&
+		generator_supported(store, left.type)
 	operator := binary.op.kind
 	comparison := syntax.Token_Kind.B_Comparison_Begin < operator && operator < .B_Comparison_End
 	shift := operator == .Shl || operator == .Shr
@@ -170,7 +176,7 @@ expression_binary :: proc(
 	case .Cmp_And, .Cmp_Or:
 		valid = boolean
 	case .Cmp_Eq, .Not_Eq:
-		valid = integer || boolean || float_pair || enum_pair || type_id_pair || string_pair || pointer_pair || union_pair || array_pair
+		valid = integer || boolean || float_pair || enum_pair || type_id_pair || string_pair || pointer_pair || union_pair || struct_pair || array_pair
 	case .Lt, .Gt, .Lt_Eq, .Gt_Eq:
 		valid = integer || float_pair || enum_pair || string_pair || pointer_pair || array_pair
 	case .Eq:
@@ -228,7 +234,7 @@ expression_binary :: proc(
 		left = check_expression(checker, view, scope, binary.left, target) or_return
 	}
 	if left.state == .Invalid || right.state == .Invalid { return expression_poison(scope), nil }
-	if comparison && union_pair && (left.mode != .Constant || right.mode != .Constant) {
+	if comparison && (union_pair || struct_pair) && (left.mode != .Constant || right.mode != .Constant) {
 		append(&checker.plans, Plan(Comparison_Plan{type = types.resolve_named(store, left.type)})) or_return
 	}
 	// A dynamic integer paired with an untyped operand needs concrete rows at both runtime uses.
