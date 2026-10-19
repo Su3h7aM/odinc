@@ -32,3 +32,15 @@ is_empty :: proc "contextless" (options: Flags) -> bool { return options == {} }
 	procedure, ok := check_procedure_source(t, source, procedure_name = "is_empty")
 	if ok { testing.expect(t, procedure.body_state == .Complete) }
 }
+
+@(test)
+procedure_equality_compares_procedure_values :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(
+		`package sample
+target :: proc "contextless" () {}
+is_target :: proc "contextless" (value: proc "contextless" ()) -> bool { return value == target }
+`,
+	)
+	procedure, ok := check_procedure_source(t, source, procedure_name = "is_target")
+	if ok { testing.expect(t, procedure.body_state == .Complete) }
+}

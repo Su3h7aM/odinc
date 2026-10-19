@@ -155,6 +155,7 @@ expression_binary :: proc(
 		types.is_comparable(store, left.type) &&
 		generator_supported(store, left.type)
 	bit_set_pair := left_kind == .Bit_Set && right_kind == .Bit_Set && left.type == right.type
+	procedure_pair := left_kind == .Procedure && right_kind == .Procedure && left.type == right.type
 	operator := binary.op.kind
 	comparison := syntax.Token_Kind.B_Comparison_Begin < operator && operator < .B_Comparison_End
 	shift := operator == .Shl || operator == .Shr
@@ -197,7 +198,8 @@ expression_binary :: proc(
 			union_pair ||
 			struct_pair ||
 			array_pair ||
-			bit_set_pair
+			bit_set_pair ||
+			procedure_pair
 	case .Lt, .Gt, .Lt_Eq, .Gt_Eq:
 		valid = integer || float_pair || enum_pair || string_pair || pointer_pair || array_pair
 	case .Eq:
