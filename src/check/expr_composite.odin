@@ -54,6 +54,12 @@ expression_composite :: proc(
 	if descriptor.kind == .Bit_Set { return expression_composite_bit_set(checker, view, scope, node, type) }
 	if descriptor.kind == .Slice { return expression_slice_literal(checker, view, file_id, scope, node, type, descriptor.elem) }
 	is_array := descriptor.kind == .Array || descriptor.kind == .Enumerated_Array || descriptor.kind == .Simd_Vector
+	if len(syntax.node_list(file.ast, literal.elems)) == 0 && expression_zero_fill_supported(checker, store, type) {
+		zero, zero_error := expression_zero_fill_constants(checker, store, type)
+		if zero_error == nil {
+			return Expression_Info{type = type, constant = zero, mode = .Constant, scope = scope, state = .Checked}, nil
+		}
+	}
 	if descriptor.kind != .Struct && descriptor.kind != .Bit_Field && descriptor.kind != .Any && !is_array {
 		reason := "Composite_Type"
 		#partial switch descriptor.kind {
