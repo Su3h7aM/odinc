@@ -7,8 +7,8 @@ complex_and_quaternion_builtins_check_constants :: proc(t: ^testing.T) {
 	source := transmute([]byte)string(
 		`package sample
 main :: proc "contextless" () {
-	complex_value :: complex(1.0, 2.0)
-	quaternion_value :: quaternion(imag = 1.0, jmag = 2.0, kmag = 3.0, real = 4.0)
+	complex_value :: complex(1, 2.0)
+	quaternion_value :: quaternion(imag = 1, jmag = 2, kmag = 3, real = 4)
 	real(complex_value)
 	imag(complex_value)
 	real(quaternion_value)

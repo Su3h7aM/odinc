@@ -64,6 +64,11 @@ expression_complex_builtin :: proc(
 			value := check_expression(checker, view, scope, argument) or_return
 			if value.state == .Invalid { return expression_poison(scope), nil }
 			base := types.get(store, types.resolve_named(store, value.type))
+			if base.kind == .Untyped_Integer || base.kind == .Untyped_Rune {
+				value = check_expression(checker, view, scope, argument, types.TYPE_UNTYPED_FLOAT) or_return
+				if value.state == .Invalid { return expression_poison(scope), nil }
+				base = types.get(store, types.resolve_named(store, value.type))
+			}
 			if value.mode == .Type ||
 			   (base.kind != .Float && base.kind != .Untyped_Float) { return expression_failure(checker, view, scope, argument, .Invalid_Operand) }
 			if base.endianness != .Native { return expression_failure(checker, view, scope, argument, .Invalid_Operand) }
