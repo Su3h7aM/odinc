@@ -19,3 +19,17 @@ main :: proc "contextless" () {
 	if !ok { return }
 	testing.expect(t, procedure.body_state == .Complete)
 }
+
+@(test)
+address_of_map_element_is_addressable :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(`package sample
+main :: proc "contextless" () {
+	records: map[int]int
+	pointer := &records[2]
+	pointer^ = 4
+}
+`)
+	procedure, ok := check_procedure_source(t, source, diagnostic_count = 0)
+	if !ok { return }
+	testing.expect(t, procedure.body_state == .Complete)
+}

@@ -57,7 +57,9 @@ expression_address :: proc(
 	}
 	// Composite literals are addressable (check_expr.cpp:3134-3135, check_is_not_addressable).
 	is_composite_literal := file.ast.nodes[type_unparen(file, operand)].kind == .Comp_Lit
-	if target.mode != .Variable && !is_composite_literal { return expression_unsupported(checker, view, scope, node, "Address_Mode") }
+	// Map elements are addressable (check_expr.cpp:3105-3110, check_is_not_addressable returns false for MapIndex).
+	is_map_element := target.mode == .Map_Index
+	if target.mode != .Variable && !is_composite_literal && !is_map_element { return expression_unsupported(checker, view, scope, node, "Address_Mode") }
 	pointer := types.intern(checker.type_checker.store, types.Type{kind = .Pointer, elem = target.type})
 	return Expression_Info{type = pointer, mode = .Value, scope = scope, state = .Checked}, nil
 }
