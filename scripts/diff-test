@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+#MISE description="Differential test: official odin vs odinc on fixtures"
+set -euo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
+
+keep=0
+args=()
+for a in "$@"; do
+  if [[ "$a" == "--keep" ]]; then keep=1; else args+=("$a"); fi
+done
+
+ODIN_FORK_ROOT="${ODIN_FORK_ROOT:-$HOME/Projects/Odin}"
+ODINC_BIN="$(mktemp -d)/odinc"
+"$ODIN" build "$PROJECT_ROOT/src/odinc" -out:"$ODINC_BIN" $COLLECTION >/dev/null 2>&1 || { printf 'error: failed to build odinc\n' >&2; exit 1; }
+
+fixtures=()
+if ((${#args[@]})); then
+  for arg in "${args[@]}"; do
+    if [[ -d "$arg" ]]; then fixtures+=("$arg"); else fixtures+=("$(dirname "$arg")"); fi
+  done
+else
+  for d in "$PROJECT_ROOT"/src/driver/testdata/*/; do fixtures+=("$d"); done
+fi
+
+first_line() {
+  grep -v "^[[:space:]]*$" "$1" 2>/dev/null | grep -v "^SELECTOR_" | head -n1 | cut -c1-160 || true
+}
+
+failed=0
+for fix in "${fixtures[@]}"; do
+  name="$(basename "$fix")"
+  tmp="$(mktemp -d)"
+
+  if (cd "$fix" && ODIN_ROOT="$ODIN_FORK_ROOT" "$ODIN" build . -out:"$tmp/official" >"$tmp/official.out" 2>"$tmp/official.err"); then
+    :
+  else
+    reason="$(first_line "$tmp/official.err")"
+    [[ $keep -eq 0 ]] && rm -rf "$tmp" || printf 'kept %s\n' "$tmp"
+    printf 'FAIL %s official-build: %s\n' "$name" "$reason"
+    failed=1
+    continue
+  fi
+
+  off_rc=0
+  "$tmp/official" >"$tmp/official.run.out" 2>"$tmp/official.run.err" || off_rc=$?
+
+  if (ODIN_ROOT="$PROJECT_ROOT" "$ODINC_BIN" "$fix" -out:"$tmp/odinc" -collection:oc="$PROJECT_ROOT/src" >"$tmp/odinc.out" 2>"$tmp/odinc.err"); then
+    :
+  else
+    phase=odinc-build
+    if grep -q "check stage failed\|driver error\|Parse_Failed\|Import_Cycle" "$tmp/odinc.err"; then phase=odinc-check; fi
+    if grep -qi "lower" "$tmp/odinc.err"; then phase=odinc-lower; fi
+    reason="$(first_line "$tmp/odinc.err")"
+    [[ $keep -eq 0 ]] && rm -rf "$tmp" || printf 'kept %s\n' "$tmp"
+    printf 'FAIL %s %s: %s\n' "$name" "$phase" "$reason"
+    failed=1
+    continue
+  fi
+
+  odin_run_rc=0
+  "$tmp/odinc" >"$tmp/odinc.run.out" 2>"$tmp/odinc.run.err" || odin_run_rc=$?
+
+  if [[ "$off_rc" != "$odin_run_rc" ]]; then
+    reason="official=$off_rc odinc=$odin_run_rc"
+    [[ $keep -eq 0 ]] && rm -rf "$tmp" || printf 'kept %s\n' "$tmp"
+    printf 'FAIL %s mismatch-exit: %s\n' "$name" "$reason"
+    failed=1
+    continue
+  fi
+
+  if ! diff -q "$tmp/official.run.out" "$tmp/odinc.run.out" >/dev/null; then
+    reason="$(first_line "$tmp/odinc.run.err")"
+    [[ $keep -eq 0 ]] && rm -rf "$tmp" || printf 'kept %s\n' "$tmp"
+    printf 'FAIL %s mismatch-stdout: %s\n' "$name" "$reason"
+    failed=1
+    continue
+  fi
+
+  [[ $keep -eq 0 ]] && rm -rf "$tmp" || printf 'kept %s\n' "$tmp"
+  printf 'PASS %s\n' "$name"
+done
+
+exit $failed

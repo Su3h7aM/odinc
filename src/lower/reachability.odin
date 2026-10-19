@@ -7,7 +7,7 @@ import "oc:check"
 import "oc:ir"
 
 // Staged divergence: the official compiler lowers every procedure, we lower only what the roots reach
-// (docs/05-lower-design.md section 4). Roots are user-package procedures and globals and the startup
+// (docs/archive/05-lower-design.md section 4). Roots are user-package procedures and globals and the startup
 // procedures of the runtime requirements. Each round lowers the newly reached procedures in parallel,
 // then marks the symbols their code and data reference. An unreached procedure gets an `unreachable`
 // body, so lowering errors in unused runtime code never fail the build.

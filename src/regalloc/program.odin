@@ -7,7 +7,7 @@
 // reuse-input two-address form, call clobber sets), and `allocate` returns
 // where each virtual register lives and which moves the emitter must insert.
 //
-// Model (revision 2 of `docs/02-ir-design.md`, section 12): no interval
+// Model (revision 2 of `docs/archive/02-ir-design.md`, section 12): no interval
 // splitting. A virtual register has one location for its whole life, a
 // register or a spill slot. The emitter reaches a spilled operand through
 // its scratch registers, which are absent from `Program.allocatable`. Fixed
@@ -21,10 +21,10 @@
 // Register Allocation", TOPLAS 21(5), 1999, the base algorithm of
 // `linear_scan.odin`; Wimmer & Franz, "Linear Scan Register Allocation on SSA
 // Form", 2010, the live-interval-per-vreg model of `liveness.odin`;
-// `docs/research/06-pr7850-ir-regalloc-parallelism.md` section 2.4 for the
+// `docs/archive/research/06-pr7850-ir-regalloc-parallelism.md` section 2.4 for the
 // register-choice and spill-cost heuristics (caller-saved unless a call
 // overlaps the interval, spill by cost, coalescing hints);
-// `docs/research/02-backend-ir-landscape.md` sections 4.3 and 7.2 for the
+// `docs/archive/research/02-backend-ir-landscape.md` sections 4.3 and 7.2 for the
 // constraint model (early/late positions, reuse-input, fixed registers);
 // the implementation of PR #7850, `refs/odin-pr7850-fast-backend/src/xb_analysis.cpp`
 // lines 518-1191, as the behaviour reference for the loop-weight and

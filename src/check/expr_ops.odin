@@ -289,7 +289,7 @@ expression_binary :: proc(
 			bit_set_pair ||
 			procedure_pair
 	case .Lt, .Gt, .Lt_Eq, .Gt_Eq:
-		valid = integer || float_pair || enum_pair || string_pair || pointer_pair || array_pair || bit_set_pair
+		valid = integer || float_pair || enum_pair || string_pair || pointer_pair || bit_set_pair
 	case .Eq:
 		valid = true
 	}

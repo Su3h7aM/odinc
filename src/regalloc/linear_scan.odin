@@ -7,8 +7,9 @@
 // register exactly when none of its ranges overlaps the table. When nothing
 // fits, the cheapest set of vregs to spill (the candidate itself or the
 // holders of one register) is spilled for its whole life; spill cost is
-// loop-weighted references divided by interval length (docs/research/06,
-// section 2.4). No interval is split, so a spilled vreg stays in its slot and
+// loop-weighted references divided by interval length
+// (docs/archive/research/06-pr7850-ir-regalloc-parallelism.md, section 2.4). No
+// interval is split, so a spilled vreg stays in its slot and
 // the emitter reaches it through scratch registers.
 //
 // Register choice: a coalescing hint (move partner, reuse-input source) first,

@@ -721,6 +721,12 @@ expression_failure :: proc(
 	file := checker.views[view].file
 	span := checker.type_checker.files[file].ast.nodes[node]
 	assert(kind != .Unsupported || reason != "")
+	if reason == "Implicit_Selector_Type" {
+		path := checker.type_checker.files[file].display_path
+		source := checker.type_checker.files[file].source
+		node_text := string(source[span.start:min(span.end, span.start + 60)])
+		fmt.eprintf("SELECTOR_SITE %s:%d kind=%v text=%q\n", path, span.start, checker.type_checker.files[file].ast.nodes[node].kind, node_text)
+	}
 	append(&checker.diagnostics, Expression_Diagnostic{kind = kind, source = {file, span.start, span.end}, reason = reason}) or_return
 	info = expression_poison(scope)
 	expression_store(checker, view, node, info)

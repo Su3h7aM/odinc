@@ -17,7 +17,7 @@ Schedule_Error :: struct {
 	code:  Schedule_Code,
 }
 
-// Checks D2 of `docs/02-ir-design.md` section 9: no node is placed twice, phis lead their
+// Checks D2 of `docs/archive/02-ir-design.md` section 9: no node is placed twice, phis lead their
 // block, and every use is in a block the definition dominates. For a phi the use block is the
 // predecessor block matching the value's input slot. Rematerialized values are not placed and
 // are materialized at each use, so they are exempt. The caller frees the returned slice.

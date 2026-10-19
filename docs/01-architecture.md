@@ -1,56 +1,49 @@
-# Architecture and foundation plan
+# Architecture
 
-Direction (from the project owner): a pure-Odin Odin compiler, built with our fork (`/home/su3h7am/Projects/Odin/odin`), Linux x64 only. No incremental "always working compiler" path and no reuse of the C++ compiler. We build the foundation components first and integrate them later. Correctness and determinism come first. Performance comes from a data-oriented design, not from optimization passes (no CPU-feature tuning like AVX2 yet).
+A pure-Odin Odin compiler for Linux x86-64: no LLVM, no C toolchain, no libc. The compiler, its runtime startup (`_start`) and its syscall calls are all Odin. `AGENTS.md` governs how work here is done.
 
-## IR decision: Sea of Nodes
+## Pipeline
 
-Evidence on Ginger Bill's position (docs/research/01): he said he would "even just change the approach too to be Sea of Nodes based rather than the approach LLVM currently uses". It was an aside in a hedged thread, not a design document. We still follow it, as instructed, and keep the V8 findings (docs/research/02) as a list of risks to design against:
-
-- Effect and control chains are error-prone: model memory and side effects as explicit state edges (Click's Simple tutorial style), and write a verifier that checks them.
-- Poor cache behaviour: nodes live in struct-of-arrays storage addressed by `distinct u32` handles, not by pointers. Edges are index lists in one arena per function.
-- Hard to debug: a deterministic text dump of the graph, plus a graph-to-text round trip, from the first commit.
-- Scheduling is hard: a global scheduler (GCM) is a separate, well-tested package.
-- Determinism: node ids are assigned in creation order, no hashing by address, no iteration over maps whose order matters.
-
-Odin types are used for the IR itself: `distinct u32` node and type handles, a `Node_Kind` enum, `#soa` or hand-rolled SOA arrays for hot fields, `bit_set` for flags, tagged unions for payloads. No pointer-linked nodes.
-
-## Package layout
-
-All packages sit under `src/` and are imported with `-collection:oc=src`, as `import "oc:name"`. Tests live beside the source in `*_test.odin`.
-
-| Package | Purpose | Depends on |
-|---|---|---|
-| `support` | arenas, interned strings, source files and positions, diagnostics | core only |
-| `syntax` | tokenizer, AST (index based), parser | support |
-| `types` | semantic type store, type interning, layout (size/align, SysV) | support |
-| `check` | name resolution, type checking, constants, polymorphism, `defer`/`context` semantics | syntax, types |
-| `ir` | Sea of Nodes graph, builder, verifier, printer | support, types |
-| `sched` | global code motion, scheduling to linear blocks | ir |
-| `regalloc` | register allocation over a data-only `Program` (virtual registers, constraints, clobbers); knows nothing of `ir` or `amd64` | core only |
-| `amd64` | instruction selection, ABI and frame lowering, emission; allocation is `regalloc`; encoding is `core:rexcode/isa/x86` imported directly | ir, sched, regalloc, link (input types only), types (ABI plan, driver glue only) |
-| `elf` | ELF64 relocatable and executable writer, symbols, relocations | support |
-| `link` | built-in static linker | elf |
-| `driver` | CLI, package loading, pipeline, deterministic output | all |
-
-## Build and check commands
+`src/` holds one package per stage. Every package is imported as `import "oc:name"` through `-collection:oc=src`; the driver links them in this order:
 
 ```
-ODIN=/home/su3h7am/Projects/Odin/odin
-$ODIN check src/<pkg> -no-entry-point -collection:oc=src -vet -strict-style
-$ODIN test  src/<pkg> -collection:oc=src -vet -strict-style
+syntax → check → lower → ir → sched → regalloc → amd64 → elf → link
 ```
 
-## Code rules (apply to every component)
+| Package | Owns |
+|---|---|
+| `syntax` | tokenizer, index-based AST, parser |
+| `check` | semantic records over immutable syntax: resolution, type checking, constants, polymorphism, `defer`, `context`; publishes the `Checked_Program` that lowering borrows |
+| `lower` | `Checked_Program` to `ir.Module`: statements, expressions, ABI pieces, globals, the startup and entry-point glue |
+| `ir` | Sea of Nodes graph (scalar values, pinned effects, one memory chain per function), builder, CFG, verifier, deterministic printer, interpreter |
+| `sched` | global code motion: linear block layout order for the nodes of a function |
+| `regalloc` | linear-scan register allocation over a data-only `Program`; knows nothing of `ir` or `amd64` |
+| `amd64` | instruction selection, System V ABI and frame emission; encodes with `core:rexcode/isa/x86` |
+| `elf` | ELF64 relocatable objects and static `ET_EXEC` executables |
+| `link` | built-in static (and dynamic) linker: sections, symbols, relocations |
+| `driver` | CLI, package collection, the pipeline, diagnostics, image writing |
+| `odinc` | `main`; built by `mise run build` into `build/odinc` |
 
-- Follow the `odin-maintainer` skill: explicit allocators and arenas, `snake_case` procs, `Ada_Case` types, errors as values, no hidden allocation, zero value inert, `distinct` handles, `bit_set` flags.
-- Naming, comments and tests follow `AGENTS.md`, which overrides the skill on comment and test volume.
-- Deterministic output: same input gives byte-identical output. No timestamps, no pointer-order dependence.
-- Tests are few and meaningful (see `AGENTS.md`).
-- No speculative features. Implement what the foundation needs.
+`types` is a library under `check`, `lower`, `amd64` and `driver`: canonical type descriptors, layout (size, align, offsets) and System V ABI classification. `core:mem/virtual` arenas back the stages that need them.
 
-## Foundation order
+## Rules
 
-Wave 1 (independent, no cross-dependencies): `support`, `elf`, `amd64` encoder, `syntax` tokenizer.
-Wave 2: `syntax` AST and parser, `types`, `ir` core graph with verifier and printer.
-Wave 3: `check`, `sched`, instruction selection, register allocation.
-Wave 4: `link`, `driver`, integration, first end-to-end milestone.
+- Deterministic output: the same input produces a byte-identical image, so no timestamps and no pointer-order dependence.
+- Nodes and AST nodes are `distinct u32` handles into arrays, never pointers; node ids are assigned in creation order.
+- The IR is verified after its builder finishes, and a schedule or machine function after each of its stages.
+- Errors are values; the checker publishes only after its pools stop growing.
+- Names, comments and test policy follow `AGENTS.md`, which overrides the `odin-maintainer` skill on comment and test volume.
+
+## Running it
+
+```
+mise run build            # build odinc into build/odinc
+mise run check [package]  # check one package, or all of them
+mise run test  [package]  # run the package's tests
+```
+
+`odinc <file-or-dir> -out:<executable>` compiles an Odin main to a static executable; `odinc <file> -histogram` prints the IR histogram instead.
+
+## Design history
+
+The design documents that used to sit here and the research notes, except `docs/research/01-gingerbill-vision.md`, are archived under `docs/archive/` (research under `docs/archive/research/`). They record the intent behind this architecture; the source is the record of what is implemented. Do not load the archive by default.

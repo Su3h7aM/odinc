@@ -1,6 +1,6 @@
 // Package ir is a Sea of Nodes intermediate representation for Odin: scalar
 // values only, pinned effects, one memory chain per function. The design is
-// `docs/02-ir-design.md`.
+// `docs/archive/02-ir-design.md`.
 //
 // Vocabulary reused from `core:rexcode/ir`: the `Id` / `ID_NONE` handle idea
 // (as `Node_Id` / `NODE_NONE`, with zero reserved instead of all ones) and the

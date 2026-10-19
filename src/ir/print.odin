@@ -60,7 +60,7 @@ RMW_OP_NAMES := [Rmw_Op]string {
 	.Xchg = "xchg",
 }
 
-// Writes the module in the text form of `docs/02-ir-design.md` section 10: globals, externs, then
+// Writes the module in the text form of `docs/archive/02-ir-design.md` section 10: globals, externs, then
 // functions, in index order. Every node is printed by id; removed nodes are skipped.
 print_module :: proc(w: io.Writer, module: ^Module, options := DEFAULT_PRINT_OPTIONS) -> io.Error {
 	for global, index in module.globals {
