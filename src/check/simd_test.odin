@@ -24,6 +24,15 @@ integer :: proc(a: #simd[4]i32) -> #simd[4]i32 { return simd_abs(simd_neg(a)) }
 }
 
 @(test)
+simd_shift_broadcasts_scalar_amount :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(`package sample
+main :: proc(a: #simd[8]u32) -> #simd[8]u32 { return simd_shr(a, 1) }
+`)
+	procedure, ok := check_procedure_source(t, source, procedure_name = "main", intrinsic_names = []string{"simd_shr"})
+	if ok { testing.expect(t, procedure.body_state == .Complete) }
+}
+
+@(test)
 simd_types_layouts_and_intrinsic_results_check :: proc(t: ^testing.T) {
 	source := transmute([]byte)string(
 		`package sample

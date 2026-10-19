@@ -300,6 +300,39 @@ expression_simd_call :: proc(
 		if amount.state == .Invalid { return expression_poison(scope), nil }
 		vector, ok := simd_vector(store, value.type)
 		amounts, amounts_ok := simd_vector(store, amount.type)
+		// Official simd_shr broadcasts a scalar unsigned amount into a same-shape unsigned vector.
+		if ok && !amounts_ok && simd_element_kind(store, vector.elem) == .Integer {
+			amount_kind := types.get(store, conversion_base_type(store, amount.type))
+			if conversion_integer(amount_kind.kind) && (conversion_untyped(amount_kind.kind) || !amount_kind.signed) {
+				elem_bytes := types.get(store, conversion_base_type(store, vector.elem)).count
+				unsigned_elem := types.sized_integer(store, elem_bytes, false)
+				scalar := expression_conversion(
+					checker,
+					view,
+					scope,
+					arguments[1],
+					expression_value_operand(checker, view, arguments[1], amount),
+					expression_single_value(amount),
+					unsigned_elem,
+					.Assignment,
+				) or_return
+				if scalar.state == .Invalid { return expression_poison(scope), nil }
+				broadcast := expression_conversion(
+					checker,
+					view,
+					scope,
+					arguments[1],
+					expression_value_operand(checker, view, arguments[1], scalar),
+					expression_single_value(scalar),
+					types.intern(store, types.Type{kind = .Simd_Vector, elem = unsigned_elem, count = vector.count}),
+					.Assignment,
+				) or_return
+				if broadcast.state == .Invalid { return expression_poison(scope), nil }
+				amount = broadcast
+				expression_store(checker, view, arguments[1], amount)
+				amounts, amounts_ok = simd_vector(store, amount.type)
+			}
+		}
 		if !ok || !amounts_ok || amounts.count != vector.count || !expression_value(value) || !expression_value(amount) {
 			return expression_failure(checker, view, scope, node, .Invalid_Operand)
 		}
