@@ -24,3 +24,16 @@ same :: proc(p, q: Point) -> bool {
 	procedure, ok := check_procedure_source(t, source, procedure_name = "same")
 	if ok { testing.expect(t, procedure.body_state == .Complete) }
 }
+
+@(test)
+arithmetic_broadcasts_scalar_across_array :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(
+		`package sample
+blend :: proc "contextless" (background, color: [3]f32, alpha: f32) -> [3]f32 {
+	return (1.0 - alpha) * background + alpha * color
+}
+`,
+	)
+	procedure, ok := check_procedure_source(t, source, procedure_name = "blend")
+	if ok { testing.expect(t, procedure.body_state == .Complete) }
+}

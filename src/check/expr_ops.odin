@@ -207,15 +207,23 @@ expression_binary :: proc(
 	if left_base.kind == .Array && left_base.kind == right_base.kind && left_base.elem == right_base.elem && left_base.count == right_base.count {
 		array_pair = true
 	}
+	// Official array programming: a scalar combines element-wise with an array when the scalar converts to it.
+	broadcast_pair := false
+	if left_base.kind == .Array && right_base.kind != .Array && operand_assignable(checker, view, binary.right, right, left.type) {
+		broadcast_pair = true
+	} else if right_base.kind == .Array && left_base.kind != .Array && operand_assignable(checker, view, binary.left, left, right.type) {
+		broadcast_pair = true
+	}
 	#partial switch operator {
 	case .Add, .Sub:
-		valid = integer || float_pair || array_pair || bit_set_pair
+		valid = integer || float_pair || array_pair || bit_set_pair || broadcast_pair
 	case .Mul, .Quo:
-		valid = integer || float_pair || array_pair
+		valid = integer || float_pair || array_pair || broadcast_pair
 	case .Mod, .Mod_Mod, .Shl, .Shr:
 		valid = integer || (array_pair && (operator == .Mod || operator == .Mod_Mod || operator == .Shl || operator == .Shr))
+		valid ||= broadcast_pair && (operator == .Mod || operator == .Mod_Mod)
 	case .And, .Or, .Xor, .And_Not:
-		valid = integer || boolean || array_pair || bit_set_pair
+		valid = integer || boolean || array_pair || bit_set_pair || broadcast_pair
 	case .Cmp_And, .Cmp_Or:
 		valid = boolean
 	case .Cmp_Eq, .Not_Eq:
@@ -230,6 +238,7 @@ expression_binary :: proc(
 			union_pair ||
 			struct_pair ||
 			array_pair ||
+			broadcast_pair ||
 			bit_set_pair ||
 			procedure_pair
 	case .Lt, .Gt, .Lt_Eq, .Gt_Eq:
@@ -249,17 +258,48 @@ expression_binary :: proc(
 		}
 		if !left_untyped && !right_untyped {
 			if !comparison {
-				if operator != .Cmp_And && operator != .Cmp_Or { return expression_failure(checker, view, scope, node, .Mismatched_Types) }
-				right = expression_conversion(
-					checker,
-					view,
-					scope,
-					binary.right,
-					expression_value_operand(checker, view, binary.right, right),
-					right,
-					left.type,
-					.Cast,
-				) or_return
+				// Official array programming converts the scalar to the array type and works element-wise.
+				if broadcast_pair {
+					if operand_assignable(checker, view, binary.left, left, right.type) {
+						left = expression_conversion(
+							checker,
+							view,
+							scope,
+							binary.left,
+							expression_value_operand(checker, view, binary.left, left),
+							left,
+							right.type,
+							.Assignment,
+						) or_return
+					} else if operand_assignable(checker, view, binary.right, right, left.type) {
+						right = expression_conversion(
+							checker,
+							view,
+							scope,
+							binary.right,
+							expression_value_operand(checker, view, binary.right, right),
+							right,
+							left.type,
+							.Assignment,
+						) or_return
+					} else {
+						return expression_failure(checker, view, scope, node, .Mismatched_Types)
+					}
+				} else {
+					if operator != .Cmp_And && operator != .Cmp_Or {
+						return expression_failure(checker, view, scope, node, .Mismatched_Types)
+					}
+					right = expression_conversion(
+						checker,
+						view,
+						scope,
+						binary.right,
+						expression_value_operand(checker, view, binary.right, right),
+						right,
+						left.type,
+						.Cast,
+					) or_return
+				}
 			} else if operand_assignable(checker, view, binary.left, left, right.type) {
 				left = expression_conversion(
 					checker,
