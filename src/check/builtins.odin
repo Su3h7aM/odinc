@@ -1056,7 +1056,10 @@ expression_length :: proc(
 		descriptor = types.get(store, types.resolve_named(store, descriptor.elem))
 	}
 	#partial switch descriptor.kind {
-	case .Array:
+	case .Array, .Enumerated_Array, .Enum:
+		if descriptor.kind == .Enum && operand.mode != .Type || descriptor.kind != .Array && kind == .Cap {
+			return expression_failure(checker, view, scope, node, .Invalid_Operand)
+		}
 		value: big.Int
 		defer big.destroy(&value)
 		if set_error := big.set(&value, descriptor.count); set_error != nil {
