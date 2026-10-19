@@ -55,7 +55,9 @@ expression_address :: proc(
 			return expression_unsupported(checker, view, scope, node, "Address_Bit_Field")
 		}
 	}
-	if target.mode != .Variable { return expression_unsupported(checker, view, scope, node, "Address_Mode") }
+	// Composite literals are addressable (check_expr.cpp:3134-3135, check_is_not_addressable).
+	is_composite_literal := file.ast.nodes[type_unparen(file, operand)].kind == .Comp_Lit
+	if target.mode != .Variable && !is_composite_literal { return expression_unsupported(checker, view, scope, node, "Address_Mode") }
 	pointer := types.intern(checker.type_checker.store, types.Type{kind = .Pointer, elem = target.type})
 	return Expression_Info{type = pointer, mode = .Value, scope = scope, state = .Checked}, nil
 }

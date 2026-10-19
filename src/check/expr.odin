@@ -36,37 +36,43 @@ Expression_Diagnostic :: struct {
 // Owns typed rows, plans and diagnostics. Files, resolver, type checker and constant pool are borrowed.
 // Views and plans reserve index zero. Destroy after all consumers of the borrowed Checked_Program.
 Expression_Checker :: struct {
-	type_checker:    ^Type_Checker,
-	constants:       ^Constant_Pool,
-	config:          Conversion_Config,
-	target_features: []string,
-	default_integer: types.Type_Id,
-	boolean:         types.Type_Id,
-	unchecked_depth: int,
-	allocator:       mem.Allocator,
-	arena:           mem.Dynamic_Arena,
-	views:           [dynamic]Typed_View,
-	plans:           [dynamic]Plan,
-	packages:        []Package,
-	builtin_kinds:   [dynamic]Builtin_Kind,
-	type_info_roots: [dynamic]types.Type_Id,
-	symbols:         [dynamic]Symbol,
-	entity_symbols:  [dynamic]Symbol_Id,
-	procedures:      [dynamic]Checked_Procedure,
-	globals:         [dynamic]Global,
-	diagnostics:     [dynamic]Expression_Diagnostic,
-	results:         []types.Type_Id,
-	named_results:   []Entity_Id,
-	control:         [dynamic]Control_Frame,
-	defers:          [dynamic]Defer_Registration,
-	defer_depth:     int,
-	active_instance: Instance_Id,
-	invalid_rows:    [dynamic]Invalid_Row,
+	type_checker:      ^Type_Checker,
+	constants:         ^Constant_Pool,
+	config:            Conversion_Config,
+	target_features:   []string,
+	default_integer:   types.Type_Id,
+	boolean:           types.Type_Id,
+	unchecked_depth:   int,
+	allocator:         mem.Allocator,
+	arena:             mem.Dynamic_Arena,
+	views:             [dynamic]Typed_View,
+	plans:             [dynamic]Plan,
+	packages:          []Package,
+	builtin_kinds:     [dynamic]Builtin_Kind,
+	type_info_roots:   [dynamic]types.Type_Id,
+	symbols:           [dynamic]Symbol,
+	entity_symbols:    [dynamic]Symbol_Id,
+	procedures:        [dynamic]Checked_Procedure,
+	globals:           [dynamic]Global,
+	diagnostics:       [dynamic]Expression_Diagnostic,
+	results:           []types.Type_Id,
+	named_results:     []Entity_Id,
+	control:           [dynamic]Control_Frame,
+	defers:            [dynamic]Defer_Registration,
+	defer_depth:       int,
+	active_instance:   Instance_Id,
+	invalid_rows:      [dynamic]Invalid_Row,
+	stored_rows:       [dynamic]Expression_Ref,
+	speculation_depth: int,
 }
 
 Invalid_Row :: struct {
 	view: View_Id,
 	node: syntax.Node_Index,
+}
+
+Speculation :: struct {
+	poisoned, resolver_diagnostics, checker_diagnostics, type_diagnostics, invalid_rows, stored_rows, plans, type_info_roots: int,
 }
 
 expression_checker_init :: proc(
@@ -90,6 +96,7 @@ expression_checker_init :: proc(
 	checker.views.allocator, checker.plans.allocator, checker.diagnostics.allocator = allocator, allocator, allocator
 	checker.control.allocator = allocator
 	checker.invalid_rows.allocator = allocator
+	checker.stored_rows.allocator = allocator
 	checker.defers.allocator = allocator
 	checker.symbols.allocator, checker.entity_symbols.allocator, checker.procedures.allocator = allocator, allocator, allocator
 	checker.builtin_kinds.allocator = allocator
@@ -123,6 +130,7 @@ expression_checker_destroy :: proc(checker: ^Expression_Checker) {
 	delete(checker.control)
 	delete(checker.defers)
 	delete(checker.invalid_rows)
+	delete(checker.stored_rows)
 	mem.dynamic_arena_destroy(&checker.arena)
 	checker^ = {}
 }
@@ -318,8 +326,14 @@ check_expression :: proc(
 				if callee.mode != .Type || len(arguments) != 1 || call.ellipsis.kind != .Invalid {
 					return expression_unsupported(checker, view, scope, node, "Call_Callee")
 				}
-				operand := check_expression(checker, view, scope, arguments[0]) or_return
-				info = expression_conversion(checker, view, scope, node, Operand(Expression_Ref{view, arguments[0]}), operand, callee.type, .Cast) or_return
+				argument := arguments[0]
+				if file.ast.nodes[argument].kind == .Field_Value {
+					argument = syntax.node_payload(file.ast, argument, syntax.Field_Value).value
+				}
+				operand_hint := types.TYPE_NONE
+				if file.ast.nodes[argument].kind == .Implicit_Selector_Expr { operand_hint = callee.type }
+				operand := check_expression(checker, view, scope, argument, operand_hint) or_return
+				info = expression_conversion(checker, view, scope, node, Operand(Expression_Ref{view, argument}), operand, callee.type, .Cast) or_return
 			}
 		case .Index_Expr:
 			info = expression_index(checker, view, file_id, scope, node) or_return
@@ -424,6 +438,7 @@ expression_store :: proc(checker: ^Expression_Checker, view: View_Id, node: synt
 	rows.types[index], rows.constants[index], rows.modes[index], rows.entities[index] = info.type, info.constant, info.mode, info.entity
 	rows.plans[index], rows.scopes[index], rows.states[index] = info.plan, info.scope, info.state
 	if info.state == .Invalid { _, _ = append(&checker.invalid_rows, Invalid_Row{view, node}) }
+	if checker.speculation_depth > 0 { _, _ = append(&checker.stored_rows, Expression_Ref{view, node}) }
 }
 
 // Attempts that fail for now (see expression_boolean_evaluator) reset the rows they stored as invalid.
@@ -434,6 +449,41 @@ expression_rollback_invalid_rows :: proc(checker: ^Expression_Checker, mark: int
 		rows.states[int(row.node - checker.views[row.view].first_node)] = .Unseen
 	}
 	resize(&checker.invalid_rows, mark)
+}
+
+// A speculative check keeps nothing: the rows, diagnostics and resolver poison it adds are rolled back.
+@(private = "package")
+expression_speculation_begin :: proc(checker: ^Expression_Checker) -> Speculation {
+	type_checker := checker.type_checker
+	checker.speculation_depth += 1
+	return Speculation {
+		poisoned = len(type_checker.resolver.poisoned),
+		resolver_diagnostics = len(type_checker.resolver.diagnostics),
+		checker_diagnostics = len(checker.diagnostics),
+		type_diagnostics = len(type_checker.diagnostics),
+		invalid_rows = len(checker.invalid_rows),
+		stored_rows = len(checker.stored_rows),
+		plans = len(checker.plans),
+		type_info_roots = len(checker.type_info_roots),
+	}
+}
+
+@(private = "package")
+expression_speculation_end :: proc(checker: ^Expression_Checker, mark: Speculation) {
+	type_checker := checker.type_checker
+	for row in checker.stored_rows[mark.stored_rows:] {
+		rows := checker.views[row.view].nodes
+		rows.states[int(row.node - checker.views[row.view].first_node)] = .Unseen
+	}
+	resize(&checker.stored_rows, mark.stored_rows)
+	expression_rollback_invalid_rows(checker, mark.invalid_rows)
+	resize(&checker.plans, mark.plans)
+	resize(&checker.type_info_roots, mark.type_info_roots)
+	resolver_rollback_poison(type_checker.resolver, mark.poisoned)
+	resize(&type_checker.resolver.diagnostics, mark.resolver_diagnostics)
+	resize(&checker.diagnostics, mark.checker_diagnostics)
+	resize(&type_checker.diagnostics, mark.type_diagnostics)
+	checker.speculation_depth -= 1
 }
 
 @(private = "package")

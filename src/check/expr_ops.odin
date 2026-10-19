@@ -42,9 +42,9 @@ expression_unary :: proc(
 }
 
 // Runtime union comparisons share one generated equality procedure per type, like map keys.
-// A comparison accepts typed operands when either one is assignable to the other's type, as official check_comparison.
-@(private = "file")
-comparison_assignable :: proc(checker: ^Expression_Checker, view: View_Id, node: syntax.Node_Index, info: Expression_Info, target: types.Type_Id) -> bool {
+// An operand is assignable to the other operand's type when its value converts, as official convert_to_typed.
+@(private = "package")
+operand_assignable :: proc(checker: ^Expression_Checker, view: View_Id, node: syntax.Node_Index, info: Expression_Info, target: types.Type_Id) -> bool {
 	_, diagnostic, failure := check_conversion(
 		checker.constants,
 		checker.type_checker.store,
@@ -123,6 +123,8 @@ expression_binary :: proc(
 	left_kind := left_descriptor.kind
 	right_kind := right_descriptor.kind
 	integer := conversion_integer(left_kind) && conversion_integer(right_kind)
+	integer ||= conversion_integer(left_kind) && conversion_untyped(right_kind) && operand_assignable(checker, view, binary.right, right, left.type)
+	integer ||= conversion_integer(right_kind) && conversion_untyped(left_kind) && operand_assignable(checker, view, binary.left, left, right.type)
 	boolean := conversion_boolean(left_kind) && conversion_boolean(right_kind)
 	enum_pair := left_kind == .Enum && right_kind == .Enum
 	type_id_pair := left_kind == .Type_Id && right_kind == .Type_Id
@@ -182,7 +184,7 @@ expression_binary :: proc(
 		}
 		if !left_untyped && !right_untyped {
 			if !comparison { return expression_failure(checker, view, scope, node, .Mismatched_Types) }
-			if comparison_assignable(checker, view, binary.left, left, right.type) {
+			if operand_assignable(checker, view, binary.left, left, right.type) {
 				left = expression_conversion(
 					checker,
 					view,
@@ -193,7 +195,7 @@ expression_binary :: proc(
 					right.type,
 					.Assignment,
 				) or_return
-			} else if comparison_assignable(checker, view, binary.right, right, left.type) {
+			} else if operand_assignable(checker, view, binary.right, right, left.type) {
 				right = expression_conversion(
 					checker,
 					view,

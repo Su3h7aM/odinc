@@ -241,6 +241,9 @@ expression_new_instance :: proc(
 	scopes := resolver.scopes
 	definition_entity := entity_get(scopes, definition)
 	definition_procedure := definition_entity.data.(Procedure_Data)
+	definition_package_id := definition_entity.package_id
+	definition_name := definition_entity.name
+	definition_declaration := definition_entity.declaration
 	arena := mem.dynamic_arena_allocator(&checker.arena)
 	type_scope, scope_error := scope_create(scopes, definition_entity.scope, .Block, definition)
 	if scope_error != nil { return {}, binding_resolve_error(scope_error) }
@@ -249,7 +252,7 @@ expression_new_instance :: proc(
 			name       = name,
 			kind       = .Type_Name,
 			scope      = type_scope,
-			package_id = definition_entity.package_id,
+			package_id = definition_package_id,
 			state      = .Resolved,
 			type       = poly_types[index],
 		}
@@ -261,15 +264,15 @@ expression_new_instance :: proc(
 		_, insert_error := scope_insert(scopes, type_scope, bound)
 		if insert_error != nil { return {}, binding_resolve_error(insert_error) }
 	}
-	name := fmt.aprintf("%s[%v|%v]", definition_entity.name, poly_types, poly_constants, allocator = arena)
+	name := fmt.aprintf("%s[%v|%v]", definition_name, poly_types, poly_constants, allocator = arena)
 	instance, create_error := entity_create(
 		scopes,
 		Entity {
 			name = name,
 			kind = .Procedure,
 			scope = type_scope,
-			package_id = definition_entity.package_id,
-			declaration = definition_entity.declaration,
+			package_id = definition_package_id,
+			declaration = definition_declaration,
 			state = .Resolving,
 			data = Procedure_Data {
 				definition = definition,

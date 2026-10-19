@@ -81,23 +81,33 @@ expression_group_call :: proc(
 	file := checker.type_checker.files[file_id]
 	allocator := mem.dynamic_arena_allocator(&checker.arena)
 	argument_infos := make([]Expression_Info, len(arguments), allocator) or_return
+	hinted := false
 	for argument, index in arguments {
 		#partial switch file.ast.nodes[argument].kind {
 		case .Field_Value:
 			return expression_unsupported(checker, view, scope, node, "Group_Named_Argument")
-		case .Implicit_Selector_Expr, .Comp_Lit, .Ternary_When_Expr, .Ternary_If_Expr:
+		case .Ternary_When_Expr, .Ternary_If_Expr:
 			return expression_unsupported(checker, view, scope, node, "Group_Argument_Hint")
+		}
+		if group_argument_is_deferred(file, argument) {
+			hinted = true
+			continue
 		}
 		argument_infos[index] = check_expression(checker, view, scope, argument) or_return
 		if argument_infos[index].state == .Invalid { return expression_poison(scope), nil }
 	}
 	members := entity_get(checker.type_checker.resolver.scopes, callee.entity).data.(Procedure_Group_Data).members
+	if hinted {
+		for member in members {
+			if is_generic_procedure(checker, member) { return expression_unsupported(checker, view, scope, node, "Group_Argument_Hint") }
+		}
+	}
 	best: Entity_Id
 	best_score: int
 	found := false
 	ambiguous := false
 	for member in members {
-		score, matches := group_member_score(checker, view, node, arguments, argument_infos, member) or_return
+		score, matches := group_member_score(checker, view, scope, node, arguments, argument_infos, member) or_return
 		if !matches { continue }
 		if !found || score > best_score {
 			best, best_score, found, ambiguous = member, score, true, false
@@ -143,6 +153,7 @@ group_member_rejection :: proc(checker: ^Expression_Checker, member: Entity_Id) 
 group_member_score :: proc(
 	checker: ^Expression_Checker,
 	view: View_Id,
+	scope: Scope_Id,
 	node: syntax.Node_Index,
 	arguments: []syntax.Node_Index,
 	argument_infos: []Expression_Info,
@@ -167,8 +178,17 @@ group_member_score :: proc(
 		default_argument := procedure.defaults[index]
 		if default_argument.value == nil && !default_argument.caller_location && !default_argument.caller_expression { return 0, false, nil }
 	}
+	file := checker.type_checker.files[checker.views[view].file]
 	for index in 0 ..< min(len(arguments), fixed_count) {
-		argument_score, matched := group_argument_score(checker, view, arguments[index], argument_infos[index], descriptor.params[index]) or_return
+		argument_score, matched := group_argument_match(
+			checker,
+			view,
+			scope,
+			file,
+			arguments[index],
+			argument_infos[index],
+			descriptor.params[index],
+		) or_return
 		if !matched { return 0, false, nil }
 		score += argument_score
 	}
@@ -176,7 +196,7 @@ group_member_score :: proc(
 		variadic_slice := types.get(checker.type_checker.store, descriptor.params[variadic_index])
 		score -= 1
 		for index in fixed_count ..< len(arguments) {
-			argument_score, matched := group_argument_score(checker, view, arguments[index], argument_infos[index], variadic_slice.elem) or_return
+			argument_score, matched := group_argument_match(checker, view, scope, file, arguments[index], argument_infos[index], variadic_slice.elem) or_return
 			if !matched { return 0, false, nil }
 			score += argument_score - 1
 		}
@@ -232,7 +252,8 @@ group_generic_member_score :: proc(
 					matched := poly_match_pattern(&match, pattern, types.default_type_of_untyped(store, info.type)) or_return
 					if !matched { return 0, false, nil }
 				} else {
-					expected := type_expression(checker.type_checker, declaration.type.file, definition_scope, pattern, true) or_return
+					bound_scope := group_bound_scope(checker, member, &bindings) or_return
+					expected := type_expression(checker.type_checker, declaration.type.file, bound_scope, pattern, true) or_return
 					if expected == types.TYPE_POISON { return 0, false, nil }
 					argument_score, matched := group_argument_score(checker, view, arguments[index], info, expected) or_return
 					if !matched { return 0, false, nil }
@@ -267,8 +288,13 @@ group_generic_member_score :: proc(
 				score += 2
 				continue
 			}
+			if field.type == 0 {
+				score -= 1
+				continue
+			}
 			if !poly_pattern_has_poly(file, field.type) {
-				expected := type_expression(checker.type_checker, declaration.type.file, definition_scope, field.type, true) or_return
+				bound_scope := group_bound_scope(checker, member, &bindings) or_return
+				expected := type_expression(checker.type_checker, declaration.type.file, bound_scope, field.type, true) or_return
 				if expected == types.TYPE_POISON { return 0, false, nil }
 				argument_score, matched := group_argument_score(checker, view, argument, info, expected) or_return
 				if !matched { return 0, false, nil }
@@ -309,6 +335,42 @@ group_field_specialized :: proc(file: ^File, field: syntax.Field) -> bool {
 // An exact type scores 2, an untyped argument whose default type is the target scores 2, any other implicit
 // conversion scores 1. The argument's row is not stored, so a rejected candidate leaves no trace.
 @(private = "file")
+group_argument_is_deferred :: proc(file: ^File, argument: syntax.Node_Index) -> bool {
+	#partial switch file.ast.nodes[argument].kind {
+	case .Implicit_Selector_Expr:
+		return true
+	case .Comp_Lit:
+		return syntax.node_payload(file.ast, argument, syntax.Comp_Lit).type == 0
+	}
+	return false
+}
+
+// A deferred argument is checked against each candidate's parameter type inside a speculation, so the chosen
+// candidate checks it again with its own hint.
+@(private = "file")
+group_argument_match :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	scope: Scope_Id,
+	file: ^File,
+	argument: syntax.Node_Index,
+	info: Expression_Info,
+	target: types.Type_Id,
+) -> (
+	score: int,
+	matches: bool,
+	err: Resolve_Error,
+) {
+	if !group_argument_is_deferred(file, argument) { return group_argument_score(checker, view, argument, info, target) }
+	mark := expression_speculation_begin(checker)
+	defer expression_speculation_end(checker, mark)
+	deferred := check_expression(checker, view, scope, argument, target) or_return
+	if deferred.state == .Invalid { return 0, false, nil }
+	return group_argument_score(checker, view, argument, deferred, target)
+}
+
+
+@(private = "file")
 group_argument_score :: proc(
 	checker: ^Expression_Checker,
 	view: View_Id,
@@ -346,4 +408,30 @@ group_default_type :: proc(checker: ^Expression_Checker, untyped: types.Type_Id)
 	if untyped == types.TYPE_UNTYPED_INTEGER { return checker.default_integer }
 	if untyped == types.TYPE_UNTYPED_BOOL { return checker.boolean }
 	return types.default_type_of_untyped(checker.type_checker.store, untyped)
+}
+// Declares the names bound so far as type entities, as expression_instance declares them, so a later parameter can name them.
+@(private = "file")
+group_bound_scope :: proc(checker: ^Expression_Checker, member: Entity_Id, bindings: ^Poly_Bindings) -> (Scope_Id, Resolve_Error) {
+	scopes := checker.type_checker.resolver.scopes
+	definition := entity_get(scopes, member)
+	if len(bindings.names) == 0 { return definition.scope, nil }
+	definition_scope, package_id := definition.scope, definition.package_id
+	scope, scope_error := scope_create(scopes, definition_scope, .Block, member)
+	if scope_error != nil { return 0, binding_resolve_error(scope_error) }
+	for name, index in bindings.names {
+		bound := Entity {
+			name       = name,
+			kind       = .Type_Name,
+			scope      = scope,
+			package_id = package_id,
+			state      = .Resolved,
+			type       = bindings.types[index],
+		}
+		if bindings.constants[index] != 0 { bound.kind, bound.constant = .Constant, bindings.constants[index] }
+		bound_id, create_error := entity_create(scopes, bound)
+		if create_error != nil { return 0, binding_resolve_error(create_error) }
+		_, insert_error := scope_insert(scopes, scope, bound_id)
+		if insert_error != nil { return 0, binding_resolve_error(insert_error) }
+	}
+	return scope, nil
 }

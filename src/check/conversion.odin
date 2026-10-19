@@ -128,7 +128,15 @@ check_conversion :: proc(
 	if !allowed {
 		return {}, .Not_Assignable if kind == .Assignment else .Not_Castable, nil
 	}
-	if dst.kind == .Simd_Vector { return result, .None, nil }
+	if dst.kind == .Simd_Vector {
+		if info.mode != .Constant || !simd_broadcast_allowed(dst, info.type) { return result, .None, nil }
+		lanes := make([]Const_Id, int(dst.count), context.temp_allocator) or_return
+		defer delete(lanes, context.temp_allocator)
+		for &lane in lanes { lane = info.constant }
+		result.info.mode = .Constant
+		result.info.constant, err = constant_pool_intern_aggregate(pool, target, lanes)
+		return result, .None, err
+	}
 	if src.kind == .Untyped_Nil {
 		nil_constant, nil_error := constant_pool_intern_nil(pool, target)
 		if nil_error != nil { return {}, .None, nil_error }

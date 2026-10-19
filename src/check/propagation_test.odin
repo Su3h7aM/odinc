@@ -172,12 +172,24 @@ enum_check :: proc "contextless" (ok: bool) -> Mode {
 	enum_status(ok) or_return
 	return .None
 }
+discard_value :: proc "contextless" (ok: bool) -> bool {
+	status(ok) or_return
+	return true
+}
+discard_parenthesized :: proc "contextless" (ok: bool) -> bool {
+	((status(ok) or_return))
+	return true
+}
 Mode :: enum u8 { None, Failed }
 `,
 	)
 	procedure, ok := check_procedure_source(t, valid)
 	if !ok { return }
 	testing.expect(t, procedure.body_state == .Complete)
+	for name in ([?]string{"discard_value", "discard_parenthesized"}) {
+		discarded, discarded_ok := check_procedure_source(t, valid, procedure_name = name)
+		if discarded_ok { testing.expect(t, discarded.body_state == .Complete) }
+	}
 
 	invalid_sources := [?][]byte {
 		transmute([]byte)string(
@@ -199,24 +211,6 @@ main :: proc "contextless" (ok: bool) -> u8 {
 	return 1
 }
 status :: proc "contextless" (ok: bool) -> (u8, bool) { return 7, ok }
-`,
-		),
-		transmute([]byte)string(
-			`package sample
-main :: proc "contextless" (ok: bool) -> bool {
-	status(ok) or_return
-	return true
-}
-status :: proc "contextless" (ok: bool) -> (bool, bool) { return true, ok }
-`,
-		),
-		transmute([]byte)string(
-			`package sample
-main :: proc "contextless" (ok: bool) -> bool {
-	((status(ok) or_return))
-	return true
-}
-status :: proc "contextless" (ok: bool) -> (bool, bool) { return true, ok }
 `,
 		),
 	}

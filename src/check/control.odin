@@ -38,6 +38,12 @@ expression_switch :: proc(checker: ^Expression_Checker, view: View_Id, file_id: 
 		case_clause := syntax.node_payload(file.ast, clause, syntax.Case_Clause)
 		for value in syntax.node_list(file.ast, case_clause.list) {
 			if statement.cond != 0 {
+				if interval, is_interval := expression_interval(checker, file_id, value); is_interval {
+					plan, interval_ok, interval_error := expression_switch_interval(checker, view, switch_scope, value, interval, tag_type)
+					if interval_error != nil { return interval_error }
+					if interval_ok && tag_entity != 0 { append(&comparisons, plan) or_return }
+					continue
+				}
 				_ = check_expression(checker, view, switch_scope, value, tag_type) or_return
 				if tag_entity != 0 {
 					plan, supported, plan_error := runtime_comparison_plan(checker, comparison_name, Operand(tag_entity), Operand(Expression_Ref{view, value}))
@@ -255,6 +261,31 @@ expression_local_constant :: proc(checker: ^Expression_Checker, view: View_Id, f
 			state = .Resolved,
 		}
 		if value_kind := file.ast.nodes[values[index]].kind; .Typeid_Type <= value_kind && value_kind <= .Bit_Field_Type {
+			if value_kind == .Distinct_Type {
+				entity.kind = .Type_Name
+				constant, create_error := entity_create(checker.type_checker.resolver.scopes, entity)
+				if create_error != nil { return binding_resolve_error(create_error) }
+				nominal := publish_nominal(checker.type_checker, constant, .Named, expression_text(file, name_node)) or_return
+				base := type_expression(
+					checker.type_checker,
+					file_id,
+					scope,
+					syntax.node_payload(file.ast, values[index], syntax.Distinct_Type).type,
+					true,
+				) or_return
+				if base != types.TYPE_POISON {
+					types.complete_nominal(checker.type_checker.store, nominal, types.Type{kind = .Named, name = entity.name, elem = base, is_nominal = true})
+				} else {
+					entity_get(checker.type_checker.resolver.scopes, constant).state = .Invalid
+				}
+				previous, insert_error := scope_insert(checker.type_checker.resolver.scopes, scope, constant)
+				if insert_error != nil { return binding_resolve_error(insert_error) }
+				if previous != 0 {
+					expression_unsupported(checker, view, scope, name_node, "Local_Constant_Duplicate") or_return
+					return nil
+				}
+				continue
+			}
 			target := type_expression(checker.type_checker, file_id, scope, values[index], true) or_return
 			if target == types.TYPE_POISON { return nil }
 			entity.kind, entity.type = .Type_Name, target

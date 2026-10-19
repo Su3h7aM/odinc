@@ -264,3 +264,29 @@ raw_many := raw_data(bytes, bytes)
 	buffer := entity_get(&scopes, scope_lookup_current(&scopes, package_scope, "Buffer"))
 	testing.expect(t, types.get(&store, buffer.type).count == 6)
 }
+
+@(test)
+type_conversion_checks_argument_with_hint_for_implicit_selector :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(`package sample
+main :: proc "contextless" () -> Errno {
+	return Errno(.NONE)
+}
+Errno :: enum {NONE, OTHER}
+`)
+	procedure, ok := check_procedure_source(t, source)
+	if !ok { return }
+	testing.expect(t, procedure.body_state == .Complete)
+}
+
+@(test)
+slicing_pointer_string_and_indexing_dynamic_arrays_checks :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(`package sample
+split :: proc "contextless" (s: ^string) -> u32 {
+	total := len(s[:])
+	return u32(total)
+}
+`)
+	procedure, ok := check_procedure_source(t, source, procedure_name = "split")
+	if !ok { return }
+	testing.expect(t, procedure.body_state == .Complete)
+}

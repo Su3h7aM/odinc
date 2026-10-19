@@ -35,6 +35,7 @@ Type_Diagnostic_Kind :: enum u8 {
 	Invalid_Record_Arguments,
 	Unsatisfied_Where_Clause,
 	Invalid_Optional_Result,
+	Non_Contiguous_Enum_Index,
 }
 
 @(private = "file")
@@ -644,7 +645,12 @@ array_type :: proc(
 ) {
 	array := syntax.node_payload(file.ast, node, syntax.Array_Type)
 	if array.tag != 0 {
-		return simd_array_type(checker, file_id, file, scope, array)
+		tag := expression_text(file, array.tag)
+		if tag == "#simd" { return simd_array_type(checker, file_id, file, scope, array) }
+		if tag != "#sparse" {
+			type_report(checker, file_id, file, array.tag, .Unsupported_Type_Expression, tag) or_return
+			return types.TYPE_POISON, nil
+		}
 	}
 	if array.len == 0 {
 		elem := type_expression(checker, file_id, scope, array.elem, false) or_return
@@ -659,9 +665,10 @@ array_type :: proc(
 		return types.TYPE_POISON, nil
 	}
 	if file.ast.nodes[length].kind == .Ident {
+		sparse := array.tag != 0 && expression_text(file, array.tag) == "#sparse"
 		if target, _ := scope_lookup(checker.resolver.scopes, scope, type_node_text(file, length));
 		   target != 0 && entity_get(checker.resolver.scopes, target).kind == .Type_Name {
-			return enumerated_array_type(checker, file_id, file, scope, array, length)
+			return enumerated_array_type(checker, file_id, file, scope, array, length, sparse)
 		}
 	}
 	count, count_valid := array_count(checker, file_id, scope, length) or_return
@@ -678,6 +685,7 @@ enumerated_array_type :: proc(
 	scope: Scope_Id,
 	array: syntax.Array_Type,
 	length: syntax.Node_Index,
+	sparse: bool,
 ) -> (
 	type: types.Type_Id,
 	err: Resolve_Error,
@@ -696,7 +704,15 @@ enumerated_array_type :: proc(
 		count = descriptor.upper_bound - descriptor.lower_bound + 1
 		lower_bound = descriptor.lower_bound
 	}
-	return types.intern(checker.store, types.Type{kind = .Enumerated_Array, elem = elem, index = index, count = count, lower_bound = lower_bound}), nil
+	if count > descriptor.count && !sparse {
+		type_report(checker, file_id, file, length, .Non_Contiguous_Enum_Index) or_return
+		return types.TYPE_POISON, nil
+	}
+	return types.intern(
+			checker.store,
+			types.Type{kind = .Enumerated_Array, elem = elem, index = index, count = count, lower_bound = lower_bound, sparse = sparse},
+		),
+		nil
 }
 
 array_count :: proc(checker: ^Type_Checker, file_id: File_Id, scope: Scope_Id, node: syntax.Node_Index) -> (count: i64, valid: bool, err: Resolve_Error) {
@@ -1012,7 +1028,7 @@ procedure_type :: proc(
 }
 
 // Checks the default expression of an untyped parameter and takes its default type, as official handle_parameter_value does.
-@(private = "file")
+@(private = "package")
 default_expression_type :: proc(
 	checker: ^Type_Checker,
 	scope: Scope_Id,

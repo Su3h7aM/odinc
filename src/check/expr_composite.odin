@@ -1,6 +1,5 @@
 package check
 
-import "core:math/big"
 import "core:mem"
 import "core:slice"
 import "oc:syntax"
@@ -69,57 +68,84 @@ expression_composite :: proc(
 	}
 	fields := descriptor.fields
 	elements := syntax.node_list(file.ast, literal.elems)
+	if is_array {
+		if descriptor.kind == .Array && i64(len(elements)) != descriptor.count && len(elements) > 0 && file.ast.nodes[elements[0]].kind != .Field_Value {
+			return expression_failure(checker, view, scope, node, .Invalid_Operand)
+		}
+		if descriptor.kind == .Enumerated_Array &&
+		   !descriptor.sparse &&
+		   descriptor.count > 0 &&
+		   i64(len(elements)) < descriptor.count &&
+		   len(elements) > 0 &&
+		   file.ast.nodes[elements[0]].kind != .Field_Value {
+			return expression_failure(checker, view, scope, node, .Invalid_Operand)
+		}
+	}
 	if len(elements) > 0 && file.ast.nodes[elements[0]].kind != .Field_Value {
 		if descriptor.kind == .Enumerated_Array { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
 		if descriptor.kind == .Array && i64(len(elements)) != descriptor.count { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
 	}
 	allocator := mem.dynamic_arena_allocator(&checker.arena)
-	values := make([]Operand, len(elements), allocator) or_return
-	indices := make([]u32, len(elements), allocator) or_return
-	conversions := make([]Plan_Id, len(elements), allocator) or_return
+	values := make([dynamic]Operand, allocator) or_return
+	indices := make([dynamic]u32, allocator) or_return
+	conversions := make([dynamic]Plan_Id, allocator) or_return
 	count := len(fields)
 	if is_array { count = int(descriptor.count) }
 	constants := make([]Const_Id, count, allocator) or_return
 	seen := make([]bool, count, allocator) or_return
 	for element, position in elements {
 		value_node := element
-		index := position
+		first, last := position, position
 		if file.ast.nodes[element].kind == .Field_Value {
 			pair := syntax.node_payload(file.ast, element, syntax.Field_Value)
 			value_node = pair.value
 			if is_array {
-				key := check_expression(
+				lower_index, upper_index, key_failed, key_error := expression_array_key(
 					checker,
 					view,
 					scope,
+					file_id,
 					pair.field,
 					descriptor.index if descriptor.kind == .Enumerated_Array else checker.default_integer,
-				) or_return
-				if key.state == .Invalid { return expression_poison(scope), nil }
-				if key.constant == 0 { return expression_failure(checker, view, scope, pair.field, .Invalid_Operand) }
-				integer := constant_pool_get(checker.constants, key.constant).value.(big.Int)
-				key_value, key_error := big.int_get_i64(&integer)
-				if key_error != .None { return expression_failure(checker, view, scope, pair.field, .Invalid_Operand) }
-				index = int(key_value - descriptor.lower_bound)
+				)
+				if key_error != nil { return {}, key_error }
+				if key_failed { return expression_poison(scope), nil }
+				first = int(lower_index - descriptor.lower_bound)
+				last = int(upper_index - descriptor.lower_bound)
 			} else {
-				index = struct_field_index(fields, expression_text(file, pair.field))
+				first = struct_field_index(fields, expression_text(file, pair.field))
+				last = first
 			}
-			if index < 0 { return expression_failure(checker, view, scope, pair.field, .Undeclared_Name) }
+			if first < 0 { return expression_failure(checker, view, scope, pair.field, .Undeclared_Name) }
 		} else if position >= count {
 			return expression_failure(checker, view, scope, element, .Invalid_Operand)
 		}
-		if index < 0 || index >= count || seen[index] { return expression_failure(checker, view, scope, element, .Invalid_Operand) }
-		seen[index] = true
+		if first < 0 || last >= count { return expression_failure(checker, view, scope, element, .Invalid_Operand) }
+		for index in first ..= last {
+			if seen[index] { return expression_failure(checker, view, scope, element, .Invalid_Operand) }
+			seen[index] = true
+		}
 		element_type := descriptor.elem
-		if !is_array { element_type = fields[index].type }
+		if !is_array { element_type = fields[first].type }
 		value := check_expression(checker, view, scope, value_node, element_type) or_return
 		if value.state == .Invalid { return expression_poison(scope), nil }
-		values[position] = Operand(Expression_Ref{view, value_node})
-		indices[position] = u32(index)
-		conversions[position] = expression_boxing_plan(checker, value.plan)
-		if value.constant != 0 && expression_constant_element(checker, store, is_array, element_type, value.plan) { constants[index] = value.constant }
+		value_operand := Operand(Expression_Ref{view, value_node})
+		conversion := expression_boxing_plan(checker, value.plan)
+		constant_element := value.constant != 0 && expression_constant_element(checker, store, is_array, element_type, value.plan)
+		for index in first ..= last {
+			append(&values, value_operand) or_return
+			append(&indices, u32(index)) or_return
+			append(&conversions, conversion) or_return
+			if constant_element { constants[index] = value.constant }
+		}
 	}
-	if len(elements) == count && descriptor.kind != .Bit_Field && !slice.contains(constants, 0) {
+	if descriptor.sparse && i64(len(values)) < descriptor.count && len(values) > 0 && expression_zero_fill_supported(checker, store, descriptor.elem) {
+		counter, fill_error := expression_zero_fill_constants(checker, store, descriptor.elem)
+		if fill_error == nil {
+			for id, index in constants { if id == 0 { constants[index] = counter } }
+		}
+	}
+	if count > 0 && descriptor.kind != .Bit_Field && !slice.contains(constants, 0) && (len(values) == count || descriptor.sparse) {
 		constant, constant_error := constant_pool_intern_aggregate(checker.constants, type, constants)
 		if constant_error != nil {
 			expression_constant_failure(checker, file_id, node, constant_error) or_return
@@ -128,6 +154,6 @@ expression_composite :: proc(
 		return Expression_Info{type = type, constant = constant, mode = .Constant, scope = scope, state = .Checked}, nil
 	}
 	plan := Plan_Id(len(checker.plans))
-	append(&checker.plans, Plan(Aggregate_Plan{type = type, values = values, field_indices = indices, conversions = conversions})) or_return
+	append(&checker.plans, Plan(Aggregate_Plan{type = type, values = values[:], field_indices = indices[:], conversions = conversions[:]})) or_return
 	return Expression_Info{type = type, mode = .Value, plan = plan, scope = scope, state = .Checked}, nil
 }

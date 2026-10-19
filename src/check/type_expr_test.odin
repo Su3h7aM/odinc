@@ -27,7 +27,7 @@ Alias :: ^Handle
 Choice :: union { int, ^Node, bool }
 Optional :: union { ^Node }
 Callback :: proc "c" (int, Node) -> (value: int, ok: bool)
-Table :: [Color]int
+Table :: #sparse[Color]int
 Names :: map[int][dynamic]Node
 Spelling :: Handle
 Bad :: struct { field: Missing }
@@ -230,4 +230,20 @@ test_enum_member_binder :: proc(
 	_, insert_error := scope_insert(checker.resolver.scopes, scope, entity)
 	if insert_error != nil { return binding_resolve_error(insert_error) }
 	return nil
+}
+
+@(test)
+sparse_enumerated_array_constant_checks :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(
+		`package sample
+Label :: enum {A = 1, B = 3}
+main :: proc "contextless" () -> int {
+	t :: #sparse[Label]int{.A = 1, .B = 3}
+	return t[.B]
+}
+`,
+	)
+	procedure, ok := check_procedure_source(t, source)
+	if !ok { return }
+	testing.expect(t, procedure.body_state == .Complete)
 }

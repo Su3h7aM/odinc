@@ -28,15 +28,17 @@ expression_index :: proc(
 	is_pointer_to_array := false
 	if base_descriptor.kind == .Pointer {
 		pointed_descriptor := types.get(store, types.resolve_named(store, base_descriptor.elem))
-		if pointed_descriptor.kind == .Array {
+		if pointed_descriptor.kind == .Array || pointed_descriptor.kind == .Enumerated_Array {
 			base_descriptor = pointed_descriptor
 			is_pointer_to_array = true
 		}
 	}
 	is_array := base_descriptor.kind == .Array
+	is_dynamic_array := base_descriptor.kind == .Dynamic_Array
+	is_enumerated_array := base_descriptor.kind == .Enumerated_Array
 	is_string := base_descriptor.kind == .String || base_descriptor.kind == .String16
 	is_multi_pointer := base_descriptor.kind == .Multi_Pointer
-	if !is_array && !is_string && !is_multi_pointer && base_descriptor.kind != .Slice {
+	if !is_array && !is_dynamic_array && !is_enumerated_array && !is_string && !is_multi_pointer && base_descriptor.kind != .Slice {
 		return expression_unsupported(checker, view, scope, node, "Index_Base")
 	}
 	length := base_descriptor.count
@@ -50,7 +52,11 @@ expression_index :: proc(
 		element_type = types.sized_integer(checker.type_checker.store, element_width, false)
 		mode = .Value
 	}
-	position := check_expression(checker, view, scope, access.index) or_return
+	position_hint := types.TYPE_NONE
+	if is_enumerated_array || (is_pointer_to_array && base_descriptor.kind == .Enumerated_Array) {
+		position_hint = base_descriptor.index
+	}
+	position := check_expression(checker, view, scope, access.index, position_hint) or_return
 	if position.state == .Invalid { return expression_poison(scope), nil }
 	if conversion_untyped(types.get(checker.type_checker.store, position.type).kind) {
 		position = check_expression(checker, view, scope, access.index, checker.default_integer) or_return
@@ -95,9 +101,18 @@ expression_slice :: proc(
 	if base.type == types.TYPE_NONE { return expression_missing_operand_type(checker, view, scope, access.expr, base.mode) }
 	store := checker.type_checker.store
 	base_descriptor := types.get(store, types.resolve_named(store, base.type))
+	has_pointer_base := base_descriptor.kind == .Pointer
+	if has_pointer_base {
+		base.type = base_descriptor.elem
+		base_descriptor = types.get(store, types.resolve_named(store, base_descriptor.elem))
+	}
 	is_multi_pointer := base_descriptor.kind == .Multi_Pointer
 	is_string := base_descriptor.kind == .String || base_descriptor.kind == .String16
-	if (base_descriptor.kind != .Array || base.mode != .Variable) && base_descriptor.kind != .Slice && !is_multi_pointer && !is_string {
+	if (base_descriptor.kind != .Array || base.mode != .Variable) &&
+	   base_descriptor.kind != .Slice &&
+	   !is_multi_pointer &&
+	   !is_string &&
+	   base_descriptor.kind != .Dynamic_Array {
 		return expression_unsupported(checker, view, scope, node, "Slice_Base")
 	}
 	slice_type := types.intern(store, types.Type{kind = .Slice, elem = base_descriptor.elem})
