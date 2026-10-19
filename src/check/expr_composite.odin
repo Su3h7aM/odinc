@@ -54,7 +54,7 @@ expression_composite :: proc(
 	if descriptor.kind == .Bit_Set { return expression_composite_bit_set(checker, view, scope, node, type) }
 	if descriptor.kind == .Slice { return expression_slice_literal(checker, view, file_id, scope, node, type, descriptor.elem) }
 	is_array := descriptor.kind == .Array || descriptor.kind == .Enumerated_Array || descriptor.kind == .Simd_Vector
-	if descriptor.kind != .Struct && descriptor.kind != .Bit_Field && !is_array {
+	if descriptor.kind != .Struct && descriptor.kind != .Bit_Field && descriptor.kind != .Any && !is_array {
 		reason := "Composite_Type"
 		#partial switch descriptor.kind {
 		case .Slice:
@@ -67,6 +67,12 @@ expression_composite :: proc(
 		return expression_unsupported(checker, view, scope, node, reason)
 	}
 	fields := descriptor.fields
+	if descriptor.kind == .Any {
+		fields = []types.Type_Field {
+			{name = "data", type = types.intern(store, types.Type{kind = .Raw_Pointer})},
+			{name = "id", type = types.intern(store, types.Type{kind = .Type_Id})},
+		}
+	}
 	elements := syntax.node_list(file.ast, literal.elems)
 	if is_array {
 		if descriptor.kind == .Array && i64(len(elements)) != descriptor.count && len(elements) > 0 && file.ast.nodes[elements[0]].kind != .Field_Value {
@@ -145,7 +151,7 @@ expression_composite :: proc(
 			for id, index in constants { if id == 0 { constants[index] = counter } }
 		}
 	}
-	if count > 0 && descriptor.kind != .Bit_Field && !slice.contains(constants, 0) && (len(values) == count || descriptor.sparse) {
+	if count > 0 && descriptor.kind != .Bit_Field && descriptor.kind != .Any && !slice.contains(constants, 0) && (len(values) == count || descriptor.sparse) {
 		constant, constant_error := constant_pool_intern_aggregate(checker.constants, type, constants)
 		if constant_error != nil {
 			expression_constant_failure(checker, file_id, node, constant_error) or_return
