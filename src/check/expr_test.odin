@@ -330,3 +330,19 @@ text :: proc "contextless" (value: Value) -> string {
 	procedure, ok := check_procedure_source(t, source, procedure_name = "text")
 	if ok { testing.expect(t, procedure.body_state == .Complete) }
 }
+
+@(test)
+unary_arithmetic_negates_arrays_element_wise :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(
+		`package sample
+Vec2 :: distinct [2]f32
+negate :: proc "contextless" (value: Vec2, count: [2]int) -> Vec2 {
+	_ = +value
+	_ = ~count
+	return -value
+}
+`,
+	)
+	procedure, ok := check_procedure_source(t, source, procedure_name = "negate")
+	if ok { testing.expect(t, procedure.body_state == .Complete) }
+}
