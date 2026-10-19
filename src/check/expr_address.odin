@@ -146,7 +146,8 @@ expression_field :: proc(
 	if descriptor.kind == .Array {
 		return expression_array_selector(checker, view, file_id, scope, node, base, descriptor^, indirect, hint)
 	}
-	if (descriptor.kind != .Struct && descriptor.kind != .Bit_Field && descriptor.kind != .Any) ||
+	is_container := descriptor.kind == .Dynamic_Array || descriptor.kind == .Map
+	if (descriptor.kind != .Struct && descriptor.kind != .Bit_Field && descriptor.kind != .Any && !is_container) ||
 	   (!indirect && base.mode != .Variable && base.mode != .Value && base.mode != .Immutable_Value && base.mode != .Context) {
 		return expression_unsupported(checker, view, scope, node, "Selector_Base")
 	}
@@ -154,7 +155,15 @@ expression_field :: proc(
 	path := make([dynamic]Member_Step, 0, allocator) or_return
 	field_type: types.Type_Id
 	found := false
-	if descriptor.kind == .Any {
+	if is_container {
+		if expression_text(file, selector.field) == "allocator" {
+			field_type = runtime_type_named(checker, "Allocator")
+			if field_type == types.TYPE_NONE { return expression_unsupported(checker, view, scope, node, "Selector_Allocator_Type") }
+			index: u32 = 3 if descriptor.kind == .Dynamic_Array else 2
+			append(&path, Member_Step{type = owner, field_index = index, indirect = indirect}) or_return
+			found = true
+		}
+	} else if descriptor.kind == .Any {
 		field := expression_text(file, selector.field)
 		index := -1
 		if field == "data" {

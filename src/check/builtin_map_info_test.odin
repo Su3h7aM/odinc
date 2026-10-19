@@ -10,6 +10,11 @@ map_info_builtins_check_map_types_and_publish_cell_info :: proc(t: ^testing.T) {
 		`package sample
 Name :: distinct string
 Table :: map[string]int
+Allocator :: struct { data: rawptr }
+array: [dynamic]int
+table: Table
+array_allocator := array.allocator
+map_allocator := table.allocator
 Map_Info :: struct { ks, vs: rawptr }
 Map_Cell_Info :: struct { size_of_type, align_of_type, size_of_cell, elements_per_cell: uintptr }
 default_hasher_fixed :: proc "contextless" (data: rawptr, seed: uintptr, size: int) -> uintptr { return seed }
