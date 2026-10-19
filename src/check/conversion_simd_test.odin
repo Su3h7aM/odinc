@@ -13,8 +13,15 @@ probe :: proc "contextless" () -> Lanes {
 	broadcast := Lanes(7)
 	return Lanes(wide)
 }
+fill :: proc "contextless" (c: u8) -> #simd[4]u8 {
+	lanes: #simd[4]u8 = c
+	lanes = c
+	return c
+}
 `,
 	)
-	procedure, ok := check_procedure_source(t, source, procedure_name = "probe")
-	if ok { testing.expect(t, procedure.body_state == .Complete) }
+	for name in ([?]string{"probe", "fill"}) {
+		procedure, ok := check_procedure_source(t, source, procedure_name = name)
+		if ok { testing.expect(t, procedure.body_state == .Complete) }
+	}
 }

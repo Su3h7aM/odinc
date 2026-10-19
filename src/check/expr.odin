@@ -413,6 +413,20 @@ check_expression :: proc(
 	if hint != 0 && info.state != .Invalid && info.type != hint {
 		// A constant is its own retained source. Runtime expressions need a separate cast node.
 		if info.mode != .Constant {
+			destination := types.get(checker.type_checker.store, conversion_base_type(checker.type_checker.store, hint))^
+			if simd_broadcast_allowed(destination, info.type) {
+				expression_store(checker, view, node, info)
+				return expression_conversion(
+					checker,
+					view,
+					scope,
+					node,
+					expression_value_operand(checker, view, node, info),
+					expression_single_value(info),
+					hint,
+					.Assignment,
+				)
+			}
 			return expression_failure(checker, view, scope, node, .Mismatched_Types)
 		}
 		info = expression_conversion(checker, view, scope, node, Operand(info.constant), info, hint, .Assignment) or_return
@@ -452,7 +466,7 @@ expression_injects_union :: proc(store: ^types.Store, target, source: types.Type
 expression_boxing_plan :: proc(checker: ^Expression_Checker, plan: Plan_Id) -> Plan_Id {
 	if plan == 0 { return 0 }
 	conversion, found := checker.plans[plan].(Conversion_Plan)
-	if found && (conversion.kind == .Box || conversion.kind == .Union_Injection) { return plan }
+	if found && (conversion.kind == .Box || conversion.kind == .Union_Injection || conversion.kind == .Broadcast) { return plan }
 	return 0
 }
 

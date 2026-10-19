@@ -668,6 +668,7 @@ Conversion_Kind :: enum u8 {
 	Subtype,
 	Box,
 	Union_Injection,
+	Broadcast,
 	Type_Assertion,
 }
 Conversion_Plan :: struct {

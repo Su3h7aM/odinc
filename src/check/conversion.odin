@@ -183,7 +183,10 @@ check_conversion :: proc(
 		return {}, .Not_Assignable if kind == .Assignment else .Not_Castable, nil
 	}
 	if dst.kind == .Simd_Vector {
-		if info.mode != .Constant || !simd_broadcast_allowed(dst, info.type) { return result, .None, nil }
+		if info.mode != .Constant || !simd_broadcast_allowed(dst, info.type) {
+			if kind == .Assignment && simd_broadcast_allowed(dst, info.type) { result.plan.kind = .Broadcast }
+			return result, .None, nil
+		}
 		lanes := make([]Const_Id, int(dst.count), context.temp_allocator) or_return
 		defer delete(lanes, context.temp_allocator)
 		for &lane in lanes { lane = info.constant }
