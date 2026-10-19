@@ -11,6 +11,7 @@ Error :: enum {Short_Buffer}
 main :: proc "contextless" () {
 	pointer := &Info{writer = 1}
 	error := (Error).Short_Buffer
+	#assert(Info{writer = 7}.writer == 7)
 }
 `,
 	)

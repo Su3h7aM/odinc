@@ -148,7 +148,7 @@ expression_field :: proc(
 	}
 	is_container := descriptor.kind == .Dynamic_Array || descriptor.kind == .Map
 	if (descriptor.kind != .Struct && descriptor.kind != .Bit_Field && descriptor.kind != .Any && !is_container) ||
-	   (!indirect && base.mode != .Variable && base.mode != .Value && base.mode != .Immutable_Value && base.mode != .Context) {
+	   (!indirect && base.mode != .Variable && base.mode != .Value && base.mode != .Immutable_Value && base.mode != .Context && base.mode != .Constant) {
 		return expression_unsupported(checker, view, scope, node, "Selector_Base")
 	}
 	allocator := mem.dynamic_arena_allocator(&checker.arena)
@@ -179,6 +179,19 @@ expression_field :: proc(
 		field_type, found = field_path(checker, owner, indirect, expression_text(file, selector.field), &path)
 	}
 	if !found { return expression_failure(checker, view, scope, selector.field, .Undeclared_Name) }
+	if base.mode == .Constant && !indirect {
+		constant := base.constant
+		for step in path {
+			value := constant_pool_get(checker.constants, constant)
+			if value == nil { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
+			aggregate, is_aggregate := value.value.(Aggregate_Value)
+			if !is_aggregate || int(step.field_index) >= len(aggregate.elements) {
+				return expression_failure(checker, view, scope, node, .Invalid_Operand)
+			}
+			constant = aggregate.elements[step.field_index]
+		}
+		return Expression_Info{type = field_type, constant = constant, mode = .Constant, scope = scope, state = .Checked}, nil
+	}
 	plan := Plan_Id(len(checker.plans))
 	place := Place_Plan {
 		root = Operand(Expression_Ref{view, selector.expr}),
