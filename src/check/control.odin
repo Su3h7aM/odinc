@@ -240,7 +240,7 @@ expression_local_constant :: proc(checker: ^Expression_Checker, view: View_Id, f
 	declaration := syntax.node_payload(file.ast, node, syntax.Value_Decl)
 	names := syntax.node_list(file.ast, declaration.names)
 	values := syntax.node_list(file.ast, declaration.values)
-	if declaration.type != 0 || len(names) == 0 || len(values) != len(names) {
+	if len(names) == 0 || len(values) != len(names) {
 		expression_unsupported(checker, view, scope, node, "Local_Constant_Declaration") or_return
 		return nil
 	}
@@ -290,7 +290,12 @@ expression_local_constant :: proc(checker: ^Expression_Checker, view: View_Id, f
 			if target == types.TYPE_POISON { return nil }
 			entity.kind, entity.type = .Type_Name, target
 		} else {
-			value := check_expression(checker, view, scope, values[index]) or_return
+			hint := types.TYPE_NONE
+			if declaration.type != 0 {
+				hint = type_expression(checker.type_checker, file_id, scope, declaration.type, true) or_return
+				if hint == types.TYPE_POISON { return nil }
+			}
+			value := check_expression(checker, view, scope, values[index], hint) or_return
 			if value.state == .Invalid { return nil }
 			if value.mode == .Builtin {
 				entity.kind = .Builtin

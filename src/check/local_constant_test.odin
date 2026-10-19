@@ -41,3 +41,21 @@ main :: proc "contextless" () -> u8 {
 	if !ok { return }
 	testing.expect(t, procedure.body_state == .Complete)
 }
+
+@(test)
+explicitly_typed_block_constants_resolve :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(
+		`package sample
+main :: proc "contextless" () -> u8 {
+	LIMIT : u8 : 2
+	return twice(LIMIT)
+	twice :: proc "contextless" (value: u8) -> u8 {
+		return value + value
+	}
+}
+`,
+	)
+	procedure, ok := check_procedure_source(t, source)
+	if !ok { return }
+	testing.expect(t, procedure.body_state == .Complete)
+}
