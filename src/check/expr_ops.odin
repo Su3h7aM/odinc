@@ -101,6 +101,10 @@ expression_binary :: proc(
 		right_hint := types.Type_Id(0)
 		left_base := types.get(checker.type_checker.store, conversion_base_type(checker.type_checker.store, left.type)).kind
 		if file.ast.nodes[binary.right].kind == .Implicit_Selector_Expr || expression_string_kind(left_base) { right_hint = left.type }
+		is_equality := binary.op.kind == .Cmp_Eq || binary.op.kind == .Not_Eq
+		if is_equality && file.ast.nodes[binary.right].kind == .Comp_Lit && syntax.node_payload(file.ast, binary.right, syntax.Comp_Lit).type == 0 {
+			right_hint = left.type
+		}
 		unwrapped_right := binary.right
 		for file.ast.nodes[unwrapped_right].kind == .Paren_Expr {
 			unwrapped_right = syntax.node_payload(file.ast, unwrapped_right, syntax.Paren_Expr).expr
