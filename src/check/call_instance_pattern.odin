@@ -84,8 +84,9 @@ poly_match_pattern :: proc(match: ^Poly_Match, pattern: syntax.Node_Index, argum
 		elem := syntax.node_payload(file.ast, pattern, syntax.Multi_Pointer_Type).elem
 		return poly_match_element(match, .Multi_Pointer, elem, argument)
 	case .Dynamic_Array_Type:
-		elem := syntax.node_payload(file.ast, pattern, syntax.Dynamic_Array_Type).elem
-		return poly_match_element(match, .Dynamic_Array, elem, argument)
+		array := syntax.node_payload(file.ast, pattern, syntax.Dynamic_Array_Type)
+		if array.tag != 0 { return false, nil }
+		return poly_match_element(match, .Dynamic_Array, array.elem, argument)
 	case .Array_Type:
 		array := syntax.node_payload(file.ast, pattern, syntax.Array_Type)
 		if array.tag != 0 { return false, nil }
