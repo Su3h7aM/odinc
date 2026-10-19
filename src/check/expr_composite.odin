@@ -176,11 +176,20 @@ expression_composite :: proc(
 		value_operand := Operand(Expression_Ref{view, value_node})
 		conversion := expression_boxing_plan(checker, value.plan)
 		constant_element := value.constant != 0 && expression_constant_element(checker, store, is_array, element_type, value.plan)
+		variant, variant_error := expression_union_variant_value(checker, element_type, value)
+		if variant_error != nil {
+			expression_constant_failure(checker, file_id, node, variant_error) or_return
+			return expression_poison(scope), nil
+		}
 		for index in first ..= last {
 			append(&values, value_operand) or_return
 			append(&indices, u32(index)) or_return
 			append(&conversions, conversion) or_return
-			if constant_element { constants[index] = value.constant }
+			if constant_element {
+				constants[index] = value.constant
+			} else if variant != 0 {
+				constants[index] = variant
+			}
 		}
 	}
 	for _, index in constants {

@@ -384,10 +384,21 @@ expression_binary :: proc(
 			constant, failure = constant_binary_operator(checker.constants, operator, left.constant, right.constant, info.type, .Trap, store)
 		}
 		if failure != nil {
-			expression_constant_failure(checker, checker.views[view].file, node, failure) or_return
-			return expression_poison(scope), nil
+			// Official check_comparison folds only constant types; other constant operands compare at runtime.
+			demoted := false
+			if comparison {
+				if pool_failure, is_pool_failure := failure.(Constant_Pool_Error); is_pool_failure && pool_failure == .Invalid_Operand {
+					left.mode, right.mode = .Value, .Value
+					demoted = true
+				}
+			}
+			if !demoted {
+				expression_constant_failure(checker, checker.views[view].file, node, failure) or_return
+				return expression_poison(scope), nil
+			}
+		} else {
+			info.mode, info.constant = .Constant, constant
 		}
-		info.mode, info.constant = .Constant, constant
 	}
 	return info, nil
 }

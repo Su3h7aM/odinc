@@ -118,6 +118,8 @@ check_conversion :: proc(
 	if kind == .Assignment && !untyped && dst.kind == .Union && info.type != target && conversion_union_variant(store, dst.variants, info.type) {
 		result.plan.kind = .Union_Injection
 		result.plan.source_type = info.type
+		// The injected constant stays available to constant aggregates; runtime injection lowers it identically.
+		if info.mode == .Constant && info.constant != 0 { result.plan.source = Operand(info.constant) }
 		return result, .None, nil
 	}
 	if kind == .Assignment && untyped && src.kind != .Untyped_Nil && dst.kind == .Union {

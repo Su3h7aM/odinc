@@ -119,3 +119,23 @@ expression_union_variant_constant :: proc(store: ^types.Store, type: types.Type_
 	}
 	return expression_constant_basic(store, type)
 }
+
+// A field value injected into a constantable union keeps its constant as the union's variant value.
+@(private = "package")
+expression_union_variant_value :: proc(
+	checker: ^Expression_Checker,
+	element_type: types.Type_Id,
+	value: Expression_Info,
+) -> (
+	variant: Const_Id,
+	err: Constant_Error,
+) {
+	if value.plan == 0 { return 0, nil }
+	conversion, found := checker.plans[value.plan].(Conversion_Plan)
+	if !found || conversion.kind != .Union_Injection { return 0, nil }
+	source, is_constant := conversion.source.(Const_Id)
+	if !is_constant || source == 0 { return 0, nil }
+	store := checker.type_checker.store
+	if !expression_union_variant_constant(store, element_type) { return 0, nil }
+	return constant_pool_intern_variant(checker.constants, element_type, source)
+}
