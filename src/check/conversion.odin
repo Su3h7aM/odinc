@@ -81,6 +81,19 @@ check_conversion :: proc(
 		assigned, assignment_diagnostic, assignment_error := check_conversion(pool, store, source, info, target, .Assignment, config)
 		if assignment_error != nil { return {}, .None, assignment_error }
 		if assignment_diagnostic == .None { return assigned, .None, nil }
+		if core_source.kind == .Simd_Vector && core_target.kind == .Simd_Vector {
+			if core_source.count != core_target.count { return {}, .Not_Castable, nil }
+			element := Expression_Info {
+				type  = core_source.elem,
+				mode  = .Value,
+				scope = info.scope,
+				state = .Checked,
+			}
+			_, element_diagnostic, element_error := check_conversion(pool, store, source, element, core_target.elem, .Cast, config)
+			if element_error != nil { return {}, .None, element_error }
+			if element_diagnostic != .None { return {}, .Not_Castable, nil }
+			return result, .None, nil
+		}
 	}
 	if kind == .Assignment && !untyped && dst.kind == .Any && src.kind != .Any {
 		result.plan.kind = .Box

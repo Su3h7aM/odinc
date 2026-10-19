@@ -8,7 +8,10 @@ simd_constant_declaration_broadcasts_scalar_constant :: proc(t: ^testing.T) {
 		`package sample
 Lanes :: #simd[4]u8
 MIN_LANES: Lanes : u8(0xff)
-probe :: proc "contextless" () -> Lanes { return MIN_LANES }
+probe :: proc "contextless" () -> Lanes {
+	wide := (#simd[4]u16)(MIN_LANES)
+	return Lanes(wide)
+}
 `,
 	)
 	procedure, ok := check_procedure_source(t, source, procedure_name = "probe")
