@@ -5,6 +5,32 @@ import "core:slice"
 import "oc:syntax"
 import "oc:types"
 
+// An inferred `[?]T` takes its length from the largest index, so a range key may pass the element count.
+@(private = "file")
+expression_inferred_length :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	scope: Scope_Id,
+	file_id: File_Id,
+	elements: []syntax.Node_Index,
+) -> (
+	length: i64,
+	failed: bool,
+	err: Resolve_Error,
+) {
+	file := checker.type_checker.files[file_id]
+	length = i64(len(elements))
+	for element in elements {
+		if file.ast.nodes[element].kind != .Field_Value { continue }
+		pair := syntax.node_payload(file.ast, element, syntax.Field_Value)
+		_, last, key_failed, key_error := expression_array_key(checker, view, scope, file_id, pair.field, checker.default_integer)
+		if key_error != nil { return 0, false, key_error }
+		if key_failed { return 0, true, nil }
+		length = max(length, last + 1)
+	}
+	return length, false, nil
+}
+
 // Positional and named (`field = value`) elements become operands in declaration order of the plan's field indices.
 @(private = "package")
 expression_composite :: proc(
@@ -35,10 +61,16 @@ expression_composite :: proc(
 			if length != 0 && file.ast.nodes[length].kind == .Unary_Expr && syntax.node_payload(file.ast, length, syntax.Unary_Expr).op.kind == .Question {
 				element := type_expression(checker.type_checker, file_id, scope, array.elem, true) or_return
 				if element == types.TYPE_POISON { return expression_poison(scope), nil }
-				type = types.intern(
-					checker.type_checker.store,
-					types.Type{kind = .Array, elem = element, count = i64(len(syntax.node_list(file.ast, literal.elems)))},
+				inferred_length, length_failed, length_error := expression_inferred_length(
+					checker,
+					view,
+					scope,
+					file_id,
+					syntax.node_list(file.ast, literal.elems),
 				)
+				if length_error != nil { return {}, length_error }
+				if length_failed { return expression_poison(scope), nil }
+				type = types.intern(checker.type_checker.store, types.Type{kind = .Array, elem = element, count = inferred_length})
 			} else {
 				type = type_expression(checker.type_checker, file_id, scope, literal.type, true) or_return
 			}
