@@ -29,7 +29,22 @@ lower_conversion_value :: proc(
 	value := initial_value
 	if plan.kind == .Box { return lower_box_value(state, node, source_id, value) }
 	if plan.kind == .Union_Injection { return lower_union_injection(state, node, plan, source_id, value) }
-	if len(plan.path) != 0 { return lower_fail(state, node, .Conversion) }
+	if len(plan.path) != 0 {
+		store := check.type_store(state.job.program)
+		field_type := source_id
+		for step, index in plan.path {
+			if index != 0 && step.indirect { value = lower_load(state, value, field_type) }
+			owner := types.get(store, types.resolve_named(store, step.type))
+			if owner.kind != .Struct || int(step.field_index) >= len(owner.fields) { return lower_fail(state, node, .Conversion) }
+			offset, offset_error := types.field_offset(store, step.type, int(step.field_index))
+			if offset_error != .None { return lower_fail(state, node, .Conversion) }
+			value = ir.ptr_offset(state.job.function, value, i64(offset))
+			field_type = owner.fields[step.field_index].type
+		}
+		target := types.get(store, types.resolve_named(store, plan.target))
+		if target.kind == .Pointer && field_type == target.elem { return value }
+		return lower_load(state, value, plan.target)
+	}
 	store := check.type_store(state.job.program)
 	source_kind := types.get(store, types.resolve_named(store, source_id)).kind
 	target_kind := types.get(store, types.resolve_named(store, plan.target)).kind
