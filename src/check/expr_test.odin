@@ -290,3 +290,25 @@ split :: proc "contextless" (s: ^string) -> u32 {
 	if !ok { return }
 	testing.expect(t, procedure.body_state == .Complete)
 }
+
+@(test)
+map_index_checks_comma_ok_through_pointer_and_local_writes :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(
+		`package sample
+Table :: map[string]int
+read :: proc "contextless" (table: ^Table) -> (int, bool) {
+	value, ok := table["a"]
+	return value, ok
+}
+write :: proc "contextless" () -> int {
+	local: Table
+	local["a"] = 1
+	return local["a"]
+}
+`,
+	)
+	for name in ([?]string{"read", "write"}) {
+		procedure, ok := check_procedure_source(t, source, procedure_name = name)
+		if ok { testing.expect(t, procedure.body_state == .Complete) }
+	}
+}

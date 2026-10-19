@@ -26,7 +26,7 @@ expression_multiple_assignment :: proc(
 		}
 		destination := check_expression(checker, view, scope, target) or_return
 		if destination.state == .Invalid { return nil }
-		if destination.mode != .Variable && destination.mode != .Context {
+		if !expression_assignable(checker, destination) {
 			expression_unsupported(checker, view, scope, target, "Assign_Destination_Mode") or_return
 			return nil
 		}
@@ -53,11 +53,9 @@ expression_multiple_assignment :: proc(
 				results = plan.results
 			}
 		}
-		if assertion, is_assertion := checker.plans[value.plan].(Type_Assertion_Plan); is_assertion && len(left) - len(values) == 2 {
-			assertion.comma_ok = true
-			checker.plans[value.plan] = Plan(assertion)
+		if value_type, is_pair := comma_ok_value_type(checker, value, len(left) - len(values) == 2); is_pair {
 			for result_index in 0 ..< 2 {
-				result_type := assertion.target_type if result_index == 0 else checker.boolean
+				result_type := value_type if result_index == 0 else checker.boolean
 				target := targets[len(values)]
 				if target != 0 && target != result_type {
 					converted := expression_conversion(
@@ -150,4 +148,24 @@ expression_multiple_assignment :: proc(
 	append(&checker.plans, Plan(Assignment_Plan{destinations = destinations, values = values[:], conversions = conversions[:]})) or_return
 	expression_store(checker, view, node, Expression_Info{scope = scope, state = .Checked, plan = plan})
 	return nil
+}
+
+// Marks a type assertion or map index as its two-result comma-ok form when `pair` is true. Returns the type of its value result.
+@(private = "package")
+comma_ok_value_type :: proc(checker: ^Expression_Checker, info: Expression_Info, pair: bool) -> (value_type: types.Type_Id, ok: bool) {
+	if !pair || info.plan == 0 { return 0, false }
+	#partial switch plan in checker.plans[info.plan] {
+	case Type_Assertion_Plan:
+		assertion := plan
+		assertion.comma_ok = true
+		checker.plans[info.plan] = Plan(assertion)
+		return assertion.target_type, true
+	case Map_Index_Plan:
+		if info.mode != .Map_Index { return 0, false }
+		indexed := plan
+		indexed.comma_ok = true
+		checker.plans[info.plan] = Plan(indexed)
+		return info.type, true
+	}
+	return 0, false
 }

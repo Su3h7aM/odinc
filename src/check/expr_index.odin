@@ -25,13 +25,11 @@ expression_index :: proc(
 	if base.type == types.TYPE_NONE { return expression_missing_operand_type(checker, view, scope, access.expr, base.mode) }
 	store := checker.type_checker.store
 	base_descriptor := types.get(store, types.resolve_named(store, base.type))
-	is_pointer_to_array := false
-	if base_descriptor.kind == .Pointer {
-		pointed_descriptor := types.get(store, types.resolve_named(store, base_descriptor.elem))
-		if pointed_descriptor.kind == .Array || pointed_descriptor.kind == .Enumerated_Array {
-			base_descriptor = pointed_descriptor
-			is_pointer_to_array = true
-		}
+	is_pointer := base_descriptor.kind == .Pointer
+	if is_pointer { base_descriptor = types.get(store, types.resolve_named(store, base_descriptor.elem)) }
+	if base_descriptor.kind == .Map {
+		writable := base.mode == .Variable || is_pointer
+		return expression_map_index(checker, view, scope, access.expr, access.index, base_descriptor.index, base_descriptor.elem, writable)
 	}
 	is_array := base_descriptor.kind == .Array
 	is_dynamic_array := base_descriptor.kind == .Dynamic_Array
@@ -44,7 +42,7 @@ expression_index :: proc(
 	length := base_descriptor.count
 	element_type := base_descriptor.elem
 	mode := Addressing_Mode.Variable
-	if is_array && !is_pointer_to_array && base.mode != .Variable {
+	if is_array && !is_pointer && base.mode != .Variable {
 		mode = .Value
 	}
 	if is_string {
@@ -53,7 +51,7 @@ expression_index :: proc(
 		mode = .Value
 	}
 	position_hint := types.TYPE_NONE
-	if is_enumerated_array || (is_pointer_to_array && base_descriptor.kind == .Enumerated_Array) {
+	if is_enumerated_array {
 		position_hint = base_descriptor.index
 	}
 	position := check_expression(checker, view, scope, access.index, position_hint) or_return
@@ -137,4 +135,47 @@ expression_slice :: proc(
 	result_type := slice_type
 	if is_string || (is_multi_pointer && access.high == 0) { result_type = base.type }
 	return Expression_Info{type = result_type, mode = .Value, plan = plan, scope = scope, state = .Checked}, nil
+}
+
+Map_Index_Plan :: struct {
+	map_value: Operand,
+	key:       Operand,
+	comma_ok:  bool,
+	writable:  bool,
+}
+
+// An element is assignable when its map is a variable or a pointer, as check_stmt.cpp:543-560 requires.
+@(private = "package")
+expression_assignable :: proc(checker: ^Expression_Checker, info: Expression_Info) -> bool {
+	#partial switch info.mode {
+	case .Variable, .Context:
+		return true
+	case .Map_Index:
+		plan, is_map := checker.plans[info.plan].(Map_Index_Plan)
+		return is_map && plan.writable
+	}
+	return false
+}
+
+// Map indexing yields the element with mode .Map_Index. Its key takes the key type as a hint, as official check_expr.cpp:13034-13047 does.
+@(private = "file")
+expression_map_index :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	scope: Scope_Id,
+	map_node, key_node: syntax.Node_Index,
+	key_type, value_type: types.Type_Id,
+	writable: bool,
+) -> (
+	info: Expression_Info,
+	err: Resolve_Error,
+) {
+	key := check_expression(checker, view, scope, key_node, key_type) or_return
+	if key.state == .Invalid { return expression_poison(scope), nil }
+	plan := Plan_Id(len(checker.plans))
+	append(
+		&checker.plans,
+		Plan(Map_Index_Plan{map_value = Operand(Expression_Ref{view, map_node}), key = Operand(Expression_Ref{view, key_node}), writable = writable}),
+	) or_return
+	return Expression_Info{type = value_type, mode = .Map_Index, plan = plan, scope = scope, state = .Checked}, nil
 }

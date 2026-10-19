@@ -364,7 +364,7 @@ expression_assignment :: proc(checker: ^Expression_Checker, view: View_Id, file_
 	}
 	destination := check_expression(checker, view, scope, left[0]) or_return
 	if destination.state == .Invalid { return nil }
-	if destination.mode != .Variable && destination.mode != .Context {
+	if !expression_assignable(checker, destination) {
 		expression_unsupported(checker, view, scope, left[0], "Assign_Destination_Mode") or_return
 		return nil
 	}
@@ -487,10 +487,8 @@ expression_local_declaration :: proc(
 			is_call := false
 			is_assertion_results := false
 			if value.plan != 0 {
-				if assertion, is_assertion := checker.plans[value.plan].(Type_Assertion_Plan); is_assertion && len(names) == 2 {
-					variable_types[0], variable_types[1] = assertion.target_type, checker.boolean
-					assertion.comma_ok = true
-					checker.plans[value.plan] = Plan(assertion)
+				if value_type, is_pair := comma_ok_value_type(checker, value, len(names) == 2); is_pair {
+					variable_types[0], variable_types[1] = value_type, checker.boolean
 					is_call, is_assertion_results = true, true
 				}
 				#partial switch plan in checker.plans[value.plan] {

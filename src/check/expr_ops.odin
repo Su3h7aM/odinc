@@ -295,5 +295,12 @@ expression_binary :: proc(
 
 @(private = "package")
 expression_value :: proc(info: Expression_Info) -> bool {
-	return info.mode == .Constant || info.mode == .Variable || info.mode == .Immutable_Value || info.mode == .Value || info.mode == .Optional_Ok
+	return(
+		info.mode == .Constant ||
+		info.mode == .Variable ||
+		info.mode == .Immutable_Value ||
+		info.mode == .Value ||
+		info.mode == .Optional_Ok ||
+		info.mode == .Map_Index \
+	)
 }
