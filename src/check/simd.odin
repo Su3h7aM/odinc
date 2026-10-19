@@ -57,7 +57,7 @@ simd_builtin_kind :: proc(kind: Builtin_Kind) -> bool {
 		return true
 	case .Simd_Saturating_Add, .Simd_Saturating_Sub:
 		return true
-	case .Simd_Ceil, .Simd_Floor, .Simd_Trunc, .Simd_Nearest, .Simd_Approx_Recip, .Simd_Approx_Recip_Sqrt:
+	case .Simd_Ceil, .Simd_Floor, .Simd_Trunc, .Simd_Nearest, .Simd_Approx_Recip, .Simd_Approx_Recip_Sqrt, .Simd_Abs, .Simd_Neg:
 		return true
 	case .Simd_Gather, .Simd_Scatter, .Simd_Masked_Load, .Simd_Masked_Store, .Simd_Masked_Expand_Load, .Simd_Masked_Compress_Store:
 		return true
@@ -124,12 +124,17 @@ expression_simd_call :: proc(
 	mode := Addressing_Mode.Value
 	operands: []Operand
 	#partial switch kind {
-	case .Simd_Ceil, .Simd_Floor, .Simd_Trunc, .Simd_Nearest, .Simd_Approx_Recip, .Simd_Approx_Recip_Sqrt:
+	case .Simd_Ceil, .Simd_Floor, .Simd_Trunc, .Simd_Nearest, .Simd_Approx_Recip, .Simd_Approx_Recip_Sqrt, .Simd_Abs, .Simd_Neg:
 		if len(arguments) != 1 { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
 		value := check_expression(checker, view, scope, arguments[0]) or_return
 		if value.state == .Invalid { return expression_poison(scope), nil }
 		vector, is_vector := simd_vector(store, value.type)
-		if !is_vector || !expression_value(value) || simd_element_kind(store, vector.elem) != .Float {
+		if !is_vector || !expression_value(value) {
+			return expression_failure(checker, view, scope, arguments[0], .Invalid_Operand)
+		}
+		element_kind := simd_element_kind(store, vector.elem)
+		integer_allowed := kind == .Simd_Abs || kind == .Simd_Neg
+		if element_kind != .Float && !(integer_allowed && element_kind == .Integer) {
 			return expression_failure(checker, view, scope, arguments[0], .Invalid_Operand)
 		}
 		operands = make([]Operand, 1, allocator) or_return

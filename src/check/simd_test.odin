@@ -6,11 +6,21 @@ import "oc:types"
 
 @(test)
 simd_rounding_preserves_vector_type :: proc(t: ^testing.T) {
-	source := transmute([]byte)string(`package sample
+	source := transmute([]byte)string(
+		`package sample
 main :: proc(a: #simd[4]f32) -> #simd[4]f32 { return simd_floor(simd_ceil(a)) }
-`)
-	procedure, ok := check_procedure_source(t, source, intrinsic_names = []string{"simd_floor", "simd_ceil"})
-	if ok { testing.expect(t, procedure.body_state == .Complete) }
+integer :: proc(a: #simd[4]i32) -> #simd[4]i32 { return simd_abs(simd_neg(a)) }
+`,
+	)
+	for name in ([?]string{"main", "integer"}) {
+		procedure, ok := check_procedure_source(
+			t,
+			source,
+			procedure_name = name,
+			intrinsic_names = []string{"simd_floor", "simd_ceil", "simd_abs", "simd_neg"},
+		)
+		if ok { testing.expect(t, procedure.body_state == .Complete) }
+	}
 }
 
 @(test)
