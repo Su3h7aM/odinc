@@ -203,6 +203,8 @@ lower_call_results :: proc(state: ^Procedure_State, node: syntax.Node_Index, inf
 		value: ir.Node_Id
 		if argument.variadic_pack {
 			value = lower_variadic_slice(state, node, argument, descriptor.params[position])
+		} else if argument.variadic_spread {
+			value = lower_variadic_spread(state, node, argument, descriptor.params[position])
 		} else if argument.conversion != 0 {
 			value = lower_conversion(state, check.plan(state.job.program, argument.conversion)^.(check.Conversion_Plan), node)
 		} else if argument.caller_location {

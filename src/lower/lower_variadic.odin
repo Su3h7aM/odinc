@@ -5,6 +5,19 @@ import "oc:ir"
 import "oc:syntax"
 import "oc:types"
 
+// lower_variadic_spread passes the slice of a `..` argument as the variadic parameter's value.
+@(private)
+lower_variadic_spread :: proc(state: ^Procedure_State, node: syntax.Node_Index, argument: check.Call_Argument, slice_type: types.Type_Id) -> ir.Node_Id {
+	if lower_type(state, slice_type).kind != .Slice { return lower_fail(state, node, .Call_Argument) }
+	if argument.conversion != 0 {
+		plan, ok := check.plan(state.job.program, argument.conversion)^.(check.Conversion_Plan)
+		if !ok { return lower_fail(state, node, .Conversion) }
+		return lower_conversion(state, plan, node)
+	}
+	if !call_operand_valid(state, argument.value) { return lower_fail(state, node, .Call_Argument) }
+	return lower_operand(state, argument.value, slice_type)
+}
+
 // lower_variadic_slice stores the packed elements of a variadic argument in a stack array and returns the slice header.
 @(private)
 lower_variadic_slice :: proc(state: ^Procedure_State, node: syntax.Node_Index, argument: check.Call_Argument, slice_type: types.Type_Id) -> ir.Node_Id {

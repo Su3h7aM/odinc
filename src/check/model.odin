@@ -703,6 +703,7 @@ Call_Argument :: struct {
 	caller_location:      bool,
 	variadic_pack:        bool,
 	variadic_elements:    []Operand,
+	variadic_spread:      bool,
 	variadic_conversions: []Plan_Id,
 	tuple_element:        int,
 }

@@ -31,8 +31,17 @@ expression_call :: proc(
 	}
 	file := checker.type_checker.files[file_id]
 	positional_count := call_positional_count(file, arguments)
-	if spread && (!descriptor.variadic || len(arguments) != parameter_count || positional_count != len(arguments)) {
-		return expression_unsupported(checker, view, scope, node, "Call_Variadic_Spread")
+	variadic_index := procedure.variadic_index
+	if spread {
+		if !descriptor.variadic || variadic_index < 0 {
+			return expression_unsupported(checker, view, scope, node, "Call_Variadic_Spread")
+		}
+		if positional_count > variadic_index + 1 {
+			return expression_unsupported(checker, view, scope, node, "Call_Variadic_Spread_Arguments")
+		}
+		if positional_count != variadic_index + 1 {
+			return expression_unsupported(checker, view, scope, node, "Call_Variadic_Spread_Position")
+		}
 	}
 	expansions := call_expansions(checker, view, scope, file, arguments[:positional_count]) or_return
 	expanded_count := len(arguments)
@@ -46,9 +55,8 @@ expression_call :: proc(
 		return expression_unsupported(checker, view, scope, node, "Call_Arguments")
 	}
 	packed := descriptor.variadic && !spread
-	variadic_index := procedure.variadic_index
 	fixed_count := parameter_count
-	if packed { fixed_count = variadic_index }
+	if packed || spread { fixed_count = parameter_count if spread else variadic_index }
 	allocator := mem.dynamic_arena_allocator(&checker.arena)
 	names := make([]string, parameter_count, allocator) or_return
 	for parameter, index in procedure.parameters {
@@ -77,6 +85,7 @@ expression_call :: proc(
 				procedure.parameters[index],
 			) or_return
 			if !valid { return expression_poison(scope), nil }
+			if spread && index == variadic_index { argument.variadic_spread = true }
 			call_arguments[index] = argument
 			continue
 		}
