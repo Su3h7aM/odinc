@@ -287,6 +287,7 @@ lower_address :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> ir.No
 	if state.failed { return 0 }
 	if state.ast.nodes[node].kind == .Paren_Expr { return lower_address(state, state.ast.nodes[node].payload.(syntax.Paren_Expr).expr) }
 	info := lower_info(state, node)
+	if info.constant != 0 { return lower_value(state, node) }
 	if info.plan != 0 {
 		plan := check.plan(state.job.program, info.plan)
 		assert(plan != nil)
@@ -299,6 +300,8 @@ lower_address :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> ir.No
 		case check.Bounds_Plan:
 			if value.kind != .Index { return lower_fail(state, node, .Place) }
 			return lower_index_address(state, node, value)
+		case check.Aggregate_Plan, check.Slice_Literal_Plan:
+			return lower_value(state, node)
 		case:
 			return lower_fail(state, node, .Place)
 		}
