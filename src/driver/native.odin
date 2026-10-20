@@ -6,7 +6,6 @@ import "core:io"
 import "core:mem/virtual"
 import "oc:amd64"
 import "oc:check"
-import "oc:elf"
 import "oc:ir"
 import "oc:link"
 import "oc:lower"
@@ -35,6 +34,10 @@ Emit_Failed :: struct {
 	err:      amd64.Emit_Error,
 }
 
+Entry_Emit_Failed :: struct {
+	err: amd64.Emit_Error,
+}
+
 Link_Failed :: struct {
 	err: link.Link_Error,
 }
@@ -47,6 +50,7 @@ Build_Error :: union {
 	Select_Failed,
 	Allocate_Failed,
 	Emit_Failed,
+	Entry_Emit_Failed,
 	Link_Failed,
 }
 
@@ -118,6 +122,8 @@ write_build_error :: proc(log: io.Writer, err: Build_Error) {
 		fmt.wprintfln(log, "%s: register allocation failed: %v", value.function, value.err)
 	case Emit_Failed:
 		fmt.wprintfln(log, "%s: machine code emission failed: %v", value.function, value.err)
+	case Entry_Emit_Failed:
+		fmt.wprintfln(log, "entry code emission failed: %v", value.err)
 	case Link_Failed:
 		fmt.wprintfln(log, "link failed: %v", value.err)
 	}
@@ -303,80 +309,27 @@ build_image :: proc(module: ^ir.Module, entry_name: string, log: io.Writer, allo
 	if init_index >= 0 { init_symbol = function_symbols[init_index] }
 	fini_symbol: Maybe(u32)
 	if fini_index >= 0 { fini_symbol = function_symbols[fini_index] }
-	atoms[0] = start_atom(
-		function_symbols[main_index],
-		init_symbol,
-		fini_symbol,
-		global_symbols[context_index],
-		global_symbols[args_index],
-		u32(startup_base),
-		thread_pointer_symbol,
+	entry_atom, entry_err := amd64.emit_linux_entry(
+		amd64.Linux_Entry_Symbols {
+			main = function_symbols[main_index],
+			init = init_symbol,
+			fini = fini_symbol,
+			default_context = global_symbols[context_index],
+			args = global_symbols[args_index],
+			argc = u32(startup_base),
+			argv = u32(startup_base + 1),
+			envp = u32(startup_base + 2),
+			thread_pointer = thread_pointer_symbol,
+		},
 		scratch_allocator,
-	) or_return
+	)
+	if entry_err != nil { return nil, Entry_Emit_Failed{entry_err} }
+	atoms[0] = entry_atom
 
 	inputs := []link.Input{{atoms = atoms, symbols = symbols}}
 	linked, link_err := link.link(inputs, "_start", allocator)
 	if link_err != nil { return nil, Link_Failed{link_err} }
 	return linked, nil
-}
-
-// `_start` stores argc, argv and envp, sets the thread pointer, calls the initializer when there is one, passes the
-// default context in rdi, calls `main`, calls the finalizer when there is one, and exits 0.
-@(private)
-start_atom :: proc(
-	main_symbol: u32,
-	init_symbol, fini_symbol: Maybe(u32),
-	context_symbol, args_symbol, startup, thread_pointer: u32,
-	allocator: runtime.Allocator,
-) -> (
-	atom: link.Atom,
-	err: runtime.Allocator_Error,
-) {
-	code := make([dynamic]byte, allocator) or_return
-	relocs := make([dynamic]link.Relocation, allocator) or_return
-	append(&code, 0x48, 0x8b, 0x04, 0x24) or_return // mov rax, [rsp]
-	start_store_rip(&code, &relocs, {0x48, 0x89, 0x05}, startup) or_return // mov [argc], rax
-	append(&code, 0x48, 0x8d, 0x44, 0x24, 0x08) or_return // lea rax, [rsp + 8]
-	start_store_rip(&code, &relocs, {0x48, 0x89, 0x05}, startup + 1) or_return // mov [argv], rax
-	start_store_rip(&code, &relocs, {0x48, 0x89, 0x05}, args_symbol) or_return // mov [runtime.args__.data], rax
-	append(&code, 0x48, 0x8b, 0x0c, 0x24) or_return // mov rcx, [rsp]
-	start_rip_operand(&code, &relocs, {0x48, 0x89, 0x0d}, args_symbol, .R_X86_64_PC32, 4) or_return // mov [runtime.args__.len], rcx
-	append(&code, 0x48, 0x8b, 0x0c, 0x24) or_return // mov rcx, [rsp]
-	append(&code, 0x48, 0x8d, 0x44, 0xcc, 0x10) or_return // lea rax, [rsp + rcx * 8 + 16]
-	start_store_rip(&code, &relocs, {0x48, 0x89, 0x05}, startup + 2) or_return // mov [envp], rax
-	start_rip_operand(&code, &relocs, {0x48, 0x8d, 0x35}, thread_pointer, .R_X86_64_PC32) or_return // lea rsi, [tp]
-	append(&code, 0xbf, 0x02, 0x10, 0, 0, 0xb8, 158, 0, 0, 0, 0x0f, 0x05) or_return // arch_prctl(ARCH_SET_FS, rsi)
-	if init, has_init := init_symbol.?; has_init {
-		start_rip_operand(&code, &relocs, {0xe8}, init, .R_X86_64_PLT32) or_return
-	}
-	start_rip_operand(&code, &relocs, {0x48, 0x8d, 0x3d}, context_symbol, .R_X86_64_PC32) or_return // lea rdi, [context]
-	start_rip_operand(&code, &relocs, {0xe8}, main_symbol, .R_X86_64_PLT32) or_return
-	if fini, has_fini := fini_symbol.?; has_fini {
-		start_rip_operand(&code, &relocs, {0xe8}, fini, .R_X86_64_PLT32) or_return
-	}
-	append(&code, 0xb8, 231, 0, 0, 0, 0x31, 0xff, 0x0f, 0x05) or_return // exit_group(0)
-	return link.Atom{section = .Text, align = 16, bytes = code[:], size = u64(len(code)), relocs = relocs[:]}, nil
-}
-
-// Appends an instruction ending in a rip-relative 32-bit field that refers to `symbol`.
-@(private = "file")
-start_rip_operand :: proc(
-	code: ^[dynamic]byte,
-	relocs: ^[dynamic]link.Relocation,
-	opcode: []byte,
-	symbol: u32,
-	kind: elf.R_X86_64,
-	addend: i64 = -4,
-) -> runtime.Allocator_Error {
-	append(code, ..opcode) or_return
-	append(relocs, link.Relocation{offset = u32(len(code)), symbol = symbol, kind = kind, addend = addend}) or_return
-	_, err := append(code, 0, 0, 0, 0)
-	return err
-}
-
-@(private = "file")
-start_store_rip :: proc(code: ^[dynamic]byte, relocs: ^[dynamic]link.Relocation, opcode: []byte, symbol: u32) -> runtime.Allocator_Error {
-	return start_rip_operand(code, relocs, opcode, symbol, .R_X86_64_PC32)
 }
 
 @(private = "file")

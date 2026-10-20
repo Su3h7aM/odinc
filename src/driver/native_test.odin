@@ -6,6 +6,7 @@ import "core:path/filepath"
 import "core:strings"
 import "core:sync"
 import "core:testing"
+import "oc:amd64"
 
 process_lock: sync.Mutex
 
@@ -254,7 +255,10 @@ native_startup_initializes_auxv_across_arguments_and_environment :: proc(t: ^tes
 @(test)
 startup_initializes_runtime_args_header_before_global_initializer :: proc(t: ^testing.T) {
 	init_symbol := Maybe(u32)(2)
-	atom, err := start_atom(1, init_symbol, nil, 3, 4, 5, 6, context.allocator)
+	atom, err := amd64.emit_linux_entry(
+		amd64.Linux_Entry_Symbols{main = 1, init = init_symbol, default_context = 3, args = 4, argc = 5, argv = 6, envp = 7, thread_pointer = 8},
+		context.allocator,
+	)
 	if !testing.expect_value(t, err, nil) { return }
 	defer delete(atom.bytes, context.allocator)
 	defer delete(atom.relocs, context.allocator)
