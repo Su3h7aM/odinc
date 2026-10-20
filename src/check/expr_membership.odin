@@ -25,6 +25,12 @@ expression_membership :: proc(
 	if descriptor.kind == .Map {
 		key := check_expression(checker, view, scope, binary.left, descriptor.index) or_return
 		if key.state == .Invalid { return expression_poison(scope), nil }
+		if !generator_supported(store, descriptor.index) {
+			return expression_unsupported(checker, view, scope, node, "Map_Info_Key")
+		}
+		_, helper_error := expression_resolve_map_helpers(checker)
+		if helper_error != nil { return {}, helper_error }
+		append(&checker.plans, Plan(Map_Info_Plan{type = types.resolve_named(store, set.type)})) or_return
 		return expression_membership_value(checker, scope), nil
 	}
 	if descriptor.kind != .Bit_Set { return expression_failure(checker, view, scope, node, .Invalid_Operator) }

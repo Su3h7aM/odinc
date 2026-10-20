@@ -7,15 +7,23 @@ import "oc:types"
 
 // Runtime procedures that generated map hashers and equality procedures call.
 map_helper_names := [?]string{"default_hasher_fixed", "default_hasher_string", "default_hasher_string16", "default_hasher_f64", "memory_equal"}
+map_runtime_helper_names := [?]string{"map_seed_from_map_data", "__dynamic_map_get"}
 
 @(private = "package")
 expression_resolve_map_helpers :: proc(checker: ^Expression_Checker) -> (resolved: bool, err: Resolve_Error) {
 	collection := checker.type_checker.collection
 	if collection == nil || collection.runtime_scope == 0 { return false, nil }
 	scopes := checker.type_checker.resolver.scopes
-	for name in map_helper_names {
+	for name in map_runtime_helper_names {
 		helper := scope_lookup_current(scopes, collection.runtime_scope, name)
 		if helper == 0 { return false, nil }
+		_, resolve_error := resolve_entity(checker.type_checker.resolver, helper)
+		if resolve_error != nil { return false, resolve_error }
+		if entity_get(scopes, helper).state != .Resolved { return false, nil }
+	}
+	for name in map_helper_names {
+		helper := scope_lookup_current(scopes, collection.runtime_scope, name)
+		if helper == 0 { continue }
 		_, resolve_error := resolve_entity(checker.type_checker.resolver, helper)
 		if resolve_error != nil { return false, resolve_error }
 		if entity_get(scopes, helper).state != .Resolved { return false, nil }
@@ -110,6 +118,10 @@ map_helper_entities :: proc(checker: ^Expression_Checker) -> (helpers: []Entity_
 	allocator := mem.dynamic_arena_allocator(&checker.arena)
 	scopes := checker.type_checker.resolver.scopes
 	list := make([dynamic]Entity_Id, allocator) or_return
+	for name in map_runtime_helper_names {
+		helper := scope_lookup_current(scopes, collection.runtime_scope, name)
+		if helper != 0 { append(&list, helper) or_return }
+	}
 	for name in map_helper_names {
 		helper := scope_lookup_current(scopes, collection.runtime_scope, name)
 		if helper != 0 { append(&list, helper) or_return }

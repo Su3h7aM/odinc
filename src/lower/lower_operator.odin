@@ -7,6 +7,18 @@ import "oc:types"
 
 @(private)
 lower_binary :: proc(state: ^Procedure_State, node: syntax.Node_Index, expression: syntax.Binary_Expr) -> ir.Node_Id {
+	if expression.op.kind == .In || expression.op.kind == .Not_In {
+		right_info := lower_info(state, expression.right)
+		if lower_type(state, right_info.type).kind == .Map {
+			lookup := check.Map_Index_Plan {
+				map_value = check.Operand(check.Expression_Ref{state.view, expression.right}),
+				key       = check.Operand(check.Expression_Ref{state.view, expression.left}),
+			}
+			_, found := lower_map_index(state, node, lookup)
+			if state.failed { return 0 }
+			return bool_not(state.job.function, found) if expression.op.kind == .Not_In else found
+		}
+	}
 	left := lower_value(state, expression.left)
 	if state.failed { return 0 }
 	if expression.op.kind == .Cmp_And || expression.op.kind == .Cmp_Or {

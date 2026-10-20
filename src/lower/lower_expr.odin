@@ -209,6 +209,9 @@ lower_value :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> ir.Node
 		case check.Type_Assertion_Plan:
 			result, _ := lower_type_assertion(state, node, value)
 			return result
+		case check.Map_Index_Plan:
+			result, _ := lower_map_index(state, node, value)
+			return result
 		case check.Map_Info_Plan:
 			return lower_map_info_of(state, node, value)
 		case check.Map_Cell_Info_Plan:

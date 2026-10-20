@@ -26,7 +26,7 @@ lower_or_else :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: ch
 		if !value.comma_ok { return lower_fail(state, node, .Expression) }
 		values[0], values[1] = lower_type_assertion(state, call_node, value)
 	case check.Map_Index_Plan:
-		return lower_fail(state, node, .Expression)
+		values[0], values[1] = lower_map_index(state, call_node, value)
 	case:
 		return lower_fail(state, node, .Expression)
 	}

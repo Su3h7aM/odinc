@@ -17,11 +17,15 @@ array_allocator := array.allocator
 map_allocator := table.allocator
 Map_Info :: struct { ks, vs: rawptr }
 Map_Cell_Info :: struct { size_of_type, align_of_type, size_of_cell, elements_per_cell: uintptr }
+Raw_Map :: struct { data, len: uintptr }
+Map_Hash :: distinct uintptr
 default_hasher_fixed :: proc "contextless" (data: rawptr, seed: uintptr, size: int) -> uintptr { return seed }
 default_hasher_string :: proc "contextless" (data: rawptr, seed: uintptr) -> uintptr { return seed }
-default_hasher_string16 :: proc "contextless" (data: rawptr, seed: uintptr) -> uintptr { return seed }
 default_hasher_f64 :: proc "contextless" (value: f64, seed: uintptr) -> uintptr { return seed }
 memory_equal :: proc "contextless" (x, y: rawptr, n: int) -> bool { return true }
+map_seed_from_map_data :: proc "contextless" (data: uintptr) -> uintptr { return data }
+__dynamic_map_get :: proc "contextless" (map_value: ^Raw_Map, info: ^Map_Info, hash: Map_Hash, key: rawptr) -> rawptr { return nil }
+map_read :: proc "contextless" (table: Table, key: string) -> int { return table[key] }
 cell := type_map_cell_info(Name)
 info := type_map_info(Table)
 bad_info := type_map_info(Name)
@@ -98,6 +102,17 @@ bad_info := type_map_info(Name)
 	testing.expect_value(t, entries[0].size_of_cell, 64)
 	testing.expect_value(t, entries[0].elements_per_cell, 4)
 	if !testing.expect(t, expression_checker_publish_map_info(&checker, &program) == nil) { return }
-	testing.expect_value(t, len(program.runtime.helper_entities), 5)
+	testing.expect_value(t, len(program.runtime.helper_entities), 6)
 	testing.expect_value(t, len(checker.procedures), 2)
+	has_map_info_plan := false
+	has_map_index_plan := false
+	for plan in checker.plans {
+		#partial switch value in plan {
+		case Map_Info_Plan:
+			has_map_info_plan = true
+		case Map_Index_Plan:
+			has_map_index_plan = true
+		}
+	}
+	testing.expect(t, has_map_info_plan && has_map_index_plan)
 }

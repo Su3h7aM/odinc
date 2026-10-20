@@ -26,9 +26,16 @@ expression_index :: proc(
 	store := checker.type_checker.store
 	base_descriptor := types.get(store, types.resolve_named(store, base.type))
 	is_pointer := base_descriptor.kind == .Pointer
+	map_type := base.type if !is_pointer else base_descriptor.elem
 	if is_pointer { base_descriptor = types.get(store, types.resolve_named(store, base_descriptor.elem)) }
 	if base_descriptor.kind == .Map {
+		if !generator_supported(store, base_descriptor.index) {
+			return expression_unsupported(checker, view, scope, access.expr, "Map_Info_Key")
+		}
+		_, helper_error := expression_resolve_map_helpers(checker)
+		if helper_error != nil { return {}, helper_error }
 		writable := base.mode == .Variable || is_pointer
+		append(&checker.plans, Plan(Map_Info_Plan{type = types.resolve_named(store, map_type)})) or_return
 		return expression_map_index(checker, view, scope, access.expr, access.index, base_descriptor.index, base_descriptor.elem, writable)
 	}
 	is_array := base_descriptor.kind == .Array
