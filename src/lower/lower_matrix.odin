@@ -3,6 +3,7 @@ package lower
 import "oc:check"
 import "oc:ir"
 import "oc:syntax"
+import "oc:types"
 
 // A matrix element lives at its storage index: column-major storage holds columns, row-major storage holds rows.
 // Constant indices are checked by the checker; runtime indices trap when out of range, like array indexing.
@@ -59,4 +60,561 @@ lower_matrix_vector_address :: proc(state: ^Procedure_State, node: syntax.Node_I
 	address := lower_array_base(state, base.node)
 	if state.failed || function.error != nil { return 0 }
 	return ir.ptr_index(function, address, index, u32(stride))
+}
+
+@(private)
+matrix_storage_index :: proc(shape: types.Type, position: i64) -> i64 {
+	if shape.row_major { return position }
+	columns := shape.upper_bound
+	return (position % columns) * shape.count + position / columns
+}
+
+@(private)
+lower_matrix_element_address :: proc(state: ^Procedure_State, base: ir.Node_Id, shape: ^types.Type, row, column: i64, element_size: u32) -> ir.Node_Id {
+	function := state.job.function
+	storage: ir.Node_Id
+	if shape.row_major {
+		storage = ir.binary(
+			function,
+			.Add,
+			ir.binary(function, .Mul, ir.const_int(function, .I64, row), ir.const_int(function, .I64, shape.upper_bound)),
+			ir.const_int(function, .I64, column),
+		)
+	} else {
+		storage = ir.binary(
+			function,
+			.Add,
+			ir.binary(function, .Mul, ir.const_int(function, .I64, column), ir.const_int(function, .I64, shape.count)),
+			ir.const_int(function, .I64, row),
+		)
+	}
+	return ir.ptr_index(function, base, storage, element_size)
+}
+
+// One element operation on values: an address for complex elements, a scalar value otherwise.
+@(private)
+lower_matrix_element_op :: proc(
+	state: ^Procedure_State,
+	node: syntax.Node_Index,
+	operator: syntax.Token_Kind,
+	left, right: ir.Node_Id,
+	elem: types.Type_Id,
+) -> ir.Node_Id {
+	function := state.job.function
+	#partial switch lower_type(state, elem).kind {
+	case .Float:
+		if is_float16(state, elem) {
+			result, ok := lower_float16_operation(function, operator, left, right)
+			if !ok { return lower_fail(state, node, .Operator) }
+			return result
+		}
+		#partial switch operator {
+		case .Add:
+			return ir.binary(function, .FAdd, left, right)
+		case .Sub:
+			return ir.binary(function, .FSub, left, right)
+		case .Mul:
+			return ir.binary(function, .FMul, left, right)
+		}
+	case .Integer:
+		#partial switch operator {
+		case .Add:
+			return ir.binary(function, .Add, left, right)
+		case .Sub:
+			return ir.binary(function, .Sub, left, right)
+		case .Mul:
+			return ir.binary(function, .Mul, left, right)
+		case .And:
+			return ir.binary(function, .And, left, right)
+		case .Or:
+			return ir.binary(function, .Or, left, right)
+		case .Xor:
+			return ir.binary(function, .Xor, left, right)
+		case .And_Not:
+			mask := ir.binary(function, .Xor, right, ir.const_int(function, function.nodes.type[right], -1))
+			return ir.binary(function, .And, left, mask)
+		}
+	case .Complex:
+		return lower_complex_binary(state, node, operator, left, right, elem)
+	}
+	return lower_fail(state, node, .Operator)
+}
+
+@(private)
+lower_matrix_element_compare :: proc(
+	state: ^Procedure_State,
+	node: syntax.Node_Index,
+	operator: syntax.Token_Kind,
+	left, right: ir.Node_Id,
+	elem: types.Type_Id,
+) -> ir.Node_Id {
+	function := state.job.function
+	#partial switch lower_type(state, elem).kind {
+	case .Float:
+		if is_float16(state, elem) {
+			result, ok := lower_float16_operation(function, operator, left, right)
+			if !ok { return lower_fail(state, node, .Operator) }
+			return result
+		}
+		kind := ir.Node_Kind.FEq if operator == .Cmp_Eq else ir.Node_Kind.FNe
+		return ir.compare(function, kind, left, right)
+	case .Integer:
+		kind := ir.Node_Kind.Eq if operator == .Cmp_Eq else ir.Node_Kind.Ne
+		return ir.compare(function, kind, left, right)
+	case .Complex:
+		return lower_complex_binary(state, node, operator, left, right, elem)
+	}
+	return lower_fail(state, node, .Operator)
+}
+
+@(private)
+lower_matrix_zero :: proc(state: ^Procedure_State, elem: types.Type_Id) -> ir.Node_Id {
+	function := state.job.function
+	#partial switch lower_type(state, elem).kind {
+	case .Float:
+		if is_float16(state, elem) { return ir.const_int(function, .I16, 0) }
+		return ir.const_float(function, scalar_type(state, elem), 0)
+	case .Integer:
+		return ir.const_int(function, scalar_type(state, elem), 0)
+	case .Complex:
+		layout := state.job.layouts[elem]
+		if layout.error != .None { return lower_fail(state, state.job.procedure.body.node, .Operator) }
+		slot := ir.stack_slot(function, state.entry_control, u32(layout.size), u32(layout.align))
+		memory := ir.add_node(
+			function,
+			.Mem_Set,
+			.Memory,
+			{
+				state.builder.control,
+				ir.variable_get(state.builder, ir.MEMORY_VARIABLE),
+				slot,
+				ir.const_int(function, .I8, 0),
+				ir.const_int(function, .I64, layout.size),
+			},
+		)
+		ir.variable_set(state.builder, ir.MEMORY_VARIABLE, memory)
+		return slot
+	}
+	return lower_fail(state, state.job.procedure.body.node, .Operator)
+}
+
+// Reduction trees matching the official emission: square even products reduce pairwise with odd carry
+// (`llvm_vector_mul_pairwise_reduce_add`), simdable non-square products use the shuffle reduction
+// (`llvm_vector_reduce_add`), anything else sums k-ascending like the scalar `lb_emit_mul_add` loop.
+// Integers are exact under any tree; floats select below.
+Matrix_Reduction :: enum {
+	Ascending,
+	Pairwise,
+	Shuffle,
+}
+
+@(private)
+matrix_float_add :: proc(state: ^Procedure_State, node: syntax.Node_Index, left, right: ir.Node_Id, elem: types.Type_Id) -> ir.Node_Id {
+	function := state.job.function
+	if is_float16(state, elem) {
+		result, ok := lower_float16_operation(function, .Add, left, right)
+		if !ok { return lower_fail(state, node, .Operator) }
+		return result
+	}
+	return ir.binary(function, .FAdd, left, right)
+}
+
+// The official simd gate (`lb_is_matrix_simdable`): native-endian 32/64-bit floats, 16-byte alignment,
+// and at least one even dimension. Our only target is amd64, which the official gate allows.
+@(private)
+matrix_simd_gate :: proc(state: ^Procedure_State, matrix_type: types.Type_Id, shape: ^types.Type) -> bool {
+	elem_base := lower_type(state, shape.elem)
+	if elem_base.kind != .Float || is_float16(state, shape.elem) { return false }
+	if elem_base.endianness == .Big { return false }
+	if state.job.layouts[matrix_type].align < 16 { return false }
+	if shape.count & 1 == 1 && shape.upper_bound & 1 == 1 { return false }
+	return true
+}
+
+// Pairwise halving with the odd term carried, over the product buffer.
+@(private)
+matrix_reduce_pairwise :: proc(state: ^Procedure_State, node: syntax.Node_Index, products: []ir.Node_Id, elem: types.Type_Id) -> ir.Node_Id {
+	count := len(products)
+	if count == 1 { return products[0] }
+	buffer: [64]ir.Node_Id
+	for product, index in products { buffer[index] = product }
+	remaining := count
+	for remaining > 1 {
+		half := remaining / 2
+		for j in 0 ..< half { buffer[j] = matrix_float_add(state, node, buffer[2 * j], buffer[2 * j + 1], elem) }
+		if remaining % 2 == 1 { buffer[half] = buffer[remaining - 1] }
+		remaining = (remaining + 1) / 2
+		if state.failed { return 0 }
+	}
+	return buffer[0]
+}
+
+// The official shuffle reduction: pow2 lengths halve the low against the high half, shorter lengths
+// split at the previous pow2 with the upper part zero-padded to pow2, then add the two halves.
+@(private)
+matrix_reduce_shuffle_range :: proc(
+	state: ^Procedure_State,
+	node: syntax.Node_Index,
+	buffer: ^[64]ir.Node_Id,
+	start, length: int,
+	elem: types.Type_Id,
+) -> ir.Node_Id {
+	if length == 1 { return buffer[start] }
+	power := 1
+	for power * 2 <= length { power *= 2 }
+	if power == length {
+		stride := length
+		for stride != 1 {
+			stride /= 2
+			for index in 0 ..< stride {
+				buffer[start + index] = matrix_float_add(state, node, buffer[start + index], buffer[start + index + stride], elem)
+			}
+			if state.failed { return 0 }
+		}
+		return buffer[start]
+	}
+	lower := matrix_reduce_shuffle_range(state, node, buffer, start, power, elem)
+	if state.failed { return 0 }
+	padded: [64]ir.Node_Id
+	upper_length := length - power
+	expanded := 1
+	for expanded < upper_length { expanded *= 2 }
+	zero := lower_matrix_zero(state, elem)
+	if state.failed { return 0 }
+	for index in 0 ..< expanded {
+		padded[index] = zero
+		if index < upper_length { padded[index] = buffer[start + power + index] }
+	}
+	upper := matrix_reduce_shuffle_range(state, node, &padded, 0, expanded, elem)
+	if state.failed { return 0 }
+	return matrix_float_add(state, node, lower, upper, elem)
+}
+
+@(private)
+matrix_reduce_shuffle :: proc(state: ^Procedure_State, node: syntax.Node_Index, products: []ir.Node_Id, elem: types.Type_Id) -> ir.Node_Id {
+	buffer: [64]ir.Node_Id
+	for product, index in products { buffer[index] = product }
+	return matrix_reduce_shuffle_range(state, node, &buffer, 0, len(products), elem)
+}
+
+// Sums one element's products: pairwise or shuffle trees for simdable floats, k-ascending otherwise.
+// The ascending loop adds each product onto the running sum, matching the official scalar loop.
+@(private)
+lower_matrix_sum :: proc(state: ^Procedure_State, node: syntax.Node_Index, products: []ir.Node_Id, tree: Matrix_Reduction, elem: types.Type_Id) -> ir.Node_Id {
+	#partial switch tree {
+	case .Pairwise:
+		return matrix_reduce_pairwise(state, node, products, elem)
+	case .Shuffle:
+		return matrix_reduce_shuffle(state, node, products, elem)
+	}
+	function := state.job.function
+	accumulator := lower_matrix_zero(state, elem)
+	if state.failed { return 0 }
+	for product in products {
+		if lower_type(state, elem).kind == .Complex {
+			accumulator = lower_complex_binary(state, node, .Add, accumulator, product, elem)
+		} else if lower_type(state, elem).kind == .Float {
+			accumulator = matrix_float_add(state, node, product, accumulator, elem)
+		} else {
+			accumulator = ir.binary(function, .Add, accumulator, product)
+		}
+		if state.failed || function.error != nil { return 0 }
+	}
+	return accumulator
+}
+
+// Each operand evaluates once. A scalar operand keeps its value: `*` broadcasts it while any other operator
+// reads it on the diagonal and zero elsewhere, matching the official scaled-identity conversion.
+@(private)
+lower_matrix_binary :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: check.Matrix_Binary_Plan) -> ir.Node_Id {
+	if state.failed || state.job.function.error != nil { return 0 }
+	function := state.job.function
+	left_kind := lower_type(state, operand_type(state, plan.left)).kind
+	if state.failed { return 0 }
+	right_kind := lower_type(state, operand_type(state, plan.right)).kind
+	if state.failed { return 0 }
+	left_aggregate := left_kind == .Matrix || left_kind == .Array
+	right_aggregate := right_kind == .Matrix || right_kind == .Array
+	matrix_shape := lower_type(state, operand_type(state, plan.left)) if left_kind == .Matrix else nil
+	if right_kind == .Matrix { matrix_shape = lower_type(state, operand_type(state, plan.right)) }
+	if state.failed { return 0 }
+	if matrix_shape == nil || matrix_shape.kind != .Matrix { return lower_fail(state, node, .Operator) }
+	elem := matrix_shape.elem
+	element_layout := state.job.layouts[elem]
+	if element_layout.error != .None || element_layout.size <= 0 || element_layout.size > i64(max(u32)) {
+		return lower_fail(state, node, .Operator)
+	}
+	element_size := u32(element_layout.size)
+	left_value := lower_operand(state, plan.left, 0 if left_aggregate else elem)
+	if state.failed || function.error != nil { return 0 }
+	right_value := lower_operand(state, plan.right, 0 if right_aggregate else elem)
+	if state.failed || function.error != nil { return 0 }
+	layout := state.job.layouts[plan.result]
+	if layout.error != .None || layout.size > i64(max(u32)) { return lower_fail(state, node, .Operator) }
+	slot := ir.stack_slot(function, state.entry_control, u32(max(layout.size, 1)), u32(layout.align))
+	if plan.op == .Cmp_Eq || plan.op == .Not_Eq {
+		return lower_matrix_compare(state, node, plan, slot, left_value, right_value, left_aggregate, right_aggregate, elem, element_size)
+	}
+	if plan.op == .Mul && left_aggregate && right_aggregate {
+		if left_kind == .Matrix && right_kind == .Matrix {
+			return lower_matrix_product(state, node, plan, slot, left_value, right_value, elem, element_size)
+		}
+		return lower_matrix_vector_product(state, node, plan, slot, left_value, right_value, left_kind, elem, element_size)
+	}
+	return lower_matrix_elementwise(state, node, plan, slot, left_value, right_value, left_aggregate, right_aggregate, elem, element_size)
+}
+
+// The matrix product sums k-ascending with no FMA contraction.
+@(private)
+lower_matrix_product :: proc(
+	state: ^Procedure_State,
+	node: syntax.Node_Index,
+	plan: check.Matrix_Binary_Plan,
+	slot, left_base, right_base: ir.Node_Id,
+	elem: types.Type_Id,
+	element_size: u32,
+) -> ir.Node_Id {
+	function := state.job.function
+	store := check.type_store(state.job.program)
+	left_shape := lower_type(state, operand_type(state, plan.left))
+	right_shape := lower_type(state, operand_type(state, plan.right))
+	result_shape := types.get(store, types.resolve_named(store, plan.result))
+	rows := result_shape.count
+	columns := result_shape.upper_bound
+	steps := left_shape.upper_bound
+	left_id := operand_type(state, plan.left)
+	if state.failed { return 0 }
+	tree := Matrix_Reduction.Ascending
+	if matrix_simd_gate(state, left_id, left_shape) {
+		if rows == columns && rows == steps && steps % 2 == 0 {
+			tree = .Pairwise
+		} else {
+			tree = .Shuffle
+		}
+	}
+	for row in 0 ..< rows {
+		for column in 0 ..< columns {
+			products: [64]ir.Node_Id
+			for step in 0 ..< steps {
+				first := lower_load(state, lower_matrix_element_address(state, left_base, left_shape, row, step, element_size), elem)
+				second := lower_load(state, lower_matrix_element_address(state, right_base, right_shape, step, column, element_size), elem)
+				products[step] = lower_matrix_element_op(state, node, .Mul, first, second, elem)
+				if state.failed || function.error != nil { return 0 }
+			}
+			accumulator := lower_matrix_sum(state, node, products[:steps], tree, elem)
+			if state.failed || function.error != nil { return 0 }
+			lower_store(state, lower_matrix_element_address(state, slot, result_shape, row, column, element_size), accumulator, elem)
+			if state.failed { return 0 }
+		}
+	}
+	return slot
+}
+
+@(private)
+lower_matrix_vector_product :: proc(
+	state: ^Procedure_State,
+	node: syntax.Node_Index,
+	plan: check.Matrix_Binary_Plan,
+	slot, left_value, right_value: ir.Node_Id,
+	left_kind: types.Kind,
+	elem: types.Type_Id,
+	element_size: u32,
+) -> ir.Node_Id {
+	function := state.job.function
+	store := check.type_store(state.job.program)
+	left_shape := lower_type(state, operand_type(state, plan.left))
+	right_shape := lower_type(state, operand_type(state, plan.right))
+	result_shape := types.get(store, types.resolve_named(store, plan.result))
+	count := result_shape.count
+	if result_shape.kind == .Matrix { count *= result_shape.upper_bound }
+	matrix_left := left_kind == .Matrix
+	matrix_shape := left_shape if matrix_left else right_shape
+	steps := matrix_shape.upper_bound if matrix_left else matrix_shape.count
+	matrix_id := operand_type(state, plan.left) if matrix_left else operand_type(state, plan.right)
+	if state.failed { return 0 }
+	tree := Matrix_Reduction.Ascending
+	if !matrix_shape.row_major && matrix_simd_gate(state, matrix_id, matrix_shape) { tree = .Pairwise }
+	for index in 0 ..< count {
+		products: [64]ir.Node_Id
+		for step in 0 ..< steps {
+			first: ir.Node_Id
+			second: ir.Node_Id
+			if matrix_left {
+				first = lower_load(state, lower_matrix_element_address(state, left_value, matrix_shape, index, step, element_size), elem)
+				second = lower_load(state, ir.ptr_offset(function, right_value, step * i64(element_size)), elem)
+			} else {
+				first = lower_load(state, ir.ptr_offset(function, left_value, step * i64(element_size)), elem)
+				second = lower_load(state, lower_matrix_element_address(state, right_value, matrix_shape, step, index, element_size), elem)
+			}
+			products[step] = lower_matrix_element_op(state, node, .Mul, first, second, elem)
+			if state.failed || function.error != nil { return 0 }
+		}
+		accumulator := lower_matrix_sum(state, node, products[:steps], tree, elem)
+		if state.failed || function.error != nil { return 0 }
+		lower_store(state, ir.ptr_offset(function, slot, index * i64(element_size)), accumulator, elem)
+		if state.failed { return 0 }
+	}
+	return slot
+}
+
+// A scalar reads on the diagonal and zero elsewhere for anything but `*`, which broadcasts it.
+@(private)
+lower_matrix_elementwise :: proc(
+	state: ^Procedure_State,
+	node: syntax.Node_Index,
+	plan: check.Matrix_Binary_Plan,
+	slot, left_value, right_value: ir.Node_Id,
+	left_aggregate, right_aggregate: bool,
+	elem: types.Type_Id,
+	element_size: u32,
+) -> ir.Node_Id {
+	store := check.type_store(state.job.program)
+	result_shape := types.get(store, types.resolve_named(store, plan.result))
+	rows := result_shape.count
+	columns := result_shape.upper_bound
+	left_shape := lower_type(state, operand_type(state, plan.left)) if left_aggregate else nil
+	right_shape := lower_type(state, operand_type(state, plan.right)) if right_aggregate else nil
+	if state.failed { return 0 }
+	zero := lower_matrix_zero(state, elem)
+	if state.failed { return 0 }
+	for row in 0 ..< rows {
+		for column in 0 ..< columns {
+			position := row * columns + column
+			first := left_value
+			if left_aggregate {
+				storage := position
+				if left_shape.kind == .Matrix {
+					storage = matrix_storage_index(left_shape^, position)
+				}
+				first = lower_load(state, ir.ptr_offset(state.job.function, left_value, i64(storage) * i64(element_size)), elem)
+			} else if plan.op != .Mul {
+				first = left_value if row == column else zero
+			}
+			second := right_value
+			if right_aggregate {
+				storage := position
+				if right_shape.kind == .Matrix {
+					storage = matrix_storage_index(right_shape^, position)
+				}
+				second = lower_load(state, ir.ptr_offset(state.job.function, right_value, i64(storage) * i64(element_size)), elem)
+			} else if plan.op != .Mul {
+				second = right_value if row == column else zero
+			}
+			value := lower_matrix_element_op(state, node, plan.op, first, second, elem)
+			if state.failed || state.job.function.error != nil { return 0 }
+			destination := matrix_storage_index(result_shape^, position)
+			lower_store(state, ir.ptr_offset(state.job.function, slot, destination * i64(element_size)), value, elem)
+			if state.failed { return 0 }
+		}
+	}
+	return slot
+}
+
+@(private)
+lower_matrix_compare :: proc(
+	state: ^Procedure_State,
+	node: syntax.Node_Index,
+	plan: check.Matrix_Binary_Plan,
+	slot, left_value, right_value: ir.Node_Id,
+	left_aggregate, right_aggregate: bool,
+	elem: types.Type_Id,
+	element_size: u32,
+) -> ir.Node_Id {
+	function := state.job.function
+	left_shape := lower_type(state, operand_type(state, plan.left)) if left_aggregate else nil
+	right_shape := lower_type(state, operand_type(state, plan.right)) if right_aggregate else nil
+	if state.failed { return 0 }
+	matrix_shape := left_shape if left_aggregate else right_shape
+	count := matrix_shape.count * matrix_shape.upper_bound
+	zero := lower_matrix_zero(state, elem)
+	if state.failed { return 0 }
+	accumulator := ir.const_int(function, .Bool, 1 if plan.op == .Cmp_Eq else 0)
+	combine := ir.Node_Kind.And if plan.op == .Cmp_Eq else ir.Node_Kind.Or
+	for position in 0 ..< count {
+		row := position / matrix_shape.upper_bound
+		column := position % matrix_shape.upper_bound
+		first := left_value
+		if left_aggregate {
+			storage := position
+			if left_shape.kind == .Matrix {
+				storage = matrix_storage_index(left_shape^, position)
+			}
+			first = lower_load(state, ir.ptr_offset(function, left_value, i64(storage) * i64(element_size)), elem)
+		} else {
+			first = left_value if row == column else zero
+		}
+		second := right_value
+		if right_aggregate {
+			storage := position
+			if right_shape.kind == .Matrix {
+				storage = matrix_storage_index(right_shape^, position)
+			}
+			second = lower_load(state, ir.ptr_offset(function, right_value, i64(storage) * i64(element_size)), elem)
+		} else {
+			second = right_value if row == column else zero
+		}
+		compared := lower_matrix_element_compare(state, node, plan.op, first, second, elem)
+		if state.failed || function.error != nil { return 0 }
+		accumulator = ir.binary(function, combine, accumulator, compared)
+	}
+	_ = slot
+	return accumulator
+}
+
+@(private)
+lower_matrix_unary :: proc(
+	state: ^Procedure_State,
+	node: syntax.Node_Index,
+	operator: syntax.Token_Kind,
+	operand_node: syntax.Node_Index,
+	result: types.Type_Id,
+) -> ir.Node_Id {
+	function := state.job.function
+	store := check.type_store(state.job.program)
+	shape := types.get(store, types.resolve_named(store, result))
+	elem := shape.elem
+	element_layout := state.job.layouts[elem]
+	if element_layout.error != .None || element_layout.size <= 0 || element_layout.size > i64(max(u32)) {
+		return lower_fail(state, node, .Operator)
+	}
+	element_size := u32(element_layout.size)
+	base := lower_array_base(state, operand_node)
+	if state.failed || function.error != nil { return 0 }
+	layout := state.job.layouts[result]
+	if layout.error != .None || layout.size > i64(max(u32)) { return lower_fail(state, node, .Operator) }
+	slot := ir.stack_slot(function, state.entry_control, u32(max(layout.size, 1)), u32(layout.align))
+	count := shape.count * shape.upper_bound
+	for position in 0 ..< count {
+		storage := matrix_storage_index(shape^, position)
+		address := ir.ptr_offset(function, base, i64(storage) * i64(element_size))
+		destination := ir.ptr_offset(function, slot, i64(storage) * i64(element_size))
+		if operator == .Add {
+			lower_store(state, destination, lower_load(state, address, elem), elem)
+		} else if lower_type(state, elem).kind == .Complex {
+			lower_store(state, destination, lower_complex_unary(state, node, operator, address, elem), elem)
+		} else {
+			value := lower_load(state, address, elem)
+			#partial switch operator {
+			case .Sub:
+				if is_float16(state, elem) {
+					zero := lower_matrix_zero(state, elem)
+					if state.failed { return 0 }
+					negated, ok := lower_float16_operation(function, .Sub, zero, value)
+					if !ok { return lower_fail(state, node, .Operator) }
+					value = negated
+				} else if lower_type(state, elem).kind == .Float {
+					value = ir.unary(function, .FNeg, value)
+				} else {
+					value = ir.binary(function, .Sub, ir.const_int(function, function.nodes.type[value], 0), value)
+				}
+			case .Xor:
+				value = ir.binary(function, .Xor, value, ir.const_int(function, function.nodes.type[value], -1))
+			case:
+				return lower_fail(state, node, .Operator)
+			}
+			lower_store(state, destination, value, elem)
+		}
+		if state.failed { return 0 }
+	}
+	return slot
 }

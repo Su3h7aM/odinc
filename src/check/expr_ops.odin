@@ -36,6 +36,14 @@ expression_unary :: proc(
 			valid ||= unary.op.kind == .Xor
 		}
 	}
+	// Official unary plus, minus, and bitwise-not on matrices work element-wise. Matrix elements are
+	// always numeric, so plus and minus apply; bitwise-not needs integers.
+	is_matrix := kind == .Matrix
+	if is_matrix {
+		element_kind := types.get(store, types.get(store, conversion_base_type(store, operand.type)).elem).kind
+		valid ||= unary.op.kind == .Add || unary.op.kind == .Sub
+		valid ||= unary.op.kind == .Xor && conversion_integer(element_kind)
+	}
 	if !valid { return expression_failure(checker, view, scope, node, .Invalid_Operator) }
 	info = Expression_Info {
 		type  = operand.type,
@@ -44,7 +52,7 @@ expression_unary :: proc(
 		scope = scope,
 	}
 	// Official constant arrays under a unary operator become runtime values instead of folding.
-	if operand.mode == .Constant && !is_array {
+	if operand.mode == .Constant && !is_array && !is_matrix {
 		constant, failure := constant_unary_operator(checker.constants, unary.op.kind, operand.constant, operand.type, checker.type_checker.store)
 		if failure != nil {
 			expression_constant_failure(checker, checker.views[view].file, node, failure) or_return
@@ -194,6 +202,9 @@ expression_binary :: proc(
 		return Expression_Info{scope = scope, mode = .Constant, type = types.TYPE_UNTYPED_BOOL, constant = constant, state = .Checked}, nil
 	}
 	if !expression_value(left) || !expression_value(right) { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
+	if expression_binary_matrix_involved(checker, left, right) {
+		return expression_binary_matrix(checker, view, scope, node, binary, left, right, hint)
+	}
 	store := checker.type_checker.store
 	left_descriptor := types.get(store, conversion_base_type(store, left.type))^
 	right_descriptor := types.get(store, conversion_base_type(store, right.type))^

@@ -40,6 +40,14 @@ lower_binary :: proc(
 		if expression.op.kind == .Not_In { return bool_not(state.job.function, found) }
 		return found
 	}
+	if lower_type(state, lower_info(state, expression.left).type).kind == .Matrix ||
+	   lower_type(state, lower_info(state, expression.right).type).kind == .Matrix {
+		info := lower_info(state, node)
+		if info.plan == 0 { return lower_fail(state, node, .Operator) }
+		plan, is_matrix := check.plan(state.job.program, info.plan)^.(check.Matrix_Binary_Plan)
+		if !is_matrix { return lower_fail(state, node, .Operator) }
+		return lower_matrix_binary(state, node, plan)
+	}
 	if conversions.type != 0 && is_wide_integer(state, conversions.type) {
 		return lower_wide_operator(state, node, expression.op.kind, signed_type(state, conversions.type), false, left, right)
 	}

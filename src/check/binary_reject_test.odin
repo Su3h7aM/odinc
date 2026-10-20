@@ -233,3 +233,141 @@ main :: proc "contextless" () {
 	testing.expect(t, ok)
 	testing.expect(t, ok)
 }
+
+@(test)
+binary_rejects_matrix_quotient_and_ordering :: proc(t: ^testing.T) {
+	// Official: '/' is not allowed with matrix types; '<' is not defined between matrices.
+	source := transmute([]byte)string(`package sample
+main :: proc "contextless" () {
+	a: matrix[2, 2]f32
+	b: matrix[2, 2]f32
+	_ = a / b
+}
+`)
+	_, ok := check_procedure_source(t, source, .Invalid_Operator)
+	if !ok { return }
+	source = transmute([]byte)string(`package sample
+main :: proc "contextless" () {
+	a: matrix[2, 2]i32
+	b: matrix[2, 2]i32
+	_ = a < b
+}
+`)
+	_, ok = check_procedure_source(t, source, .Invalid_Operator)
+	if !ok { return }
+	source = transmute([]byte)string(`package sample
+main :: proc "contextless" () {
+	a: matrix[2, 2]f32
+	_ = a & 2
+}
+`)
+	_, ok = check_procedure_source(t, source, .Invalid_Operator)
+	if !ok { return }
+	source = transmute([]byte)string(`package sample
+main :: proc "contextless" () {
+	a: matrix[2, 2]complex64
+	_ = a | 2
+}
+`)
+	_, ok = check_procedure_source(t, source, .Invalid_Operator)
+	if !ok { return }
+}
+
+@(test)
+binary_rejects_type_mode_matrix_operand :: proc(t: ^testing.T) {
+	// A matrix type in value position is rejected before matrix rules apply.
+	source := transmute([]byte)string(`package sample
+main :: proc "contextless" () {
+	a: matrix[2, 2]i32
+	_ = matrix[2, 2]i32 + a
+}
+`)
+	_, ok := check_procedure_source(t, source, .Invalid_Operand)
+	testing.expect(t, ok)
+}
+
+@(test)
+binary_rejects_matrix_typed_scalar_add_and_right_multiply :: proc(t: ^testing.T) {
+	// Official: 'Mismatched types in binary matrix expression' for a typed scalar added to a
+	// matrix, and for a matrix multiplied by a typed scalar on the right.
+	source := transmute([]byte)string(`package sample
+main :: proc "contextless" () {
+	a: matrix[2, 2]i32
+	s: i32 = 2
+	_ = a + s
+}
+`)
+	_, ok := check_procedure_source(t, source, .Mismatched_Types)
+	if !ok { return }
+	source = transmute([]byte)string(`package sample
+main :: proc "contextless" () {
+	a: matrix[2, 2]i32
+	s: i32 = 2
+	_ = a * s
+}
+`)
+	_, ok = check_procedure_source(t, source, .Mismatched_Types)
+	if !ok { return }
+}
+
+@(test)
+binary_rejects_matrix_shape_and_layout_mismatch :: proc(t: ^testing.T) {
+	// Official: 'Mismatched types in binary matrix expression' for incompatible shapes and
+	// for mixed row-major flags; an untyped scalar needs a square matrix.
+	source := transmute([]byte)string(`package sample
+main :: proc "contextless" () {
+	a: matrix[2, 3]f32
+	b: matrix[3, 2]f32
+	_ = a + b
+}
+`)
+	_, ok := check_procedure_source(t, source, .Mismatched_Types)
+	if !ok { return }
+	source = transmute([]byte)string(
+		`package sample
+main :: proc "contextless" () {
+	a := matrix[2, 2]f32{1, 2, 3, 4}
+	b := #row_major matrix[2, 2]f32{1, 2, 3, 4}
+	_ = a * b
+}
+`,
+	)
+	_, ok = check_procedure_source(t, source, .Mismatched_Types)
+	if !ok { return }
+	source = transmute([]byte)string(`package sample
+main :: proc "contextless" () {
+	a: matrix[2, 3]i32
+	_ = a + 2
+}
+`)
+	_, ok = check_procedure_source(t, source, .Mismatched_Types)
+	if !ok { return }
+	source = transmute([]byte)string(`package sample
+main :: proc "contextless" () {
+	a: matrix[2, 2]i32
+	v: [4]i32
+	_ = a == v
+}
+`)
+	_, ok = check_procedure_source(t, source, .Mismatched_Types)
+	if !ok { return }
+}
+
+@(test)
+binary_accepts_distinct_named_matrix_types :: proc(t: ^testing.T) {
+	// Official: two distinct named matrix types with the same structure combine structurally.
+	source := transmute([]byte)string(
+		`package sample
+M1 :: matrix[2, 2]f32
+M2 :: matrix[2, 2]f32
+main :: proc "contextless" () {
+	a: M1
+	b: M2
+	_ = a + b
+	_ = a == b
+}
+`,
+	)
+	_, ok := check_procedure_source(t, source)
+	testing.expect(t, ok)
+}

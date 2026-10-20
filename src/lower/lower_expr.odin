@@ -203,6 +203,8 @@ lower_value :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> ir.Node
 		#partial switch value in plan^ {
 		case check.Binary_Conversion_Plan:
 			return lower_binary(state, node, state.ast.nodes[node].payload.(syntax.Binary_Expr), value)
+		case check.Matrix_Binary_Plan:
+			return lower_matrix_binary(state, node, value)
 		case check.Conversion_Plan:
 			return lower_conversion(state, value, node)
 		case check.Place_Plan:
@@ -263,6 +265,9 @@ lower_value :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> ir.Node
 	case .Unary_Expr:
 		value := ast_node.payload.(syntax.Unary_Expr)
 		if value.op.kind == .And { return lower_address(state, value.expr) }
+		if lower_type(state, lower_info(state, value.expr).type).kind == .Matrix {
+			return lower_matrix_unary(state, node, value.op.kind, value.expr, lower_info(state, node).type)
+		}
 		operand := lower_value(state, value.expr)
 		if state.failed { return 0 }
 		function := state.job.function

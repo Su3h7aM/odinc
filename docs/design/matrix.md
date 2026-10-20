@@ -85,23 +85,31 @@ Matrix with scalar (probes from the operator and semantics runs):
 4. `a + 2`, `2 + a`, `a * 2`, `2 * a` with untyped constants are accepted.
 5. `a == scalar` and `a == 2` are accepted. `a < 2` is rejected.
 
-### 4.1 Scalar multiply: official oddity, documented divergence
+### 4.1 Scalar multiply with a typed constant left operand: confirmed official bug
 
-Semantics probe `/tmp/cs18/semantics/main.odin` with `identity` = `matrix[2,2]i32` of diagonal 2:
+Stable reproducer (`/tmp/cs20/r/q_fm/main.odin`, three runs): with `m = matrix[2,2]i32{1,2,3,4}`, `i32(3) * m` and `C * m` (`C :: i32(3)`) both give `matrix[3,0;0,3]`, while `3 * m` (untyped) and `t * m` (`t: i32` variable) both give the correct `matrix[3,6;9,12]`.
 
-| Expression | Official result |
-| --- | --- |
-| `scalar * identity` (`scalar := i32(3)`, a variable) | `matrix[6,0;0,6]` |
-| `3 * identity` (untyped) | `matrix[6,0;0,6]` |
-| `i32(3) * (2*identity)` | `matrix[3,0;0,3]` in the first run |
+Defect: in `check_binary_matrix` (`src/check_expr.cpp:4603`), the scalar-left `*` path sets `x->type` to the matrix type but leaves the stale scalar `ExactValue` and constant mode in place. The backend short-circuits the whole node on that recorded value (`lb_build_expr_internal`, `llvm_backend_expr.cpp:4667`, `tv.value.kind != ExactValue_Invalid`), materializing the scalar as a scaled-identity constant and never emitting the multiply. The sibling branch for a matrix left operand sets `x->mode = Addressing_Value` explicitly; the scalar path does not. Constness-dependent arithmetic has no basis in the language: the variable and untyped forms multiply.
 
-The mathematically correct diagonal is 6. The constant-left typed form gave 3 in one run, which is a suspected official bug. Not confirmed. Decision (orchestrator): implement the correct broadcast rule for every accepted scalar side. Exclude the typed-constant-left cell from fixtures. Record the divergence in `docs/burndown.md` as intentional and pending confirmation.
+Our rule: every accepted scalar left `*` broadcasts, including typed constants. No differential fixture can match official here, so the cell is covered by exit-code verification outside the harness and stays excluded from `matrix_ops_int`.
 
-### 4.2 Float reduction order: documented divergence
+### 4.2 Float reduction trees: same-output contract
 
-Probe with terms `[1e20, 1, -1e20, 1]` in a column gives `0` for square 4x4, `2` for rectangular 4x2, and `1` for unaligned 3x2. The difference comes from LLVM vectorisation and FMA choices (`llvm_backend_expr.cpp` `lb_emit_matrix_mul`; `llvm_backend_utility.cpp` `llvm_vector_mul_pairwise_reduce_add`), not from language semantics.
+Per-element tree selection, mirroring `lb_is_matrix_simdable` (`llvm_backend_expr.cpp:741`), `lb_emit_matrix_mul` (`:1015`), `lb_emit_matrix_mul_vector` (`:1264`), `lb_emit_vector_mul_matrix` (`:1342`) and the scalar `lb_emit_mul_add` loops (`:1230`, `:1283`, `:1364`):
 
-Decision (orchestrator): do not chase this order. Use a k-ascending left-to-right sum, no FMA contraction. Float results can differ in the last bits and under cancellation. Fixtures use integers or exactly representable floats. Record the 1e20 probe as a documented divergence.
+- Square even products (either layout, when simdable): pairwise reduction with odd carry (`llvm_vector_mul_pairwise_reduce_add`, `llvm_backend_utility.cpp:2329`).
+- Simdable non-square products (either layout): shuffle reduction (`llvm_vector_reduce_add`, `:2231`, with `llvm_vector_shuffle_reduction`, `:2189` and zero-padded `llvm_vector_expand_to_power_of_two`, `:2216`).
+- Anything else (unaligned, odd x odd, row-major vector products, complex, f16 on amd64, non-native endianness): k-ascending `mul` then `add`, matching the scalar loop.
+
+Simdable means native-endian 32/64-bit float elements, 16-byte matrix alignment, and at least one even dimension. The contract is scoped to the supported amd64 target with default features: generated official IR on this machine shows plain `fmul`/`fadd` chains (no `llvm.fma`: the `fma` target feature is off by default), identical outputs at `-o:none`, `-o:minimal`, `-o:speed` and `-o:aggressive`, and no FMA node or fusion in our backend, so the trees above are emission-specified, not optimizer artifacts. Integers are exact under any tree and stay k-ascending. Fixture `matrix_product_tree` locks each tree with cancellation values that distinguish them.
+
+Known official bug, not reproduced: the row-major non-square SIMD path indexes the right-hand matrix with the left stride (`llvm_backend_expr.cpp:1195`, `offset = x_stride*j + i`, against `y_stride` in the column-major path at `:1144`). Lane-shifted values result at `-o:none` and NaNs at default opts for every element type; integer probes read out-of-bounds lanes. Our lowering addresses both layouts correctly and produces the specified dot values, verified by exit code where differential testing cannot apply.
+
+### 4.3 Evaluation order and side effects
+
+Operand calls evaluate left to right exactly once: the unary dispatch runs before its operand is lowered, and each binary operand lowers once up front. For the probed binary shape, element loads follow both calls: the official probe (`left_root()^ + right_root()^`, right call storing 100 into the left field) reads order counters 0 then 1 and sums the mutated value (110, not 11). Our lowering matches this shape by resolving both operand addresses first and loading each element in the result loop; no broader laziness claim is made beyond the probe. Fixture `matrix_side_effects` locks the counts, the order, and the lazy left read.
+
+f16 matrix negation is zero-minus, unlike scalar f16 negation. Official: scalar `-(f16 0)` gives `-Inf` for the reciprocal (sign flip), but matrix `-h` keeps `+0` (`1 / neg_half[0,0]` is `+Inf`), matching `0 - v` through the existing widen/subtract/narrow helper. Nonzero elements still flip. Fixture `matrix_side_effects` checks the `+Inf` reciprocal and a nonzero lane.
 
 ## 5. Casts and transmute
 
@@ -188,21 +196,22 @@ Each stage has its own fixtures under `src/driver/testdata/matrix_*` and a diffe
 
 - M1 types and layout: `matrix[R,C]E` type, dimension and element validation, layout (section 1). Fixtures: sizes and offsets of the probed shapes. Checker tests for section 3 rejections.
 - M2 literals, indexing, scalar initialization: `m[i,j]` read with constant and runtime indices, `m[k]` storage vectors (section 8 items 1 and 2, section 8.1 item 6), keyed literals with logical keys (section 8.1 item 1). Fixtures: `matrix_literal_index`, `matrix_literal_keyed`, `matrix_index_vector`. Square scalar init (section 3) is still open.
-- M3 element-wise operators and scalar broadcast: `+ - ==`, unary, bitwise on integers, scalar `+ -` and the correct scalar multiply on both sides, excluding the typed-constant-left cell (section 4.1).
-- M4 matrix product, matrix with array, array with matrix (section 4). Fixtures: integer and exact-float products. Requires the ABI gate (section 7) for matrix arguments and results.
+- M3 element-wise operators and scalar broadcast: implemented. `+ - * & | ~ &~ == !=`, unary `+ - ~`, typed scalar rules (`M * t` rejected, `t * M` broadcast, `+ -` typed rejected, `==` typed accepted), untyped scalar conversion to the matrix type (square only). Scalar semantics: `*` broadcasts, every other operator reads the scalar on the diagonal and zero elsewhere, matching `lb_emit_arith_matrix`. Fixtures: `matrix_ops_int`, `matrix_ops_float` (exact values), `matrix_compare`. Unary `~` on integer matrices is accepted by the official checker, but official codegen crashes on it (`Both operands to a binary operator are not of the same type!`, `/tmp/cs20` probe), so no differential fixture can cover it; ours lowers it as xor -1 per element and the values were verified by exit code outside the harness.
+- M4 matrix product, matrix with array, array with matrix: implemented per section 4 (reduction trees of section 4.2; row-major flag must match; 64-element result limit). Fixtures: integer, exact-float and complex64 products in `matrix_ops_int`, `matrix_ops_float` and `matrix_product_tree`. The ABI gate (section 7) for matrix arguments and results across procedure boundaries is still open: fixtures only combine values inside one procedure.
+- M4 matrix product, matrix with array, array with matrix: implemented per section 4 (reduction trees of section 4.2; row-major flag must match; 64-element result limit). Fixtures: integer, exact-float and complex64 products in `matrix_ops_int`, `matrix_ops_float` and `matrix_product_tree`. The ABI gate (section 7) for matrix arguments and results across procedure boundaries is still open: fixtures only combine values inside one procedure. File-scope matrix globals with composite initializers are explicitly unsupported (`lower Unsupported Global_Initializer`); the side-effect fixture keeps matrices in locals and no full matrix support is claimed.
 - M5 casts and transmute (section 5), after open item 3.
 - M6 intrinsics: `transpose`, `matrix_flatten`, `hadamard_product`, `outer_product`, `conj`, after open item 4. `transpose` keeps the row-major flag; `matrix_flatten` gives physical order.
 - M7 `core:math/linalg` usage fixture (determinant, inverse) on exact values.
 
-Burndown: `docs/burndown.md` gets a matrix section with the 1e20 divergence, the scalar-multiply oddity (pending confirmation), and open items 1 to 7.
+Burndown: `docs/burndown.md` gets a matrix section with the reduction-tree contract, the confirmed scalar-multiply bug (section 4.1), and open items 1 to 7.
 
 Histogram groups affected: `12 type Unsupported_Type_Expression Matrix_Type` (M1) and `3 Matrix_Index_Expr` (M2).
 
 ## 10. Decisions summary
 
 - Layout: zero padding as probed; no layout change for probed shapes.
-- Float: k-ascending sum, no FMA, documented divergence on reduction order.
-- Scalar multiply: correct broadcast on both sides; typed-constant-left oddity recorded as suspected official bug.
+- Float: per-element reduction trees of section 4.2, no FMA on the supported target; integers exact under any tree.
+- Scalar multiply: broadcast for every accepted scalar side, including typed constants; the official typed-constant-left fold to scaled identity is a confirmed checker bug (section 4.1).
 - Transmute is the only matrix-array route; ordinary casts stay rejected.
 - `matrix_flatten` physical order; `transpose` keeps row-major.
 
