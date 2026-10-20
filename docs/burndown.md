@@ -205,14 +205,13 @@ The previous refresh was at `7f2eee80`. These are the intervening commit descrip
 
 ## Known unsupported
 
-- `#soa` array, slice, and dynamic-array types remain unsupported at type checking (2026-10-20; `src/driver/testdata/demo_section_soa_struct_layout`, `Unsupported_Type_Expression`). The demo's 20 `Undeclared_Name v_soa` diagnostics cascade from rejected `#soa[N]Vector3` declarations, not range-variable scoping. The official fixture checks, builds, and exits 19.
+- `#soa` array, slice, and dynamic-array types remain unsupported at type checking (2026-10-20; `src/driver/testdata/demo_section_soa_struct_layout`, `Unsupported_Type_Expression`). The demo's former 20 `Undeclared_Name v_soa` diagnostics cascaded from rejected `#soa[N]Vector3` declarations, not range-variable scoping. Those invalid declarations now bind poison-typed names, so their uses do not report secondary errors. The official fixture checks, builds, and exits 19.
 - `m[k] = v` and `m[k] += 1` compile but misbehave at runtime; the `map_assign` fixture is parked while the call path is investigated.
 - Map iteration with `for k, v in m` fails checking with `Unsupported Range_Type`.
 - `cap(map)` is unsupported.
 - Union and `any` fields from constants in composite literals fail with `Unsupported Constant`.
-- Quaternion multiplication and division are unsupported.
+- Quaternion multiplication and division remain unsupported at lowering (2026-10-20; `src/driver/testdata/untyped_quaternion_product`, `lower Unsupported Operator` at line 8). The official fixture checks, builds, and exits 40. Quaternion literal typing and complex/quaternion `:=` defaulting now work; `src/driver/testdata/untyped_complex_defaults` passes differential testing with exit 44.
 - SIMD operations on `f16` are unsupported.
-- Untyped complex `:=` fails with `Mismatched_Types`.
 
 ## CS14 follow-up (2026-10-20)
 
@@ -222,7 +221,23 @@ Binary implicit literals now receive the other operand's contextual type, includ
 
 The references were the fork and reference compiler's `check_expr.cpp` (`check_binary_expr`, `check_compound_literal`) and `llvm_backend_expr.cpp` (`Type_BitSet` literal emission), existing aggregate and wide-bit-set lowering, and upstream issues [#2859](https://github.com/odin-lang/Odin/issues/2859) and [#5082](https://github.com/odin-lang/Odin/issues/5082). Official check/build probes are authoritative for this change: `+`, `-`, `&`, `&~`, `|`, binary `~`, equality and all four ordered comparisons accept contextual bit-set literals. Membership still requires a typed right-hand set: `E.A in {.A, .B}` is rejected with `Missing type in compound literal`.
 
+The subsequent fixes reduced the histogram to 159 diagnostics. Failed local type declarations now bind poison-typed names, as failed package declarations already did. Official probes report one unknown-type error per declaration and no errors at the poisoned names' uses. This removed 53 secondary diagnostics without adding SoA support. Ordinary generic calls now defer untyped arguments until typed arguments bind the polymorphic parameter, reusing the rule previously limited to spread calls. This fixed eight datetime call sites. `src/driver/testdata/generic_untyped_arguments` passes with official-confirmed exit 47.
+
+All nine `Conversion Call_Expr Unsupported` sites were constant `uintptr` to `rawptr` sentinel casts. Existing pointer-value lowering now receives interned pointer constants with their exact address bits; nonconstant inputs still use runtime conversions. Official probes accept `rawptr(~uintptr(0))`, `rawptr(uintptr(8))`, and pointer-to-`uintptr` constant round trips; they reject `rawptr(u64(1))` and the out-of-range intermediate `uintptr(1 << 64)`. Casting a constant `rawptr` to a procedure is a runtime value, not a constant. `src/driver/testdata/pointer_constants` passes with exit 83.
+
+All nine `Mismatched_Types` diagnostics also disappeared. Eight were the two operands at each of `examples/demo/demo.odin:1545,1547,1549,1551`, caused by incorrect quaternion literal typing and missing complex/quaternion declaration defaults. The ninth, at line 675, was a returned pointer to a structure with a `using` base field. Contextual assignment now uses the existing assignment-conversion checker, including its subtype path, rather than rejecting that supported conversion before checking it. Existing subtype lowering handles the field offset. `src/driver/testdata/using_pointer_return` passes with exit 38 and checks a base field at a nonzero offset. Unsupported quaternion operators still fail explicitly at lowering.
+
+Two `Generic_Call_Pattern` families remain. The matrix-multiplication example at `examples/demo/demo.odin:1155` uses nested array patterns whose later dimensions and element types reference earlier polymorphic bindings; the pattern matcher does not consult those bindings when evaluating the dimensions. The `card(e)` call at line 1452 uses `$S/bit_set[$E; $U]`, whose bit-set specialization pattern is not implemented. Neither family was approximated.
+
+### Indirect-call default-argument design blocker
+
+Seventeen distinct call sites remain explicitly unsupported by `Indirect_Call_Arguments`: `core/math/big/radix.odin:234`; `core/math/big/private.odin:2469,2478,2536,2554,2561,2581,2589,2731,2739,2789,2807,2814,2834,2845,2856`; `core/mem/allocators.odin:1745`. They omit default arguments on procedure-valued variables or fields. The allocator field's `Allocator_Proc` type does have a default `location = #caller_location` in `base/runtime/core.odin:425`. These sites do not require variadic or named arguments, although the eventual type metadata must support named arguments too.
+
+Official probes establish that defaults come from the callee expression's static procedure type, not its runtime target. A function with `x := 1` assigned to `a: proc(x := 3) -> int` returns 3 from `a()`. A function with `x := 2` assigned to `b: proc(y := 4) -> int` returns 4 from `b()`, and named calls through such variables are accepted. The combined probe exits 34. Runtime `typeid` comparisons consider `proc(x := 1)` and `proc(x := 2)` equal, but `proc(x := 1)` and `proc(y := 1)` unequal; that combined probe exits 10. Assignment nevertheless accepts different parameter names. Inferred procedure variables retain the declaration's defaults.
+
+The current canonical `types.Type` retains only parameter types, while `Procedure_Data` retains names and defaults for direct calls. Adding defaults to the existing type-identity key, or looking them up from the runtime target, would implement the wrong rule. Two candidate designs remain for a separate decision: include default metadata in `types.intern` keys so metadata-bearing IDs differ, then use a separate structural identity predicate that ignores defaults where required; or carry a separate static procedure signature on `Expression_Info`. Either design must preserve metadata through fields, results, assignments, and inferred variables, share it with `Procedure_Data`, distinguish parameter-name identity from assignment compatibility, and lower omitted defaults at the call site, including `#caller_location`. No indirect-call workaround was added.
+
 ## Previous full-gate snapshot
 
-The prior full validation snapshot recorded `mise run fmt --check` passing 466 Odin sources, `mise run check` passing 12 packages, and `mise run test` passing 309 tests. CS13 reran the fixture sweep, not those gates; CS14 passed formatting, checking, and tests for `check`, `lower`, and `driver` (186, 57, and 56 tests).
+The prior full validation snapshot recorded `mise run fmt --check` passing 466 Odin sources, `mise run check` passing 12 packages, and `mise run test` passing 309 tests. CS13 reran the fixture sweep, not those gates; CS14 passed formatting, checking, and tests for `check`, `lower`, and `driver` (191, 57, and 56 tests). Its twelve passing differential regressions include all five new supported fixtures, `hello_fmt`, `map_lookup`, `complex_ops`, and existing aggregate and wide-bit-set fixtures. The quaternion-product fixture fails explicitly at lowering as documented above; `composite_literals` still fails the official build because its main procedure has a custom calling convention.
 
