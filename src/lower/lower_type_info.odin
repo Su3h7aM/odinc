@@ -167,6 +167,12 @@ write_type_info_variant :: proc(
 	case .Float:
 		begin_variant(writer, image, "Type_Info_Float")
 		return true, nil
+	case .Complex:
+		begin_variant(writer, image, "Type_Info_Complex")
+		return true, nil
+	case .Quaternion:
+		begin_variant(writer, image, "Type_Info_Quaternion")
+		return true, nil
 	case .Bool:
 		begin_variant(writer, image, "Type_Info_Boolean")
 		return true, nil
