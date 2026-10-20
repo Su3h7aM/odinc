@@ -160,22 +160,41 @@ lower_or_return_values :: proc(state: ^Procedure_State, node: syntax.Node_Index,
 	if !is_expression || operand.view != state.view { lower_fail(state, node, .Expression); return false }
 	operand_info := lower_info(state, operand.node)
 	if operand_info.plan == 0 { lower_fail(state, node, .Expression); return false }
-	call, is_call := check.plan(state.job.program, operand_info.plan)^.(check.Call_Plan)
-	if !is_call || len(call.results) < 1 { lower_fail(state, node, .Expression); return false }
-	status_index := len(call.results) - 1
-	if len(values) != status_index || len(plan.values) != status_index { lower_fail(state, node, .Result); return false }
-	all_values, allocation_error := make([]ir.Node_Id, len(call.results), context.allocator)
-	if allocation_error != nil { state.job.function.error = allocation_error; return false }
-	defer delete(all_values, context.allocator)
 	call_node := operand.node
 	for state.ast.nodes[call_node].kind == .Paren_Expr {
 		call_node = state.ast.nodes[call_node].payload.(syntax.Paren_Expr).expr
 	}
-	lower_call_results(state, call_node, operand_info, call, all_values)
+	operand_plan := check.plan(state.job.program, operand_info.plan)
+	if operand_plan == nil { lower_fail(state, node, .Expression); return false }
+	result_count := 0
+	status_type: types.Type_Id
+	#partial switch result_plan in operand_plan^ {
+	case check.Call_Plan:
+		if len(result_plan.results) < 1 { lower_fail(state, node, .Expression); return false }
+		result_count = len(result_plan.results)
+		status_type = result_plan.results[result_count - 1]
+	case check.Type_Assertion_Plan:
+		if !result_plan.comma_ok { lower_fail(state, node, .Expression); return false }
+		result_count = 2
+	case:
+		lower_fail(state, node, .Expression)
+		return false
+	}
+	status_index := result_count - 1
+	if len(values) != status_index || len(plan.values) != status_index { lower_fail(state, node, .Result); return false }
+	all_values, allocation_error := make([]ir.Node_Id, result_count, context.allocator)
+	if allocation_error != nil { state.job.function.error = allocation_error; return false }
+	defer delete(all_values, context.allocator)
+	#partial switch result_plan in operand_plan^ {
+	case check.Call_Plan:
+		lower_call_results(state, call_node, operand_info, result_plan, all_values)
+	case check.Type_Assertion_Plan:
+		all_values[0], all_values[1] = lower_type_assertion(state, call_node, result_plan)
+	}
 	if state.failed || state.job.function.error != nil { return false }
 	condition, condition_ok := or_return_condition(state.job.function, plan, all_values[status_index])
 	if !condition_ok { lower_fail(state, node, .Expression); return false }
-	if !lower_or_return_exit(state, node, plan, condition, all_values[status_index], call.results[status_index]) { return false }
+	if !lower_or_return_exit(state, node, plan, condition, all_values[status_index], status_type) { return false }
 	copy(values, all_values[:status_index])
 	return true
 }
@@ -269,9 +288,8 @@ propagation_nil_condition :: proc(function: ^ir.Function, value: ir.Node_Id) -> 
 or_return_status_storable :: proc(state: ^Procedure_State, entity: check.Entity_Id, status: types.Type_Id, value: ir.Node_Id) -> bool {
 	if entity == 0 { return false }
 	destination := state.job.program.entities[entity].type
-	if destination == status { return true }
-	destination_type := lower_type(state, destination)
-	status_type := lower_type(state, status)
-	if destination_type.kind != .Bool || status_type.kind != .Bool { return false }
+	if status != 0 && destination == status { return true }
+	if lower_type(state, destination).kind != .Bool { return false }
+	if status != 0 && lower_type(state, status).kind != .Bool { return false }
 	return state.job.function.nodes.type[value] == scalar_type(state, destination)
 }

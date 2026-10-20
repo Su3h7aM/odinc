@@ -46,27 +46,36 @@ piece_width :: proc(type: ir.Value_Type) -> i64 {
 	return 0
 }
 
-// The pieces must cover the object exactly, each holding its whole register.
+// The pieces must cover the object exactly, each occupying its size; a narrow scalar fills its eightbyte.
 @(private)
 parameters_tile :: proc(parameters: []types.Abi_Param, size: i64) -> bool {
-	covered := i64(0)
+	offset := i64(0)
 	for parameter in parameters {
 		width := piece_width(piece_type(parameter.type))
-		if parameter.attr != .Direct || width == 0 || width != i64(parameter.size) { return false }
-		covered += width
+		if parameter.attr != .Direct || width == 0 || width > i64(parameter.size) { return false }
+		offset = next_piece_offset(i64(parameter.size), offset)
 	}
-	return covered == size
+	return offset == (size + 7) / 8 * 8
+}
+
+// A piece narrower than an eightbyte fills its eightbyte, so the next piece starts at the boundary.
+// Only the last piece of an aggregate can be narrower, so the rounding never separates two pieces.
+@(private)
+next_piece_offset :: proc(piece_size: i64, offset: i64) -> i64 {
+	end := offset + piece_size
+	if piece_size < 8 { return (end + 7) / 8 * 8 }
+	return end
 }
 
 @(private)
 results_tile :: proc(results: []ir.Result, size: i64) -> bool {
-	covered := i64(0)
+	offset := i64(0)
 	for result in results {
 		width := piece_width(result.type)
-		if width == 0 || width != i64(result.size) { return false }
-		covered += width
+		if width == 0 || width > i64(result.size) { return false }
+		offset = next_piece_offset(i64(result.size), offset)
 	}
-	return covered == size
+	return offset == (size + 7) / 8 * 8
 }
 
 @(private)
@@ -130,7 +139,7 @@ bind_aggregate_parameter :: proc(state: ^Procedure_State, entity: check.Entity_I
 		offset := i64(0)
 		for parameter, index in parameters {
 			lower_store_word(state, ir.ptr_offset(job.function, address, offset), values[index])
-			offset += i64(parameter.size)
+			offset = next_piece_offset(i64(parameter.size), offset)
 		}
 	}
 	return !state.failed && job.function.error == nil
@@ -155,7 +164,7 @@ pass_aggregate_argument :: proc(
 	offset := i64(0)
 	for parameter, index in parameters {
 		arguments[index] = lower_load_word(state, ir.ptr_offset(function, value, offset), piece_type(parameter.type))
-		offset += i64(parameter.size)
+		offset = next_piece_offset(i64(parameter.size), offset)
 	}
 	return true
 }
@@ -186,7 +195,7 @@ lower_last_result :: proc(state: ^Procedure_State, node: syntax.Node_Index, valu
 	offset := i64(0)
 	for result, index in signature.results {
 		pieces[index] = lower_load_word(state, ir.ptr_offset(function, value, offset), result.type)
-		offset += i64(result.size)
+		offset = next_piece_offset(i64(result.size), offset)
 	}
 	run_deferred(state, 0)
 	if state.failed || function.error != nil || state.builder.control == 0 { return }
