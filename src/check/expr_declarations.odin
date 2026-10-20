@@ -89,7 +89,6 @@ expression_check_default :: proc(
 	err: Resolve_Error,
 ) {
 	info = check_expression(checker, view, scope, node, target) or_return
-	info = check_expression(checker, view, scope, node, target) or_return
 	if info.state == .Invalid || info.mode != .Constant { return info, nil }
 	if !conversion_untyped(types.get(checker.type_checker.store, info.type).kind) { return info, nil }
 	return expression_conversion(checker, view, scope, node, Operand(info.constant), info, target, .Assignment)

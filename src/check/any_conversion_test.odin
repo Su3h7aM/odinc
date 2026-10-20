@@ -16,7 +16,7 @@ main :: proc "contextless" () {
 	data := boxed.data
 	id := boxed.id
 	slot: any
-	slot = value
+	slot, _ = value, 0
 }
 give :: proc "contextless" (value: int) -> any {
 	return value
@@ -86,6 +86,11 @@ give :: proc "contextless" (value: int) -> any {
 	program: Checked_Program
 	expression_checker_publish(&checker, &program)
 	program.files = []File{{}, file}
+	boxing_count := 0
+	for plan in program.plan_table {
+		if conversion, is_conversion := plan.(Conversion_Plan); is_conversion && conversion.kind == .Box { boxing_count += 1 }
+	}
+	testing.expectf(t, boxing_count == 3, "three boxing sites created %d conversion plans", boxing_count)
 	assertion := syntax.node_payload(&ast, statements[2], syntax.Value_Decl)
 	assertion_rhs := syntax.node_list(&ast, assertion.values)[0]
 	assertion_info, assertion_found := expression_info(&program, 1, assertion_rhs)
