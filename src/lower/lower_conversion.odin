@@ -64,6 +64,7 @@ lower_conversion_value :: proc(
 	if plan.kind == .Transmute && (scalar_type(state, source_id) == .None) != (scalar_type(state, plan.target) == .None) {
 		return lower_transmute_across_classes(state, source_id, plan.target, value)
 	}
+	if source_kind == .Untyped_Nil { return value }
 	if scalar_type(state, plan.target) == .None { return lower_same_layout_conversion(state, node, plan, source_id, value) }
 	source := function.nodes.type[value]
 	target := scalar_type(state, plan.target)
