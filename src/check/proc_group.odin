@@ -364,7 +364,7 @@ group_generic_member_score :: proc(
 	if index != len(positional) || named_count != len(named) { return 0, false, nil }
 	deferred_matched := poly_bind_deferred(&match, deferred[:]) or_return
 	if !deferred_matched { return 0, false, nil }
-	where_matches, where_error := group_generic_where_matches(checker, member, declaration.type.file, &bindings)
+	where_matches, where_error := group_generic_where_matches(checker, member, declaration.type.file, &bindings, positional, named)
 	if where_error != nil { return 0, false, where_error }
 	if !where_matches { return 0, false, nil }
 	// Official order: concrete > specialized generic > unconstrained generic (check_expr.cpp:8298-8319).
@@ -382,6 +382,7 @@ group_generic_where_matches :: proc(
 	member: Entity_Id,
 	file_id: File_Id,
 	bindings: ^Poly_Bindings,
+	positional, named: []Group_Argument,
 ) -> (
 	matches: bool,
 	err: Resolve_Error,
@@ -390,6 +391,7 @@ group_generic_where_matches :: proc(
 	if procedure.where_clauses.count == 0 { return true, nil }
 	file := checker.type_checker.files[file_id]
 	bound_scope := group_bound_scope(checker, member, bindings) or_return
+	group_bind_parameter_names(checker, member, file_id, bound_scope, positional, named) or_return
 	mark := expression_speculation_begin(checker)
 	defer expression_speculation_end(checker, mark)
 	for clause in syntax.node_list(file.ast, procedure.where_clauses) {
@@ -404,6 +406,58 @@ group_generic_where_matches :: proc(
 		if !valid || !condition { return false, nil }
 	}
 	return true, nil
+}
+
+@(private = "file")
+group_bind_parameter_names :: proc(
+	checker: ^Expression_Checker,
+	member: Entity_Id,
+	file_id: File_Id,
+	scope: Scope_Id,
+	positional, named: []Group_Argument,
+) -> Resolve_Error {
+	declaration := checker.type_checker.declarations[member]
+	file := checker.type_checker.files[declaration.type.file]
+	signature := syntax.node_payload(file.ast, declaration.type.node, syntax.Proc_Type)
+	params := syntax.node_payload(file.ast, signature.params, syntax.Field_List)
+	package_id := entity_get(checker.type_checker.resolver.scopes, member).package_id
+	position := 0
+	for field_node in syntax.node_list(file.ast, params.list) {
+		field := syntax.node_payload(file.ast, field_node, syntax.Field)
+		for name in syntax.node_list(file.ast, field.names) {
+			if file.ast.nodes[name].kind == .Poly_Type { continue }
+			argument: Group_Argument
+			if position < len(positional) {
+				argument = positional[position]
+			} else {
+				named_index := group_named_index(named, expression_text(file, name))
+				if named_index >= 0 { argument = named[named_index] }
+			}
+			position += 1
+			if argument.value == 0 { continue }
+			parameter_type := argument.info.type
+			if field.type != 0 {
+				resolved_type := type_expression(checker.type_checker, declaration.type.file, scope, field.type, true) or_return
+				if resolved_type != types.TYPE_POISON { parameter_type = resolved_type }
+			}
+			entity, create_error := entity_create(
+				checker.type_checker.resolver.scopes,
+				Entity {
+					name = expression_text(file, name),
+					kind = .Variable,
+					scope = scope,
+					package_id = package_id,
+					state = .Resolved,
+					type = parameter_type,
+					data = Variable_Data{storage = .Local},
+				},
+			)
+			if create_error != nil { return binding_resolve_error(create_error) }
+			_, insert_error := scope_insert(checker.type_checker.resolver.scopes, scope, entity)
+			if insert_error != nil { return binding_resolve_error(insert_error) }
+		}
+	}
+	return nil
 }
 
 // The score of one argument bound to one parameter of a generic member, binding the polymorphic names it contains.
