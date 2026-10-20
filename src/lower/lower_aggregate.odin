@@ -48,7 +48,9 @@ lower_aggregate_into :: proc(state: ^Procedure_State, node: syntax.Node_Index, p
 			if element_layout.error != .None { return lower_fail(state, node, .Expression) }
 			offset = i64(index) * element_layout.size
 		} else {
-			field_type = descriptor.fields[index].type
+			found: bool
+			field_type, found = types.field_type(store, owner, index)
+			if !found { return lower_fail(state, node, .Expression) }
 			field_offset, offset_error := types.field_offset(store, owner, index)
 			if offset_error != .None { return lower_fail(state, node, .Expression) }
 			offset = field_offset

@@ -550,6 +550,26 @@ field_offset_internal :: proc(store: ^Store, id: Type_Id, index: int, config: La
 	return align_up(offset, a)
 }
 
+// The fields of `any` are a data pointer, then a typeid. The checker interns both when it checks an `any` literal, so lookup never appends to the store.
+any_field_type :: proc(store: ^Store, index: int) -> (id: Type_Id, found: bool) {
+	descriptor := Type {
+		kind = .Type_Id,
+	}
+	if index == 0 { descriptor.kind = .Raw_Pointer }
+	for stored, position in store.types {
+		if descriptors_equal(stored^, descriptor) { return Type_Id(position), true }
+	}
+	return TYPE_NONE, false
+}
+
+// The type of field index of id; `any` keeps no stored fields, so its two come from any_field_type.
+field_type :: proc(store: ^Store, id: Type_Id, index: int) -> (type: Type_Id, found: bool) {
+	descriptor := get(store, id)
+	if descriptor.kind == .Any { return any_field_type(store, index) }
+	if index < 0 || index >= len(descriptor.fields) { return TYPE_NONE, false }
+	return descriptor.fields[index].type, true
+}
+
 fields_layout :: proc(
 	store: ^Store,
 	fields: []Type_Field,
