@@ -39,7 +39,9 @@ No failures to record.
 
 ## Burn-down
 
-| feature | fixture path | failing phase | date |
+Fixtures run with `mise run diff-test <fixture paths>` on 2026-10-20. Status is PASS, or the failing phase followed by the first stderr line as diff-test printed it.
+
+| feature | fixture path | status | date |
 | --- | --- | --- | --- |
 | bit_set_type | src/driver/testdata/demo_section_bit_set_type | odinc-check: base/runtime/core_builtin.odin:1658:44: Undeclared_Type | 2026-10-20 |
 | constant_literal_expressions | src/driver/testdata/demo_section_constant_literal_expressions | odinc-lower: src/driver/testdata/demo_section_constant_literal_expressions/main.odin:40:10: lower Unsupported Place | 2026-10-20 |
@@ -53,4 +55,17 @@ No failures to record.
 | soa_struct_layout | src/driver/testdata/demo_section_soa_struct_layout | odinc-check: src/driver/testdata/demo_section_soa_struct_layout/main.odin:12:5: Unsupported_Type_Expression | 2026-10-20 |
 | using_statement | src/driver/testdata/demo_section_using_statement | odinc-check: src/driver/testdata/demo_section_using_statement/main.odin:15:2: Unsupported | 2026-10-20 |
 | where_clauses | src/driver/testdata/demo_section_where_clauses | odinc-check: src/driver/testdata/demo_section_where_clauses/main.odin:6:2: Undeclared_Name | 2026-10-20 |
-| hello_fmt | src/driver/testdata/hello_fmt | odinc-check: src/driver/core/strings/builder.odin:444:2: Unsupported | 2026-10-20 |
+| hello_fmt | src/driver/testdata/hello_fmt | odinc-check: core/strings/builder.odin:444:2: Unsupported | 2026-10-20 |
+| switch_fallthrough | src/driver/testdata/switch_fallthrough | PASS | 2026-10-20 |
+| or_return_value | src/driver/testdata/or_return_value | PASS | 2026-10-20 |
+| spread_call | src/driver/testdata/spread_call | PASS | 2026-10-20 |
+
+Totals: 16 fixtures, 5 PASS, 11 failing. The previous table had 13 rows, 2 PASS and 11 failing, so the table grew by 3 rows (switch_fallthrough, or_return_value, spread_call), all PASS. No previously failing row now passes. The hello_fmt path changed from src/driver/core/strings/builder.odin:444:2 to core/strings/builder.odin:444:2 as printed now.
+
+## Changes this session
+
+- Reject tests added for array, struct and union ordering, non-constant string `+`, and f32 `%`.
+- Fallthrough is supported: switch_fallthrough and partial_switch PASS.
+- `or_return` works on stored values and first-result declarations: or_return_value PASS.
+- Spread into variadic with named arguments: spread_call PASS.
+- Driver test split: 45 tests 8.5s -> 52 tests 2.7s.
