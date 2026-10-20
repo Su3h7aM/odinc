@@ -173,3 +173,13 @@ lower_length :: proc(state: ^Procedure_State, node: syntax.Node_Index, info: che
 	if state.failed || state.job.function.error != nil { return 0 }
 	return lower_load_word(state, ir.ptr_offset(state.job.function, header, 8), .I64)
 }
+
+lower_capacity :: proc(state: ^Procedure_State, node: syntax.Node_Index, info: check.Expression_Info, plan: check.Builtin_Plan) -> ir.Node_Id {
+	if len(plan.arguments) != 1 || scalar_type(state, info.type) != .I64 { return lower_fail(state, node, .Builtin) }
+	descriptor := lower_type(state, operand_type(state, plan.arguments[0]))
+	if descriptor.kind == .Pointer { descriptor = lower_type(state, descriptor.elem) }
+	if descriptor.kind != .Dynamic_Array { return lower_fail(state, node, .Builtin) }
+	header := lower_operand(state, plan.arguments[0])
+	if state.failed || state.job.function.error != nil { return 0 }
+	return lower_load_word(state, ir.ptr_offset(state.job.function, header, 16), .I64)
+}

@@ -339,8 +339,10 @@ lower_raw_data :: proc(state: ^Procedure_State, node: syntax.Node_Index, info: c
 	if state.failed || state.job.function.error != nil { return 0 }
 	kind := lower_type(state, lower_info(state, operand.node).type).kind
 	#partial switch kind {
-	case .Slice, .String, .String16:
+	case .Slice, .String, .String16, .Dynamic_Array:
 		return lower_load_word(state, value, .Ptr)
+	case .Pointer, .Multi_Pointer:
+		return value
 	case:
 		return lower_fail(state, node, .Builtin)
 	}
@@ -368,6 +370,7 @@ lower_builtin :: proc(state: ^Procedure_State, node: syntax.Node_Index, info: ch
 	if value, handled := lower_memory_misc(state, node, plan, check.builtin_kind(state.job.program, plan.builtin)); handled { return value }
 	if check.builtin_kind(state.job.program, plan.builtin) == .Raw_Data { return lower_raw_data(state, node, info, plan) }
 	if check.builtin_kind(state.job.program, plan.builtin) == .Len { return lower_length(state, node, info, plan) }
+	if check.builtin_kind(state.job.program, plan.builtin) == .Cap { return lower_capacity(state, node, info, plan) }
 	if value, handled := lower_simd_builtin(state, node, info, plan, check.builtin_kind(state.job.program, plan.builtin)); handled {
 		return value
 	}

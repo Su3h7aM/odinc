@@ -82,7 +82,7 @@ results_tile :: proc(results: []ir.Result, size: i64) -> bool {
 is_aggregate :: proc(state: ^Procedure_State, type: types.Type_Id) -> bool {
 	if is_wide_integer(state, type) { return true }
 	#partial switch lower_type(state, type).kind {
-	case .Struct, .Array, .String, .String16, .Slice, .Any, .Union, .Complex, .Quaternion:
+	case .Struct, .Array, .Enumerated_Array, .Fixed_Capacity_Array, .String, .String16, .Slice, .Dynamic_Array, .Map, .Any, .Union, .Complex, .Quaternion:
 		return true
 	}
 	return false
