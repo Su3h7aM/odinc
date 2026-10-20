@@ -462,7 +462,7 @@ lower_wide_constant :: proc(state: ^Procedure_State, value: big.Int) -> ir.Node_
 lower_wide_conversion :: proc(state: ^Procedure_State, node: syntax.Node_Index, source, target: types.Type_Id, value: ir.Node_Id) -> ir.Node_Id {
 	function := state.job.function
 	if is_wide_integer(state, target) {
-		if is_wide_integer(state, source) { return value }
+		if is_wide_integer(state, source) || types.is_untyped(check.type_store(state.job.program), source) { return value }
 		scalar := scalar_type(state, source)
 		if scalar < .I8 || scalar > .I64 { return lower_fail(state, node, .Conversion) }
 		low := widen_to_word(state, value, source)
