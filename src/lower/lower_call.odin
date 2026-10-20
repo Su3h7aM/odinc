@@ -138,13 +138,13 @@ lower_call_results :: proc(state: ^Procedure_State, node: syntax.Node_Index, inf
 	if result_count > 0 && scalar_type(state, plan.results[result_count - 1]) == .None {
 		layout := state.job.layouts[plan.results[result_count - 1]]
 		if layout.error != .None { lower_fail(state, node, .Result); return }
-		result_slot = ir.stack_slot(function, state.entry_control, u32(layout.size), u32(layout.align))
+		result_slot = ir.stack_slot(function, state.entry_control, u32(max(layout.size, 1)), u32(layout.align))
 		if struct_return >= 0 { arguments[struct_return] = result_slot }
 	}
 	for index in 0 ..< split_count {
 		layout := state.job.layouts[plan.results[index]]
 		if layout.error != .None { lower_fail(state, node, .Result); return }
-		slots[index] = ir.stack_slot(function, state.entry_control, u32(layout.size), u32(layout.align))
+		slots[index] = ir.stack_slot(function, state.entry_control, u32(max(layout.size, 1)), u32(layout.align))
 		arguments[split_base + index] = slots[index]
 	}
 	for argument, index in plan.arguments {

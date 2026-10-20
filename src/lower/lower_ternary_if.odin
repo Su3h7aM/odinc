@@ -40,7 +40,7 @@ lower_aggregate_ternary :: proc(state: ^Procedure_State, node: syntax.Node_Index
 	builder := state.builder
 	type := lower_info(state, node).type
 	layout := state.job.layouts[type]
-	slot := ir.stack_slot(function, state.entry_control, u32(layout.size), u32(layout.align))
+	slot := ir.stack_slot(function, state.entry_control, u32(max(layout.size, 1)), u32(layout.align))
 	count := len(builder.values)
 	end := ir.jump_target_make(builder)
 	branch := ir.branch_if(builder, condition)

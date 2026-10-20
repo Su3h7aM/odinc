@@ -14,7 +14,7 @@ lower_aggregate :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: 
 	if types.get(store, owner).kind == .Bit_Field { return lower_bit_field_aggregate(state, node, plan, owner) }
 	layout := state.job.layouts[plan.type]
 	if layout.error != .None || layout.size > i64(max(u32)) || len(plan.field_indices) != len(plan.values) { return lower_fail(state, node, .Expression) }
-	address := ir.stack_slot(state.job.function, state.entry_control, u32(layout.size), u32(layout.align))
+	address := ir.stack_slot(state.job.function, state.entry_control, u32(max(layout.size, 1)), u32(layout.align))
 	return lower_aggregate_into(state, node, plan, address, layout.size)
 }
 
