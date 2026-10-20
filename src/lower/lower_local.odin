@@ -127,7 +127,7 @@ bind_local :: proc(state: ^Procedure_State, entity: check.Entity_Id, value: ir.N
 	}
 	layout := state.job.layouts[type]
 	assert(layout.error == .None && layout.size >= 0 && layout.size <= i64(max(u32)))
-	address := ir.stack_slot(state.job.function, state.entry_control, u32(layout.size), u32(layout.align))
+	address := ir.stack_slot(state.job.function, state.entry_control, u32(max(layout.size, 1)), u32(layout.align))
 	state.locals[entity] = {
 		kind    = .Address,
 		address = address,
@@ -223,7 +223,14 @@ lower_multi_declaration :: proc(state: ^Procedure_State, node: syntax.Node_Index
 		results[0] = asserted
 		results[1] = ok
 	case check.Propagation_Plan:
-		if state.ast.nodes[value].kind != .Or_Branch_Expr || !lower_or_branch_values(state, value, variant, results) { return }
+		if state.ast.nodes[value].kind == .Or_Branch_Expr {
+			if !lower_or_branch_values(state, value, variant, results) { return }
+		} else if state.ast.nodes[value].kind == .Or_Return_Expr {
+			if !lower_or_return_values(state, value, variant, results) { return }
+		} else {
+			lower_fail(state, node, .Local)
+			return
+		}
 	case:
 		lower_fail(state, node, .Local)
 		return

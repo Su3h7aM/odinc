@@ -145,22 +145,39 @@ lower_or_return :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: 
 	if !is_expression || operand.view != state.view { return lower_fail(state, node, .Expression) }
 	operand_info := lower_info(state, operand.node)
 	if operand_info.plan == 0 { return lower_or_return_stored(state, node, plan, operand, operand_info.type) }
+	values, allocation_error := make([]ir.Node_Id, len(plan.values), context.allocator)
+	if allocation_error != nil { state.job.function.error = allocation_error; return 0 }
+	defer delete(values, context.allocator)
+	if !lower_or_return_values(state, node, plan, values) { return 0 }
+	if len(values) == 0 { return 0 }
+	if len(values) != 1 { return lower_fail(state, node, .Result) }
+	return values[0]
+}
+
+@(private)
+lower_or_return_values :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: check.Propagation_Plan, values: []ir.Node_Id) -> bool {
+	operand, is_expression := plan.operand.(check.Expression_Ref)
+	if !is_expression || operand.view != state.view { lower_fail(state, node, .Expression); return false }
+	operand_info := lower_info(state, operand.node)
+	if operand_info.plan == 0 { lower_fail(state, node, .Expression); return false }
 	call, is_call := check.plan(state.job.program, operand_info.plan)^.(check.Call_Plan)
-	if !is_call || (len(call.results) != 1 && len(call.results) != 2) { return lower_fail(state, node, .Expression) }
+	if !is_call || len(call.results) < 1 { lower_fail(state, node, .Expression); return false }
+	status_index := len(call.results) - 1
+	if len(values) != status_index || len(plan.values) != status_index { lower_fail(state, node, .Result); return false }
+	all_values, allocation_error := make([]ir.Node_Id, len(call.results), context.allocator)
+	if allocation_error != nil { state.job.function.error = allocation_error; return false }
+	defer delete(all_values, context.allocator)
 	call_node := operand.node
 	for state.ast.nodes[call_node].kind == .Paren_Expr {
 		call_node = state.ast.nodes[call_node].payload.(syntax.Paren_Expr).expr
 	}
-	values: [2]ir.Node_Id
-	lower_call_results(state, call_node, operand_info, call, values[:len(call.results)])
-	if state.failed || state.job.function.error != nil { return 0 }
-	status_index := len(call.results) - 1
-	condition, condition_ok := or_return_condition(state.job.function, plan, values[status_index])
-	if !condition_ok { return lower_fail(state, node, .Expression) }
-	if !lower_or_return_exit(state, node, plan, condition, values[status_index], call.results[status_index]) { return 0 }
-	if len(plan.values) == 0 { return 0 }
-	if len(plan.values) != 1 || status_index != 1 { return lower_fail(state, node, .Result) }
-	return values[0]
+	lower_call_results(state, call_node, operand_info, call, all_values)
+	if state.failed || state.job.function.error != nil { return false }
+	condition, condition_ok := or_return_condition(state.job.function, plan, all_values[status_index])
+	if !condition_ok { lower_fail(state, node, .Expression); return false }
+	if !lower_or_return_exit(state, node, plan, condition, all_values[status_index], call.results[status_index]) { return false }
+	copy(values, all_values[:status_index])
+	return true
 }
 
 // A stored status has no call plan and yields no value: the expression is a statement.
