@@ -214,13 +214,28 @@ expression_or_return :: proc(
 	if !returnable { return expression_unsupported(checker, view, scope, node, "Or_Return_Result") }
 	allocator := mem.dynamic_arena_allocator(&checker.arena)
 	failure_values := make([]Operand, 1, allocator) or_return
+	failure_conversions := make([]Plan_Id, 1, allocator) or_return
 	if len(results) == 0 {
 		failure_values[0] = Operand(Expression_Ref{view, expression.expr})
 	} else {
 		failure_values[0] = Operand(Projection{Expression_Ref{view, expression.expr}, u32(status_index)})
 	}
+	if !expression_propagation_result_matches(checker, status, checker.results[len(checker.results) - 1]) {
+		converted := expression_conversion(
+			checker,
+			view,
+			scope,
+			expression.expr,
+			failure_values[0],
+			Expression_Info{type = status, mode = .Value, scope = scope, state = .Checked},
+			checker.results[len(checker.results) - 1],
+			.Assignment,
+		) or_return
+		if converted.state == .Invalid { return expression_poison(scope), nil }
+		failure_conversions[0] = converted.plan
+	}
 	failure := Plan_Id(len(checker.plans))
-	append(&checker.plans, Plan(Exit_Plan{kind = .Return, values = failure_values})) or_return
+	append(&checker.plans, Plan(Exit_Plan{kind = .Return, values = failure_values, conversions = failure_conversions})) or_return
 	values := make([]Operand, status_index, allocator) or_return
 	for index in 0 ..< status_index {
 		values[index] = Operand(Projection{Expression_Ref{view, expression.expr}, u32(index)})

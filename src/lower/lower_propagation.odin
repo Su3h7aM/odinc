@@ -250,19 +250,28 @@ lower_or_return_exit :: proc(
 	ir.enter_arm(builder, branch, 0)
 	ir.jump_to(builder, end)
 	ir.enter_arm(builder, branch, 1)
+	conversion: check.Plan_Id
+	if len(exit.conversions) == 1 { conversion = exit.conversions[0] }
+	value := status
+	if conversion != 0 {
+		value = lower_or_return_conversion(state, node, conversion, status_type, status)
+		if state.failed || function.error != nil { return false }
+	}
 	results := state.job.procedure.results
 	if len(results) <= 1 {
 		if len(results) == 1 && results[0] != 0 {
-			if !or_return_status_storable(state, results[0], status_type, status) { _ = lower_fail(state, node, .Result); return false }
-			store_result_entity(state, results[0], status)
+			if conversion == 0 && !or_return_status_storable(state, results[0], status_type, status) { _ = lower_fail(state, node, .Result); return false }
+			store_result_entity(state, results[0], value)
 			lower_return(state, node, nil, nil)
 		} else {
-			lower_scalar_return(state, node, status)
+			returned := [1]ir.Node_Id{value}
+			lower_result_values(state, node, returned[:])
 		}
 	} else {
 		if results[len(results) - 1] == 0 { _ = lower_fail(state, node, .Result); return false }
-		if !or_return_status_storable(state, results[len(results) - 1], status_type, status) { _ = lower_fail(state, node, .Result); return false }
-		store_result_entity(state, results[len(results) - 1], status)
+		if conversion == 0 &&
+		   !or_return_status_storable(state, results[len(results) - 1], status_type, status) { _ = lower_fail(state, node, .Result); return false }
+		store_result_entity(state, results[len(results) - 1], value)
 		lower_return(state, node, nil, nil)
 	}
 	if state.failed || function.error != nil { return false }
@@ -292,4 +301,20 @@ or_return_status_storable :: proc(state: ^Procedure_State, entity: check.Entity_
 	if lower_type(state, destination).kind != .Bool { return false }
 	if status != 0 && lower_type(state, status).kind != .Bool { return false }
 	return state.job.function.nodes.type[value] == scalar_type(state, destination)
+}
+
+@(private)
+lower_or_return_conversion :: proc(
+	state: ^Procedure_State,
+	node: syntax.Node_Index,
+	plan_id: check.Plan_Id,
+	status_type: types.Type_Id,
+	status: ir.Node_Id,
+) -> ir.Node_Id {
+	if status_type == 0 { return lower_fail(state, node, .Conversion) }
+	plan := check.plan(state.job.program, plan_id)
+	if plan == nil { return lower_fail(state, node, .Conversion) }
+	conversion, found := plan^.(check.Conversion_Plan)
+	if !found { return lower_fail(state, node, .Conversion) }
+	return lower_conversion_value(state, conversion, node, status_type, status)
 }
