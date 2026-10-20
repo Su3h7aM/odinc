@@ -3,6 +3,106 @@ package check
 import "core:testing"
 
 @(test)
+binary_rejects_mixed_integer_types :: proc(t: ^testing.T) {
+	// Official: Mismatched types in binary expression 'a + b' : 'i32' vs 'i64'.
+	source := transmute([]byte)string(`package sample
+main :: proc "contextless" () {
+	a: i32
+	b: i64
+	_ = a + b
+}
+`)
+	_, ok := check_procedure_source(t, source, .Mismatched_Types, "")
+	testing.expect(t, ok)
+}
+
+@(test)
+binary_accepts_mixed_integer_cast :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(`package sample
+main :: proc "contextless" () {
+	a: i32
+	b: i64
+	_ = a + i32(b)
+}
+`)
+	_, ok := check_procedure_source(t, source)
+	testing.expect(t, ok)
+}
+
+@(test)
+binary_rejects_untyped_bitwise_not :: proc(t: ^testing.T) {
+	// Official: Bitwise not cannot be applied to untyped constants '~0'.
+	source := transmute([]byte)string(`package sample
+main :: proc "contextless" () { x: u32 = ~0 }
+`)
+	_, ok := check_procedure_source(t, source, .Conversion, "")
+	testing.expect(t, ok)
+}
+
+@(test)
+binary_accepts_typed_bitwise_not :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(`package sample
+main :: proc "contextless" () { x: u32 = ~u32(0) }
+`)
+	_, ok := check_procedure_source(t, source)
+	testing.expect(t, ok)
+}
+
+@(test)
+binary_rejects_bool_arithmetic :: proc(t: ^testing.T) {
+	// Official: Operator '+' is only allowed with numeric expressions.
+	source := transmute([]byte)string(`package sample
+main :: proc "contextless" () { _ = true + false }
+`)
+	_, ok := check_procedure_source(t, source, .Invalid_Operator, "")
+	testing.expect(t, ok)
+}
+
+@(test)
+binary_rejects_integer_string_comparison :: proc(t: ^testing.T) {
+	// Official: Cannot convert untyped value '1' to 'untyped string' from 'untyped integer'.
+	source := transmute([]byte)string(`package sample
+main :: proc "contextless" () { _ = 1 < "a" }
+`)
+	_, ok := check_procedure_source(t, source, .Invalid_Operator, "")
+	testing.expect(t, ok)
+}
+
+@(test)
+unary_rejects_negative_unsigned_constant :: proc(t: ^testing.T) {
+	// Official: Cannot convert numeric value '-1' from '-1' to 'u8' from 'untyped integer'. A negative value cannot be represented by the unsigned integer type 'u8'.
+	source := transmute([]byte)string(`package sample
+main :: proc "contextless" () { x: u8 = -1 }
+`)
+	_, ok := check_procedure_source(t, source, .Conversion, "")
+	testing.expect(t, ok)
+}
+
+@(test)
+binary_rejects_different_array_lengths_for_equality :: proc(t: ^testing.T) {
+	// Official: Cannot compare expression. Mismatched types '[3]int' and '[4]int'.
+	source := transmute([]byte)string(`package sample
+main :: proc "contextless" () {
+	a: [3]int
+	b: [4]int
+	_ = a == b
+}
+`)
+	_, ok := check_procedure_source(t, source, .Invalid_Operator, "")
+	testing.expect(t, ok)
+}
+
+@(test)
+binary_rejects_float_shift :: proc(t: ^testing.T) {
+	// Official: Shifted operand 'f' must be an integer.
+	source := transmute([]byte)string(`package sample
+main :: proc "contextless" () { f: f32; _ = f << 1 }
+`)
+	_, ok := check_procedure_source(t, source, .Invalid_Operator, "")
+	testing.expect(t, ok)
+}
+
+@(test)
 binary_rejects_array_ordering :: proc(t: ^testing.T) {
 	// "Cannot compare expression. Operator '<' not defined between the types '[3]int' and '[3]int'." (official: ordering on [3]int arrays is REJECTED)
 	source := transmute([]byte)string(`package sample
