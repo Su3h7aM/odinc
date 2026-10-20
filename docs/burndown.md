@@ -69,3 +69,7 @@ Totals: 16 fixtures, 5 PASS, 11 failing. The previous table had 13 rows, 2 PASS 
 - `or_return` works on stored values and first-result declarations: or_return_value PASS.
 - Spread into variadic with named arguments: spread_call PASS.
 - Driver test split: 45 tests 8.5s -> 52 tests 2.7s.
+
+## Known unsupported
+
+- map indexing m[k] and m[k] or_else d: checker accepts, lowering unsupported (needs runtime.__dynamic_map_get and map info)

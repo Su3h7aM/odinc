@@ -11,14 +11,25 @@ lower_or_else :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: ch
 	if !is_expression || operand.view != state.view { return lower_fail(state, node, .Expression) }
 	operand_info := lower_info(state, operand.node)
 	if operand_info.plan == 0 { return lower_fail(state, node, .Expression) }
-	call, is_call := check.plan(state.job.program, operand_info.plan)^.(check.Call_Plan)
-	if !is_call || len(call.results) != 2 { return lower_fail(state, node, .Expression) }
+	operand_plan := check.plan(state.job.program, operand_info.plan)
+	if operand_plan == nil { return lower_fail(state, node, .Expression) }
 	call_node := operand.node
 	for state.ast.nodes[call_node].kind == .Paren_Expr {
 		call_node = state.ast.nodes[call_node].payload.(syntax.Paren_Expr).expr
 	}
 	values: [2]ir.Node_Id
-	lower_call_results(state, call_node, operand_info, call, values[:])
+	#partial switch value in operand_plan^ {
+	case check.Call_Plan:
+		if len(value.results) != 2 { return lower_fail(state, node, .Expression) }
+		lower_call_results(state, call_node, operand_info, value, values[:])
+	case check.Type_Assertion_Plan:
+		if !value.comma_ok { return lower_fail(state, node, .Expression) }
+		values[0], values[1] = lower_type_assertion(state, call_node, value)
+	case check.Map_Index_Plan:
+		return lower_fail(state, node, .Expression)
+	case:
+		return lower_fail(state, node, .Expression)
+	}
 	if state.failed || state.job.function.error != nil { return 0 }
 	condition: ir.Node_Id
 	switch plan.test {

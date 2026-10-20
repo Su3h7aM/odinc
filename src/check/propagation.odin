@@ -5,7 +5,7 @@ import "oc:syntax"
 import "oc:types"
 
 @(private = "file")
-propagation_results :: proc(checker: ^Expression_Checker, plan_id: Plan_Id, pair: ^[2]types.Type_Id) -> []types.Type_Id {
+propagation_results :: proc(checker: ^Expression_Checker, plan_id: Plan_Id, value_type: types.Type_Id, pair: ^[2]types.Type_Id) -> []types.Type_Id {
 	#partial switch plan in checker.plans[plan_id] {
 	case Call_Plan:
 		return plan.results
@@ -14,6 +14,12 @@ propagation_results :: proc(checker: ^Expression_Checker, plan_id: Plan_Id, pair
 		assertion.comma_ok = true
 		checker.plans[plan_id] = Plan(assertion)
 		pair^ = {assertion.target_type, checker.boolean}
+		return pair[:]
+	case Map_Index_Plan:
+		indexed := plan
+		indexed.comma_ok = true
+		checker.plans[plan_id] = Plan(indexed)
+		pair^ = {value_type, checker.boolean}
 		return pair[:]
 	}
 	return nil
@@ -37,7 +43,7 @@ expression_or_else :: proc(
 	if operand.state == .Invalid { return expression_poison(scope), nil }
 	if operand.plan == 0 { return expression_unsupported(checker, view, scope, node, "Or_Else_Plan") }
 	pair: [2]types.Type_Id
-	results := propagation_results(checker, operand.plan, &pair)
+	results := propagation_results(checker, operand.plan, operand.type, &pair)
 	if len(results) != 2 {
 		return expression_unsupported(checker, view, scope, node, "Or_Else_Results")
 	}
@@ -87,7 +93,7 @@ expression_or_branch :: proc(
 	if operand.state == .Invalid { return expression_poison(scope), nil }
 	if operand.plan == 0 { return expression_unsupported(checker, view, scope, node, "Or_Branch_Plan") }
 	pair: [2]types.Type_Id
-	results := propagation_results(checker, operand.plan, &pair)
+	results := propagation_results(checker, operand.plan, operand.type, &pair)
 	if len(results) != 1 && len(results) != 2 {
 		return expression_unsupported(checker, view, scope, node, "Or_Branch_Results")
 	}
@@ -165,7 +171,7 @@ expression_or_return :: proc(
 	results: []types.Type_Id
 	if operand.plan != 0 {
 		pair: [2]types.Type_Id
-		results = propagation_results(checker, operand.plan, &pair)
+		results = propagation_results(checker, operand.plan, operand.type, &pair)
 	}
 	if len(results) == 0 {
 		// A stored value: the operand itself is the status, and the expression has no value.

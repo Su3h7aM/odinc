@@ -17,6 +17,25 @@ main :: proc "contextless" () {
 }
 
 @(test)
+expression_or_else_checks_map_index_and_comma_ok :: proc(t: ^testing.T) {
+	// Official accepts both `m[k] or_else d` and `value, ok := m[k]`.
+	source := transmute([]byte)string(
+		`package sample
+main :: proc "contextless" () {
+	items: map[string]int
+	value := items["key"] or_else 3
+	other, ok := items["key"]
+	_ = value
+	_ = other
+	_ = ok
+}
+`,
+	)
+	_, ok := check_procedure_source(t, source)
+	testing.expect(t, ok)
+}
+
+@(test)
 expression_or_break_checks_status_and_target_context :: proc(t: ^testing.T) {
 	valid := transmute([]byte)string(
 		`package sample
