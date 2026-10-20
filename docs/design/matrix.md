@@ -171,12 +171,23 @@ Probe sources are under `/tmp/cs19/`.
 7. `intrinsics.transpose(a)` for a plain array `a: [3]f32` is accepted and has type `[3]f32`; assigning it to `matrix[3,1]f32` is rejected. `transpose(a)` for `matrix[2,3]f32` assigns to `matrix[3,2]f32`.
 8. Still open: scalar multiply `i32(3) * (2*identity)` confirmation (divergence, pending); runtime ABI behaviour gate (section 7); complex `matrix[2,2]complex64` row-major layout.
 
+## 8.1 Probe results (CS20, official dev-2026-10, `odin check` and `odin run -file`)
+
+Probe sources are under `/tmp/cs20/`.
+
+1. Keyed literals: keys are logical row-major flat indices, not storage indices. Column-major `matrix[2,3]i32{1 = 5}` stores raw `[0, 0, 5, 0, 0, 0]` and reads `m[0,1] == 5`. `#row_major` with key 1 stores raw `[0, 5, 0, 0, 0, 0]`. Out of range (`6` for 6 elements, `-1`), duplicates (`1 = 1, 1 = 2`) and non-constant keys are rejected.
+2. Typed scalar `==`: `a == s` and `s == a` with `s: i32` are accepted for `matrix[2,2]i32`; values follow the scalar-init rule (diagonal 2 compares true).
+3. Unary `+` and `-` are accepted on integer and float matrices. Unary `~` is accepted on integer matrices and rejected on float matrices. Official codegen of `~` on a matrix fails in LLVM (`Both operands to a binary operator are not of the same type`), so no `~` fixture is kept.
+4. Rectangular matrices reject untyped scalars: `m + 2` and `m * 2` for `matrix[2,3]i32` fail conversion, because only a square matrix converts from a scalar.
+5. Vector-shape results convert to arrays only through a type hint: `m * v` has type `matrix[2,1]f32` and assigns to `[2]f32`, but not to `[3]f32`. A `matrix[2,2]f32 * [2]f32` product keeps the array type when the hint matches.
+6. Runtime indices `m[i,j]` and `m[i]` are accepted. Single-index `m[k]` on a `#row_major` matrix is the row (item 1 of section 8).
+
 ## 9. Staged plan
 
 Each stage has its own fixtures under `src/driver/testdata/matrix_*` and a differential run against the official build. Fixtures use integer or exactly representable float values only.
 
 - M1 types and layout: `matrix[R,C]E` type, dimension and element validation, layout (section 1). Fixtures: sizes and offsets of the probed shapes. Checker tests for section 3 rejections.
-- M2 literals, indexing, scalar initialization: `m[i,j]` read, `m[k]` after open item 1, square scalar init (section 3). Fixtures: printed elements.
+- M2 literals, indexing, scalar initialization: `m[i,j]` read with constant and runtime indices, `m[k]` storage vectors (section 8 items 1 and 2, section 8.1 item 6), keyed literals with logical keys (section 8.1 item 1). Fixtures: `matrix_literal_index`, `matrix_literal_keyed`, `matrix_index_vector`. Square scalar init (section 3) is still open.
 - M3 element-wise operators and scalar broadcast: `+ - ==`, unary, bitwise on integers, scalar `+ -` and the correct scalar multiply on both sides, excluding the typed-constant-left cell (section 4.1).
 - M4 matrix product, matrix with array, array with matrix (section 4). Fixtures: integer and exact-float products. Requires the ABI gate (section 7) for matrix arguments and results.
 - M5 casts and transmute (section 5), after open item 3.

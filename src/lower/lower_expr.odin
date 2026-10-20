@@ -221,6 +221,8 @@ lower_value :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> ir.Node
 			return lower_load(state, lower_index_address(state, node, value), info.type)
 		case check.Matrix_Index_Plan:
 			return lower_load(state, lower_matrix_index_address(state, node, value), info.type)
+		case check.Matrix_Vector_Plan:
+			return lower_load(state, lower_matrix_vector_address(state, node, value), info.type)
 		case check.Call_Plan:
 			return lower_call(state, node, info, value)
 		case check.Builtin_Plan:
@@ -329,6 +331,8 @@ lower_address :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> ir.No
 			return lower_index_address(state, node, value)
 		case check.Matrix_Index_Plan:
 			return lower_matrix_index_address(state, node, value)
+		case check.Matrix_Vector_Plan:
+			return lower_matrix_vector_address(state, node, value)
 		case check.Aggregate_Plan, check.Slice_Literal_Plan:
 			return lower_value(state, node)
 		case:

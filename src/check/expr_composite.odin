@@ -114,10 +114,15 @@ expression_composite :: proc(
 	}
 	elements := syntax.node_list(file.ast, literal.elems)
 	if is_matrix {
+		// Official keys are logical row-major flat indices, so keyed literals may be sparse and zero-fill.
+		has_keyed := false
 		for element in elements {
-			if file.ast.nodes[element].kind == .Field_Value { return expression_unsupported(checker, view, scope, element, "Matrix_Named_Element") }
+			if file.ast.nodes[element].kind == .Field_Value {
+				has_keyed = true
+				break
+			}
 		}
-		if len(elements) > 0 && i64(len(elements)) != descriptor.count * descriptor.upper_bound {
+		if !has_keyed && len(elements) > 0 && i64(len(elements)) != descriptor.count * descriptor.upper_bound {
 			return expression_failure(checker, view, scope, node, .Invalid_Operand)
 		}
 	}
@@ -167,21 +172,32 @@ expression_composite :: proc(
 				first = int(lower_index - descriptor.lower_bound)
 				last = int(upper_index - descriptor.lower_bound)
 			} else {
-				first = struct_field_index(fields, expression_text(file, pair.field))
-				last = first
+				if is_matrix {
+					lower_index, upper_index, key_failed, key_error := expression_array_key(checker, view, scope, file_id, pair.field, checker.default_integer)
+					if key_error != nil { return {}, key_error }
+					if key_failed { return expression_poison(scope), nil }
+					first = int(lower_index)
+					last = int(upper_index)
+				} else {
+					first = struct_field_index(fields, expression_text(file, pair.field))
+					last = first
+				}
 			}
 			if first < 0 { return expression_failure(checker, view, scope, pair.field, .Undeclared_Name) }
 		} else if position >= count {
 			return expression_failure(checker, view, scope, element, .Invalid_Operand)
 		}
-		if is_matrix {
+		matrix_keyed := is_matrix && file.ast.nodes[element].kind == .Field_Value
+		if is_matrix && !matrix_keyed {
 			first = matrix_storage_index(descriptor, position)
 			last = first
 		}
 		if first < 0 || last >= count { return expression_failure(checker, view, scope, element, .Invalid_Operand) }
 		for index in first ..= last {
-			if seen[index] { return expression_failure(checker, view, scope, element, .Invalid_Operand) }
-			seen[index] = true
+			physical := index
+			if matrix_keyed { physical = matrix_storage_index(descriptor, index) }
+			if seen[physical] { return expression_failure(checker, view, scope, element, .Invalid_Operand) }
+			seen[physical] = true
 		}
 		element_type := descriptor.elem
 		if !is_array && !is_matrix { element_type = fields[first].type }
@@ -196,13 +212,15 @@ expression_composite :: proc(
 			return expression_poison(scope), nil
 		}
 		for index in first ..= last {
+			physical := index
+			if matrix_keyed { physical = matrix_storage_index(descriptor, index) }
 			append(&values, value_operand) or_return
-			append(&indices, u32(index)) or_return
+			append(&indices, u32(physical)) or_return
 			append(&conversions, conversion) or_return
 			if constant_element {
-				constants[index] = value.constant
+				constants[physical] = value.constant
 			} else if variant != 0 {
-				constants[index] = variant
+				constants[physical] = variant
 			}
 		}
 	}

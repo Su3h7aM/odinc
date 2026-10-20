@@ -815,6 +815,7 @@ Plan :: union {
 	Assignment_Plan,
 	Bounds_Plan,
 	Matrix_Index_Plan,
+	Matrix_Vector_Plan,
 	Union_Plan,
 	Exit_Plan,
 	Propagation_Plan,

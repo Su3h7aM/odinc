@@ -43,6 +43,10 @@ expression_index :: proc(
 	is_enumerated_array := base_descriptor.kind == .Enumerated_Array
 	is_string := base_descriptor.kind == .String || base_descriptor.kind == .String16
 	is_multi_pointer := base_descriptor.kind == .Multi_Pointer
+	if base_descriptor.kind == .Matrix {
+		vector := expression_matrix_vector(checker, view, file_id, scope, node, base) or_return
+		return vector, nil
+	}
 	if !is_array && !is_dynamic_array && !is_enumerated_array && !is_string && !is_multi_pointer && base_descriptor.kind != .Slice {
 		return expression_unsupported(checker, view, scope, node, "Index_Base")
 	}
