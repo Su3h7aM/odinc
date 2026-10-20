@@ -13,14 +13,19 @@ lower_switch :: proc(state: ^Procedure_State, node: syntax.Node_Index, statement
 	lower_statement(state, statement.init)
 	if state.failed || state.job.function.error != nil || state.builder.control == 0 { return }
 	tag: ir.Node_Id
+	wide_tag := false
+	tag_signed := false
 	string_switch, is_string_switch := lower_string_switch_plan(state, node)
 	if statement.cond != 0 {
 		tag_info := lower_info(state, statement.cond)
 		tag = lower_value(state, statement.cond)
 		if state.failed || state.job.function.error != nil { return }
+		tag_signed = signed_type(state, tag_info.type)
 		if is_string_switch {
 			bind_local(state, string_switch.tag, tag, true)
 			if state.failed || state.job.function.error != nil { return }
+		} else if is_wide_integer(state, tag_info.type) {
+			wide_tag = true
 		} else if scalar_type(state, tag_info.type) == .None {
 			lower_fail(state, node, .Switch)
 			return
@@ -42,15 +47,21 @@ lower_switch :: proc(state: ^Procedure_State, node: syntax.Node_Index, statement
 		if len(values) == 0 { default_body = index }
 		for value_node in values {
 			condition: ir.Node_Id
+			range_case := false
 			if is_string_switch {
 				if comparison >= len(string_switch.comparisons) { lower_fail(state, node, .Switch); return }
 				condition = lower_string_case(state, value_node, string_switch.comparisons[comparison])
 				comparison += 1
+			} else if tag != 0 && is_range_case(state, value_node) {
+				range_case = true
+				condition = lower_switch_range(state, state.ast.nodes[value_node].payload.(syntax.Binary_Expr), tag, wide_tag, tag_signed)
 			} else {
 				condition = lower_value(state, value_node)
 			}
 			if state.failed || state.job.function.error != nil { return }
-			if tag != 0 && !is_string_switch {
+			if !range_case && wide_tag {
+				condition = wide_equal(state.job.function, wide_load(state, tag), wide_load(state, condition))
+			} else if !range_case && tag != 0 && !is_string_switch {
 				tag_type := state.job.function.nodes.type[tag]
 				kind := ir.Node_Kind.FEq if tag_type == .F32 || tag_type == .F64 else ir.Node_Kind.Eq
 				condition = ir.compare(state.job.function, kind, tag, condition)
@@ -92,4 +103,36 @@ lower_switch :: proc(state: ^Procedure_State, node: syntax.Node_Index, statement
 		ir.jump_to(state.builder, next)
 	}
 	ir.seal_target(state.builder, end)
+}
+
+@(private)
+is_range_case :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> bool {
+	binary, ok := state.ast.nodes[node].payload.(syntax.Binary_Expr)
+	return ok && (binary.op.kind == .Range_Full || binary.op.kind == .Range_Half)
+}
+
+// `low..=high` and `low..<high` test the tag between the bounds; the upper bound is excluded for `..<`.
+@(private)
+lower_switch_range :: proc(state: ^Procedure_State, range: syntax.Binary_Expr, tag: ir.Node_Id, wide_tag, signed: bool) -> ir.Node_Id {
+	function := state.job.function
+	low := lower_value(state, range.left)
+	if state.failed { return 0 }
+	high := lower_value(state, range.right)
+	if state.failed { return 0 }
+	inclusive := range.op.kind == .Range_Full
+	if wide_tag {
+		value := wide_load(state, tag)
+		low_words := wide_load(state, low)
+		high_words := wide_load(state, high)
+		at_least_low := bool_not(function, wide_less(function, value, low_words, signed))
+		below_high := wide_less(function, value, high_words, signed)
+		if inclusive { below_high = bool_not(function, wide_less(function, high_words, value, signed)) }
+		return ir.binary(function, .And, at_least_low, below_high)
+	}
+	floating := function.nodes.type[tag] == .F32 || function.nodes.type[tag] == .F64
+	less_kind := ir.Node_Kind.FLt if floating else (ir.Node_Kind.SLt if signed else ir.Node_Kind.ULt)
+	less_equal_kind := ir.Node_Kind.FLe if floating else (ir.Node_Kind.SLe if signed else ir.Node_Kind.ULe)
+	at_least_low := ir.compare(function, less_equal_kind, low, tag)
+	below_high := ir.compare(function, less_equal_kind if inclusive else less_kind, tag, high)
+	return ir.binary(function, .And, at_least_low, below_high)
 }
