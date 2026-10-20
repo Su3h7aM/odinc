@@ -2,7 +2,7 @@ package main
 
 import "base:intrinsics"
 
-main :: proc "contextless" () {
+main :: proc() {
 	tag := "b"
 	code := 0
 	switch tag {

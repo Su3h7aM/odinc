@@ -2,7 +2,7 @@ package main
 
 import "base:intrinsics"
 
-main :: proc "contextless" () {
+main :: proc() {
 	code := 0
 	value := u64(5)
 	if intrinsics.atomic_add(&value, 3) == 5 && value == 8 { code += 1 }

@@ -2,7 +2,7 @@ package main
 
 import "base:intrinsics"
 
-main :: proc "contextless" () {
+main :: proc() {
 	code := 0
 	unsigned: u8 = 240
 	signed: i8 = -120

@@ -27,7 +27,7 @@ pointer_pair :: proc "contextless" (ok: bool) -> (int, ^u8) {
 	return 0, &marker
 }
 
-main :: proc "contextless" () {
+main :: proc() {
 	index := 0
 	for ; index < 3; index += 1 {
 		value := (pair(index == 0)) or_continue

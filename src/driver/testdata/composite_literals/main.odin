@@ -17,7 +17,7 @@ Levels :: enum {
 }
 ROWS :: [2]int{6, 7}
 
-main :: proc "contextless" () {
+main :: proc() {
 	input := 9
 	pair: Pair = {input, 2}
 	array: [3]int = {

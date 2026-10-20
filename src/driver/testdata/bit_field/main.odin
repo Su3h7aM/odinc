@@ -13,7 +13,7 @@ Flags :: bit_field u16 {
 	ok:     bool | 1,
 }
 
-main :: proc "contextless" () {
+main :: proc() {
 	code := 0
 	tagged := Tagged {
 		pointer = -2,

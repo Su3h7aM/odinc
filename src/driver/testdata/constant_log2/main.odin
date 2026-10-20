@@ -4,7 +4,7 @@ import "base:intrinsics"
 
 Buffer :: [intrinsics.constant_log2(256)]u8
 
-main :: proc "contextless" () {
+main :: proc() {
 	buffer: Buffer
 	code := 0
 	if len(buffer) == 8 { code += 1 }

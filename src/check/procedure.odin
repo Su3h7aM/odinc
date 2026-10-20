@@ -102,12 +102,43 @@ expression_procedure_body :: proc(checker: ^Expression_Checker, resolver: ^Resol
 		return false, nil
 	}
 	expression_block(checker, view, body.file, procedure_scope, body.node) or_return
+	expression_procedure_termination(checker, view, id, body) or_return
+	expression_main_convention(checker, view, id, body) or_return
 	// Nested literal bodies resolve like top-level ones; drain them here so their diagnostics count for this body. The resolver stack is empty while bodies are checked.
 	resolver_check_pending_bodies(resolver) or_return
 	procedure = &entity_get(resolver.scopes, id).data.(Procedure_Data)
 	procedure.defers = expression_take_defers(checker, defers_first) or_return
 	procedure.body_state = .Invalid if expression_diagnostics_within(checker, diagnostics_before, body) else .Complete
 	return true, nil
+}
+
+// Official check_proc_body: a procedure with results, or declared `-> !`, must end in a terminating statement.
+@(private = "file")
+expression_procedure_termination :: proc(checker: ^Expression_Checker, view: View_Id, id: Entity_Id, body: Node_Ref) -> Resolve_Error {
+	signature := entity_get(checker.type_checker.resolver.scopes, id).data.(Procedure_Data).signature
+	if signature == 0 { return nil }
+	descriptor := types.get(checker.type_checker.store, signature)
+	if descriptor.kind != .Procedure || (len(descriptor.results) == 0 && !descriptor.diverging) { return nil }
+	if body_terminates(checker, view, checker.type_checker.files[body.file], body.node) { return nil }
+	kind := Expression_Diagnostic_Kind.Missing_Return if len(descriptor.results) != 0 else .Missing_Diverging_Call
+	scope := entity_get(checker.type_checker.resolver.scopes, id).scope
+	_, err := expression_failure(checker, view, scope, body.node, kind)
+	return err
+}
+
+// Official check_proc_decl: the entry point of the main package cannot use a custom calling convention.
+@(private = "file")
+expression_main_convention :: proc(checker: ^Expression_Checker, view: View_Id, id: Entity_Id, body: Node_Ref) -> Resolve_Error {
+	scopes := checker.type_checker.resolver.scopes
+	entity := entity_get(scopes, id)
+	procedure := entity.data.(Procedure_Data)
+	scope_kind := scope_get(scopes, entity.scope).kind
+	if procedure.source_name != "main" || procedure.convention == .Odin || scope_kind != .Package && scope_kind != .File { return nil }
+	package_index := int(entity.package_id)
+	if package_index <= 0 || package_index >= len(checker.packages) { return nil }
+	if checker.packages[package_index].kind == .Runtime || checker.packages[package_index].name != "main" { return nil }
+	_, err := expression_failure(checker, view, entity.scope, body.node, .Main_Calling_Convention)
+	return err
 }
 
 // A body with a reported error keeps unchecked statements, so it must not be published or lowered.
@@ -363,6 +394,7 @@ expression_assignment :: proc(checker: ^Expression_Checker, view: View_Id, file_
 	if assignment.op.kind == .Eq && expression_text(file, left[0]) == "_" {
 		return expression_blank_assignment(checker, view, scope, node, right[0])
 	}
+	if file.ast.nodes[left[0]].kind == .Implicit { mark_context_assignment(checker, scope) }
 	destination := check_expression(checker, view, scope, left[0]) or_return
 	if destination.state == .Invalid { return nil }
 	if !expression_assignable(checker, destination) {

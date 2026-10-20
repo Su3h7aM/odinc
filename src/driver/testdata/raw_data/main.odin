@@ -7,7 +7,7 @@ get_text :: proc() -> string {
 	return "XY"
 }
 
-main :: proc "contextless" () {
+main :: proc() {
 	text := "XY"
 	bytes := cast([]u8)text
 	nil_bytes: []u8

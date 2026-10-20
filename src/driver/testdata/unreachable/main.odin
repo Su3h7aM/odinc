@@ -6,7 +6,7 @@ unreachable_result :: proc "contextless" () -> int {
 	unreachable()
 }
 
-main :: proc "contextless" () {
+main :: proc() {
 	guard: bool = guard_value()
 	if guard {
 		unreachable()

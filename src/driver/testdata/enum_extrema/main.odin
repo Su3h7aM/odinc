@@ -11,7 +11,7 @@ Rank :: enum u8 {
 Alias :: distinct Rank
 Buffer :: [int(max(Rank))]u8
 
-main :: proc "contextless" () {
+main :: proc() {
 	buffer: Buffer
 	code := 0
 	if min(Rank) == .Low { code += 1 }

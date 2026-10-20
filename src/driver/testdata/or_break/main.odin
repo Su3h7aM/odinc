@@ -24,7 +24,7 @@ pointer_status :: proc "contextless" (ok: bool) -> (u8, ^u8) {
 	return 0, &marker
 }
 
-main :: proc "contextless" () {
+main :: proc() {
 	value: u8 = 0
 	for {
 		value = status(true) or_break

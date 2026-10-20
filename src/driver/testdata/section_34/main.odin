@@ -26,7 +26,7 @@ pointer_defer :: proc "contextless" () -> (value: int) {
 	return
 }
 
-main :: proc "contextless" () {
+main :: proc() {
 	first, second := pair(3)
 	third := explicit()
 	fourth := pointer_defer()

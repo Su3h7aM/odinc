@@ -8,7 +8,7 @@ Point :: struct {
 Points :: map[Point]int
 Names :: map[string]int
 
-main :: proc "contextless" () {
+main :: proc() {
 	code := 0
 	points := intrinsics.type_map_info(Points)
 	a := Point{1, 2}

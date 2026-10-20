@@ -11,7 +11,7 @@ syscall_program_checks_section_19_source :: proc(t: ^testing.T) {
 
 import "base:intrinsics"
 
-main :: proc "contextless" () {
+main :: proc() {
 	buffer: [6]u8
 	#no_bounds_check for i in 0 ..< 5 {
 		buffer[i] = u8('a' + i)

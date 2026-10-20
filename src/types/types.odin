@@ -132,6 +132,7 @@ Type :: struct {
 	endianness:                                     Endian,
 	signed, variadic, c_vararg:                     bool,
 	optional_result:                                bool,
+	diverging:                                      bool,
 	convention:                                     Calling_Convention,
 	union_form:                                     Union_Form,
 	soa:                                            Soa_Kind,
@@ -314,6 +315,7 @@ descriptors_equal :: proc(a, b: Type) -> bool {
 	   a.variadic != b.variadic ||
 	   a.c_vararg != b.c_vararg ||
 	   a.optional_result != b.optional_result ||
+	   a.diverging != b.diverging ||
 	   a.convention != b.convention ||
 	   a.union_form != b.union_form ||
 	   a.soa != b.soa ||

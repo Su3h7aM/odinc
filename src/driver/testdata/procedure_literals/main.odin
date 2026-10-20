@@ -6,7 +6,7 @@ apply :: proc "contextless" (callback: proc "contextless" (_: int) -> int, value
 	return callback(value)
 }
 
-main :: proc "contextless" () {
+main :: proc() {
 	OFFSET :: 2
 	add :: proc "contextless" (value: int) -> int { return value + OFFSET }
 	factorial :: proc "contextless" (value: int) -> int {

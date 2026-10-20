@@ -10,7 +10,7 @@ next :: proc "contextless" () -> int {
 	return calls
 }
 
-main :: proc "contextless" () {
+main :: proc() {
 	buffer: Buffer
 	code := 0
 	if len(buffer) == 8 && min(9, 5, 7, 6) == 5 { code += 1 }

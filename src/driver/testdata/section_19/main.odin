@@ -2,7 +2,7 @@ package main
 
 import "base:intrinsics"
 
-main :: proc "contextless" () {
+main :: proc() {
 	buffer: [6]u8
 	#no_bounds_check for i in 0 ..< 5 {
 		buffer[i] = u8('a' + i)

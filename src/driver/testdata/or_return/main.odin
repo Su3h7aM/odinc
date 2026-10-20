@@ -49,7 +49,7 @@ bool_status :: proc "contextless" (ok: bool) -> bool {
 	return ok
 }
 
-main :: proc "contextless" () {
+main :: proc() {
 	failed_value, failed_status := named_return(false)
 	if failed_value != 3 || failed_status || trace != 10 { intrinsics.syscall(60, uintptr(1)) }
 	success_value, success_status := named_return(true)

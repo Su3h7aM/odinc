@@ -12,7 +12,7 @@ next :: proc "contextless" (counter: ^int) -> int {
 	return counter^
 }
 
-main :: proc "contextless" () {
+main :: proc() {
 	code := 0
 	counter := 0
 	first, second: int

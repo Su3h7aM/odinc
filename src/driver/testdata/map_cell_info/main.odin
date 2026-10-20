@@ -9,7 +9,7 @@ Big :: struct {
 }
 Zero :: struct {}
 
-main :: proc "contextless" () {
+main :: proc() {
 	code := 0
 	name := intrinsics.type_map_cell_info(Name)
 	if name.size_of_type == 16 && name.align_of_type == 8 && name.size_of_cell == 64 && name.elements_per_cell == 4 { code += 1 }

@@ -15,7 +15,7 @@ fallback :: proc "contextless" () -> u8 {
 	return 3
 }
 
-main :: proc "contextless" () {
+main :: proc() {
 	status_fn: proc "contextless" (ok: bool) -> (u8, bool) = status
 	first := (status(true)) or_else fallback()
 	second := status_fn(false) or_else fallback()

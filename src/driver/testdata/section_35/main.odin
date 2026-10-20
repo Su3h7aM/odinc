@@ -14,7 +14,7 @@ apply :: proc "contextless" (operation: proc "contextless" (_: int, _: int) -> i
 	return operation(x, y)
 }
 
-main :: proc "contextless" () {
+main :: proc() {
 	operation: proc "contextless" (_: int, _: int) -> int = add
 	first := operation(4, 5)
 	operation = mul

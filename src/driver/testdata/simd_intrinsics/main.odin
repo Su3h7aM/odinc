@@ -2,7 +2,7 @@ package main
 
 import "base:intrinsics"
 
-main :: proc "contextless" () {
+main :: proc() {
 	bytes: [17]u8
 	for index in 0 ..< 17 {
 		bytes[index] = u8(index)

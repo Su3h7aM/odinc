@@ -2,7 +2,7 @@ package main
 
 import "base:intrinsics"
 
-main :: proc "contextless" () {
+main :: proc() {
 	buffer: [8]u8
 	source: [8]u8
 	source[0] = 7

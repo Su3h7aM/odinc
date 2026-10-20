@@ -10,7 +10,7 @@ get_id :: proc "contextless" () -> typeid {
 	return typeid_of(Number)
 }
 
-main :: proc "contextless" () {
+main :: proc() {
 	code := 0
 	info := type_info_of(Number)
 	if info.size == 4 && info.align == 4 { code += 1 }

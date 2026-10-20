@@ -2,7 +2,7 @@ package main
 
 import "base:intrinsics"
 
-main :: proc "contextless" () {
+main :: proc() {
 	empty: cstring = ""
 	value: cstring = "abc"
 	code := 0
