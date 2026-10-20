@@ -222,6 +222,8 @@ lower_multi_declaration :: proc(state: ^Procedure_State, node: syntax.Node_Index
 		asserted, ok := lower_type_assertion(state, value, variant)
 		results[0] = asserted
 		results[1] = ok
+	case check.Propagation_Plan:
+		if state.ast.nodes[value].kind != .Or_Branch_Expr || !lower_or_branch_values(state, value, variant, results) { return }
 	case:
 		lower_fail(state, node, .Local)
 		return

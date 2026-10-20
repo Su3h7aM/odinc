@@ -505,7 +505,7 @@ expression_local_declaration :: proc(
 				case Builtin_Plan:
 					results, is_call = plan.results, true
 				case Propagation_Plan:
-					if len(plan.results) > 1 { results, is_call = plan.results, true }
+					if len(plan.results) > 0 { results, is_call = plan.results, true }
 				}
 			}
 			if !is_call || target != 0 || (!is_assertion_results && len(results) != len(names)) {

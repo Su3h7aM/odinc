@@ -67,42 +67,65 @@ lower_or_else :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: ch
 
 @(private)
 lower_or_branch :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: check.Propagation_Plan) -> ir.Node_Id {
+	values, allocation_error := make([]ir.Node_Id, len(plan.values), context.allocator)
+	if allocation_error != nil { state.job.function.error = allocation_error; return 0 }
+	defer delete(values, context.allocator)
+	if !lower_or_branch_values(state, node, plan, values) { return 0 }
+	if len(values) == 0 { return 0 }
+	return values[0]
+}
+
+@(private)
+lower_or_branch_values :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: check.Propagation_Plan, values: []ir.Node_Id) -> bool {
 	operand, is_expression := plan.operand.(check.Expression_Ref)
-	if !is_expression || operand.view != state.view { return lower_fail(state, node, .Expression) }
+	if !is_expression || operand.view != state.view { lower_fail(state, node, .Expression); return false }
 	operand_info := lower_info(state, operand.node)
-	if operand_info.plan == 0 { return lower_fail(state, node, .Expression) }
-	call, is_call := check.plan(state.job.program, operand_info.plan)^.(check.Call_Plan)
-	if !is_call || (len(call.results) != 1 && len(call.results) != 2) { return lower_fail(state, node, .Expression) }
+	if operand_info.plan == 0 { lower_fail(state, node, .Expression); return false }
+	operand_plan := check.plan(state.job.program, operand_info.plan)
+	if operand_plan == nil { lower_fail(state, node, .Expression); return false }
 	call_node := operand.node
 	for state.ast.nodes[call_node].kind == .Paren_Expr {
 		call_node = state.ast.nodes[call_node].payload.(syntax.Paren_Expr).expr
 	}
-	values: [2]ir.Node_Id
-	lower_call_results(state, call_node, operand_info, call, values[:len(call.results)])
-	if state.failed || state.job.function.error != nil { return 0 }
-	status_index := len(call.results) - 1
-	condition: ir.Node_Id
-	switch plan.test {
-	case .Boolean_True:
-		if state.job.function.nodes.type[values[status_index]] != .Bool { return lower_fail(state, node, .Expression) }
-		condition = values[status_index]
-	case .Nil:
-		nil_condition, nil_ok := propagation_nil_condition(state.job.function, values[status_index])
-		if !nil_ok { return lower_fail(state, node, .Expression) }
-		condition = nil_condition
+	result_count := 0
+	#partial switch result_plan in operand_plan^ {
+	case check.Call_Plan:
+		if len(result_plan.results) < 1 { lower_fail(state, node, .Expression); return false }
+		result_count = len(result_plan.results)
+	case check.Type_Assertion_Plan:
+		if !result_plan.comma_ok { lower_fail(state, node, .Expression); return false }
+		result_count = 2
+	case:
+		lower_fail(state, node, .Expression)
+		return false
 	}
-	if plan.failure == 0 { return lower_fail(state, node, .Control) }
+	status_index := result_count - 1
+	if len(values) != status_index { lower_fail(state, node, .Result); return false }
+	all_values, allocation_error := make([]ir.Node_Id, result_count, context.allocator)
+	if allocation_error != nil { state.job.function.error = allocation_error; return false }
+	defer delete(all_values, context.allocator)
+	#partial switch result_plan in operand_plan^ {
+	case check.Call_Plan:
+		lower_call_results(state, call_node, operand_info, result_plan, all_values)
+	case check.Type_Assertion_Plan:
+		all_values[0], all_values[1] = lower_type_assertion(state, call_node, result_plan)
+	}
+	if state.failed || state.job.function.error != nil { return false }
+	condition, condition_ok := or_return_condition(state.job.function, plan, all_values[status_index])
+	if !condition_ok { lower_fail(state, node, .Expression); return false }
+	if plan.failure == 0 { lower_fail(state, node, .Control); return false }
 	exit_plan := check.plan(state.job.program, plan.failure)
-	if exit_plan == nil { return lower_fail(state, node, .Control) }
+	if exit_plan == nil { lower_fail(state, node, .Control); return false }
 	exit, valid_exit := exit_plan^.(check.Exit_Plan)
 	branch_expr := state.ast.nodes[node].payload.(syntax.Or_Branch_Expr)
 	expected_exit := check.Exit_Kind.Break
 	if branch_expr.token.kind == .Or_Continue {
 		expected_exit = .Continue
 	} else if branch_expr.token.kind != .Or_Break {
-		return lower_fail(state, node, .Control)
+		lower_fail(state, node, .Control)
+		return false
 	}
-	if !valid_exit || exit.kind != expected_exit || exit.target.node == 0 { return lower_fail(state, node, .Control) }
+	if !valid_exit || exit.kind != expected_exit || exit.target.node == 0 { lower_fail(state, node, .Control); return false }
 	builder := state.builder
 	end := ir.jump_target_make(builder)
 	branch := ir.branch_if(builder, condition)
@@ -110,11 +133,10 @@ lower_or_branch :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: 
 	ir.jump_to(builder, end)
 	ir.enter_arm(builder, branch, 1)
 	lower_branch_exit(state, node, exit)
-	if state.failed || state.job.function.error != nil { return 0 }
+	if state.failed || state.job.function.error != nil { return false }
 	ir.seal_target(builder, end)
-	if len(plan.values) == 0 { return 0 }
-	if len(plan.values) != 1 || status_index != 1 { return lower_fail(state, node, .Result) }
-	return values[0]
+	for index in 0 ..< status_index { values[index] = all_values[index] }
+	return true
 }
 
 @(private)

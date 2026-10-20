@@ -94,7 +94,7 @@ expression_or_branch :: proc(
 	if operand.plan == 0 { return expression_unsupported(checker, view, scope, node, "Or_Branch_Plan") }
 	pair: [2]types.Type_Id
 	results := propagation_results(checker, operand.plan, operand.type, &pair)
-	if len(results) != 1 && len(results) != 2 {
+	if len(results) < 1 {
 		return expression_unsupported(checker, view, scope, node, "Or_Branch_Results")
 	}
 	store := checker.type_checker.store
@@ -122,9 +122,14 @@ expression_or_branch :: proc(
 	if target.node == 0 { return expression_unsupported(checker, view, scope, node, "Or_Branch_Target") }
 	allocator := mem.dynamic_arena_allocator(&checker.arena)
 	values: [dynamic]Operand
+	branch_results: []types.Type_Id
 	if status_index != 0 {
 		values = make([dynamic]Operand, allocator) or_return
-		append(&values, Operand(Projection{Expression_Ref{view, expression.expr}, 0})) or_return
+		branch_results = make([]types.Type_Id, status_index, allocator) or_return
+		copy(branch_results, results[:status_index])
+		for index in 0 ..< status_index {
+			append(&values, Operand(Projection{Expression_Ref{view, expression.expr}, u32(index)})) or_return
+		}
 	}
 	failure := Plan_Id(len(checker.plans))
 	exit_kind := Exit_Kind.Break
@@ -133,7 +138,7 @@ expression_or_branch :: proc(
 	plan := Plan_Id(len(checker.plans))
 	append(
 		&checker.plans,
-		Plan(Propagation_Plan{operand = Expression_Ref{view, expression.expr}, test = test, values = values[:], failure = failure}),
+		Plan(Propagation_Plan{operand = Expression_Ref{view, expression.expr}, test = test, values = values[:], failure = failure, results = branch_results}),
 	) or_return
 	info = Expression_Info {
 		scope = scope,

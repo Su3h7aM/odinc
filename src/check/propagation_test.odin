@@ -36,6 +36,27 @@ main :: proc "contextless" () {
 }
 
 @(test)
+expression_or_branch_accepts_multiple_call_results :: proc(t: ^testing.T) {
+	// Official accepts multiple values before the final error result in `or_continue`.
+	source := transmute([]byte)string(
+		`package sample
+Error :: enum { None, Failure }
+main :: proc "contextless" () {
+	for {
+		first, second := values() or_continue
+		_ = first
+		_ = second
+		break
+	}
+}
+values :: proc "contextless" () -> (int, int, Error) { return 1, 2, .None }
+`,
+	)
+	_, ok := check_procedure_source(t, source)
+	testing.expect(t, ok)
+}
+
+@(test)
 expression_or_break_checks_status_and_target_context :: proc(t: ^testing.T) {
 	valid := transmute([]byte)string(
 		`package sample
