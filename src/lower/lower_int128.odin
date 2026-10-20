@@ -171,6 +171,38 @@ lower_wide_numeric_builtin :: proc(state: ^Procedure_State, node: syntax.Node_In
 	return wide_store(state, value)
 }
 
+// Each bit intrinsic works on the 64-bit words: counts add or select the word that is nonzero, swaps exchange the halves.
+@(private)
+lower_wide_bit_intrinsic :: proc(state: ^Procedure_State, node: syntax.Node_Index, kind: check.Builtin_Kind, address: ir.Node_Id) -> ir.Node_Id {
+	function := state.job.function
+	words := wide_load(state, address)
+	zero := ir.const_int(function, .I64, 0)
+	sixty_four := ir.const_int(function, .I64, 64)
+	#partial switch kind {
+	case .Count_Ones:
+		ones := ir.binary(function, .Add, ir.unary(function, .Popcnt, words.low), ir.unary(function, .Popcnt, words.high))
+		return wide_store(state, Wide_Words{low = ones, high = zero})
+	case .Count_Zeros:
+		ones := ir.binary(function, .Add, ir.unary(function, .Popcnt, words.low), ir.unary(function, .Popcnt, words.high))
+		return wide_store(state, Wide_Words{low = ir.binary(function, .Sub, ir.const_int(function, .I64, 128), ones), high = zero})
+	case .Count_Leading_Zeros:
+		high_count := ir.unary(function, .Clz, words.high)
+		low_count := ir.binary(function, .Add, sixty_four, ir.unary(function, .Clz, words.low))
+		count := ir.select(function, ir.compare(function, .Eq, words.high, zero), low_count, high_count)
+		return wide_store(state, Wide_Words{low = count, high = zero})
+	case .Count_Trailing_Zeros:
+		low_count := ir.unary(function, .Ctz, words.low)
+		high_count := ir.binary(function, .Add, sixty_four, ir.unary(function, .Ctz, words.high))
+		count := ir.select(function, ir.compare(function, .Eq, words.low, zero), high_count, low_count)
+		return wide_store(state, Wide_Words{low = count, high = zero})
+	case .Byte_Swap:
+		return wide_store(state, Wide_Words{low = ir.unary(function, .Bswap, words.high), high = ir.unary(function, .Bswap, words.low)})
+	case .Reverse_Bits:
+		return wide_store(state, Wide_Words{low = lower_reverse_bits(state, words.high), high = lower_reverse_bits(state, words.low)})
+	}
+	return lower_fail(state, node, .Builtin)
+}
+
 // Matches the scalar `SDiv`: the minimum divided by -1 is an arithmetic trap, whatever the division-by-zero policy.
 @(private)
 lower_minimum_quotient_trap :: proc(state: ^Procedure_State, dividend, divisor: Wide_Words) {

@@ -35,6 +35,7 @@ lower_intrinsic :: proc(
 		lower_store(state, values[0], values[1], pointer.elem)
 		return 0
 	case .Count_Ones, .Count_Zeros, .Count_Leading_Zeros, .Count_Trailing_Zeros, .Reverse_Bits, .Byte_Swap:
+		if is_wide_integer(state, operand_type(state, plan.arguments[0])) { return lower_wide_bit_intrinsic(state, node, kind, values[0]) }
 		if !is_integer_value(function, values[0]) || type != function.nodes.type[values[0]] { return lower_fail(state, node, .Builtin) }
 		return lower_bit_intrinsic(state, kind, values[0])
 	case .Read_Cycle_Counter:
