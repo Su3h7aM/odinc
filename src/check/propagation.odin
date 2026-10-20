@@ -155,17 +155,34 @@ expression_or_return :: proc(
 	expression := syntax.node_payload(ast, node, syntax.Or_Return_Expr)
 	operand := check_expression(checker, view, scope, expression.expr) or_return
 	if operand.state == .Invalid { return expression_poison(scope), nil }
-	if operand.plan == 0 { return expression_unsupported(checker, view, scope, node, "Or_Return_Plan") }
-	pair: [2]types.Type_Id
-	results := propagation_results(checker, operand.plan, &pair)
-	if len(results) == 0 {
-		return expression_unsupported(checker, view, scope, node, "Or_Return_Results")
-	}
 	store := checker.type_checker.store
-	status_index := len(results) - 1
-	status := results[status_index]
-	status_type := types.get(store, types.resolve_named(store, status))
+	// Official check_or_return_expr: the status assigns to the procedure's last result. More than one
+	// result requires every result to be named (check_expr.cpp:11204).
+	status_index: int
+	status: types.Type_Id
 	test: Optional_Test
+	status_type: ^types.Type
+	results: []types.Type_Id
+	if operand.plan != 0 {
+		pair: [2]types.Type_Id
+		results = propagation_results(checker, operand.plan, &pair)
+	}
+	if len(results) == 0 {
+		// A stored value: the operand itself is the status, and the expression has no value.
+		// Official check_or_return_split_types promotes an operand without a tuple to optional-ok
+		// (check_builtin.cpp:144-160).
+		status = operand.type
+		if operand.mode == .No_Value || operand.mode == .Type || operand.mode == .Builtin {
+			return expression_unsupported(checker, view, scope, node, "Or_Return_Results")
+		}
+		if operand.mode != .Value && operand.mode != .Variable && operand.mode != .Constant && operand.mode != .Immutable_Value {
+			return expression_unsupported(checker, view, scope, node, "Or_Return_Plan")
+		}
+	} else {
+		status_index = len(results) - 1
+		status = results[status_index]
+	}
+	status_type = types.get(store, types.resolve_named(store, status))
 	if status_type.kind == .Bool {
 		test = .Boolean_True
 	} else if conversion_nilable(status_type^) {
@@ -173,8 +190,6 @@ expression_or_return :: proc(
 	} else {
 		return expression_unsupported(checker, view, scope, node, "Or_Return_Status")
 	}
-	// Official check_or_return_expr: the status assigns to the procedure's last result. More than one
-	// result requires every result to be named (check_expr.cpp:11204).
 	returnable := false
 	if len(checker.results) >= 1 {
 		returnable = expression_status_assignable(checker, scope, status, checker.results[len(checker.results) - 1])
@@ -188,7 +203,11 @@ expression_or_return :: proc(
 	if !returnable { return expression_unsupported(checker, view, scope, node, "Or_Return_Result") }
 	allocator := mem.dynamic_arena_allocator(&checker.arena)
 	failure_values := make([]Operand, 1, allocator) or_return
-	failure_values[0] = Operand(Projection{Expression_Ref{view, expression.expr}, u32(status_index)})
+	if len(results) == 0 {
+		failure_values[0] = Operand(Expression_Ref{view, expression.expr})
+	} else {
+		failure_values[0] = Operand(Projection{Expression_Ref{view, expression.expr}, u32(status_index)})
+	}
 	failure := Plan_Id(len(checker.plans))
 	append(&checker.plans, Plan(Exit_Plan{kind = .Return, values = failure_values})) or_return
 	values := make([]Operand, status_index, allocator) or_return
