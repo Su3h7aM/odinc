@@ -343,6 +343,10 @@ lower_builtin :: proc(state: ^Procedure_State, node: syntax.Node_Index, info: ch
 	if kind := check.builtin_kind(state.job.program, plan.builtin); kind == .Min || kind == .Max || kind == .Abs || kind == .Clamp {
 		return lower_numeric_builtin(state, node, plan, kind)
 	}
+	if kind := check.builtin_kind(state.job.program, plan.builtin);
+	   kind == .Real || kind == .Imag || kind == .Jmag || kind == .Kmag || kind == .Complex || kind == .Quaternion {
+		return lower_complex_builtin(state, node, info, plan, kind)
+	}
 	if check.builtin_kind(state.job.program, plan.builtin) == .Trap {
 		if len(plan.arguments) != 0 { return lower_fail(state, node, .Builtin) }
 		ir.emit_trap(state.builder)

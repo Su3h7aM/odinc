@@ -64,7 +64,7 @@ scalar_type :: proc(state: ^Procedure_State, id: types.Type_Id) -> ir.Value_Type
 	case .Float:
 		switch state.job.layouts[id].size {
 		case 2:
-			return .F16
+			return .I16
 		case 4:
 			return .F32
 		case 8:
@@ -242,11 +242,12 @@ lower_value :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> ir.Node
 		if state.failed { return 0 }
 		function := state.job.function
 		if is_wide_integer(state, lower_info(state, value.expr).type) { return lower_wide_unary(state, node, value.op.kind, operand) }
+		if lower_complex_kind(
+			state,
+			lower_info(state, value.expr).type,
+		) { return lower_complex_unary(state, node, value.op.kind, operand, lower_info(state, value.expr).type) }
 		if scalar_type(state, lower_info(state, value.expr).type) == .None { return lower_fail(state, node, .Operator) }
-		if function.nodes.type[operand] == .F16 {
-			if value.op.kind == .Sub { return float16_negate(function, operand) }
-			return lower_fail(state, node, .Operator)
-		}
+		if value.op.kind == .Sub && is_float16(state, lower_info(state, value.expr).type) { return float16_negate(function, operand) }
 		#partial switch value.op.kind {
 		case .Add:
 			return operand

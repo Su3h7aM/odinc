@@ -119,6 +119,9 @@ plan_matches_compiler :: proc(t: ^testing.T) {
 	three_bytes := record(&store, {}, array_of(&store, u8_, 3))
 	byte_short_byte := record(&store, {}, u8_, u16_, u8_)
 	float_half := record(&store, {}, f32_, f16_)
+	complex64_ := intern(&store, Type{kind = .Complex, count = 8})
+	complex128_ := intern(&store, Type{kind = .Complex, count = 16})
+	quaternion128_ := intern(&store, Type{kind = .Quaternion, count = 16})
 	three_halves := array_of(&store, f16_, 3)
 	O :: Calling_Convention.Odin
 	N :: Calling_Convention.Contextless
@@ -159,6 +162,9 @@ plan_matches_compiler :: proc(t: ^testing.T) {
 		{"o12 mixed", O, {mixed, byte_then_f64}, nil, nil, "f32 i64 i64 f64 ctx ->"},
 		{"o14 odd sizes", O, {three_bytes, byte_short_byte, float_half, three_halves}, nil, nil, "i32/3 i64/6 f64 f64/6 ctx ->"},
 		{"o15 small simd", O, {simd2, simd4_int, f32_, f16_, enum_u16}, nil, nil, "f64 v128 f32 f16 i16z ctx ->"},
+		{"o16 complex64", O, {complex64_}, nil, nil, "f64 ctx ->"},
+		{"o17 complex128", O, {complex128_}, nil, nil, "f64 f64 ctx ->"},
+		{"o18 quaternion128", O, {quaternion128_}, nil, nil, "f64 f64 ctx ->"},
 		{"r01 u8", O, nil, nil, {u8_}, "ctx -> i8z"},
 		{"r02 bool", O, nil, nil, {bool_}, "ctx -> i8z"},
 		{"r03 i16", O, nil, nil, {i16_}, "ctx -> i16s"},

@@ -91,7 +91,7 @@ piece_type :: proc(piece: types.Abi_Piece) -> ir.Value_Type {
 	case .I64:
 		return .I64
 	case .F16:
-		return .F16
+		return .I16
 	case .F32:
 		return .F32
 	case .F64:

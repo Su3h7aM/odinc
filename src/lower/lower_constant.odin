@@ -34,6 +34,8 @@ lower_constant :: proc(state: ^Procedure_State, id: check.Const_Id, target: type
 	}
 	scalar := scalar_type(state, type)
 	if _, is_nil := constant.value.(check.Nil_Value); is_nil && scalar == .None { return lower_zeroed_aggregate(state, type) }
+	if components, is_complex := constant.value.(check.Complex_Value); is_complex { return lower_component_constant(state, components[:], type) }
+	if components, is_quaternion := constant.value.(check.Quaternion_Value); is_quaternion { return lower_component_constant(state, components[:], type) }
 	if is_wide_integer(state, type) {
 		if integer, is_integer := constant.value.(big.Int); is_integer { return lower_wide_constant(state, integer) }
 	}
@@ -55,6 +57,11 @@ lower_constant :: proc(state: ^Procedure_State, id: check.Const_Id, target: type
 		if error != .None { return lower_constant_error(state, error) }
 		return ir.const_int(function, scalar, i64(bits))
 	case check.Float_Value:
+		if is_float16(state, type) {
+			bits, bits_ok := lower_float_bits(value, .F16)
+			if !bits_ok { return lower_fail(state, state.job.procedure.body.node, .Constant) }
+			return ir.const_int(function, .I16, i64(bits))
+		}
 		bits, bits_ok := lower_float_bits(value, scalar)
 		if !bits_ok {
 			return lower_fail(state, state.job.procedure.body.node, .Constant)
@@ -123,6 +130,7 @@ lower_float_bits :: proc(value: check.Float_Value, scalar: ir.Value_Type) -> (bi
 		if value.width == 64 { return u64(transmute(u32)f32(transmute(f64)value.bits)), true }
 	}
 	if scalar == .F16 && value.width == 16 { return value.bits, true }
+	if scalar == .F16 && value.width == 64 { return u64(transmute(u16)f16(transmute(f64)value.bits)), true }
 	return 0, false
 }
 

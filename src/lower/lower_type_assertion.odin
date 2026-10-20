@@ -29,7 +29,7 @@ lower_type_assertion :: proc(state: ^Procedure_State, node: syntax.Node_Index, p
 		if layout.error != .None || layout.size < 0 || layout.size > i64(max(u32)) { lower_fail(state, node, .Expression); return }
 		if scalar := scalar_type(state, plan.target_type); scalar != .None {
 			zero: ir.Node_Id
-			if scalar == .F16 || is_float_type(scalar) {
+			if is_float_type(scalar) {
 				zero = ir.const_float(function, scalar, 0)
 			} else {
 				zero = ir.const_int(function, scalar, 0)

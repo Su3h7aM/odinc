@@ -377,6 +377,13 @@ integer_piece :: proc(bytes: i64) -> Abi_Piece {
 // llreg), with the {ptr, i64} fast path for strings, slices and alike.
 @(private = "file")
 direct_pieces :: proc(store: ^Store, id: Type_Id, classification: Classification, size: i64, config: Layout_Config) -> (run: Piece_Run, ok: bool) {
+	#partial switch get(store, id).kind {
+	case .Complex, .Quaternion:
+		for offset := i64(0); offset < size; offset += 8 {
+			add_piece(&run, Piece_Info{.F64, u32(min(8, size - offset)), 8})
+		}
+		return run, true
+	}
 	if is_slice_like(store, id, size, config) {
 		run.pieces[0] = Piece_Info{.Ptr, 8, 8}
 		run.pieces[1] = Piece_Info{.I64, 8, 8}

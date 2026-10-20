@@ -176,7 +176,7 @@ select_signature :: proc(plan: types.Abi_Plan, allocator: mem.Allocator) -> (sig
 		.I16  = .I16,
 		.I32  = .I32,
 		.I64  = .I64,
-		.F16  = .F16,
+		.F16  = .I16,
 		.F32  = .F32,
 		.F64  = .F64,
 		.V128 = .V128,

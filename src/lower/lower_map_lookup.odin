@@ -48,7 +48,7 @@ lower_map_index :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: 
 	value_type := map_descriptor.elem
 	if scalar := scalar_type(state, value_type); scalar != .None {
 		zero := ir.const_int(function, scalar, 0)
-		if scalar == .F16 || scalar == .F32 || scalar == .F64 { zero = ir.const_float(function, scalar, 0) }
+		if scalar == .F32 || scalar == .F64 { zero = ir.const_float(function, scalar, 0) }
 		count := len(state.builder.values)
 		result := ir.variable_declare(state.builder, zero)
 		end := ir.jump_target_make(state.builder)

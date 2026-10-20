@@ -33,6 +33,11 @@ lower_binary :: proc(state: ^Procedure_State, node: syntax.Node_Index, expressio
 		return found
 	}
 	if is_wide_integer(state, lower_info(state, expression.left).type) { return lower_wide_binary(state, node, expression, left, right) }
+	if lower_complex_kind(state, lower_info(state, expression.left).type) || lower_complex_kind(state, lower_info(state, expression.right).type) {
+		if !lower_complex_kind(state, lower_info(state, expression.left).type) ||
+		   !lower_complex_kind(state, lower_info(state, expression.right).type) { return lower_fail(state, node, .Operator) }
+		return lower_complex_binary(state, node, expression.op.kind, left, right, lower_info(state, expression.left).type)
+	}
 	if is_nil_comparison(state, expression) { return lower_nil_comparison(state, expression, left, right) }
 	if (expression.op.kind == .Cmp_Eq || expression.op.kind == .Not_Eq) &&
 	   (lower_union_type(state, expression.left) != types.TYPE_NONE || lower_union_type(state, expression.right) != types.TYPE_NONE) {
@@ -49,7 +54,7 @@ lower_binary :: proc(state: ^Procedure_State, node: syntax.Node_Index, expressio
 		}
 	}
 	floating := type == .F32 || type == .F64
-	if type == .F16 {
+	if is_float16(state, lower_info(state, expression.left).type) {
 		result, ok := lower_float16_operation(function, expression.op.kind, left, right)
 		if !ok { return lower_fail(state, node, .Operator) }
 		return result

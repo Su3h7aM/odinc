@@ -117,7 +117,7 @@ bind_local :: proc(state: ^Procedure_State, entity: check.Entity_Id, value: ir.N
 		initial := value
 		if initial == 0 {
 			scalar := scalar_type(state, type)
-			if !initialize { initial = ir.undef(state.job.function, scalar) } else if scalar == .F16 || scalar == .F32 || scalar == .F64 { initial = ir.const_float(state.job.function, scalar, 0) } else { initial = ir.const_int(state.job.function, scalar, 0) }
+			if !initialize { initial = ir.undef(state.job.function, scalar) } else if scalar == .F32 || scalar == .F64 { initial = ir.const_float(state.job.function, scalar, 0) } else { initial = ir.const_int(state.job.function, scalar, 0) }
 		}
 		state.locals[entity] = {
 			kind     = .Variable,

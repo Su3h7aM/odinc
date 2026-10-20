@@ -57,6 +57,9 @@ lower_conversion_value :: proc(
 	if scalar_type(state, source_id) != .None && lower_type(state, plan.target).kind == .Simd_Vector {
 		return lower_simd_broadcast(state, plan.target, value)
 	}
+	if lower_complex_kind(state, source_id) && lower_complex_kind(state, plan.target) {
+		return lower_complex_conversion(state, node, value, source_id, plan.target)
+	}
 	function := state.job.function
 	if is_wide_integer(state, plan.target) || is_wide_integer(state, source_id) {
 		return lower_wide_conversion(state, node, source_id, plan.target, value)
@@ -84,11 +87,11 @@ lower_conversion_value :: proc(
 	}
 	source_bits := scalar_bits(source)
 	target_bits := scalar_bits(target)
-	if source == .F16 {
+	if plan.kind != .Transmute && is_float16(state, source_id) {
 		value = float16_widen(function, value)
 		source = .F32
 	}
-	if target == .F16 {
+	if plan.kind != .Transmute && is_float16(state, plan.target) {
 		wide := value
 		#partial switch source {
 		case .F32:
@@ -108,6 +111,7 @@ lower_conversion_value :: proc(
 	}
 	if source == .F32 || source == .F64 {
 		if target == .F32 || target == .F64 {
+			if source == target { return value }
 			return ir.convert(function, .Float_Ext if source_bits < target_bits else .Float_Trunc, value, target)
 		}
 		if target >= .I8 && target <= .I64 {

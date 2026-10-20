@@ -2,9 +2,17 @@ package lower
 
 import "oc:ir"
 import "oc:syntax"
+import "oc:types"
 
 // `f16` operations widen both operands to `F32`, operate there, and round back to `F16`. For `+ - * /` and square
 // root this equals one rounding, since 24 >= 2 * 11 + 2. Rounding is an integer sequence, so no runtime call is needed.
+// An `f16` value is its 16 bits in an `I16` node. Operations widen both operands to `F32`, operate there, and round back.
+// For `+ - * /` and square root this equals one rounding, since 24 >= 2 * 11 + 2. Rounding is an integer sequence, so no runtime call is needed.
+
+@(private)
+is_float16 :: proc(state: ^Procedure_State, id: types.Type_Id) -> bool {
+	return lower_type(state, id).kind == .Float && state.job.layouts[id].size == 2
+}
 
 @(private)
 F64_TWO_POW_28_BITS :: u64(0x41B0000000000000)
@@ -14,7 +22,7 @@ F64_TWO_POW_MINUS_14_BITS :: u64(0x3F10000000000000)
 
 @(private)
 float16_widen :: proc(function: ^ir.Function, half: ir.Node_Id) -> ir.Node_Id {
-	bits := ir.convert(function, .Zext, ir.convert(function, .Bitcast, half, .I16), .I32)
+	bits := ir.convert(function, .Zext, half, .I32)
 	magnitude := ir.binary(function, .Shl, ir.binary(function, .And, bits, ir.const_int(function, .I32, 0x7fff)), ir.const_int(function, .I32, 13))
 	// Multiplying by 2^112 renormalizes subnormal halves and is exact; infinities and NaNs take the select below.
 	scaled_value := ir.binary(function, .FMul, ir.convert(function, .Bitcast, magnitude, .F32), ir.const_float(function, .F32, 0x77800000))
@@ -57,7 +65,7 @@ float16_narrow :: proc(function: ^ir.Function, wide: ir.Node_Id) -> ir.Node_Id {
 	is_tiny := ir.compare(function, .ULt, magnitude, ir.const_int(function, .I64, i64(F64_TWO_POW_MINUS_14_BITS)))
 	is_overflow := ir.compare(function, .ULe, ir.const_int(function, .I64, transmute(i64)f64(65520)), magnitude)
 	half := ir.select(function, is_overflow, special, ir.select(function, is_tiny, subnormal, normal))
-	return ir.convert(function, .Bitcast, ir.convert(function, .Trunc, ir.binary(function, .Or, half, sign), .I16), .F16)
+	return ir.convert(function, .Trunc, ir.binary(function, .Or, half, sign), .I16)
 }
 
 @(private)
@@ -67,8 +75,7 @@ float16_from_f32 :: proc(function: ^ir.Function, value: ir.Node_Id) -> ir.Node_I
 
 @(private)
 float16_negate :: proc(function: ^ir.Function, half: ir.Node_Id) -> ir.Node_Id {
-	bits := ir.convert(function, .Bitcast, half, .I16)
-	return ir.convert(function, .Bitcast, ir.binary(function, .Xor, bits, ir.const_int(function, .I16, -32768)), .F16)
+	return ir.binary(function, .Xor, half, ir.const_int(function, .I16, -32768))
 }
 
 // Arithmetic results are `F16`; comparisons are `Bool`. `ok` is false for operators with no `f16` meaning.

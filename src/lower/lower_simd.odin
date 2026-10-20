@@ -127,7 +127,9 @@ lower_simd_indices :: proc(state: ^Procedure_State, node: syntax.Node_Index, typ
 	address := simd_slot(state, type)
 	for lane in 0 ..< lanes {
 		if state.failed || function.error != nil { return 0 }
-		lower_store(state, simd_lane_address(state, address, lane, elem), simd_lane_index(function, lane_type, lane), elem)
+		lane_value := simd_lane_index(function, lane_type, lane)
+		if is_float16(state, elem) { lane_value = float16_narrow(function, ir.const_float(function, .F64, transmute(u64)f64(lane))) }
+		lower_store(state, simd_lane_address(state, address, lane, elem), lane_value, elem)
 	}
 	return address
 }
@@ -139,8 +141,6 @@ simd_lane_index :: proc(function: ^ir.Function, lane_type: ir.Value_Type, lane: 
 		return ir.const_float(function, lane_type, u64(transmute(u32)f32(lane)))
 	case .F64:
 		return ir.const_float(function, lane_type, transmute(u64)f64(lane))
-	case .F16:
-		return float16_narrow(function, ir.const_float(function, .F64, transmute(u64)f64(lane)))
 	}
 	return ir.const_int(function, lane_type, lane)
 }

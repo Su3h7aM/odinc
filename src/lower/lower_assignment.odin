@@ -88,7 +88,7 @@ lower_compound_operator :: proc(
 		}
 		return result
 	}
-	if scalar == .F16 {
+	if is_float16(state, type) {
 		result, ok := lower_float16_operation(function, compound_binary_operator(operator), left, right)
 		if !ok { return lower_fail(state, node, .Operator) }
 		return result
