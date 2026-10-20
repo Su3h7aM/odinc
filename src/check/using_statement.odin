@@ -108,6 +108,44 @@ using_statement_enabled :: proc(file: ^File) -> bool {
 	return false
 }
 
+@(private = "package")
+expression_using_parameter :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	scope: Scope_Id,
+	node: syntax.Node_Index,
+	parameter: Entity_Id,
+) -> Resolve_Error {
+	file := checker.type_checker.files[checker.views[view].file]
+	if !using_statement_enabled(file) {
+		_, err := expression_failure(checker, view, scope, node, .Invalid_Operand, "Using_Disallowed")
+		return err
+	}
+	entity := entity_get(checker.type_checker.resolver.scopes, parameter)^
+	if entity.name == "_" || entity.name == "" {
+		_, err := expression_failure(checker, view, scope, node, .Invalid_Operand, "Using_Parameter_Name")
+		return err
+	}
+	store := checker.type_checker.store
+	owner := types.resolve_named(store, entity.type)
+	indirect := types.get(store, owner).kind == .Pointer
+	if indirect { owner = types.resolve_named(store, types.get(store, owner).elem) }
+	if types.get(store, owner).kind != .Struct {
+		_, err := expression_failure(checker, view, scope, node, .Invalid_Operand, "Using_Struct_Variable")
+		return err
+	}
+	names := make([dynamic]string, mem.dynamic_arena_allocator(&checker.arena)) or_return
+	defer delete(names)
+	base := Expression_Info {
+		type   = entity.type,
+		mode   = .Immutable_Value,
+		entity = parameter,
+		scope  = scope,
+		state  = .Checked,
+	}
+	return using_struct_fields(checker, view, scope, node, base, Operand(parameter), owner, indirect, nil, &names)
+}
+
 @(private = "file")
 using_struct_fields :: proc(
 	checker: ^Expression_Checker,
@@ -133,7 +171,10 @@ using_struct_fields :: proc(
 		if seen { return using_collision(checker, view, scope, node) }
 		append(names, field.name) or_return
 		flags: Entity_Flags
-		if !indirect && base.mode != .Variable { flags += {.Immutable} }
+		root_indirect := indirect
+		if len(prefix) != 0 { root_indirect = prefix[0].indirect }
+		if !root_indirect && base.mode != .Variable { flags += {.Immutable} }
+		if origin := entity_get(scopes, base.entity); origin != nil && .Parameter in origin.flags { flags += {.Parameter, .Using} }
 		entity, create_error := entity_create(
 			scopes,
 			Entity {

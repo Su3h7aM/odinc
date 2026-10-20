@@ -206,7 +206,8 @@ expression_signature_bindings :: proc(
 			}
 			names := syntax.node_list(file.ast, field.names)
 			parameter_flags: Entity_Flags
-			if .C_Vararg in field.flags { parameter_flags = {.C_Variadic} }
+			if .Using in field.flags { parameter_flags += {.Using, .Parameter, .Immutable} }
+			if .C_Vararg in field.flags { parameter_flags += {.C_Variadic} }
 			if .Any_Int in field.flags { parameter_flags += {.Any_Integer} }
 			for name_index in 0 ..< max(len(names), 1) {
 				name_node: syntax.Node_Index
@@ -236,6 +237,7 @@ expression_signature_bindings :: proc(
 						state = .Resolved,
 						flags = parameter_flags,
 						type = parameter_types[len(parameters)],
+						declaration = {signature.file, name_node},
 						data = Variable_Data{storage = .Local},
 					},
 				)
@@ -263,6 +265,11 @@ expression_signature_bindings :: proc(
 		if bind_error != nil { return bind_error }
 		if !bound { return nil }
 		named_results = bindings
+	}
+	for parameter in parameters {
+		entity := entity_get(resolver.scopes, parameter)
+		if .Using not_in entity.flags { continue }
+		expression_using_parameter(checker, view, scope, entity.declaration.node, parameter) or_return
 	}
 	checker.results = result_types
 	checker.named_results = named_results

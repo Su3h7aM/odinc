@@ -130,8 +130,13 @@ scope_insert_with_name :: proc(store: ^Scope_Store, scope: Scope_Id, name: strin
 		parent := scope_get(store, destination.parent)
 		if parent != nil && parent.kind == .Procedure {
 			candidate := scope_lookup_current(store, destination.parent, name)
-			if declaration := entity_get(store, candidate); declaration != nil && .Result in declaration.flags {
-				previous = candidate
+			if declaration := entity_get(store, candidate); declaration != nil {
+				if .Result in declaration.flags { previous = candidate }
+				if .Parameter in declaration.flags {
+					for binding in parent.using_bindings {
+						if binding.entity == candidate { previous = candidate; break }
+					}
+				}
 			}
 		}
 	}
