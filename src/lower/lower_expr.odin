@@ -391,10 +391,17 @@ lower_place :: proc(state: ^Procedure_State, plan: check.Place_Plan, node: synta
 	base := lower_operand(state, plan.root)
 	if state.failed { return 0 }
 	total: i64
+	field_address := false
 	for step in plan.path {
+		if field_address && step.indirect {
+			base = ir.ptr_offset(state.job.function, base, total)
+			base = ir.load(state.job.function, state.builder.control, ir.variable_get(state.builder, ir.MEMORY_VARIABLE), base, .Ptr, 0)
+			total = 0
+		}
 		offset, err := types.field_offset(check.type_store(state.job.program), step.type, int(step.field_index))
 		if err != .None { return lower_fail(state, node, .Place) }
 		total += i64(offset)
+		field_address = true
 	}
 	return ir.ptr_offset(state.job.function, base, total)
 }

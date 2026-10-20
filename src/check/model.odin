@@ -476,9 +476,10 @@ Member_Step :: struct {
 	indirect:    bool,
 }
 Using_Binding :: struct {
-	name:                 string,
-	entity, origin, root: Entity_Id,
-	path:                 []Member_Step,
+	name:           string,
+	entity, origin: Entity_Id,
+	root:           Operand,
+	path:           []Member_Step,
 }
 Scope :: struct {
 	parent:         Scope_Id,

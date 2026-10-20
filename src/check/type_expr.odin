@@ -803,6 +803,10 @@ struct_descriptor :: proc(
 		valid = false
 	}
 	fields, fields_valid, _, field_flags := record_fields(checker, file_id, file, scope, record.fields, true, true) or_return
+	if fields_valid && !(struct_using_fields_valid(checker, fields, field_flags) or_return) {
+		type_report(checker, file_id, file, node, .Duplicate_Field) or_return
+		fields_valid = false
+	}
 	descriptor = types.Type {
 		kind      = .Struct,
 		name      = name,

@@ -50,6 +50,8 @@ lower_statement :: proc(state: ^Procedure_State, node: syntax.Node_Index) {
 		lower_local_assignment(state, node, ast_node.payload.(syntax.Assign_Stmt))
 	case .Expr_Stmt:
 		lower_value(state, ast_node.payload.(syntax.Expr_Stmt).expr)
+	case .Using_Stmt:
+	// Each field use retains its original place; the declaration evaluates nothing.
 	case .Return_Stmt:
 		info, ok := check.expression_info(state.job.program, state.view, node)
 		if ok && info.plan != 0 {

@@ -185,9 +185,6 @@ parse_file :: proc(p: ^Parser) -> Node_Index {
 			continue
 		}
 		advance_token(p)
-		for p.curr.kind != .Semicolon && p.curr.kind != .EOF && p.curr.kind != .Package {
-			advance_token(p)
-		}
 		append(&tags, add_node(p, .File_Tag, start, p.prev.end, File_Tag{}))
 		expect_semicolon(p, 0)
 	}

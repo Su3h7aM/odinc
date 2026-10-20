@@ -608,9 +608,14 @@ expression_identifier :: proc(
 ) {
 	resolver := checker.type_checker.resolver
 	name := expression_text(checker.type_checker.files[file], node)
-	entity, _ := scope_lookup(resolver.scopes, scope, name)
+	entity, found_scope := scope_lookup(resolver.scopes, scope, name)
 	view := expression_file_view(checker, file) or_return
 	if entity == 0 { return expression_failure(checker, view, scope, node, .Undeclared_Name) }
+	for binding in scope_get(resolver.scopes, found_scope).using_bindings {
+		if binding.entity == entity && binding.name == name {
+			return expression_using_binding(checker, view, scope, node, binding)
+		}
+	}
 	return expression_entity_info(checker, file, scope, node, entity)
 }
 

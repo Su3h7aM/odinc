@@ -360,6 +360,8 @@ expression_statement :: proc(checker: ^Expression_Checker, view: View_Id, file_i
 		return expression_branch(checker, view, file_id, scope, node)
 	case .Assign_Stmt:
 		return expression_assignment(checker, view, file_id, scope, node)
+	case .Using_Stmt:
+		return expression_using_statement(checker, view, file_id, scope, node)
 	case .Return_Stmt:
 		return expression_return(checker, view, file_id, scope, node)
 	case .Defer_Stmt:

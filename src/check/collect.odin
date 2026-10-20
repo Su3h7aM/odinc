@@ -64,6 +64,7 @@ Collection :: struct {
 	declarations:    [dynamic]Collected_Declaration,
 	pending:         [dynamic]Pending_Declaration,
 	diagnostics:     [dynamic]Collection_Diagnostic,
+	file_features:   [dynamic][]string,
 }
 
 collection_init :: proc(collection: ^Collection, scopes: ^Scope_Store, allocator: mem.Allocator) {
@@ -74,6 +75,7 @@ collection_init :: proc(collection: ^Collection, scopes: ^Scope_Store, allocator
 	collection.declarations.allocator = allocator
 	collection.pending.allocator = allocator
 	collection.diagnostics.allocator = allocator
+	collection.file_features.allocator = allocator
 }
 
 collection_destroy :: proc(collection: ^Collection) {
@@ -81,6 +83,8 @@ collection_destroy :: proc(collection: ^Collection) {
 	delete(collection.declarations)
 	delete(collection.pending)
 	delete(collection.diagnostics)
+	for features in collection.file_features { delete(features, collection.allocator) }
+	delete(collection.file_features)
 	collection^ = {}
 }
 
@@ -92,6 +96,7 @@ collect_file :: proc(collection: ^Collection, file: ^File, id: File_Id, order: S
 	assert(scope != nil && scope.kind == .File)
 	assert(scope_get(collection.scopes, scope.parent).kind == .Package)
 	root := syntax.node_payload(file.ast, file.ast.root, syntax.File)
+	collect_file_features(collection, file, root) or_return
 	return collect_declarations(collection, file, id, syntax.node_list(file.ast, root.decls), order, 0, .Public)
 }
 
