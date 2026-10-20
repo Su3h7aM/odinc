@@ -239,7 +239,8 @@ check_conversion :: proc(
 		return result, .None, nil
 	}
 	if info.mode == .Constant {
-		if (src.kind == .Untyped_String || core_source.kind == .String && (kind == .Cast || dst.kind == .CString)) &&
+		if (src.kind == .Untyped_String ||
+			   (core_source.kind == .String || core_source.kind == .CString) && (kind == .Cast || dst.kind == .CString || core_target.kind == .String)) &&
 		   (dst.kind == .String || dst.kind == .CString) {
 			text, is_text := constant_pool_get(pool, info.constant).value.(string)
 			if !is_text { return {}, .Invalid_Value, nil }
