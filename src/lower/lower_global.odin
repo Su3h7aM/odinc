@@ -6,8 +6,8 @@ import "oc:check"
 import "oc:ir"
 import "oc:types"
 
-// Encodes a constant initializer as little-endian bytes of a global of `size` bytes. `ok` is false for constants
-// that have no static image (strings, and aggregates holding an address nested below the top level).
+// Encodes a constant initializer as little-endian bytes of a global of `size` bytes. `ok` is false when a value has
+// no static image, including an address nested below the top level.
 @(private)
 global_constant_image :: proc(
 	module: ^ir.Module,
@@ -78,7 +78,7 @@ global_constant_image :: proc(
 }
 
 // Writes each element of a constant aggregate at its field or element offset, relative to base. Nested aggregates
-// recurse. A string writes its header and a relocation to a module blob at its own offset; an address stays unsupported.
+// recurse. Strings and C strings relocate their data pointers to module blobs; addresses stay unsupported.
 @(private = "file")
 aggregate_constant_image :: proc(
 	module: ^ir.Module,
@@ -124,11 +124,19 @@ aggregate_constant_image :: proc(
 			continue
 		}
 		if text, is_text := constant.value.(string); is_text {
-			if types.get(store, types.resolve_named(store, element_type)).kind != .String { return false, nil }
-			blob, blob_error := global_string_blob(module, text)
-			if blob_error != nil { return false, blob_error }
-			write_scalar(bytes, start + 8, u64(len(text)), 8)
-			append(relocations, ir.Data_Reloc{offset = u32(start), target = ir.Symbol_Ref{space = .Global, index = blob}}) or_return
+			element_kind := types.get(store, types.resolve_named(store, element_type)).kind
+			if element_kind == .String {
+				blob, blob_error := global_string_blob(module, text)
+				if blob_error != nil { return false, blob_error }
+				write_scalar(bytes, start + 8, u64(len(text)), 8)
+				append(relocations, ir.Data_Reloc{offset = u32(start), target = ir.Symbol_Ref{space = .Global, index = blob}}) or_return
+			} else if element_kind == .CString {
+				blob, blob_error := global_cstring_blob(module, text)
+				if blob_error != nil { return false, blob_error }
+				append(relocations, ir.Data_Reloc{offset = u32(start), target = ir.Symbol_Ref{space = .Global, index = blob}}) or_return
+			} else {
+				return false, nil
+			}
 			continue
 		}
 		if _, is_address := constant.value.(check.Address_Value); is_address { return false, nil }

@@ -74,7 +74,14 @@ fill_globals :: proc(
 		}
 		if global.initializer != 0 {
 			if text, is_string := check.constant(program, global.initializer).value.(string); is_string {
-				bytes, relocs, string_error := global_string_image(module, text, output.relocs, allocator)
+				bytes: []byte
+				relocs: []ir.Data_Reloc
+				string_error: runtime.Allocator_Error
+				if types.get(check.type_store(program), types.resolve_named(check.type_store(program), global.type)).kind == .CString {
+					bytes, relocs, string_error = global_cstring_image(module, text, output.relocs, allocator)
+				} else {
+					bytes, relocs, string_error = global_string_image(module, text, output.relocs, allocator)
+				}
 				if string_error != nil { return string_error }
 				output = &module.globals[symbol.index]
 				output.bytes = bytes
