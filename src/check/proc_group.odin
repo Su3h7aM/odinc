@@ -364,6 +364,9 @@ group_generic_member_score :: proc(
 	if index != len(positional) || named_count != len(named) { return 0, false, nil }
 	deferred_matched := poly_bind_deferred(&match, deferred[:]) or_return
 	if !deferred_matched { return 0, false, nil }
+	where_matches, where_error := group_generic_where_matches(checker, member, declaration.type.file, &bindings)
+	if where_error != nil { return 0, false, where_error }
+	if !where_matches { return 0, false, nil }
 	// Official order: concrete > specialized generic > unconstrained generic (check_expr.cpp:8298-8319).
 	if specialized {
 		score -= 1
@@ -371,6 +374,36 @@ group_generic_member_score :: proc(
 		score -= 2
 	}
 	return score, true, nil
+}
+
+@(private = "file")
+group_generic_where_matches :: proc(
+	checker: ^Expression_Checker,
+	member: Entity_Id,
+	file_id: File_Id,
+	bindings: ^Poly_Bindings,
+) -> (
+	matches: bool,
+	err: Resolve_Error,
+) {
+	procedure := entity_get(checker.type_checker.resolver.scopes, member).data.(Procedure_Data)
+	if procedure.where_clauses.count == 0 { return true, nil }
+	file := checker.type_checker.files[file_id]
+	bound_scope := group_bound_scope(checker, member, bindings) or_return
+	mark := expression_speculation_begin(checker)
+	defer expression_speculation_end(checker, mark)
+	for clause in syntax.node_list(file.ast, procedure.where_clauses) {
+		condition, valid, condition_error := checker.type_checker.evaluate_boolean(
+			checker.type_checker,
+			bound_scope,
+			file_id,
+			clause,
+			checker.type_checker.user_data,
+		)
+		if condition_error != nil { return false, condition_error }
+		if !valid || !condition { return false, nil }
+	}
+	return true, nil
 }
 
 // The score of one argument bound to one parameter of a generic member, binding the polymorphic names it contains.

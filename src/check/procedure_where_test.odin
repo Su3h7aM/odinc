@@ -3,6 +3,45 @@ package check
 import "core:testing"
 
 @(test)
+where_clause_supports_type_of_and_rejects_failed_instances :: proc(t: ^testing.T) {
+	// Official accepts the `type_of(x) == [2]int` where predicate.
+	accepted := transmute([]byte)string(
+		`package sample
+simple :: proc "contextless" (x: [2]int) -> int where len(x) > 1, type_of(x) == [2]int { return x[0] + x[1] }
+main :: proc "contextless" () { _ = simple([2]int{1, 2}) }
+`,
+	)
+	_, ok := check_procedure_source(t, accepted)
+	testing.expect(t, ok)
+
+	// Official: 'where' clause evaluated to false: T == u8.
+	rejected := transmute([]byte)string(`package sample
+pick :: proc "contextless" (x: $T) where T == u8 { _ = x }
+main :: proc "contextless" () { pick(1) }
+`)
+	_, ok = check_procedure_source(t, rejected, .Invalid_Operand, "'where' clause evaluated to false:\n\tT == u8")
+	testing.expect(t, ok)
+}
+
+@(test)
+generic_overload_where_clauses_filter_each_instantiation :: proc(t: ^testing.T) {
+	// Official accepts both calls, selecting the overload whose where clause matches the array length.
+	source := transmute([]byte)string(
+		`package sample
+larger :: proc "contextless" (x: [$N]int) -> bool where N > 2 { return true }
+smaller :: proc "contextless" (x: [$N]int) -> bool where 0 < N, N <= 2 { return false }
+select :: proc { larger, smaller }
+main :: proc "contextless" () {
+	_ = select([3]int{1, 2, 3})
+	_ = select([2]int{1, 2})
+}
+`,
+	)
+	_, ok := check_procedure_source(t, source)
+	testing.expect(t, ok)
+}
+
+@(test)
 procedure_where_clauses_require_true_constant_booleans :: proc(t: ^testing.T) {
 	cases := []struct {
 		source: string,

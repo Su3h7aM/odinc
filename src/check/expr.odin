@@ -303,6 +303,21 @@ check_expression :: proc(
 				}
 				break
 			}
+			if is_type_of_call(file, node) {
+				arguments := syntax.node_list(file.ast, call.args)
+				if len(arguments) != 1 || call.ellipsis.kind != .Invalid {
+					return expression_unsupported(checker, view, scope, node, "Type_Of_Arguments")
+				}
+				operand := check_expression(checker, view, scope, arguments[0]) or_return
+				if operand.state == .Invalid { return expression_poison(scope), nil }
+				info = Expression_Info {
+					type  = operand.type,
+					mode  = .Type,
+					scope = scope,
+					state = .Checked,
+				}
+				break
+			}
 			callee := expression_callee(checker, view, file_id, scope, call.expr) or_return
 			arguments := syntax.node_list(file.ast, call.args)
 			if callee.state == .Invalid {
