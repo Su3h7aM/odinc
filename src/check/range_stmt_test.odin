@@ -81,3 +81,23 @@ main :: proc() {
 	procedure, ok := check_last_procedure_source(t, source)
 	testing.expect(t, ok && procedure.body_state != .Complete, "#reverse over an interval must be rejected")
 }
+
+@(test)
+map_range_rejects_reverse_and_key_references :: proc(t: ^testing.T) {
+	reverse := transmute([]byte)string(`package sample
+main :: proc() {
+	values: map[int]int
+	#reverse for key in values {}
+}
+`)
+	_, reverse_ok := check_procedure_source(t, reverse, expected_kind = .Invalid_Reverse_Range)
+	if !reverse_ok { return }
+	key_reference := transmute([]byte)string(`package sample
+main :: proc() {
+	values: map[int]int
+	for &key in values {}
+}
+`)
+	_, key_reference_ok := check_procedure_source(t, key_reference, expected_kind = .Unsupported, expected_reason = "Range_Reference")
+	testing.expect(t, key_reference_ok, "map key references must be rejected")
+}

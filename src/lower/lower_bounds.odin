@@ -178,6 +178,11 @@ lower_capacity :: proc(state: ^Procedure_State, node: syntax.Node_Index, info: c
 	if len(plan.arguments) != 1 || scalar_type(state, info.type) != .I64 { return lower_fail(state, node, .Builtin) }
 	descriptor := lower_type(state, operand_type(state, plan.arguments[0]))
 	if descriptor.kind == .Pointer { descriptor = lower_type(state, descriptor.elem) }
+	if descriptor.kind == .Map {
+		map_value := lower_operand(state, plan.arguments[0])
+		if state.failed || state.job.function.error != nil { return 0 }
+		return lower_map_runtime_call(state, node, "map_cap", []ir.Node_Id{map_value})
+	}
 	if descriptor.kind != .Dynamic_Array { return lower_fail(state, node, .Builtin) }
 	header := lower_operand(state, plan.arguments[0])
 	if state.failed || state.job.function.error != nil { return 0 }

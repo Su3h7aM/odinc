@@ -163,6 +163,12 @@ lower_range_parts :: proc(state: ^Procedure_State, node: syntax.Node_Index, part
 		lower_range_enum(state, node, parts)
 		return
 	}
+	container := lower_type(state, info.type)
+	if container.kind == .Pointer { container = lower_type(state, container.elem) }
+	if container.kind == .Map {
+		lower_range_map(state, node, parts)
+		return
+	}
 	if lower_type(state, info.type).kind == .Bit_Set {
 		lower_range_bit_set(state, node, parts)
 		return

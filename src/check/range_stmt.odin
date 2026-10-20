@@ -261,6 +261,33 @@ range_declare_names :: proc(
 }
 
 @(private = "file")
+range_declare_map_names :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	file: ^File,
+	scope, range_scope: Scope_Id,
+	parts: Range_Parts,
+	key, value: types.Type_Id,
+) -> (
+	declared: bool,
+	err: Resolve_Error,
+) {
+	if len(parts.names) >= 1 {
+		ident, by_reference := range_name(file, parts.names[0])
+		if by_reference {
+			expression_unsupported(checker, view, scope, parts.names[0], "Range_Reference") or_return
+			return false, nil
+		}
+		range_declare(checker, view, file, range_scope, ident, key) or_return
+	}
+	if len(parts.names) == 2 {
+		ident, _ := range_name(file, parts.names[1])
+		range_declare(checker, view, file, range_scope, ident, value) or_return
+	}
+	return true, nil
+}
+
+@(private = "file")
 expression_range_container :: proc(
 	checker: ^Expression_Checker,
 	view: View_Id,
@@ -290,10 +317,32 @@ expression_range_container :: proc(
 		return expression_range_enum(checker, view, file_id, scope, range_scope, node, parts, container.type)
 	}
 	store := checker.type_checker.store
-	type := types.get(store, types.resolve_named(store, container.type))
+	container_type := types.resolve_named(store, container.type)
+	type := types.get(store, container_type)
+	if type.kind == .Pointer {
+		container_type = types.resolve_named(store, type.elem)
+		type = types.get(store, container_type)
+	}
 	#partial switch type.kind {
 	case .Array, .Enumerated_Array, .Slice, .Dynamic_Array, .Fixed_Capacity_Array, .Bit_Set:
 	case .String, .String16:
+	case .Map:
+		if parts.reverse {
+			expression_failure(checker, view, scope, node, .Invalid_Reverse_Range) or_return
+			return nil
+		}
+		declared := range_declare_map_names(checker, view, file, scope, range_scope, parts, type.index, type.elem) or_return
+		if !declared { return nil }
+		helpers_resolved, helper_error := expression_resolve_map_helpers(checker)
+		if helper_error != nil { return helper_error }
+		if !helpers_resolved {
+			expression_unsupported(checker, view, scope, parts.expr, "Range_Helpers") or_return
+			return nil
+		}
+		append(&checker.plans, Plan(Map_Info_Plan{type = container_type})) or_return
+		expression_range_body(checker, view, file_id, node, range_scope, parts) or_return
+		expression_store(checker, view, node, Expression_Info{scope = scope, state = .Checked})
+		return nil
 	case:
 		expression_unsupported(checker, view, scope, parts.expr, "Range_Type") or_return
 		return nil
