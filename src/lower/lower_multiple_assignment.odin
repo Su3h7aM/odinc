@@ -37,6 +37,14 @@ lower_assignment_results :: proc(
 			return first
 		}
 		if !lower_or_return_values(state, projection.expression.node, variant, values[first:first + len(results)]) { return first }
+	case check.Type_Assertion_Plan:
+		if first + 2 > len(values) || !variant.comma_ok { lower_fail(state, node, .Local); return first }
+		if len(assignment.conversions) != 0 && (assignment.conversions[first] != 0 || assignment.conversions[first + 1] != 0) {
+			lower_fail(state, node, .Conversion)
+			return first
+		}
+		values[first], values[first + 1] = lower_type_assertion(state, projection.expression.node, variant)
+		return first + 2
 	case:
 		lower_fail(state, node, .Local)
 		return first

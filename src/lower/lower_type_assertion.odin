@@ -47,7 +47,7 @@ lower_type_assertion :: proc(state: ^Procedure_State, node: syntax.Node_Index, p
 			ir.seal_target(state.builder, end)
 			value = ir.variable_get(state.builder, result)
 		} else {
-			value = ir.stack_slot(function, state.entry_control, u32(layout.size), u32(layout.align))
+			value = ir.stack_slot(function, state.entry_control, u32(max(layout.size, 1)), u32(layout.align))
 			zero_memory := ir.add_node(
 				function,
 				.Mem_Set,
