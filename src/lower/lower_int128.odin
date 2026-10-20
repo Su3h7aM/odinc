@@ -133,6 +133,44 @@ wide_select :: proc(function: ^ir.Function, condition: ir.Node_Id, if_true, if_f
 	return Wide_Words{low = ir.select(function, condition, if_true.low, if_false.low), high = ir.select(function, condition, if_true.high, if_false.high)}
 }
 
+@(private)
+wide_pick :: proc(function: ^ir.Function, a, b: Wide_Words, signed, want_min: bool) -> Wide_Words {
+	less := wide_less(function, a, b, signed)
+	if want_min { return wide_select(function, less, a, b) }
+	return wide_select(function, less, b, a)
+}
+
+// Abs, min, max and clamp compare and select whole 128-bit words; the operands are addresses. Clamp is min(max(x, lo), hi).
+@(private)
+lower_wide_numeric_builtin :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: check.Builtin_Plan, kind: check.Builtin_Kind) -> ir.Node_Id {
+	function := state.job.function
+	count := len(plan.arguments)
+	signed := signed_type(state, operand_type(state, plan.arguments[0]))
+	first := lower_operand(state, plan.arguments[0])
+	if state.failed { return 0 }
+	value := wide_load(state, first)
+	if kind == .Abs {
+		if count != 1 { return lower_fail(state, node, .Builtin) }
+		if !signed { return first }
+		zero := Wide_Words {
+			low  = ir.const_int(function, .I64, 0),
+			high = ir.const_int(function, .I64, 0),
+		}
+		negative := wide_less(function, value, zero, true)
+		value = wide_select(function, negative, wide_negate(function, value), value)
+		return wide_store(state, value)
+	}
+	if kind == .Clamp && count != 3 { return lower_fail(state, node, .Builtin) }
+	for argument, index in plan.arguments[1:] {
+		if !call_operand_valid(state, argument) { return lower_fail(state, node, .Builtin) }
+		address := lower_operand(state, argument)
+		if state.failed { return 0 }
+		want_min := kind == .Min || (kind == .Clamp && index == 1)
+		value = wide_pick(function, value, wide_load(state, address), signed, want_min)
+	}
+	return wide_store(state, value)
+}
+
 // Matches the scalar `SDiv`: the minimum divided by -1 is an arithmetic trap, whatever the division-by-zero policy.
 @(private)
 lower_minimum_quotient_trap :: proc(state: ^Procedure_State, dividend, divisor: Wide_Words) {

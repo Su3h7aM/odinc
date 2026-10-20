@@ -264,6 +264,7 @@ pick_ordered :: proc(function: ^ir.Function, less_kind: ir.Node_Kind, left, righ
 lower_numeric_builtin :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: check.Builtin_Plan, kind: check.Builtin_Kind) -> ir.Node_Id {
 	count := len(plan.arguments)
 	if count < 1 { return lower_fail(state, node, .Builtin) }
+	if is_wide_integer(state, operand_type(state, plan.arguments[0])) { return lower_wide_numeric_builtin(state, node, plan, kind) }
 	if kind == .Min || kind == .Max {
 		value := lower_operand(state, plan.arguments[0])
 		if state.failed { return 0 }
