@@ -1,6 +1,7 @@
 package check
 
 import "base:runtime"
+import "core:fmt"
 import "core:mem"
 import "core:strconv"
 import "oc:syntax"
@@ -999,11 +1000,15 @@ procedure_type :: proc(
 			return types.TYPE_POISON, nil
 		}
 	}
-	if signature.params != 0 && (convention == .Odin || convention == .Contextless) {
+	c_vararg := false
+	if signature.params != 0 {
 		for parameter in syntax.node_list(file.ast, syntax.node_payload(file.ast, signature.params, syntax.Field_List).list) {
 			if .C_Vararg in syntax.node_payload(file.ast, parameter, syntax.Field).flags {
-				type_report(checker, file_id, file, parameter, .Invalid_Calling_Convention) or_return
-				return types.TYPE_POISON, nil
+				if convention == .Odin || convention == .Contextless {
+					type_report(checker, file_id, file, parameter, .Invalid_Calling_Convention) or_return
+					return types.TYPE_POISON, nil
+				}
+				c_vararg = true
 			}
 		}
 	}
@@ -1029,6 +1034,7 @@ procedure_type :: proc(
 				results = result_types,
 				convention = convention,
 				variadic = variadic,
+				c_vararg = c_vararg,
 				optional_result = optional_result,
 			},
 		),
@@ -1256,6 +1262,7 @@ type_report :: proc(
 	kind: Type_Diagnostic_Kind,
 	name := "",
 ) -> runtime.Allocator_Error {
+	if kind == .Not_A_Type { fmt.eprintf("CS16_TYPE %s %d %d\n", file.path, file.ast.nodes[node].start, file.ast.nodes[node].end) }
 	_, err := append(&checker.diagnostics, Type_Diagnostic{kind = kind, name = name, source = type_node_span(file_id, file, node)})
 	return err
 }

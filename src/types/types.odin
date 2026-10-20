@@ -130,7 +130,7 @@ Type :: struct {
 	count, lower_bound, upper_bound:                i64,
 	backing:                                        Type_Id,
 	endianness:                                     Endian,
-	signed, variadic:                               bool,
+	signed, variadic, c_vararg:                     bool,
 	optional_result:                                bool,
 	convention:                                     Calling_Convention,
 	union_form:                                     Union_Form,
@@ -312,6 +312,7 @@ descriptors_equal :: proc(a, b: Type) -> bool {
 	   a.endianness != b.endianness ||
 	   a.signed != b.signed ||
 	   a.variadic != b.variadic ||
+	   a.c_vararg != b.c_vararg ||
 	   a.optional_result != b.optional_result ||
 	   a.convention != b.convention ||
 	   a.union_form != b.union_form ||

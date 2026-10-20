@@ -111,7 +111,7 @@ Piece_Run :: struct {
 // By_Value under the C ones, split results through pointer parameters for Odin
 // and Contextless, and sub-word integer extension. by_pointer marks #by_ptr
 // parameters (indexed like the procedure's params; may be shorter or nil). The
-// procedure's variadic flag means C varargs. The plan is allocated with
+// procedure's c_vararg flag selects C varargs. The plan is allocated with
 // allocator.
 plan_abi :: proc(
 	store: ^Store,
@@ -172,7 +172,7 @@ plan_abi :: proc(
 	if convention == .Odin {
 		if !push(&params, Abi_Param{source = -1, type = .Ptr, attr = .Context, size = 8, align = 8}) { return {}, .Out_Of_Memory }
 	}
-	return Abi_Plan{convention, proc_type.variadic && convention == .C, params[:], results[:]}, .None
+	return Abi_Plan{convention, proc_type.c_vararg && convention == .C, params[:], results[:]}, .None
 }
 
 @(private = "file")

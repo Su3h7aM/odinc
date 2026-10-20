@@ -13,8 +13,8 @@ Plan_Case :: struct {
 	expected:   string,
 }
 
-procedure_type :: proc(store: ^Store, convention: Calling_Convention, params, results: []Type_Id, variadic := false) -> Type_Id {
-	return intern(store, Type{kind = .Procedure, convention = convention, params = params, results = results, variadic = variadic})
+procedure_type :: proc(store: ^Store, convention: Calling_Convention, params, results: []Type_Id, c_vararg := false) -> Type_Id {
+	return intern(store, Type{kind = .Procedure, convention = convention, params = params, results = results, variadic = c_vararg, c_vararg = c_vararg})
 }
 
 natural_bytes :: proc(piece: Abi_Piece) -> u32 {
@@ -204,6 +204,10 @@ plan_matches_compiler :: proc(t: ^testing.T) {
 	plan, err := plan_abi(&store, variadic)
 	testing.expect(t, err == .None && plan.variadic && describe(plan) == "i64 -> i64", "c vararg")
 	destroy_plan(&plan)
+	slice_variadic := intern(&store, Type{kind = .Procedure, convention = .C, params = {int_}, results = {int_}, variadic = true})
+	slice_plan, slice_error := plan_abi(&store, slice_variadic)
+	testing.expect(t, slice_variadic != variadic && slice_error == .None && !slice_plan.variadic, "ordinary variadic and C varargs must remain distinct")
+	destroy_plan(&slice_plan)
 
 	poisoned := procedure_type(&store, .Odin, {TYPE_POISON}, nil)
 	_, poison_err := plan_abi(&store, poisoned)
