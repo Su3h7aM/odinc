@@ -114,6 +114,16 @@ expression_group_call :: proc(
 		}
 		if file.ast.nodes[argument].kind == .Field_Value {
 			append(&named, group_argument) or_return
+		} else if results := group_argument_results(checker, group_argument.info); results != nil {
+			for result in results {
+				tuple_info := Expression_Info {
+					type  = result,
+					mode  = .Value,
+					scope = scope,
+					state = .Checked,
+				}
+				append(&positional, Group_Argument{value = argument, info = tuple_info}) or_return
+			}
 		} else {
 			append(&positional, group_argument) or_return
 		}
@@ -149,6 +159,15 @@ expression_group_call :: proc(
 		return expression_generic_call(checker, view, file_id, scope, node, chosen, arguments, spread)
 	}
 	return expression_call(checker, view, file_id, scope, node, chosen, arguments, spread)
+}
+
+// The result types of a multi-result call argument, or nil for any other argument.
+@(private = "file")
+group_argument_results :: proc(checker: ^Expression_Checker, info: Expression_Info) -> []types.Type_Id {
+	if info.state != .Checked || info.mode != .No_Value || int(info.plan) >= len(checker.plans) { return nil }
+	call, is_call := checker.plans[info.plan].(Call_Plan)
+	if !is_call || len(call.results) < 2 { return nil }
+	return call.results
 }
 
 // Empty when the member can be a group entry. Otherwise the reason it is unsupported for now.

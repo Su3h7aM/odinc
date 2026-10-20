@@ -48,8 +48,8 @@ expression_call :: proc(
 	for results in expansions {
 		if results != nil { expanded_count += len(results) - 1 }
 	}
-	if expansions != nil && descriptor.variadic {
-		return expression_unsupported(checker, view, scope, node, "Call_Tuple_Variadic")
+	if expansions != nil && spread {
+		return expression_unsupported(checker, view, scope, node, "Call_Tuple_Variadic_Spread")
 	}
 	if !descriptor.variadic && expanded_count > parameter_count {
 		return expression_unsupported(checker, view, scope, node, "Call_Arguments")
@@ -128,16 +128,19 @@ expression_call :: proc(
 		pack_start := min(positional_count, fixed_count)
 		order := u32(len(arguments) + fixed_count)
 		if pack_start < positional_count { order = u32(pack_start) }
-		variadic, valid := expression_variadic_argument(
+		variadic, reason, valid := expression_variadic_argument(
 			checker,
 			view,
 			scope,
-			arguments[pack_start:positional_count],
+			arguments[:positional_count],
+			expansions,
+			fixed_count,
 			procedure.parameters[variadic_index],
 			descriptor.params[variadic_index],
 			order,
 			allocator,
 		) or_return
+		if reason != "" { return expression_unsupported(checker, view, scope, node, reason) }
 		if !valid { return expression_poison(scope), nil }
 		call_arguments[variadic_index] = variadic
 	}
@@ -252,45 +255,73 @@ expression_call_argument :: proc(
 }
 
 // The trailing arguments of a variadic call become the elements of one slice argument. Non-constant
-// elements must already have the element type; constants take it from the parameter at lowering.
+// elements must already have the element type; constants take it from the parameter at lowering. A multi-result
+// call contributes one element per result from the first_element on, each naming the call and its 1-based result.
 @(private = "file")
 expression_variadic_argument :: proc(
 	checker: ^Expression_Checker,
 	view: View_Id,
 	scope: Scope_Id,
 	arguments: []syntax.Node_Index,
+	expansions: [][]types.Type_Id,
+	first_element: int,
 	parameter: Entity_Id,
 	slice_type: types.Type_Id,
 	order: u32,
 	allocator: mem.Allocator,
 ) -> (
 	argument: Call_Argument,
+	reason: string,
 	valid: bool,
 	err: Resolve_Error,
 ) {
 	element_type := types.get(checker.type_checker.store, slice_type).elem
-	elements := make([]Operand, len(arguments), allocator) or_return
-	conversions := make([]Plan_Id, len(arguments), allocator) or_return
-	for element, index in arguments {
+	elements := make([dynamic]Operand, allocator) or_return
+	conversions := make([dynamic]Plan_Id, allocator) or_return
+	tuple_elements := make([dynamic]int, allocator) or_return
+	flat := 0
+	for element, position in arguments {
+		results: []types.Type_Id
+		if expansions != nil { results = expansions[position] }
+		if results != nil {
+			for result, offset in results {
+				flat += 1
+				if flat <= first_element { continue }
+				if result != element_type { return {}, "Call_Tuple_Variadic_Type", false, nil }
+				append(&elements, Operand(Expression_Ref{view, element})) or_return
+				append(&conversions, Plan_Id(0)) or_return
+				append(&tuple_elements, offset + 1) or_return
+			}
+			continue
+		}
+		flat += 1
+		if flat <= first_element { continue }
 		value := check_expression(checker, view, scope, element, element_type) or_return
-		if value.state == .Invalid { return {}, false, nil }
+		if value.state == .Invalid { return {}, "", false, nil }
+		operand: Operand
+		conversion: Plan_Id
 		switch {
 		case value.constant != 0:
-			elements[index] = Operand(value.constant)
+			operand = Operand(value.constant)
 		case expression_conversion_plan(checker, value.plan) != 0:
-			elements[index] = Operand(Expression_Ref{view, element})
-			conversions[index] = value.plan
+			operand = Operand(Expression_Ref{view, element})
+			conversion = value.plan
 		case:
-			elements[index] = Operand(Expression_Ref{view, element})
+			operand = Operand(Expression_Ref{view, element})
 		}
+		append(&elements, operand) or_return
+		append(&conversions, conversion) or_return
+		append(&tuple_elements, 0) or_return
 	}
 	return Call_Argument {
 			parameter = parameter,
 			evaluation_order = order,
 			variadic_pack = true,
-			variadic_elements = elements,
-			variadic_conversions = conversions,
+			variadic_elements = elements[:],
+			variadic_conversions = conversions[:],
+			variadic_tuple_elements = tuple_elements[:],
 		},
+		"",
 		true,
 		nil
 }

@@ -696,16 +696,17 @@ Range_Call_Plan :: struct {
 	condition_index: u32,
 }
 Call_Argument :: struct {
-	value:                Operand,
-	parameter:            Entity_Id,
-	conversion:           Plan_Id,
-	evaluation_order:     u32,
-	caller_location:      bool,
-	variadic_pack:        bool,
-	variadic_elements:    []Operand,
-	variadic_spread:      bool,
-	variadic_conversions: []Plan_Id,
-	tuple_element:        int,
+	value:                   Operand,
+	parameter:               Entity_Id,
+	conversion:              Plan_Id,
+	evaluation_order:        u32,
+	caller_location:         bool,
+	variadic_pack:           bool,
+	variadic_elements:       []Operand,
+	variadic_spread:         bool,
+	variadic_conversions:    []Plan_Id,
+	tuple_element:           int,
+	variadic_tuple_elements: []int,
 }
 Call_Plan :: struct {
 	callee:       Operand,

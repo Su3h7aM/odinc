@@ -5,6 +5,7 @@ import "core:slice"
 import "oc:check"
 import "oc:ir"
 import "oc:syntax"
+import "oc:types"
 
 @(private)
 Call_Argument_Order :: struct {
@@ -124,9 +125,8 @@ lower_call_results :: proc(state: ^Procedure_State, node: syntax.Node_Index, inf
 	}
 	function := state.job.function
 	allocator := virtual.arena_allocator(&function.arena)
-	for argument in plan.arguments {
-		if argument.tuple_element != 0 { lower_fail(state, node, .Call_Argument); return }
-	}
+	tuple_results, tuple_error := make([][]ir.Node_Id, len(plan.arguments), allocator)
+	if tuple_error != nil { function.error = tuple_error; return }
 	ordered, ordered_error := make([]Call_Argument_Order, count, allocator)
 	arguments, arguments_error := make([]ir.Node_Id, len(signature.params), allocator)
 	slots, slots_error := make([]ir.Node_Id, split_count, allocator)
@@ -150,6 +150,7 @@ lower_call_results :: proc(state: ^Procedure_State, node: syntax.Node_Index, inf
 	for argument, index in plan.arguments {
 		if !argument.caller_location &&
 		   !argument.variadic_pack &&
+		   argument.tuple_element == 0 &&
 		   !call_operand_valid(state, argument.value) { lower_fail(state, node, .Call_Argument); return }
 		position := index
 		if plan.entity != 0 {
@@ -175,7 +176,12 @@ lower_call_results :: proc(state: ^Procedure_State, node: syntax.Node_Index, inf
 	}
 	slice.sort_by(ordered, proc(left, right: Call_Argument_Order) -> bool { return left.evaluation_order < right.evaluation_order })
 	for entry, index in ordered {
-		if index > 0 && ordered[index - 1].evaluation_order == entry.evaluation_order { lower_fail(state, node, .Call_Argument); return }
+		if index > 0 &&
+		   ordered[index - 1].evaluation_order == entry.evaluation_order &&
+		   !tuple_siblings(
+				   plan.arguments[ordered[index - 1].argument_index],
+				   plan.arguments[entry.argument_index],
+			   ) { lower_fail(state, node, .Call_Argument); return }
 	}
 	callee: ir.Node_Id
 	if plan.entity == 0 {
@@ -198,6 +204,8 @@ lower_call_results :: proc(state: ^Procedure_State, node: syntax.Node_Index, inf
 		value: ir.Node_Id
 		if argument.variadic_pack {
 			value = lower_variadic_slice(state, node, argument, descriptor.params[position])
+		} else if argument.tuple_element != 0 {
+			value = lower_tuple_argument(state, node, plan, tuple_results, entry.argument_index, descriptor.params[position])
 		} else if argument.variadic_spread {
 			value = lower_variadic_spread(state, node, argument, descriptor.params[position])
 		} else if argument.conversion != 0 {
@@ -386,4 +394,62 @@ lower_builtin :: proc(state: ^Procedure_State, node: syntax.Node_Index, info: ch
 	memory := ir.add_node(function, .Proj, .Memory, {call}, {index = 0})
 	ir.variable_set(state.builder, ir.MEMORY_VARIABLE, memory)
 	return ir.add_node(function, .Proj, .I64, {call}, {index = 1})
+}
+
+// One result of a multi-result call argument. The call is evaluated once, at its first argument's evaluation order,
+// and later arguments from the same call read the stored results.
+@(private)
+lower_tuple_argument :: proc(
+	state: ^Procedure_State,
+	node: syntax.Node_Index,
+	plan: check.Call_Plan,
+	tuple_results: [][]ir.Node_Id,
+	index: int,
+	parameter_type: types.Type_Id,
+) -> ir.Node_Id {
+	argument := plan.arguments[index]
+	source := index
+	for earlier in 0 ..< index {
+		if plan.arguments[earlier].tuple_element != 0 && same_call_operand(plan.arguments[earlier].value, argument.value) {
+			source = earlier
+			break
+		}
+	}
+	ref, is_ref := argument.value.(check.Expression_Ref)
+	if !is_ref || ref.view != state.view { return lower_fail(state, node, .Call_Argument) }
+	if tuple_results[source] == nil {
+		tuple_results[source] = lower_spread_results(state, node, ref)
+		if state.failed || state.job.function.error != nil { return 0 }
+	}
+	element := int(argument.tuple_element) - 1
+	if element >= len(tuple_results[source]) { return lower_fail(state, node, .Call_Argument) }
+	call_plan := check.plan(state.job.program, lower_info(state, ref.node).plan)
+	variant := call_plan^.(check.Call_Plan)
+	if variant.results[element] != parameter_type { return lower_fail(state, node, .Conversion) }
+	return tuple_results[source][element]
+}
+
+// lower_spread_results evaluates the multi-result call that a spread names, once, and returns its results.
+@(private)
+lower_spread_results :: proc(state: ^Procedure_State, node: syntax.Node_Index, ref: check.Expression_Ref) -> []ir.Node_Id {
+	info := lower_info(state, ref.node)
+	if state.failed { return nil }
+	call_plan := check.plan(state.job.program, info.plan)
+	if call_plan == nil { lower_fail(state, node, .Call_Argument); return nil }
+	variant, is_call := call_plan^.(check.Call_Plan)
+	if !is_call { lower_fail(state, node, .Call_Argument); return nil }
+	values, values_error := make([]ir.Node_Id, len(variant.results), virtual.arena_allocator(&state.job.function.arena))
+	if values_error != nil {
+		state.job.function.error = values_error
+		return nil
+	}
+	lower_call_results(state, ref.node, info, variant, values)
+	if state.failed || state.job.function.error != nil { return nil }
+	return values
+}
+
+// Elements of one spread call share its evaluation order; the call is evaluated once for all of them.
+@(private)
+tuple_siblings :: proc(left, right: check.Call_Argument) -> bool {
+	return left.tuple_element != 0 && right.tuple_element != 0 && same_call_operand(left.value, right.value)
 }

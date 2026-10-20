@@ -33,9 +33,22 @@ lower_variadic_slice :: proc(state: ^Procedure_State, node: syntax.Node_Index, a
 		return header
 	}
 	storage := ir.stack_slot(function, state.entry_control, u32(element_layout.size) * u32(count), u32(element_layout.align))
+	spread_node: syntax.Node_Index
+	spread_values: []ir.Node_Id
 	for element, index in argument.variadic_elements {
 		value: ir.Node_Id
-		if argument.variadic_conversions[index] != 0 {
+		if argument.variadic_tuple_elements[index] != 0 {
+			ref, is_ref := element.(check.Expression_Ref)
+			if !is_ref || ref.view != state.view { return lower_fail(state, node, .Call_Argument) }
+			if spread_values == nil || spread_node != ref.node {
+				spread_values = lower_spread_results(state, node, ref)
+				spread_node = ref.node
+				if state.failed || function.error != nil { return 0 }
+			}
+			element_index := argument.variadic_tuple_elements[index] - 1
+			if element_index >= len(spread_values) { return lower_fail(state, node, .Call_Argument) }
+			value = spread_values[element_index]
+		} else if argument.variadic_conversions[index] != 0 {
 			value = lower_conversion(state, check.plan(state.job.program, argument.variadic_conversions[index])^.(check.Conversion_Plan), node)
 		} else {
 			if !call_operand_valid(state, element) { return lower_fail(state, node, .Call_Argument) }
