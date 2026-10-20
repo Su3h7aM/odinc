@@ -81,8 +81,9 @@ fill_globals :: proc(
 				output.relocs = relocs
 				continue
 			}
-			bytes, relocs, encoded, image_error := global_constant_image(program, global.initializer, output.size, symbols, output.relocs, allocator)
+			bytes, relocs, encoded, image_error := global_constant_image(module, program, global.initializer, output.size, symbols, output.relocs, allocator)
 			if image_error != nil { return image_error }
+			output = &module.globals[symbol.index]
 			if !encoded {
 				declaration := program.entities[global.entity].declaration
 				span := program.files[declaration.file].ast.nodes[declaration.node]

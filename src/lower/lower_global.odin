@@ -10,6 +10,7 @@ import "oc:types"
 // that have no static image (strings, and aggregates holding an address nested below the top level).
 @(private)
 global_constant_image :: proc(
+	module: ^ir.Module,
 	program: ^check.Checked_Program,
 	id: check.Const_Id,
 	size: u32,
@@ -56,8 +57,11 @@ global_constant_image :: proc(
 		write_little_endian(bytes, u64(value), 0)
 	case check.Nil_Value, check.Uninitialized_Value:
 	case check.Aggregate_Value:
-		encoded := aggregate_constant_image(program, constant.type, value.elements, bytes, allocator) or_return
+		relocations := make([dynamic]ir.Data_Reloc, allocator) or_return
+		for reloc in relocs { append(&relocations, reloc) or_return }
+		encoded := aggregate_constant_image(module, program, constant.type, value.elements, bytes, 0, &relocations, allocator) or_return
 		if !encoded { return nil, nil, false, nil }
+		out_relocs = relocations[:]
 	case check.Address_Value:
 		assert(int(value.symbol) > 0 && int(value.symbol) < len(symbols))
 		out_relocs = make([]ir.Data_Reloc, len(relocs) + 1, allocator) or_return
@@ -73,14 +77,17 @@ global_constant_image :: proc(
 	return bytes, out_relocs, true, nil
 }
 
-// Writes each element of a constant aggregate at its field or element offset. Nested aggregates recurse; an address
-// needs a relocation at its own offset, so it stays unsupported here.
+// Writes each element of a constant aggregate at its field or element offset, relative to base. Nested aggregates
+// recurse. A string writes its header and a relocation to a module blob at its own offset; an address stays unsupported.
 @(private = "file")
 aggregate_constant_image :: proc(
+	module: ^ir.Module,
 	program: ^check.Checked_Program,
 	type: types.Type_Id,
 	elements: []check.Const_Id,
 	bytes: []byte,
+	base: i64,
+	relocations: ^[dynamic]ir.Data_Reloc,
 	allocator: runtime.Allocator,
 ) -> (
 	encoded: bool,
@@ -108,18 +115,27 @@ aggregate_constant_image :: proc(
 			return false, nil
 		}
 		size, _, layout_error := types.layout(store, element_type)
-		if layout_error != .None || offset + size > i64(len(bytes)) { return false, nil }
+		start := base + offset
+		if layout_error != .None || start + size > i64(len(bytes)) { return false, nil }
 		constant := check.constant(program, element)
 		if aggregate, is_aggregate := constant.value.(check.Aggregate_Value); is_aggregate {
-			encoded = aggregate_constant_image(program, element_type, aggregate.elements, bytes[offset:][:size], allocator) or_return
+			encoded = aggregate_constant_image(module, program, element_type, aggregate.elements, bytes, start, relocations, allocator) or_return
 			if !encoded { return false, nil }
 			continue
 		}
+		if text, is_text := constant.value.(string); is_text {
+			if types.get(store, types.resolve_named(store, element_type)).kind != .String { return false, nil }
+			blob, blob_error := global_string_blob(module, text)
+			if blob_error != nil { return false, blob_error }
+			write_scalar(bytes, start + 8, u64(len(text)), 8)
+			append(relocations, ir.Data_Reloc{offset = u32(start), target = ir.Symbol_Ref{space = .Global, index = blob}}) or_return
+			continue
+		}
 		if _, is_address := constant.value.(check.Address_Value); is_address { return false, nil }
-		image, relocs, scalar_ok, image_error := global_constant_image(program, element, u32(size), nil, nil, allocator)
+		image, scalar_relocs, scalar_ok, image_error := global_constant_image(module, program, element, u32(size), nil, nil, allocator)
 		if image_error != nil { return false, image_error }
-		if !scalar_ok || len(relocs) != 0 { return false, nil }
-		copy(bytes[offset:], image)
+		if !scalar_ok || len(scalar_relocs) != 0 { return false, nil }
+		copy(bytes[start:], image)
 	}
 	return true, nil
 }
