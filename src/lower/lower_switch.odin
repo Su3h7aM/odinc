@@ -1,6 +1,7 @@
 package lower
 
 import "core:mem/virtual"
+import "oc:check"
 import "oc:ir"
 import "oc:syntax"
 
@@ -69,10 +70,26 @@ lower_switch :: proc(state: ^Procedure_State, node: syntax.Node_Index, statement
 		if !ir.seal_target(state.builder, bodies[index]) { continue }
 		body_scope := local_scope(state)
 		case_clause := state.ast.nodes[clause].payload.(syntax.Case_Clause)
-		for statement_node in syntax.node_list(state.ast, case_clause.body) { lower_statement(state, statement_node) }
+		case_statements := syntax.node_list(state.ast, case_clause.body)
+		for statement_node in case_statements {
+			if state.ast.nodes[statement_node].kind == .Branch_Stmt &&
+			   syntax.node_payload(state.ast, statement_node, syntax.Branch_Stmt).token.kind == .Fallthrough { continue }
+			lower_statement(state, statement_node)
+		}
 		leave_local_scope(state, body_scope)
 		if state.failed || state.job.function.error != nil { return }
-		ir.jump_to(state.builder, end)
+		next := end
+		if len(case_statements) > 0 && state.ast.nodes[case_statements[len(case_statements) - 1]].kind == .Branch_Stmt {
+			last_statement := case_statements[len(case_statements) - 1]
+			info, info_ok := check.expression_info(state.job.program, state.view, last_statement)
+			if info_ok && info.plan != 0 {
+				plan := check.plan(state.job.program, info.plan)
+				if exit, ok := plan^.(check.Exit_Plan); ok && exit.kind == check.Exit_Kind.Fallthrough && index + 1 < len(bodies) {
+					next = bodies[index + 1]
+				}
+			}
+		}
+		ir.jump_to(state.builder, next)
 	}
 	ir.seal_target(state.builder, end)
 }

@@ -331,6 +331,8 @@ expression_branch :: proc(checker: ^Expression_Checker, view: View_Id, file_id: 
 		exit_kind = .Break
 	case .Continue:
 		exit_kind = .Continue
+	case .Fallthrough:
+		exit_kind = .Fallthrough
 	case:
 		expression_unsupported(checker, view, scope, node, "Branch_Kind") or_return
 		return nil
@@ -339,8 +341,16 @@ expression_branch :: proc(checker: ^Expression_Checker, view: View_Id, file_id: 
 	for index := len(checker.control) - 1; index >= 0; index -= 1 {
 		frame := checker.control[index]
 		if label == "" && frame.is_barrier { break }
+		// fallthrough is only valid as the last statement of a non-last
+		// case body in a non-type switch; the control frame here is the
+		// switch itself, so accept it there.
 		if label != "" && frame.label != label { continue }
 		if label == "" && !frame.is_loop && (exit_kind == .Continue || !frame.is_switch) { continue }
+		if exit_kind == .Fallthrough && !frame.is_switch { continue }
+		if exit_kind == .Fallthrough && file.ast.nodes[frame.node].kind == .Type_Switch_Stmt {
+			expression_unsupported(checker, view, scope, node, "Fallthrough_Type_Switch") or_return
+			return nil
+		}
 		if exit_kind == .Continue && !frame.is_loop { break }
 		plan := Plan_Id(len(checker.plans))
 		append(&checker.plans, Plan(Exit_Plan{kind = exit_kind, target = Node_Ref{file_id, frame.node}})) or_return
