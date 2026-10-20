@@ -164,3 +164,42 @@ main :: proc() {
 	if !ok { return }
 	testing.expect(t, procedure.body_state == .Complete)
 }
+
+@(test)
+generic_call_binds_a_defaulted_parameter_after_the_variadic_by_name :: proc(t: ^testing.T) {
+	// Official Odin accepts `f(&buf, ..xs)`, `f(&buf, 1, 2)`, `f(&buf)` and `w(&buf, ..xs)`, where `w` forwards with `f(x, ..args, loc = loc)`.
+	source := transmute([]byte)string(
+		`package sample
+f :: proc(x: ^$T/[dynamic]$E, args: ..E, loc := #caller_location) {}
+w :: proc(x: ^$T/[dynamic]$E, args: ..E, loc := #caller_location) { f(x, ..args, loc = loc) }
+xs: []int
+main :: proc() {
+	buf: [dynamic]int
+	f(&buf, ..xs)
+	f(&buf, 1, 2)
+	f(&buf)
+	w(&buf, ..xs)
+}
+`,
+	)
+	procedure, ok := check_procedure_source(t, source, .None, "", 0)
+	if !ok { return }
+	testing.expect(t, procedure.body_state == .Complete)
+}
+
+@(test)
+generic_call_rejects_a_named_defaulted_parameter_of_the_wrong_type :: proc(t: ^testing.T) {
+	// Official Odin: "Cannot convert '\"x\"' to 'int' from 'untyped string'".
+	source := transmute([]byte)string(
+		`package sample
+f :: proc(x: ^$T/[dynamic]$E, args: ..E, loc := 0) {}
+xs: []int
+main :: proc() {
+	buf: [dynamic]int
+	f(&buf, ..xs, loc = "x")
+}
+`,
+	)
+	rejected, rejected_ok := check_procedure_source(t, source)
+	if rejected_ok { testing.expect(t, rejected.body_state == .Invalid) }
+}

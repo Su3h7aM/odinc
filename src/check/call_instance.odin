@@ -81,25 +81,24 @@ expression_generic_call :: proc(
 	caller := checker.type_checker.files[file_id]
 	names := declared_parameter_names(file, params, allocator) or_return
 	variadic_index := procedure_variadic_index(file, declaration.type.node)
-	if variadic_index >= 0 && variadic_index != len(names) - 1 {
-		return expression_unsupported(checker, view, scope, node, "Generic_Call_Variadic_Not_Last")
-	}
 	if spread {
 		spread_positional_count := call_positional_count(caller, arguments)
 		if variadic_index < 0 { return expression_unsupported(checker, view, scope, node, "Call_Variadic_Spread") }
 		if spread_positional_count > variadic_index + 1 { return expression_unsupported(checker, view, scope, node, "Call_Variadic_Spread_Arguments") }
 		if spread_positional_count != variadic_index + 1 { return expression_unsupported(checker, view, scope, node, "Call_Variadic_Spread_Position") }
 	}
+	fixed_count := len(names)
+	if variadic_index >= 0 { fixed_count = variadic_index + 1 }
 	slots := make([]Call_Slot, len(names), allocator) or_return
-	if reason := call_bind_arguments(caller, arguments, names, len(names), slots); reason != "" {
+	if reason := call_bind_arguments(caller, arguments, names, fixed_count, slots); reason != "" {
 		return expression_unsupported(checker, view, scope, node, reason)
 	}
 	positional_count := call_positional_count(caller, arguments)
-	if positional_count > len(names) && positional_count < len(arguments) {
+	if positional_count > fixed_count && positional_count < len(arguments) {
 		return expression_unsupported(checker, view, scope, node, "Generic_Call_Named_Variadic")
 	}
 	is_runtime := make([]bool, len(arguments), allocator) or_return
-	for index in len(names) ..< positional_count {
+	for index in fixed_count ..< positional_count {
 		is_runtime[index] = true
 	}
 	parameter_index := 0
@@ -113,6 +112,7 @@ expression_generic_call :: proc(
 			slot := slots[parameter_index]
 			parameter_index += 1
 			if slot.value == 0 {
+				if field.type != 0 && file.ast.nodes[field.type].kind == .Ellipsis { continue }
 				if field.default_value == 0 || file.ast.nodes[name].kind == .Poly_Type {
 					return expression_unsupported(checker, view, scope, node, "Generic_Call_Arguments")
 				}
@@ -179,6 +179,29 @@ expression_generic_call :: proc(
 			if poly_untyped_deferred(file, spread, field.type, types.get(checker.type_checker.store, argument.type).kind) {
 				append(&deferred, Untyped_Pattern{pattern = field.type, type = argument.type}) or_return
 				continue
+			}
+			if field.type == 0 {
+				default_type, default_found, default_error := default_parameter_type(
+					checker.type_checker,
+					declaration.type.file,
+					file,
+					definition_scope,
+					field.default_value,
+				)
+				if default_error != nil { return {}, default_error }
+				if default_found {
+					converted := expression_conversion(
+						checker,
+						view,
+						scope,
+						argument_node,
+						Operand(Expression_Ref{view, argument_node}),
+						argument,
+						default_type,
+						.Assignment,
+					) or_return
+					if converted.state == .Invalid { return expression_poison(scope), nil }
+				}
 			}
 			if !poly_pattern_has_poly(file, field.type) { continue }
 			poly_argument := types.default_type_of_untyped(checker.type_checker.store, argument.type)
