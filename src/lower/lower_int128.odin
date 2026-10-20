@@ -17,7 +17,9 @@ Wide_Words :: struct {
 @(private)
 is_wide_integer :: proc(state: ^Procedure_State, id: types.Type_Id) -> bool {
 	if id == 0 { return false }
-	return lower_type(state, id).kind == .Integer && state.job.layouts[id].size == WIDE_BYTES
+	type := lower_type(state, id)
+	if type.kind == .Bit_Set { return state.job.layouts[id].size == WIDE_BYTES }
+	return type.kind == .Integer && state.job.layouts[id].size == WIDE_BYTES
 }
 
 @(private)
@@ -203,6 +205,53 @@ lower_wide_bit_intrinsic :: proc(state: ^Procedure_State, node: syntax.Node_Inde
 	return lower_fail(state, node, .Builtin)
 }
 
+// Tests bit `offset` of a 128-bit set; offsets outside 0..<128 are not members.
+@(private)
+wide_bit_test :: proc(function: ^ir.Function, words: Wide_Words, offset: ir.Node_Id) -> ir.Node_Id {
+	zero := ir.const_int(function, .I64, 0)
+	word := ir.select(function, ir.compare(function, .ULt, offset, ir.const_int(function, .I64, 64)), words.low, words.high)
+	shift := ir.binary(function, .And, offset, ir.const_int(function, .I64, 63))
+	bit := ir.binary(function, .And, ir.binary(function, .Shr, word, shift), ir.const_int(function, .I64, 1))
+	return ir.compare(function, .Ne, bit, zero)
+}
+
+// Bit sets combine as sets: `+` and `|` union, `-` and `&~` difference, `&` intersection, `~` symmetric difference.
+@(private)
+lower_wide_bit_set_operator :: proc(state: ^Procedure_State, node: syntax.Node_Index, operator: syntax.Token_Kind, left, right: ir.Node_Id) -> ir.Node_Id {
+	function := state.job.function
+	a := wide_load(state, left)
+	b := wide_load(state, right)
+	zero := Wide_Words {
+		low  = ir.const_int(function, .I64, 0),
+		high = ir.const_int(function, .I64, 0),
+	}
+	#partial switch operator {
+	case .Add, .Or:
+		return wide_store(state, wide_bitwise(function, .Or, a, b))
+	case .Sub, .And_Not:
+		return wide_store(state, wide_bitwise(function, .And, a, wide_not(function, b)))
+	case .And:
+		return wide_store(state, wide_bitwise(function, .And, a, b))
+	case .Xor:
+		return wide_store(state, wide_bitwise(function, .Xor, a, b))
+	case .Cmp_Eq:
+		return wide_equal(function, a, b)
+	case .Not_Eq:
+		return bool_not(function, wide_equal(function, a, b))
+	case .Lt_Eq:
+		return wide_equal(function, wide_bitwise(function, .And, a, wide_not(function, b)), zero)
+	case .Gt_Eq:
+		return wide_equal(function, wide_bitwise(function, .And, b, wide_not(function, a)), zero)
+	case .Lt:
+		subset := wide_equal(function, wide_bitwise(function, .And, a, wide_not(function, b)), zero)
+		return ir.binary(function, .And, subset, bool_not(function, wide_equal(function, a, b)))
+	case .Gt:
+		subset := wide_equal(function, wide_bitwise(function, .And, b, wide_not(function, a)), zero)
+		return ir.binary(function, .And, subset, bool_not(function, wide_equal(function, a, b)))
+	}
+	return lower_fail(state, node, .Operator)
+}
+
 // Matches the scalar `SDiv`: the minimum divided by -1 is an arithmetic trap, whatever the division-by-zero policy.
 @(private)
 lower_minimum_quotient_trap :: proc(state: ^Procedure_State, dividend, divisor: Wide_Words) {
@@ -366,6 +415,9 @@ wide_count_word :: proc(state: ^Procedure_State, value: ir.Node_Id, signed_count
 
 @(private)
 lower_wide_binary :: proc(state: ^Procedure_State, node: syntax.Node_Index, expression: syntax.Binary_Expr, left, right: ir.Node_Id) -> ir.Node_Id {
+	if lower_type(state, lower_info(state, expression.left).type).kind == .Bit_Set {
+		return lower_wide_bit_set_operator(state, node, expression.op.kind, left, right)
+	}
 	signed := signed_type(state, lower_info(state, expression.left).type)
 	count_signed := signed_type(state, lower_info(state, expression.right).type)
 	return lower_wide_operator(state, node, expression.op.kind, signed, count_signed, left, right)

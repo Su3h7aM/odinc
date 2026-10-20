@@ -64,6 +64,9 @@ lower_compound_operator :: proc(
 	function := state.job.function
 	scalar := scalar_type(state, type)
 	if is_wide_integer(state, type) {
+		if lower_type(state, type).kind == .Bit_Set {
+			return lower_wide_bit_set_operator(state, node, compound_binary_operator(operator), left, right)
+		}
 		return lower_wide_operator(state, node, compound_binary_operator(operator), signed_type(state, type), false, left, right)
 	}
 	if lower_type(state, type).kind == .Array {

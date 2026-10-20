@@ -14,6 +14,12 @@ lower_binary :: proc(state: ^Procedure_State, node: syntax.Node_Index, expressio
 	}
 	right := lower_value(state, expression.right)
 	if state.failed { return 0 }
+	if expression.op.kind == .In || expression.op.kind == .Not_In {
+		found := lower_bit_set_membership(state, node, expression, left, right)
+		if state.failed { return 0 }
+		if expression.op.kind == .Not_In { return bool_not(state.job.function, found) }
+		return found
+	}
 	if is_wide_integer(state, lower_info(state, expression.left).type) { return lower_wide_binary(state, node, expression, left, right) }
 	if is_nil_comparison(state, expression) { return lower_nil_comparison(state, expression, left, right) }
 	if (expression.op.kind == .Cmp_Eq || expression.op.kind == .Not_Eq) &&
