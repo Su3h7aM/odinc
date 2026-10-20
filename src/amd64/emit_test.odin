@@ -150,3 +150,50 @@ expect_emitted_shift :: proc(t: ^testing.T, width: u8, count: i64, expected: []b
 	defer atom_destroy(&atom, context.allocator)
 	testing.expectf(t, slice.equal(atom.bytes, expected), "width %v count %v emitted % x", width, count, atom.bytes)
 }
+
+@(test)
+emitted_indexed_load_and_store_with_spilled_operands :: proc(t: ^testing.T) {
+	function: Machine_Function
+	if !testing.expect_value(t, machine_function_init(&function, "indexed_spills"), nil) { return }
+	defer machine_function_destroy(&function)
+	block, block_error := add_block(&function)
+	if !testing.expect_value(t, block_error, nil) { return }
+	base, base_error := new_vreg(&function, .Int)
+	index, index_error := new_vreg(&function, .Int)
+	value, value_error := new_vreg(&function, .Int)
+	loaded, loaded_error := new_vreg(&function, .Int)
+	if !testing.expect_value(t, base_error, nil) ||
+	   !testing.expect_value(t, index_error, nil) ||
+	   !testing.expect_value(t, value_error, nil) ||
+	   !testing.expect_value(t, loaded_error, nil) { return }
+	testing.expect_value(t, emit(&function, block, .MOV, 8, base, Immediate(16)), nil)
+	testing.expect_value(t, emit(&function, block, .MOV, 8, index, Immediate(2)), nil)
+	testing.expect_value(t, emit(&function, block, .MOV, 8, value, Immediate(7)), nil)
+	address := Memory_Ref {
+		base      = base,
+		index     = index,
+		has_index = true,
+		scale     = 8,
+	}
+	testing.expect_value(t, emit(&function, block, .MOV, 8, loaded, address), nil)
+	testing.expect_value(t, emit(&function, block, .MOV, 8, address, value), nil)
+	testing.expect_value(t, emit_pseudo(&function, block, .Return), nil)
+	testing.expect_value(t, verify_machine(&function), Verify_Error{})
+
+	locations, location_error := make([]regalloc.Location, len(function.vreg_classes), context.allocator)
+	if !testing.expect_value(t, location_error, nil) { return }
+	for _, index in locations { locations[index] = regalloc.Spill_Slot(u32(index)) }
+	result := regalloc.Result {
+		location         = locations,
+		spill_slot_count = u32(len(locations)),
+	}
+	defer regalloc.result_destroy(&result)
+	atom, emit_error := emit_function(&function, &result, {}, context.allocator)
+	if !testing.expect_value(t, emit_error, nil) { return }
+	defer atom_destroy(&atom, context.allocator)
+	lea_count := 0
+	for index in 0 ..< max(0, len(atom.bytes) - 3) {
+		if atom.bytes[index] == 0x4f && atom.bytes[index + 1] == 0x8d && atom.bytes[index + 2] == 0x14 && atom.bytes[index + 3] == 0xda { lea_count += 1 }
+	}
+	testing.expect_value(t, lea_count, 2)
+}

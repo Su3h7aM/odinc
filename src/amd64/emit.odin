@@ -338,6 +338,16 @@ take_scratch :: proc(emitter: ^Emitter, class: Register_Class) -> (number: u8, e
 }
 
 @(private = "file")
+release_scratch :: proc(emitter: ^Emitter, class: Register_Class, number: u8) -> Emit_Error {
+	taken := emitter.scratch_taken[class]
+	if taken == 0 || scratch_registers(class)[taken - 1] != number {
+		return Emit_Failure.Bad_Operand
+	}
+	emitter.scratch_taken[class] -= 1
+	return nil
+}
+
+@(private = "file")
 register_of_width :: proc(class: Register_Class, number: u8, width: u8) -> x86.Register {
 	if class == .Float {
 		return x86.xmm_from_num(number)
@@ -396,9 +406,11 @@ external_label :: proc(emitter: ^Emitter, target: Symbol_Target, kind: elf.R_X86
 lower_memory :: proc(emitter: ^Emitter, reference: Memory_Ref) -> (memory: x86.Memory, err: Emit_Error) {
 	displacement := i64(reference.displacement)
 	base := x86.NONE
+	base_vreg: Vreg
+	base_is_vreg := false
 	switch value in reference.base {
 	case Vreg:
-		base = vreg_register(emitter, value, {reads = true}, 8) or_return
+		base_vreg, base_is_vreg = value, true
 	case Frame_Object:
 		base = x86.RBP
 		switch value.kind {
@@ -424,7 +436,33 @@ lower_memory :: proc(emitter: ^Emitter, reference: Memory_Ref) -> (memory: x86.M
 	}
 	index := x86.NONE
 	if reference.has_index {
+		if base_is_vreg {
+			index_vreg := reference.index
+			base_location := location_of(emitter, base_vreg) or_return
+			index_location := location_of(emitter, index_vreg) or_return
+			_, base_is_spilled := base_location.(regalloc.Spill_Slot)
+			_, index_is_spilled := index_location.(regalloc.Spill_Slot)
+			if base_is_spilled && index_is_spilled {
+				if displacement != i64(i32(displacement)) { return {}, Emit_Failure.Bad_Operand }
+				if emitter.function.vreg_classes[base_vreg] != .Int || emitter.function.vreg_classes[index_vreg] != .Int {
+					return {}, Emit_Failure.Bad_Operand
+				}
+				base = vreg_register(emitter, base_vreg, {reads = true}, 8) or_return
+				index = vreg_register(emitter, index_vreg, {reads = true}, 8) or_return
+				scale := max(reference.scale, 1)
+				if scale != 1 && scale != 2 && scale != 4 && scale != 8 { return {}, Emit_Failure.Bad_Operand }
+				address := x86.mem_make(base, index, scale, i32(displacement), x86.NONE)
+				append(&emitter.instructions, x86.inst_r_m(.LEA, base, address, 8)) or_return
+				release_scratch(emitter, .Int, scratch_registers(.Int)[1]) or_return
+				return x86.mem_make(base, x86.NONE, 1, 0, x86.NONE), nil
+			}
+		}
+		if base_is_vreg {
+			base = vreg_register(emitter, base_vreg, {reads = true}, 8) or_return
+		}
 		index = vreg_register(emitter, reference.index, {reads = true}, 8) or_return
+	} else if base_is_vreg {
+		base = vreg_register(emitter, base_vreg, {reads = true}, 8) or_return
 	}
 	if displacement != i64(i32(displacement)) {
 		return {}, Emit_Failure.Bad_Operand
@@ -481,6 +519,16 @@ lower_instruction :: proc(emitter: ^Emitter, instruction: Machine_Instruction, b
 	if instruction.rep {
 		lowered.flags.rep = .REP
 	}
+	output_index := 0
+	for operand, index in explicit {
+		if reuses && index == 1 { continue }
+		if memory, is_memory := operand.(Memory_Ref); is_memory {
+			slot := &lowered.ops[output_index]
+			slot^ = x86.op_mem(lower_memory(emitter, memory) or_return, operand_width(instruction, index))
+			if memory.segment_fs { lowered.flags.segment = FS_SEGMENT_INDEX }
+		}
+		output_index += 1
+	}
 	for operand, index in explicit {
 		if reuses && index == 1 {
 			continue
@@ -509,10 +557,8 @@ lower_instruction :: proc(emitter: ^Emitter, instruction: Machine_Instruction, b
 		case Immediate:
 			slot^ = x86.op_imm(i64(value), 8 if instruction.mnemonic == .MOVABS else min(width, 4))
 		case Memory_Ref:
-			slot^ = x86.op_mem(lower_memory(emitter, value) or_return, width)
-			if value.segment_fs {
-				lowered.flags.segment = FS_SEGMENT_INDEX
-			}
+			lowered.operand_count += 1
+			continue
 		case Symbol_Target:
 			label := external_label(emitter, value, .R_X86_64_PLT32, value.addend - 4) or_return
 			slot^ = x86.op_label(label, 4)
