@@ -195,6 +195,8 @@ lower_value :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> ir.Node
 			return lower_aggregate(state, node, value)
 		case check.Slice_Literal_Plan:
 			return lower_slice_literal(state, node, value)
+		case check.Bit_Set_Literal_Plan:
+			return lower_bit_set_literal(state, node, value)
 		case check.Bounds_Plan:
 			if value.kind == .Slice { return lower_slice_expression(state, node, value) }
 			return lower_load(state, lower_index_address(state, node, value), info.type)

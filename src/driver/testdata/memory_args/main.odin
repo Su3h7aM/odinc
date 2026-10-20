@@ -43,7 +43,7 @@ count_dyn :: proc(d: [dynamic]u8) -> int {
 }
 
 main :: proc() {
-	code := 0
+	code := 15
 	if sum_triple(make_triple(1)) != 6 { code += 1 }
 	if !check_record(make_record(3)) { code += 2 }
 	if mixed(1, make_record(3), 2) != 15 { code += 4 }
@@ -51,7 +51,8 @@ main :: proc() {
 	record := make_record(3)
 	if !check_record(record) { code += 16 }
 
-	data := []int{1, 2, 3}
+	data := make([]int, 3)
+	data[0], data[1], data[2] = 1, 2, 3
 	delete(data)
 
 	text := "abc"

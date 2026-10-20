@@ -33,6 +33,9 @@ lower_binary :: proc(state: ^Procedure_State, node: syntax.Node_Index, expressio
 		return found
 	}
 	if is_wide_integer(state, lower_info(state, expression.left).type) { return lower_wide_binary(state, node, expression, left, right) }
+	if lower_operand_is_bit_set(state, expression.left) {
+		return lower_bit_set_operator(state, node, expression.op.kind, left, right)
+	}
 	if lower_complex_kind(state, lower_info(state, expression.left).type) || lower_complex_kind(state, lower_info(state, expression.right).type) {
 		if !lower_complex_kind(state, lower_info(state, expression.left).type) ||
 		   !lower_complex_kind(state, lower_info(state, expression.right).type) { return lower_fail(state, node, .Operator) }
@@ -47,12 +50,6 @@ lower_binary :: proc(state: ^Procedure_State, node: syntax.Node_Index, expressio
 	type := function.nodes.type[left]
 	signed := signed_type(state, lower_info(state, expression.left).type)
 	if scalar_type(state, lower_info(state, expression.left).type) == .None { return lower_fail(state, node, .Operator) }
-	// Ordered bit-set comparison is subset comparison through masks; a plain integer comparison would miscompile it.
-	if expression.op.kind == .Lt || expression.op.kind == .Gt || expression.op.kind == .Lt_Eq || expression.op.kind == .Gt_Eq {
-		if lower_operand_is_bit_set(state, expression.left) || lower_operand_is_bit_set(state, expression.right) {
-			return lower_fail(state, node, .Operator)
-		}
-	}
 	floating := type == .F32 || type == .F64
 	if is_float16(state, lower_info(state, expression.left).type) {
 		result, ok := lower_float16_operation(function, expression.op.kind, left, right)

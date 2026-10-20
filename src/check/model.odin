@@ -804,6 +804,7 @@ Plan :: union {
 	Builtin_Plan,
 	Aggregate_Plan,
 	Slice_Literal_Plan,
+	Bit_Set_Literal_Plan,
 	Assignment_Plan,
 	Bounds_Plan,
 	Union_Plan,

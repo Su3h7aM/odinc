@@ -81,6 +81,9 @@ lower_compound_operator :: proc(
 		}
 		return lower_wide_operator(state, node, compound_binary_operator(operator), signed_type(state, type), false, left, right)
 	}
+	if lower_type(state, type).kind == .Bit_Set {
+		return lower_bit_set_operator(state, node, compound_binary_operator(operator), left, right)
+	}
 	if lower_type(state, type).kind == .Array {
 		descriptor := lower_type(state, type)
 		layout := state.job.layouts[type]

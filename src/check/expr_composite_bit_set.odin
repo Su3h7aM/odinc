@@ -1,8 +1,14 @@
 package check
 
 import "core:math/big"
+import "core:mem"
 import "oc:syntax"
 import "oc:types"
+
+Bit_Set_Literal_Plan :: struct {
+	type:   types.Type_Id,
+	values: []Operand,
+}
 
 @(private = "package")
 expression_composite_bit_set :: proc(
@@ -26,10 +32,15 @@ expression_composite_bit_set :: proc(
 		expression_constant_failure(checker, file_id, node, constant_error) or_return
 		return expression_poison(scope), nil
 	}
-	for element in syntax.node_list(file.ast, literal.elems) {
+	elements := syntax.node_list(file.ast, literal.elems)
+	runtime_value := false
+	for element in elements {
 		value := check_expression(checker, view, scope, element, descriptor.elem) or_return
 		if value.state == .Invalid { return expression_poison(scope), nil }
-		if value.constant == 0 { return expression_unsupported(checker, view, scope, node, "Composite_Bit_Set_Runtime") }
+		if value.constant == 0 {
+			runtime_value = true
+			continue
+		}
 		integer := constant_pool_get(checker.constants, value.constant).value.(big.Int)
 		index, index_error := big.int_get_i64(&integer)
 		if index_error != .None || index < descriptor.lower_bound || index > descriptor.upper_bound {
@@ -41,6 +52,13 @@ expression_composite_bit_set :: proc(
 			expression_constant_failure(checker, file_id, node, constant_error) or_return
 			return expression_poison(scope), nil
 		}
+	}
+	if runtime_value {
+		values := make([]Operand, len(elements), mem.dynamic_arena_allocator(&checker.arena)) or_return
+		for element, index in elements { values[index] = Operand(Expression_Ref{view, element}) }
+		plan := Plan_Id(len(checker.plans))
+		append(&checker.plans, Plan(Bit_Set_Literal_Plan{type = type, values = values})) or_return
+		return Expression_Info{type = type, plan = plan, mode = .Value, scope = scope, state = .Checked}, nil
 	}
 	constant, intern_error := constant_pool_intern_integer(checker.constants, &bits, type)
 	if intern_error != nil {

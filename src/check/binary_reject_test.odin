@@ -3,6 +3,36 @@ package check
 import "core:testing"
 
 @(test)
+binary_bit_set_literal_rejects_unknown_member :: proc(t: ^testing.T) {
+	// Official: Undeclared name 'Missing' for type 'enum int {A, B, C}'.
+	source := transmute([]byte)string(
+		`package sample
+E :: enum { A, B, C }
+S :: bit_set[E]
+main :: proc "contextless" () {
+	s := S{.A, .B}
+	_ = s + {.Missing}
+}
+`,
+	)
+	_, ok := check_procedure_source(t, source, .Undeclared_Name)
+	testing.expect(t, ok)
+}
+
+@(test)
+membership_literal_cannot_infer_set_from_element :: proc(t: ^testing.T) {
+	// Official: Missing type in compound literal; the element does not identify a bit_set type.
+	source := transmute([]byte)string(`package sample
+E :: enum { A, B, C }
+main :: proc "contextless" () {
+	_ = E.A in {.A, .B}
+}
+`)
+	_, ok := check_procedure_source(t, source, .Unsupported, "Composite_Implicit_Type")
+	testing.expect(t, ok)
+}
+
+@(test)
 binary_rejects_mixed_integer_types :: proc(t: ^testing.T) {
 	// Official: Mismatched types in binary expression 'a + b' : 'i32' vs 'i64'.
 	source := transmute([]byte)string(`package sample

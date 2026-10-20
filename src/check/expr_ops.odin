@@ -79,6 +79,21 @@ Comparison_Plan :: struct {
 	type: types.Type_Id,
 }
 
+@(private = "file")
+expression_needs_operand_hint :: proc(file: ^File, node: syntax.Node_Index) -> bool {
+	operand := node
+	for file.ast.nodes[operand].kind == .Paren_Expr {
+		operand = syntax.node_payload(file.ast, operand, syntax.Paren_Expr).expr
+	}
+	#partial switch file.ast.nodes[operand].kind {
+	case .Implicit_Selector_Expr:
+		return true
+	case .Comp_Lit:
+		return syntax.node_payload(file.ast, operand, syntax.Comp_Lit).type == 0
+	}
+	return false
+}
+
 @(private = "package")
 expression_binary :: proc(
 	checker: ^Expression_Checker,
@@ -100,7 +115,7 @@ expression_binary :: proc(
 	for file.ast.nodes[unwrapped_left].kind == .Paren_Expr {
 		unwrapped_left = syntax.node_payload(file.ast, unwrapped_left, syntax.Paren_Expr).expr
 	}
-	if file.ast.nodes[binary.left].kind == .Implicit_Selector_Expr && file.ast.nodes[binary.right].kind != .Implicit_Selector_Expr {
+	if expression_needs_operand_hint(file, binary.left) && !expression_needs_operand_hint(file, binary.right) {
 		right = check_expression(checker, view, scope, binary.right) or_return
 		if right.state == .Invalid { return expression_poison(scope), nil }
 		left = check_expression(checker, view, scope, binary.left, right.type) or_return
@@ -123,8 +138,7 @@ expression_binary :: proc(
 		right_hint := types.Type_Id(0)
 		left_base := types.get(checker.type_checker.store, conversion_base_type(checker.type_checker.store, left.type)).kind
 		if file.ast.nodes[binary.right].kind == .Implicit_Selector_Expr || left.mode != .Type && expression_string_kind(left_base) { right_hint = left.type }
-		is_equality := binary.op.kind == .Cmp_Eq || binary.op.kind == .Not_Eq
-		if is_equality && file.ast.nodes[binary.right].kind == .Comp_Lit && syntax.node_payload(file.ast, binary.right, syntax.Comp_Lit).type == 0 {
+		if expression_needs_operand_hint(file, binary.right) {
 			right_hint = left.type
 		}
 		if right_hint == 0 && (expression_has_runtime_shift(checker, view, scope, file, binary.right) or_return) {
@@ -449,7 +463,12 @@ expression_binary :: proc(
 				constant, failure = constant_compare_operator(checker.constants, comparison_operator, left.constant, right.constant, info.type)
 			}
 		} else {
-			constant, failure = constant_binary_operator(checker.constants, operator, left.constant, right.constant, info.type, .Trap, store)
+			constant_operator := operator
+			if bit_set_pair {
+				if operator == .Add { constant_operator = .Or }
+				if operator == .Sub { constant_operator = .And_Not }
+			}
+			constant, failure = constant_binary_operator(checker.constants, constant_operator, left.constant, right.constant, info.type, .Trap, store)
 		}
 		if failure != nil {
 			// Official check_comparison folds only constant types; other constant operands compare at runtime.
