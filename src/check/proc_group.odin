@@ -119,13 +119,6 @@ expression_group_call :: proc(
 		}
 	}
 	members := entity_get(checker.type_checker.resolver.scopes, callee.entity).data.(Procedure_Group_Data).members
-	if spread || len(named) > 0 {
-		for member in members {
-			if !is_generic_procedure(checker, member) { continue }
-			if spread { return expression_unsupported(checker, view, scope, node, "Generic_Call_Spread") }
-			return expression_unsupported(checker, view, scope, node, "Group_Named_Argument")
-		}
-	}
 	if hinted {
 		for member in members {
 			if is_generic_procedure(checker, member) { return expression_unsupported(checker, view, scope, node, "Group_Argument_Hint") }
@@ -194,7 +187,7 @@ group_member_score :: proc(
 	err: Resolve_Error,
 ) {
 	if is_generic_procedure(checker, member) {
-		return group_generic_member_score(checker, view, node, positional, member)
+		return group_generic_member_score(checker, view, node, positional, named, spread, member)
 	}
 	procedure := entity_get(checker.type_checker.resolver.scopes, member).data.(Procedure_Data)
 	descriptor := types.get(checker.type_checker.store, procedure.signature)
@@ -251,13 +244,14 @@ group_generic_member_score :: proc(
 	view: View_Id,
 	node: syntax.Node_Index,
 	positional: []Group_Argument,
+	named: []Group_Argument,
+	spread: bool,
 	member: Entity_Id,
 ) -> (
 	score: int,
 	matches: bool,
 	err: Resolve_Error,
 ) {
-	store := checker.type_checker.store
 	declaration := checker.type_checker.declarations[member]
 	file := checker.type_checker.files[declaration.type.file]
 	signature := syntax.node_payload(file.ast, declaration.type.node, syntax.Proc_Type)
@@ -276,19 +270,30 @@ group_generic_member_score :: proc(
 		scope           = definition_scope,
 		bindings        = &bindings,
 	}
+	variadic_index := procedure_variadic_index(file, declaration.type.node)
+	if spread && (variadic_index < 0 || len(positional) != variadic_index + 1) { return 0, false, nil }
+	deferred: [dynamic]Untyped_Pattern
+	deferred.allocator = allocator
 	index := 0
+	named_count := 0
 	specialized := false
 	for field_node in syntax.node_list(file.ast, params.list) {
 		field := syntax.node_payload(file.ast, field_node, syntax.Field)
 		specialized = specialized || group_field_specialized(file, field)
 		if field.type != 0 && file.ast.nodes[field.type].kind == .Ellipsis {
-			variadic := syntax.node_payload(file.ast, field.type, syntax.Ellipsis)
-			pattern := variadic.expr
+			if spread {
+				matched := poly_match_spread(&match, field.type, positional[index].info.type) or_return
+				if !matched { return 0, false, nil }
+				score += 2
+				index += 1
+				continue
+			}
+			pattern := syntax.node_payload(file.ast, field.type, syntax.Ellipsis).expr
 			first_variadic_argument := index
 			for index < len(positional) {
 				info := positional[index].info
 				if poly_pattern_has_poly(file, pattern) {
-					matched := poly_match_pattern(&match, pattern, types.default_type_of_untyped(store, info.type)) or_return
+					matched := poly_match_pattern(&match, pattern, types.default_type_of_untyped(checker.type_checker.store, info.type)) or_return
 					if !matched { return 0, false, nil }
 				} else {
 					bound_scope := group_bound_scope(checker, member, &bindings) or_return
@@ -306,50 +311,38 @@ group_generic_member_score :: proc(
 		}
 		for name in syntax.node_list(file.ast, field.names) {
 			if index >= len(positional) {
+				if file.ast.nodes[name].kind != .Poly_Type {
+					named_index := group_named_index(named, expression_text(file, name))
+					if named_index >= 0 {
+						argument_score, matched := group_field_argument_score(
+							checker,
+							view,
+							member,
+							&match,
+							spread,
+							&deferred,
+							field,
+							name,
+							named[named_index],
+						) or_return
+						if !matched { return 0, false, nil }
+						score += argument_score
+						named_count += 1
+						continue
+					}
+				}
 				if field.default_value == 0 || file.ast.nodes[name].kind == .Poly_Type { return 0, false, nil }
 				continue
 			}
-			argument := positional[index].value
-			info := positional[index].info
+			argument_score, matched := group_field_argument_score(checker, view, member, &match, spread, &deferred, field, name, positional[index]) or_return
 			index += 1
-			if file.ast.nodes[name].kind == .Poly_Type {
-				if info.mode != .Type { return 0, false, nil }
-				poly := syntax.node_payload(file.ast, name, syntax.Poly_Type)
-				bound := poly_bind(&bindings, expression_text(file, poly.type), info.type, 0) or_return
-				if !bound { return 0, false, nil }
-				if file.ast.nodes[field.type].kind == .Typeid_Type {
-					specialization := syntax.node_payload(file.ast, field.type, syntax.Typeid_Type).specialization
-					if specialization != 0 {
-						matched := poly_match_pattern(&match, specialization, info.type) or_return
-						if !matched { return 0, false, nil }
-					}
-				}
-				score += 2
-				continue
-			}
-			if field.type == 0 {
-				score -= 1
-				continue
-			}
-			if !poly_pattern_has_poly(file, field.type) {
-				bound_scope := group_bound_scope(checker, member, &bindings) or_return
-				expected := type_expression(checker.type_checker, declaration.type.file, bound_scope, field.type, true) or_return
-				if expected == types.TYPE_POISON { return 0, false, nil }
-				argument_score, matched := group_argument_score(checker, view, argument, info, expected) or_return
-				if !matched { return 0, false, nil }
-				score += argument_score
-				continue
-			}
-			matched := poly_match_pattern(&match, field.type, types.default_type_of_untyped(store, info.type)) or_return
 			if !matched { return 0, false, nil }
-			if conversion_untyped(types.get(store, info.type).kind) {
-				score += 1
-			} else {
-				score += 2
-			}
+			score += argument_score
 		}
 	}
-	if index != len(positional) { return 0, false, nil }
+	if index != len(positional) || named_count != len(named) { return 0, false, nil }
+	deferred_matched := poly_bind_deferred(&match, deferred[:]) or_return
+	if !deferred_matched { return 0, false, nil }
 	// Official order: concrete > specialized generic > unconstrained generic (check_expr.cpp:8298-8319).
 	if specialized {
 		score -= 1
@@ -357,6 +350,64 @@ group_generic_member_score :: proc(
 		score -= 2
 	}
 	return score, true, nil
+}
+
+// The score of one argument bound to one parameter of a generic member, binding the polymorphic names it contains.
+@(private = "file")
+group_field_argument_score :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	member: Entity_Id,
+	match: ^Poly_Match,
+	spread: bool,
+	deferred: ^[dynamic]Untyped_Pattern,
+	field: syntax.Field,
+	name: syntax.Node_Index,
+	argument: Group_Argument,
+) -> (
+	score: int,
+	matched: bool,
+	err: Resolve_Error,
+) {
+	file := checker.type_checker.files[match.definition_file]
+	store := checker.type_checker.store
+	if file.ast.nodes[name].kind == .Poly_Type {
+		if argument.info.mode != .Type { return 0, false, nil }
+		poly := syntax.node_payload(file.ast, name, syntax.Poly_Type)
+		bound := poly_bind(match.bindings, expression_text(file, poly.type), argument.info.type, 0) or_return
+		if !bound { return 0, false, nil }
+		if file.ast.nodes[field.type].kind == .Typeid_Type {
+			specialization := syntax.node_payload(file.ast, field.type, syntax.Typeid_Type).specialization
+			if specialization != 0 {
+				specialized_matched := poly_match_pattern(match, specialization, argument.info.type) or_return
+				if !specialized_matched { return 0, false, nil }
+			}
+		}
+		return 2, true, nil
+	}
+	if field.type == 0 { return -1, true, nil }
+	if !poly_pattern_has_poly(file, field.type) {
+		bound_scope := group_bound_scope(checker, member, match.bindings) or_return
+		expected := type_expression(checker.type_checker, match.definition_file, bound_scope, field.type, true) or_return
+		if expected == types.TYPE_POISON { return 0, false, nil }
+		return group_argument_score(checker, view, argument.value, argument.info, expected)
+	}
+	if poly_untyped_deferred(file, spread, field.type, types.get(store, argument.info.type).kind) {
+		append(deferred, Untyped_Pattern{pattern = field.type, type = argument.info.type}) or_return
+		return 1, true, nil
+	}
+	poly_matched := poly_match_pattern(match, field.type, types.default_type_of_untyped(store, argument.info.type)) or_return
+	if !poly_matched { return 0, false, nil }
+	if conversion_untyped(types.get(store, argument.info.type).kind) { return 1, true, nil }
+	return 2, true, nil
+}
+
+@(private = "file")
+group_named_index :: proc(named: []Group_Argument, name: string) -> int {
+	for argument, index in named {
+		if argument.name == name { return index }
+	}
+	return -1
 }
 
 @(private = "file")

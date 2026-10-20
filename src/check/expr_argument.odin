@@ -53,7 +53,7 @@ expression_is_typeid :: proc(checker: ^Expression_Checker, target: types.Type_Id
 	return target != types.TYPE_NONE && types.get(checker.type_checker.store, target).kind == .Type_Id
 }
 
-@(private = "file")
+@(private = "package")
 expression_any_integer_source :: proc(checker: ^Expression_Checker, info: Expression_Info, target: types.Type_Id) -> bool {
 	store := checker.type_checker.store
 	if info.mode == .Type || types.is_untyped(store, info.type) { return false }

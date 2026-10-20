@@ -58,7 +58,6 @@ expression_generic_call :: proc(
 	info: Expression_Info,
 	err: Resolve_Error,
 ) {
-	if spread { return expression_unsupported(checker, view, scope, node, "Generic_Call_Spread") }
 	definition := callee.entity
 	declaration := checker.type_checker.declarations[definition]
 	definition_scope := entity_get(checker.type_checker.resolver.scopes, definition).scope
@@ -81,8 +80,15 @@ expression_generic_call :: proc(
 	}
 	caller := checker.type_checker.files[file_id]
 	names := declared_parameter_names(file, params, allocator) or_return
-	if variadic_index := procedure_variadic_index(file, declaration.type.node); variadic_index >= 0 && variadic_index != len(names) - 1 {
+	variadic_index := procedure_variadic_index(file, declaration.type.node)
+	if variadic_index >= 0 && variadic_index != len(names) - 1 {
 		return expression_unsupported(checker, view, scope, node, "Generic_Call_Variadic_Not_Last")
+	}
+	if spread {
+		spread_positional_count := call_positional_count(caller, arguments)
+		if variadic_index < 0 { return expression_unsupported(checker, view, scope, node, "Call_Variadic_Spread") }
+		if spread_positional_count > variadic_index + 1 { return expression_unsupported(checker, view, scope, node, "Call_Variadic_Spread_Arguments") }
+		if spread_positional_count != variadic_index + 1 { return expression_unsupported(checker, view, scope, node, "Call_Variadic_Spread_Position") }
 	}
 	slots := make([]Call_Slot, len(names), allocator) or_return
 	if reason := call_bind_arguments(caller, arguments, names, len(names), slots); reason != "" {
@@ -99,6 +105,8 @@ expression_generic_call :: proc(
 	parameter_index := 0
 	runtime_arguments: [dynamic]syntax.Node_Index
 	runtime_arguments.allocator = allocator
+	deferred: [dynamic]Untyped_Pattern
+	deferred.allocator = allocator
 	for field_node in syntax.node_list(file.ast, params.list) {
 		field := syntax.node_payload(file.ast, field_node, syntax.Field)
 		for name in syntax.node_list(file.ast, field.names) {
@@ -163,12 +171,23 @@ expression_generic_call :: proc(
 				continue
 			}
 			is_runtime[slot.position] = true
+			if spread && file.ast.nodes[field.type].kind == .Ellipsis {
+				matched := poly_match_spread(&match, field.type, argument.type) or_return
+				if !matched { return expression_unsupported(checker, view, scope, node, "Generic_Call_Spread_Type") }
+				continue
+			}
+			if poly_untyped_deferred(file, spread, field.type, types.get(checker.type_checker.store, argument.type).kind) {
+				append(&deferred, Untyped_Pattern{pattern = field.type, type = argument.type}) or_return
+				continue
+			}
 			if !poly_pattern_has_poly(file, field.type) { continue }
 			poly_argument := types.default_type_of_untyped(checker.type_checker.store, argument.type)
 			matched := poly_match_pattern(&match, field.type, poly_argument) or_return
 			if !matched { return expression_unsupported(checker, view, scope, node, "Generic_Call_Pattern") }
 		}
 	}
+	deferred_matched := poly_bind_deferred(&match, deferred[:]) or_return
+	if !deferred_matched { return expression_unsupported(checker, view, scope, node, "Generic_Call_Pattern") }
 	for argument, index in arguments {
 		if is_runtime[index] { append(&runtime_arguments, argument) or_return }
 	}
@@ -208,6 +227,52 @@ is_type_param_field :: proc(file: ^File, field: syntax.Field) -> bool {
 @(private = "package")
 is_poly_name_field :: proc(file: ^File, field: syntax.Field) -> bool {
 	return field.names.count > 0 && file.ast.nodes[syntax.node_list(file.ast, field.names)[0]].kind == .Poly_Type
+}
+
+// A spread's slice matches the `..P` parameter's element pattern P. A bare name that the definition does not declare is one of its polymorphic names.
+@(private = "package")
+poly_match_spread :: proc(match: ^Poly_Match, variadic: syntax.Node_Index, slice: types.Type_Id) -> (matched: bool, err: Resolve_Error) {
+	store := match.checker.type_checker.store
+	file := match.checker.type_checker.files[match.definition_file]
+	descriptor := types.get(store, underlying_type(store, slice))
+	if descriptor.kind != .Slice { return false, nil }
+	pattern := syntax.node_payload(file.ast, variadic, syntax.Ellipsis).expr
+	if file.ast.nodes[pattern].kind == .Ident {
+		name := expression_text(file, pattern)
+		if entity, _ := scope_lookup(match.checker.type_checker.resolver.scopes, match.scope, name); entity == 0 {
+			return poly_bind(match.bindings, name, descriptor.elem, 0)
+		}
+	}
+	return poly_match_pattern(match, pattern, descriptor.elem)
+}
+
+// An untyped argument under a spread binds a bare polymorphic name only after the typed arguments, as official does.
+@(private = "package")
+Untyped_Pattern :: struct {
+	pattern: syntax.Node_Index,
+	type:    types.Type_Id,
+}
+
+@(private = "package")
+poly_untyped_deferred :: proc(file: ^File, spread: bool, pattern: syntax.Node_Index, kind: types.Kind) -> bool {
+	if !spread || file.ast.nodes[pattern].kind != .Poly_Type || !conversion_untyped(kind) { return false }
+	return syntax.node_payload(file.ast, pattern, syntax.Poly_Type).specialization == 0
+}
+
+// Binds each deferred untyped argument's name to its default type, unless a typed argument bound the name first.
+@(private = "package")
+poly_bind_deferred :: proc(match: ^Poly_Match, deferred: []Untyped_Pattern) -> (matched: bool, err: Resolve_Error) {
+	store := match.checker.type_checker.store
+	file := match.checker.type_checker.files[match.definition_file]
+	for entry in deferred {
+		name := expression_text(file, syntax.node_payload(file.ast, entry.pattern, syntax.Poly_Type).type)
+		bound := false
+		for bound_name in match.bindings.names { bound ||= bound_name == name }
+		if bound { continue }
+		matched = poly_match_pattern(match, entry.pattern, types.default_type_of_untyped(store, entry.type)) or_return
+		if !matched { return false, nil }
+	}
+	return true, nil
 }
 
 @(private = "file")
