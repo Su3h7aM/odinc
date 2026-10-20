@@ -116,8 +116,13 @@ lower_operand :: proc(state: ^Procedure_State, operand: check.Operand, target :=
 	switch value in operand {
 	case check.Expression_Ref:
 		previous_view := state.view
+		previous_ast := state.ast
 		state.view = value.view
-		defer state.view = previous_view
+		state.ast = view_ast(state.job.program, value.view)
+		defer {
+			state.view = previous_view
+			state.ast = previous_ast
+		}
 		if target != 0 {
 			info := lower_info(state, value.node)
 			if info.constant != 0 { return lower_constant(state, info.constant, target) }

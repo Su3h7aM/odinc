@@ -20,14 +20,9 @@ call_operand_valid :: proc(state: ^Procedure_State, operand: check.Operand) -> b
 	switch value in operand {
 	case check.Expression_Ref:
 		info, ok := check.expression_info(program, value.view, value.node)
-		return(
-			ok &&
-			info.state == .Checked &&
-			info.type != 0 &&
-			int(info.type) < type_count &&
-			program.typed_views[value.view].file == state.job.procedure.body.file &&
-			int(value.node) < len(state.ast.nodes) \
-		)
+		if !ok { return false }
+		ast := view_ast(program, value.view)
+		return info.state == .Checked && info.type != 0 && int(info.type) < type_count && int(value.node) < len(ast.nodes)
 	case check.Entity_Id:
 		return value != 0 && int(value) < len(program.entities) && program.entities[value].type != 0 && int(program.entities[value].type) < type_count
 	case check.Const_Id:
