@@ -111,6 +111,12 @@ aggregate_constant_image :: proc(
 			element_size, _, element_error := types.layout(store, element_type)
 			if element_error != .None { return false, nil }
 			offset = i64(index) * element_size
+		case .Matrix:
+			// Constant elements are stored in physical order, so a flat index addresses its element directly.
+			element_type = descriptor.elem
+			matrix_element_size, _, matrix_element_error := types.layout(store, element_type)
+			if matrix_element_error != .None { return false, nil }
+			offset = i64(index) * matrix_element_size
 		case:
 			return false, nil
 		}

@@ -371,3 +371,57 @@ main :: proc "contextless" () {
 	_, ok := check_procedure_source(t, source)
 	testing.expect(t, ok)
 }
+
+@(test)
+matrix_scalar_init_rejects_rectangular_assignment :: proc(t: ^testing.T) {
+	// Official: Cannot assign value 'f' of type 'f32' to 'matrix[2, 3]f32' in assignment.
+	source := transmute([]byte)string(`package sample
+main :: proc "contextless" () {
+	m: matrix[2, 3]f32
+	f := f32(3)
+	m = f
+}
+`)
+	_, ok := check_procedure_source(t, source, .Mismatched_Types)
+	testing.expect(t, ok)
+}
+
+@(test)
+matrix_scalar_init_rejects_mismatched_element_assignment :: proc(t: ^testing.T) {
+	// Official: Cannot assign value 'f' of type 'f32' to 'matrix[2, 2]i32' in assignment.
+	source := transmute([]byte)string(`package sample
+main :: proc "contextless" () {
+	m: matrix[2, 2]i32
+	f := f32(3)
+	m = f
+}
+`)
+	_, ok := check_procedure_source(t, source, .Mismatched_Types)
+	testing.expect(t, ok)
+}
+
+@(test)
+matrix_scalar_init_rejects_rectangular_declaration :: proc(t: ^testing.T) {
+	// Official: Cannot convert untyped value '2' to 'matrix[2, 3]i32' from 'untyped integer'.
+	source := transmute([]byte)string(`package sample
+main :: proc "contextless" () {
+	m: matrix[2, 3]i32 = 2
+	_ = m
+}
+`)
+	_, ok := check_procedure_source(t, source, .Conversion)
+	testing.expect(t, ok)
+}
+
+@(test)
+matrix_scalar_init_rejects_unrepresentable_declaration :: proc(t: ^testing.T) {
+	// Official: Cannot convert untyped value '3.5' to 'matrix[2, 2]i32' from 'untyped float'.
+	source := transmute([]byte)string(`package sample
+main :: proc "contextless" () {
+	m: matrix[2, 2]i32 = 3.5
+	_ = m
+}
+`)
+	_, ok := check_procedure_source(t, source, .Conversion)
+	testing.expect(t, ok)
+}

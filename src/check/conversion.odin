@@ -172,6 +172,14 @@ check_conversion :: proc(
 				conversion_float(src.kind) && conversion_integer(element_kind) ||
 				conversion_boolean(src.kind) && conversion_boolean(element_kind)
 		}
+		// Official scalar initialization converts an untyped scalar to a square matrix when it converts to the element type.
+		if untyped && dst.kind == .Matrix {
+			element_kind := types.get(store, dst.elem).kind
+			allowed ||=
+				dst.count == dst.upper_bound &&
+				(conversion_integer(src.kind) || conversion_float(src.kind) || src.kind == .Untyped_Complex) &&
+				(conversion_integer(element_kind) || conversion_float(element_kind) || element_kind == .Complex)
+		}
 	}
 	if kind == .Assignment && !untyped {
 		allowed ||= info.mode == .Constant && src.kind == .String && dst.kind == .CString
@@ -179,6 +187,7 @@ check_conversion :: proc(
 		allowed ||= conversion_implicit_pointer(store, info.type, target)
 		allowed ||= simd_broadcast_allowed(dst, info.type)
 		allowed ||= array_broadcast_allowed(dst, info.type)
+		allowed ||= matrix_scalar_allowed(dst, info.type)
 		allowed ||= matrix_vector_allowed(dst, src)
 	}
 	if kind == .Cast {
@@ -221,6 +230,38 @@ check_conversion :: proc(
 		_, element_diagnostic, element_error := check_conversion(pool, store, source, info, dst.elem, .Assignment, config)
 		if element_error != nil { return {}, .None, element_error }
 		if element_diagnostic != .None { return {}, element_diagnostic, nil }
+		result.plan.kind = .Broadcast
+		return result, .None, nil
+	}
+	// Official scalar initialization builds a scaled identity: the scalar converts to the element type and lands
+	// on the diagonal, zero elsewhere. Only square matrices convert from a scalar; a typed scalar must match
+	// the element type exactly while an untyped one follows the general representability rule.
+	if kind == .Assignment &&
+	   dst.kind == .Matrix &&
+	   (conversion_integer(src.kind) || conversion_float(src.kind) || src.kind == .Complex || src.kind == .Untyped_Complex) {
+		if dst.count != dst.upper_bound { return {}, .Not_Assignable, nil }
+		scalar, scalar_diagnostic, scalar_error := check_conversion(pool, store, source, info, dst.elem, .Assignment, config)
+		if scalar_error != nil { return {}, .None, scalar_error }
+		if scalar_diagnostic != .None { return {}, scalar_diagnostic, nil }
+		if !untyped && info.type != dst.elem { return {}, .Not_Assignable, nil }
+		if info.mode == .Constant {
+			count := int(dst.count * dst.upper_bound)
+			lanes := make([]Const_Id, count, context.temp_allocator) or_return
+			defer delete(lanes, context.temp_allocator)
+			zero_int: big.Int
+			defer big.destroy(&zero_int)
+			if set_error := big.int_set_from_integer(&zero_int, 0); set_error != nil { return {}, .None, set_error }
+			untyped_int := types.intern(store, types.Type{kind = .Untyped_Integer})
+			zero_id, zero_error := constant_pool_intern_integer(pool, &zero_int)
+			if zero_error != nil { return {}, .None, zero_error }
+			zero, zero_diagnostic := numeric_convert_constant(pool, store, zero_id, untyped_int, dst.elem)
+			if zero_diagnostic.kind != .None { return {}, .Not_Representable, nil }
+			for lane in 0 ..< count { lanes[lane] = zero }
+			for diagonal in 0 ..< int(dst.count) { lanes[diagonal * int(dst.count) + diagonal] = scalar.info.constant }
+			result.info.mode = .Constant
+			result.info.constant, err = constant_pool_intern_aggregate(pool, target, lanes)
+			return result, .None, err
+		}
 		result.plan.kind = .Broadcast
 		return result, .None, nil
 	}
@@ -376,6 +417,11 @@ conversion_boolean :: proc(kind: types.Kind) -> bool {
 // Official array programming: a typed scalar assigned to an array fills every element.
 array_broadcast_allowed :: proc(target: types.Type, source: types.Type_Id) -> bool {
 	return target.kind == .Array && target.elem == source
+}
+
+// Official scalar initialization: a scalar of the element type converts to a square matrix.
+matrix_scalar_allowed :: proc(target: types.Type, source: types.Type_Id) -> bool {
+	return target.kind == .Matrix && target.count == target.upper_bound && target.elem == source
 }
 
 // A single-row or single-column matrix value is its storage vector, so it assigns to the matching array type.

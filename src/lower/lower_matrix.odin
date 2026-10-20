@@ -618,3 +618,36 @@ lower_matrix_unary :: proc(
 	}
 	return slot
 }
+
+// Scaled identity from a scalar assignment: the scalar lands on the diagonal, zero elsewhere. The source lowers
+// once before this call, so the stored diagonal value is reused without re-evaluation.
+@(private)
+lower_matrix_scalar_init :: proc(state: ^Procedure_State, node: syntax.Node_Index, type: types.Type_Id, value: ir.Node_Id) -> ir.Node_Id {
+	function := state.job.function
+	shape := lower_type(state, type)
+	if state.failed { return 0 }
+	layout := state.job.layouts[type]
+	if layout.error != .None || shape.kind != .Matrix || shape.count != shape.upper_bound || layout.size > i64(max(u32)) {
+		return lower_fail(state, node, .Conversion)
+	}
+	element_size := u32(state.job.layouts[shape.elem].size)
+	if state.job.layouts[shape.elem].error != .None || element_size == 0 {
+		return lower_fail(state, node, .Conversion)
+	}
+	slot := ir.stack_slot(function, state.entry_control, u32(max(layout.size, 1)), u32(layout.align))
+	zero := lower_matrix_zero(state, shape.elem)
+	if state.failed { return 0 }
+	for row in 0 ..< shape.count {
+		for column in 0 ..< shape.count {
+			position := row * shape.count + column
+			destination := ir.ptr_offset(function, slot, i64(matrix_storage_index(shape^, position)) * i64(element_size))
+			if row == column {
+				lower_store(state, destination, value, shape.elem)
+			} else {
+				lower_store(state, destination, zero, shape.elem)
+			}
+		}
+		if state.failed { return 0 }
+	}
+	return slot
+}
