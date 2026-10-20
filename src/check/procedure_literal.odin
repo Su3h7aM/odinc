@@ -20,14 +20,23 @@ expression_procedure_literal :: proc(
 	file := checker.type_checker.files[file_id]
 	literal := syntax.node_payload(file.ast, node, syntax.Proc_Lit)
 	if literal.body == 0 { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
-	if syntax.node_payload(file.ast, literal.type, syntax.Proc_Type).generic {
-		return expression_unsupported(checker, view, scope, node, "Procedure_Literal_Generic")
+	generic := syntax.node_payload(file.ast, literal.type, syntax.Proc_Type).generic
+	signature: types.Type_Id
+	procedure := Procedure_Data {
+		generic        = generic,
+		variadic_index = procedure_variadic_index(file, literal.type),
+		body           = {file_id, literal.body},
+		where_clauses  = literal.where_clauses,
+		instance       = checker.active_instance,
 	}
-	signature := type_expression(checker.type_checker, file_id, scope, literal.type, true) or_return
-	if signature == types.TYPE_POISON { return expression_poison(scope), nil }
+	if !generic {
+		signature = type_expression(checker.type_checker, file_id, scope, literal.type, true) or_return
+		if signature == types.TYPE_POISON { return expression_poison(scope), nil }
+		procedure.signature = signature
+		procedure.convention = types.get(checker.type_checker.store, signature).convention
+	}
 	scopes := checker.type_checker.resolver.scopes
 	name := fmt.aprintf("__literal_%d_%d_%d", file_id, node, len(scopes.entities), allocator = mem.dynamic_arena_allocator(&checker.arena))
-	descriptor := types.get(checker.type_checker.store, signature)
 	id, create_error := entity_create(
 		scopes,
 		Entity {
@@ -38,14 +47,7 @@ expression_procedure_literal :: proc(
 			package_id = file.package_id,
 			state = .Resolved,
 			type = signature,
-			data = Procedure_Data {
-				signature = signature,
-				convention = descriptor.convention,
-				variadic_index = procedure_variadic_index(file, literal.type),
-				body = {file_id, literal.body},
-				where_clauses = literal.where_clauses,
-				instance = checker.active_instance,
-			},
+			data = procedure,
 		},
 	)
 	if create_error != nil { return {}, binding_resolve_error(create_error) }
@@ -63,8 +65,10 @@ expression_procedure_literal :: proc(
 		identifier = {file_id, node},
 		type       = {file_id, literal.type},
 	}
-	_, defer_error := append(&resolver.pending_bodies, id)
-	if defer_error != nil { return {}, defer_error }
+	if !generic {
+		_, defer_error := append(&resolver.pending_bodies, id)
+		if defer_error != nil { return {}, defer_error }
+	}
 	info = Expression_Info {
 		type   = signature,
 		mode   = .Value,
