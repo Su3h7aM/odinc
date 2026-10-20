@@ -105,6 +105,8 @@ operand_type :: proc(state: ^Procedure_State, operand: check.Operand) -> types.T
 	case check.Const_Id:
 		return check.constant(state.job.program, value).type
 	case check.Projection:
+		info, ok := check.expression_info(state.job.program, value.expression.view, value.expression.node)
+		if ok && value.index == 0 && info.mode == .Optional_Ok { return info.type }
 		lower_fail(state, value.expression.node, .Expression)
 	}
 	return 0
@@ -133,7 +135,22 @@ lower_operand :: proc(state: ^Procedure_State, operand: check.Operand, target :=
 	case check.Entity_Id:
 		return lower_entity_value(state, value)
 	case check.Projection:
-		return lower_fail(state, value.expression.node, .Expression)
+		if value.index != 0 { return lower_fail(state, value.expression.node, .Expression) }
+		previous_view := state.view
+		previous_ast := state.ast
+		state.view = value.expression.view
+		state.ast = view_ast(state.job.program, value.expression.view)
+		defer {
+			state.view = previous_view
+			state.ast = previous_ast
+		}
+		info := lower_info(state, value.expression.node)
+		if info.mode != .Optional_Ok || info.plan == 0 { return lower_fail(state, value.expression.node, .Expression) }
+		plan := check.plan(state.job.program, info.plan)
+		if plan == nil { return lower_fail(state, value.expression.node, .Expression) }
+		call, is_call := plan^.(check.Call_Plan)
+		if !is_call || len(call.results) < 2 { return lower_fail(state, value.expression.node, .Expression) }
+		return lower_call(state, value.expression.node, info, call)
 	}
 	return 0
 }
@@ -184,6 +201,8 @@ lower_value :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> ir.Node
 		   (state.ast.nodes[node].kind == .Call_Expr || state.ast.nodes[node].kind == .Selector_Call_Expr) { return lower_fail(state, node, .Call) }
 		assert(plan != nil)
 		#partial switch value in plan^ {
+		case check.Binary_Conversion_Plan:
+			return lower_binary(state, node, state.ast.nodes[node].payload.(syntax.Binary_Expr), value)
 		case check.Conversion_Plan:
 			return lower_conversion(state, value, node)
 		case check.Place_Plan:

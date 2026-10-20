@@ -48,6 +48,8 @@ call_expansions :: proc(
 ) {
 	for argument, position in arguments {
 		if file.ast.nodes[argument].kind != .Call_Expr { continue }
+		callee := check_expression(checker, view, scope, syntax.node_payload(file.ast, argument, syntax.Call_Expr).expr) or_return
+		if callee.state == .Invalid || callee.mode == .Builtin || callee.mode == .Type { continue }
 		info := check_expression(checker, view, scope, argument) or_return
 		if info.state == .Invalid || info.mode != .No_Value || int(info.plan) >= len(checker.plans) { continue }
 		call, is_call := checker.plans[info.plan].(Call_Plan)

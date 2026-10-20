@@ -260,6 +260,10 @@ check_expression :: proc(
 			}
 		case .Binary_Expr:
 			info = expression_binary(checker, view, scope, node, hint) or_return
+		case .Auto_Cast:
+			info = expression_auto_cast(checker, view, scope, node, hint) or_return
+		case .Basic_Directive:
+			info = expression_procedure_directive(checker, view, scope, node) or_return
 		case .Type_Cast:
 			conversion := syntax.node_payload(file.ast, node, syntax.Type_Cast)
 			target := type_expression(checker.type_checker, file_id, scope, conversion.type, true) or_return
@@ -700,8 +704,6 @@ expression_conversion :: proc(
 	}
 	if diagnostic != .None {
 		span := checker.type_checker.files[checker.views[view].file].ast.nodes[node]
-		if diagnostic ==
-		   .Not_Assignable { fmt.eprintf("CS16_CONVERT %s %d %d\n", checker.type_checker.files[checker.views[view].file].path, span.start, span.end) }
 		append(
 			&checker.diagnostics,
 			Expression_Diagnostic {
@@ -752,7 +754,6 @@ expression_failure :: proc(
 	file := checker.views[view].file
 	span := checker.type_checker.files[file].ast.nodes[node]
 	assert(kind != .Unsupported || reason != "")
-	if kind == .Unsupported && reason == "Expression_Kind" { fmt.eprintf("CS16_EXPR %s %d %d\n", checker.type_checker.files[file].path, span.start, span.end) }
 	append(&checker.diagnostics, Expression_Diagnostic{kind = kind, source = {file, span.start, span.end}, reason = reason}) or_return
 	info = expression_poison(scope)
 	expression_store(checker, view, node, info)

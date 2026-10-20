@@ -540,6 +540,7 @@ Default_Argument :: struct {
 	caller_expression_target: string,
 }
 Procedure_Data :: struct {
+	source_name:         string,
 	parameters, results: []Entity_Id,
 	defaults:            []Default_Argument,
 	signature:           types.Type_Id,
@@ -690,6 +691,10 @@ Swizzle_Plan :: struct {
 	count:    u8,
 	indirect: bool,
 }
+Binary_Conversion_Plan :: struct {
+	left, right: Plan_Id,
+	type:        types.Type_Id,
+}
 Range_Call_Plan :: struct {
 	call:            Expression_Ref,
 	value_types:     []types.Type_Id,
@@ -796,6 +801,7 @@ Context_Plan :: struct {
 	copy:   bool,
 }
 Plan :: union {
+	Binary_Conversion_Plan,
 	Conversion_Plan,
 	Place_Plan,
 	Swizzle_Plan,

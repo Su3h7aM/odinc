@@ -6,7 +6,12 @@ import "oc:syntax"
 import "oc:types"
 
 @(private)
-lower_binary :: proc(state: ^Procedure_State, node: syntax.Node_Index, expression: syntax.Binary_Expr) -> ir.Node_Id {
+lower_binary :: proc(
+	state: ^Procedure_State,
+	node: syntax.Node_Index,
+	expression: syntax.Binary_Expr,
+	conversions := check.Binary_Conversion_Plan{},
+) -> ir.Node_Id {
 	if expression.op.kind == .In || expression.op.kind == .Not_In {
 		right_info := lower_info(state, expression.right)
 		if lower_type(state, right_info.type).kind == .Map {
@@ -19,18 +24,24 @@ lower_binary :: proc(state: ^Procedure_State, node: syntax.Node_Index, expressio
 			return bool_not(state.job.function, found) if expression.op.kind == .Not_In else found
 		}
 	}
-	left := lower_value(state, expression.left)
+	left: ir.Node_Id
+	if conversions.left != 0 { left = lower_declared_conversion(state, expression.left, conversions.left) } else { left = lower_value(state, expression.left) }
 	if state.failed { return 0 }
 	if expression.op.kind == .Cmp_And || expression.op.kind == .Cmp_Or {
 		return lower_short_circuit(state, node, expression, left)
 	}
-	right := lower_value(state, expression.right)
+	right: ir.Node_Id
+	if conversions.right !=
+	   0 { right = lower_declared_conversion(state, expression.right, conversions.right) } else { right = lower_value(state, expression.right) }
 	if state.failed { return 0 }
 	if expression.op.kind == .In || expression.op.kind == .Not_In {
 		found := lower_bit_set_membership(state, node, expression, left, right)
 		if state.failed { return 0 }
 		if expression.op.kind == .Not_In { return bool_not(state.job.function, found) }
 		return found
+	}
+	if conversions.type != 0 && is_wide_integer(state, conversions.type) {
+		return lower_wide_operator(state, node, expression.op.kind, signed_type(state, conversions.type), false, left, right)
 	}
 	if is_wide_integer(state, lower_info(state, expression.left).type) { return lower_wide_binary(state, node, expression, left, right) }
 	if lower_operand_is_bit_set(state, expression.left) {
@@ -48,10 +59,12 @@ lower_binary :: proc(state: ^Procedure_State, node: syntax.Node_Index, expressio
 	}
 	function := state.job.function
 	type := function.nodes.type[left]
-	signed := signed_type(state, lower_info(state, expression.left).type)
-	if scalar_type(state, lower_info(state, expression.left).type) == .None { return lower_fail(state, node, .Operator) }
+	operand_type := lower_info(state, expression.left).type
+	if conversions.type != 0 { operand_type = conversions.type }
+	signed := signed_type(state, operand_type)
+	if scalar_type(state, operand_type) == .None { return lower_fail(state, node, .Operator) }
 	floating := type == .F32 || type == .F64
-	if is_float16(state, lower_info(state, expression.left).type) {
+	if is_float16(state, operand_type) {
 		result, ok := lower_float16_operation(function, expression.op.kind, left, right)
 		if !ok { return lower_fail(state, node, .Operator) }
 		return result

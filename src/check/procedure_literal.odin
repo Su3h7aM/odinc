@@ -23,12 +23,14 @@ expression_procedure_literal :: proc(
 	generic := syntax.node_payload(file.ast, literal.type, syntax.Proc_Type).generic
 	signature: types.Type_Id
 	procedure := Procedure_Data {
+		source_name    = "(anonymous-procedure)",
 		generic        = generic,
 		variadic_index = procedure_variadic_index(file, literal.type),
 		body           = {file_id, literal.body},
 		where_clauses  = literal.where_clauses,
 		instance       = checker.active_instance,
 	}
+	if name_node != 0 { procedure.source_name = expression_text(file, name_node) }
 	if !generic {
 		signature = type_expression(checker.type_checker, file_id, scope, literal.type, true) or_return
 		if signature == types.TYPE_POISON { return expression_poison(scope), nil }

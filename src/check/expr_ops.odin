@@ -79,7 +79,7 @@ Comparison_Plan :: struct {
 	type: types.Type_Id,
 }
 
-@(private = "file")
+@(private = "package")
 expression_needs_operand_hint :: proc(file: ^File, node: syntax.Node_Index) -> bool {
 	operand := node
 	for file.ast.nodes[operand].kind == .Paren_Expr {
@@ -88,6 +88,9 @@ expression_needs_operand_hint :: proc(file: ^File, node: syntax.Node_Index) -> b
 	#partial switch file.ast.nodes[operand].kind {
 	case .Implicit_Selector_Expr:
 		return true
+	case .Ternary_If_Expr:
+		ternary := syntax.node_payload(file.ast, operand, syntax.Ternary_Expr)
+		return expression_needs_operand_hint(file, ternary.x) && expression_needs_operand_hint(file, ternary.y)
 	case .Comp_Lit:
 		return syntax.node_payload(file.ast, operand, syntax.Comp_Lit).type == 0
 	}
@@ -111,6 +114,7 @@ expression_binary :: proc(
 		return expression_membership(checker, view, scope, node, binary.op.kind == .Not_In)
 	}
 	left, right: Expression_Info
+	binary_conversion: Plan_Id
 	unwrapped_left := binary.left
 	for file.ast.nodes[unwrapped_left].kind == .Paren_Expr {
 		unwrapped_left = syntax.node_payload(file.ast, unwrapped_left, syntax.Paren_Expr).expr
@@ -131,6 +135,9 @@ expression_binary :: proc(
 		left = check_expression(checker, view, scope, binary.left, left_hint) or_return
 	} else {
 		left_hint := types.Type_Id(0)
+		if expression_needs_operand_hint(file, binary.left) || expression_is_auto_cast(file, binary.left) {
+			if !(syntax.Token_Kind.B_Comparison_Begin < binary.op.kind && binary.op.kind < .B_Comparison_End) { left_hint = hint }
+		}
 		if expression_has_runtime_shift(checker, view, scope, file, binary.left) or_return { left_hint = integer_operand_hint(checker, hint) }
 		comparison := syntax.Token_Kind.B_Comparison_Begin < binary.op.kind && binary.op.kind < .B_Comparison_End
 		if left_hint == 0 && !comparison && expression_length_call(file, binary.left) { left_hint = length_integer_hint(checker, hint) }
@@ -138,9 +145,15 @@ expression_binary :: proc(
 		if left.state == .Invalid { return expression_poison(scope), nil }
 		right_hint := types.Type_Id(0)
 		left_base := types.get(checker.type_checker.store, conversion_base_type(checker.type_checker.store, left.type)).kind
-		if file.ast.nodes[binary.right].kind == .Implicit_Selector_Expr || left.mode != .Type && expression_string_kind(left_base) { right_hint = left.type }
+		if file.ast.nodes[binary.right].kind == .Implicit_Selector_Expr ||
+		   left.mode != .Type && expression_string_kind(left_base) && !conversion_untyped(left_base) { right_hint = left.type }
 		if expression_needs_operand_hint(file, binary.right) {
 			right_hint = left.type
+		}
+		if expression_is_auto_cast(file, binary.right) {
+			right_hint = hint
+			if binary.op.kind == .Cmp_Eq || binary.op.kind == .Not_Eq { right_hint = left.type }
+			if comparison && binary.op.kind != .Cmp_Eq && binary.op.kind != .Not_Eq { right_hint = 0 }
 		}
 		if right_hint == 0 && (expression_has_runtime_shift(checker, view, scope, file, binary.right) or_return) {
 			if left.mode != .Type && (left_base == .Integer || left_base == .Rune) {
@@ -399,6 +412,20 @@ expression_binary :: proc(
 					left.type,
 					.Assignment,
 				) or_return
+			} else if (integer || float_pair || pointer_pair || enum_pair) &&
+			   (expression_is_auto_cast(file, binary.left) || expression_is_auto_cast(file, binary.right)) {
+				original_left, original_right := left, right
+				left, right = expression_auto_cast_comparison(checker, view, scope, node, binary, left, right) or_return
+				if left.state == .Invalid || right.state == .Invalid { return expression_poison(scope), nil }
+				if left.mode != .Constant || right.mode != .Constant {
+					conversions := Binary_Conversion_Plan {
+						type = left.type,
+					}
+					if left.type != original_left.type { conversions.left = left.plan }
+					if right.type != original_right.type { conversions.right = right.plan }
+					binary_conversion = Plan_Id(len(checker.plans))
+					append(&checker.plans, Plan(conversions)) or_return
+				}
 			} else {
 				return expression_failure(checker, view, scope, node, .Mismatched_Types)
 			}
@@ -449,6 +476,7 @@ expression_binary :: proc(
 		mode  = .Value,
 		state = .Checked,
 		scope = scope,
+		plan  = binary_conversion,
 	}
 	if comparison {
 		info.type = types.TYPE_UNTYPED_BOOL

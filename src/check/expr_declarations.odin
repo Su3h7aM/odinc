@@ -207,6 +207,11 @@ expression_declaration :: proc(resolver: ^Resolver, id: Entity_Id, user_data: ra
 			return true, nil
 		}
 		if entity.kind == .Constant && info.mode == .Value && info.entity != 0 && entity_get(resolver.scopes, info.entity).kind == .Procedure {
+			file := checker.type_checker.files[declaration.value.file]
+			if file.ast.nodes[type_unparen(file, declaration.value.node)].kind == .Proc_Lit {
+				procedure := &entity_get(resolver.scopes, info.entity).data.(Procedure_Data)
+				procedure.source_name = entity.name
+			}
 			binding := entity_get(resolver.scopes, id)
 			binding.alias = info.entity
 			binding.type = info.type

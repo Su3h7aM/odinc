@@ -188,7 +188,6 @@ expression_predeclare_constants :: proc(
 		values := syntax.node_list(file.ast, declaration.values)
 		if len(names) == 0 || len(values) != len(names) { continue }
 		for name_node, index in names {
-			if value_kind := file.ast.nodes[values[index]].kind; .Typeid_Type <= value_kind && value_kind <= .Bit_Field_Type { continue }
 			constant, create_error := entity_create(
 				scopes,
 				Entity {

@@ -1,7 +1,6 @@
 package check
 
 import "base:runtime"
-import "core:fmt"
 import "core:mem"
 import "core:strconv"
 import "oc:syntax"
@@ -1262,7 +1261,6 @@ type_report :: proc(
 	kind: Type_Diagnostic_Kind,
 	name := "",
 ) -> runtime.Allocator_Error {
-	if kind == .Not_A_Type { fmt.eprintf("CS16_TYPE %s %d %d\n", file.path, file.ast.nodes[node].start, file.ast.nodes[node].end) }
 	_, err := append(&checker.diagnostics, Type_Diagnostic{kind = kind, name = name, source = type_node_span(file_id, file, node)})
 	return err
 }

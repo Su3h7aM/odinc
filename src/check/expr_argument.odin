@@ -20,8 +20,15 @@ expression_argument :: proc(
 ) {
 	file := checker.type_checker.files[checker.views[view].file]
 	#partial switch file.ast.nodes[node].kind {
-	case .Implicit_Selector_Expr, .Comp_Lit, .Ternary_When_Expr, .Ternary_If_Expr:
+	case .Implicit_Selector_Expr, .Comp_Lit, .Ternary_When_Expr, .Ternary_If_Expr, .Auto_Cast:
 		return check_expression(checker, view, scope, node, target)
+	case .Call_Expr:
+		callee := check_expression(checker, view, scope, syntax.node_payload(file.ast, node, syntax.Call_Expr).expr) or_return
+		if callee.mode == .Builtin && length_integer_hint(checker, target) != 0 {
+			builtin := entity_get(checker.type_checker.resolver.scopes, callee.entity).data.(Builtin_Id)
+			kind := checker.builtin_kinds[builtin]
+			if kind == .Len || kind == .Cap { return check_expression(checker, view, scope, node, target) }
+		}
 	case .Unary_Expr:
 		unary := syntax.node_payload(file.ast, node, syntax.Unary_Expr)
 		if unary.op.kind == .And && file.ast.nodes[type_unparen(file, unary.expr)].kind == .Comp_Lit {

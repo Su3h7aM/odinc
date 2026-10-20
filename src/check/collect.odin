@@ -349,6 +349,7 @@ collect_value_declaration :: proc(
 				literal := syntax.node_payload(file.ast, value, syntax.Proc_Lit)
 				type = literal.type
 				data = Procedure_Data {
+					source_name   = collection_node_text(file, name),
 					body          = {id, literal.body},
 					where_clauses = literal.where_clauses,
 				}
