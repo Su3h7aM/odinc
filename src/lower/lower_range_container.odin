@@ -80,8 +80,9 @@ lower_range_container :: proc(state: ^Procedure_State, node: syntax.Node_Index, 
 	}
 	index := position
 	if kind == .Enumerated_Array {
+		index = ir.binary(function, .Add, position, ir.const_int(function, .I64, container.lower_bound))
 		index_type := scalar_type(state, container.index)
-		if index_type != .I64 { index = ir.convert(function, .Trunc, position, index_type) }
+		if index_type != .I64 { index = ir.convert(function, .Trunc, index, index_type) }
 	}
 	address := ir.ptr_index(function, base, position, u32(element_size))
 	lower_range_iteration(state, parts, lower_load(state, address, element_type), address, index)

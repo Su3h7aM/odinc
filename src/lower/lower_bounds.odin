@@ -57,9 +57,12 @@ lower_index_address :: proc(state: ^Procedure_State, node: syntax.Node_Index, pl
 	}
 	base, length: ir.Node_Id
 	#partial switch base_type.kind {
-	case .Array:
+	case .Array, .Enumerated_Array:
 		base = lower_array_base(state, index.expr)
 		length = ir.const_int(function, .I64, base_type.count)
+		if base_type.kind == .Enumerated_Array {
+			offset = ir.binary(function, .Sub, offset, ir.const_int(function, .I64, base_type.lower_bound))
+		}
 	case .Slice, .String, .String16, .Dynamic_Array:
 		base, length = lower_header_parts(state, lower_value(state, index.expr))
 	case .Multi_Pointer:
@@ -67,9 +70,12 @@ lower_index_address :: proc(state: ^Procedure_State, node: syntax.Node_Index, pl
 	case .Pointer:
 		pointee := lower_type(state, base_type.elem)
 		#partial switch pointee.kind {
-		case .Array:
+		case .Array, .Enumerated_Array:
 			base = lower_value(state, index.expr)
 			length = ir.const_int(function, .I64, pointee.count)
+			if pointee.kind == .Enumerated_Array {
+				offset = ir.binary(function, .Sub, offset, ir.const_int(function, .I64, pointee.lower_bound))
+			}
 		case .Slice, .String, .String16, .Dynamic_Array:
 			base, length = lower_header_parts(state, lower_value(state, index.expr))
 		case:
