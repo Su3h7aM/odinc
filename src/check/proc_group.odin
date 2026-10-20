@@ -211,7 +211,17 @@ group_member_score :: proc(
 		parameter := call_parameter_index(names, argument.name)
 		if parameter < 0 || filled[parameter] { return 0, false, nil }
 		filled[parameter] = true
-		argument_score, matched := group_argument_match(checker, view, scope, file, argument.value, argument.info, descriptor.params[parameter]) or_return
+		any_integer := .Any_Integer in entity_get(checker.type_checker.resolver.scopes, procedure.parameters[parameter]).flags
+		argument_score, matched := group_argument_match(
+			checker,
+			view,
+			scope,
+			file,
+			argument.value,
+			argument.info,
+			descriptor.params[parameter],
+			any_integer,
+		) or_return
 		if !matched { return 0, false, nil }
 		score += argument_score
 	}
@@ -225,12 +235,23 @@ group_member_score :: proc(
 	for argument, index in positional {
 		if index >= fixed_count && !spread {
 			element := types.get(checker.type_checker.store, descriptor.params[variadic_index]).elem
-			argument_score, matched := group_argument_match(checker, view, scope, file, argument.value, argument.info, element) or_return
+			any_integer := .Any_Integer in entity_get(checker.type_checker.resolver.scopes, procedure.parameters[variadic_index]).flags
+			argument_score, matched := group_argument_match(checker, view, scope, file, argument.value, argument.info, element, any_integer) or_return
 			if !matched { return 0, false, nil }
 			score += argument_score - 1
 			continue
 		}
-		argument_score, matched := group_argument_match(checker, view, scope, file, argument.value, argument.info, descriptor.params[index]) or_return
+		any_integer := .Any_Integer in entity_get(checker.type_checker.resolver.scopes, procedure.parameters[index]).flags
+		argument_score, matched := group_argument_match(
+			checker,
+			view,
+			scope,
+			file,
+			argument.value,
+			argument.info,
+			descriptor.params[index],
+			any_integer,
+		) or_return
 		if !matched { return 0, false, nil }
 		score += argument_score
 	}
@@ -299,7 +320,7 @@ group_generic_member_score :: proc(
 					bound_scope := group_bound_scope(checker, member, &bindings) or_return
 					expected := type_expression(checker.type_checker, declaration.type.file, bound_scope, pattern, true) or_return
 					if expected == types.TYPE_POISON { return 0, false, nil }
-					argument_score, matched := group_argument_score(checker, view, positional[index].value, info, expected) or_return
+					argument_score, matched := group_argument_score(checker, view, positional[index].value, info, expected, .Any_Int in field.flags) or_return
 					if !matched { return 0, false, nil }
 					score += argument_score
 				}
@@ -390,7 +411,7 @@ group_field_argument_score :: proc(
 		bound_scope := group_bound_scope(checker, member, match.bindings) or_return
 		expected := type_expression(checker.type_checker, match.definition_file, bound_scope, field.type, true) or_return
 		if expected == types.TYPE_POISON { return 0, false, nil }
-		return group_argument_score(checker, view, argument.value, argument.info, expected)
+		return group_argument_score(checker, view, argument.value, argument.info, expected, .Any_Int in field.flags)
 	}
 	if poly_untyped_deferred(file, spread, field.type, types.get(store, argument.info.type).kind) {
 		append(deferred, Untyped_Pattern{pattern = field.type, type = argument.info.type}) or_return
@@ -446,17 +467,18 @@ group_argument_match :: proc(
 	argument: syntax.Node_Index,
 	info: Expression_Info,
 	target: types.Type_Id,
+	any_integer: bool,
 ) -> (
 	score: int,
 	matches: bool,
 	err: Resolve_Error,
 ) {
-	if !group_argument_is_deferred(file, argument) { return group_argument_score(checker, view, argument, info, target) }
+	if !group_argument_is_deferred(file, argument) { return group_argument_score(checker, view, argument, info, target, any_integer) }
 	mark := expression_speculation_begin(checker)
 	defer expression_speculation_end(checker, mark)
 	deferred := check_expression(checker, view, scope, argument, target) or_return
 	if deferred.state == .Invalid { return 0, false, nil }
-	return group_argument_score(checker, view, argument, deferred, target)
+	return group_argument_score(checker, view, argument, deferred, target, any_integer)
 }
 
 
@@ -467,12 +489,14 @@ group_argument_score :: proc(
 	argument: syntax.Node_Index,
 	info: Expression_Info,
 	target: types.Type_Id,
+	any_integer: bool,
 ) -> (
 	score: int,
 	matches: bool,
 	err: Resolve_Error,
 ) {
 	if info.type == target { return 2, true, nil }
+	if any_integer && expression_any_integer_source(checker, info, target) { return 1, true, nil }
 	_, diagnostic, failure := check_conversion(
 		checker.constants,
 		checker.type_checker.store,
