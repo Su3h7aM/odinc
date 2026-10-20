@@ -30,10 +30,6 @@ expression_multiple_assignment :: proc(
 			expression_unsupported(checker, view, scope, target, "Assign_Destination_Mode") or_return
 			return nil
 		}
-		if assigns_named_result_in_defer(checker, destination, .Eq) {
-			expression_unsupported(checker, view, scope, target, "Assign_Deferred_Result") or_return
-			return nil
-		}
 		destinations[index] = Operand(Expression_Ref{view, target})
 		targets[index] = destination.type
 	}

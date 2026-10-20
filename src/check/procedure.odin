@@ -376,10 +376,6 @@ expression_assignment :: proc(checker: ^Expression_Checker, view: View_Id, file_
 			return failure
 		}
 	}
-	if assigns_named_result_in_defer(checker, destination, assignment.op.kind) {
-		expression_unsupported(checker, view, scope, left[0], "Assign_Deferred_Result") or_return
-		return nil
-	}
 	value_hint := destination.type
 	if assignment.op.kind == .Shl_Eq || assignment.op.kind == .Shr_Eq { value_hint = 0 }
 	value := check_expression(checker, view, scope, right[0], value_hint) or_return

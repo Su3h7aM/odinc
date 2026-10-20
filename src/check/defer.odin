@@ -23,8 +23,42 @@ expression_defer :: proc(checker: ^Expression_Checker, view: View_Id, file_id: F
 		checker.control = outer_control
 	}
 	expression_statement(checker, view, file_id, scope, statement) or_return
+	expression_defer_assignment(checker, view, file_id, scope, statement) or_return
 	append(&checker.defers, Defer_Registration{scope = scope, statement = Node_Ref{file_id, statement}}) or_return
 	expression_store(checker, view, node, Expression_Info{scope = scope, state = .Checked})
+	return nil
+}
+
+@(private)
+expression_defer_assignment :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	file_id: File_Id,
+	scope: Scope_Id,
+	statement: syntax.Node_Index,
+) -> Resolve_Error {
+	file := checker.type_checker.files[file_id]
+	current := statement
+	for file.ast.nodes[current].kind == .Block_Stmt {
+		block := syntax.node_payload(file.ast, current, syntax.Block_Stmt)
+		inner: syntax.Node_Index
+		for child in syntax.node_list(file.ast, block.stmts) {
+			if file.ast.nodes[child].kind == .Empty_Stmt { continue }
+			if inner != 0 { return nil }
+			inner = child
+		}
+		if inner == 0 { return nil }
+		current = inner
+	}
+	if file.ast.nodes[current].kind != .Assign_Stmt { return nil }
+	assignment := syntax.node_payload(file.ast, current, syntax.Assign_Stmt)
+	if assignment.op.kind != .Eq { return nil }
+	for target in syntax.node_list(file.ast, assignment.lhs) {
+		destination := check_expression(checker, view, scope, target) or_return
+		if assigns_named_result_in_defer(checker, destination, assignment.op.kind) {
+			expression_unsupported(checker, view, scope, target, "Assign_Deferred_Result") or_return
+		}
+	}
 	return nil
 }
 

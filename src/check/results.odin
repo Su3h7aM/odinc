@@ -64,7 +64,7 @@ expression_result_bindings :: proc(
 	return entities[:], true, nil
 }
 
-// Official: check_stmt.cpp:2981 rejects `=` to a named result inside a defer statement.
+// Official rejects a singular deferred assignment, not assignments nested in control flow.
 @(private = "package")
 assigns_named_result_in_defer :: proc(checker: ^Expression_Checker, destination: Expression_Info, operator: syntax.Token_Kind) -> bool {
 	if operator != .Eq || checker.defer_depth == 0 || destination.entity == 0 { return false }
