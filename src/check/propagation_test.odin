@@ -3,6 +3,20 @@ package check
 import "core:testing"
 
 @(test)
+expression_or_else_infers_union_assertion_from_context :: proc(t: ^testing.T) {
+	// Official accepts a union type assertion whose result type comes from the assignment context.
+	source := transmute([]byte)string(`package sample
+main :: proc "contextless" () {
+	v: union { int, f64 }
+	i: int
+	i = v.? or_else 123
+}
+`)
+	_, ok := check_procedure_source(t, source)
+	testing.expect(t, ok)
+}
+
+@(test)
 expression_or_break_checks_status_and_target_context :: proc(t: ^testing.T) {
 	valid := transmute([]byte)string(
 		`package sample

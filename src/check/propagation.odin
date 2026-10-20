@@ -33,7 +33,7 @@ expression_or_else :: proc(
 ) {
 	ast := checker.type_checker.files[file_id].ast
 	expression := syntax.node_payload(ast, node, syntax.Or_Else_Expr)
-	operand := check_expression(checker, view, scope, expression.x) or_return
+	operand := check_expression(checker, view, scope, expression.x, hint) or_return
 	if operand.state == .Invalid { return expression_poison(scope), nil }
 	if operand.plan == 0 { return expression_unsupported(checker, view, scope, node, "Or_Else_Plan") }
 	pair: [2]types.Type_Id
