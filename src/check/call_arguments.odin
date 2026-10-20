@@ -24,6 +24,15 @@ call_positional_count :: proc(file: ^File, arguments: []syntax.Node_Index) -> in
 	return len(arguments)
 }
 
+// The index of the parameter named `name`, or -1 when no parameter has that name.
+@(private = "package")
+call_parameter_index :: proc(names: []string, name: string) -> int {
+	for candidate, index in names {
+		if candidate == name { return index }
+	}
+	return -1
+}
+
 // The result types of each positional argument that is a multi-result call, indexed by argument position. Nil when no
 // argument is one, so the common call takes the one-value-per-argument path.
 @(private = "package")
@@ -85,14 +94,7 @@ call_bind_arguments :: proc(
 	for position in positional_count ..< len(arguments) {
 		field := syntax.node_payload(file.ast, arguments[position], syntax.Field_Value)
 		if file.ast.nodes[field.field].kind != .Ident { return "Call_Named_Field" }
-		name := expression_text(file, field.field)
-		parameter := -1
-		for candidate, index in names {
-			if candidate == name {
-				parameter = index
-				break
-			}
-		}
+		parameter := call_parameter_index(names, expression_text(file, field.field))
 		if parameter < 0 { return "Call_Named_Parameter" }
 		if slots[parameter].value != 0 { return "Call_Named_Duplicate" }
 		slots[parameter] = Call_Slot {

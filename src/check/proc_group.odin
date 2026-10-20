@@ -62,6 +62,14 @@ expression_procedure_group_declaration :: proc(
 	return true, nil
 }
 
+// A call argument of a procedure group. The name is set for `name = value`; the info is empty for a deferred argument.
+@(private = "file")
+Group_Argument :: struct {
+	value: syntax.Node_Index,
+	name:  string,
+	info:  Expression_Info,
+}
+
 // Picks the member with the highest total argument score. A tie between distinct members is ambiguous.
 @(private = "package")
 expression_group_call :: proc(
@@ -77,26 +85,47 @@ expression_group_call :: proc(
 	info: Expression_Info,
 	err: Resolve_Error,
 ) {
-	if spread { return expression_unsupported(checker, view, scope, node, "Group_Spread") }
 	file := checker.type_checker.files[file_id]
 	allocator := mem.dynamic_arena_allocator(&checker.arena)
-	argument_infos := make([]Expression_Info, len(arguments), allocator) or_return
+	positional := make([dynamic]Group_Argument, 0, len(arguments), allocator) or_return
+	named := make([dynamic]Group_Argument, 0, len(arguments), allocator) or_return
 	hinted := false
-	for argument, index in arguments {
-		#partial switch file.ast.nodes[argument].kind {
-		case .Field_Value:
-			return expression_unsupported(checker, view, scope, node, "Group_Named_Argument")
+	for argument in arguments {
+		group_argument := Group_Argument {
+			value = argument,
+		}
+		if file.ast.nodes[argument].kind == .Field_Value {
+			field := syntax.node_payload(file.ast, argument, syntax.Field_Value)
+			if file.ast.nodes[field.field].kind != .Ident { return expression_unsupported(checker, view, scope, node, "Call_Named_Field") }
+			group_argument = Group_Argument {
+				value = field.value,
+				name  = expression_text(file, field.field),
+			}
+		}
+		#partial switch file.ast.nodes[group_argument.value].kind {
 		case .Ternary_When_Expr, .Ternary_If_Expr:
 			return expression_unsupported(checker, view, scope, node, "Group_Argument_Hint")
 		}
-		if group_argument_is_deferred(file, argument) {
+		if group_argument_is_deferred(file, group_argument.value) {
 			hinted = true
-			continue
+		} else {
+			group_argument.info = check_expression(checker, view, scope, group_argument.value) or_return
+			if group_argument.info.state == .Invalid { return expression_poison(scope), nil }
 		}
-		argument_infos[index] = check_expression(checker, view, scope, argument) or_return
-		if argument_infos[index].state == .Invalid { return expression_poison(scope), nil }
+		if file.ast.nodes[argument].kind == .Field_Value {
+			append(&named, group_argument) or_return
+		} else {
+			append(&positional, group_argument) or_return
+		}
 	}
 	members := entity_get(checker.type_checker.resolver.scopes, callee.entity).data.(Procedure_Group_Data).members
+	if spread || len(named) > 0 {
+		for member in members {
+			if !is_generic_procedure(checker, member) { continue }
+			if spread { return expression_unsupported(checker, view, scope, node, "Generic_Call_Spread") }
+			return expression_unsupported(checker, view, scope, node, "Group_Named_Argument")
+		}
+	}
 	if hinted {
 		for member in members {
 			if is_generic_procedure(checker, member) { return expression_unsupported(checker, view, scope, node, "Group_Argument_Hint") }
@@ -107,7 +136,7 @@ expression_group_call :: proc(
 	found := false
 	ambiguous := false
 	for member in members {
-		score, matches := group_member_score(checker, view, scope, node, arguments, argument_infos, member) or_return
+		score, matches := group_member_score(checker, view, scope, node, positional[:], named[:], spread, member) or_return
 		if !matches { continue }
 		if !found || score > best_score {
 			best, best_score, found, ambiguous = member, score, true, false
@@ -124,9 +153,9 @@ expression_group_call :: proc(
 		entity = best,
 	}
 	if is_generic_procedure(checker, best) {
-		return expression_generic_call(checker, view, file_id, scope, node, chosen, arguments, false)
+		return expression_generic_call(checker, view, file_id, scope, node, chosen, arguments, spread)
 	}
-	return expression_call(checker, view, file_id, scope, node, chosen, arguments, false)
+	return expression_call(checker, view, file_id, scope, node, chosen, arguments, spread)
 }
 
 // Empty when the member can be a group entry. Otherwise the reason it is unsupported for now.
@@ -155,8 +184,9 @@ group_member_score :: proc(
 	view: View_Id,
 	scope: Scope_Id,
 	node: syntax.Node_Index,
-	arguments: []syntax.Node_Index,
-	argument_infos: []Expression_Info,
+	positional: []Group_Argument,
+	named: []Group_Argument,
+	spread: bool,
 	member: Entity_Id,
 ) -> (
 	score: int,
@@ -164,7 +194,7 @@ group_member_score :: proc(
 	err: Resolve_Error,
 ) {
 	if is_generic_procedure(checker, member) {
-		return group_generic_member_score(checker, view, node, arguments, argument_infos, member)
+		return group_generic_member_score(checker, view, node, positional, member)
 	}
 	procedure := entity_get(checker.type_checker.resolver.scopes, member).data.(Procedure_Data)
 	descriptor := types.get(checker.type_checker.store, procedure.signature)
@@ -172,34 +202,44 @@ group_member_score :: proc(
 	variadic_index := procedure.variadic_index
 	fixed_count := parameter_count
 	if descriptor.variadic { fixed_count = variadic_index }
-	if !descriptor.variadic && len(arguments) > parameter_count { return 0, false, nil }
-	for index in len(arguments) ..< fixed_count {
+	if len(procedure.parameters) != parameter_count { return 0, false, nil }
+	if !descriptor.variadic && len(positional) > parameter_count { return 0, false, nil }
+	if spread && (!descriptor.variadic || len(positional) != variadic_index + 1) { return 0, false, nil }
+	allocator := mem.dynamic_arena_allocator(&checker.arena)
+	names := make([]string, parameter_count, allocator) or_return
+	for parameter, index in procedure.parameters {
+		names[index] = entity_get(checker.type_checker.resolver.scopes, parameter).name
+	}
+	filled := make([]bool, parameter_count, allocator) or_return
+	for index in 0 ..< min(len(positional), fixed_count) { filled[index] = true }
+	if descriptor.variadic && len(positional) > fixed_count { filled[variadic_index] = true }
+	file := checker.type_checker.files[checker.views[view].file]
+	for argument in named {
+		parameter := call_parameter_index(names, argument.name)
+		if parameter < 0 || filled[parameter] { return 0, false, nil }
+		filled[parameter] = true
+		argument_score, matched := group_argument_match(checker, view, scope, file, argument.value, argument.info, descriptor.params[parameter]) or_return
+		if !matched { return 0, false, nil }
+		score += argument_score
+	}
+	for index in 0 ..< fixed_count {
+		if filled[index] { continue }
 		if index >= len(procedure.defaults) { return 0, false, nil }
 		default_argument := procedure.defaults[index]
 		if default_argument.value == nil && !default_argument.caller_location && !default_argument.caller_expression { return 0, false, nil }
 	}
-	file := checker.type_checker.files[checker.views[view].file]
-	for index in 0 ..< min(len(arguments), fixed_count) {
-		argument_score, matched := group_argument_match(
-			checker,
-			view,
-			scope,
-			file,
-			arguments[index],
-			argument_infos[index],
-			descriptor.params[index],
-		) or_return
-		if !matched { return 0, false, nil }
-		score += argument_score
-	}
-	if descriptor.variadic {
-		variadic_slice := types.get(checker.type_checker.store, descriptor.params[variadic_index])
-		score -= 1
-		for index in fixed_count ..< len(arguments) {
-			argument_score, matched := group_argument_match(checker, view, scope, file, arguments[index], argument_infos[index], variadic_slice.elem) or_return
+	if descriptor.variadic && !spread { score -= 1 }
+	for argument, index in positional {
+		if index >= fixed_count && !spread {
+			element := types.get(checker.type_checker.store, descriptor.params[variadic_index]).elem
+			argument_score, matched := group_argument_match(checker, view, scope, file, argument.value, argument.info, element) or_return
 			if !matched { return 0, false, nil }
 			score += argument_score - 1
+			continue
 		}
+		argument_score, matched := group_argument_match(checker, view, scope, file, argument.value, argument.info, descriptor.params[index]) or_return
+		if !matched { return 0, false, nil }
+		score += argument_score
 	}
 	return score, true, nil
 }
@@ -210,8 +250,7 @@ group_generic_member_score :: proc(
 	checker: ^Expression_Checker,
 	view: View_Id,
 	node: syntax.Node_Index,
-	arguments: []syntax.Node_Index,
-	argument_infos: []Expression_Info,
+	positional: []Group_Argument,
 	member: Entity_Id,
 ) -> (
 	score: int,
@@ -246,8 +285,8 @@ group_generic_member_score :: proc(
 			variadic := syntax.node_payload(file.ast, field.type, syntax.Ellipsis)
 			pattern := variadic.expr
 			first_variadic_argument := index
-			for index < len(arguments) {
-				info := argument_infos[index]
+			for index < len(positional) {
+				info := positional[index].info
 				if poly_pattern_has_poly(file, pattern) {
 					matched := poly_match_pattern(&match, pattern, types.default_type_of_untyped(store, info.type)) or_return
 					if !matched { return 0, false, nil }
@@ -255,7 +294,7 @@ group_generic_member_score :: proc(
 					bound_scope := group_bound_scope(checker, member, &bindings) or_return
 					expected := type_expression(checker.type_checker, declaration.type.file, bound_scope, pattern, true) or_return
 					if expected == types.TYPE_POISON { return 0, false, nil }
-					argument_score, matched := group_argument_score(checker, view, arguments[index], info, expected) or_return
+					argument_score, matched := group_argument_score(checker, view, positional[index].value, info, expected) or_return
 					if !matched { return 0, false, nil }
 					score += argument_score
 				}
@@ -266,12 +305,12 @@ group_generic_member_score :: proc(
 			continue
 		}
 		for name in syntax.node_list(file.ast, field.names) {
-			if index >= len(arguments) {
+			if index >= len(positional) {
 				if field.default_value == 0 || file.ast.nodes[name].kind == .Poly_Type { return 0, false, nil }
 				continue
 			}
-			argument := arguments[index]
-			info := argument_infos[index]
+			argument := positional[index].value
+			info := positional[index].info
 			index += 1
 			if file.ast.nodes[name].kind == .Poly_Type {
 				if info.mode != .Type { return 0, false, nil }
@@ -310,7 +349,7 @@ group_generic_member_score :: proc(
 			}
 		}
 	}
-	if index != len(arguments) { return 0, false, nil }
+	if index != len(positional) { return 0, false, nil }
 	// Official order: concrete > specialized generic > unconstrained generic (check_expr.cpp:8298-8319).
 	if specialized {
 		score -= 1
