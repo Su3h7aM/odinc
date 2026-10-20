@@ -24,6 +24,14 @@ lower_store_word :: proc(state: ^Procedure_State, address, value: ir.Node_Id) {
 	ir.variable_set(state.builder, ir.MEMORY_VARIABLE, memory)
 }
 
+// Reads the data pointer and length from a slice, dynamic array or string header at `header`.
+@(private)
+lower_header_parts :: proc(state: ^Procedure_State, header: ir.Node_Id) -> (base, length: ir.Node_Id) {
+	base = lower_load_word(state, header, .Ptr)
+	length = lower_load_word(state, ir.ptr_offset(state.job.function, header, 8), .I64)
+	return base, length
+}
+
 // An array is addressed directly; a slice's header holds the data pointer at 0 and the length at 8.
 @(private)
 lower_index_address :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: check.Bounds_Plan) -> ir.Node_Id {
@@ -52,12 +60,21 @@ lower_index_address :: proc(state: ^Procedure_State, node: syntax.Node_Index, pl
 	case .Array:
 		base = lower_array_base(state, index.expr)
 		length = ir.const_int(function, .I64, base_type.count)
-	case .Slice, .String, .String16:
-		header := lower_value(state, index.expr)
-		base = lower_load_word(state, header, .Ptr)
-		length = lower_load_word(state, ir.ptr_offset(function, header, 8), .I64)
+	case .Slice, .String, .String16, .Dynamic_Array:
+		base, length = lower_header_parts(state, lower_value(state, index.expr))
 	case .Multi_Pointer:
 		base = lower_value(state, index.expr)
+	case .Pointer:
+		pointee := lower_type(state, base_type.elem)
+		#partial switch pointee.kind {
+		case .Array:
+			base = lower_value(state, index.expr)
+			length = ir.const_int(function, .I64, pointee.count)
+		case .Slice, .String, .String16, .Dynamic_Array:
+			base, length = lower_header_parts(state, lower_value(state, index.expr))
+		case:
+			return lower_fail(state, node, .Place)
+		}
 	case:
 		return lower_fail(state, node, .Place)
 	}
@@ -85,10 +102,8 @@ lower_slice_expression :: proc(state: ^Procedure_State, node: syntax.Node_Index,
 		base = lower_address(state, expression.expr)
 		length = ir.const_int(function, .I64, base_type.count)
 		element_size = state.job.layouts[base_type.elem].size
-	case .Slice:
-		header := lower_value(state, expression.expr)
-		base = lower_load_word(state, header, .Ptr)
-		length = lower_load_word(state, ir.ptr_offset(function, header, 8), .I64)
+	case .Slice, .Dynamic_Array:
+		base, length = lower_header_parts(state, lower_value(state, expression.expr))
 		element_size = state.job.layouts[base_type.elem].size
 	case .Multi_Pointer:
 		base = lower_value(state, expression.expr)
@@ -98,6 +113,22 @@ lower_slice_expression :: proc(state: ^Procedure_State, node: syntax.Node_Index,
 		base = lower_load_word(state, header, .Ptr)
 		length = lower_load_word(state, ir.ptr_offset(function, header, 8), .I64)
 		element_size = 1 if base_type.kind == .String else 2
+	case .Pointer:
+		pointee := lower_type(state, base_type.elem)
+		#partial switch pointee.kind {
+		case .Array:
+			base = lower_value(state, expression.expr)
+			length = ir.const_int(function, .I64, pointee.count)
+			element_size = state.job.layouts[pointee.elem].size
+		case .Slice, .Dynamic_Array:
+			base, length = lower_header_parts(state, lower_value(state, expression.expr))
+			element_size = state.job.layouts[pointee.elem].size
+		case .String, .String16:
+			base, length = lower_header_parts(state, lower_value(state, expression.expr))
+			element_size = 1 if pointee.kind == .String else 2
+		case:
+			return lower_fail(state, node, .Place)
+		}
 	case:
 		return lower_fail(state, node, .Place)
 	}
