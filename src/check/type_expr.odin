@@ -125,6 +125,18 @@ Default_Type_Evaluator :: #type proc(
 	err: Resolve_Error,
 )
 
+// Zero means a non-type expression; poison means it was diagnosed already.
+Type_Expression_Evaluator :: #type proc(
+	checker: ^Type_Checker,
+	scope: Scope_Id,
+	file: File_Id,
+	expression: syntax.Node_Index,
+	user_data: rawptr,
+) -> (
+	type_id: types.Type_Id,
+	err: Resolve_Error,
+)
+
 // Resolves type expressions into the borrowed type store. Run it serially with the borrowed resolver.
 // Owns member arrays, enum metadata, diagnostics and lookup tables. `files` is indexed by File_Id.
 // The declaration dispatcher passed to resolver_init calls type_declaration for each entity first.
@@ -138,6 +150,7 @@ Type_Checker :: struct {
 	bind_enum_member:         Enum_Member_Binder,
 	evaluate_boolean:         Boolean_Evaluator,
 	evaluate_default_type:    Default_Type_Evaluator,
+	evaluate_type_expression: Type_Expression_Evaluator,
 	user_data:                rawptr,
 	instantiating:            bool,
 	record_instance:          Instance_Id,

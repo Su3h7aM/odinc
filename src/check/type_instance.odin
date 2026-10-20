@@ -111,6 +111,10 @@ record_type_call :: proc(
 ) {
 	definition := record_call_definition(checker, file_id, file, scope, node) or_return
 	if definition == 0 {
+		if checker.evaluate_type_expression != nil {
+			type = checker.evaluate_type_expression(checker, scope, file_id, node, checker.user_data) or_return
+			if type != 0 { return type, nil }
+		}
 		type_report(checker, file_id, file, node, .Not_A_Type) or_return
 		return types.TYPE_POISON, nil
 	}

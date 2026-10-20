@@ -92,6 +92,7 @@ expression_checker_init :: proc(
 	type_checker.evaluate_boolean = expression_boolean_evaluator
 	type_checker.bind_enum_member = expression_enum_member_binder
 	type_checker.evaluate_default_type = expression_default_type_evaluator
+	type_checker.evaluate_type_expression = expression_type_evaluator
 	checker.default_integer, checker.boolean, checker.allocator = default_integer, boolean, allocator
 	mem.dynamic_arena_init(&checker.arena, block_allocator = allocator, array_allocator = allocator)
 	checker.views.allocator, checker.plans.allocator, checker.diagnostics.allocator = allocator, allocator, allocator

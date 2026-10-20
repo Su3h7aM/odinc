@@ -95,6 +95,25 @@ expression_check_default :: proc(
 	return expression_conversion(checker, view, scope, node, Operand(info.constant), info, target, .Assignment)
 }
 
+expression_type_evaluator :: proc(
+	type_checker: ^Type_Checker,
+	scope: Scope_Id,
+	file: File_Id,
+	node: syntax.Node_Index,
+	user_data: rawptr,
+) -> (
+	type_id: types.Type_Id,
+	err: Resolve_Error,
+) {
+	checker := cast(^Expression_Checker)user_data
+	assert(checker != nil && checker.type_checker == type_checker)
+	view := expression_file_view(checker, file) or_return
+	info := check_expression(checker, view, scope, node) or_return
+	if info.state == .Invalid { return types.TYPE_POISON, nil }
+	if info.mode != .Type { return 0, nil }
+	return info.type, nil
+}
+
 // Install as Type_Checker.evaluate_default_type with the Expression_Checker as its user_data.
 expression_default_type_evaluator :: proc(
 	type_checker: ^Type_Checker,

@@ -23,6 +23,13 @@ missing_value :: type_has_field(Record, "missing")
 Field :: type_field_type(Record, "value")
 Element :: type_elem_type([4]u8)
 Backing :: type_bit_set_underlying_type(bit_set[Flag])
+typed_element: type_elem_type([4]u8)
+typed_field: type_field_type(Record, "value")
+integer_value :: proc() -> int { return 1 }
+typeid_value :: proc() -> typeid { return int }
+bad_type_result: type_is_array([4]u8)
+bad_value_call: integer_value()
+bad_typeid_call: typeid_value()
 upper :: saturating_add(u8(240), 30)
 lower :: saturating_sub(i8(-120), 30)
 Pair :: struct { a: u8, b: u16, c: int }
@@ -95,9 +102,21 @@ bad_offset :: offset_of(Pair, missing)
 	for declaration in collection.declarations {
 		state, failure := resolve_entity(&resolver, declaration.entity)
 		name := entity_get(&scopes, declaration.entity).name
-		invalid := name == "bad_query" || name == "bad_field" || name == "bad_saturation" || name == "bad_offset"
+		invalid :=
+			name == "bad_query" ||
+			name == "bad_field" ||
+			name == "bad_saturation" ||
+			name == "bad_offset" ||
+			name == "bad_type_result" ||
+			name == "bad_value_call" ||
+			name == "bad_typeid_call"
 		testing.expectf(t, failure == nil && (state == .Invalid) == invalid, "%s: %v %v", name, state, failure)
 	}
+	diagnostic_count := 0
+	for diagnostic in type_checker.diagnostics {
+		if diagnostic.kind == .Not_A_Type { diagnostic_count += 1 }
+	}
+	testing.expectf(t, diagnostic_count == 3, "non-type calls: %v", type_checker.diagnostics)
 	for name in ([]string{"numeric_enum_yes", "array_yes", "integer_yes", "pointer_yes", "has_value"}) {
 		entity := entity_get(&scopes, scope_lookup_current(&scopes, package_scope, name))
 		constant := constant_pool_get(&pool, entity.constant)
@@ -125,5 +144,12 @@ bad_offset :: offset_of(Pair, missing)
 		integer := constant.value.(big.Int)
 		actual, failure := big.int_get_i64(&integer)
 		testing.expectf(t, failure == nil && actual == expected.value, "%s: %d", expected.name, actual)
+	}
+	for expected in ([]struct {
+			name: string,
+			type: types.Type_Id,
+		}{{"typed_element", builtin_types.u8}, {"typed_field", builtin_types.u32}}) {
+		entity := entity_get(&scopes, scope_lookup_current(&scopes, package_scope, expected.name))
+		testing.expectf(t, entity.kind == .Variable && entity.type == expected.type, "%s", expected.name)
 	}
 }
