@@ -71,7 +71,10 @@ executable_runs_and_exits_42 :: proc(t: ^testing.T) {
 	testing.expect(t, write_executable(path, object) == nil, "executable written")
 	delete(object, context.allocator)
 
-	process, process_err := start_process(os.Process_Desc{command = []string{path}})
+	devnull, devnull_err := os.open("/dev/null", {.Write})
+	testing.expect(t, devnull_err == nil, "devnull must open")
+	defer _ = os.close(devnull)
+	process, process_err := start_process(os.Process_Desc{command = []string{path}, stdout = devnull, stderr = devnull})
 	testing.expect(t, process_err == nil, "process must start")
 	state, wait_err := os.process_wait(process)
 	testing.expect(t, wait_err == nil, "process must be waited on")

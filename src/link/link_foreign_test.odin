@@ -30,7 +30,10 @@ clang_object :: proc(t: ^testing.T, directory, name, source: string, args: []str
 	append(&command, source_path)
 	append(&command, "-o")
 	append(&command, object_path)
-	process, start_err := start_process({command = command[:]})
+	devnull, devnull_err := os.open("/dev/null", {.Write})
+	testing.expect(t, devnull_err == nil, "devnull must open")
+	defer _ = os.close(devnull)
+	process, start_err := start_process({command = command[:], stdout = devnull, stderr = devnull})
 	testing.expect(t, start_err == nil, "clang must start")
 	state, wait_err := os.process_wait(process)
 	testing.expect(t, wait_err == nil && state.exit_code == 0, "clang must compile the source")
@@ -192,7 +195,10 @@ archive_extracts_the_referenced_member :: proc(t: ^testing.T) {
 	used_path, used_err := filepath.join({directory, "used.o"}, context.temp_allocator)
 	unused_path, unused_err := filepath.join({directory, "unused.o"}, context.temp_allocator)
 	testing.expect(t, archive_err == nil && used_err == nil && unused_err == nil, "archive paths must be joined")
-	process, start_err := start_process({command = []string{"llvm-ar", "rcs", archive_path, used_path, unused_path}})
+	devnull, devnull_err := os.open("/dev/null", {.Write})
+	testing.expect(t, devnull_err == nil, "devnull must open")
+	defer _ = os.close(devnull)
+	process, start_err := start_process({command = []string{"llvm-ar", "rcs", archive_path, used_path, unused_path}, stdout = devnull, stderr = devnull})
 	testing.expect(t, start_err == nil, "llvm-ar must start")
 	state, wait_err := os.process_wait(process)
 	testing.expect(t, wait_err == nil && state.exit_code == 0, "llvm-ar must write the archive")
@@ -214,7 +220,16 @@ shared_library_and_got_relaxation :: proc(t: ^testing.T) {
 	library_path, library_err := filepath.join({directory, "libanswer.so"}, context.temp_allocator)
 	testing.expect(t, source_err == nil && library_err == nil, "shared paths must be joined")
 	testing.expect(t, write_text(source_path, "int shared_value = 5;\nint answer(void) { return 42; }\n"), "shared source must be written")
-	process, start_err := start_process({command = []string{"clang", "-shared", "-fPIC", "-fno-asynchronous-unwind-tables", source_path, "-o", library_path}})
+	devnull, devnull_err := os.open("/dev/null", {.Write})
+	testing.expect(t, devnull_err == nil, "devnull must open")
+	defer _ = os.close(devnull)
+	process, start_err := start_process(
+		{
+			command = []string{"clang", "-shared", "-fPIC", "-fno-asynchronous-unwind-tables", source_path, "-o", library_path},
+			stdout = devnull,
+			stderr = devnull,
+		},
+	)
 	testing.expect(t, start_err == nil, "clang must start")
 	state, wait_err := os.process_wait(process)
 	testing.expect(t, wait_err == nil && state.exit_code == 0, "shared library must be built")
