@@ -22,6 +22,11 @@ expression_argument :: proc(
 	#partial switch file.ast.nodes[node].kind {
 	case .Implicit_Selector_Expr, .Comp_Lit, .Ternary_When_Expr, .Ternary_If_Expr:
 		return check_expression(checker, view, scope, node, target)
+	case .Unary_Expr:
+		unary := syntax.node_payload(file.ast, node, syntax.Unary_Expr)
+		if unary.op.kind == .And && file.ast.nodes[type_unparen(file, unary.expr)].kind == .Comp_Lit {
+			return check_expression(checker, view, scope, node, target)
+		}
 	}
 	info = check_expression(checker, view, scope, node) or_return
 	info = expression_single_value(info)

@@ -120,7 +120,7 @@ constant_operators_fold_and_intern_results :: proc(t: ^testing.T) {
 	complex, complex_error := constant_pool_intern_complex(&pool, Complex_Value{max_id, one_id})
 	_, complex_binary_error := constant_binary_operator(&pool, .Add, complex, complex)
 	_, complex_unary_error := constant_unary_operator(&pool, .Add, complex)
-	testing.expect(t, complex_error == nil && complex_binary_error == Constant_Operation_Error_Kind.Unsupported_Constant_Op)
+	testing.expect(t, complex_error == nil && complex_binary_error == nil)
 	testing.expect(t, complex_unary_error == Constant_Operation_Error_Kind.Unsupported_Constant_Op)
 	quaternion, quaternion_error := constant_pool_intern_quaternion(&pool, Quaternion_Value{max_id, one_id, max_id, one_id})
 	_, quaternion_binary_error := constant_binary_operator(&pool, .Mul, quaternion, quaternion)

@@ -23,6 +23,7 @@ expression_unary :: proc(
 	kind := types.get(store, conversion_base_type(store, operand.type)).kind
 	valid := conversion_integer(kind) && (unary.op.kind == .Add || unary.op.kind == .Sub || unary.op.kind == .Xor)
 	valid ||= conversion_boolean(kind) && unary.op.kind == .Not
+	valid ||= conversion_complex(kind) && (unary.op.kind == .Add || unary.op.kind == .Sub)
 	valid ||= conversion_float(kind) && (unary.op.kind == .Add || unary.op.kind == .Sub)
 	// Official unary plus, minus, and bitwise-not on arrays work element-wise.
 	is_array := kind == .Array || kind == .Enumerated_Array
@@ -68,6 +69,10 @@ operand_assignable :: proc(checker: ^Expression_Checker, view: View_Id, node: sy
 		checker.config,
 	)
 	return failure == nil && diagnostic == .None
+}
+
+conversion_complex :: proc(kind: types.Kind) -> bool {
+	return kind == .Complex || kind == .Quaternion || kind == .Untyped_Complex || kind == .Untyped_Quaternion
 }
 
 Comparison_Plan :: struct {
@@ -254,15 +259,22 @@ expression_binary :: proc(
 	complex_pair := (left_base.kind == .Complex || left_base.kind == .Untyped_Complex) && (right_base.kind == .Complex || right_base.kind == .Untyped_Complex)
 	quaternion_pair :=
 		(left_base.kind == .Quaternion || left_base.kind == .Untyped_Quaternion) && (right_base.kind == .Quaternion || right_base.kind == .Untyped_Quaternion)
+	complex_arithmetic := conversion_complex(left_kind) && conversion_complex(right_kind)
+	complex_arithmetic ||= conversion_complex(left_kind) && conversion_untyped(right_kind) && operand_assignable(checker, view, binary.right, right, left.type)
+	complex_arithmetic ||= conversion_complex(right_kind) && conversion_untyped(left_kind) && operand_assignable(checker, view, binary.left, left, right.type)
+	complex_arithmetic ||=
+		(left_kind == .Untyped_Complex || right_kind == .Untyped_Complex) &&
+		(conversion_integer(left_kind) || conversion_float(left_kind) || conversion_complex(left_kind)) &&
+		(conversion_integer(right_kind) || conversion_float(right_kind) || conversion_complex(right_kind))
 	#partial switch operator {
 	case .Add, .Sub:
-		valid = integer || float_pair || array_pair || bit_set_pair || broadcast_pair || simd_arithmetic
+		valid = integer || float_pair || array_pair || bit_set_pair || broadcast_pair || simd_arithmetic || complex_arithmetic
 		// Official string concatenation requires constant strings on both sides.
 		if operator == .Add && string_pair && left.mode == .Constant && right.mode == .Constant { valid = true }
 	case .Mul:
-		valid = integer || float_pair || array_pair || broadcast_pair || simd_arithmetic
+		valid = integer || float_pair || array_pair || broadcast_pair || simd_arithmetic || complex_arithmetic
 	case .Quo:
-		valid = integer || float_pair || array_pair || broadcast_pair || simd_quotient
+		valid = integer || float_pair || array_pair || broadcast_pair || simd_quotient || complex_arithmetic
 	case .Mod, .Mod_Mod, .Shl, .Shr:
 		valid = integer || (array_pair && (operator == .Mod || operator == .Mod_Mod || operator == .Shl || operator == .Shr))
 		valid ||= broadcast_pair && (operator == .Mod || operator == .Mod_Mod)
@@ -284,6 +296,7 @@ expression_binary :: proc(
 			array_pair ||
 			simd_both ||
 			complex_pair ||
+			complex_arithmetic ||
 			quaternion_pair ||
 			broadcast_pair ||
 			bit_set_pair ||
@@ -302,6 +315,7 @@ expression_binary :: proc(
 			if integer { target = types.TYPE_UNTYPED_INTEGER }
 			if left_kind == .Untyped_Rune || right_kind == .Untyped_Rune { target = types.TYPE_UNTYPED_RUNE }
 			if float_side { target = types.TYPE_UNTYPED_FLOAT }
+			if left_kind == .Untyped_Complex || right_kind == .Untyped_Complex { target = types.TYPE_UNTYPED_COMPLEX }
 		}
 		if !left_untyped && !right_untyped {
 			if !comparison {
@@ -373,10 +387,10 @@ expression_binary :: proc(
 				return expression_failure(checker, view, scope, node, .Mismatched_Types)
 			}
 		} else {
-			if left.type != target {
+			if left.type != target && target != types.TYPE_UNTYPED_COMPLEX {
 				left = check_expression(checker, view, scope, binary.left, target) or_return
 			}
-			if right.type != target {
+			if right.type != target && target != types.TYPE_UNTYPED_COMPLEX {
 				right = check_expression(checker, view, scope, binary.right, target) or_return
 			}
 		}
@@ -409,8 +423,10 @@ expression_binary :: proc(
 	if comparison && string_pair && (left.mode != .Constant || right.mode != .Constant) {
 		return expression_runtime_comparison(checker, view, scope, node, binary.left, binary.right, operator, left.type)
 	}
+	result_type := left.type
+	if conversion_complex(right_kind) && !conversion_complex(left_kind) { result_type = right.type }
 	info = Expression_Info {
-		type  = left.type,
+		type  = result_type,
 		mode  = .Value,
 		state = .Checked,
 		scope = scope,

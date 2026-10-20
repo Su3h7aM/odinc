@@ -137,7 +137,7 @@ expression_multiple_assignment :: proc(
 		}
 		target := targets[len(values)]
 		if target == 0 { target = types.default_type_of_untyped(checker.type_checker.store, value.type) }
-		if target != 0 { value = check_expression(checker, view, scope, source, target) or_return }
+		if target != 0 { value = expression_check_default(checker, view, scope, source, target) or_return }
 		if value.state == .Invalid { return nil }
 		append(&values, Operand(Expression_Ref{view, source})) or_return
 		append(&conversions, expression_conversion_plan(checker, value.plan)) or_return

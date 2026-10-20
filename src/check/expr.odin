@@ -206,12 +206,13 @@ check_expression :: proc(
 				info = expression_string_literal(checker, view, file_id, scope, node, hint) or_return
 				break
 			}
-			if kind != .Integer && kind != .Rune && kind != .Float {
+			if kind != .Integer && kind != .Rune && kind != .Float && kind != .Imag {
 				return expression_unsupported(checker, view, scope, node, "Literal_Kind")
 			}
 			untyped := types.TYPE_UNTYPED_INTEGER
 			if kind == .Rune { untyped = types.TYPE_UNTYPED_RUNE }
 			if kind == .Float { untyped = types.TYPE_UNTYPED_FLOAT }
+			if kind == .Imag { untyped = types.TYPE_UNTYPED_COMPLEX }
 			literal, literal_error := literal_constant(checker.constants, kind, expression_text(file, node), untyped)
 			if literal_error != nil {
 				#partial switch failure in literal_error {
@@ -248,7 +249,7 @@ check_expression :: proc(
 			}
 		case .Unary_Expr:
 			if syntax.node_payload(file.ast, node, syntax.Unary_Expr).op.kind == .And {
-				info = expression_address(checker, view, file_id, scope, node) or_return
+				info = expression_address(checker, view, file_id, scope, node, hint) or_return
 			} else {
 				info = expression_unary(checker, view, scope, node) or_return
 			}

@@ -34,13 +34,22 @@ expression_address :: proc(
 	file_id: File_Id,
 	scope: Scope_Id,
 	node: syntax.Node_Index,
+	hint: types.Type_Id,
 ) -> (
 	info: Expression_Info,
 	err: Resolve_Error,
 ) {
 	file := checker.type_checker.files[file_id]
 	operand := syntax.node_payload(file.ast, node, syntax.Unary_Expr).expr
-	target := check_expression(checker, view, scope, operand) or_return
+	target_hint: types.Type_Id
+	if hint != 0 && hint != types.TYPE_POISON && file.ast.nodes[type_unparen(file, operand)].kind == .Comp_Lit {
+		store := checker.type_checker.store
+		hinted_type := types.resolve_named(store, hint)
+		if hinted_type != types.TYPE_NONE && types.get(store, hinted_type).kind == .Pointer {
+			target_hint = types.get(store, hinted_type).elem
+		}
+	}
+	target := check_expression(checker, view, scope, operand, target_hint) or_return
 	if target.state == .Invalid { return expression_poison(scope), nil }
 	if target.plan != 0 {
 		if swizzle, is_swizzle := checker.plans[target.plan].(Swizzle_Plan); is_swizzle && swizzle.count > 1 {

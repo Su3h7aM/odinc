@@ -92,6 +92,147 @@ constant_unary_operator :: proc(
 }
 
 // Evaluates a constant binary operator and interns the result in pool.
+@(private = "file")
+constant_is_aggregate :: proc(value: Constant_Value) -> bool {
+	#partial switch _ in value {
+	case Complex_Value, Quaternion_Value:
+		return true
+	}
+	return false
+}
+
+@(private = "file")
+constant_component_operation :: proc(
+	pool: ^Constant_Pool,
+	operator: syntax.Token_Kind,
+	left, right: Const_Id,
+	type_store: ^types.Store,
+) -> (
+	Const_Id,
+	Constant_Error,
+) {
+	return constant_binary_operator(pool, operator, left, right, 0, .Trap, type_store)
+}
+
+@(private = "file")
+constant_component_float :: proc(pool: ^Constant_Pool, id: Const_Id, width: u8) -> (Const_Id, bool) {
+	constant := constant_pool_get(pool, id)
+	if constant == nil { return 0, false }
+	#partial switch component in constant.value {
+	case Float_Value:
+		return id, true
+	case big.Int:
+		integer := component
+		value, failure := big.int_get_float(&integer, allocator = context.temp_allocator)
+		if failure != nil { return 0, false }
+		result, pool_error := constant_pool_intern_float(pool, constant_float_from_f64(value, width))
+		return result, pool_error == nil
+	case big.Rat:
+		rational := component
+		value, _, failure := numeric_rational_to_f64(&rational, width)
+		if failure { return 0, false }
+		result, pool_error := constant_pool_intern_float(pool, constant_float_from_f64(value, width))
+		return result, pool_error == nil
+	}
+	return 0, false
+}
+
+// Complex and quaternion components are converted to floats so that division never truncates.
+@(private = "file")
+constant_aggregate_parts :: proc(pool: ^Constant_Pool, id: Const_Id, value: Constant_Value, count: int, width: u8) -> (parts: [4]Const_Id, ok: bool) {
+	source: [4]Const_Id
+	source_count := 0
+	#partial switch aggregate in value {
+	case Complex_Value:
+		source[0], source[1] = aggregate[0], aggregate[1]
+		source_count = 2
+	case Quaternion_Value:
+		source = aggregate
+		source_count = 4
+	case big.Int, big.Rat, Float_Value:
+		source[0] = id
+		source_count = 1
+	case:
+		return {}, false
+	}
+	if source_count > count { return {}, false }
+	for i in 0 ..< count {
+		if i < source_count {
+			component, component_ok := constant_component_float(pool, source[i], width)
+			if !component_ok { return {}, false }
+			parts[i] = component
+		} else {
+			zero, zero_error := constant_pool_intern_float(pool, constant_float_from_f64(0, width))
+			if zero_error != nil { return {}, false }
+			parts[i] = zero
+		}
+	}
+	return parts, true
+}
+
+@(private = "file")
+constant_aggregate_binary_operator :: proc(
+	pool: ^Constant_Pool,
+	operator: syntax.Token_Kind,
+	left_id, right_id: Const_Id,
+	type_store: ^types.Store,
+) -> (
+	id: Const_Id,
+	err: Constant_Error,
+) {
+	left := constant_pool_get(pool, left_id)
+	right := constant_pool_get(pool, right_id)
+	if left == nil || right == nil { return 0, Constant_Pool_Error.Invalid_Operand }
+	type := right.type
+	if constant_is_aggregate(left.value) { type = left.type }
+	count := 2
+	if _, is_quaternion := left.value.(Quaternion_Value); is_quaternion { count = 4 }
+	if _, is_quaternion := right.value.(Quaternion_Value); is_quaternion { count = 4 }
+	width := u8(64)
+	if type_store != nil && type != 0 {
+		if descriptor := types.get(type_store, type); descriptor.count > 0 { width = u8(descriptor.count * 8 / i64(count)) }
+	}
+	left_parts, left_ok := constant_aggregate_parts(pool, left_id, left.value, count, width)
+	right_parts, right_ok := constant_aggregate_parts(pool, right_id, right.value, count, width)
+	if !left_ok || !right_ok { return 0, Constant_Pool_Error.Invalid_Operand }
+	result: [4]Const_Id
+	#partial switch operator {
+	case .Add, .Sub:
+		for i in 0 ..< count {
+			result[i] = constant_component_operation(pool, operator, left_parts[i], right_parts[i], type_store) or_return
+		}
+	case .Mul, .Quo:
+		if count != 2 { return 0, Constant_Pool_Error.Unsupported_Constant_Op }
+		a, b := left_parts[0], left_parts[1]
+		c, d := right_parts[0], right_parts[1]
+		if operator == .Mul {
+			ac := constant_component_operation(pool, .Mul, a, c, type_store) or_return
+			bd := constant_component_operation(pool, .Mul, b, d, type_store) or_return
+			ad := constant_component_operation(pool, .Mul, a, d, type_store) or_return
+			bc := constant_component_operation(pool, .Mul, b, c, type_store) or_return
+			result[0] = constant_component_operation(pool, .Sub, ac, bd, type_store) or_return
+			result[1] = constant_component_operation(pool, .Add, ad, bc, type_store) or_return
+		} else {
+			cc := constant_component_operation(pool, .Mul, c, c, type_store) or_return
+			dd := constant_component_operation(pool, .Mul, d, d, type_store) or_return
+			denominator := constant_component_operation(pool, .Add, cc, dd, type_store) or_return
+			ac := constant_component_operation(pool, .Mul, a, c, type_store) or_return
+			bd := constant_component_operation(pool, .Mul, b, d, type_store) or_return
+			bc := constant_component_operation(pool, .Mul, b, c, type_store) or_return
+			ad := constant_component_operation(pool, .Mul, a, d, type_store) or_return
+			real_sum := constant_component_operation(pool, .Add, ac, bd, type_store) or_return
+			imaginary_difference := constant_component_operation(pool, .Sub, bc, ad, type_store) or_return
+			result[0] = constant_component_operation(pool, .Quo, real_sum, denominator, type_store) or_return
+			result[1] = constant_component_operation(pool, .Quo, imaginary_difference, denominator, type_store) or_return
+		}
+	case:
+		return 0, Constant_Pool_Error.Unsupported_Operator
+	}
+	if count == 4 { return constant_pool_intern_quaternion(pool, Quaternion_Value(result), type) }
+	return constant_pool_intern_complex(pool, Complex_Value{result[0], result[1]}, type)
+}
+
+// Evaluates a constant binary operator and interns the result in pool.
 @(require_results)
 constant_binary_operator :: proc(
 	pool: ^Constant_Pool,
@@ -109,6 +250,9 @@ constant_binary_operator :: proc(
 	if left == nil || right == nil { return 0, Constant_Operation_Error_Kind.Invalid_Operand }
 	type := result_type
 	if type == 0 { type = left.type }
+	if constant_is_aggregate(left.value) || constant_is_aggregate(right.value) {
+		return constant_aggregate_binary_operator(pool, operator, left_id, right_id, type_store)
+	}
 	if left_integer, ok := left.value.(big.Int); ok {
 		if _, is_rational := right.value.(big.Rat); is_rational {
 			value: big.Rat
