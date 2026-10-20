@@ -60,6 +60,9 @@ poly_pattern_has_poly :: proc(file: ^File, pattern: syntax.Node_Index) -> bool {
 	case .Map_Type:
 		map_type := syntax.node_payload(file.ast, pattern, syntax.Map_Type)
 		return poly_pattern_has_poly(file, map_type.key) || poly_pattern_has_poly(file, map_type.value)
+	case .Bit_Set_Type:
+		set_type := syntax.node_payload(file.ast, pattern, syntax.Bit_Set_Type)
+		return poly_pattern_has_poly(file, set_type.elem) || set_type.underlying != 0 && poly_pattern_has_poly(file, set_type.underlying)
 	}
 	return false
 }
@@ -104,6 +107,24 @@ poly_match_pattern :: proc(match: ^Poly_Match, pattern: syntax.Node_Index, argum
 		matched_key := poly_match_pattern(match, map_type.key, key) or_return
 		if !matched_key { return false, nil }
 		return poly_match_pattern(match, map_type.value, value)
+	case .Bit_Set_Type:
+		set_type := syntax.node_payload(file.ast, pattern, syntax.Bit_Set_Type)
+		store := match.checker.type_checker.store
+		descriptor := types.get(store, underlying_type(store, argument))^
+		if descriptor.kind != .Bit_Set { return false, nil }
+		if !poly_pattern_has_poly(file, set_type.elem) {
+			expected := type_expression(match.checker.type_checker, match.definition_file, match.scope, pattern, true) or_return
+			return expected != types.TYPE_POISON && underlying_type(store, expected) == underlying_type(store, argument), nil
+		}
+		matched = poly_match_pattern(match, set_type.elem, descriptor.elem) or_return
+		if !matched || set_type.underlying == 0 { return matched, nil }
+		backing := descriptor.backing
+		if backing == 0 {
+			size, _, failure := types.layout(store, argument)
+			if failure != .None { return false, nil }
+			backing = types.sized_integer(store, size, false)
+		}
+		return poly_match_pattern(match, set_type.underlying, backing)
 	}
 	expected := type_expression(match.checker.type_checker, match.definition_file, match.scope, pattern, true) or_return
 	return expected != types.TYPE_POISON && expected == argument, nil

@@ -129,8 +129,12 @@ type_info_struct_enum_and_procedure_entries_reference_their_members :: proc(t: ^
 	}
 	if !testing.expect(t, table_global >= 0 && backing_global == table_global) { return }
 	table := module.globals[table_global]
-	if !testing.expect_value(t, len(table.relocs), 8) { return }
-	for relocation, index in table.relocs {
+	if !testing.expect_value(t, len(table.relocs), 9) { return }
+	testing.expect_value(t, table.relocs[0].offset, u32(0))
+	invalid := module.globals[table.relocs[0].target.index]
+	testing.expect_value(t, len(invalid.bytes), len(module.globals[descriptor_first].bytes))
+	for byte in invalid.bytes { testing.expect_value(t, byte, u8(0)) }
+	for relocation, index in table.relocs[1:] {
 		testing.expect_value(t, relocation.target, ir.Symbol_Ref{space = .Global, index = u32(descriptor_first + index)})
 	}
 	string_payload := types.resolve_named(&store, string_variant)

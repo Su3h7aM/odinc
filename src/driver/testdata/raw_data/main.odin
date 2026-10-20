@@ -3,18 +3,19 @@ package main
 import "base:intrinsics"
 
 get_text :: proc() -> string {
-	_ = intrinsics.syscall(1, 1, uintptr(raw_data("!")), 1)
+	mark: string = "!"
+	_ = intrinsics.syscall(1, 1, uintptr(raw_data(mark)), 1)
 	return "XY"
 }
 
 main :: proc() {
 	text := "XY"
-	bytes := cast([]u8)text
+	bytes := transmute([]u8)text
 	nil_bytes: []u8
 	nil_text: string
 	text16: string16 = "A😀"
 	empty := ""
-	empty_bytes := cast([]u8)empty
+	empty_bytes := transmute([]u8)empty
 	code := 0
 	text_data := raw_data(text)
 	byte_data := raw_data(bytes)

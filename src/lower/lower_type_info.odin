@@ -93,7 +93,7 @@ fill_type_info :: proc(program: ^check.Checked_Program, module: ^ir.Module, erro
 	return fill_type_table(&writer)
 }
 
-// The runtime `type_table` is a slice of pointers indexed by typeid slot; slot zero stays nil.
+// Official lb_setup_type_info_data_giant_array reserves slot zero for a zeroed Type_Info.
 @(private)
 fill_type_table :: proc(writer: ^Type_Info_Writer) -> runtime.Allocator_Error {
 	slice_index := -1
@@ -101,6 +101,17 @@ fill_type_table :: proc(writer: ^Type_Info_Writer) -> runtime.Allocator_Error {
 		if global.name == TYPE_TABLE_GLOBAL_NAME { slice_index = index }
 	}
 	if slice_index < 0 { return nil }
+	sentinel_index := len(writer.module.globals)
+	sentinel := make_image(writer, writer.info_type) or_return
+	append(
+		&writer.module.globals,
+		ir.Global {
+			name = generated_global_name(writer, "invalid", 0),
+			bytes = sentinel.bytes,
+			size = u32(len(sentinel.bytes)),
+			align = u32(writer.module.globals[writer.first].align),
+		},
+	) or_return
 	count := len(writer.entries)
 	table := ir.Global {
 		name  = generated_global_name(writer, "table", 0),
@@ -108,9 +119,13 @@ fill_type_table :: proc(writer: ^Type_Info_Writer) -> runtime.Allocator_Error {
 		align = 8,
 	}
 	table.bytes = make([]byte, 8 * (count + 1), writer.allocator) or_return
-	table.relocs = make([]ir.Data_Reloc, count, writer.allocator) or_return
+	table.relocs = make([]ir.Data_Reloc, count + 1, writer.allocator) or_return
+	table.relocs[0] = {
+		offset = 0,
+		target = {.Global, u32(sentinel_index)},
+	}
 	for index in 0 ..< count {
-		table.relocs[index] = {
+		table.relocs[index + 1] = {
 			offset = u32(8 * (index + 1)),
 			target = {.Global, writer.first + u32(index)},
 		}

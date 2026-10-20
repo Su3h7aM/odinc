@@ -377,7 +377,10 @@ expression_new_instance :: proc(
 	procedure.instance = Instance_Id(instance)
 	outer_instantiating := checker.type_checker.instantiating
 	checker.type_checker.instantiating = true
+	outer_instance := checker.active_instance
+	checker.active_instance = Instance_Id(instance)
 	signature, signature_error := type_expression(checker.type_checker, declaration.type.file, type_scope, declaration.type.node, true)
+	checker.active_instance = outer_instance
 	checker.type_checker.instantiating = outer_instantiating
 	if signature_error != nil { return {}, signature_error }
 	if signature == types.TYPE_POISON { return expression_poison(scope), nil }
@@ -388,7 +391,6 @@ expression_new_instance :: proc(
 	procedure.signature = signature
 	procedure.convention = descriptor.convention
 	procedure.variadic_index = procedure_variadic_index(checker.type_checker.files[declaration.type.file], declaration.type.node)
-	outer_instance := checker.active_instance
 	checker.active_instance = Instance_Id(instance)
 	valid, body_error := expression_procedure_body(checker, resolver, instance, declaration.type)
 	checker.active_instance = outer_instance
