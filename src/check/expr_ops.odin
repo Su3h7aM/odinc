@@ -277,7 +277,7 @@ expression_binary :: proc(
 	complex_arithmetic ||= conversion_complex(left_kind) && conversion_untyped(right_kind) && operand_assignable(checker, view, binary.right, right, left.type)
 	complex_arithmetic ||= conversion_complex(right_kind) && conversion_untyped(left_kind) && operand_assignable(checker, view, binary.left, left, right.type)
 	complex_arithmetic ||=
-		(left_kind == .Untyped_Complex || right_kind == .Untyped_Complex) &&
+		(conversion_complex(left_kind) || conversion_complex(right_kind)) &&
 		(conversion_integer(left_kind) || conversion_float(left_kind) || conversion_complex(left_kind)) &&
 		(conversion_integer(right_kind) || conversion_float(right_kind) || conversion_complex(right_kind))
 	#partial switch operator {
@@ -330,6 +330,7 @@ expression_binary :: proc(
 			if left_kind == .Untyped_Rune || right_kind == .Untyped_Rune { target = types.TYPE_UNTYPED_RUNE }
 			if float_side { target = types.TYPE_UNTYPED_FLOAT }
 			if left_kind == .Untyped_Complex || right_kind == .Untyped_Complex { target = types.TYPE_UNTYPED_COMPLEX }
+			if left_kind == .Untyped_Quaternion || right_kind == .Untyped_Quaternion { target = types.TYPE_UNTYPED_QUATERNION }
 		}
 		if !left_untyped && !right_untyped {
 			if !comparison {
@@ -401,10 +402,10 @@ expression_binary :: proc(
 				return expression_failure(checker, view, scope, node, .Mismatched_Types)
 			}
 		} else {
-			if left.type != target && target != types.TYPE_UNTYPED_COMPLEX {
+			if left.type != target && target != types.TYPE_UNTYPED_COMPLEX && target != types.TYPE_UNTYPED_QUATERNION {
 				left = check_expression(checker, view, scope, binary.left, target) or_return
 			}
-			if right.type != target && target != types.TYPE_UNTYPED_COMPLEX {
+			if right.type != target && target != types.TYPE_UNTYPED_COMPLEX && target != types.TYPE_UNTYPED_QUATERNION {
 				right = check_expression(checker, view, scope, binary.right, target) or_return
 			}
 		}
@@ -439,6 +440,9 @@ expression_binary :: proc(
 	}
 	result_type := left.type
 	if conversion_complex(right_kind) && !conversion_complex(left_kind) { result_type = right.type }
+	if left_untyped && right_untyped && (left_kind == .Untyped_Quaternion || right_kind == .Untyped_Quaternion) {
+		result_type = types.TYPE_UNTYPED_QUATERNION
+	}
 	info = Expression_Info {
 		type  = result_type,
 		mode  = .Value,

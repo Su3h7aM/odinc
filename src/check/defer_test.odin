@@ -14,6 +14,7 @@ check_procedure_source :: proc(
 	procedure_name := "",
 	intrinsic_names: []string = nil,
 	package_kind: Package_Kind = .User,
+	type_diagnostic_count := -1,
 ) -> (
 	procedure: Procedure_Data,
 	ok: bool,
@@ -86,7 +87,15 @@ check_procedure_source :: proc(
 	}
 	for declaration in collection.declarations {
 		state, err := resolve_entity(&resolver, declaration.entity)
-		if expected_kind == .None && !testing.expectf(t, err == nil && state == .Resolved, "%v %v %v", state, err, checker.diagnostics) { return {}, false }
+		if expected_kind == .None &&
+		   !testing.expectf(
+				   t,
+				   err == nil && (state == .Resolved || type_diagnostic_count > 0),
+				   "%v %v %v",
+				   state,
+				   err,
+				   checker.diagnostics,
+			   ) { return {}, false }
 	}
 	if expected_kind != .None {
 		reported := false
@@ -95,6 +104,16 @@ check_procedure_source :: proc(
 	}
 	if diagnostic_count >= 0 &&
 	   !testing.expectf(t, len(checker.diagnostics) == diagnostic_count, "expected %d diagnostics, got %v", diagnostic_count, checker.diagnostics) {
+		return {}, false
+	}
+	if type_diagnostic_count >= 0 &&
+	   !testing.expectf(
+			   t,
+			   len(type_checker.diagnostics) == type_diagnostic_count,
+			   "expected %d type diagnostics, got %v",
+			   type_diagnostic_count,
+			   type_checker.diagnostics,
+		   ) {
 		return {}, false
 	}
 	procedure_entity := scope_lookup_current(&scopes, package_scope, procedure_name if procedure_name != "" else "main")

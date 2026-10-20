@@ -205,6 +205,7 @@ The previous refresh was at `7f2eee80`. These are the intervening commit descrip
 
 ## Known unsupported
 
+- `#soa` array, slice, and dynamic-array types remain unsupported at type checking (2026-10-20; `src/driver/testdata/demo_section_soa_struct_layout`, `Unsupported_Type_Expression`). The demo's 20 `Undeclared_Name v_soa` diagnostics cascade from rejected `#soa[N]Vector3` declarations, not range-variable scoping. The official fixture checks, builds, and exits 19.
 - `m[k] = v` and `m[k] += 1` compile but misbehave at runtime; the `map_assign` fixture is parked while the call path is investigated.
 - Map iteration with `for k, v in m` fails checking with `Unsupported Range_Type`.
 - `cap(map)` is unsupported.
@@ -213,7 +214,15 @@ The previous refresh was at `7f2eee80`. These are the intervening commit descrip
 - SIMD operations on `f16` are unsupported.
 - Untyped complex `:=` fails with `Mismatched_Types`.
 
+## CS14 follow-up (2026-10-20)
+
+The full-demo histogram fell from 280 to 251 diagnostics. Its 23 `Composite_Implicit_Type` diagnostics were 23 distinct imported-core source sites, not duplicate reports or demo-source literals: `core/math/big/internal.odin:1946`; `core/os/file_util.odin:253,274`; `core/os/file_linux.odin:325`; `core/os/pipe_linux.odin:52,55`; `core/os/process_linux.odin:176,213,253,863`; `core/os/temp_file.odin:29`; `core/io/conv.odin:32,37,42,47,52,57,63,68,73,78`; `core/sys/linux/sys.odin:2261`; `core/sys/posix/sys_mman_linux.odin:210`. All were bit-set literals in binary expressions. The histogram checks every declaration in every loaded package; a normal build checks reachable declarations and previously reported only the big-integer site.
+
+Binary implicit literals now receive the other operand's contextual type, including parenthesized literals and literals on the left. Scalar and 128-bit bit-set operations use union, difference, intersection, symmetric difference, and subset/superset semantics; runtime literal elements lower to bit masks. Constant bit-set `+` and `-` fold as union and difference. `Composite_Implicit_Type` fell from 23 to 0 and `Composite_Bit_Set_Runtime` from 5 to 0. The new differential fixture `src/driver/testdata/bit_set_binary_literals` passes with official-confirmed exit code 73. It was added after the 142-fixture sweep above. No checker-only feature was added.
+
+The references were the fork and reference compiler's `check_expr.cpp` (`check_binary_expr`, `check_compound_literal`) and `llvm_backend_expr.cpp` (`Type_BitSet` literal emission), existing aggregate and wide-bit-set lowering, and upstream issues [#2859](https://github.com/odin-lang/Odin/issues/2859) and [#5082](https://github.com/odin-lang/Odin/issues/5082). Official check/build probes are authoritative for this change: `+`, `-`, `&`, `&~`, `|`, binary `~`, equality and all four ordered comparisons accept contextual bit-set literals. Membership still requires a typed right-hand set: `E.A in {.A, .B}` is rejected with `Missing type in compound literal`.
+
 ## Previous full-gate snapshot
 
-The prior full validation snapshot recorded `mise run fmt --check` passing 466 Odin sources, `mise run check` passing 12 packages, and `mise run test` passing 309 tests. This docs-only refresh reran the fixture sweep, not those gates.
+The prior full validation snapshot recorded `mise run fmt --check` passing 466 Odin sources, `mise run check` passing 12 packages, and `mise run test` passing 309 tests. CS13 reran the fixture sweep, not those gates; CS14 passed formatting, checking, and tests for `check`, `lower`, and `driver` (186, 57, and 56 tests).
 

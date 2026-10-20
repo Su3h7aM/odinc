@@ -176,7 +176,7 @@ expression_generic_call :: proc(
 				if !matched { return expression_unsupported(checker, view, scope, node, "Generic_Call_Spread_Type") }
 				continue
 			}
-			if poly_untyped_deferred(file, spread, field.type, types.get(checker.type_checker.store, argument.type).kind) {
+			if poly_untyped_deferred(file, field.type, types.get(checker.type_checker.store, argument.type).kind) {
 				append(&deferred, Untyped_Pattern{pattern = field.type, type = argument.type}) or_return
 				continue
 			}
@@ -269,7 +269,7 @@ poly_match_spread :: proc(match: ^Poly_Match, variadic: syntax.Node_Index, slice
 	return poly_match_pattern(match, pattern, descriptor.elem)
 }
 
-// An untyped argument under a spread binds a bare polymorphic name only after the typed arguments, as official does.
+// Untyped arguments bind bare polymorphic names only after the typed arguments.
 @(private = "package")
 Untyped_Pattern :: struct {
 	pattern: syntax.Node_Index,
@@ -277,8 +277,8 @@ Untyped_Pattern :: struct {
 }
 
 @(private = "package")
-poly_untyped_deferred :: proc(file: ^File, spread: bool, pattern: syntax.Node_Index, kind: types.Kind) -> bool {
-	if !spread || file.ast.nodes[pattern].kind != .Poly_Type || !conversion_untyped(kind) { return false }
+poly_untyped_deferred :: proc(file: ^File, pattern: syntax.Node_Index, kind: types.Kind) -> bool {
+	if file.ast.nodes[pattern].kind != .Poly_Type || !conversion_untyped(kind) { return false }
 	return syntax.node_payload(file.ast, pattern, syntax.Poly_Type).specialization == 0
 }
 

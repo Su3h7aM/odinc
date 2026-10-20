@@ -226,6 +226,11 @@ check_expression :: proc(
 				return expression_failure(checker, view, scope, node, .Invalid_Literal)
 			}
 			info.type = untyped
+			if kind == .Imag {
+				if _, quaternion := constant_pool_get(checker.constants, literal).value.(Quaternion_Value); quaternion {
+					info.type = types.TYPE_UNTYPED_QUATERNION
+				}
+			}
 			info.constant, info.mode = literal, .Constant
 		case .Paren_Expr:
 			info = check_expression(checker, view, scope, syntax.node_payload(file.ast, node, syntax.Paren_Expr).expr, hint) or_return
@@ -446,21 +451,24 @@ check_expression :: proc(
 	if hint != 0 && info.state != .Invalid && info.type != hint {
 		// A constant is its own retained source. Runtime expressions need a separate cast node.
 		if info.mode != .Constant {
-			destination := types.get(checker.type_checker.store, conversion_base_type(checker.type_checker.store, hint))^
-			if simd_broadcast_allowed(destination, info.type) || array_broadcast_allowed(destination, info.type) {
-				expression_store(checker, view, node, info)
-				return expression_conversion(
-					checker,
-					view,
-					scope,
-					node,
-					expression_value_operand(checker, view, node, info),
-					expression_single_value(info),
-					hint,
-					.Assignment,
-				)
+			conversion, diagnostic, failure := check_conversion(
+				checker.constants,
+				checker.type_checker.store,
+				expression_value_operand(checker, view, node, info),
+				expression_single_value(info),
+				hint,
+				.Assignment,
+				checker.config,
+			)
+			if failure != nil {
+				expression_constant_failure(checker, file_id, node, failure) or_return
+				return expression_poison(scope), nil
 			}
-			return expression_failure(checker, view, scope, node, .Mismatched_Types)
+			if diagnostic != .None { return expression_failure(checker, view, scope, node, .Mismatched_Types) }
+			expression_store(checker, view, node, info)
+			conversion.info.plan = Plan_Id(len(checker.plans))
+			append(&checker.plans, Plan(conversion.plan)) or_return
+			return conversion.info, nil
 		}
 		info = expression_conversion(checker, view, scope, node, Operand(info.constant), info, hint, .Assignment) or_return
 	}
@@ -499,7 +507,12 @@ expression_injects_union :: proc(store: ^types.Store, target, source: types.Type
 expression_boxing_plan :: proc(checker: ^Expression_Checker, plan: Plan_Id) -> Plan_Id {
 	if plan == 0 { return 0 }
 	conversion, found := checker.plans[plan].(Conversion_Plan)
-	if found && (conversion.kind == .Box || conversion.kind == .Union_Injection || conversion.kind == .Broadcast) { return plan }
+	if found {
+		#partial switch conversion.kind {
+		case .Box, .Union_Injection, .Broadcast, .Subtype:
+			return plan
+		}
+	}
 	return 0
 }
 

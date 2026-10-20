@@ -1,5 +1,6 @@
 package check
 
+import "core:math/big"
 import "core:slice"
 import "oc:syntax"
 import "oc:types"
@@ -242,6 +243,32 @@ check_conversion :: proc(
 		return result, .None, nil
 	}
 	if info.mode == .Constant {
+		if core_target.kind == .Procedure && core_source.kind == .Raw_Pointer { return result, .None, nil }
+		if conversion_pointer(core_target.kind) {
+			value := constant_pool_get(pool, info.constant).value
+			bits: u64
+			#partial switch number in value {
+			case Pointer_Value:
+				bits = u64(number)
+			case big.Int:
+				integer := number
+				bits, err = big.int_get_u64(&integer)
+				if err != nil { return {}, .None, err }
+			case:
+				return Conversion_Result{reason = "Conversion_Constant_Target"}, .Unsupported, nil
+			}
+			result.info.mode = .Constant
+			result.info.constant, err = constant_pool_intern_pointer(pool, Pointer_Value(bits), target)
+			return result, .None, err
+		}
+		if value, is_pointer := constant_pool_get(pool, info.constant).value.(Pointer_Value); is_pointer && target == config.uintptr {
+			integer: big.Int
+			defer big.int_destroy(&integer)
+			big.int_set_from_integer(&integer, u64(value)) or_return
+			result.info.mode = .Constant
+			result.info.constant, err = constant_pool_intern_integer(pool, &integer, target)
+			return result, .None, err
+		}
 		if (src.kind == .Untyped_String ||
 			   (core_source.kind == .String || core_source.kind == .CString) && (kind == .Cast || dst.kind == .CString || core_target.kind == .String)) &&
 		   (dst.kind == .String || dst.kind == .CString) {

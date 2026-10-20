@@ -519,7 +519,7 @@ group_field_argument_score :: proc(
 		if expected == types.TYPE_POISON { return 0, false, nil }
 		return group_argument_score(checker, view, argument.value, argument.info, expected, .Any_Int in field.flags)
 	}
-	if poly_untyped_deferred(file, spread, field.type, types.get(store, argument.info.type).kind) {
+	if poly_untyped_deferred(file, field.type, types.get(store, argument.info.type).kind) {
 		append(deferred, Untyped_Pattern{pattern = field.type, type = argument.info.type}) or_return
 		return 1, true, nil
 	}

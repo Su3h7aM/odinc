@@ -498,7 +498,11 @@ expression_local_declaration :: proc(
 	target: types.Type_Id
 	if declaration.type != 0 {
 		target = type_expression(checker.type_checker, file_id, scope, declaration.type, true) or_return
-		if target == types.TYPE_POISON { return nil }
+		if target == types.TYPE_POISON {
+			variable_types := make([]types.Type_Id, len(names), mem.dynamic_arena_allocator(&checker.arena)) or_return
+			for &variable_type in variable_types { variable_type = types.TYPE_POISON }
+			return expression_bind_local_declaration(checker, view, file_id, scope, declaration, variable_types)
+		}
 	}
 	allocator := mem.dynamic_arena_allocator(&checker.arena)
 	variable_types := make([]types.Type_Id, len(names), allocator) or_return
@@ -561,7 +565,7 @@ expression_local_declaration :: proc(
 			variable_types[index] = checker.default_integer
 		case .Untyped_Bool:
 			variable_types[index] = checker.boolean
-		case .Untyped_Float, .Untyped_Rune:
+		case .Untyped_Float, .Untyped_Rune, .Untyped_Complex, .Untyped_Quaternion:
 			variable_types[index] = types.default_type_of_untyped(checker.type_checker.store, value.type)
 		case:
 			variable_types[index] = value.type
@@ -591,6 +595,21 @@ expression_local_declaration :: proc(
 		) or_return
 		expression_store(checker, view, node, Expression_Info{scope = scope, state = .Checked, plan = plan})
 	}
+	return expression_bind_local_declaration(checker, view, file_id, scope, declaration, variable_types)
+}
+
+@(private = "file")
+expression_bind_local_declaration :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	file_id: File_Id,
+	scope: Scope_Id,
+	declaration: syntax.Value_Decl,
+	variable_types: []types.Type_Id,
+) -> Resolve_Error {
+	file := checker.type_checker.files[file_id]
+	names := syntax.node_list(file.ast, declaration.names)
+	values := syntax.node_list(file.ast, declaration.values)
 	scopes := checker.type_checker.resolver.scopes
 	for name_node, index in names {
 		id, create_error := entity_create(
