@@ -11,6 +11,18 @@ lower_compound_assignment :: proc(state: ^Procedure_State, node: syntax.Node_Ind
 	right := syntax.node_list(state.ast, assignment.rhs)
 	if len(left) != 1 || len(right) != 1 { lower_fail(state, node, .Local); return }
 	if assignment.op.kind == .Cmp_And_Eq || assignment.op.kind == .Cmp_Or_Eq { lower_fail(state, node, .Control); return }
+	destination_info := lower_info(state, left[0])
+	if destination_info.mode == .Map_Index && destination_info.plan != 0 {
+		retained := check.plan(state.job.program, destination_info.plan)
+		assert(retained != nil)
+		if map_index, is_map_index := retained^.(check.Map_Index_Plan); is_map_index {
+			previous, _ := lower_map_index(state, left[0], map_index)
+			value := lower_value(state, right[0])
+			result := lower_compound_operator(state, node, assignment.op.kind, previous, value, destination_info.type)
+			if !state.failed && state.job.function.error == nil { lower_map_store(state, node, map_index, result) }
+			return
+		}
+	}
 	info, ok := check.expression_info(state.job.program, state.view, node)
 	destination: Assignment_Destination
 	value: ir.Node_Id

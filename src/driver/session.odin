@@ -77,6 +77,7 @@ Session :: struct {
 	cyclic_import:       Maybe(check.Source_Span),
 	program_files:       [dynamic]check.File,
 	program:             check.Checked_Program,
+	main_scope:          check.Scope_Id,
 }
 
 // Checks the main file and the library packages it imports. Imports made by library packages are bound
@@ -319,6 +320,7 @@ check_session :: proc(session: ^Session, odin_root, main_path: string, user_coll
 	if key_error != .None { return key_error }
 	main_package, main_scope, package_error := add_package(session, main_key, "main", .User)
 	if package_error != .None { return package_error }
+	session.main_scope = main_scope
 	info, stat_error := os.stat(main_key, session.allocator)
 	if stat_error != nil { return .Read_Failed }
 	is_directory := info.type == .Directory

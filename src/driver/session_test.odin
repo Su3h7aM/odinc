@@ -19,9 +19,10 @@ run_section :: proc(t: ^testing.T, section: string) -> (result: ir.Interp_Result
 	defer ir.module_destroy(&module)
 	if !testing.expectf(t, lower_error == nil && len(lower_errors) == 0, "%v %v", lower_error, lower_errors) { return }
 
+	main_name := main_symbol_name(session)
 	main_function: ^ir.Function
 	for function in module.functions {
-		if function.name == "main" { main_function = function }
+		if function.name == main_name { main_function = function }
 	}
 	if !testing.expect(t, main_function != nil) { return }
 	// Zeroed arguments include the implicit context pointer, which the fixtures never read.

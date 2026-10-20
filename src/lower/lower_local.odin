@@ -303,6 +303,33 @@ write_destination :: proc(state: ^Procedure_State, destination: Assignment_Desti
 lower_assignment_plan :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: check.Assignment_Plan) {
 	if len(plan.destinations) != len(plan.values) { lower_fail(state, node, .Local); return }
 	assert(len(plan.conversions) == 0 || len(plan.conversions) == len(plan.values))
+	if len(plan.destinations) == 1 {
+		if destination, is_expression := plan.destinations[0].(check.Expression_Ref); is_expression {
+			info := check.expression_info(state.job.program, destination.view, destination.node)
+			if info.mode == .Map_Index && info.plan != 0 {
+				retained := check.plan(state.job.program, info.plan)
+				assert(retained != nil)
+				if map_index, is_map_index := retained^.(check.Map_Index_Plan); is_map_index {
+					value: ir.Node_Id
+					if len(plan.conversions) != 0 && plan.conversions[0] != 0 {
+						conversion := check.plan(state.job.program, plan.conversions[0])
+						assert(conversion != nil)
+						if converted, is_conversion := conversion^.(check.Conversion_Plan); is_conversion {
+							value = lower_conversion(state, converted, node)
+						} else {
+							lower_fail(state, node, .Conversion)
+							return
+						}
+					} else {
+						value = lower_operand(state, plan.values[0], info.type)
+					}
+					if state.failed || state.job.function.error != nil { return }
+					lower_map_store(state, node, map_index, value)
+					return
+				}
+			}
+		}
+	}
 	allocator := virtual.arena_allocator(&state.job.function.arena)
 	destinations, err := make([]Assignment_Destination, len(plan.destinations), allocator)
 	if err != nil { state.job.function.error = err; return }

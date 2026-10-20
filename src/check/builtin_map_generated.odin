@@ -7,7 +7,7 @@ import "oc:types"
 
 // Runtime procedures that generated map hashers and equality procedures call.
 map_helper_names := [?]string{"default_hasher_fixed", "default_hasher_string", "default_hasher_string16", "default_hasher_f64", "memory_equal"}
-map_runtime_helper_names := [?]string{"map_seed_from_map_data", "__dynamic_map_get"}
+map_runtime_helper_names := [?]string{"map_seed_from_map_data", "__dynamic_map_get", "__dynamic_map_set"}
 
 @(private = "package")
 expression_resolve_map_helpers :: proc(checker: ^Expression_Checker) -> (resolved: bool, err: Resolve_Error) {

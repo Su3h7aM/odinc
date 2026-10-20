@@ -40,13 +40,13 @@ declaration_attribute :: proc(checker: ^Expression_Checker, entity: Entity, name
 	return "", false, nil
 }
 
-// `link_name` replaces the name; `export` keeps the bare name; other globals are package-qualified, so equal names in
-// different packages do not collide at link time. Procedures keep their bare names.
+// `link_name` replaces the name; `export` and foreign declarations keep the bare name. Other symbols are
+// package-qualified, so equal names in different packages do not collide at link time.
 @(private = "package")
 symbol_name :: proc(checker: ^Expression_Checker, program: ^Checked_Program, entity: Entity) -> (name: string, err: runtime.Allocator_Error) {
 	text, found := declaration_attribute(checker, entity, "link_name") or_return
 	if found && text != "" { return text, nil }
-	if entity.kind == .Procedure || .Export in entity.flags { return entity.name, nil }
+	if .Export in entity.flags || .Foreign in entity.flags { return entity.name, nil }
 	package_name := checker.packages[entity.package_id].name
 	bytes := make([]u8, len(package_name) + 1 + len(entity.name), mem.dynamic_arena_allocator(&checker.arena)) or_return
 	copy(bytes, package_name)

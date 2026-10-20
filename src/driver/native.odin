@@ -5,6 +5,7 @@ import "core:fmt"
 import "core:io"
 import "core:mem/virtual"
 import "oc:amd64"
+import "oc:check"
 import "oc:elf"
 import "oc:ir"
 import "oc:link"
@@ -93,7 +94,14 @@ build_file :: proc(
 		write_lower_errors(session, log, lower_errors)
 		return nil, Lower_Failed{len(lower_errors)}
 	}
-	return build_image(&module, log, allocator)
+	return build_image(&module, main_symbol_name(session), log, allocator)
+}
+
+// The symbol of the main package's `main` procedure; empty when the program has none.
+main_symbol_name :: proc(session: ^Session) -> string {
+	entity := check.scope_lookup_current(&session.scopes, session.main_scope, "main")
+	if entity == 0 || int(entity) >= len(session.program.entity_symbols) { return "" }
+	return session.program.symbol_table[session.program.entity_symbols[entity]].name
 }
 
 // Writes the failure while the module and the image's scratch names are still alive: the error's strings point into them.
@@ -117,10 +125,10 @@ write_build_error :: proc(log: io.Writer, err: Build_Error) {
 
 // Symbols are laid out as: `_start`, functions, globals, local blobs of every function, startup slots, externs.
 // Atoms follow the same order, so the index of every defined symbol is also its atom index.
-build_image :: proc(module: ^ir.Module, log: io.Writer, allocator: runtime.Allocator) -> (image: []byte, err: Build_Error) {
+build_image :: proc(module: ^ir.Module, entry_name: string, log: io.Writer, allocator: runtime.Allocator) -> (image: []byte, err: Build_Error) {
 	main_index := -1
 	for function, index in module.functions {
-		if function.name == "main" { main_index = index }
+		if function.name == entry_name { main_index = index }
 	}
 	if main_index < 0 {
 		write_build_error(log, Missing_Main{})

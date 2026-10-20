@@ -1,5 +1,6 @@
 package lower
 
+import "core:mem/virtual"
 import "oc:check"
 import "oc:ir"
 import "oc:syntax"
@@ -109,4 +110,128 @@ lower_zero_memory :: proc(state: ^Procedure_State, address: ir.Node_Id, size: i6
 		},
 	)
 	ir.variable_set(state.builder, ir.MEMORY_VARIABLE, zero)
+}
+
+@(private)
+lower_map_store :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: check.Map_Index_Plan, value: ir.Node_Id) {
+	map_expression, is_expression := plan.map_value.(check.Expression_Ref)
+	if !is_expression { lower_fail(state, node, .Expression); return }
+	map_info := lower_info(state, map_expression.node)
+	store := check.type_store(state.job.program)
+	map_type := types.resolve_named(store, map_info.type)
+	map_descriptor := types.get(store, map_type)
+	if map_descriptor.kind == .Pointer {
+		map_type = types.resolve_named(store, map_descriptor.elem)
+		map_descriptor = types.get(store, map_type)
+	}
+	if map_descriptor.kind != .Map { lower_fail(state, node, .Expression); return }
+	map_value := lower_operand(state, plan.map_value)
+	key_value := lower_operand(state, plan.key, map_descriptor.index)
+	if state.failed || state.job.function.error != nil { return }
+	function := state.job.function
+	key_layout := state.job.layouts[map_descriptor.index]
+	value_type := map_descriptor.elem
+	value_layout := state.job.layouts[value_type]
+	if key_layout.error != .None || value_layout.error != .None {
+		lower_fail(state, node, .Expression)
+		return
+	}
+	key_address := ir.stack_slot(function, state.entry_control, u32(max(key_layout.size, 1)), u32(max(key_layout.align, 1)))
+	value_address := ir.stack_slot(function, state.entry_control, u32(max(value_layout.size, 1)), u32(max(value_layout.align, 1)))
+	lower_store(state, key_address, key_value, map_descriptor.index)
+	lower_store(state, value_address, value, value_type)
+	if state.failed || function.error != nil { return }
+	data := lower_load_word(state, map_value, .I64)
+	seed := lower_map_runtime_call(state, node, "map_seed_from_map_data", []ir.Node_Id{data})
+	map_info_value := lower_map_info_of(state, node, check.Map_Info_Plan{type = map_type})
+	key_hash := ir.Node_Id(0)
+	for entry in check.runtime_requirements(state.job.program).map_info {
+		if entry.type != map_type { continue }
+		hasher := state.job.symbols[entry.key_hasher]
+		hasher_type := check.symbols(state.job.program)[int(entry.key_hasher) - 1].type
+		key_hash = generated_procedure_call(state, hasher, hasher_type, []ir.Node_Id{key_address, seed})
+		break
+	}
+	if key_hash == 0 || state.failed || function.error != nil { return }
+	lower_map_set_call(state, node, map_value, map_info_value, key_hash, key_address, value_address)
+}
+
+@(private)
+lower_map_set_call :: proc(state: ^Procedure_State, node: syntax.Node_Index, map_value, map_info_value, hash, key_address, value_address: ir.Node_Id) {
+	program := state.job.program
+	helper: check.Entity_Id
+	for candidate in program.runtime.helper_entities {
+		if program.entities[candidate].name == "__dynamic_map_set" { helper = candidate; break }
+	}
+	if helper == 0 || int(helper) >= len(state.job.declarations) || program.entity_symbols[helper] == 0 {
+		lower_fail(state, node, .Expression)
+		return
+	}
+	declaration := state.job.declarations[helper]
+	store := check.type_store(program)
+	descriptor := types.get(store, types.resolve_named(store, declaration.type))
+	if descriptor.kind != .Procedure || len(descriptor.params) != 6 || len(descriptor.results) != 2 {
+		lower_fail(state, node, .Call)
+		return
+	}
+	location := lower_caller_location(state, node, descriptor.params[5])
+	if state.failed || state.job.function.error != nil { return }
+	values := [6]ir.Node_Id{map_value, map_info_value, hash, key_address, value_address, location}
+	function := state.job.function
+	allocator := virtual.arena_allocator(&function.arena)
+	arguments, allocation_error := make([]ir.Node_Id, len(declaration.signature.params), allocator)
+	if allocation_error != nil { function.error = allocation_error; return }
+	context_count := 0
+	if declaration.signature.cc == .Odin {
+		context_count = 1
+	} else if declaration.signature.cc != .Contextless {
+		lower_fail(state, node, .Call)
+		return
+	}
+	split_count := len(descriptor.results) - 1
+	split_base := len(declaration.signature.params) - context_count - split_count
+	if split_base < len(descriptor.params) || len(declaration.abi_params) != len(arguments) {
+		lower_fail(state, node, .Call_Argument)
+		return
+	}
+	if context_count == 1 {
+		arguments[len(arguments) - 1] = state.context_pointer
+		if arguments[len(arguments) - 1] == 0 { arguments[len(arguments) - 1] = ir.symbol_addr(function, state.job.default_context) }
+	}
+	for result_index in 0 ..< split_count {
+		result_type := descriptor.results[result_index]
+		layout := state.job.layouts[result_type]
+		if layout.error != .None { lower_fail(state, node, .Result); return }
+		arguments[split_base + result_index] = ir.stack_slot(function, state.entry_control, u32(max(layout.size, 1)), u32(max(layout.align, 1)))
+	}
+	for value, index in values {
+		first := source_index(declaration.abi_params, index)
+		if first < 0 { lower_fail(state, node, .Call_Argument); return }
+		span := parameter_span(declaration.abi_params[first:])
+		type := descriptor.params[index]
+		if is_aggregate(state, type) {
+			if !pass_aggregate_argument(state, value, type, declaration.abi_params[first:first + span], arguments[first:first + span]) {
+				lower_fail(state, node, .Call_Argument)
+				return
+			}
+		} else {
+			if span != 1 || declaration.abi_params[first].attr != .Direct || function.nodes.type[value] != piece_type(declaration.abi_params[first].type) {
+				lower_fail(state, node, .Call_Argument)
+				return
+			}
+			arguments[first] = value
+		}
+	}
+	for argument in arguments {
+		if argument == 0 { lower_fail(state, node, .Call_Argument); return }
+	}
+	call_signature_id := call_signature(state, declaration)
+	if function.error != nil { return }
+	callee := ir.symbol_addr(function, declaration.symbol)
+	call := ir.call(function, state.builder.control, ir.variable_get(state.builder, ir.MEMORY_VARIABLE), callee, call_signature_id, arguments)
+	memory := ir.add_node(function, .Proj, .Memory, {call}, {index = 0})
+	ir.variable_set(state.builder, ir.MEMORY_VARIABLE, memory)
+	for result, index in declaration.signature.results {
+		_ = ir.add_node(function, .Proj, result.type, {call}, {index = u32(index + 1)})
+	}
 }
