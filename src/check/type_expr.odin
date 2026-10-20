@@ -999,6 +999,14 @@ procedure_type :: proc(
 			return types.TYPE_POISON, nil
 		}
 	}
+	if signature.params != 0 && (convention == .Odin || convention == .Contextless) {
+		for parameter in syntax.node_list(file.ast, syntax.node_payload(file.ast, signature.params, syntax.Field_List).list) {
+			if .C_Vararg in syntax.node_payload(file.ast, parameter, syntax.Field).flags {
+				type_report(checker, file_id, file, parameter, .Invalid_Calling_Convention) or_return
+				return types.TYPE_POISON, nil
+			}
+		}
+	}
 	parameters, parameters_valid, variadic, _ := record_fields(checker, file_id, file, scope, signature.params, false, false) or_return
 	results, results_valid, _, _ := record_fields(checker, file_id, file, scope, signature.results, false, false) or_return
 	if !parameters_valid || !results_valid { return types.TYPE_POISON, nil }

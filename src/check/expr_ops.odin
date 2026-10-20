@@ -135,6 +135,7 @@ expression_binary :: proc(
 		comparison := syntax.Token_Kind.B_Comparison_Begin < binary.op.kind && binary.op.kind < .B_Comparison_End
 		if left_hint == 0 && !comparison && expression_length_call(file, binary.left) { left_hint = length_integer_hint(checker, hint) }
 		left = check_expression(checker, view, scope, binary.left, left_hint) or_return
+		if left.state == .Invalid { return expression_poison(scope), nil }
 		right_hint := types.Type_Id(0)
 		left_base := types.get(checker.type_checker.store, conversion_base_type(checker.type_checker.store, left.type)).kind
 		if file.ast.nodes[binary.right].kind == .Implicit_Selector_Expr || left.mode != .Type && expression_string_kind(left_base) { right_hint = left.type }

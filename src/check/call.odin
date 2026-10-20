@@ -26,7 +26,7 @@ expression_call :: proc(
 	if len(descriptor.params) != parameter_count {
 		return expression_unsupported(checker, view, scope, node, "Call_Signature")
 	}
-	if descriptor.variadic && descriptor.convention != .Odin {
+	if descriptor.variadic && descriptor.convention != .Odin && descriptor.convention != .Contextless {
 		return expression_unsupported(checker, view, scope, node, "Call_Variadic_Convention")
 	}
 	file := checker.type_checker.files[file_id]

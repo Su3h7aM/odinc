@@ -3,6 +3,17 @@ package check
 import "core:testing"
 
 @(test)
+binary_invalid_operand_does_not_hint_implicit_selector :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(`package sample
+main :: proc() {
+    if missing == .NONE {}
+}
+`)
+	_, ok := check_procedure_source(t, source, .Undeclared_Name, diagnostic_count = 1)
+	testing.expect(t, ok)
+}
+
+@(test)
 binary_bit_set_literal_rejects_unknown_member :: proc(t: ^testing.T) {
 	// Official: Undeclared name 'Missing' for type 'enum int {A, B, C}'.
 	source := transmute([]byte)string(
