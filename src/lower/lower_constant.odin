@@ -29,6 +29,17 @@ lower_constant :: proc(state: ^Procedure_State, id: check.Const_Id, target: type
 			return lower_fail(state, state.job.procedure.body.node, .Constant)
 		}
 	}
+	if variant, is_variant := constant.value.(check.Variant_Value); is_variant {
+		payload := check.constant(state.job.program, variant.value)
+		if payload == nil { return lower_fail(state, state.job.procedure.body.node, .Constant) }
+		value := lower_constant(state, variant.value, payload.type)
+		if state.failed { return 0 }
+		plan := check.Conversion_Plan {
+			kind   = .Union_Injection,
+			target = type,
+		}
+		return lower_union_injection(state, state.job.procedure.body.node, plan, payload.type, value)
+	}
 	if aggregate, is_aggregate := constant.value.(check.Aggregate_Value); is_aggregate {
 		return lower_constant_aggregate(state, constant.type, aggregate)
 	}
