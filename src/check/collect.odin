@@ -533,7 +533,7 @@ collection_node_text :: proc(file: ^File, node: syntax.Node_Index) -> string {
 	return string(file.source[span.start:span.end])
 }
 
-@(private = "file")
+@(private = "package")
 collection_has_attribute :: proc(ast: ^syntax.Ast, source: []byte, attributes: syntax.Node_Range, name: string) -> bool {
 	for attribute in syntax.node_list(ast, attributes) {
 		for element in syntax.node_list(ast, syntax.node_payload(ast, attribute, syntax.Attribute).elems) {

@@ -339,6 +339,7 @@ check_session :: proc(session: ^Session, odin_root, main_path: string, user_coll
 		session.cyclic_import = cycle
 		return .Import_Cycle
 	}
+	if error := assign_init_order(session); error != .None { return error }
 	if error := session_init_checkers(session); error != .None { return error }
 	if error := bind_whens(session); error != .None { return error }
 
@@ -639,6 +640,32 @@ find_cycle_from :: proc(session: ^Session, states: []u8, package_id: check.Packa
 	}
 	states[package_id] = 2
 	return {}, false
+}
+
+// Numbers the packages so that each one follows the packages it imports, in import order: the order of `@(init)`
+// procedures and of dynamic package variables.
+@(private = "file")
+assign_init_order :: proc(session: ^Session) -> Driver_Error {
+	visited, allocate_error := make([]bool, len(session.packages), session.allocator)
+	if allocate_error != nil { return .Allocation_Failed }
+	defer delete(visited, session.allocator)
+	next: u32
+	for id in 0 ..< len(session.packages) {
+		next = visit_init_order(session, visited, check.Package_Id(id), next)
+	}
+	return .None
+}
+
+@(private = "file")
+visit_init_order :: proc(session: ^Session, visited: []bool, package_id: check.Package_Id, next: u32) -> u32 {
+	if visited[package_id] { return next }
+	visited[package_id] = true
+	next := next
+	for edge in session.import_edges {
+		if edge.from == package_id { next = visit_init_order(session, visited, edge.to, next) }
+	}
+	session.packages[package_id].init_order = next
+	return next + 1
 }
 
 @(private = "file")

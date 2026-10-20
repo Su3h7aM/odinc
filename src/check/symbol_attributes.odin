@@ -123,7 +123,9 @@ expression_checker_publish_startup :: proc(checker: ^Expression_Checker, program
 		if entity.kind != .Procedure || entity.state != .Resolved { continue }
 		_, is_init := declaration_attribute(checker, entity, "init") or_return
 		_, is_fini := declaration_attribute(checker, entity, "fini") or_return
-		candidate := Startup_Candidate{Entity_Id(id), entity.order}
+		order := entity.order
+		order.package_order = checker.packages[entity.package_id].init_order
+		candidate := Startup_Candidate{Entity_Id(id), order}
 		if is_init { append(&inits, candidate) or_return }
 		if is_fini { append(&finis, candidate) or_return }
 	}

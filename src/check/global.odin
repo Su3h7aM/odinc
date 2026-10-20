@@ -1,6 +1,7 @@
 package check
 
 import "base:runtime"
+import "core:fmt"
 import "core:mem"
 import "oc:syntax"
 import "oc:types"
@@ -20,6 +21,9 @@ expression_checker_publish_globals :: proc(checker: ^Expression_Checker, program
 		thread_local := variable.storage == .Thread_Local
 		symbol := Symbol_Id(len(checker.symbols))
 		name := symbol_name(checker, program, entity) or_return
+		if scope := scope_get(scopes, entity.scope); scope != nil && (scope.kind == .Procedure || scope.kind == .Block) {
+			name = fmt.aprintf("%s-%d", name, id, allocator = mem.dynamic_arena_allocator(&checker.arena))
+		}
 		linkage := symbol_linkage(checker, entity) or_return
 		append(
 			&checker.symbols,
@@ -53,6 +57,21 @@ expression_checker_publish_globals :: proc(checker: ^Expression_Checker, program
 		}
 		append(&checker.globals, global) or_return
 	}
+	ordered := make([]Global, len(checker.globals), mem.dynamic_arena_allocator(&checker.arena)) or_return
+	count := 0
+	for rank in 0 ..< len(checker.packages) {
+		for package_value, package_id in checker.packages {
+			if package_value.init_order != u32(rank) { continue }
+			for global in checker.globals {
+				if scopes.entities[global.entity].package_id == Package_Id(package_id) {
+					ordered[count] = global
+					count += 1
+				}
+			}
+		}
+	}
+	clear(&checker.globals)
+	for global in ordered[:count] { append(&checker.globals, global) or_return }
 	program.global_list = checker.globals[:]
 	program.global_initialization = global_initialization_order(checker, checker.globals[:], mem.dynamic_arena_allocator(&checker.arena)) or_return
 	return expression_checker_publish_startup(checker, program)

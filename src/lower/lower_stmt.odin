@@ -6,6 +6,16 @@ import "oc:ir"
 import "oc:syntax"
 import "oc:types"
 
+// A `@(static)` declaration is a package-level global published by the checker; it has no frame storage here.
+@(private)
+is_static_declaration :: proc(state: ^Procedure_State, declaration: syntax.Value_Decl) -> bool {
+	if !declaration.is_mutable { return false }
+	names := syntax.node_list(state.ast, declaration.names)
+	if len(names) == 0 { return false }
+	entity := lower_info(state, names[0]).entity
+	return entity != 0 && check.entity_symbol(state.job.program, entity) != 0
+}
+
 @(private)
 lower_statement :: proc(state: ^Procedure_State, node: syntax.Node_Index) {
 	if node == 0 || state.failed || state.builder.control == 0 || state.job.function.error != nil { return }
@@ -34,7 +44,8 @@ lower_statement :: proc(state: ^Procedure_State, node: syntax.Node_Index) {
 	case .Case_Clause:
 		lower_fail(state, node, .Switch)
 	case .Value_Decl:
-		lower_local_declaration(state, node, ast_node.payload.(syntax.Value_Decl))
+		declaration := ast_node.payload.(syntax.Value_Decl)
+		if !is_static_declaration(state, declaration) { lower_local_declaration(state, node, declaration) }
 	case .Assign_Stmt:
 		lower_local_assignment(state, node, ast_node.payload.(syntax.Assign_Stmt))
 	case .Expr_Stmt:

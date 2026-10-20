@@ -461,6 +461,23 @@ expression_return :: proc(checker: ^Expression_Checker, view: View_Id, file_id: 
 }
 
 @(private = "file")
+local_variable_data :: proc(
+	checker: ^Expression_Checker,
+	file_id: File_Id,
+	attributes: syntax.Node_Range,
+	values: []syntax.Node_Index,
+	name_count, index: int,
+) -> Variable_Data {
+	file := checker.type_checker.files[file_id]
+	if !collection_has_attribute(file.ast, file.source, attributes, "static") { return Variable_Data{storage = .Local} }
+	data := Variable_Data {
+		storage = .Global,
+	}
+	if len(values) == name_count { data.initializer = Node_Ref{file_id, values[index]} }
+	return data
+}
+
+@(private = "file")
 expression_local_declaration :: proc(
 	checker: ^Expression_Checker,
 	view: View_Id,
@@ -584,7 +601,7 @@ expression_local_declaration :: proc(
 				scope = scope,
 				state = .Resolved,
 				type = variable_types[index],
-				data = Variable_Data{storage = .Local},
+				data = local_variable_data(checker, file_id, declaration.attributes, values, len(names), index),
 			},
 		)
 		if create_error != nil { return binding_resolve_error(create_error) }

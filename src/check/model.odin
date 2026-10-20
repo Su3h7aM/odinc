@@ -453,12 +453,13 @@ Import_Edge :: struct {
 	package_id:  Package_Id,
 }
 Package :: struct {
-	key, name: string,
-	kind:      Package_Kind,
-	phase:     Package_Phase,
-	scope:     Scope_Id,
-	files:     []File_Id,
-	imports:   []Import_Edge,
+	key, name:  string,
+	kind:       Package_Kind,
+	phase:      Package_Phase,
+	scope:      Scope_Id,
+	files:      []File_Id,
+	imports:    []Import_Edge,
+	init_order: u32,
 }
 File :: struct {
 	package_id:         Package_Id,
