@@ -15,7 +15,7 @@ lower_binary :: proc(state: ^Procedure_State, node: syntax.Node_Index, expressio
 	right := lower_value(state, expression.right)
 	if state.failed { return 0 }
 	if is_wide_integer(state, lower_info(state, expression.left).type) { return lower_wide_binary(state, node, expression, left, right) }
-	if is_slice_nil_comparison(state, expression) { return lower_slice_nil_comparison(state, expression, left, right) }
+	if is_nil_comparison(state, expression) { return lower_nil_comparison(state, expression, left, right) }
 	if (expression.op.kind == .Cmp_Eq || expression.op.kind == .Not_Eq) &&
 	   (lower_union_type(state, expression.left) != types.TYPE_NONE || lower_union_type(state, expression.right) != types.TYPE_NONE) {
 		return lower_union_comparison(state, node, expression, left, right)
@@ -96,9 +96,9 @@ lower_operand_is_bit_set :: proc(state: ^Procedure_State, node: syntax.Node_Inde
 	return types.get(store, types.resolve_named(store, info.type)).kind == .Bit_Set
 }
 
-// One operand is the nil constant the checker unified into the union type; the other is the union value.
+// One operand is the nil constant the checker unified into the other operand's type.
 @(private)
-lower_union_nil_operand :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> bool {
+lower_nil_operand :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> bool {
 	info := lower_info(state, node)
 	if info.constant == 0 { return false }
 	constant := check.constant(state.job.program, info.constant)
@@ -111,10 +111,10 @@ lower_union_comparison :: proc(state: ^Procedure_State, node: syntax.Node_Index,
 	if state.failed { return 0 }
 	union_type := lower_union_type(state, expression.left)
 	if union_type == types.TYPE_NONE { union_type = lower_union_type(state, expression.right) }
-	if lower_union_nil_operand(state, expression.left) {
+	if lower_nil_operand(state, expression.left) {
 		return lower_union_nil_comparison(state, union_type, expression.op.kind, right)
 	}
-	if lower_union_nil_operand(state, expression.right) {
+	if lower_nil_operand(state, expression.right) {
 		return lower_union_nil_comparison(state, union_type, expression.op.kind, left)
 	}
 	if lower_union_type(state, expression.left) != union_type || lower_union_type(state, expression.right) != union_type {
