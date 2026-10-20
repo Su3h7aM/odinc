@@ -179,10 +179,10 @@ lower_procedure :: proc(job: ^Procedure_Job) -> (err: runtime.Allocator_Error) {
 	if state.failed { return job.allocation_error }
 	if builder.control != 0 {
 		if len(function.signatures[function.signature].results) != 0 {
-			lower_fail(&state, procedure.body.node, .Result)
-			return job.allocation_error
+			ir.emit_unreachable(builder)
+		} else {
+			ir.emit_return(builder)
 		}
-		ir.emit_return(builder)
 	}
 	switch finish_error in ir.builder_finish(builder) {
 	case runtime.Allocator_Error:
