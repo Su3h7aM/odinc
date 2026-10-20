@@ -30,8 +30,7 @@ lower_map_index :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: 
 	key_address := ir.stack_slot(state.job.function, state.entry_control, u32(max(key_layout.size, 1)), u32(max(key_layout.align, 1)))
 	lower_store(state, key_address, key_value, map_descriptor.index)
 	if state.failed || state.job.function.error != nil { return }
-	data := lower_load_word(state, map_value, .I64)
-	seed := lower_map_runtime_call(state, node, "map_seed_from_map_data", []ir.Node_Id{data})
+	seed := lower_map_runtime_call(state, node, "map_seed", []ir.Node_Id{map_value})
 	map_info_value := lower_map_info_of(state, node, check.Map_Info_Plan{type = map_type})
 	key_hash := ir.Node_Id(0)
 	for entry in check.runtime_requirements(state.job.program).map_info {
@@ -141,8 +140,7 @@ lower_map_store :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: 
 	lower_store(state, key_address, key_value, map_descriptor.index)
 	lower_store(state, value_address, value, value_type)
 	if state.failed || function.error != nil { return }
-	data := lower_load_word(state, map_value, .I64)
-	seed := lower_map_runtime_call(state, node, "map_seed_from_map_data", []ir.Node_Id{data})
+	seed := lower_map_runtime_call(state, node, "map_seed", []ir.Node_Id{map_value})
 	map_info_value := lower_map_info_of(state, node, check.Map_Info_Plan{type = map_type})
 	key_hash := ir.Node_Id(0)
 	for entry in check.runtime_requirements(state.job.program).map_info {

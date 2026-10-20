@@ -25,7 +25,7 @@ default_hasher_fixed :: proc "contextless" (data: rawptr, seed: uintptr, size: i
 default_hasher_string :: proc "contextless" (data: rawptr, seed: uintptr) -> uintptr { return seed }
 default_hasher_f64 :: proc "contextless" (value: f64, seed: uintptr) -> uintptr { return seed }
 memory_equal :: proc "contextless" (x, y: rawptr, n: int) -> bool { return true }
-map_seed_from_map_data :: proc "contextless" (data: uintptr) -> uintptr { return data }
+map_seed :: proc "contextless" (map_value: Raw_Map) -> uintptr { return map_value.data }
 __dynamic_map_get :: proc "contextless" (map_value: ^Raw_Map, info: ^Map_Info, hash: Map_Hash, key: rawptr) -> rawptr { return nil }
 __dynamic_map_set :: proc (map_value: ^Raw_Map, info: ^Map_Info, hash: Map_Hash, key, value: rawptr, loc: Source_Code_Location) -> (value_ptr: rawptr, err: Allocator_Error) { return nil, .None }
 map_read :: proc "contextless" (table: Table, key: string) -> int { return table[key] }
