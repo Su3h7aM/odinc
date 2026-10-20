@@ -43,7 +43,7 @@ lower_aggregate_into :: proc(state: ^Procedure_State, node: syntax.Node_Index, p
 		descriptor := types.get(store, owner)
 		field_type := descriptor.elem
 		offset: i64
-		if descriptor.kind == .Array || descriptor.kind == .Enumerated_Array || descriptor.kind == .Simd_Vector {
+		if descriptor.kind == .Array || descriptor.kind == .Enumerated_Array || descriptor.kind == .Simd_Vector || descriptor.kind == .Matrix {
 			element_layout := state.job.layouts[field_type]
 			if element_layout.error != .None { return lower_fail(state, node, .Expression) }
 			offset = i64(index) * element_layout.size

@@ -303,3 +303,32 @@ test_parse_errors_recover :: proc(t: ^testing.T) {
 		ast_destroy(&ast)
 	}
 }
+@(test)
+matrix_order_directive_tags_matrix_type_only :: proc(t: ^testing.T) {
+	cases := [?]struct {
+		source:    string,
+		errors:    int,
+		is_matrix: bool,
+		is_tagged: bool,
+	} {
+		{"#row_major matrix[2,3]f32", 0, true, true},
+		{"#column_major matrix[2,3]f32", 0, true, true},
+		{"matrix[2,3]f32", 0, true, false},
+		{"#row_major [2]f32", 1, false, false},
+	}
+	for test_case in cases {
+		ast: Ast
+		ast_init(&ast, context.allocator)
+		defer ast_destroy(&ast)
+		parser: Parser
+		root := parse_expression_for_test(&parser, &ast, test_case.source)
+		defer parser_destroy(&parser)
+		testing.expectf(t, len(parser.errors) == test_case.errors, "%q: errors %d", test_case.source, len(parser.errors))
+		is_matrix := ast.nodes[root].kind == .Matrix_Type
+		testing.expectf(t, is_matrix == test_case.is_matrix, "%q: matrix %v", test_case.source, is_matrix)
+		if is_matrix {
+			tagged := node_payload(&ast, root, Matrix_Type).tag != 0
+			testing.expectf(t, tagged == test_case.is_tagged, "%q: tagged %v", test_case.source, tagged)
+		}
+	}
+}

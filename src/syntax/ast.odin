@@ -497,6 +497,7 @@ Matrix_Type :: struct {
 	row_count:    Node_Index,
 	column_count: Node_Index,
 	elem:         Node_Index,
+	tag:          Node_Index,
 }
 
 Bit_Field_Type :: struct {

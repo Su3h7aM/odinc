@@ -553,6 +553,7 @@ Procedure_Data :: struct {
 	instance:            Instance_Id,
 	defers:              []Defer_Registration,
 	generic:             bool,
+	assigns_context:     bool,
 	poly_arguments:      []types.Type_Id,
 	poly_constants:      []Const_Id,
 }
@@ -813,6 +814,7 @@ Plan :: union {
 	Bit_Set_Literal_Plan,
 	Assignment_Plan,
 	Bounds_Plan,
+	Matrix_Index_Plan,
 	Union_Plan,
 	Exit_Plan,
 	Propagation_Plan,

@@ -642,6 +642,17 @@ parse_directive_expr :: proc(p: ^Parser, lhs: bool) -> Node_Index {
 		}
 		return original
 
+	case "row_major", "column_major":
+		directive := add_node(p, .Basic_Directive, tok.start, tok.end, Basic_Directive{})
+		original := parse_type(p)
+		target := unparen(p, original)
+		if p.ast.nodes[target].kind != .Matrix_Type {
+			report(p, .Expected_Type, p.ast.nodes[original].start)
+		} else {
+			set_tag(p, target, directive)
+		}
+		return original
+
 	case "partial":
 		directive := add_node(p, .Basic_Directive, tok.start, tok.end, Basic_Directive{})
 		original := parse_expr(p, lhs)
@@ -746,6 +757,10 @@ set_tag :: proc(p: ^Parser, index: Node_Index, tag: Node_Index) -> bool {
 		node.payload = payload
 	case .Comp_Lit:
 		payload := node.payload.(Comp_Lit)
+		payload.tag = tag
+		node.payload = payload
+	case .Matrix_Type:
+		payload := node.payload.(Matrix_Type)
 		payload.tag = tag
 		node.payload = payload
 	case:

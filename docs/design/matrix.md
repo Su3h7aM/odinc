@@ -117,7 +117,7 @@ Rejected:
 
 - matrix to array cast: `([4]f32)(a)` for `matrix[2,2]f32`; `([3]f32)(a)` for `matrix[3,1]f32`.
 - array to matrix cast: `(matrix[2,2]f32)([4]f32)`; `(matrix[3,1]f32)([3]f32)`.
-- `(matrix[2,3]f32 -> matrix[3,2]f32)` in the cast-to-type form was rejected in the operator run, but the reshape above is accepted in the semantics run. This conflict is open; section 8 lists it.
+- `(matrix[3,2]f32)(a)` for `a: matrix[2,3]f32`: accepted on two runs (section 8, item 3). The earlier rejection is not reproduced.
 
 Matrix and array conversions go through `transmute` only. Stage M5 covers it.
 
@@ -158,15 +158,18 @@ The `contextless` and default-context variants do not change the classification.
 
 Our `src/types/abi_plan.odin` and ABI tests are owned by the orchestrator. This design does not change them. The matrix rows above are the input the orchestrator needs for its ABI plan.
 
-## 8. Open items (probes needed before the stage that depends on them)
+## 8. Probe results (CS19, official dev-2026-10, `odin check -file`)
 
-1. `m[k]` single-index element type for default and `#row_major` (needed for M2).
-2. Row-major `m[i]` meaning (needed for M2).
-3. `(matrix[3,2]f32)(matrix[2,3]f32)` cast-to-type form: operator run rejected, semantics run accepted. Re-run with identical source before M5.
-4. `conj` on complex matrices; `outer_product` result type; `transpose` of an array; `hadamard_product` typing (needed for M6).
-5. Complex `matrix[2,2]complex64` layout for row-major (not probed).
-6. Scalar multiply `i32(3) * (2*identity)` confirmation (divergence, pending).
-7. Runtime ABI behaviour gate (section 7).
+Probe sources are under `/tmp/cs19/`.
+
+1. Index element type: `m: matrix[2,3]f32; m[1]` has type `[2]f32` (column storage vector, length R). `#row_major matrix[2,3]f32; m[1]` has type `[3]f32` (row, length C). Assigning to the other length is rejected with `Cannot assign value 'm[1]' of type ... in a variable declaration`. Assigning to a scalar `f32` is rejected the same way.
+2. Row-major `m[i]`: the row, as item 1.
+3. Cast `(matrix[3,2]f32)(a)` with `a: matrix[2,3]f32`: accepted on two separate runs (`cast1`, `cast1b`). The earlier rejection was not reproduced. Stable result: accept. Physical-order reshape is the semantics in section 5.
+4. `intrinsics.conj` is not declared. `conj` is a builtin procedure, not an intrinsic. `conj(m)` for `matrix[2,2]complex64` is accepted and the result assigns to `matrix[2,2]complex64`. `conj(m)` for `matrix[2,2]f32` is rejected with `Expected a complex or quaternion, got 'matrix[2, 2]f32'`.
+5. `intrinsics.outer_product(a: [2]f32, b: [3]f32)` is accepted and assigns to `matrix[2,3]f32`. With mismatched element types (`[2]f32`, `[3]f64`) it is rejected with `'outer_product' mismatched element types, got f32 vs f64`.
+6. `intrinsics.hadamard_product(a, b)` with `a`, `b` of `matrix[2,2]f32` is accepted; the result assigns to `matrix[2,2]f32`. Mismatched types (`matrix[2,2]f32`, `matrix[2,3]f32`) are rejected with `'hadamard_product' values of the same type, got ...`.
+7. `intrinsics.transpose(a)` for a plain array `a: [3]f32` is accepted and has type `[3]f32`; assigning it to `matrix[3,1]f32` is rejected. `transpose(a)` for `matrix[2,3]f32` assigns to `matrix[3,2]f32`.
+8. Still open: scalar multiply `i32(3) * (2*identity)` confirmation (divergence, pending); runtime ABI behaviour gate (section 7); complex `matrix[2,2]complex64` row-major layout.
 
 ## 9. Staged plan
 

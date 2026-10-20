@@ -86,13 +86,14 @@ expression_composite :: proc(
 	if descriptor.kind == .Bit_Set { return expression_composite_bit_set(checker, view, scope, node, type) }
 	if descriptor.kind == .Slice { return expression_slice_literal(checker, view, file_id, scope, node, type, descriptor.elem) }
 	is_array := descriptor.kind == .Array || descriptor.kind == .Enumerated_Array || descriptor.kind == .Simd_Vector
+	is_matrix := descriptor.kind == .Matrix
 	if len(syntax.node_list(file.ast, literal.elems)) == 0 && expression_zero_fill_supported(checker, store, type) {
 		zero, zero_error := expression_zero_fill_constants(checker, store, type)
 		if zero_error == nil {
 			return Expression_Info{type = type, constant = zero, mode = .Constant, scope = scope, state = .Checked}, nil
 		}
 	}
-	if descriptor.kind != .Struct && descriptor.kind != .Bit_Field && descriptor.kind != .Any && !is_array {
+	if descriptor.kind != .Struct && descriptor.kind != .Bit_Field && descriptor.kind != .Any && !is_array && !is_matrix {
 		reason := "Composite_Type"
 		#partial switch descriptor.kind {
 		case .Slice:
@@ -112,6 +113,14 @@ expression_composite :: proc(
 		}
 	}
 	elements := syntax.node_list(file.ast, literal.elems)
+	if is_matrix {
+		for element in elements {
+			if file.ast.nodes[element].kind == .Field_Value { return expression_unsupported(checker, view, scope, element, "Matrix_Named_Element") }
+		}
+		if len(elements) > 0 && i64(len(elements)) != descriptor.count * descriptor.upper_bound {
+			return expression_failure(checker, view, scope, node, .Invalid_Operand)
+		}
+	}
 	if is_array {
 		if descriptor.kind == .Array && i64(len(elements)) != descriptor.count && len(elements) > 0 && file.ast.nodes[elements[0]].kind != .Field_Value {
 			return expression_failure(checker, view, scope, node, .Invalid_Operand)
@@ -135,6 +144,7 @@ expression_composite :: proc(
 	conversions := make([dynamic]Plan_Id, allocator) or_return
 	count := len(fields)
 	if is_array { count = int(descriptor.count) }
+	if is_matrix { count = int(descriptor.count * descriptor.upper_bound) }
 	constants := make([]Const_Id, count, allocator) or_return
 	seen := make([]bool, count, allocator) or_return
 	for element, position in elements {
@@ -164,18 +174,22 @@ expression_composite :: proc(
 		} else if position >= count {
 			return expression_failure(checker, view, scope, element, .Invalid_Operand)
 		}
+		if is_matrix {
+			first = matrix_storage_index(descriptor, position)
+			last = first
+		}
 		if first < 0 || last >= count { return expression_failure(checker, view, scope, element, .Invalid_Operand) }
 		for index in first ..= last {
 			if seen[index] { return expression_failure(checker, view, scope, element, .Invalid_Operand) }
 			seen[index] = true
 		}
 		element_type := descriptor.elem
-		if !is_array { element_type = fields[first].type }
+		if !is_array && !is_matrix { element_type = fields[first].type }
 		value := check_expression(checker, view, scope, value_node, element_type) or_return
 		if value.state == .Invalid { return expression_poison(scope), nil }
 		value_operand := Operand(Expression_Ref{view, value_node})
 		conversion := expression_boxing_plan(checker, value.plan)
-		constant_element := value.constant != 0 && expression_constant_element(checker, store, is_array, element_type, value.plan)
+		constant_element := value.constant != 0 && expression_constant_element(checker, store, is_array || is_matrix, element_type, value.plan)
 		variant, variant_error := expression_union_variant_value(checker, element_type, value)
 		if variant_error != nil {
 			expression_constant_failure(checker, file_id, node, variant_error) or_return
@@ -195,7 +209,7 @@ expression_composite :: proc(
 	for _, index in constants {
 		if seen[index] { continue }
 		element_type := descriptor.elem
-		if !is_array { element_type = fields[index].type }
+		if !is_array && !is_matrix { element_type = fields[index].type }
 		if !expression_zero_fill_supported(checker, store, element_type) { continue }
 		zero, fill_error := expression_zero_fill_constants(checker, store, element_type)
 		if fill_error == nil { constants[index] = zero }

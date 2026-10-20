@@ -36,6 +36,8 @@ Type_Diagnostic_Kind :: enum u8 {
 	Unsatisfied_Where_Clause,
 	Invalid_Optional_Result,
 	Non_Contiguous_Enum_Index,
+	Invalid_Matrix_Count,
+	Invalid_Matrix_Element,
 }
 
 @(private = "file")
@@ -373,6 +375,8 @@ type_expression :: proc(
 		return record_type_call(checker, file_id, file, scope, node)
 	case .Bit_Set_Type:
 		return bit_set_type(checker, file_id, file, scope, node)
+	case .Matrix_Type:
+		return matrix_type(checker, file_id, file, scope, node)
 	case .Bit_Field_Type:
 		return bit_field_type(checker, file_id, file, scope, node)
 	case .Typeid_Type:
@@ -1048,6 +1052,7 @@ procedure_type :: proc(
 				variadic = variadic,
 				c_vararg = c_vararg,
 				optional_result = optional_result,
+				diverging = signature.diverging,
 			},
 		),
 		nil

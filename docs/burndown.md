@@ -307,3 +307,20 @@ Formatting, checking, and tests pass for `check`, `lower`, and `driver`, with 19
 
 The prior full validation snapshot recorded `mise run fmt --check` passing 466 Odin sources, `mise run check` passing 12 packages, and `mise run test` passing 309 tests. CS13 reran the fixture sweep, not those gates; CS14 passed formatting, checking, and tests for `check`, `lower`, and `driver` (191, 57, and 56 tests). Its twelve passing differential regressions include all five new supported fixtures, `hello_fmt`, `map_lookup`, `complex_ops`, and existing aggregate and wide-bit-set fixtures. The quaternion-product fixture fails explicitly at lowering as documented above; `composite_literals` still fails the official build because its main procedure has a custom calling convention.
 
+
+## CS19 matrix M1 and partial M2 (2026-10-20)
+
+Design and open-item probes are in `docs/design/matrix.md`. Implemented: the `matrix[R, C]E` type expression (`src/check/type_matrix.odin`, element count 1 to 64, element kinds integer, float and complex with any endianness, checked against official `check_matrix_type`), the `#row_major` and `#column_major` tags on matrix types (`src/syntax/parse_expr.odin`, `set_tag`, `Matrix_Type.tag`; a non-matrix operand reports `Expected_Type`), matrix types in expression position, constant-index `m[row, column]` reads and stores (`src/check/expr_matrix.odin`, `src/lower/lower_matrix.odin`), and positional matrix literals in logical row-major order, stored at their storage index (`src/check/expr_composite.odin`). Differential fixtures `matrix_layout` (sizes, alignments and offsets; official exit 42) and `matrix_literal_index` (official exit 42) pass.
+
+Explicit unsupported or open items, each to be lowered later:
+
+- Runtime (non-constant) matrix indices: `expression_matrix_index` reports `Matrix_Index_Runtime` (checker). Needs a two-axis bounds plan. Owner: M2 follow-up; touches `lower_bounds.odin`, which agent-158 owns.
+- Keyed matrix literals (`matrix[2,2]f32{0 = 1}`): official accepts; this checker reports `Matrix_Named_Element`. Key semantics not probed.
+- Single-index `m[k]` (row or column vector): unsupported. A single index parses as `Index_Expr`, which `expression_index` rejects for matrix bases as `Index_Base`. Element type is established by probe in docs/design/matrix.md section 8.
+- Matrix operators (`+ - * == !=`, bitwise, scalar broadcast, matrix product, matrix with array): not implemented; the checker reports the existing binary-operator rejection. Required by M2 table in docs/design/matrix.md section 4. The typed-constant-left scalar multiply cell is excluded from fixtures (suspected official bug, pending confirmation).
+- Type predicates `type_is_matrix`, `type_is_matrix_row_major`, `type_is_matrix_column_major`, `type_is_valid_matrix_elements`: builtin predicates are not implemented in this compiler (`expression_type_predicate` covers only `Type_Comparable`..`Type_Enumerated_Array`); unsupported in general, not matrix-specific.
+- `conj` on complex matrices, `hadamard_product`, `outer_product`, `transpose`, `matrix_flatten`: not implemented (M6).
+- Casts and `transmute` between matrices and arrays or other matrix shapes (M5).
+- Matrix ABI for arguments and results (M4 gate, docs/design/matrix.md section 7).
+- Matrix literals with an aggregate element other than a constant or a plain value are lowered through the same aggregate path as arrays; no fixture covers boxing or union elements inside matrices.
+- Pre-existing, unrelated to matrix work: `check` test `main_of_the_main_package_cannot_have_a_custom_calling_convention` (src/check/termination_test.odin) fails in the shared tree at the time of this run; it belongs to the procedure-check work of agent-425.

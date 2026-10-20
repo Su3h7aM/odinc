@@ -24,6 +24,10 @@ Expression_Diagnostic_Kind :: enum u8 {
 	Invalid_Range_Operator,
 	Invalid_Reverse_Range,
 	Missing_Type,
+	Missing_Return,
+	Missing_Diverging_Call,
+	Undefined_Context,
+	Main_Calling_Convention,
 }
 Expression_Diagnostic :: struct {
 	kind:       Expression_Diagnostic_Kind,
@@ -245,6 +249,7 @@ check_expression :: proc(
 		     .Union_Type,
 		     .Enum_Type,
 		     .Bit_Set_Type,
+		     .Matrix_Type,
 		     .Map_Type:
 			type := type_expression(checker.type_checker, file_id, scope, node, true) or_return
 			info = Expression_Info {
@@ -386,6 +391,8 @@ check_expression :: proc(
 			}
 		case .Index_Expr:
 			info = expression_index(checker, view, file_id, scope, node) or_return
+		case .Matrix_Index_Expr:
+			info = expression_matrix_index(checker, view, file_id, scope, node) or_return
 		case .Deref_Expr:
 			info = expression_deref(checker, view, file_id, scope, node) or_return
 		case .Type_Assertion:
