@@ -5,7 +5,7 @@ import "core:io"
 import "oc:check"
 import "oc:lower"
 
-// Writes one line per checker diagnostic as `path:line:column: kind`.
+// Writes one line per checker diagnostic as `path:line:column: kind`, followed by the reason when one is recorded.
 write_diagnostics :: proc(session: ^Session, writer: io.Writer) {
 	if unresolved := session.unresolved_when; unresolved.set {
 		if unresolved.reason == nil {
@@ -35,16 +35,16 @@ write_diagnostics :: proc(session: ^Session, writer: io.Writer) {
 		fmt.wprintfln(writer, "%s:%d:%d: unsupported import %q", file.display_path, line, column, item.path)
 	}
 	for diagnostic in session.collection.diagnostics {
-		write_diagnostic(session, writer, diagnostic.kind, diagnostic.source)
+		write_diagnostic(session, writer, diagnostic.kind, "", diagnostic.source)
 	}
 	for diagnostic in session.resolver.diagnostics {
-		write_diagnostic(session, writer, diagnostic.kind, diagnostic.source)
+		write_diagnostic(session, writer, diagnostic.kind, "", diagnostic.source)
 	}
 	for diagnostic in session.type_checker.diagnostics {
-		write_diagnostic(session, writer, diagnostic.kind, diagnostic.source)
+		write_diagnostic(session, writer, diagnostic.kind, "", diagnostic.source)
 	}
 	for diagnostic in session.checker.diagnostics {
-		write_diagnostic(session, writer, diagnostic.kind, diagnostic.source)
+		write_diagnostic(session, writer, diagnostic.kind, diagnostic.reason, diagnostic.source)
 	}
 }
 
@@ -71,10 +71,14 @@ write_lower_errors :: proc(session: ^Session, writer: io.Writer, errors: []lower
 }
 
 @(private = "file")
-write_diagnostic :: proc(session: ^Session, writer: io.Writer, kind: any, source: check.Source_Span) {
+write_diagnostic :: proc(session: ^Session, writer: io.Writer, kind: any, reason: string, source: check.Source_Span) {
 	file := session.files[source.file]
 	line, column := line_column(file.source, source.start)
-	fmt.wprintfln(writer, "%s:%d:%d: %v", file.display_path, line, column, kind)
+	if reason == "" {
+		fmt.wprintfln(writer, "%s:%d:%d: %v", file.display_path, line, column, kind)
+		return
+	}
+	fmt.wprintfln(writer, "%s:%d:%d: %v %s", file.display_path, line, column, kind, reason)
 }
 
 line_column :: proc(source: []byte, offset: u32) -> (line, column: int) {
