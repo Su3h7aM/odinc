@@ -4,9 +4,10 @@ import "base:runtime"
 import "core:math/big"
 import "oc:check"
 import "oc:ir"
+import "oc:types"
 
 // Encodes a constant initializer as little-endian bytes of a global of `size` bytes. `ok` is false for constants
-// that have no static image (strings, aggregates).
+// that have no static image (strings, and aggregates holding an address nested below the top level).
 @(private)
 global_constant_image :: proc(
 	program: ^check.Checked_Program,
@@ -54,6 +55,9 @@ global_constant_image :: proc(
 	case check.Pointer_Value:
 		write_little_endian(bytes, u64(value), 0)
 	case check.Nil_Value, check.Uninitialized_Value:
+	case check.Aggregate_Value:
+		encoded := aggregate_constant_image(program, constant.type, value.elements, bytes, allocator) or_return
+		if !encoded { return nil, nil, false, nil }
 	case check.Address_Value:
 		assert(int(value.symbol) > 0 && int(value.symbol) < len(symbols))
 		out_relocs = make([]ir.Data_Reloc, len(relocs) + 1, allocator) or_return
@@ -67,6 +71,57 @@ global_constant_image :: proc(
 		return nil, nil, false, nil
 	}
 	return bytes, out_relocs, true, nil
+}
+
+// Writes each element of a constant aggregate at its field or element offset. Nested aggregates recurse; an address
+// needs a relocation at its own offset, so it stays unsupported here.
+@(private = "file")
+aggregate_constant_image :: proc(
+	program: ^check.Checked_Program,
+	type: types.Type_Id,
+	elements: []check.Const_Id,
+	bytes: []byte,
+	allocator: runtime.Allocator,
+) -> (
+	encoded: bool,
+	err: runtime.Allocator_Error,
+) {
+	store := check.type_store(program)
+	owner := types.resolve_named(store, type)
+	descriptor := types.get(store, owner)
+	for element, index in elements {
+		if element == 0 { return false, nil }
+		element_type: types.Type_Id
+		offset: i64
+		#partial switch descriptor.kind {
+		case .Struct:
+			element_type = descriptor.fields[index].type
+			field_offset, offset_error := types.field_offset(store, owner, index)
+			if offset_error != .None { return false, nil }
+			offset = field_offset
+		case .Array, .Enumerated_Array, .Simd_Vector:
+			element_type = descriptor.elem
+			element_size, _, element_error := types.layout(store, element_type)
+			if element_error != .None { return false, nil }
+			offset = i64(index) * element_size
+		case:
+			return false, nil
+		}
+		size, _, layout_error := types.layout(store, element_type)
+		if layout_error != .None || offset + size > i64(len(bytes)) { return false, nil }
+		constant := check.constant(program, element)
+		if aggregate, is_aggregate := constant.value.(check.Aggregate_Value); is_aggregate {
+			encoded = aggregate_constant_image(program, element_type, aggregate.elements, bytes[offset:][:size], allocator) or_return
+			if !encoded { return false, nil }
+			continue
+		}
+		if _, is_address := constant.value.(check.Address_Value); is_address { return false, nil }
+		image, relocs, scalar_ok, image_error := global_constant_image(program, element, u32(size), nil, nil, allocator)
+		if image_error != nil { return false, image_error }
+		if !scalar_ok || len(relocs) != 0 { return false, nil }
+		copy(bytes[offset:], image)
+	}
+	return true, nil
 }
 
 @(private = "file")
