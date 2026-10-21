@@ -335,6 +335,10 @@ check_conversion :: proc(
 		if conversion_error.kind != .None { return {}, .Not_Representable, nil }
 		result.info.mode = .Constant
 		result.info.constant = constant
+		if _, is_constant := source.(Const_Id); is_constant {
+			// Constant operands use the folded value; expression references retain their identity.
+			result.plan.source = Operand(constant)
+		}
 	}
 	return result, .None, nil
 }

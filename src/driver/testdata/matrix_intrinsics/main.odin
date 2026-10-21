@@ -106,5 +106,12 @@ main :: proc() {
 	fi := intrinsics.matrix_flatten(i4)
 	i4[1][0] = 99
 	if fi[1] != 3 || i4[1][0] != 99 { code += 32 }
+	f4 := matrix[2, 2]f32{
+		1, 2,
+		3, 4,
+	}
+	ff := intrinsics.matrix_flatten(f4)
+	ff[1] = 3.5
+	if ff[1] != 3.5 || f4[1][0] != 3 { code += 64 }
 	intrinsics.syscall(60, uintptr(42 + code))
 }

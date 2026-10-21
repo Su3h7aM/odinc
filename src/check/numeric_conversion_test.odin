@@ -94,3 +94,90 @@ numeric_conversions_check_ranges_and_rounding :: proc(t: ^testing.T) {
 	testing.expect_value(t, constant_pool_get(&pool, complex_value[0]).value.(Float_Value), expected_component)
 	testing.expect_value(t, constant_pool_get(&pool, complex_value[1]).value.(Float_Value), Float_Value{bits = transmute(u64)f64(0), width = 64})
 }
+
+@(test)
+numeric_constant_fold_repoints_conversion_source :: proc(t: ^testing.T) {
+	pool: Constant_Pool
+	testing.expect(t, constant_pool_init(&pool, context.allocator) == nil)
+	defer constant_pool_destroy(&pool)
+	type_store := types.init()
+	defer types.destroy(&type_store)
+
+	f32_type := types.intern(&type_store, types.Type{kind = .Float, count = 4})
+	f64_type := types.intern(&type_store, types.Type{kind = .Float, count = 8})
+	i32_type := types.intern(&type_store, types.Type{kind = .Integer, count = 4, signed = true})
+	config := Conversion_Config {
+		layout = types.DEFAULT_LAYOUT,
+	}
+
+	rational, rational_error := literal_constant(&pool, .Float, "3.5")
+	if !testing.expect(t, rational_error == nil) { return }
+	info := Expression_Info {
+		type     = types.TYPE_UNTYPED_FLOAT,
+		constant = rational,
+		mode     = .Constant,
+		state    = .Checked,
+	}
+	converted, diagnostic, err := check_conversion(&pool, &type_store, Operand(rational), info, f32_type, .Assignment, config)
+	testing.expect(t, err == nil && diagnostic == .None)
+	if testing.expect(t, converted.info.mode == .Constant && converted.info.type == f32_type) {
+		testing.expect(t, converted.plan.source == Operand(converted.info.constant))
+		testing.expect(t, converted.plan.target == f32_type)
+		testing.expect(t, constant_pool_get(&pool, converted.info.constant).type == f32_type)
+		testing.expect_value(
+			t,
+			constant_pool_get(&pool, converted.info.constant).value.(Float_Value),
+			Float_Value{bits = transmute(u64)f64(f64(f32(3.5))), width = 64},
+		)
+	}
+	wide, wide_diagnostic, wide_err := check_conversion(&pool, &type_store, Operand(rational), info, f64_type, .Assignment, config)
+	testing.expect(t, wide_err == nil && wide_diagnostic == .None)
+	if testing.expect(t, wide.info.mode == .Constant && wide.info.type == f64_type) {
+		testing.expect(t, wide.plan.source == Operand(wide.info.constant))
+	}
+
+	huge, huge_error := literal_constant(&pool, .Float, "3.5e38")
+	if !testing.expect(t, huge_error == nil) { return }
+	info.constant = huge
+	_, overflow_diagnostic, overflow_err := check_conversion(&pool, &type_store, Operand(huge), info, f32_type, .Assignment, config)
+	testing.expect(t, overflow_err == nil && overflow_diagnostic == .Not_Representable)
+
+	integer, integer_error := literal_constant(&pool, .Integer, "3")
+	if !testing.expect(t, integer_error == nil) { return }
+	integer_info := Expression_Info {
+		type     = types.TYPE_UNTYPED_INTEGER,
+		constant = integer,
+		mode     = .Constant,
+		state    = .Checked,
+	}
+	integer_converted, integer_diagnostic, integer_err := check_conversion(&pool, &type_store, Operand(integer), integer_info, i32_type, .Assignment, config)
+	testing.expect(t, integer_err == nil && integer_diagnostic == .None)
+	if testing.expect(t, integer_converted.info.mode == .Constant && integer_converted.info.type == i32_type) {
+		testing.expect(t, integer_converted.plan.source == Operand(integer_converted.info.constant))
+	}
+	for source_type in ([3]types.Type_Id{0, types.TYPE_UNTYPED_INTEGER, i32_type}) {
+		pooled_integer := constant_pool_get(&pool, integer).value.(big.Int)
+		source, source_error := constant_pool_intern_integer(&pool, &pooled_integer, source_type)
+		if !testing.expect(t, source_error == nil) { return }
+		integer_info.type = source_type if source_type != 0 else types.TYPE_UNTYPED_INTEGER
+		integer_info.constant = source
+		for target in ([2]types.Type_Id{f32_type, f64_type}) {
+			kind := Conversion_Kind.Cast if source_type == i32_type else Conversion_Kind.Assignment
+			folded, fold_diagnostic, fold_error := check_conversion(&pool, &type_store, Operand(source), integer_info, target, kind, config)
+			if testing.expect(t, fold_error == nil && fold_diagnostic == .None) {
+				testing.expect(t, folded.plan.source == Operand(folded.info.constant) && folded.plan.target == target)
+				testing.expect(t, constant_pool_get(&pool, folded.info.constant).type == target)
+				testing.expect_value(
+					t,
+					constant_pool_get(&pool, folded.info.constant).value.(Float_Value),
+					Float_Value{bits = transmute(u64)f64(3), width = 64},
+				)
+			}
+		}
+	}
+	_, typed_diagnostic, typed_error := check_conversion(&pool, &type_store, Operand(integer_info.constant), integer_info, f32_type, .Assignment, config)
+	testing.expect(t, typed_error == nil && typed_diagnostic == .Not_Assignable)
+	info.constant = rational
+	_, fraction_diagnostic, fraction_error := check_conversion(&pool, &type_store, Operand(rational), info, i32_type, .Assignment, config)
+	testing.expect(t, fraction_error == nil && fraction_diagnostic == .Not_Representable)
+}
