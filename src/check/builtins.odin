@@ -687,6 +687,9 @@ expression_builtin_call :: proc(
 	if kind := checker.builtin_kinds[builtin]; kind >= .C_Va_Arg && kind <= .C_Va_Start {
 		return expression_c_varargs(checker, view, scope, node, builtin, arguments, call.ellipsis.kind != .Invalid)
 	}
+	if checker.builtin_kinds[builtin] == .Swizzle {
+		return expression_swizzle_builtin(checker, view, file_id, scope, node, arguments, hint)
+	}
 	if checker.builtin_kinds[builtin] != .Syscall {
 		return expression_unsupported(checker, view, scope, node, entity_get(checker.type_checker.resolver.scopes, callee.entity).name)
 	}

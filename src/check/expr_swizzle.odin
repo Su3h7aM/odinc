@@ -1,6 +1,7 @@
 package check
 
 import "core:fmt"
+import "core:math/big"
 import "core:mem"
 import "oc:syntax"
 import "oc:types"
@@ -82,5 +83,81 @@ expression_array_selector :: proc(
 	if base.mode == .Variable || indirect { mode = .Variable }
 	plan_id := Plan_Id(len(checker.plans))
 	append(&checker.plans, Plan(plan)) or_return
+	return Expression_Info{type = result_type, mode = mode, plan = plan_id, scope = scope, state = .Checked}, nil
+}
+
+
+@(private = "package")
+expression_swizzle_builtin :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	file_id: File_Id,
+	scope: Scope_Id,
+	node: syntax.Node_Index,
+	arguments: []syntax.Node_Index,
+	hint: types.Type_Id,
+) -> (
+	info: Expression_Info,
+	err: Resolve_Error,
+) {
+	if len(arguments) < 2 {
+		return expression_failure(checker, view, scope, node, .Invalid_Operand)
+	}
+	base := check_expression(checker, view, scope, arguments[0]) or_return
+	if base.state == .Invalid { return expression_poison(scope), nil }
+	store := checker.type_checker.store
+	descriptor := types.get(store, types.resolve_named(store, base.type))
+	if descriptor.kind == .Simd_Vector {
+		return expression_unsupported(checker, view, scope, arguments[0], "Swizzle_Simd")
+	}
+	if descriptor.kind != .Array {
+		return expression_failure(checker, view, scope, arguments[0], .Invalid_Operand)
+	}
+	count := len(arguments) - 1
+	if count < 2 { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
+	indices := [4]u8{}
+	for i in 0 ..< count {
+		value := check_expression(checker, view, scope, arguments[i + 1]) or_return
+		if value.state == .Invalid { return expression_poison(scope), nil }
+		if value.mode != .Constant {
+			return expression_failure(checker, view, scope, arguments[i + 1], .Invalid_Operand)
+		}
+		pool_value := constant_pool_get(checker.constants, value.constant)
+		if pool_value == nil {
+			return expression_failure(checker, view, scope, arguments[i + 1], .Invalid_Operand)
+		}
+		integer, is_integer := pool_value.value.(big.Int)
+		if !is_integer {
+			return expression_failure(checker, view, scope, arguments[i + 1], .Invalid_Operand)
+		}
+		n, index_error := big.int_get_i64(&integer)
+		if index_error != .None || n < 0 || n >= descriptor.count {
+			return expression_failure(checker, view, scope, arguments[i + 1], .Invalid_Operand)
+		}
+		indices[i] = u8(n)
+	}
+	plan := Swizzle_Plan {
+		root     = Operand(Expression_Ref{view, arguments[0]}),
+		count    = u8(count),
+		indirect = false,
+	}
+	for i in 0 ..< count { plan.indices[i] = indices[i] }
+	result_type := descriptor.elem
+	if count > 1 {
+		result_type = types.intern(store, types.Type{kind = .Array, elem = descriptor.elem, count = i64(count)})
+		if i64(count) == descriptor.count {
+			result_type = base.type
+		}
+		if hint != 0 {
+			hint_descriptor := types.get(store, types.resolve_named(store, hint))
+			if hint_descriptor.kind == .Array && hint_descriptor.count == i64(count) && hint_descriptor.elem == descriptor.elem {
+				result_type = hint
+			}
+		}
+	}
+	plan_id := Plan_Id(len(checker.plans))
+	append(&checker.plans, Plan(plan)) or_return
+	mode := Addressing_Mode.Value
+	if base.mode == .Variable { mode = .Variable }
 	return Expression_Info{type = result_type, mode = mode, plan = plan_id, scope = scope, state = .Checked}, nil
 }

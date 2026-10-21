@@ -121,7 +121,7 @@ expression_checker_init :: proc(
 	append(&checker.builtin_kinds, Builtin_Kind.Has_Target_Feature) or_return
 	append(&checker.builtin_kinds, Builtin_Kind.Type_Info_Of) or_return
 	append(&checker.builtin_kinds, Builtin_Kind.Offset_Of, Builtin_Kind.Offset_Of_By_String) or_return
-	append(&checker.builtin_kinds, Builtin_Kind.Complex, .Quaternion, .Real, .Imag, .Jmag, .Kmag, .Conj) or_return
+	append(&checker.builtin_kinds, Builtin_Kind.Complex, .Quaternion, .Real, .Imag, .Jmag, .Kmag, .Conj, .Swizzle) or_return
 	return nil
 }
 

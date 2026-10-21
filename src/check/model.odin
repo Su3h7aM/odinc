@@ -329,6 +329,7 @@ Builtin_Kind :: enum u16 {
 	Wasm_Memory_Atomic_Wait32,
 	Wasm_Memory_Grow,
 	Wasm_Memory_Size,
+	Swizzle,
 }
 
 
