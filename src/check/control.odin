@@ -114,8 +114,12 @@ expression_when :: proc(checker: ^Expression_Checker, view: View_Id, file_id: Fi
 	statement := syntax.node_payload(file.ast, node, syntax.When_Stmt)
 	condition := check_expression(checker, view, scope, statement.cond) or_return
 	if condition.state == .Invalid { return nil }
+	if condition.mode != .Constant {
+		expression_unsupported(checker, view, scope, statement.cond, "When_Condition") or_return
+		return nil
+	}
 	value, is_bool := constant_pool_get(checker.constants, condition.constant).value.(bool)
-	if condition.mode != .Constant || !is_bool {
+	if !is_bool {
 		expression_unsupported(checker, view, scope, statement.cond, "When_Condition") or_return
 		return nil
 	}

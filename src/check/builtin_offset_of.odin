@@ -45,8 +45,9 @@ expression_offset_of :: proc(
 		if kind == .Offset_Of_By_String {
 			name_info := check_expression(checker, view, scope, arguments[1]) or_return
 			if name_info.state == .Invalid { return expression_poison(scope), nil }
+			if name_info.mode != .Constant { return expression_failure(checker, view, scope, arguments[1], .Invalid_Operand) }
 			name, is_string := constant_pool_get(checker.constants, name_info.constant).value.(string)
-			if name_info.mode != .Constant || !is_string { return expression_failure(checker, view, scope, arguments[1], .Invalid_Operand) }
+			if !is_string { return expression_failure(checker, view, scope, arguments[1], .Invalid_Operand) }
 			field_name = name
 		} else {
 			if file.ast.nodes[arguments[1]].kind != .Ident { return expression_failure(checker, view, scope, arguments[1], .Invalid_Operand) }
