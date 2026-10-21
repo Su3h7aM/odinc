@@ -91,3 +91,125 @@ main :: proc() {
 	_, ok := check_procedure_source(t, source, .Invalid_Operand, "Cannot assign 'int', a type, to assignment")
 	testing.expect(t, ok)
 }
+
+@(test)
+type_valued_initializer_for_any_variable_is_rejected :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(`package sample
+main :: proc() {
+	x: any = int
+	_ = x
+}
+`)
+	_, ok := check_procedure_source(t, source, .Invalid_Operand, "Cannot assign a type 'int' to variable 'x'", diagnostic_count = 1)
+	testing.expect(t, ok)
+}
+
+@(test)
+type_valued_return_to_any_is_rejected_with_official_notes :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(`package sample
+main :: proc() -> any {
+	return int
+}
+`)
+	_, ok := check_procedure_source(
+		t,
+		source,
+		.Invalid_Operand,
+		"Cannot assign 'int', a type, to return statement\n\tSuggestion: 'typeid_of(int)'\tSuggestion: If this is intended, make it explicit with a conversion to 'rawptr' or 'uintptr', or a 'transmute'",
+		diagnostic_count = 1,
+	)
+	testing.expect(t, ok)
+}
+
+@(test)
+type_valued_keyed_struct_field_is_rejected :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(`package sample
+S :: struct { f: any }
+main :: proc() {
+	s := S{f = int}
+	_ = s
+}
+`)
+	_, ok := check_procedure_source(
+		t,
+		source,
+		.Invalid_Operand,
+		"Cannot assign 'int', a type, to a structure literal\n\tSuggestion: 'typeid_of(int)'",
+		diagnostic_count = 1,
+	)
+	testing.expect(t, ok)
+}
+
+@(test)
+type_valued_positional_struct_field_is_ambiguous :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(`package sample
+S :: struct { f: any }
+main :: proc() {
+	s := S{int}
+	_ = s
+}
+`)
+	_, ok := check_procedure_source(
+		t,
+		source,
+		.Invalid_Operand,
+		"'int' is not an expression but a type, in this context it is ambiguous",
+		diagnostic_count = 1,
+	)
+	testing.expect(t, ok)
+}
+
+@(test)
+type_valued_fixed_array_element_is_ambiguous :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(`package sample
+main :: proc() {
+	a := [1]any{int}
+	_ = a
+}
+`)
+	_, ok := check_procedure_source(
+		t,
+		source,
+		.Invalid_Operand,
+		"'int' is not an expression but a type, in this context it is ambiguous",
+		diagnostic_count = 1,
+	)
+	testing.expect(t, ok)
+}
+
+@(test)
+type_valued_slice_element_is_ambiguous :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(`package sample
+main :: proc() {
+	s := []any{int}
+	_ = s
+}
+`)
+	_, ok := check_procedure_source(
+		t,
+		source,
+		.Invalid_Operand,
+		"'int' is not an expression but a type, in this context it is ambiguous",
+		diagnostic_count = 1,
+	)
+	testing.expect(t, ok)
+}
+
+@(test)
+type_valued_assignment_to_any_suggests_typeid :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(`package sample
+main :: proc() {
+	x: any
+	x = int
+	_ = x
+}
+`)
+	_, ok := check_procedure_source(
+		t,
+		source,
+		.Invalid_Operand,
+		"Cannot assign 'int', a type, to assignment\n\tSuggestion: 'typeid_of(int)'",
+		diagnostic_count = 1,
+	)
+	testing.expect(t, ok)
+}

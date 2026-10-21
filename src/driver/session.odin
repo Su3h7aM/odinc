@@ -185,7 +185,7 @@ histogram_print :: proc(session: ^Session, writer: io.Writer) -> Driver_Error {
 	}
 	for diagnostic in session.checker.diagnostics {
 		reason := diagnostic.reason
-		if diagnostic.kind == .Conversion { reason = fmt.tprint(diagnostic.conversion) }
+		if diagnostic.kind == .Conversion && reason == "" { reason = fmt.tprint(diagnostic.conversion) }
 		if error := histogram_source(&entries, session, "expr", diagnostic.kind, diagnostic.source, reason); error != .None { return error }
 	}
 	slice.sort_by(entries[:], histogram_before)

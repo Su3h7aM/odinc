@@ -86,6 +86,10 @@ expression_literal_elements :: proc(
 		}
 		value := check_expression(checker, view, scope, value_node, element_type) or_return
 		if value.state == .Invalid { return {}, {}, {}, 0, true, nil }
+		if value.mode == .Type {
+			expression_type_ambiguous_failure(checker, view, scope, value_node) or_return
+			return {}, {}, {}, 0, true, nil
+		}
 		conversion := expression_boxing_plan(checker, value.plan)
 		for index in firsts[position] ..= lasts[position] {
 			if seen[index] {

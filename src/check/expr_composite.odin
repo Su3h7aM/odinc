@@ -232,6 +232,14 @@ expression_composite :: proc(
 		}
 		value := check_expression(checker, view, scope, value_node, element_type) or_return
 		if value.state == .Invalid { return expression_poison(scope), nil }
+		if value.mode == .Type {
+			if descriptor.kind == .Struct && file.ast.nodes[element].kind == .Field_Value {
+				_, failure := expression_type_context_failure(checker, view, scope, value_node, element_type, value.type, "a structure literal")
+				return expression_poison(scope), failure
+			}
+			expression_type_ambiguous_failure(checker, view, scope, value_node) or_return
+			return expression_poison(scope), nil
+		}
 		value_operand := Operand(Expression_Ref{view, value_node})
 		conversion := expression_boxing_plan(checker, value.plan)
 		constant_element := value.constant != 0 && expression_constant_element(checker, store, is_array || is_matrix, element_type, value.plan)
@@ -386,6 +394,10 @@ expression_composite_soa_fixed :: proc(
 		}
 		value := check_expression(checker, view, scope, value_node, elem) or_return
 		if value.state == .Invalid { return expression_poison(scope), nil }
+		if value.mode == .Type {
+			expression_type_ambiguous_failure(checker, view, scope, value_node) or_return
+			return expression_poison(scope), nil
+		}
 		value_operand := Operand(Expression_Ref{view, value_node})
 		conversion := expression_boxing_plan(checker, value.plan)
 		constant := value.constant

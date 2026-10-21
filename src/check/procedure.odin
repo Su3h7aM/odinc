@@ -1183,7 +1183,10 @@ expression_assignment :: proc(checker: ^Expression_Checker, view: View_Id, file_
 	if assignment.op.kind == .Shl_Eq || assignment.op.kind == .Shr_Eq { value_hint = 0 }
 	value := check_expression(checker, view, scope, right[0], value_hint) or_return
 	if value.state == .Invalid { return nil }
-	if value.mode == .Type { return expression_type_assignment_failure(checker, view, scope, right[0], value.type) }
+	if value.mode == .Type {
+		_, failure := expression_type_context_failure(checker, view, scope, right[0], destination.type, value.type, "assignment")
+		return failure
+	}
 	if value_hint == 0 && conversion_untyped(types.get(checker.type_checker.store, value.type).kind) {
 		value = check_expression(checker, view, scope, right[0], types.default_type_of_untyped(checker.type_checker.store, value.type)) or_return
 		if value.state == .Invalid { return nil }
@@ -1251,6 +1254,19 @@ expression_return :: proc(checker: ^Expression_Checker, view: View_Id, file_id: 
 	for value, index in values {
 		info := check_expression(checker, view, scope, value, checker.results[index]) or_return
 		if info.state == .Invalid { return nil }
+		if info.mode == .Type {
+			_, failure := expression_type_context_failure(
+				checker,
+				view,
+				scope,
+				value,
+				checker.results[index],
+				info.type,
+				"return statement",
+				"\tSuggestion: If this is intended, make it explicit with a conversion to 'rawptr' or 'uintptr', or a 'transmute'",
+			)
+			return failure
+		}
 		conversions[index] = expression_boxing_plan(checker, info.plan)
 		operands[index] = Operand(Expression_Ref{view, value})
 	}

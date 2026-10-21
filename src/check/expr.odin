@@ -443,6 +443,11 @@ check_expression :: proc(
 		info = expression_typeid_value(checker, scope, info.type) or_return
 	}
 	if hint != 0 && info.state != .Invalid && info.type != hint && info.mode != .Constant && expression_converts_implicitly(checker, hint, info.type) {
+		if info.mode == .Type && types.get(checker.type_checker.store, hint).kind != .Type_Id {
+			// A type is not a value to box; the caller rejects it with its own official message.
+			expression_store(checker, view, node, info)
+			return info, nil
+		}
 		// The node keeps its own row as the source; the boxing conversion is returned to the caller.
 		expression_store(checker, view, node, info)
 		return expression_conversion(

@@ -5,6 +5,32 @@ import "core:mem"
 import "oc:syntax"
 import "oc:types"
 
+// A type-valued operand where a value of the target is expected, as official check_assignment reports it. The
+// typeid suggestion applies only to an `any` target; notes follow it verbatim.
+@(private = "package")
+expression_type_context_failure :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	scope: Scope_Id,
+	node: syntax.Node_Index,
+	target: types.Type_Id,
+	type: types.Type_Id,
+	construct: string,
+	notes: string = "",
+) -> (
+	info: Expression_Info,
+	err: Resolve_Error,
+) {
+	file := checker.type_checker.files[checker.views[view].file]
+	store := checker.type_checker.store
+	allocator := mem.dynamic_arena_allocator(&checker.arena)
+	reason := fmt.aprintf("Cannot assign '%s', a type, to %s", record_type_name(store, type, allocator), construct, allocator = allocator)
+	if target != types.TYPE_NONE && types.get(store, target).kind == .Any {
+		reason = fmt.aprintf("%s\n\tSuggestion: 'typeid_of(%s)'%s", reason, expression_text(file, node), notes, allocator = allocator)
+	}
+	return expression_failure(checker, view, scope, node, .Invalid_Operand, reason)
+}
+
 // A type-valued operand that is not a typeid argument, as official check_assignment reports it.
 @(private = "package")
 expression_type_argument_failure :: proc(
@@ -18,32 +44,7 @@ expression_type_argument_failure :: proc(
 	info: Expression_Info,
 	err: Resolve_Error,
 ) {
-	file := checker.type_checker.files[checker.views[view].file]
-	store := checker.type_checker.store
-	allocator := mem.dynamic_arena_allocator(&checker.arena)
-	reason := fmt.aprintf("Cannot assign '%s', a type, to a procedure argument", record_type_name(store, type, allocator), allocator = allocator)
-	if types.get(store, target).kind == .Any {
-		reason = fmt.aprintf("%s\n\tSuggestion: 'typeid_of(%s)'", reason, expression_text(file, node), allocator = allocator)
-	}
-	return expression_failure(checker, view, scope, node, .Invalid_Operand, reason)
-}
-
-// A type-valued right-hand side of an assignment, as official check_assignment reports it.
-@(private = "package")
-expression_type_assignment_failure :: proc(
-	checker: ^Expression_Checker,
-	view: View_Id,
-	scope: Scope_Id,
-	node: syntax.Node_Index,
-	type: types.Type_Id,
-) -> (
-	err: Resolve_Error,
-) {
-	allocator := mem.dynamic_arena_allocator(&checker.arena)
-	store := checker.type_checker.store
-	reason := fmt.aprintf("Cannot assign '%s', a type, to assignment", record_type_name(store, type, allocator), allocator = allocator)
-	_, err = expression_failure(checker, view, scope, node, .Invalid_Operand, reason)
-	return err
+	return expression_type_context_failure(checker, view, scope, node, target, type, "a procedure argument")
 }
 
 // A runtime value passed to a typeid parameter, as official check_assignment reports it.
@@ -72,7 +73,7 @@ expression_value_argument_failure :: proc(
 	return expression_failure(checker, view, scope, node, .Conversion, reason)
 }
 
-// A package-level type-valued initializer, as official check_expr_with_type_hint reports it.
+// A type-valued operand whose context names no target, as official check_expr_with_type_hint reports it.
 @(private = "package")
 expression_type_ambiguous_failure :: proc(checker: ^Expression_Checker, view: View_Id, scope: Scope_Id, node: syntax.Node_Index) -> (err: Resolve_Error) {
 	file := checker.type_checker.files[checker.views[view].file]
