@@ -22,7 +22,7 @@ expression_integer_evaluator :: proc(
 	view := expression_file_view(checker, file) or_return
 	info := check_expression(checker, view, scope, node) or_return
 	if info.state == .Invalid { return }
-	if info.mode == .Constant && conversion_integer(types.get(type_checker.store, conversion_base_type(type_checker.store, info.type)).kind) {
+	if info.mode == .Constant && conversion_integer(types.get(type_checker.store, conversion_core_type(type_checker.store, info.type)).kind) {
 		constant := constant_pool_get(checker.constants, info.constant)
 		if integer, is_integer := constant.value.(big.Int); is_integer {
 			converted, failure := big.int_get_i128(&integer, allocator = checker.allocator)

@@ -609,6 +609,9 @@ expression_builtin_call :: proc(
 	file := checker.type_checker.files[file_id]
 	call := syntax.node_payload(file.ast, node, syntax.Call_Expr)
 	builtin := entity_get(checker.type_checker.resolver.scopes, callee.entity).data.(Builtin_Id)
+	if checker.builtin_kinds[builtin] == .Type_Merge {
+		return expression_type_merge(checker, view, scope, node, arguments, call.ellipsis.kind != .Invalid)
+	}
 	if kind := checker.builtin_kinds[builtin]; kind >= .Type_Array && kind <= .Type_Elem_Type {
 		return expression_type_query(checker, view, scope, node, kind, arguments, call.ellipsis.kind != .Invalid)
 	}

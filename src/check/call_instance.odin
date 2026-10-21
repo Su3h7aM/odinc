@@ -166,7 +166,8 @@ expression_generic_call :: proc(
 				continue
 			}
 			argument_hint: types.Type_Id
-			if caller.ast.nodes[argument_node].kind == .Implicit_Selector_Expr && !poly_pattern_has_poly(file, field.type) {
+			argument_kind := caller.ast.nodes[argument_node].kind
+			if (argument_kind == .Implicit_Selector_Expr || argument_kind == .Comp_Lit) && !poly_pattern_has_poly(file, field.type) {
 				if field.type != 0 {
 					argument_hint = type_expression(checker.type_checker, declaration.type.file, definition_scope, field.type, true) or_return
 				} else {

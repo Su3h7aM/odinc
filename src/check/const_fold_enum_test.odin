@@ -23,6 +23,23 @@ main :: proc "contextless" () {
 }
 
 @(test)
+enum_initializers_accept_integer_backed_constants :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(
+		`package sample
+Source :: enum { First = 11, Last = 19 }
+Target :: enum { First = auto_cast Source.First, Last = auto_cast Source.Last }
+main :: proc() {
+	#assert(int(Target.First) == 11)
+	#assert(int(Target.Last) == 19)
+}
+`,
+	)
+	procedure, ok := check_procedure_source(t, source, diagnostic_count = 0, type_diagnostic_count = 0)
+	if !ok { return }
+	testing.expect(t, procedure.body_state == .Complete)
+}
+
+@(test)
 enum_backing_ranges_reject_overflow :: proc(t: ^testing.T) {
 	for source in ([]string{`package sample
 E :: enum u64 { Last = 18446744073709551616 }
