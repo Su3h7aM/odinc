@@ -464,6 +464,7 @@ Entity_Flag :: enum u8 {
 	C_Variadic,
 	Any_Integer,
 	No_Broadcast,
+	Test,
 }
 Entity_Flags :: bit_set[Entity_Flag;u64]
 
@@ -727,8 +728,8 @@ Place_Plan :: struct {
 }
 Swizzle_Plan :: struct {
 	root:     Operand,
-	indices:  [4]u8,
-	count:    u8,
+	indices:  []i64,
+	count:    int,
 	indirect: bool,
 }
 Binary_Conversion_Plan :: struct {
@@ -753,6 +754,14 @@ Call_Argument :: struct {
 	variadic_conversions:    []Plan_Id,
 	tuple_element:           int,
 	variadic_tuple_elements: []int,
+	receiver:                Receiver_Form,
+}
+// The object that owns a `->` call's field, passed as the first argument: by value, or by its address.
+Receiver_Form :: enum u8 {
+	None,
+	Value,
+	Address,
+	Box,
 }
 Call_Plan :: struct {
 	callee:       Operand,
@@ -771,11 +780,14 @@ Builtin_Plan :: struct {
 	arguments: []Operand,
 	helpers:   []Entity_Id,
 	results:   []types.Type_Id,
+	// The type operand of type_hasher_proc; zero for every other builtin.
+	type:      types.Type_Id,
 }
 Aggregate_Plan :: struct {
 	type:          types.Type_Id,
 	values:        []Operand,
 	field_indices: []u32,
+	field_paths:   [][]Member_Step,
 	conversions:   []Plan_Id,
 }
 Slice_Literal_Plan :: struct {

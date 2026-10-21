@@ -59,7 +59,7 @@ lower_program :: proc(
 	}
 	append(&module.globals, ir.Global{name = DEFAULT_CONTEXT_NAME, size = DEFAULT_CONTEXT_SIZE, align = 16, mutable = true}) or_return
 	runtime_requirements := check.runtime_requirements(program)
-	fill_type_info(program, module, &collected) or_return
+	fill_type_info(program, module, symbols, &collected) or_return
 	fill_map_cell_info(program, module, symbols) or_return
 	fill_map_info(program, module, symbols) or_return
 	if runtime_requirements.entry_point != 0 || len(runtime_requirements.tests) != 0 {

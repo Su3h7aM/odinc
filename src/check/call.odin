@@ -153,6 +153,7 @@ expression_call_slot_argument :: proc(
 	target: types.Type_Id,
 	parameter: Entity_Id,
 	any_integer: bool = false,
+	no_broadcast: bool = false,
 ) -> (
 	argument: Call_Argument,
 	valid: bool,
@@ -160,7 +161,7 @@ expression_call_slot_argument :: proc(
 ) {
 	order := u32(slot.position)
 	if slot.element == 0 {
-		return expression_call_argument(checker, view, scope, slot.value, target, parameter, order, any_integer)
+		return expression_call_argument(checker, view, scope, slot.value, target, parameter, order, any_integer, no_broadcast)
 	}
 	return expression_call_tuple_argument(
 		checker,
@@ -260,6 +261,34 @@ call_result_conversion :: proc(
 	return plan, true, nil
 }
 
+// An operand that splats into an array parameter or element publishes the Broadcast plan of the assignment
+// conversion, as an assignment does. Other operands publish no plan here.
+@(private = "file")
+call_argument_broadcast :: proc(
+	checker: ^Expression_Checker,
+	source: Operand,
+	value: Expression_Info,
+	target: types.Type_Id,
+) -> (
+	plan: Plan_Id,
+	err: Resolve_Error,
+) {
+	store := checker.type_checker.store
+	if types.get(store, types.resolve_named(store, target)).kind != .Array { return 0, nil }
+	info := value
+	if value.type == target {
+		// A constant argument arrives already typed as the parameter; its own untyped type decides the splat.
+		constant := constant_pool_get(checker.constants, value.constant)
+		if value.mode != .Constant || constant == nil || !conversion_untyped(types.get(store, constant.type).kind) { return 0, nil }
+		info.type = constant.type
+	}
+	converted, diagnostic, conversion_error := check_conversion(checker.constants, store, source, info, target, .Assignment, checker.config)
+	if conversion_error != nil || diagnostic != .None || converted.plan.kind != .Broadcast { return 0, nil }
+	plan = Plan_Id(len(checker.plans))
+	append(&checker.plans, Plan(converted.plan)) or_return
+	return plan, nil
+}
+
 // A supplied argument converted to its parameter type. The call retains the conversion plan, if any.
 @(private = "file")
 expression_call_argument :: proc(
@@ -271,6 +300,7 @@ expression_call_argument :: proc(
 	parameter: Entity_Id,
 	order: u32,
 	any_integer: bool = false,
+	no_broadcast: bool = false,
 ) -> (
 	argument: Call_Argument,
 	valid: bool,
@@ -285,11 +315,44 @@ expression_call_argument :: proc(
 	conversion := expression_conversion_plan(checker, value.plan)
 	if conversion != 0 {
 		retained := checker.plans[conversion].(Conversion_Plan)
-		retained.source = operand
+		// A constant conversion already names its constant as the source. Rebinding it to the
+		// argument node would box the hint-converted row type instead of the constant's own type.
+		if constant, is_constant := retained.source.(Const_Id); is_constant {
+			operand = Operand(constant)
+		} else {
+			retained.source = operand
+		}
 		conversion = Plan_Id(len(checker.plans))
 		append(&checker.plans, Plan(retained)) or_return
+	} else {
+		conversion = call_argument_broadcast(checker, operand, value, target) or_return
+	}
+	if no_broadcast || parameter != 0 && .No_Broadcast in entity_get(checker.type_checker.resolver.scopes, parameter).flags {
+		rejected := call_broadcast_rejected(checker, view, value_node, conversion) or_return
+		if rejected { return {}, false, nil }
 	}
 	return Call_Argument{value = operand, parameter = parameter, conversion = conversion, evaluation_order = order}, true, nil
+}
+
+// A broadcast onto a `#no_broadcast` parameter is not assignable; records the diagnostic at the argument.
+@(private = "file")
+call_broadcast_rejected :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	value_node: syntax.Node_Index,
+	conversion: Plan_Id,
+) -> (
+	rejected: bool,
+	err: Resolve_Error,
+) {
+	plan, is_conversion := checker.plans[conversion].(Conversion_Plan)
+	if conversion == 0 || !is_conversion || plan.kind != .Broadcast { return false, nil }
+	span := checker.type_checker.files[checker.views[view].file].ast.nodes[value_node]
+	append(
+		&checker.diagnostics,
+		Expression_Diagnostic{kind = .Conversion, source = {checker.views[view].file, span.start, span.end}, conversion = .Not_Assignable},
+	) or_return
+	return true, nil
 }
 
 // The trailing arguments of a variadic call become the elements of one slice argument. Non-constant
@@ -340,18 +403,23 @@ expression_variadic_argument :: proc(
 		}
 		flat += 1
 		if flat <= first_element { continue }
-		value := check_expression(checker, view, scope, element, element_type) or_return
+		value := expression_argument(checker, view, scope, element, element_type, false) or_return
 		if value.state == .Invalid { return {}, "", false, nil }
 		operand: Operand
 		conversion: Plan_Id
 		switch {
 		case value.constant != 0:
 			operand = Operand(value.constant)
+			conversion = call_argument_broadcast(checker, operand, value, element_type) or_return
 		case expression_conversion_plan(checker, value.plan) != 0:
 			operand = Operand(Expression_Ref{view, element})
 			conversion = value.plan
 		case:
 			operand = Operand(Expression_Ref{view, element})
+		}
+		if parameter != 0 && .No_Broadcast in entity_get(checker.type_checker.resolver.scopes, parameter).flags {
+			rejected := call_broadcast_rejected(checker, view, element, conversion) or_return
+			if rejected { return {}, "", false, nil }
 		}
 		append(&elements, operand) or_return
 		append(&conversions, conversion) or_return

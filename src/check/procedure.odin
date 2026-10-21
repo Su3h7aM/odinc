@@ -468,6 +468,22 @@ expression_procedure_body :: proc(checker: ^Expression_Checker, resolver: ^Resol
 	return true, nil
 }
 
+@(private = "package")
+expression_queue_instance_body :: proc(
+	checker: ^Expression_Checker,
+	resolver: ^Resolver,
+	id: Entity_Id,
+	declaration: Collected_Declaration,
+) -> (
+	valid: bool,
+	err: Resolve_Error,
+) {
+	if !(expression_bodyless_signature_bindings(checker, resolver, id, declaration.type) or_return) { return false, nil }
+	checker.type_checker.declarations[id] = declaration
+	_, append_error := append(&resolver.pending_bodies, id)
+	return true, append_error
+}
+
 // Official check_proc_body: a procedure with results, or declared `-> !`, must end in a terminating statement.
 @(private = "file")
 expression_procedure_termination :: proc(checker: ^Expression_Checker, view: View_Id, id: Entity_Id, body: Node_Ref) -> Resolve_Error {
@@ -565,6 +581,7 @@ expression_signature_bindings :: proc(
 			if .Using in field.flags { parameter_flags += {.Using, .Parameter, .Immutable} }
 			if .C_Vararg in field.flags { parameter_flags += {.C_Variadic} }
 			if .Any_Int in field.flags { parameter_flags += {.Any_Integer} }
+			if .No_Broadcast in field.flags { parameter_flags += {.No_Broadcast} }
 			for name_index in 0 ..< max(len(names), 1) {
 				name_node: syntax.Node_Index
 				name := ""
@@ -1166,6 +1183,7 @@ expression_assignment :: proc(checker: ^Expression_Checker, view: View_Id, file_
 	if assignment.op.kind == .Shl_Eq || assignment.op.kind == .Shr_Eq { value_hint = 0 }
 	value := check_expression(checker, view, scope, right[0], value_hint) or_return
 	if value.state == .Invalid { return nil }
+	if value.mode == .Type { return expression_type_assignment_failure(checker, view, scope, right[0], value.type) }
 	if value_hint == 0 && conversion_untyped(types.get(checker.type_checker.store, value.type).kind) {
 		value = check_expression(checker, view, scope, right[0], types.default_type_of_untyped(checker.type_checker.store, value.type)) or_return
 		if value.state == .Invalid { return nil }
@@ -1447,6 +1465,19 @@ expression_local_declaration :: proc(
 		if value.mode == .No_Value {
 			expression_unsupported(checker, view, scope, values[index], "Local_No_Value") or_return
 			return nil
+		}
+		if value.mode == .Type {
+			expression_type_variable_failure(
+				checker,
+				view,
+				scope,
+				values[index],
+				value.type,
+				expression_text(file, names[index]),
+				declaration.type == 0,
+			) or_return
+			variable_types[index] = types.TYPE_POISON
+			continue
 		}
 		variable_types[index] = target
 		if target != 0 { continue }

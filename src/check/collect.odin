@@ -522,6 +522,7 @@ collect_attributes :: proc(
 				}
 			case "test":
 				has_test = true
+				flags += {.Test}
 			case "export":
 				flags += {.Export}
 			case "require":

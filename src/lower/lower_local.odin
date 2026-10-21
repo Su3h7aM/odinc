@@ -84,6 +84,7 @@ scan_view_addresses :: proc(scan: ^Address_Scan, view: check.View_Id) {
 			if value.bit_size != 0 && !value.path[0].indirect { mark_address_taken(scan, value.root) }
 		case check.Call_Plan:
 			for argument in value.arguments {
+				if argument.receiver == .Address { mark_address_taken(scan, argument.value) }
 				if argument.parameter == 0 || int(argument.parameter) >= len(scan.program.entities) { continue }
 				parameter := &scan.program.entities[argument.parameter]
 				if .By_Pointer in parameter.flags { mark_address_taken(scan, argument.value) }
@@ -250,8 +251,8 @@ lower_multi_declaration :: proc(state: ^Procedure_State, node: syntax.Node_Index
 
 @(private)
 Assignment_Destination :: struct {
-	lanes:                [4]ir.Node_Id,
-	lane_count:           u8,
+	lanes:                []ir.Node_Id,
+	lane_count:           int,
 	entity:               check.Entity_Id,
 	type:                 types.Type_Id,
 	address:              ir.Node_Id,

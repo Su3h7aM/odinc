@@ -44,6 +44,7 @@ Expression_Checker :: struct {
 	constants:         ^Constant_Pool,
 	config:            Conversion_Config,
 	target_features:   []string,
+	defines:           map[string]string,
 	default_integer:   types.Type_Id,
 	boolean:           types.Type_Id,
 	unchecked_depth:   int,
@@ -427,6 +428,8 @@ check_expression :: proc(
 			info = expression_procedure_literal(checker, view, file_id, scope, node) or_return
 		case .Slice_Expr:
 			info = expression_slice(checker, view, file_id, scope, node) or_return
+		case .Selector_Call_Expr:
+			info = expression_optional_result(checker, expression_selector_call(checker, view, file_id, scope, node) or_return)
 		case .Comp_Lit:
 			info = expression_composite(checker, view, file_id, scope, node, hint) or_return
 		case:
@@ -570,6 +573,7 @@ expression_rollback_invalid_rows :: proc(checker: ^Expression_Checker, mark: int
 expression_speculation_begin :: proc(checker: ^Expression_Checker) -> Speculation {
 	type_checker := checker.type_checker
 	checker.speculation_depth += 1
+	type_checker.resolver.body_pause_depth += 1
 	return Speculation {
 		poisoned = len(type_checker.resolver.poisoned),
 		resolver_diagnostics = len(type_checker.resolver.diagnostics),
@@ -598,6 +602,7 @@ expression_speculation_end :: proc(checker: ^Expression_Checker, mark: Speculati
 	resize(&checker.diagnostics, mark.checker_diagnostics)
 	resize(&type_checker.diagnostics, mark.type_diagnostics)
 	checker.speculation_depth -= 1
+	type_checker.resolver.body_pause_depth -= 1
 }
 
 @(private = "package")

@@ -75,11 +75,12 @@ build_file :: proc(
 	log: io.Writer,
 	allocator: runtime.Allocator,
 	user_collections: []Collection = nil,
+	defines: map[string]string = nil,
 ) -> (
 	image: []byte,
 	err: Build_Error,
 ) {
-	session, driver_err := check_program(odin_root, main_path, allocator, user_collections)
+	session, driver_err := check_program(odin_root, main_path, allocator, user_collections, defines)
 	defer session_destroy(session)
 	if driver_err == .Check_Failed || driver_err == .Unsupported_Import || driver_err == .Parse_Failed || driver_err == .Import_Cycle {
 		write_diagnostics(session, log)

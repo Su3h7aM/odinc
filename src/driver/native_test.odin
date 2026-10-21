@@ -86,6 +86,9 @@ native_section_expectations := [?]NativeSectionExpectation {
 	{"bit_field", 63},
 	{"map_cell_info", 15},
 	{"map_info", 63},
+	{"map_literal", 0},
+	{"type_hasher_proc", 63},
+	{"type_hasher_cstring", 63},
 	{"named_arguments", 36},
 	{"type_predicates", 255},
 	{"pointer_arithmetic", 59},
@@ -115,6 +118,8 @@ native_section_expectations := [?]NativeSectionExpectation {
 	{"matrix_procedure_abi", 0},
 	{"atomic_bool", 127},
 	{"literal_aggregates", 255},
+	{"struct_equality", 255},
+	{"reflect_enum_string", 0},
 }
 
 native_section_test_directory :: proc(t: ^testing.T) -> string {

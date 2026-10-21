@@ -198,6 +198,16 @@ check_conversion :: proc(
 				conversion_float(src.kind) && conversion_integer(element_kind) ||
 				conversion_boolean(src.kind) && conversion_boolean(element_kind)
 		}
+		// Official SIMD programming converts an untyped scalar to the vector when its type converts to the lane element.
+		if untyped && dst.kind == .Simd_Vector {
+			element_kind := types.get(store, conversion_base_type(store, dst.elem)).kind
+			allowed ||=
+				conversion_integer(src.kind) && conversion_integer(element_kind) ||
+				conversion_float(src.kind) && conversion_float(element_kind) ||
+				conversion_integer(src.kind) && conversion_float(element_kind) ||
+				conversion_float(src.kind) && conversion_integer(element_kind) ||
+				conversion_boolean(src.kind) && conversion_boolean(element_kind)
+		}
 		// Official scalar initialization converts an untyped scalar to a square matrix when it converts to the element type.
 		if untyped && dst.kind == .Matrix {
 			element_kind := types.get(store, dst.elem).kind
@@ -259,6 +269,22 @@ check_conversion :: proc(
 		if element_diagnostic != .None { return {}, element_diagnostic, nil }
 		result.plan.kind = .Broadcast
 		// The splat lowers from the converted element constant; the raw operand may carry no type.
+		if element.info.mode == .Constant && element.info.constant != 0 {
+			result.plan.source = Operand(element.info.constant)
+		} else if converted, is_constant := element.plan.source.(Const_Id); is_constant {
+			result.plan.source = Operand(converted)
+		}
+		return result, .None, nil
+	}
+	// Official SIMD programming splats an untyped scalar: it converts to the lane element, then fills every lane.
+	if kind == .Assignment &&
+	   untyped &&
+	   dst.kind == .Simd_Vector &&
+	   (conversion_integer(src.kind) || conversion_float(src.kind) || conversion_boolean(src.kind)) {
+		element, element_diagnostic, element_error := check_conversion(pool, store, source, info, dst.elem, .Assignment, config)
+		if element_error != nil { return {}, .None, element_error }
+		if element_diagnostic != .None { return {}, element_diagnostic, nil }
+		result.plan.kind = .Broadcast
 		if element.info.mode == .Constant && element.info.constant != 0 {
 			result.plan.source = Operand(element.info.constant)
 		} else if converted, is_constant := element.plan.source.(Const_Id); is_constant {

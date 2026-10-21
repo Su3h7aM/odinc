@@ -23,6 +23,8 @@ expression_argument :: proc(
 	case .Implicit_Selector_Expr, .Comp_Lit, .Ternary_When_Expr, .Ternary_If_Expr, .Auto_Cast:
 		return check_expression(checker, view, scope, node, target)
 	case .Call_Expr:
+		if is_type_of_call(file, node) { break }
+		if definition := record_call_definition(checker.type_checker, checker.views[view].file, file, scope, node) or_return; definition != 0 { break }
 		callee := check_expression(checker, view, scope, syntax.node_payload(file.ast, node, syntax.Call_Expr).expr) or_return
 		if callee.mode == .Builtin && length_integer_hint(checker, target) != 0 {
 			builtin := entity_get(checker.type_checker.resolver.scopes, callee.entity).data.(Builtin_Id)
@@ -44,8 +46,14 @@ expression_argument :: proc(
 		return expression_conversion(checker, view, scope, node, source, info, target, .Cast)
 	}
 	if info.mode == .Constant || (info.mode == .Type && expression_is_typeid(checker, target)) {
+		store := checker.type_checker.store
+		if info.mode == .Constant && types.is_untyped(store, info.type) && types.get(store, types.resolve_named(store, target)).kind == .Array {
+			return expression_conversion(checker, view, scope, node, Operand(info.constant), info, target, .Assignment)
+		}
 		return check_expression(checker, view, scope, node, target)
 	}
+	if info.mode == .Type { return expression_type_argument_failure(checker, view, scope, node, target, info.type) }
+	if expression_is_typeid(checker, target) { return expression_value_argument_failure(checker, view, scope, node, target, info.type) }
 	return expression_conversion(checker, view, scope, node, Operand(Expression_Ref{view, node}), info, target, .Assignment)
 }
 

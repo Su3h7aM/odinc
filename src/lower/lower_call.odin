@@ -207,8 +207,9 @@ lower_call_results :: proc(state: ^Procedure_State, node: syntax.Node_Index, inf
 			   ) { lower_fail(state, node, .Call_Argument); return }
 	}
 	callee: ir.Node_Id
+	selector_owner: ir.Node_Id
 	if plan.entity == 0 {
-		callee = lower_operand(state, plan.callee)
+		callee, selector_owner = lower_callee_value(state, node, plan)
 	} else {
 		callee = ir.symbol_addr(function, declaration.symbol)
 	}
@@ -231,6 +232,8 @@ lower_call_results :: proc(state: ^Procedure_State, node: syntax.Node_Index, inf
 			value = lower_tuple_argument(state, node, plan, &cache, entry.argument_index, descriptor.params[position])
 		} else if argument.variadic_spread {
 			value = lower_variadic_spread(state, node, argument, descriptor.params[position])
+		} else if argument.receiver != .None {
+			value = lower_selector_receiver(state, node, argument, selector_owner)
 		} else if argument.conversion != 0 {
 			value = lower_conversion(state, check.plan(state.job.program, argument.conversion)^.(check.Conversion_Plan), node)
 		} else if argument.caller_location {
@@ -461,10 +464,9 @@ lower_tuple_argument :: proc(
 	if state.failed || state.job.function.error != nil { return 0 }
 	element := int(argument.tuple_element) - 1
 	if element >= len(results) { return lower_fail(state, node, .Call_Argument) }
-	call_plan := check.plan(state.job.program, lower_info(state, ref.node).plan)
-	variant, is_call := call_plan^.(check.Call_Plan)
-	if !is_call || element >= len(variant.results) { return lower_fail(state, node, .Call_Argument) }
-	source_type := variant.results[element]
+	source_types := lower_tuple_source_types(state, ref)
+	if element >= len(source_types) { return lower_fail(state, node, .Call_Argument) }
+	source_type := source_types[element]
 	if argument.conversion == 0 {
 		if source_type != parameter_type { return lower_fail(state, node, .Conversion) }
 		return results[element]
@@ -489,21 +491,40 @@ lower_spread_values :: proc(state: ^Procedure_State, node: syntax.Node_Index, ca
 	return values
 }
 
-// lower_spread_results evaluates the multi-result call that a spread names, once, and returns its results.
+// The result types of the multi-result call or multi-value `or_return` that a tuple argument names, or nil for any other.
+@(private)
+lower_tuple_source_types :: proc(state: ^Procedure_State, ref: check.Expression_Ref) -> []types.Type_Id {
+	call_plan := check.plan(state.job.program, lower_info(state, ref.node).plan)
+	if call_plan == nil { return nil }
+	#partial switch variant in call_plan^ {
+	case check.Call_Plan:
+		return variant.results
+	case check.Propagation_Plan:
+		if state.ast.nodes[ref.node].kind == .Or_Return_Expr { return variant.results }
+	}
+	return nil
+}
+
+// lower_spread_results evaluates the multi-result call or multi-value `or_return` that a spread names, once, and returns its results.
 @(private)
 lower_spread_results :: proc(state: ^Procedure_State, node: syntax.Node_Index, ref: check.Expression_Ref) -> []ir.Node_Id {
 	info := lower_info(state, ref.node)
 	if state.failed { return nil }
 	call_plan := check.plan(state.job.program, info.plan)
 	if call_plan == nil { lower_fail(state, node, .Call_Argument); return nil }
-	variant, is_call := call_plan^.(check.Call_Plan)
-	if !is_call { lower_fail(state, node, .Call_Argument); return nil }
-	values, values_error := make([]ir.Node_Id, len(variant.results), virtual.arena_allocator(&state.job.function.arena))
+	count := len(lower_tuple_source_types(state, ref))
+	if count == 0 { lower_fail(state, node, .Call_Argument); return nil }
+	values, values_error := make([]ir.Node_Id, count, virtual.arena_allocator(&state.job.function.arena))
 	if values_error != nil {
 		state.job.function.error = values_error
 		return nil
 	}
-	lower_call_results(state, ref.node, info, variant, values)
+	#partial switch variant in call_plan^ {
+	case check.Call_Plan:
+		lower_call_results(state, ref.node, info, variant, values)
+	case check.Propagation_Plan:
+		if !lower_or_return_values(state, ref.node, variant, values) { return nil }
+	}
 	if state.failed || state.job.function.error != nil { return nil }
 	return values
 }
