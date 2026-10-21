@@ -141,14 +141,23 @@ lower_scalar_binary :: proc(
 		kind := ir.Node_Kind.FLt if floating else (ir.Node_Kind.SLt if signed else ir.Node_Kind.ULt)
 		first, second := left, right
 		if operator == .Gt { first, second = second, first }
-		return ir.compare(function, kind, first, second)
+		return lower_ordered_compare(function, kind, type, first, second)
 	case .Lt_Eq, .Gt_Eq:
 		kind := ir.Node_Kind.FLe if floating else (ir.Node_Kind.SLe if signed else ir.Node_Kind.ULe)
 		first, second := left, right
 		if operator == .Gt_Eq { first, second = second, first }
-		return ir.compare(function, kind, first, second)
+		return lower_ordered_compare(function, kind, type, first, second)
 	}
 	return lower_fail(state, node, .Operator)
+}
+
+// Pointers compare as addresses: the verifier only orders integers, so bit-cast to `u64` first, matching the official address comparison.
+@(private)
+lower_ordered_compare :: proc(function: ^ir.Function, kind: ir.Node_Kind, type: ir.Value_Type, first, second: ir.Node_Id) -> ir.Node_Id {
+	if type == .Ptr {
+		return ir.compare(function, kind, ir.convert(function, .Bitcast, first, .I64), ir.convert(function, .Bitcast, second, .I64))
+	}
+	return ir.compare(function, kind, first, second)
 }
 
 // One side of an array operator: an aggregate address, or a broadcast scalar reused for every lane.

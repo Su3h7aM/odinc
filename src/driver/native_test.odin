@@ -121,6 +121,10 @@ native_section_expectations := [?]NativeSectionExpectation {
 	{"struct_equality", 255},
 	{"reflect_enum_string", 0},
 	{"range_reference", 91},
+	{"global_dynamic_literal", 0},
+	{"intrinsic_alloca_hint", 7},
+	{"pointer_order", 7},
+	{"generated_half_compare", 31},
 }
 
 native_section_test_directory :: proc(t: ^testing.T) -> string {

@@ -50,6 +50,12 @@ lower_intrinsic :: proc(
 	case .Expect:
 		if type != function.nodes.type[values[0]] || type != function.nodes.type[values[1]] { return lower_fail(state, node, .Builtin) }
 		return values[0]
+	case .Likely, .Unlikely:
+		// A branch hint is only an identity here, like `expect` with its taken hint.
+		if len(plan.arguments) != 1 || type != function.nodes.type[values[0]] { return lower_fail(state, node, .Builtin) }
+		return values[0]
+	case .Alloca:
+		return lower_alloca(state, node, plan, type, values)
 	case .Volatile_Load, .Atomic_Load, .Atomic_Load_Explicit:
 		if !is_atomic_type(type) || function.nodes.type[values[0]] != .Ptr { return lower_fail(state, node, .Builtin) }
 		if type == .Bool {
@@ -206,6 +212,19 @@ lower_intrinsic_tuple :: proc(state: ^Procedure_State, node: syntax.Node_Index, 
 	case:
 		lower_fail(state, node, .Builtin)
 	}
+}
+
+// `intrinsics.alloca` is the backend's dynamic stack allocation: the size stays a value, the alignment is a
+// constant the selector and the interpreter read from the node. Anything else fails cleanly as a builtin.
+@(private)
+lower_alloca :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: check.Builtin_Plan, type: ir.Value_Type, values: [5]ir.Node_Id) -> ir.Node_Id {
+	function := state.job.function
+	if len(plan.arguments) != 2 || type != .Ptr { return lower_fail(state, node, .Builtin) }
+	if function.nodes.type[values[0]] != .I64 { return lower_fail(state, node, .Builtin) }
+	if function.nodes.kind[values[1]] != .Const_Int { return lower_fail(state, node, .Builtin) }
+	alignment := function.nodes.data[values[1]].int_value
+	if alignment < 1 || alignment > 16 || alignment & (alignment - 1) != 0 { return lower_fail(state, node, .Builtin) }
+	return ir.add_node(function, .Stack_Alloc, .Ptr, {state.builder.control, values[0]}, {index = u32(alignment)})
 }
 
 @(private)
