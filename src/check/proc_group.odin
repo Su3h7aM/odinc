@@ -501,7 +501,7 @@ group_field_argument_score :: proc(
 	if file.ast.nodes[name].kind == .Poly_Type {
 		if argument.info.mode != .Type { return 0, false, nil }
 		poly := syntax.node_payload(file.ast, name, syntax.Poly_Type)
-		bound := poly_bind(match.bindings, expression_text(file, poly.type), argument.info.type, 0) or_return
+		bound := poly_bind(match.checker.type_checker.store, match.bindings, expression_text(file, poly.type), argument.info.type, 0) or_return
 		if !bound { return 0, false, nil }
 		if file.ast.nodes[field.type].kind == .Typeid_Type {
 			specialization := syntax.node_payload(file.ast, field.type, syntax.Typeid_Type).specialization
@@ -601,7 +601,7 @@ group_argument_score :: proc(
 	matches: bool,
 	err: Resolve_Error,
 ) {
-	if info.type == target { return 2, true, nil }
+	if types.are_identical(checker.type_checker.store, info.type, target) { return 2, true, nil }
 	if any_integer && expression_any_integer_source(checker, info, target) { return 1, true, nil }
 	_, diagnostic, failure := check_conversion(
 		checker.constants,

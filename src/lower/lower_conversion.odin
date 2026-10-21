@@ -163,7 +163,7 @@ lower_union_injection :: proc(
 	if state.failed || state.job.function.error != nil { return 0 }
 	if descriptor.union_form == .Maybe_Pointer { return union_slot }
 	for variant, index in descriptor.variants {
-		if variant != source_id { continue }
+		if !types.are_identical(store, variant, source_id) { continue }
 		tag := i64(index)
 		if descriptor.union_form != .No_Nil { tag += 1 }
 		tag_address := ir.ptr_offset(function, union_slot, layout.variant_block_size)

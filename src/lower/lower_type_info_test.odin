@@ -48,11 +48,11 @@ type_info_struct_enum_and_procedure_entries_reference_their_members :: proc(t: ^
 		{{name = "params", type = pointer}, {name = "results", type = pointer}, {name = "variadic", type = boolean}, {name = "convention", type = boolean}},
 	)
 	string_variant := payload(&store, "Type_Info_String", {{name = "is_cstring", type = boolean}, {name = "encoding", type = byte}})
-	parameters := types.intern(
+	parameters := payload(&store, "Type_Info_Parameters", {{name = "types", type = pointers}, {name = "names", type = texts}})
+	variants := types.intern(
 		&store,
-		types.Type{kind = .Struct, name = "Type_Info_Parameters", fields = {{name = "types", type = pointers}, {name = "names", type = texts}}},
+		types.Type{kind = .Union, variants = {integer_variant, struct_variant, enum_variant, procedure_variant, string_variant, parameters}},
 	)
-	variants := types.intern(&store, types.Type{kind = .Union, variants = {integer_variant, struct_variant, enum_variant, procedure_variant, string_variant}})
 	info := types.intern(
 		&store,
 		types.Type {

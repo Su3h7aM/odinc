@@ -147,8 +147,9 @@ expression_checker_publish_type_info :: proc(checker: ^Expression_Checker, progr
 	store := checker.type_checker.store
 	ordered := make([dynamic]types.Type_Id, allocator) or_return
 	seen := make([dynamic]bool, allocator) or_return
+	representatives := make([dynamic]types.Type_Id, allocator) or_return
 	for root in checker.type_info_roots {
-		collect_type_info_types(store, root, &ordered, &seen) or_return
+		collect_type_info_types(store, root, &ordered, &seen, &representatives) or_return
 	}
 	entries := make([]Type_Info_Entry, len(ordered), allocator) or_return
 	members := make([dynamic]Enum_Type_Members, allocator) or_return
@@ -168,6 +169,7 @@ expression_checker_publish_type_info :: proc(checker: ^Expression_Checker, progr
 		if found { append(&members, Enum_Type_Members{type = resolved, members = enum_members}) or_return }
 	}
 	program.runtime.type_info = entries
+	program.runtime.type_info_representatives = representatives[:]
 	program.runtime.enum_members = members[:]
 	program.runtime.type_info_type = runtime_type_named(checker, "Type_Info")
 	program.runtime.type_info_parameters_type = runtime_type_named(checker, "Type_Info_Parameters")
@@ -197,27 +199,39 @@ runtime_type_named :: proc(checker: ^Expression_Checker, name: string) -> types.
 // Depth-first, in the order of each descriptor's references: elem, index, backing, fields, variants, params, results.
 // A union also refers to its tag type, collected after its variants.
 @(private = "file")
-collect_type_info_types :: proc(store: ^types.Store, type: types.Type_Id, ordered: ^[dynamic]types.Type_Id, seen: ^[dynamic]bool) -> runtime.Allocator_Error {
+collect_type_info_types :: proc(
+	store: ^types.Store,
+	type: types.Type_Id,
+	ordered: ^[dynamic]types.Type_Id,
+	seen: ^[dynamic]bool,
+	representatives: ^[dynamic]types.Type_Id,
+) -> runtime.Allocator_Error {
 	if type == types.TYPE_NONE { return nil }
 	for int(type) >= len(seen) { append(seen, false) or_return }
 	if seen[type] { return nil }
 	seen[type] = true
-	append(ordered, type) or_return
+	for int(type) >= len(representatives) { append(representatives, types.TYPE_NONE) or_return }
+	representative := type
+	for candidate in ordered {
+		if types.are_identical_unique_tuples(store, candidate, type) { representative = candidate; break }
+	}
+	representatives[type] = representative
+	if representative == type { append(ordered, type) or_return }
 	descriptor := types.get(store, type)^
 	children := [?]types.Type_Id{descriptor.elem, descriptor.index, descriptor.backing}
 	for child in children {
-		collect_type_info_types(store, child, ordered, seen) or_return
+		collect_type_info_types(store, child, ordered, seen, representatives) or_return
 	}
 	for field in descriptor.fields {
-		collect_type_info_types(store, field.type, ordered, seen) or_return
+		collect_type_info_types(store, field.type, ordered, seen, representatives) or_return
 	}
 	for group in ([?][]types.Type_Id{descriptor.variants, descriptor.params, descriptor.results}) {
 		for child in group {
-			collect_type_info_types(store, child, ordered, seen) or_return
+			collect_type_info_types(store, child, ordered, seen, representatives) or_return
 		}
 	}
 	if descriptor.kind == .Union {
-		collect_type_info_types(store, union_tag_type(store, type), ordered, seen) or_return
+		collect_type_info_types(store, union_tag_type(store, type), ordered, seen, representatives) or_return
 	}
 	return nil
 }

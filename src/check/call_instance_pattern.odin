@@ -23,9 +23,9 @@ Poly_Match :: struct {
 
 // Binds name, or checks that an earlier binding of name has the same type and constant.
 @(private = "package")
-poly_bind :: proc(bindings: ^Poly_Bindings, name: string, type: types.Type_Id, constant: Const_Id) -> (bound: bool, err: Resolve_Error) {
+poly_bind :: proc(store: ^types.Store, bindings: ^Poly_Bindings, name: string, type: types.Type_Id, constant: Const_Id) -> (bound: bool, err: Resolve_Error) {
 	for bound_name, index in bindings.names {
-		if bound_name == name { return bindings.types[index] == type && bindings.constants[index] == constant, nil }
+		if bound_name == name { return types.are_identical(store, bindings.types[index], type) && bindings.constants[index] == constant, nil }
 	}
 	append(&bindings.names, name) or_return
 	append(&bindings.types, type) or_return
@@ -77,7 +77,7 @@ poly_match_pattern :: proc(match: ^Poly_Match, pattern: syntax.Node_Index, argum
 		return poly_match_record(match, pattern, argument)
 	case .Poly_Type:
 		poly := syntax.node_payload(file.ast, pattern, syntax.Poly_Type)
-		bound := poly_bind(match.bindings, expression_text(file, poly.type), argument, 0) or_return
+		bound := poly_bind(match.checker.type_checker.store, match.bindings, expression_text(file, poly.type), argument, 0) or_return
 		if !bound || poly.specialization == 0 { return bound, nil }
 		return poly_match_pattern(match, poly.specialization, argument)
 	case .Pointer_Type:
@@ -114,7 +114,7 @@ poly_match_pattern :: proc(match: ^Poly_Match, pattern: syntax.Node_Index, argum
 		if descriptor.kind != .Bit_Set { return false, nil }
 		if !poly_pattern_has_poly(file, set_type.elem) {
 			expected := type_expression(match.checker.type_checker, match.definition_file, match.scope, pattern, true) or_return
-			return expected != types.TYPE_POISON && underlying_type(store, expected) == underlying_type(store, argument), nil
+			return expected != types.TYPE_POISON && types.are_identical(store, underlying_type(store, expected), underlying_type(store, argument)), nil
 		}
 		matched = poly_match_pattern(match, set_type.elem, descriptor.elem) or_return
 		if !matched || set_type.underlying == 0 { return matched, nil }
@@ -127,7 +127,7 @@ poly_match_pattern :: proc(match: ^Poly_Match, pattern: syntax.Node_Index, argum
 		return poly_match_pattern(match, set_type.underlying, backing)
 	}
 	expected := type_expression(match.checker.type_checker, match.definition_file, match.scope, pattern, true) or_return
-	return expected != types.TYPE_POISON && expected == argument, nil
+	return expected != types.TYPE_POISON && types.are_identical(match.checker.type_checker.store, expected, argument), nil
 }
 
 @(private = "file")
@@ -160,7 +160,7 @@ poly_match_array :: proc(
 		name := expression_text(file, syntax.node_payload(file.ast, length, syntax.Poly_Type).type)
 		constant, ok, constant_error := poly_integer_constant(match, count)
 		if constant_error != nil || !ok { return false, constant_error }
-		bound := poly_bind(match.bindings, name, match.checker.default_integer, constant) or_return
+		bound := poly_bind(match.checker.type_checker.store, match.bindings, name, match.checker.default_integer, constant) or_return
 		if !bound { return false, nil }
 	} else {
 		expected, valid, count_error := array_count(match.checker.type_checker, match.definition_file, match.scope, length)

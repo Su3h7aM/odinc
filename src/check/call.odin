@@ -21,7 +21,7 @@ expression_call :: proc(
 	scopes := checker.type_checker.resolver.scopes
 	procedure := entity_get(scopes, callee.entity).data.(Procedure_Data)
 	if procedure.signature == types.TYPE_NONE { return expression_missing_operand_type(checker, view, scope, node, callee.mode) }
-	descriptor := types.get(checker.type_checker.store, procedure.signature)
+	descriptor := types.get(checker.type_checker.store, procedure.signature)^
 	parameter_count := len(procedure.parameters)
 	if len(descriptor.params) != parameter_count {
 		return expression_unsupported(checker, view, scope, node, "Call_Signature")
@@ -91,37 +91,18 @@ expression_call :: proc(
 		}
 		if packed && index == variadic_index { continue }
 		if index >= len(procedure.defaults) { return expression_unsupported(checker, view, scope, node, "Call_Default_Missing") }
-		argument := Call_Argument {
-			parameter        = procedure.parameters[index],
-			evaluation_order = u32(len(arguments) + index),
-		}
-		default_argument := procedure.defaults[index]
-		switch {
-		case default_argument.caller_location:
-			argument.value = Operand(Expression_Ref{view, node})
-			argument.caller_location = true
-		case default_argument.caller_expression:
-			text := expression_text(file, node)
-			if default_argument.caller_expression_target != "" {
-				text = ""
-				for parameter, target in procedure.parameters {
-					if entity_get(scopes, parameter).name != default_argument.caller_expression_target { continue }
-					if slots[target].value != 0 { text = expression_text(file, slots[target].value) }
-					break
-				}
-			}
-			string_type := types.intern(checker.type_checker.store, types.Type{kind = .String})
-			constant, constant_error := constant_pool_intern_string(checker.constants, text, string_type)
-			if constant_error != nil {
-				expression_constant_failure(checker, file_id, node, constant_error) or_return
-				return expression_poison(scope), nil
-			}
-			argument.value = Operand(constant)
-		case default_argument.value != nil:
-			argument.value = default_argument.value
-		case:
-			return expression_unsupported(checker, view, scope, node, "Call_Default_Value")
-		}
+		argument, valid := expression_call_default_argument(
+			checker,
+			view,
+			scope,
+			node,
+			names,
+			slots,
+			procedure.defaults[index],
+			procedure.parameters[index],
+			u32(len(arguments) + index),
+		) or_return
+		if !valid { return expression_poison(scope), nil }
 		call_arguments[index] = argument
 	}
 	if packed {
@@ -162,7 +143,7 @@ expression_call :: proc(
 }
 
 // A supplied argument, or one result of a multi-result call, converted to its parameter type.
-@(private = "file")
+@(private = "package")
 expression_call_slot_argument :: proc(
 	checker: ^Expression_Checker,
 	view: View_Id,
@@ -171,6 +152,7 @@ expression_call_slot_argument :: proc(
 	expansions: [][]types.Type_Id,
 	target: types.Type_Id,
 	parameter: Entity_Id,
+	any_integer: bool = false,
 ) -> (
 	argument: Call_Argument,
 	valid: bool,
@@ -178,7 +160,7 @@ expression_call_slot_argument :: proc(
 ) {
 	order := u32(slot.position)
 	if slot.element == 0 {
-		return expression_call_argument(checker, view, scope, slot.value, target, parameter, order)
+		return expression_call_argument(checker, view, scope, slot.value, target, parameter, order, any_integer)
 	}
 	return expression_call_tuple_argument(
 		checker,
@@ -234,13 +216,15 @@ expression_call_argument :: proc(
 	target: types.Type_Id,
 	parameter: Entity_Id,
 	order: u32,
+	any_integer: bool = false,
 ) -> (
 	argument: Call_Argument,
 	valid: bool,
 	err: Resolve_Error,
 ) {
-	any_integer := .Any_Integer in entity_get(checker.type_checker.resolver.scopes, parameter).flags
-	value := expression_argument(checker, view, scope, value_node, target, any_integer) or_return
+	accept_any_integer := any_integer
+	if parameter != 0 { accept_any_integer = .Any_Integer in entity_get(checker.type_checker.resolver.scopes, parameter).flags }
+	value := expression_argument(checker, view, scope, value_node, target, accept_any_integer) or_return
 	if value.state == .Invalid { return {}, false, nil }
 	operand := Operand(Expression_Ref{view, value_node})
 	if value.mode == .Constant { operand = Operand(value.constant) }

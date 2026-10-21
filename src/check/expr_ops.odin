@@ -195,7 +195,7 @@ expression_binary :: proc(
 		}
 	}
 	if left.mode == .Type && right.mode == .Type && (binary.op.kind == .Cmp_Eq || binary.op.kind == .Not_Eq) {
-		value := left.type == right.type
+		value := types.are_identical(checker.type_checker.store, left.type, right.type)
 		if binary.op.kind == .Not_Eq { value = !value }
 		constant, failure := constant_pool_intern_bool(checker.constants, value, types.TYPE_UNTYPED_BOOL)
 		if failure != nil { return {}, expression_constant_failure(checker, checker.views[view].file, node, failure) }
@@ -251,11 +251,11 @@ expression_binary :: proc(
 	struct_pair :=
 		left_kind == .Struct &&
 		right_kind == .Struct &&
-		left.type == right.type &&
+		types.are_identical(store, left.type, right.type) &&
 		types.is_comparable(store, left.type) &&
 		generator_supported(store, left.type)
-	bit_set_pair := left_kind == .Bit_Set && right_kind == .Bit_Set && left.type == right.type
-	procedure_pair := left_kind == .Procedure && right_kind == .Procedure && left.type == right.type
+	bit_set_pair := left_kind == .Bit_Set && right_kind == .Bit_Set && types.are_identical(store, left.type, right.type)
+	procedure_pair := left_kind == .Procedure && right_kind == .Procedure && types.are_identical(store, left.type, right.type)
 	operator := binary.op.kind
 	comparison := syntax.Token_Kind.B_Comparison_Begin < operator && operator < .B_Comparison_End
 	shift := operator == .Shl || operator == .Shr
@@ -347,7 +347,7 @@ expression_binary :: proc(
 	}
 	if !valid { return expression_failure(checker, view, scope, node, .Invalid_Operator) }
 	left_untyped, right_untyped := conversion_untyped(left_kind), conversion_untyped(right_kind)
-	if !shift && left.type != right.type {
+	if !shift && !types.are_identical(store, left.type, right.type) {
 		target := left.type
 		if left_untyped && !right_untyped { target = right.type }
 		if left_untyped && right_untyped {

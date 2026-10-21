@@ -45,3 +45,55 @@ procedure_info_origin_and_checker_ownership :: proc(t: ^testing.T) {
 	absent, absent_error := expression_procedure_info(&first, 0)
 	testing.expect(t, absent == nil && absent_error == .None)
 }
+
+@(test)
+static_procedure_calls_reject_invalid_arguments :: proc(t: ^testing.T) {
+	cases := [?]struct {
+		source: string,
+		kind:   Expression_Diagnostic_Kind,
+		reason: string,
+	} {
+		{
+			`package sample
+target :: proc(value: int) -> int { return value }
+main :: proc() { callback := target; callback() }
+`,
+			.Unsupported,
+			"Call_Default_Value",
+		},
+		{
+			`package sample
+target :: proc(value := 1) -> int { return value }
+main :: proc() { callback := target; callback(other = 2) }
+`,
+			.Unsupported,
+			"Call_Named_Parameter",
+		},
+		{
+			`package sample
+A :: distinct proc() -> int
+B :: distinct proc() -> int
+Value :: union { A, int }
+main :: proc() { value: Value; _, _ = value.(B) }
+`,
+			.Mismatched_Types,
+			"",
+		},
+		{
+			`package sample
+Value :: union { proc(value := 4) -> int, int }
+main :: proc() {
+	value: Value
+	switch entry in value { case proc(different := 8) -> int: case int: }
+}
+`,
+			.Invalid_Operand,
+			"",
+		},
+	}
+	for test in cases {
+		procedure, ok := check_procedure_source(t, transmute([]byte)test.source, test.kind, test.reason)
+		if !testing.expect(t, ok) { continue }
+		testing.expect(t, procedure.body_state == .Invalid)
+	}
+}

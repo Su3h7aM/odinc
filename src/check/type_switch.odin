@@ -1,7 +1,6 @@
 package check
 
 import "core:mem"
-import "core:slice"
 import "oc:syntax"
 import "oc:types"
 
@@ -98,7 +97,9 @@ expression_type_switch :: proc(checker: ^Expression_Checker, view: View_Id, file
 				append(&case_variants, types.TYPE_UNTYPED_NIL) or_return
 				continue
 			}
-			if variant.mode != .Type || (descriptor.kind == .Union && !slice.contains(variants, variant.type)) || slice.contains(seen[:], variant.type) {
+			if variant.mode != .Type ||
+			   (descriptor.kind == .Union && !type_list_contains(store, variants, variant.type)) ||
+			   type_list_contains(store, seen[:], variant.type, true) {
 				expression_failure(checker, view, switch_scope, value, .Invalid_Operand) or_return
 				return nil
 			}
@@ -129,7 +130,7 @@ expression_type_switch :: proc(checker: ^Expression_Checker, view: View_Id, file
 	}
 	if !statement.partial && descriptor.kind == .Union {
 		for variant in variants {
-			if !slice.contains(seen[:], variant) {
+			if !type_list_contains(store, seen[:], variant, true) {
 				expression_failure(checker, view, scope, node, .Invalid_Operand) or_return
 				return nil
 			}
@@ -142,4 +143,14 @@ expression_type_switch :: proc(checker: ^Expression_Checker, view: View_Id, file
 	) or_return
 	expression_store(checker, view, node, Expression_Info{scope = scope, plan = plan, state = .Checked})
 	return nil
+}
+
+@(private = "package")
+type_list_contains :: proc(store: ^types.Store, list: []types.Type_Id, type: types.Type_Id, unique_tuples: bool = false) -> bool {
+	for candidate in list {
+		if unique_tuples {
+			if types.are_identical_unique_tuples(store, candidate, type) { return true }
+		} else if types.are_identical(store, candidate, type) { return true }
+	}
+	return false
 }

@@ -41,6 +41,6 @@ expression_ternary_if :: proc(
 		x = check_expression(checker, view, scope, ternary.x, target) or_return
 		y = check_expression(checker, view, scope, ternary.y, target) or_return
 	}
-	if x.type != y.type { return expression_failure(checker, view, scope, node, .Mismatched_Types) }
+	if !types.are_identical(store, x.type, y.type) { return expression_failure(checker, view, scope, node, .Mismatched_Types) }
 	return Expression_Info{type = x.type, mode = .Value, scope = scope, state = .Checked}, nil
 }

@@ -192,9 +192,8 @@ expression_signature_bindings :: proc(
 	result_types := descriptor.results
 	parameters: [dynamic]Entity_Id
 	parameters.allocator = mem.dynamic_arena_allocator(&checker.arena)
-	defaults: [dynamic]Default_Argument
-	defaults.allocator = mem.dynamic_arena_allocator(&checker.arena)
-	declaration_scope := entity_get(resolver.scopes, id).scope
+	metadata, metadata_error := expression_procedure_info(checker, descriptor.procedure_info)
+	assert(metadata_error == .None)
 	named_results: []Entity_Id
 	if proc_type.params != 0 {
 		for field_node in syntax.node_list(file.ast, syntax.node_payload(file.ast, proc_type.params, syntax.Field_List).list) {
@@ -217,17 +216,6 @@ expression_signature_bindings :: proc(
 					name = expression_text(file, name_node)
 				}
 				if len(parameters) >= len(parameter_types) { return nil }
-				default_argument: Default_Argument
-				if field.default_value != 0 {
-					default_argument = expression_default_argument(
-						checker,
-						view,
-						declaration_scope,
-						field.default_value,
-						parameter_types[len(parameters)],
-					) or_return
-				}
-				append(&defaults, default_argument) or_return
 				parameter, create_error := entity_create(
 					resolver.scopes,
 					Entity {
@@ -275,12 +263,12 @@ expression_signature_bindings :: proc(
 	checker.named_results = named_results
 	procedure := &entity_get(resolver.scopes, id).data.(Procedure_Data)
 	procedure.parameters = parameters[:]
-	procedure.defaults = defaults[:]
+	if metadata != nil { procedure.defaults = metadata.defaults }
 	procedure.results = named_results
 	return nil
 }
 
-@(private = "file")
+@(private = "package")
 expression_default_argument :: proc(
 	checker: ^Expression_Checker,
 	view: View_Id,

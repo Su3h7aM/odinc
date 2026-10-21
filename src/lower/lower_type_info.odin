@@ -26,6 +26,7 @@ Type_Info_Writer :: struct {
 	module:          ^ir.Module,
 	allocator:       runtime.Allocator,
 	entries:         []check.Type_Info_Entry,
+	representatives: []types.Type_Id,
 	enum_members:    []check.Enum_Type_Members,
 	info_type:       types.Type_Id,
 	parameters_type: types.Type_Id,
@@ -67,6 +68,7 @@ fill_type_info :: proc(program: ^check.Checked_Program, module: ^ir.Module, erro
 		module          = module,
 		allocator       = allocator,
 		entries         = requirements.type_info,
+		representatives = requirements.type_info_representatives,
 		enum_members    = requirements.enum_members,
 		info_type       = requirements.type_info_type,
 		parameters_type = requirements.type_info_parameters_type,
@@ -265,8 +267,8 @@ write_type_info_variant :: proc(
 		return base, nil
 	case .Procedure:
 		payload := begin_variant(writer, image, "Type_Info_Procedure")
-		params, params_supported := parameters_global(writer, descriptor.params) or_return
-		results, results_supported := parameters_global(writer, descriptor.results) or_return
+		params, params_supported := parameters_global(writer, descriptor.params, descriptor.param_names) or_return
+		results, results_supported := parameters_global(writer, descriptor.results, descriptor.result_names) or_return
 		set_pointer_field(writer, image, payload, "params", params) or_return
 		set_pointer_field(writer, image, payload, "results", results) or_return
 		write_scalar_field(writer, image, payload, "variadic", u64(descriptor.variadic), 1)
@@ -448,8 +450,10 @@ generated_global_name :: proc(writer: ^Type_Info_Writer, role: string, ordinal: 
 @(private)
 entry_global :: proc(writer: ^Type_Info_Writer, type: types.Type_Id) -> (index: int, found: bool) {
 	if type == types.TYPE_NONE { return -1, true }
+	representative := type
+	if int(type) < len(writer.representatives) { representative = writer.representatives[type] }
 	for entry, position in writer.entries {
-		if entry.type == type { return int(writer.first) + position, true }
+		if entry.type == representative { return int(writer.first) + position, true }
 	}
 	return -1, false
 }
@@ -511,7 +515,7 @@ scalar_array :: proc(writer: ^Type_Info_Writer, values: []u64, width: i64) -> (i
 
 // The `Type_Info_Parameters` of a procedure's parameters or results; -1 when there are none.
 @(private)
-parameters_global :: proc(writer: ^Type_Info_Writer, list: []types.Type_Id) -> (target: int, supported: bool, err: runtime.Allocator_Error) {
+parameters_global :: proc(writer: ^Type_Info_Writer, list: []types.Type_Id, names: []string) -> (target: int, supported: bool, err: runtime.Allocator_Error) {
 	if len(list) == 0 { return -1, true, nil }
 	if writer.parameters_type == types.TYPE_NONE { return -1, false, nil }
 	targets := make([]int, len(list), writer.allocator) or_return
@@ -520,12 +524,14 @@ parameters_global :: proc(writer: ^Type_Info_Writer, list: []types.Type_Id) -> (
 		if !found { return -1, false, nil }
 		targets[position] = index
 	}
-	image := make_image(writer, writer.parameters_type) or_return
+	image := make_image(writer, writer.info_type) or_return
+	payload := begin_variant(writer, &image, "Type_Info_Parameters")
 	types_array := pointer_array(writer, targets) or_return
-	set_slice_field(writer, &image, writer.parameters_type, "types", types_array, len(list)) or_return
-	names := make([]string, len(list), writer.allocator) or_return
-	names_array := string_array(writer, names) or_return
-	set_slice_field(writer, &image, writer.parameters_type, "names", names_array, len(list)) or_return
+	set_slice_field(writer, &image, payload, "types", types_array, len(list)) or_return
+	parameter_names := names
+	if len(parameter_names) == 0 { parameter_names = make([]string, len(list), writer.allocator) or_return }
+	names_array := string_array(writer, parameter_names) or_return
+	set_slice_field(writer, &image, payload, "names", names_array, len(list)) or_return
 	index := add_image(writer, image, 8) or_return
 	return index, true, nil
 }
@@ -661,8 +667,11 @@ lower_typeid :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: che
 
 @(private)
 lower_type_info_of :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: check.Type_Info_Plan) -> ir.Node_Id {
-	for entry in check.runtime_requirements(state.job.program).type_info {
-		if entry.type != plan.type { continue }
+	requirements := check.runtime_requirements(state.job.program)
+	type := plan.type
+	if int(type) < len(requirements.type_info_representatives) { type = requirements.type_info_representatives[type] }
+	for entry in requirements.type_info {
+		if entry.type != type { continue }
 		symbol := check.entity_symbol(state.job.program, plan.table)
 		if symbol == 0 { return lower_fail(state, node, .Runtime_Type_Info) }
 		address := ir.symbol_addr(state.job.function, state.job.symbols[symbol])
@@ -674,8 +683,11 @@ lower_type_info_of :: proc(state: ^Procedure_State, node: syntax.Node_Index, pla
 
 @(private)
 lower_runtime_typeid :: proc(state: ^Procedure_State, node: syntax.Node_Index, type: types.Type_Id) -> ir.Node_Id {
-	for entry in check.runtime_requirements(state.job.program).type_info {
-		if entry.type == type {
+	requirements := check.runtime_requirements(state.job.program)
+	representative := type
+	if int(type) < len(requirements.type_info_representatives) { representative = requirements.type_info_representatives[type] }
+	for entry in requirements.type_info {
+		if entry.type == representative {
 			return ir.const_int(state.job.function, .I64, i64(entry.runtime_id))
 		}
 	}

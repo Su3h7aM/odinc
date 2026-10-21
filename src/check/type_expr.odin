@@ -152,6 +152,17 @@ Type_Checker :: struct {
 	bind_enum_member:         Enum_Member_Binder,
 	evaluate_boolean:         Boolean_Evaluator,
 	evaluate_default_type:    Default_Type_Evaluator,
+	evaluate_procedure_info:  proc(
+		checker: ^Type_Checker,
+		file: File_Id,
+		scope: Scope_Id,
+		node: syntax.Node_Index,
+		parameters: []types.Type_Id,
+		user_data: rawptr,
+	) -> (
+		id: types.Procedure_Info_Id,
+		err: Resolve_Error,
+	),
 	evaluate_type_expression: Type_Expression_Evaluator,
 	user_data:                rawptr,
 	instantiating:            bool,
@@ -1042,8 +1053,10 @@ procedure_type :: proc(
 	if !parameters_valid || !results_valid { return types.TYPE_POISON, nil }
 	parameter_types := make([]types.Type_Id, len(parameters), checker.arena_allocator) or_return
 	result_types := make([]types.Type_Id, len(results), checker.arena_allocator) or_return
-	for parameter, index in parameters { parameter_types[index] = parameter.type }
-	for result, index in results { result_types[index] = result.type }
+	parameter_names := make([]string, len(parameters), checker.arena_allocator) or_return
+	result_names := make([]string, len(results), checker.arena_allocator) or_return
+	for parameter, index in parameters { parameter_types[index], parameter_names[index] = parameter.type, parameter.name }
+	for result, index in results { result_types[index], result_names[index] = result.type, result.name }
 	optional_ok := .Optional_Ok in signature.tags
 	optional_allocator := .Optional_Allocator_Error in signature.tags
 	if optional_ok && optional_allocator || (optional_ok || optional_allocator) && !optional_result_valid(checker, result_types, optional_allocator) {
@@ -1051,12 +1064,19 @@ procedure_type :: proc(
 		return types.TYPE_POISON, nil
 	}
 	optional_result := optional_ok || optional_allocator
+	procedure_info: types.Procedure_Info_Id
+	if checker.evaluate_procedure_info != nil {
+		procedure_info = checker.evaluate_procedure_info(checker, file_id, scope, node, parameter_types, checker.user_data) or_return
+	}
 	return types.intern(
 			checker.store,
 			types.Type {
 				kind = .Procedure,
 				params = parameter_types,
 				results = result_types,
+				param_names = parameter_names,
+				result_names = result_names,
+				procedure_info = procedure_info,
 				convention = convention,
 				variadic = variadic,
 				c_vararg = c_vararg,

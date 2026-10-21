@@ -2,7 +2,73 @@ package check
 
 import "base:runtime"
 import "core:mem"
+import "oc:syntax"
 import "oc:types"
+
+@(private = "package")
+expression_procedure_info_evaluator :: proc(
+	type_checker: ^Type_Checker,
+	file: File_Id,
+	scope: Scope_Id,
+	node: syntax.Node_Index,
+	parameters: []types.Type_Id,
+	user_data: rawptr,
+) -> (
+	id: types.Procedure_Info_Id,
+	err: Resolve_Error,
+) {
+	checker := cast(^Expression_Checker)user_data
+	assert(checker != nil && checker.type_checker == type_checker)
+	return expression_procedure_info_build(checker, file, scope, node, parameters)
+}
+
+@(private = "package")
+expression_procedure_info_build :: proc(
+	checker: ^Expression_Checker,
+	file_id: File_Id,
+	scope: Scope_Id,
+	node: syntax.Node_Index,
+	parameters: []types.Type_Id,
+) -> (
+	id: types.Procedure_Info_Id,
+	err: Resolve_Error,
+) {
+	view := expression_file_view(checker, file_id) or_return
+	origin := Procedure_Info_Origin {
+		signature = {file_id, node},
+		scope     = scope,
+		view      = view,
+	}
+	for entry in checker.procedure_infos {
+		if entry.origin == origin { return entry.id, nil }
+	}
+	allocator := mem.dynamic_arena_allocator(&checker.arena)
+	info := Procedure_Info {
+		defaults        = make([]Default_Argument, len(parameters), allocator) or_return,
+		parameter_flags = make([]Entity_Flags, len(parameters), allocator) or_return,
+	}
+	file := checker.type_checker.files[file_id]
+	params := syntax.node_payload(file.ast, node, syntax.Proc_Type).params
+	index := 0
+	if params != 0 {
+		for field_node in syntax.node_list(file.ast, syntax.node_payload(file.ast, params, syntax.Field_List).list) {
+			field := syntax.node_payload(file.ast, field_node, syntax.Field)
+			if checker.type_checker.instantiating && is_poly_name_field(file, field) { continue }
+			flags: Entity_Flags
+			if .Using in field.flags { flags += {.Using, .Parameter, .Immutable} }
+			if .C_Vararg in field.flags { flags += {.C_Variadic} }
+			if .Any_Int in field.flags { flags += {.Any_Integer} }
+			for _ in 0 ..< max(int(field.names.count), 1) {
+				if field.default_value != 0 {
+					info.defaults[index] = expression_default_argument(checker, view, scope, field.default_value, parameters[index]) or_return
+				}
+				info.parameter_flags[index] = flags
+				index += 1
+			}
+		}
+	}
+	return expression_procedure_info_intern(checker, origin, info)
+}
 
 @(require_results)
 expression_procedure_info_intern :: proc(

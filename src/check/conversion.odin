@@ -151,7 +151,7 @@ check_conversion :: proc(
 			return result, .None, nil
 		}
 	}
-	allowed := info.type == target
+	allowed := types.are_identical(store, info.type, target)
 	if kind == .Assignment && untyped {
 		allowed = conversion_integer(src.kind) && conversion_integer(dst.kind) || conversion_boolean(src.kind) && conversion_boolean(dst.kind)
 		allowed ||= conversion_float(src.kind) && conversion_float(dst.kind)
@@ -192,7 +192,7 @@ check_conversion :: proc(
 		allowed ||= matrix_vector_allowed(dst, src)
 	}
 	if kind == .Cast {
-		allowed ||= conversion_core_type(store, info.type) == conversion_core_type(store, target)
+		allowed ||= types.are_identical(store, conversion_core_type(store, info.type), conversion_core_type(store, target))
 		allowed ||= info.mode == .Constant && core_source.kind == .String && core_target.kind == .CString
 		allowed ||= conversion_boolean_or_integer(core_source.kind) && conversion_boolean_or_integer(core_target.kind)
 		allowed ||= conversion_float(core_source.kind) && conversion_float(core_target.kind)
@@ -372,7 +372,8 @@ conversion_subtype_path :: proc(
 		if index >= len(field_flags) || (.Using not_in field_flags[index] && .Subtype not_in field_flags[index]) { continue }
 		mark := len(path)
 		append(path, Member_Step{type = owner, field_index = u32(index), indirect = indirect}) or_return
-		if field.type == target || was_pointer && target_descriptor.kind == .Pointer && field.type == target_descriptor.elem {
+		if types.are_identical(store, field.type, target) ||
+		   was_pointer && target_descriptor.kind == .Pointer && types.are_identical(store, field.type, target_descriptor.elem) {
 			return true, nil
 		}
 		matched, nested_error := conversion_subtype_path(store, flags, field.type, target, path, was_pointer, depth + 1)
@@ -408,10 +409,10 @@ conversion_procedure_assignment :: proc(store: ^types.Store, source, target: typ
 		return false
 	}
 	for index in 0 ..< len(source_type.params) {
-		if source_type.params[index] != target_type.params[index] { return false }
+		if !types.are_identical(store, source_type.params[index], target_type.params[index]) { return false }
 	}
 	for index in 0 ..< len(source_type.results) {
-		if source_type.results[index] != target_type.results[index] { return false }
+		if !types.are_identical(store, source_type.results[index], target_type.results[index]) { return false }
 	}
 	return true
 }
@@ -493,16 +494,16 @@ conversion_implicit_pointer :: proc(store: ^types.Store, source, target: types.T
 	if source == types.TYPE_NONE || target == types.TYPE_NONE { return false }
 	src := types.get(store, conversion_base_type(store, source))^
 	dst := types.get(store, conversion_base_type(store, target))^
-	if src.elem != dst.elem { return false }
+	if !types.are_identical(store, src.elem, dst.elem) { return false }
 	return src.kind == .Pointer && dst.kind == .Multi_Pointer || src.kind == .Multi_Pointer && dst.kind == .Pointer
 }
 
 // Matches official type_conversion_is_variant for a typed source: an identical variant, or a procedure variant whose base type is the source.
 conversion_union_variant :: proc(store: ^types.Store, variants: []types.Type_Id, source: types.Type_Id) -> bool {
 	for variant in variants {
-		if variant == source { return true }
+		if types.are_identical(store, variant, source) { return true }
 		base := conversion_base_type(store, variant)
-		if base == source && types.get(store, base).kind == .Procedure { return true }
+		if types.are_identical(store, base, source) && types.get(store, base).kind == .Procedure { return true }
 	}
 	return false
 }

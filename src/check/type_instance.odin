@@ -44,7 +44,13 @@ poly_match_record :: proc(match: ^Poly_Match, pattern: syntax.Node_Index, argume
 				if !(poly_match_pattern(match, parameter, instance.arguments[index]) or_return) { return false, nil }
 			} else if file.ast.nodes[parameter].kind == .Poly_Type {
 				name := type_node_text(file, syntax.node_payload(file.ast, parameter, syntax.Poly_Type).type)
-				if !(poly_bind(match.bindings, name, instance.arguments[index], instance.constants[index]) or_return) { return false, nil }
+				if !(poly_bind(
+						   match.checker.type_checker.store,
+						   match.bindings,
+						   name,
+						   instance.arguments[index],
+						   instance.constants[index],
+					   ) or_return) { return false, nil }
 			} else {
 				_, constant, _, valid := checker.evaluate_record_argument(
 					checker,
@@ -183,7 +189,7 @@ record_type_call :: proc(
 				)
 				if err != nil || !valid { return types.TYPE_POISON, err }
 			}
-			bound := poly_bind(&bindings, name, argument_type, constant) or_return
+			bound := poly_bind(checker.store, &bindings, name, argument_type, constant) or_return
 			if !bound { return types.TYPE_POISON, nil }
 			binding := Entity {
 				name       = name,
@@ -209,7 +215,8 @@ record_type_call :: proc(
 		if instance.definition != definition || len(instance.arguments) != len(bindings.types) { continue }
 		same := true
 		for argument, index in bindings.types {
-			if argument != instance.arguments[index] || bindings.constants[index] != instance.constants[index] { same = false; break }
+			if !types.are_identical_unique_tuples(checker.store, argument, instance.arguments[index]) ||
+			   bindings.constants[index] != instance.constants[index] { same = false; break }
 		}
 		if same { return instance.type, nil }
 	}

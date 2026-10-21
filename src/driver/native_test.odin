@@ -49,6 +49,9 @@ NativeSectionExpectation :: struct {
 }
 
 native_section_expectations := [?]NativeSectionExpectation {
+	{"procedure_static_defaults", 0},
+	{"procedure_static_identity", 0},
+	{"procedure_static_callers", 0},
 	{"section_20", 5},
 	{"section_21", 127},
 	{"section_22", 71},

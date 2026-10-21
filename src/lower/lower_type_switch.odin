@@ -122,7 +122,7 @@ lower_type_switch_test :: proc(state: ^Procedure_State, node: syntax.Node_Index,
 	tag_type := tag_value_type(subject.layout.tag_size)
 	expected := i64(0)
 	for candidate, index in subject.variants {
-		if !is_nil && candidate == variant {
+		if !is_nil && types.are_identical(check.type_store(state.job.program), candidate, variant) {
 			expected = i64(index)
 			if subject.union_form != .No_Nil { expected += 1 }
 		}

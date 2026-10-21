@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+#MISE description="Compile an Odin source file with odinc (default: demo)"
+#MISE usage arg "[input]" help="Odin source file"
+#MISE usage arg "[output]" help="Output executable path"
+set -euo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
+
+if (($# > 2)); then die "usage: mise run compile -- [input] [output]"; fi
+
+input="${1:-$PROJECT_ROOT/examples/demo/demo.odin}"
+output="${2:-demo}"
+if [[ "$input" != /* ]]; then input="$PROJECT_ROOT/$input"; fi
+
+step "build odinc"
+mise run build
+
+step "compile $input"
+ODIN_ROOT="$PROJECT_ROOT" "$PROJECT_ROOT/build/odinc" "$input" "-out:$output"

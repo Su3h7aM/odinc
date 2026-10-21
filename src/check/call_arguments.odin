@@ -137,3 +137,55 @@ declared_parameter_names :: proc(file: ^File, params: syntax.Field_List, allocat
 	}
 	return list[:], nil
 }
+
+@(private = "package")
+expression_call_default_argument :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	scope: Scope_Id,
+	node: syntax.Node_Index,
+	names: []string,
+	slots: []Call_Slot,
+	default_argument: Default_Argument,
+	parameter: Entity_Id,
+	order: u32,
+) -> (
+	argument: Call_Argument,
+	valid: bool,
+	err: Resolve_Error,
+) {
+	file_id := checker.views[view].file
+	file := checker.type_checker.files[file_id]
+	argument = Call_Argument {
+		parameter        = parameter,
+		evaluation_order = order,
+	}
+	switch {
+	case default_argument.caller_location:
+		argument.value = Operand(Expression_Ref{view, node})
+		argument.caller_location = true
+	case default_argument.caller_expression:
+		text := expression_text(file, node)
+		if default_argument.caller_expression_target != "" {
+			text = ""
+			for name, target in names {
+				if name != default_argument.caller_expression_target { continue }
+				if slots[target].value != 0 { text = expression_text(file, slots[target].value) }
+				break
+			}
+		}
+		string_type := types.intern(checker.type_checker.store, types.Type{kind = .String})
+		constant, constant_error := constant_pool_intern_string(checker.constants, text, string_type)
+		if constant_error != nil {
+			expression_constant_failure(checker, file_id, node, constant_error) or_return
+			return {}, false, nil
+		}
+		argument.value = Operand(constant)
+	case default_argument.value != nil:
+		argument.value = default_argument.value
+	case:
+		expression_unsupported(checker, view, scope, node, "Call_Default_Value") or_return
+		return {}, false, nil
+	}
+	return argument, true, nil
+}

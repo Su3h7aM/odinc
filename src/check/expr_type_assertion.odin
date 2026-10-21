@@ -57,7 +57,7 @@ expression_type_assertion :: proc(
 	if target == 0 { return expression_unsupported(checker, view, scope, node, "Type_Assertion_Target") }
 	if source_descriptor.kind == .Union {
 		for item, index in source_descriptor.variants {
-			if item == target { variant = index; break }
+			if types.are_identical(store, item, target) { variant = index; break }
 		}
 		if variant < 0 { return expression_failure(checker, view, scope, node, .Mismatched_Types) }
 	}

@@ -968,6 +968,7 @@ Runtime_Requirements :: struct {
 	schema_entities, helper_entities: []Entity_Id,
 	dependencies:                     []Dependency,
 	type_info:                        []Type_Info_Entry,
+	type_info_representatives:        []types.Type_Id,
 	type_info_type:                   types.Type_Id,
 	type_info_parameters_type:        types.Type_Id,
 	enum_members:                     []Enum_Type_Members,

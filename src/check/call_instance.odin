@@ -137,7 +137,7 @@ expression_generic_call :: proc(
 				) or_return
 				if converted.state == .Invalid { return expression_poison(scope), nil }
 				poly_name := expression_text(file, syntax.node_payload(file.ast, name, syntax.Poly_Type).type)
-				bound := poly_bind(&bindings, poly_name, constant_type, converted.constant) or_return
+				bound := poly_bind(checker.type_checker.store, &bindings, poly_name, constant_type, converted.constant) or_return
 				if !bound { return expression_unsupported(checker, view, scope, node, "Generic_Call_Type_Conflict") }
 				continue
 			}
@@ -162,7 +162,7 @@ expression_generic_call :: proc(
 			if file.ast.nodes[name].kind == .Poly_Type {
 				if argument.mode != .Type { return expression_unsupported(checker, view, scope, node, "Generic_Call_Type_Parameter") }
 				poly := syntax.node_payload(file.ast, name, syntax.Poly_Type)
-				matched := poly_bind(&bindings, expression_text(file, poly.type), argument.type, 0) or_return
+				matched := poly_bind(checker.type_checker.store, &bindings, expression_text(file, poly.type), argument.type, 0) or_return
 				if matched && file.ast.nodes[field.type].kind == .Typeid_Type {
 					specialization := syntax.node_payload(file.ast, field.type, syntax.Typeid_Type).specialization
 					if specialization != 0 { matched = poly_match_pattern(&match, specialization, argument.type) or_return }
@@ -219,7 +219,7 @@ expression_generic_call :: proc(
 		procedure, is_procedure := entity.data.(Procedure_Data)
 		if !is_procedure ||
 		   procedure.definition != definition ||
-		   !same_elements(procedure.poly_arguments, bindings.types[:]) ||
+		   !same_type_arguments(checker.type_checker.store, procedure.poly_arguments, bindings.types[:]) ||
 		   !same_elements(procedure.poly_constants, bindings.constants[:]) { continue }
 		return expression_instance_call(checker, view, file_id, scope, node, Entity_Id(id), runtime_arguments[:], spread)
 	}
@@ -263,7 +263,7 @@ poly_match_spread :: proc(match: ^Poly_Match, variadic: syntax.Node_Index, slice
 	if file.ast.nodes[pattern].kind == .Ident {
 		name := expression_text(file, pattern)
 		if entity, _ := scope_lookup(match.checker.type_checker.resolver.scopes, match.scope, name); entity == 0 {
-			return poly_bind(match.bindings, name, descriptor.elem, 0)
+			return poly_bind(match.checker.type_checker.store, match.bindings, name, descriptor.elem, 0)
 		}
 	}
 	return poly_match_pattern(match, pattern, descriptor.elem)
@@ -303,6 +303,15 @@ same_elements :: proc(left, right: []$T) -> bool {
 	if len(left) != len(right) { return false }
 	for type, index in left {
 		if type != right[index] { return false }
+	}
+	return true
+}
+
+@(private = "package")
+same_type_arguments :: proc(store: ^types.Store, left, right: []types.Type_Id) -> bool {
+	if len(left) != len(right) { return false }
+	for type, index in left {
+		if !types.are_identical_unique_tuples(store, type, right[index]) { return false }
 	}
 	return true
 }

@@ -12,7 +12,7 @@ is_procedure_value :: proc(checker: ^Expression_Checker, type: types.Type_Id) ->
 }
 
 // A call through a procedure value has no entity. Its arguments map to the parameters of the
-// value's procedure type by position, each with the parameter's type.
+// value's static procedure type.
 @(private = "package")
 expression_indirect_call :: proc(
 	checker: ^Expression_Checker,
@@ -28,29 +28,49 @@ expression_indirect_call :: proc(
 	err: Resolve_Error,
 ) {
 	if callee.type == types.TYPE_NONE { return expression_missing_operand_type(checker, view, scope, callee_node, callee.mode) }
-	descriptor := types.get(checker.type_checker.store, types.resolve_named(checker.type_checker.store, callee.type))
+	descriptor := types.get(checker.type_checker.store, types.resolve_named(checker.type_checker.store, callee.type))^
 	if spread { return expression_unsupported(checker, view, scope, node, "Indirect_Call_Spread") }
 	if descriptor.variadic { return expression_unsupported(checker, view, scope, node, "Indirect_Call_Variadic") }
-	if len(arguments) != len(descriptor.params) {
+	file := checker.type_checker.files[checker.views[view].file]
+	positional_count := call_positional_count(file, arguments)
+	expansions := call_expansions(checker, view, scope, file, arguments[:positional_count]) or_return
+	expanded_count := len(arguments)
+	for results in expansions {
+		if results != nil { expanded_count += len(results) - 1 }
+	}
+	if expanded_count > len(descriptor.params) {
 		return expression_unsupported(checker, view, scope, node, "Indirect_Call_Arguments")
 	}
 	allocator := mem.dynamic_arena_allocator(&checker.arena)
-	call_arguments := make([]Call_Argument, len(arguments), allocator) or_return
-	for argument, index in arguments {
-		value := expression_argument(checker, view, scope, argument, descriptor.params[index], false) or_return
-		if value.state == .Invalid { return expression_poison(scope), nil }
-		conversion := expression_conversion_plan(checker, value.plan)
-		if conversion != 0 {
-			retained := checker.plans[conversion].(Conversion_Plan)
-			retained.source = Operand(Expression_Ref{view, argument})
-			conversion = Plan_Id(len(checker.plans))
-			append(&checker.plans, Plan(retained)) or_return
+	slots := make([]Call_Slot, len(descriptor.params), allocator) or_return
+	if reason := call_bind_arguments(file, arguments, descriptor.param_names, len(slots), slots, expansions); reason != "" {
+		return expression_unsupported(checker, view, scope, node, reason)
+	}
+	metadata, metadata_error := expression_procedure_info(checker, descriptor.procedure_info)
+	assert(metadata_error == .None)
+	call_arguments := make([]Call_Argument, len(slots), allocator) or_return
+	for slot, index in slots {
+		argument: Call_Argument
+		valid: bool
+		if slot.value != 0 {
+			any_integer := metadata != nil && .Any_Integer in metadata.parameter_flags[index]
+			argument, valid = expression_call_slot_argument(checker, view, scope, slot, expansions, descriptor.params[index], 0, any_integer) or_return
+		} else {
+			if metadata == nil { return expression_unsupported(checker, view, scope, node, "Call_Default_Missing") }
+			argument, valid = expression_call_default_argument(
+				checker,
+				view,
+				scope,
+				node,
+				descriptor.param_names,
+				slots,
+				metadata.defaults[index],
+				0,
+				u32(len(arguments) + index),
+			) or_return
 		}
-		call_arguments[index] = Call_Argument {
-			value            = Operand(Expression_Ref{view, argument}),
-			conversion       = conversion,
-			evaluation_order = u32(index),
-		}
+		if !valid { return expression_poison(scope), nil }
+		call_arguments[index] = argument
 	}
 	results := make([]types.Type_Id, len(descriptor.results), allocator) or_return
 	copy(results, descriptor.results)
