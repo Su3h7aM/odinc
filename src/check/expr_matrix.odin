@@ -106,7 +106,7 @@ expression_binary_matrix_involved :: proc(checker: ^Expression_Checker, left, ri
 }
 
 // Mirrors the official `check_matrix_type_hint`: a result that fits the hint takes the hint type.
-@(private = "file")
+@(private)
 matrix_hint_type :: proc(store: ^types.Store, computed, hint: types.Type_Id) -> types.Type_Id {
 	if hint == 0 { return computed }
 	if computed == hint { return hint }

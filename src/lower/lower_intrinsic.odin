@@ -99,6 +99,15 @@ lower_intrinsic :: proc(
 	case .Sqrt:
 		if !is_float_type(type) || type != function.nodes.type[values[0]] { return lower_fail(state, node, .Builtin) }
 		return ir.unary(function, .FSqrt, values[0])
+	case .Hadamard_Product:
+		if len(plan.arguments) != 2 { return lower_fail(state, node, .Builtin) }
+		return lower_matrix_hadamard(state, node, info.type, plan.arguments[0], plan.arguments[1], values[0], values[1])
+	case .Matrix_Flatten:
+		if len(plan.arguments) != 1 { return lower_fail(state, node, .Builtin) }
+		return lower_matrix_flatten(state, node, info.type, values[0])
+	case .Outer_Product:
+		if len(plan.arguments) != 2 { return lower_fail(state, node, .Builtin) }
+		return lower_matrix_outer(state, node, info.type, values[0], values[1])
 	case .Ptr_Offset:
 		if function.nodes.type[values[0]] != .Ptr || !is_integer_value(function, values[1]) { return lower_fail(state, node, .Builtin) }
 		pointer := lower_type(state, operand_type(state, plan.arguments[0]))

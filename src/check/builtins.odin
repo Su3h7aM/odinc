@@ -660,6 +660,9 @@ expression_builtin_call :: proc(
 	if kind := checker.builtin_kinds[builtin]; kind >= .Complex && kind <= .Conj {
 		return expression_complex_builtin(checker, view, scope, node, builtin, kind, arguments, call.ellipsis.kind != .Invalid, hint)
 	}
+	if kind := checker.builtin_kinds[builtin]; kind == .Hadamard_Product || kind == .Outer_Product || kind == .Matrix_Flatten {
+		return expression_matrix_builtin(checker, view, scope, node, builtin, kind, arguments, call.ellipsis.kind != .Invalid, hint)
+	}
 	if checker.builtin_kinds[builtin] == .Has_Target_Feature {
 		return expression_has_target_feature(checker, view, scope, node, arguments, call.ellipsis.kind != .Invalid)
 	}

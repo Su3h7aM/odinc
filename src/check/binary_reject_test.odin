@@ -425,3 +425,100 @@ main :: proc "contextless" () {
 	_, ok := check_procedure_source(t, source, .Conversion)
 	testing.expect(t, ok)
 }
+
+@(test)
+matrix_hadamard_rejects_mismatched_types :: proc(t: ^testing.T) {
+	// Official: 'hadamard_product' values of the same type, got matrix[2, 2]i32 and matrix[2, 3]i32.
+	source := transmute([]byte)string(
+		`package sample
+main :: proc "contextless" () {
+	a := matrix[2, 2]i32{1, 2, 3, 4}
+	b := matrix[2, 3]i32{1, 2, 3, 4, 5, 6}
+	_ = hadamard_product(a, b)
+}
+`,
+	)
+	_, ok := check_procedure_source(t, source, .Mismatched_Types, intrinsic_names = {"hadamard_product"})
+	testing.expect(t, ok)
+}
+
+@(test)
+matrix_hadamard_rejects_type_operands :: proc(t: ^testing.T) {
+	// Official: 'matrix[2, 2]i32' is not an expression but a type.
+	source := transmute([]byte)string(`package sample
+main :: proc "contextless" () {
+	_ = hadamard_product(matrix[2, 2]i32, matrix[2, 2]i32)
+}
+`)
+	_, ok := check_procedure_source(t, source, .Invalid_Operand, intrinsic_names = {"hadamard_product"})
+	testing.expect(t, ok)
+}
+
+@(test)
+matrix_flatten_rejects_scalar :: proc(t: ^testing.T) {
+	// Official: 'matrix_flatten' expects a matrix or array, got untyped integer.
+	source := transmute([]byte)string(`package sample
+main :: proc "contextless" () {
+	_ = matrix_flatten(3)
+}
+`)
+	_, ok := check_procedure_source(t, source, .Invalid_Operand, intrinsic_names = {"matrix_flatten"})
+	testing.expect(t, ok)
+}
+
+@(test)
+matrix_outer_rejects_mismatched_elements :: proc(t: ^testing.T) {
+	// Official: 'outer_product' mismatched element types, got i32 vs f32.
+	source := transmute([]byte)string(`package sample
+main :: proc "contextless" () {
+	a := [2]i32{1, 2}
+	b := [2]f32{1, 2}
+	_ = outer_product(a, b)
+}
+`)
+	_, ok := check_procedure_source(t, source, .Mismatched_Types, intrinsic_names = {"outer_product"})
+	testing.expect(t, ok)
+}
+
+@(test)
+matrix_outer_rejects_empty_arrays :: proc(t: ^testing.T) {
+	// Official: 'outer_product' expects only arrays of non-zero length, got [0]i32 and [2]i32.
+	source := transmute([]byte)string(`package sample
+main :: proc "contextless" () {
+	a := [0]i32{}
+	b := [2]i32{1, 2}
+	_ = outer_product(a, b)
+}
+`)
+	_, ok := check_procedure_source(t, source, .Invalid_Operand, intrinsic_names = {"outer_product"})
+	testing.expect(t, ok)
+}
+
+@(test)
+matrix_outer_rejects_overlong_product :: proc(t: ^testing.T) {
+	// Official: Product of the array lengths exceed the maximum matrix element count, got 72, expected a maximum of 64.
+	source := transmute([]byte)string(
+		`package sample
+main :: proc "contextless" () {
+	a := [9]i32{1, 2, 3, 4, 5, 6, 7, 8, 9}
+	b := [8]i32{1, 2, 3, 4, 5, 6, 7, 8}
+	_ = outer_product(a, b)
+}
+`,
+	)
+	_, ok := check_procedure_source(t, source, .Invalid_Operand, intrinsic_names = {"outer_product"})
+	testing.expect(t, ok)
+}
+
+@(test)
+matrix_outer_rejects_matrix_arguments :: proc(t: ^testing.T) {
+	// Official: 'outer_product' expects only arrays, got matrix[2, 2]i32 and matrix[2, 2]i32.
+	source := transmute([]byte)string(`package sample
+main :: proc "contextless" () {
+	a := matrix[2, 2]i32{1, 2, 3, 4}
+	_ = outer_product(a, a)
+}
+`)
+	_, ok := check_procedure_source(t, source, .Invalid_Operand, intrinsic_names = {"outer_product"})
+	testing.expect(t, ok)
+}

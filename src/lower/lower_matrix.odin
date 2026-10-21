@@ -651,3 +651,82 @@ lower_matrix_scalar_init :: proc(state: ^Procedure_State, node: syntax.Node_Inde
 	}
 	return slot
 }
+
+// Element-wise product for `hadamard_product`: matrix pairs reuse the operator path, array pairs use a flat loop.
+@(private)
+lower_matrix_hadamard :: proc(
+	state: ^Procedure_State,
+	node: syntax.Node_Index,
+	type: types.Type_Id,
+	left_operand, right_operand: check.Operand,
+	left_value, right_value: ir.Node_Id,
+) -> ir.Node_Id {
+	function := state.job.function
+	shape := lower_type(state, type)
+	if state.failed { return 0 }
+	layout := state.job.layouts[type]
+	if layout.error != .None || layout.size > i64(max(u32)) { return lower_fail(state, node, .Builtin) }
+	element_layout := state.job.layouts[shape.elem]
+	if element_layout.error != .None || element_layout.size <= 0 || element_layout.size > i64(max(u32)) {
+		return lower_fail(state, node, .Builtin)
+	}
+	element_size := u32(element_layout.size)
+	slot := ir.stack_slot(function, state.entry_control, u32(max(layout.size, 1)), u32(layout.align))
+	if shape.kind == .Matrix {
+		plan := check.Matrix_Binary_Plan {
+			op     = .Mul,
+			left   = left_operand,
+			right  = right_operand,
+			result = type,
+		}
+		return lower_matrix_elementwise(state, node, plan, slot, left_value, right_value, true, true, shape.elem, element_size)
+	}
+	if shape.kind != .Array { return lower_fail(state, node, .Builtin) }
+	for index in 0 ..< shape.count {
+		first := lower_load(state, ir.ptr_offset(function, left_value, i64(index) * i64(element_size)), shape.elem)
+		second := lower_load(state, ir.ptr_offset(function, right_value, i64(index) * i64(element_size)), shape.elem)
+		value := lower_matrix_element_op(state, node, .Mul, first, second, shape.elem)
+		if state.failed || function.error != nil { return 0 }
+		lower_store(state, ir.ptr_offset(function, slot, i64(index) * i64(element_size)), value, shape.elem)
+		if state.failed { return 0 }
+	}
+	return slot
+}
+
+// `matrix_flatten` copies the physical storage bytes into a fresh array slot; the result is independent.
+@(private)
+lower_matrix_flatten :: proc(state: ^Procedure_State, node: syntax.Node_Index, type: types.Type_Id, value: ir.Node_Id) -> ir.Node_Id {
+	function := state.job.function
+	layout := state.job.layouts[type]
+	if layout.error != .None || layout.size > i64(max(u32)) { return lower_fail(state, node, .Builtin) }
+	slot := ir.stack_slot(function, state.entry_control, u32(max(layout.size, 1)), u32(layout.align))
+	lower_memory_effect(state, .Mem_Copy, slot, value, ir.const_int(function, .I64, layout.size))
+	return slot
+}
+
+// `outer_product` fills `result[i, j]` with `left[i] * right[j]`.
+@(private)
+lower_matrix_outer :: proc(state: ^Procedure_State, node: syntax.Node_Index, type: types.Type_Id, left_value, right_value: ir.Node_Id) -> ir.Node_Id {
+	function := state.job.function
+	shape := lower_type(state, type)
+	if state.failed { return 0 }
+	layout := state.job.layouts[type]
+	if layout.error != .None || shape.kind != .Matrix || layout.size > i64(max(u32)) { return lower_fail(state, node, .Builtin) }
+	element_layout := state.job.layouts[shape.elem]
+	if element_layout.error != .None || element_layout.size <= 0 || element_layout.size > i64(max(u32)) {
+		return lower_fail(state, node, .Builtin)
+	}
+	element_size := u32(element_layout.size)
+	slot := ir.stack_slot(function, state.entry_control, u32(max(layout.size, 1)), u32(layout.align))
+	for row in 0 ..< shape.count {
+		for column in 0 ..< shape.upper_bound {
+			first := lower_load(state, ir.ptr_offset(function, left_value, row * i64(element_size)), shape.elem)
+			second := lower_load(state, ir.ptr_offset(function, right_value, column * i64(element_size)), shape.elem)
+			value := lower_matrix_element_op(state, node, .Mul, first, second, shape.elem)
+			if state.failed || function.error != nil { return 0 }
+			lower_store(state, lower_matrix_element_address(state, slot, shape, row, column, element_size), value, shape.elem)
+			if state.failed { return 0 }
+		}
+	}
+	return slot
+}
