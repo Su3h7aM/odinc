@@ -112,6 +112,7 @@ native_section_expectations := [?]NativeSectionExpectation {
 	{"demo_section_explicit_context_definition", 7},
 	{"demo_section_bit_field_type", 30},
 	{"demo_section_range_statements_with_multiple_return_values", 55},
+	{"matrix_procedure_abi", 0},
 }
 
 native_section_test_directory :: proc(t: ^testing.T) -> string {
@@ -225,7 +226,7 @@ native_sections_group_8 :: proc(t: ^testing.T) {
 	odin_root, _ := filepath.join({#directory, "..", ".."}, context.temp_allocator)
 	directory := native_section_test_directory(t)
 	defer os.remove_all(directory)
-	for entry in native_section_expectations[53:60] {
+	for entry in native_section_expectations[53:] {
 		check_native_section(t, odin_root, directory, entry.section, entry.code)
 	}
 }
