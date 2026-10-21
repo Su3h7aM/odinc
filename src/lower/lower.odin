@@ -94,13 +94,18 @@ lower_program :: proc(
 		job.declarations = declarations
 		job.address_taken = address_taken
 	}
-	reached_globals := lower_reachable(program, module, jobs, symbols, worker_count, allocator, scratch_allocator) or_return
+	// The generated startup procedures lower before reachability, so helpers referenced only by dynamic
+	// global initializers are marked reached instead of stubbed with an unreachable trap.
+	startup_base := len(module.functions)
+	append_startup_procedures(program, module, symbols, declarations, layouts, default_context, &collected, allocator) or_return
+	startup_roots := make([]u32, len(module.functions) - startup_base, scratch_allocator) or_return
+	for index in startup_base ..< len(module.functions) { startup_roots[index - startup_base] = u32(index) }
+	reached_globals := lower_reachable(program, module, jobs, startup_roots, symbols, worker_count, allocator, scratch_allocator) or_return
 	prune_unreached_global_errors(program, symbols, reached_globals, &collected) or_return
 	for &job in jobs {
 		if job.allocation_error != nil { return nil, job.allocation_error }
 		append(&collected, ..job.errors[:]) or_return
 	}
-	append_startup_procedures(program, module, symbols, declarations, layouts, default_context, &collected, allocator) or_return
 	_, merge_error := ir.blob_merge(module)
 	if merge_error != nil { return nil, merge_error }
 	errors = make([]Lower_Error, len(collected), allocator) or_return

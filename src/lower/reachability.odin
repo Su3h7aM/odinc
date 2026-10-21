@@ -8,7 +8,8 @@ import "oc:ir"
 
 // Staged divergence: the official compiler lowers every procedure, we lower only what the roots reach
 // (docs/archive/05-lower-design.md section 4). Roots are user-package procedures and globals and the startup
-// procedures of the runtime requirements. Each round lowers the newly reached procedures in parallel,
+// procedures of the runtime requirements, plus the already-lowered generated startup procedures. Each round
+// lowers the newly reached procedures in parallel,
 // then marks the symbols their code and data reference. An unreached procedure gets an `unreachable`
 // body, so lowering errors in unused runtime code never fail the build.
 @(private)
@@ -93,6 +94,7 @@ lower_reachable :: proc(
 	program: ^check.Checked_Program,
 	module: ^ir.Module,
 	jobs: []Procedure_Job,
+	startup_roots: []u32,
 	symbols: []ir.Symbol_Ref,
 	worker_count: int,
 	allocator: runtime.Allocator,
@@ -102,10 +104,16 @@ lower_reachable :: proc(
 	err: runtime.Allocator_Error,
 ) {
 	marks := Reach_Marks {
-		functions      = make([]bool, len(jobs), scratch) or_return,
-		lowered        = make([]bool, len(jobs), scratch) or_return,
+		functions      = make([]bool, len(module.functions), scratch) or_return,
+		lowered        = make([]bool, len(module.functions), scratch) or_return,
 		globals        = make([]bool, len(module.globals), scratch) or_return,
 		global_scanned = make([]bool, len(module.globals), scratch) or_return,
+	}
+	// The generated startup procedures are already lowered, so only their references need marking. Without
+	// this, helpers used only by dynamic global initializers stay unreached and their calls trap.
+	for root in startup_roots {
+		assert(int(root) >= len(jobs) && int(root) < len(module.functions))
+		scan_function_references(module.functions[root], &marks)
 	}
 	for &job, index in jobs {
 		if is_user_entity(program, job.procedure.entity) { marks.functions[index] = true }
