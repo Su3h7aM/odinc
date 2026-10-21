@@ -49,6 +49,7 @@ Resolver :: struct {
 	dependencies:      [dynamic][dynamic]Dependency,
 	diagnostics:       [dynamic]Resolution_Diagnostic,
 	pending_bodies:    [dynamic]Entity_Id,
+	body_pause_depth:  int,
 	poisoned:          [dynamic]Entity_Id,
 }
 
@@ -95,6 +96,7 @@ resolve_entity :: proc(resolver: ^Resolver, id: Entity_Id, need := Resolution_Ne
 // Bodies wait until no declaration is active, so a body may refer to any procedure without a declaration cycle.
 @(private = "package")
 resolver_check_pending_bodies :: proc(resolver: ^Resolver) -> Resolve_Error {
+	if resolver.body_pause_depth > 0 { return nil }
 	for len(resolver.pending_bodies) > 0 {
 		id := pop_front(&resolver.pending_bodies)
 		if resolver.check_body == nil { return Resolver_Failure.No_Callback }
