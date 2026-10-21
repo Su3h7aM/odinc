@@ -410,3 +410,11 @@ Gates at this boundary: `mise run build`, `fmt --check`, `test check` 257, `test
 ## or_return hang report: probe artifact (2026-10-21)
 
 `or_return` (all forms), `#unroll` over an enum, and `or_break`/`or_continue` in loops were reported to hang at runtime (exit 124). Re-measured on eight valid programs across both compilers — success path, failing path, named results, chained calls, `or_return` in a loop, `#unroll` over an enum, and `or_break`/`or_continue` — every binary built cleanly and every run matched the official compiler byte-for-byte with no timeout, so there is no bug and nothing was changed. The original report came from an invalid probe compounded by a probe-runner bug: `or_return` requires the enclosing procedure to have at least one result, so it can never appear directly in `main`, and in a procedure with more than one unnamed result the results must be named. The two multi-result tail shapes also match: a caller with more results than the callee (3 vs 2) and a callee with more results than the caller (3 vs 2), on both the success and early-return paths.
+
+## Struct field tags are dropped from runtime type info (2026-10-21)
+
+Found while chasing the demo's last lowering diagnostic: `reflect.struct_field_tags` returns empty strings for every field, where the official compiler returns the declared tag. Probe: a struct with ``x: int `tag1` `` and ``y: string `json:"y_field"` `` gives `["json:\"x\"", ""]` officially and `["", ""]` here, so `struct_tag_lookup` finds nothing and the demo's reflection section prints no json line.
+
+`Type_Field` in `src/types/types.odin` carries only `name` and `type`, and `write_struct_variant` in `src/lower/lower_type_info.odin` builds the tags array from an empty slice, so there is nowhere for a tag to travel from the parser to the image. Fixing it means carrying the tag through `types.Type_Field`, populating it where struct fields are interned in `src/check`, and emitting it. That spans three stages, so it is recorded here as its own concern rather than folded into the demo work.
+
+Reference: refs/Odin-upstream/src/types.cpp (Type_Field carries the tag) and base/runtime/core.odin's `Type_Info_Struct.tags`.
