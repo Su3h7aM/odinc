@@ -202,6 +202,7 @@ expression_deferred_attribute :: proc(checker: ^Expression_Checker, id: Entity_I
 	state, resolve_error := resolve_entity(checker.type_checker.resolver, target)
 	if resolve_error != nil { return false, resolve_error }
 	if state == .Invalid { return false, nil }
+	if binding := entity_get(scopes, target); binding.kind == .Constant && binding.alias != 0 { target = binding.alias }
 	entity = entity_get(scopes, id)
 	target_entity := entity_get(scopes, target)
 	target_data, target_is_procedure := target_entity.data.(Procedure_Data)
@@ -1327,7 +1328,10 @@ expression_stamp_local_procedures :: proc(
 		if id == 0 { continue }
 		// A predeclared `::` name stays a Constant aliasing the procedure entity.
 		target := entity_get(scopes, id)
-		if target.kind == .Constant && target.alias != 0 { target = entity_get(scopes, target.alias) }
+		if target.kind == .Constant && target.alias != 0 {
+			id = target.alias
+			target = entity_get(scopes, id)
+		}
 		if target == nil || target.kind != .Procedure {
 			expression_unsupported(
 				checker,
@@ -1339,6 +1343,10 @@ expression_stamp_local_procedures :: proc(
 			return nil
 		}
 		target.declaration = Node_Ref{file_id, node}
+		if !(expression_deferred_attribute(checker, id) or_return) {
+			procedure := &entity_get(scopes, id).data.(Procedure_Data)
+			procedure.body_state = .Invalid
+		}
 	}
 	return nil
 }

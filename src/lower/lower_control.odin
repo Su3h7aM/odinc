@@ -229,6 +229,7 @@ lower_for :: proc(state: ^Procedure_State, node: syntax.Node_Index, statement: s
 		ir.jump_to(state.builder, end)
 		ir.enter_arm(state.builder, branch, 0)
 	}
+	state.control_targets[len(state.control_targets) - 1].defers = len(state.defers)
 	lower_scoped_statement(state, statement.body)
 	if state.failed || state.job.function.error != nil { return }
 	ir.jump_to(state.builder, continuation)
