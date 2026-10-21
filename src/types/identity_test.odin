@@ -57,14 +57,14 @@ signature_identity_and_owned_names :: proc(t: ^testing.T) {
 	testing.expect(t, !are_identical_unique_tuples(&store, x_outer, y_outer))
 	different := intern(&store, Type{kind = .Procedure, params = params, results = results, variadic = true})
 	testing.expect(t, !are_identical(&store, x, different))
-	structure := intern(&store, Type{kind = .Struct, fields = []Type_Field{{"first", x}}})
-	renamed := intern(&store, Type{kind = .Struct, fields = []Type_Field{{"second", y}}})
-	same_fields := intern(&store, Type{kind = .Struct, fields = []Type_Field{{"first", y}}})
+	structure := intern(&store, Type{kind = .Struct, fields = []Type_Field{{name = "first", type = x}}})
+	renamed := intern(&store, Type{kind = .Struct, fields = []Type_Field{{name = "second", type = y}}})
+	same_fields := intern(&store, Type{kind = .Struct, fields = []Type_Field{{name = "first", type = y}}})
 	testing.expect(t, !are_identical(&store, structure, renamed))
 	testing.expect(t, are_identical(&store, structure, same_fields))
 	testing.expect(t, !are_identical_unique_tuples(&store, structure, same_fields))
-	first_tuple := intern(&store, Type{kind = .Tuple, fields = []Type_Field{{"first", x}}})
-	second_tuple := intern(&store, Type{kind = .Tuple, fields = []Type_Field{{"second", y}}})
+	first_tuple := intern(&store, Type{kind = .Tuple, fields = []Type_Field{{name = "first", type = x}}})
+	second_tuple := intern(&store, Type{kind = .Tuple, fields = []Type_Field{{name = "second", type = y}}})
 	testing.expect(t, are_identical(&store, first_tuple, second_tuple))
 	testing.expect(t, !are_identical_unique_tuples(&store, first_tuple, second_tuple))
 }
@@ -77,8 +77,8 @@ nominal_identity_terminates_recursive_signatures :: proc(t: ^testing.T) {
 	right := reserve_nominal(&store, .Named, "Node")
 	left_pointer := intern(&store, Type{kind = .Pointer, elem = left})
 	right_pointer := intern(&store, Type{kind = .Pointer, elem = right})
-	left_fields := []Type_Field{{"next", left_pointer}}
-	right_fields := []Type_Field{{"next", right_pointer}}
+	left_fields := []Type_Field{{name = "next", type = left_pointer}}
+	right_fields := []Type_Field{{name = "next", type = right_pointer}}
 	left_struct := intern(&store, Type{kind = .Struct, fields = left_fields})
 	right_struct := intern(&store, Type{kind = .Struct, fields = right_fields})
 	complete_nominal(&store, left, Type{kind = .Named, name = "Node", elem = left_struct})

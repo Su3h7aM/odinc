@@ -197,7 +197,9 @@ build_store :: proc(store: ^types.Store) -> []types.Type_Id {
 			ids[index] = scalar_type(store, spec.scalar)
 		case .Struct, .Union:
 			fields := make([]types.Type_Field, len(spec.members))
-			for member, i in spec.members { fields[i] = types.Type_Field{"", ids[member]} }
+			for member, i in spec.members {fields[i] = types.Type_Field {
+					type = ids[member],
+				}}
 			ids[index] = types.intern(store, types.Type{kind = .Struct, fields = fields, raw_union = spec.kind == .Union})
 		case .Array:
 			ids[index] = types.intern(store, types.Type{kind = .Array, elem = ids[spec.members[0]], count = i64(spec.count)})

@@ -16,7 +16,9 @@ record :: proc(store: ^Store, template: Type, members: ..Type_Id) -> Type_Id {
 	descriptor := template
 	descriptor.kind = .Struct
 	descriptor.fields = make([]Type_Field, len(members), context.temp_allocator)
-	for member, index in members { descriptor.fields[index] = Type_Field{"", member} }
+	for member, index in members {descriptor.fields[index] = Type_Field {
+			type = member,
+		}}
 	return intern(store, descriptor)
 }
 

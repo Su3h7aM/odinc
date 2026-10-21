@@ -33,9 +33,18 @@ soa_layout_fixture :: proc(fixture: ^Soa_Layout_Fixture) {
 	f32_type := types.intern(&fixture.store, types.Type{kind = .Float, name = "f32", count = 4})
 	u8_type := types.intern(&fixture.store, types.Type{kind = .Integer, name = "u8", count = 1})
 	fields := make([]types.Type_Field, 3, mem.dynamic_arena_allocator(&fixture.arena))
-	fields[0] = {"a", i32_type}
-	fields[1] = {"b", f32_type}
-	fields[2] = {"c", u8_type}
+	fields[0] = {
+		name = "a",
+		type = i32_type,
+	}
+	fields[1] = {
+		name = "b",
+		type = f32_type,
+	}
+	fields[2] = {
+		name = "c",
+		type = u8_type,
+	}
 	fixture.elem = types.intern(&fixture.store, types.Type{kind = .Struct, name = "S", fields = fields})
 }
 
@@ -177,10 +186,10 @@ soa_element_forms_match_official_accept_and_reject :: proc(t: ^testing.T) {
 	testing.expect(t, !wide_valid)
 	// The official compiler accepts a struct element with string, nested struct and array fields.
 	string_type := types.intern(store, types.Type{kind = .String})
-	inner_fields := []types.Type_Field{{"v", i32_type}}
+	inner_fields := []types.Type_Field{{name = "v", type = i32_type}}
 	inner := types.intern(store, types.Type{kind = .Struct, fields = inner_fields})
 	array_field := types.intern(store, types.Type{kind = .Array, elem = i32_type, count = 8})
-	mixed_fields := []types.Type_Field{{"text", string_type}, {"inner", inner}, {"fixed", array_field}}
+	mixed_fields := []types.Type_Field{{name = "text", type = string_type}, {name = "inner", type = inner}, {name = "fixed", type = array_field}}
 	mixed := types.intern(store, types.Type{kind = .Struct, fields = mixed_fields})
 	_, mixed_valid := soa_struct(checker, mixed, 4, .Fixed)
 	testing.expect(t, mixed_valid)

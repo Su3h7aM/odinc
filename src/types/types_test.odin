@@ -96,7 +96,7 @@ layout_matches_target :: proc(t: ^testing.T) {
 	id_enum := intern(&store, Type{kind = .Enum, backing = id_u16})
 	id_bit_set := intern(&store, Type{kind = .Bit_Set, backing = TYPE_NONE, lower_bound = 0, upper_bound = 63})
 	id_bit_field := intern(&store, Type{kind = .Bit_Field, backing = id_u32})
-	fields := []Type_Field{{"a", id_u8}, {"b", id_u64}}
+	fields := []Type_Field{{name = "a", type = id_u8}, {name = "b", type = id_u64}}
 	id_struct := intern(&store, Type{kind = .Struct, fields = fields})
 	id_packed := intern(&store, Type{kind = .Struct, fields = fields, packed = true})
 	id_raw_union := intern(&store, Type{kind = .Struct, fields = fields, raw_union = true})
@@ -197,7 +197,7 @@ layout_matches_target :: proc(t: ^testing.T) {
 	testing.expect(t, duplicate == id_u32, "interning preserves canonical identity")
 	node_id := reserve_nominal(&store, .Struct, "Node")
 	node_pointer := intern(&store, Type{kind = .Pointer, elem = node_id})
-	complete_nominal(&store, node_id, Type{kind = .Struct, name = "Node", fields = []Type_Field{{"next", node_pointer}}})
+	complete_nominal(&store, node_id, Type{kind = .Struct, name = "Node", fields = []Type_Field{{name = "next", type = node_pointer}}})
 	node_size, node_align, node_err := layout(&store, node_id)
 	testing.expect(t, node_err == .None && node_size == size_of(Node) && node_align == align_of(Node), "recursive pointer record lays out")
 	distinct_id := reserve_nominal(&store, .Named, "Distinct_Int")
@@ -213,7 +213,7 @@ layout_matches_target :: proc(t: ^testing.T) {
 	_, _, incomplete_err := layout(&store, incomplete_id)
 	testing.expect(t, incomplete_err == .Incomplete_Type, "incomplete nominal type returns layout error")
 	cycle_id := reserve_nominal(&store, .Struct, "Cycle")
-	complete_nominal(&store, cycle_id, Type{kind = .Struct, name = "Cycle", fields = []Type_Field{{"self", cycle_id}}})
+	complete_nominal(&store, cycle_id, Type{kind = .Struct, name = "Cycle", fields = []Type_Field{{name = "self", type = cycle_id}}})
 	_, _, cycle_err := layout(&store, cycle_id)
 	testing.expect(t, cycle_err == .Recursive_Value, "by-value recursive record returns layout error")
 	_, _, poison_err := layout(&store, TYPE_POISON)

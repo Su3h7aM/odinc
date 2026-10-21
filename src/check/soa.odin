@@ -47,9 +47,15 @@ soa_struct :: proc(checker: ^Type_Checker, elem: types.Type_Id, count: i64, kind
 			name = names[index]
 		}
 		if kind == .Fixed {
-			fields[index] = {name, types.intern(store, types.Type{kind = .Array, elem = element_field, count = count})}
+			fields[index] = {
+				name = name,
+				type = types.intern(store, types.Type{kind = .Array, elem = element_field, count = count}),
+			}
 		} else {
-			fields[index] = {name, types.intern(store, types.Type{kind = .Multi_Pointer, elem = element_field})}
+			fields[index] = {
+				name = name,
+				type = types.intern(store, types.Type{kind = .Multi_Pointer, elem = element_field}),
+			}
 		}
 	}
 	if kind == .Slice || kind == .Dynamic {

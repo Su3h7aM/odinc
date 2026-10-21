@@ -217,7 +217,7 @@ runtime_type_named :: proc(checker: ^Expression_Checker, name: string) -> types.
 	return entity_get(scopes, entity).type
 }
 
-// Depth-first, in the order of each descriptor's references: elem, index, backing, fields, variants, params, results.
+// Depth-first, in descriptor reference order: elem, index, backing, soa_elem, fields, variants, params, results.
 // A union also refers to its tag type, collected after its variants.
 @(private = "file")
 collect_type_info_types :: proc(
@@ -239,7 +239,7 @@ collect_type_info_types :: proc(
 	representatives[type] = representative
 	if representative == type { append(ordered, type) or_return }
 	descriptor := types.get(store, type)^
-	children := [?]types.Type_Id{descriptor.elem, descriptor.index, descriptor.backing}
+	children := [?]types.Type_Id{descriptor.elem, descriptor.index, descriptor.backing, descriptor.soa_elem}
 	for child in children {
 		collect_type_info_types(store, child, ordered, seen, representatives) or_return
 	}

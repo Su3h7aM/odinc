@@ -185,7 +185,9 @@ push :: proc(list: ^[dynamic]Abi_Param, param: Abi_Param) -> bool {
 @(private = "file")
 tuple_of :: proc(store: ^Store, members: []Type_Id) -> Type_Id {
 	fields := make([]Type_Field, len(members), context.temp_allocator)
-	for member, index in members { fields[index] = Type_Field{"", member} }
+	for member, index in members {fields[index] = Type_Field {
+			type = member,
+		}}
 	return append_type(store, Type{kind = .Tuple, fields = fields})
 }
 

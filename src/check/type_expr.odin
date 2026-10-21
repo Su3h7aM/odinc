@@ -1274,6 +1274,11 @@ record_fields :: proc(
 		}
 		if field_type == types.TYPE_POISON { valid = false }
 		if is_variadic { variadic = true }
+		field_tag := ""
+		if field.tag != 0 {
+			decoded, ok := literal_string_value(type_node_text(file, field.tag), checker.arena_allocator) or_return
+			if ok { field_tag = decoded }
+		}
 		names := syntax.node_list(file.ast, field.names)
 		if len(names) == 0 {
 			stored[count] = types.Type_Field {
@@ -1300,6 +1305,7 @@ record_fields :: proc(
 			stored[count] = types.Type_Field {
 				name = field_name,
 				type = field_type,
+				tag  = field_tag,
 			}
 			flags[count] = field.flags
 			count += 1

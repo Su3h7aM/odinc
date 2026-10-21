@@ -112,6 +112,7 @@ Layout_Error :: enum u8 {
 Type_Field :: struct {
 	name: string,
 	type: Type_Id,
+	tag:  string,
 }
 
 Union_Layout :: struct {

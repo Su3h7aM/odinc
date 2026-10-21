@@ -27,6 +27,7 @@ are_identical_internal :: proc(store: ^Store, a, b: Type_Id, check_tuple_names: 
 	   !are_identical_internal(store, x.backing, y.backing, check_tuple_names) { return false }
 	for field, i in x.fields {
 		if (x.kind != .Tuple || check_tuple_names) && field.name != y.fields[i].name { return false }
+		if field.tag != y.fields[i].tag { return false }
 		if !are_identical_internal(store, field.type, y.fields[i].type, check_tuple_names) { return false }
 	}
 	for variant, i in x.variants {

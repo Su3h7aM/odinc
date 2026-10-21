@@ -256,6 +256,7 @@ write_type_info_variant :: proc(
 		payload := begin_variant(writer, image, "Type_Info_Bit_Set")
 		elem := write_entry_pointer(writer, image, payload, "elem", descriptor.elem) or_return
 		underlying := write_entry_pointer(writer, image, payload, "underlying", descriptor.backing) or_return
+		write_scalar_field(writer, image, payload, "explicit_underlying", u64(descriptor.backing != types.TYPE_NONE), 1)
 		write_scalar_field(writer, image, payload, "lower", u64(descriptor.lower_bound), 8)
 		write_scalar_field(writer, image, payload, "upper", u64(descriptor.upper_bound), 8)
 		return elem && underlying, nil
@@ -375,6 +376,7 @@ write_struct_variant :: proc(
 		targets[position] = target
 		names[position] = field.name
 		offsets[position] = u64(offset)
+		tags[position] = field.tag
 	}
 	count := len(fields)
 	types_array := pointer_array(writer, targets) or_return
@@ -393,6 +395,11 @@ write_struct_variant :: proc(
 	if descriptor.raw_union { flags |= 1 << STRUCT_FLAG_RAW_UNION }
 	if descriptor.custom_align != 0 { flags |= 1 << STRUCT_FLAG_ALIGN }
 	write_scalar_field(writer, image, payload, "flags", flags, 1)
+	if descriptor.soa != .None {
+		write_scalar_field(writer, image, payload, "soa_kind", u64(descriptor.soa), 1)
+		write_scalar_field(writer, image, payload, "soa_len", u64(descriptor.count), 4)
+		return write_entry_pointer(writer, image, payload, "soa_base_type", descriptor.soa_elem)
+	}
 	return true, nil
 }
 
