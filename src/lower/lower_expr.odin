@@ -216,6 +216,10 @@ lower_value :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> ir.Node
 			return lower_aggregate(state, node, value)
 		case check.Slice_Literal_Plan:
 			return lower_slice_literal(state, node, value)
+		case check.Dynamic_Array_Literal_Plan:
+			return lower_dynamic_array_literal(state, node, value)
+		case check.Map_Literal_Plan:
+			return lower_map_literal(state, node, value)
 		case check.Bit_Set_Literal_Plan:
 			return lower_bit_set_literal(state, node, value)
 		case check.Bounds_Plan:
@@ -270,6 +274,10 @@ lower_value :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> ir.Node
 		if value.op.kind == .And { return lower_address(state, value.expr) }
 		if lower_type(state, lower_info(state, value.expr).type).kind == .Matrix {
 			return lower_matrix_unary(state, node, value.op.kind, value.expr, lower_info(state, node).type)
+		}
+		if lower_type(state, lower_info(state, value.expr).type).kind == .Array ||
+		   lower_type(state, lower_info(state, value.expr).type).kind == .Enumerated_Array {
+			return lower_array_unary(state, node, value.op.kind, value.expr, lower_info(state, node).type)
 		}
 		operand := lower_value(state, value.expr)
 		if state.failed { return 0 }

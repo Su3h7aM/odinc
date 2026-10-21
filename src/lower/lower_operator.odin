@@ -608,7 +608,11 @@ lower_array_unary :: proc(
 	for index in 0 ..< shape.count {
 		address := ir.ptr_offset(function, base, index * size)
 		destination := ir.ptr_offset(function, slot, index * size)
-		if operator == .Add {
+		if is_wide_integer(state, shape.elem) {
+			lane := lower_wide_unary(state, node, operator, address)
+			if state.failed { return 0 }
+			lower_store(state, destination, lane, shape.elem)
+		} else if operator == .Add {
 			lower_store(state, destination, lower_load(state, address, shape.elem), shape.elem)
 		} else if lower_complex_kind(state, shape.elem) {
 			lower_store(state, destination, lower_complex_unary(state, node, operator, address, shape.elem), shape.elem)
@@ -627,7 +631,12 @@ lower_array_unary :: proc(
 					value = ir.binary(function, .Sub, ir.const_int(function, function.nodes.type[value], 0), value)
 				}
 			case .Xor:
-				value = ir.binary(function, .Xor, value, ir.const_int(function, function.nodes.type[value], -1))
+				// Official bitwise-not on boolean lanes is bytewise, so every lane reads back nonzero.
+				if lower_type(state, shape.elem).kind == .Bool {
+					value = ir.const_int(function, .Bool, 1)
+				} else {
+					value = ir.binary(function, .Xor, value, ir.const_int(function, function.nodes.type[value], -1))
+				}
 			}
 			lower_store(state, destination, value, shape.elem)
 		}
