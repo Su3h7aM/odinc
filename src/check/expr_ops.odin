@@ -29,7 +29,7 @@ expression_unary :: proc(
 	is_array := kind == .Array || kind == .Enumerated_Array
 	if is_array {
 		element_kind := types.get(store, types.get(store, conversion_base_type(store, operand.type)).elem).kind
-		if conversion_integer(element_kind) || conversion_float(element_kind) {
+		if conversion_integer(element_kind) || conversion_float(element_kind) || conversion_complex(element_kind) {
 			valid ||= unary.op.kind == .Add || unary.op.kind == .Sub
 		}
 		if conversion_integer(element_kind) || conversion_boolean(element_kind) || element_kind == .Bit_Set {

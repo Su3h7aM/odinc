@@ -75,6 +75,7 @@ lower_program :: proc(
 		assert(job.program == nil, "duplicate checked procedure")
 		job^ = Procedure_Job {
 			program         = program,
+			module          = module,
 			procedure       = procedure,
 			function        = module.functions[symbol.index],
 			symbols         = symbols,

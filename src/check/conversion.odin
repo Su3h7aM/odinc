@@ -183,7 +183,14 @@ check_conversion :: proc(
 		allowed ||= (src.kind == .Untyped_Complex || src.kind == .Untyped_Quaternion) && dst.kind == .Quaternion
 		// Official array programming converts an untyped scalar to the array type when its type converts to the element type.
 		if untyped && dst.kind == .Array {
-			element_kind := types.get(store, dst.elem).kind
+			// A scalar splats through nested arrays to the innermost element, so the leaf kind decides.
+			element := dst.elem
+			for _ in 0 ..< len(store.types) {
+				descriptor := types.get(store, conversion_base_type(store, element))
+				if descriptor.kind != .Array && descriptor.kind != .Enumerated_Array { break }
+				element = descriptor.elem
+			}
+			element_kind := types.get(store, conversion_base_type(store, element)).kind
 			allowed ||=
 				conversion_integer(src.kind) && conversion_integer(element_kind) ||
 				conversion_float(src.kind) && conversion_float(element_kind) ||
@@ -247,10 +254,16 @@ check_conversion :: proc(
 	}
 	// Official array programming converts an untyped scalar to the array type when it converts to the element type.
 	if kind == .Assignment && untyped && dst.kind == .Array && (conversion_integer(src.kind) || conversion_float(src.kind) || conversion_boolean(src.kind)) {
-		_, element_diagnostic, element_error := check_conversion(pool, store, source, info, dst.elem, .Assignment, config)
+		element, element_diagnostic, element_error := check_conversion(pool, store, source, info, dst.elem, .Assignment, config)
 		if element_error != nil { return {}, .None, element_error }
 		if element_diagnostic != .None { return {}, element_diagnostic, nil }
 		result.plan.kind = .Broadcast
+		// The splat lowers from the converted element constant; the raw operand may carry no type.
+		if element.info.mode == .Constant && element.info.constant != 0 {
+			result.plan.source = Operand(element.info.constant)
+		} else if converted, is_constant := element.plan.source.(Const_Id); is_constant {
+			result.plan.source = Operand(converted)
+		}
 		return result, .None, nil
 	}
 	// Official scalar initialization builds a scaled identity: the scalar converts to the element type and lands

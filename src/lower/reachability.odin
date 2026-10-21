@@ -42,6 +42,20 @@ mark_entity :: proc(program: ^check.Checked_Program, symbols: []ir.Symbol_Ref, m
 	mark_symbol(marks, symbols[check.entity_symbol(program, entity)])
 }
 
+// Lowering appends globals after the mark tables are sized, so the tables grow
+// with the module before every use. Old slices stay in the scratch arena.
+@(private)
+grow_reach_marks :: proc(marks: ^Reach_Marks, count: int, allocator: runtime.Allocator) -> runtime.Allocator_Error {
+	if count <= len(marks.globals) { return nil }
+	globals := make([]bool, count, allocator) or_return
+	copy(globals, marks.globals)
+	marks.globals = globals
+	scanned := make([]bool, count, allocator) or_return
+	copy(scanned, marks.global_scanned)
+	marks.global_scanned = scanned
+	return nil
+}
+
 @(private)
 scan_function_references :: proc(function: ^ir.Function, marks: ^Reach_Marks) {
 	for index in 1 ..< len(function.nodes) {
@@ -110,6 +124,7 @@ lower_reachable :: proc(
 	mem.mutex_allocator_init(&locked_allocator, allocator)
 	worker_allocator := mem.mutex_allocator(&locked_allocator)
 	for {
+		grow_reach_marks(&marks, len(module.globals), scratch) or_return
 		scan_reached_globals(module, &marks)
 		pending := make([dynamic]^Procedure_Job, scratch) or_return
 		for &job, index in jobs {
@@ -128,6 +143,7 @@ lower_reachable :: proc(
 		thread.pool_start(&pool)
 		thread.pool_finish(&pool)
 		thread.pool_destroy(&pool)
+		grow_reach_marks(&marks, len(module.globals), scratch) or_return
 		for job in pending {
 			job.function.allocator = allocator
 			scan_function_references(job.function, &marks)
