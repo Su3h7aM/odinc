@@ -168,6 +168,194 @@ lower_complex_part :: proc(state: ^Procedure_State, address: ir.Node_Id, index: 
 	return lower_load_word(state, ir.ptr_offset(state.job.function, address, index * component_size), scalar)
 }
 
+// The arithmetic scalar of a component width: f16 components compute in F32 like scalar f16 operations,
+// wider components compute in place.
+@(private)
+complex_arith_scalar :: proc(component_size: i64) -> ir.Value_Type {
+	return .F32 if component_size == 2 else component_scalar(component_size)
+}
+
+// A part widened to its arithmetic scalar.
+@(private)
+complex_arith_part :: proc(state: ^Procedure_State, address: ir.Node_Id, index: i64, component_size: i64) -> ir.Node_Id {
+	part := lower_complex_part(state, address, index, component_size, complex_part_scalar(component_size))
+	if component_size == 2 { part = float16_widen(state.job.function, part) }
+	return part
+}
+
+// The reverse of the widening load: f16 results narrow back before storing, wider results store directly.
+@(private)
+complex_arith_store :: proc(state: ^Procedure_State, slot: ir.Node_Id, index: i64, component_size: i64, value: ir.Node_Id) {
+	function := state.job.function
+	stored := value
+	if component_size == 2 { stored = float16_from_f32(function, value) }
+	lower_store_word(state, ir.ptr_offset(function, slot, index * component_size), stored)
+}
+
+// The Hamilton product, term order matching base/runtime/internal.odin mul_quaternion128.
+// Memory order is imag, jmag, kmag, real; the formula names real, imag, jmag, kmag w, x, y, z.
+@(private)
+quaternion_multiply :: proc(state: ^Procedure_State, slot, left, right: ir.Node_Id, component_size: i64) {
+	function := state.job.function
+	w1 := complex_arith_part(state, left, 3, component_size)
+	x1 := complex_arith_part(state, left, 0, component_size)
+	y1 := complex_arith_part(state, left, 1, component_size)
+	z1 := complex_arith_part(state, left, 2, component_size)
+	w2 := complex_arith_part(state, right, 3, component_size)
+	x2 := complex_arith_part(state, right, 0, component_size)
+	y2 := complex_arith_part(state, right, 1, component_size)
+	z2 := complex_arith_part(state, right, 2, component_size)
+	mul := ir.Node_Kind.FMul
+	sub := ir.Node_Kind.FSub
+	add := ir.Node_Kind.FAdd
+	t0 := ir.binary(
+		function,
+		sub,
+		ir.binary(
+			function,
+			sub,
+			ir.binary(function, sub, ir.binary(function, mul, w2, w1), ir.binary(function, mul, x2, x1)),
+			ir.binary(function, mul, y2, y1),
+		),
+		ir.binary(function, mul, z2, z1),
+	)
+	t1 := ir.binary(
+		function,
+		add,
+		ir.binary(
+			function,
+			sub,
+			ir.binary(function, add, ir.binary(function, mul, w2, x1), ir.binary(function, mul, x2, w1)),
+			ir.binary(function, mul, y2, z1),
+		),
+		ir.binary(function, mul, z2, y1),
+	)
+	t2 := ir.binary(
+		function,
+		sub,
+		ir.binary(
+			function,
+			add,
+			ir.binary(function, add, ir.binary(function, mul, w2, y1), ir.binary(function, mul, x2, z1)),
+			ir.binary(function, mul, y2, w1),
+		),
+		ir.binary(function, mul, z2, x1),
+	)
+	t3 := ir.binary(
+		function,
+		add,
+		ir.binary(
+			function,
+			add,
+			ir.binary(function, sub, ir.binary(function, mul, w2, z1), ir.binary(function, mul, x2, y1)),
+			ir.binary(function, mul, y2, x1),
+		),
+		ir.binary(function, mul, z2, w1),
+	)
+	complex_arith_store(state, slot, 3, component_size, t0)
+	complex_arith_store(state, slot, 0, component_size, t1)
+	complex_arith_store(state, slot, 1, component_size, t2)
+	complex_arith_store(state, slot, 2, component_size, t3)
+}
+
+// The product with the conjugate over the norm squared, term order matching quo_quaternion128.
+@(private)
+quaternion_divide :: proc(state: ^Procedure_State, slot, left, right: ir.Node_Id, component_size: i64) {
+	function := state.job.function
+	scalar := complex_arith_scalar(component_size)
+	w1 := complex_arith_part(state, left, 3, component_size)
+	x1 := complex_arith_part(state, left, 0, component_size)
+	y1 := complex_arith_part(state, left, 1, component_size)
+	z1 := complex_arith_part(state, left, 2, component_size)
+	w2 := complex_arith_part(state, right, 3, component_size)
+	x2 := complex_arith_part(state, right, 0, component_size)
+	y2 := complex_arith_part(state, right, 1, component_size)
+	z2 := complex_arith_part(state, right, 2, component_size)
+	mul := ir.Node_Kind.FMul
+	sub := ir.Node_Kind.FSub
+	add := ir.Node_Kind.FAdd
+	norm := ir.binary(
+		function,
+		add,
+		ir.binary(
+			function,
+			add,
+			ir.binary(function, add, ir.binary(function, mul, w2, w2), ir.binary(function, mul, x2, x2)),
+			ir.binary(function, mul, y2, y2),
+		),
+		ir.binary(function, mul, z2, z2),
+	)
+	inverse_norm := ir.binary(function, .FDiv, ir.const_float(function, scalar, 0x3f800000 if scalar == .F32 else 0x3ff0000000000000), norm)
+	t0 := ir.binary(
+		function,
+		mul,
+		ir.binary(
+			function,
+			add,
+			ir.binary(
+				function,
+				add,
+				ir.binary(function, add, ir.binary(function, mul, w2, w1), ir.binary(function, mul, x2, x1)),
+				ir.binary(function, mul, y2, y1),
+			),
+			ir.binary(function, mul, z2, z1),
+		),
+		inverse_norm,
+	)
+	t1 := ir.binary(
+		function,
+		mul,
+		ir.binary(
+			function,
+			sub,
+			ir.binary(
+				function,
+				add,
+				ir.binary(function, sub, ir.binary(function, mul, w2, x1), ir.binary(function, mul, x2, w1)),
+				ir.binary(function, mul, y2, z1),
+			),
+			ir.binary(function, mul, z2, y1),
+		),
+		inverse_norm,
+	)
+	t2 := ir.binary(
+		function,
+		mul,
+		ir.binary(
+			function,
+			add,
+			ir.binary(
+				function,
+				sub,
+				ir.binary(function, sub, ir.binary(function, mul, w2, y1), ir.binary(function, mul, x2, z1)),
+				ir.binary(function, mul, y2, w1),
+			),
+			ir.binary(function, mul, z2, x1),
+		),
+		inverse_norm,
+	)
+	t3 := ir.binary(
+		function,
+		mul,
+		ir.binary(
+			function,
+			sub,
+			ir.binary(
+				function,
+				sub,
+				ir.binary(function, add, ir.binary(function, mul, w2, z1), ir.binary(function, mul, x2, y1)),
+				ir.binary(function, mul, y2, x1),
+			),
+			ir.binary(function, mul, z2, w1),
+		),
+		inverse_norm,
+	)
+	complex_arith_store(state, slot, 3, component_size, t0)
+	complex_arith_store(state, slot, 0, component_size, t1)
+	complex_arith_store(state, slot, 1, component_size, t2)
+	complex_arith_store(state, slot, 2, component_size, t3)
+}
+
 @(private)
 lower_complex_unary :: proc(
 	state: ^Procedure_State,
@@ -182,17 +370,18 @@ lower_complex_unary :: proc(
 	if operator != .Add && operator != .Sub { return lower_fail(state, node, .Operator) }
 	if layout.error != .None || layout.size % count != 0 { return lower_fail(state, node, .Operator) }
 	component_size := layout.size / count
-	scalar := component_scalar(component_size)
+	if component_size != 2 && component_size != 4 && component_size != 8 { return lower_fail(state, node, .Operator) }
 	slot := ir.stack_slot(function, state.entry_control, u32(layout.size), u32(layout.align))
 	for index in 0 ..< count {
-		part := lower_complex_part(state, operand, index, component_size, scalar)
+		part := complex_arith_part(state, operand, index, component_size)
 		if operator == .Sub { part = ir.unary(function, .FNeg, part) }
-		lower_store_word(state, ir.ptr_offset(function, slot, index * component_size), part)
+		complex_arith_store(state, slot, index, component_size, part)
 	}
 	return slot
 }
 
-// Complex and quaternion operators work componentwise; multiplication and division are complex only.
+// Complex and quaternion `+ -` and `== !=` work componentwise. Complex `* /` use the textbook formulas;
+// quaternion `* /` are the Hamilton product and the product with the conjugate over the norm squared.
 @(private)
 lower_complex_binary :: proc(
 	state: ^Procedure_State,
@@ -206,22 +395,22 @@ lower_complex_binary :: proc(
 	count: i64 = 4 if lower_type(state, type).kind == .Quaternion else 2
 	if layout.error != .None || layout.size % count != 0 { return lower_fail(state, node, .Operator) }
 	component_size := layout.size / count
-	scalar := component_scalar(component_size)
+	if component_size != 2 && component_size != 4 && component_size != 8 { return lower_fail(state, node, .Operator) }
 	#partial switch operator {
 	case .Add, .Sub:
 		slot := ir.stack_slot(function, state.entry_control, u32(layout.size), u32(layout.align))
 		for index in 0 ..< count {
-			first := lower_complex_part(state, left, index, component_size, scalar)
-			second := lower_complex_part(state, right, index, component_size, scalar)
+			first := complex_arith_part(state, left, index, component_size)
+			second := complex_arith_part(state, right, index, component_size)
 			value := ir.binary(function, .FAdd if operator == .Add else .FSub, first, second)
-			lower_store_word(state, ir.ptr_offset(function, slot, index * component_size), value)
+			complex_arith_store(state, slot, index, component_size, value)
 		}
 		return slot
 	case .Cmp_Eq, .Not_Eq:
 		result: ir.Node_Id
 		for index in 0 ..< count {
-			first := lower_complex_part(state, left, index, component_size, scalar)
-			second := lower_complex_part(state, right, index, component_size, scalar)
+			first := complex_arith_part(state, left, index, component_size)
+			second := complex_arith_part(state, right, index, component_size)
 			compare_kind := ir.Node_Kind.FEq if operator == .Cmp_Eq else ir.Node_Kind.FNe
 			component_result := ir.compare(function, compare_kind, first, second)
 			if index == 0 {
@@ -232,28 +421,41 @@ lower_complex_binary :: proc(
 		}
 		return result
 	case .Mul, .Quo:
-		if count != 2 { return lower_fail(state, node, .Operator) }
-		a := lower_complex_part(state, left, 0, component_size, scalar)
-		b := lower_complex_part(state, left, 1, component_size, scalar)
-		c := lower_complex_part(state, right, 0, component_size, scalar)
-		d := lower_complex_part(state, right, 1, component_size, scalar)
 		slot := ir.stack_slot(function, state.entry_control, u32(layout.size), u32(layout.align))
-		real_part, imaginary_part: ir.Node_Id
-		if operator == .Mul {
-			real_part = ir.binary(function, .FSub, ir.binary(function, .FMul, a, c), ir.binary(function, .FMul, b, d))
-			imaginary_part = ir.binary(function, .FAdd, ir.binary(function, .FMul, a, d), ir.binary(function, .FMul, b, c))
-		} else {
-			denominator := ir.binary(function, .FAdd, ir.binary(function, .FMul, c, c), ir.binary(function, .FMul, d, d))
-			real_part = ir.binary(function, .FDiv, ir.binary(function, .FAdd, ir.binary(function, .FMul, a, c), ir.binary(function, .FMul, b, d)), denominator)
-			imaginary_part = ir.binary(
-				function,
-				.FDiv,
-				ir.binary(function, .FSub, ir.binary(function, .FMul, b, c), ir.binary(function, .FMul, a, d)),
-				denominator,
-			)
+		if count == 2 {
+			a := complex_arith_part(state, left, 0, component_size)
+			b := complex_arith_part(state, left, 1, component_size)
+			c := complex_arith_part(state, right, 0, component_size)
+			d := complex_arith_part(state, right, 1, component_size)
+			real_part, imaginary_part: ir.Node_Id
+			if operator == .Mul {
+				real_part = ir.binary(function, .FSub, ir.binary(function, .FMul, a, c), ir.binary(function, .FMul, b, d))
+				imaginary_part = ir.binary(function, .FAdd, ir.binary(function, .FMul, a, d), ir.binary(function, .FMul, b, c))
+			} else {
+				denominator := ir.binary(function, .FAdd, ir.binary(function, .FMul, c, c), ir.binary(function, .FMul, d, d))
+				real_part = ir.binary(
+					function,
+					.FDiv,
+					ir.binary(function, .FAdd, ir.binary(function, .FMul, a, c), ir.binary(function, .FMul, b, d)),
+					denominator,
+				)
+				imaginary_part = ir.binary(
+					function,
+					.FDiv,
+					ir.binary(function, .FSub, ir.binary(function, .FMul, b, c), ir.binary(function, .FMul, a, d)),
+					denominator,
+				)
+			}
+			complex_arith_store(state, slot, 0, component_size, real_part)
+			complex_arith_store(state, slot, 1, component_size, imaginary_part)
+			return slot
 		}
-		lower_store_word(state, slot, real_part)
-		lower_store_word(state, ir.ptr_offset(function, slot, component_size), imaginary_part)
+		if count != 4 { return lower_fail(state, node, .Operator) }
+		if operator == .Mul {
+			quaternion_multiply(state, slot, left, right, component_size)
+		} else {
+			quaternion_divide(state, slot, left, right, component_size)
+		}
 		return slot
 	}
 	return lower_fail(state, node, .Operator)
