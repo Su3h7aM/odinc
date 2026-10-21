@@ -106,20 +106,27 @@ range_declare :: proc(
 	scope: Scope_Id,
 	ident: syntax.Node_Index,
 	type: types.Type_Id,
+	immutable: bool,
 ) -> Resolve_Error {
 	name := expression_text(file, ident)
 	if name == "_" {
 		expression_store(checker, view, ident, Expression_Info{state = .Checked})
 		return nil
 	}
+	flags: Entity_Flags
+	mode := Addressing_Mode.Variable
+	if immutable {
+		flags += {.Immutable}
+		mode = .Immutable_Value
+	}
 	variable, create_error := entity_create(
 		checker.type_checker.resolver.scopes,
-		Entity{name = name, kind = .Variable, scope = scope, state = .Resolved, type = type, data = Variable_Data{storage = .Local}},
+		Entity{name = name, kind = .Variable, scope = scope, state = .Resolved, flags = flags, type = type, data = Variable_Data{storage = .Local}},
 	)
 	if create_error != nil { return binding_resolve_error(create_error) }
 	_, insert_error := scope_insert(checker.type_checker.resolver.scopes, scope, variable)
 	if insert_error != nil { return binding_resolve_error(insert_error) }
-	expression_store(checker, view, ident, Expression_Info{type = type, mode = .Variable, entity = variable, scope = scope, state = .Checked})
+	expression_store(checker, view, ident, Expression_Info{type = type, mode = mode, entity = variable, scope = scope, state = .Checked})
 	return nil
 }
 
@@ -219,8 +226,10 @@ expression_range_interval :: proc(
 		expression_unsupported(checker, view, scope, parts.expr, "Unroll_Bounds") or_return
 		return nil
 	}
-	if len(parts.names) >= 1 { range_declare(checker, view, file, range_scope, parts.names[0], low.type) or_return }
-	if len(parts.names) == 2 { range_declare(checker, view, file, range_scope, parts.names[1], checker.default_integer) or_return }
+	if len(parts.names) >= 1 { range_declare(checker, view, file, range_scope, parts.names[0], low.type, true) or_return }
+	if len(parts.names) == 2 {
+		range_declare(checker, view, file, range_scope, parts.names[1], checker.default_integer, true) or_return
+	}
 	expression_range_body(checker, view, file_id, node, range_scope, parts) or_return
 	expression_store(checker, view, node, Expression_Info{scope = scope, state = .Checked})
 	return nil
@@ -247,7 +256,7 @@ range_declare_names :: proc(
 			expression_unsupported(checker, view, scope, parts.names[0], "Range_Reference") or_return
 			return false, nil
 		}
-		range_declare(checker, view, file, range_scope, ident, element) or_return
+		range_declare(checker, view, file, range_scope, ident, element, !by_reference) or_return
 	}
 	if len(parts.names) == 2 {
 		ident, by_reference := range_name(file, parts.names[1])
@@ -255,7 +264,7 @@ range_declare_names :: proc(
 			expression_unsupported(checker, view, scope, parts.names[1], "Range_Form") or_return
 			return false, nil
 		}
-		range_declare(checker, view, file, range_scope, ident, index) or_return
+		range_declare(checker, view, file, range_scope, ident, index, !by_reference) or_return
 	}
 	return true, nil
 }
@@ -278,11 +287,11 @@ range_declare_map_names :: proc(
 			expression_unsupported(checker, view, scope, parts.names[0], "Range_Reference") or_return
 			return false, nil
 		}
-		range_declare(checker, view, file, range_scope, ident, key) or_return
+		range_declare(checker, view, file, range_scope, ident, key, true) or_return
 	}
 	if len(parts.names) == 2 {
 		ident, _ := range_name(file, parts.names[1])
-		range_declare(checker, view, file, range_scope, ident, value) or_return
+		range_declare(checker, view, file, range_scope, ident, value, true) or_return
 	}
 	return true, nil
 }
@@ -459,7 +468,7 @@ expression_range_call :: proc(
 			expression_unsupported(checker, view, scope, name, "Range_Reference") or_return
 			return nil
 		}
-		range_declare(checker, view, file, range_scope, ident, call.results[index]) or_return
+		range_declare(checker, view, file, range_scope, ident, call.results[index], true) or_return
 	}
 	expression_range_body(checker, view, file_id, node, range_scope, parts) or_return
 	plan := Plan_Id(len(checker.plans))
@@ -526,7 +535,7 @@ expression_range_soa :: proc(
 	snapshot := soa_range_hidden(checker, range_scope, container.type) or_return
 	index_entity: Entity_Id
 	if len(parts.names) == 2 {
-		range_declare(checker, view, file, range_scope, parts.names[1], checker.default_integer) or_return
+		range_declare(checker, view, file, range_scope, parts.names[1], checker.default_integer, true) or_return
 		index_entity = scope_lookup_current(checker.type_checker.resolver.scopes, range_scope, expression_text(file, parts.names[1]))
 	} else {
 		index_entity = soa_range_hidden(checker, range_scope, checker.default_integer) or_return
@@ -549,6 +558,7 @@ expression_range_soa :: proc(
 					kind = .Variable,
 					scope = range_scope,
 					state = .Resolved,
+					flags = {.Immutable},
 					type = descriptor.soa_elem,
 					data = Variable_Data{storage = .Local},
 				},
