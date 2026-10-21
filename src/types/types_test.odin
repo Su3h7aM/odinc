@@ -101,6 +101,8 @@ layout_matches_target :: proc(t: ^testing.T) {
 	id_packed := intern(&store, Type{kind = .Struct, fields = fields, packed = true})
 	id_raw_union := intern(&store, Type{kind = .Struct, fields = fields, raw_union = true})
 	id_field_cap := intern(&store, Type{kind = .Struct, fields = fields, min_field_align = 4, max_field_align = 4})
+	custom_fields := []Type_Field{{name = "a", type = id_u64}, {name = "b", type = id_u64}, {name = "c", type = id_u64}, {name = "d", type = id_u64}}
+	id_custom_align := intern(&store, Type{kind = .Struct, fields = custom_fields, custom_align = 16})
 	id_union := intern(&store, Type{kind = .Union, variants = []Type_Id{id_u8, id_u64}})
 	id_maybe_pointer := intern(&store, Type{kind = .Union, variants = []Type_Id{id_pointer}, union_form = .Maybe_Pointer})
 	id_dynamic_array := intern(&store, Type{kind = .Dynamic_Array, elem = id_u32})
@@ -193,6 +195,10 @@ layout_matches_target :: proc(t: ^testing.T) {
 						a: u8,
 						b: u64,
 					}, b)), "capped field alignment offset")
+	custom_size, custom_alignment, custom_err := layout(&store, id_custom_align)
+	custom_offset, custom_offset_err := field_offset(&store, id_custom_align, 3)
+	testing.expect(t, custom_err == .None && custom_size == 32 && custom_alignment == 16, "custom alignment preserves sequential record size")
+	testing.expect(t, custom_offset_err == .None && custom_offset == 24, "custom-aligned record preserves sequential field offsets")
 	duplicate := intern(&store, Type{kind = .Integer, count = 4})
 	testing.expect(t, duplicate == id_u32, "interning preserves canonical identity")
 	node_id := reserve_nominal(&store, .Struct, "Node")

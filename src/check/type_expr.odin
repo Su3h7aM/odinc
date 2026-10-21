@@ -510,36 +510,6 @@ type_checker_sync :: proc(checker: ^Type_Checker) -> runtime.Allocator_Error {
 		if err != nil { return err }
 		value^ = declaration
 	}
-	for declaration in declarations {
-		id := declaration.entity
-		entity := entity_get(checker.resolver.scopes, id)
-		if entity.type != types.TYPE_NONE { continue }
-		file_id := declaration.value.file
-		file := checker.files[file_id]
-		node := type_unparen(file, declaration.value.node)
-		if file.ast.nodes[node].kind == .Distinct_Type {
-			node = type_unparen(file, syntax.node_payload(file.ast, node, syntax.Distinct_Type).type)
-		}
-		kind: types.Kind = .Struct
-		#partial switch file.ast.nodes[node].kind {
-		case .Struct_Type:
-			kind = .Struct
-		case .Union_Type:
-			kind = .Union
-		case .Enum_Type:
-			kind = .Enum
-		case .Bit_Field_Type:
-			kind = .Bit_Field
-		case .Proc_Type:
-			kind = .Named
-		case:
-			continue
-		}
-		if record_poly_params(file, node) != 0 { continue }
-		if entity.kind == .Constant { entity.kind = .Type_Name }
-		_, err := publish_nominal(checker, id, kind, entity.name)
-		if err != nil { return err }
-	}
 	return nil
 }
 
@@ -591,9 +561,6 @@ type_package_scope :: proc(checker: ^Type_Checker, file: ^File, scope: Scope_Id,
 
 @(private = "package")
 publish_nominal :: proc(checker: ^Type_Checker, id: Entity_Id, kind: types.Kind, name: string) -> (type: types.Type_Id, err: runtime.Allocator_Error) {
-	for nominal in checker.nominals {
-		if nominal.entity == id { return nominal.type, nil }
-	}
 	type = types.reserve_nominal(checker.store, kind, name)
 	append(&checker.nominals, Nominal_Type{entity = id, type = type}) or_return
 	entity_get(checker.resolver.scopes, id).type = type

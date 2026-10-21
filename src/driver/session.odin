@@ -368,6 +368,8 @@ check_session :: proc(session: ^Session, odin_root, main_path: string, user_coll
 		if check.entity_get(&session.scopes, declaration.entity).package_id != main_package { continue }
 		if _, resolve_error := check.resolve_entity(&session.resolver, declaration.entity); resolve_error != nil { return .Check_Failed }
 	}
+	directives_valid, directive_error := check.check_package_directives(&session.checker)
+	if directive_error != nil || !directives_valid { return .Check_Failed }
 	startup_valid, startup_error := check.resolve_startup_procedures(&session.checker)
 	if startup_error != nil || !startup_valid { return .Check_Failed }
 	if len(session.collection.diagnostics) + len(session.type_checker.diagnostics) + len(session.resolver.diagnostics) + len(session.checker.diagnostics) !=
@@ -491,8 +493,6 @@ bind_whens :: proc(session: ^Session) -> Driver_Error {
 			progressed = true
 		}
 		if first_unresolved < 0 {
-			valid, directive_error := check.check_package_directives(&session.checker)
-			if directive_error != nil || !valid { return .Check_Failed }
 			return .None
 		}
 		if !progressed {

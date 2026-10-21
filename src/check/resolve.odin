@@ -125,9 +125,6 @@ resolve_entity_signature :: proc(resolver: ^Resolver, id: Entity_Id, need: Resol
 		resolver_report_cycle(resolver, id) or_return
 		return .Invalid, nil
 	case .Unresolved:
-		if need == .Type_Identity && entity.kind == .Type_Name && entity.type != 0 && entity.type != types.TYPE_POISON {
-			return .Resolving, nil
-		}
 	}
 	if resolver.check_declaration == nil { return .Unresolved, Resolver_Failure.No_Callback }
 	_, stack_err := append(&resolver.stack, id)
