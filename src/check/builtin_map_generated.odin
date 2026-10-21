@@ -15,20 +15,33 @@ map_runtime_helper_names := [?]string {
 	"map_hash_is_valid",
 	"__dynamic_map_get",
 	"__dynamic_map_set",
+	"__dynamic_map_reserve",
 }
 
+// Queues runtime procedures the way upstream's add_package_dependency does: resolving
+// their bodies so publish emits a symbol lowering can call. Used for helpers that no
+// user code names, such as the ones non-empty dynamic literals call.
 @(private = "package")
-expression_resolve_map_helpers :: proc(checker: ^Expression_Checker) -> (resolved: bool, err: Resolve_Error) {
+expression_resolve_runtime_helpers :: proc(checker: ^Expression_Checker, names: []string) -> (resolved: bool, err: Resolve_Error) {
 	collection := checker.type_checker.collection
 	if collection == nil || collection.runtime_scope == 0 { return false, nil }
 	scopes := checker.type_checker.resolver.scopes
-	for name in map_runtime_helper_names {
+	for name in names {
 		helper := scope_lookup_current(scopes, collection.runtime_scope, name)
 		if helper == 0 { return false, nil }
 		_, resolve_error := resolve_entity(checker.type_checker.resolver, helper)
 		if resolve_error != nil { return false, resolve_error }
 		if entity_get(scopes, helper).state != .Resolved { return false, nil }
 	}
+	return true, nil
+}
+
+@(private = "package")
+expression_resolve_map_helpers :: proc(checker: ^Expression_Checker) -> (resolved: bool, err: Resolve_Error) {
+	resolved, err = expression_resolve_runtime_helpers(checker, map_runtime_helper_names[:])
+	if err != nil || !resolved { return resolved, err }
+	collection := checker.type_checker.collection
+	scopes := checker.type_checker.resolver.scopes
 	for name in map_helper_names {
 		helper := scope_lookup_current(scopes, collection.runtime_scope, name)
 		if helper == 0 { continue }

@@ -32,6 +32,7 @@ map_cell_index_dynamic :: proc "contextless" (base: uintptr, info: ^Map_Cell_Inf
 map_hash_is_valid :: proc "contextless" (hash: Map_Hash) -> bool { return hash != 0 }
 __dynamic_map_get :: proc "contextless" (map_value: ^Raw_Map, info: ^Map_Info, hash: Map_Hash, key: rawptr) -> rawptr { return nil }
 __dynamic_map_set :: proc (map_value: ^Raw_Map, info: ^Map_Info, hash: Map_Hash, key, value: rawptr, loc: Source_Code_Location) -> (value_ptr: rawptr, err: Allocator_Error) { return nil, .None }
+__dynamic_map_reserve :: proc (map_value: ^Raw_Map, info: ^Map_Info, new_capacity: uint, loc: Source_Code_Location) -> Allocator_Error { return .None }
 map_read :: proc "contextless" (table: Table, key: string) -> int { return table[key] }
 cell := type_map_cell_info(Name)
 info := type_map_info(Table)
@@ -109,7 +110,7 @@ bad_info := type_map_info(Name)
 	testing.expect_value(t, entries[0].size_of_cell, 64)
 	testing.expect_value(t, entries[0].elements_per_cell, 4)
 	if !testing.expect(t, expression_checker_publish_map_info(&checker, &program) == nil) { return }
-	testing.expect_value(t, len(program.runtime.helper_entities), 11)
+	testing.expect_value(t, len(program.runtime.helper_entities), 12)
 	testing.expect_value(t, len(checker.procedures), 2)
 	has_map_info_plan := false
 	has_map_index_plan := false

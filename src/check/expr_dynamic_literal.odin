@@ -32,6 +32,10 @@ expression_dynamic_literal :: proc(
 	return expression_map_literal(checker, view, file_id, scope, node, literal_type, elements, descriptor.index, descriptor.elem)
 }
 
+// Non-empty dynamic array literals reserve and append through the runtime.
+@(private = "file")
+dynamic_array_helper_names := [?]string{"__dynamic_array_reserve", "__dynamic_array_append"}
+
 // The backing store matches a slice literal's; only the container header differs.
 @(private = "file")
 expression_dynamic_array_literal :: proc(
@@ -50,6 +54,10 @@ expression_dynamic_array_literal :: proc(
 	values, indices, conversions, count, failed, elements_error := expression_literal_elements(checker, view, scope, file_id, elements, element_type)
 	if elements_error != nil { return {}, elements_error }
 	if failed { return expression_poison(scope), nil }
+	if len(elements) != 0 {
+		_, resolve_error := expression_resolve_runtime_helpers(checker, dynamic_array_helper_names[:])
+		if resolve_error != nil { return {}, resolve_error }
+	}
 	backing_type := types.intern(checker.type_checker.store, types.Type{kind = .Array, elem = element_type, count = i64(count)})
 	plan := Plan_Id(len(checker.plans))
 	backing := Aggregate_Plan {
@@ -80,6 +88,15 @@ expression_map_literal :: proc(
 ) {
 	file := checker.type_checker.files[file_id]
 	allocator := mem.dynamic_arena_allocator(&checker.arena)
+	store := checker.type_checker.store
+	if len(elements) != 0 {
+		if !generator_supported(store, key_type) {
+			return expression_unsupported(checker, view, scope, node, "Map_Info_Key")
+		}
+		_, helper_error := expression_resolve_map_helpers(checker)
+		if helper_error != nil { return {}, helper_error }
+		append(&checker.plans, Plan(Map_Info_Plan{type = types.resolve_named(store, literal_type)})) or_return
+	}
 	keys := make([dynamic]Operand, allocator) or_return
 	values := make([dynamic]Operand, allocator) or_return
 	key_conversions := make([dynamic]Plan_Id, allocator) or_return
