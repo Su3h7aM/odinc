@@ -201,7 +201,7 @@ Feature_Flag :: enum {
 	Using_Stmt,
 }
 
-Feature_Flags :: bit_set[Feature_Flag; u8]
+Feature_Flags :: bit_set[Feature_Flag;u8]
 
 feature_flag_from_name :: proc(name: string) -> (Feature_Flag, bool) {
 	switch name {

@@ -4,7 +4,9 @@ import "core:testing"
 
 @(test)
 file_tags_preserve_each_directive_token_boundary :: proc(t: ^testing.T) {
-	source := transmute([]byte)string("/* #+feature fake */\n#+build ignore\n\n// header comment\n#+feature dynamic-literals\n#+feature using-stmt\n;\npackage sample\n")
+	source := transmute([]byte)string(
+		"/* #+feature fake */\n#+build ignore\n\n// header comment\n#+feature dynamic-literals\n#+feature using-stmt\n;\npackage sample\n",
+	)
 	ast: Ast
 	ast_init(&ast, context.allocator)
 	defer ast_destroy(&ast)
