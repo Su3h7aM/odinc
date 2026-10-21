@@ -33,6 +33,30 @@ poly_bind :: proc(store: ^types.Store, bindings: ^Poly_Bindings, name: string, t
 	return true, nil
 }
 
+// Whether an argument of a different type still matches an already-bound polymorphic name: it must
+// convert to the bound type under assignment, as the instance call converts it. Speculative only.
+@(private = "file")
+poly_rebind_assignable :: proc(match: ^Poly_Match, name: string, argument: types.Type_Id) -> (matched: bool, err: Resolve_Error) {
+	checker := match.checker
+	store := checker.type_checker.store
+	for bound_name, index in match.bindings.names {
+		if bound_name != name { continue }
+		if match.bindings.constants[index] != 0 { return false, nil }
+		bound := match.bindings.types[index]
+		if types.are_identical(store, bound, argument) { return true, nil }
+		info := Expression_Info {
+			type  = argument,
+			mode  = .Value,
+			scope = match.scope,
+			state = .Checked,
+		}
+		_, diagnostic, failure := check_conversion(checker.constants, store, Operand(nil), info, bound, .Assignment, checker.config)
+		if failure != nil { return false, nil }
+		return diagnostic == .None, nil
+	}
+	return false, nil
+}
+
 @(private = "package")
 poly_pattern_has_poly :: proc(file: ^File, pattern: syntax.Node_Index) -> bool {
 	#partial switch file.ast.nodes[pattern].kind {
@@ -78,7 +102,13 @@ poly_match_pattern :: proc(match: ^Poly_Match, pattern: syntax.Node_Index, argum
 	case .Poly_Type:
 		poly := syntax.node_payload(file.ast, pattern, syntax.Poly_Type)
 		bound := poly_bind(match.checker.type_checker.store, match.bindings, expression_text(file, poly.type), argument, 0) or_return
-		if !bound || poly.specialization == 0 { return bound, nil }
+		if !bound {
+			// Parameters sharing `$T` bind it from the first argument; a later argument of a
+			// different type still matches when it converts to the bound type, as the call
+			// converts it (for example a union variant where `T` bound to the union).
+			return poly_rebind_assignable(match, expression_text(file, poly.type), argument)
+		}
+		if poly.specialization == 0 { return true, nil }
 		return poly_match_pattern(match, poly.specialization, argument)
 	case .Pointer_Type:
 		pointer := syntax.node_payload(file.ast, pattern, syntax.Pointer_Type)

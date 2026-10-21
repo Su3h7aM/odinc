@@ -3,6 +3,7 @@ package check
 import "base:runtime"
 import "core:fmt"
 import "core:mem"
+import "core:strings"
 import "oc:syntax"
 import "oc:types"
 
@@ -87,13 +88,24 @@ expression_generic_call :: proc(
 		if spread_positional_count > variadic_index + 1 { return expression_unsupported(checker, view, scope, node, "Call_Variadic_Spread_Arguments") }
 		if spread_positional_count != variadic_index + 1 { return expression_unsupported(checker, view, scope, node, "Call_Variadic_Spread_Position") }
 	}
+	positional_count := call_positional_count(caller, arguments)
+	expansions := call_expansions(checker, view, scope, caller, arguments[:positional_count]) or_return
+	if expansions != nil && spread {
+		return expression_unsupported(checker, view, scope, node, "Call_Tuple_Variadic_Spread")
+	}
+	expanded_count := len(arguments)
+	for results in expansions {
+		if results != nil { expanded_count += len(results) - 1 }
+	}
+	if variadic_index < 0 && expanded_count > len(names) {
+		return expression_unsupported(checker, view, scope, node, "Call_Arguments")
+	}
 	fixed_count := len(names)
 	if variadic_index >= 0 { fixed_count = variadic_index + 1 }
 	slots := make([]Call_Slot, len(names), allocator) or_return
-	if reason := call_bind_arguments(caller, arguments, names, fixed_count, slots); reason != "" {
+	if reason := call_bind_arguments(caller, arguments, names, fixed_count, slots, expansions); reason != "" {
 		return expression_unsupported(checker, view, scope, node, reason)
 	}
-	positional_count := call_positional_count(caller, arguments)
 	if positional_count > fixed_count && positional_count < len(arguments) {
 		return expression_unsupported(checker, view, scope, node, "Generic_Call_Named_Variadic")
 	}
@@ -129,7 +141,7 @@ expression_generic_call :: proc(
 					if constant_type == types.TYPE_POISON { return expression_poison(scope), nil }
 					argument_hint = constant_type
 				}
-				argument := check_expression(checker, view, scope, argument_node, argument_hint) or_return
+				argument := generic_call_argument(checker, view, scope, slot, expansions, argument_hint) or_return
 				if argument.state == .Invalid { return expression_poison(scope), nil }
 				if argument.mode != .Constant { return expression_unsupported(checker, view, scope, node, "Generic_Call_Constant_Parameter") }
 				if constant_type_name != "" {
@@ -175,10 +187,11 @@ expression_generic_call :: proc(
 					argument_hint = default_hint
 				}
 			}
-			argument := check_expression(checker, view, scope, argument_node, argument_hint) or_return
+			argument := generic_call_argument(checker, view, scope, slot, expansions, argument_hint) or_return
 			if argument.state == .Invalid { return expression_poison(scope), nil }
 			if file.ast.nodes[name].kind == .Poly_Type {
-				if argument.mode != .Type { return expression_unsupported(checker, view, scope, node, "Generic_Call_Type_Parameter") }
+				if argument.mode !=
+				   .Type { return expression_failure(checker, view, scope, argument_node, .Invalid_Operand, "Expected a type to assign to the type parameter") }
 				poly := syntax.node_payload(file.ast, name, syntax.Poly_Type)
 				matched := poly_bind(checker.type_checker.store, &bindings, expression_text(file, poly.type), argument.type, 0) or_return
 				if matched && file.ast.nodes[field.type].kind == .Typeid_Type {
@@ -233,7 +246,17 @@ expression_generic_call :: proc(
 			// A concrete pattern is resolved against the parameters bound so far, as the group scorer
 			// does. A bare name bound only later, or never, rejects the call the way official does.
 			if !poly_pattern_has_poly(file, field.type) {
+				if field.type != 0 && file.ast.nodes[field.type].kind == .Ident && poly_name_deferred(&match, deferred[:], expression_text(file, field.type)) {
+					if conversion_untyped(types.get(checker.type_checker.store, argument.type).kind) {
+						append(&deferred, Untyped_Pattern{pattern = field.type, type = argument.type}) or_return
+					} else {
+						bound := poly_bind(checker.type_checker.store, &bindings, expression_text(file, field.type), argument.type, 0) or_return
+						if !bound { return expression_unsupported(checker, view, scope, node, "Generic_Call_Pattern") }
+					}
+					continue
+				}
 				if field.type != 0 && file.ast.nodes[field.type].kind != .Ellipsis {
+					poly_bind_deferred_in_pattern(&match, field.type, argument.type, deferred[:]) or_return
 					bound_scope := poly_bound_scope(&match) or_return
 					mark := expression_speculation_begin(checker)
 					expected, type_error := type_expression(checker.type_checker, declaration.type.file, bound_scope, field.type, true)
@@ -278,6 +301,24 @@ expression_generic_call :: proc(
 		runtime_arguments[:],
 		spread,
 	)
+}
+
+// An argument's value. One result of a multi-result call is typed by its result, so the call is checked once.
+@(private = "package")
+generic_call_argument :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	scope: Scope_Id,
+	slot: Call_Slot,
+	expansions: [][]types.Type_Id,
+	hint: types.Type_Id,
+) -> (
+	info: Expression_Info,
+	err: Resolve_Error,
+) {
+	if slot.element == 0 { return check_expression(checker, view, scope, slot.value, hint) }
+	result := expansions[slot.position][slot.element - 1]
+	return Expression_Info{type = result, mode = .Value, scope = scope, state = .Checked}, nil
 }
 
 // A `$T: typeid` parameter binds a type at compile time; it is not a runtime parameter.
@@ -334,17 +375,74 @@ poly_untyped_deferred :: proc(file: ^File, pattern: syntax.Node_Index, kind: typ
 	return syntax.node_payload(file.ast, pattern, syntax.Poly_Type).specialization == 0
 }
 
+// The text of a deferred pattern's name: `$T` names T, and a bare T names T.
+@(private = "package")
+poly_pattern_name :: proc(file: ^File, pattern: syntax.Node_Index) -> string {
+	if file.ast.nodes[pattern].kind == .Ident { return expression_text(file, pattern) }
+	return expression_text(file, syntax.node_payload(file.ast, pattern, syntax.Poly_Type).type)
+}
+
+// Whether name is declared by an earlier untyped `$T` argument and not bound yet.
+@(private = "file")
+poly_name_deferred :: proc(match: ^Poly_Match, deferred: []Untyped_Pattern, name: string) -> bool {
+	for bound_name in match.bindings.names {
+		if bound_name == name { return false }
+	}
+	file := match.checker.type_checker.files[match.definition_file]
+	for entry in deferred {
+		if poly_pattern_name(file, entry.pattern) == name { return true }
+	}
+	return false
+}
+
+// A typed argument binds a deferred untyped name reached through array or pointer structure, so the
+// untyped argument then converts to that binding instead of fixing the name to its default type.
+@(private = "file")
+poly_bind_deferred_in_pattern :: proc(
+	match: ^Poly_Match,
+	pattern: syntax.Node_Index,
+	argument: types.Type_Id,
+	deferred: []Untyped_Pattern,
+) -> (
+	err: Resolve_Error,
+) {
+	store := match.checker.type_checker.store
+	file := match.checker.type_checker.files[match.definition_file]
+	descriptor := types.get(store, argument)
+	#partial switch file.ast.nodes[pattern].kind {
+	case .Ident:
+		name := expression_text(file, pattern)
+		if poly_name_deferred(match, deferred, name) {
+			_ = poly_bind(store, match.bindings, name, argument, 0) or_return
+		}
+	case .Array_Type:
+		if descriptor.kind != .Array { return nil }
+		elem := syntax.node_payload(file.ast, pattern, syntax.Array_Type).elem
+		return poly_bind_deferred_in_pattern(match, elem, descriptor.elem, deferred)
+	case .Pointer_Type:
+		if descriptor.kind != .Pointer { return nil }
+		elem := syntax.node_payload(file.ast, pattern, syntax.Pointer_Type).elem
+		return poly_bind_deferred_in_pattern(match, elem, descriptor.elem, deferred)
+	}
+	return nil
+}
+
 // Binds each deferred untyped argument's name to its default type, unless a typed argument bound the name first.
 @(private = "package")
 poly_bind_deferred :: proc(match: ^Poly_Match, deferred: []Untyped_Pattern) -> (matched: bool, err: Resolve_Error) {
 	store := match.checker.type_checker.store
 	file := match.checker.type_checker.files[match.definition_file]
 	for entry in deferred {
-		name := expression_text(file, syntax.node_payload(file.ast, entry.pattern, syntax.Poly_Type).type)
+		name := poly_pattern_name(file, entry.pattern)
 		bound := false
 		for bound_name in match.bindings.names { bound ||= bound_name == name }
 		if bound { continue }
-		matched = poly_match_pattern(match, entry.pattern, types.default_type_of_untyped(store, entry.type)) or_return
+		default_type := types.default_type_of_untyped(store, entry.type)
+		if file.ast.nodes[entry.pattern].kind == .Ident {
+			matched = poly_bind(store, match.bindings, name, default_type, 0) or_return
+		} else {
+			matched = poly_match_pattern(match, entry.pattern, default_type) or_return
+		}
 		if !matched { return false, nil }
 	}
 	return true, nil
@@ -366,6 +464,76 @@ same_type_arguments :: proc(store: ^types.Store, left, right: []types.Type_Id) -
 		if !types.are_identical_unique_tuples(store, type, right[index]) { return false }
 	}
 	return true
+}
+
+Instance_Poly_Name :: struct {
+	name:        string,
+	declared_at: syntax.Node_Index,
+	type:        types.Type_Id,
+	constant:    Const_Id,
+}
+
+// A poly name is visible to a signature field declared at or after the field that binds it.
+Instance_Poly_Names :: struct {
+	owner:      Entity_Id,
+	package_id: Package_Id,
+	names:      []Instance_Poly_Name,
+}
+
+@(private = "package")
+instance_field_scope :: proc(checker: ^Type_Checker, scope: Scope_Id, field_node: syntax.Node_Index) -> (Scope_Id, Resolve_Error) {
+	poly := checker.instance_poly
+	visible := false
+	for name in poly.names { visible ||= name.declared_at <= field_node }
+	if !visible { return scope, nil }
+	scopes := checker.resolver.scopes
+	field_scope, scope_error := scope_create(scopes, scope, .Block, poly.owner)
+	if scope_error != nil { return 0, binding_resolve_error(scope_error) }
+	for name in poly.names {
+		if name.declared_at > field_node { continue }
+		bound_entity := Entity {
+			name       = name.name,
+			kind       = .Type_Name,
+			scope      = field_scope,
+			package_id = poly.package_id,
+			state      = .Resolved,
+			type       = name.type,
+		}
+		if name.constant != 0 {
+			bound_entity.kind, bound_entity.constant = .Constant, name.constant
+		}
+		bound, bound_error := entity_create(scopes, bound_entity)
+		if bound_error != nil { return 0, binding_resolve_error(bound_error) }
+		_, insert_error := scope_insert(scopes, field_scope, bound)
+		if insert_error != nil { return 0, binding_resolve_error(insert_error) }
+	}
+	return field_scope, nil
+}
+
+@(private = "file")
+poly_marker_in :: proc(text: string, name: string) -> bool {
+	for start in 0 ..< len(text) {
+		if text[start] != '$' || !strings.has_prefix(text[start + 1:], name) { continue }
+		end := start + 1 + len(name)
+		if end == len(text) { return true }
+		c := text[end]
+		if !(c == '_' || c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9') { return true }
+	}
+	return false
+}
+
+@(private = "file")
+poly_declaration_node :: proc(file: ^File, signature: syntax.Node_Index, name: string) -> syntax.Node_Index {
+	params := syntax.node_payload(file.ast, signature, syntax.Proc_Type).params
+	if params == 0 { return 0 }
+	for field_node in syntax.node_list(file.ast, syntax.node_payload(file.ast, params, syntax.Field_List).list) {
+		field := syntax.node_payload(file.ast, field_node, syntax.Field)
+		if field.type != 0 && poly_marker_in(type_node_text(file, field.type), name) { return field_node }
+		for name_node in syntax.node_list(file.ast, field.names) {
+			if poly_marker_in(type_node_text(file, name_node), name) { return field_node }
+		}
+	}
+	return 0
 }
 
 @(private = "file")
@@ -396,6 +564,18 @@ expression_new_instance :: proc(
 	arena := mem.dynamic_arena_allocator(&checker.arena)
 	type_scope, scope_error := scope_create(scopes, definition_entity.scope, .Block, definition)
 	if scope_error != nil { return {}, binding_resolve_error(scope_error) }
+	signature_scope, signature_scope_error := scope_create(scopes, definition_entity.scope, .Block, definition)
+	if signature_scope_error != nil { return {}, binding_resolve_error(signature_scope_error) }
+	file := checker.type_checker.files[declaration.type.file]
+	poly_declarations := make([]Instance_Poly_Name, len(poly_names), arena) or_return
+	for name, index in poly_names {
+		poly_declarations[index] = Instance_Poly_Name {
+			name        = name,
+			declared_at = poly_declaration_node(file, declaration.type.node, name),
+			type        = poly_types[index],
+			constant    = poly_constants[index],
+		}
+	}
 	for name, index in poly_names {
 		bound_entity := Entity {
 			name       = name,
@@ -440,7 +620,14 @@ expression_new_instance :: proc(
 	checker.type_checker.instantiating = true
 	outer_instance := checker.active_instance
 	checker.active_instance = Instance_Id(instance)
-	signature, signature_error := type_expression(checker.type_checker, declaration.type.file, type_scope, declaration.type.node, true)
+	outer_poly_names := checker.type_checker.instance_poly
+	checker.type_checker.instance_poly = Instance_Poly_Names {
+		owner      = definition,
+		package_id = definition_package_id,
+		names      = poly_declarations,
+	}
+	signature, signature_error := type_expression(checker.type_checker, declaration.type.file, signature_scope, declaration.type.node, true)
+	checker.type_checker.instance_poly = outer_poly_names
 	checker.active_instance = outer_instance
 	checker.type_checker.instantiating = outer_instantiating
 	if signature_error != nil { return {}, signature_error }
@@ -453,11 +640,17 @@ expression_new_instance :: proc(
 	procedure.convention = descriptor.convention
 	procedure.variadic_index = procedure_variadic_index(checker.type_checker.files[declaration.type.file], declaration.type.node)
 	checker.active_instance = Instance_Id(instance)
-	valid, body_error := expression_procedure_body(checker, resolver, instance, declaration.type)
+	valid: bool
+	body_error: Resolve_Error
+	if resolver.body_pause_depth > 0 {
+		valid, body_error = expression_queue_instance_body(checker, resolver, instance, declaration)
+	} else {
+		valid, body_error = expression_procedure_body(checker, resolver, instance, declaration.type)
+	}
 	checker.active_instance = outer_instance
 	if body_error != nil { return {}, body_error }
 	entity_get(scopes, instance).state = .Resolved if valid else .Invalid
-	if !valid || entity_get(scopes, instance).data.(Procedure_Data).body_state != .Complete {
+	if !valid || resolver.body_pause_depth == 0 && entity_get(scopes, instance).data.(Procedure_Data).body_state != .Complete {
 		if !valid && definition_procedure.where_clauses.count != 0 {
 			return expression_failure(checker, view, scope, node, .Invalid_Operand, "at caller location")
 		}

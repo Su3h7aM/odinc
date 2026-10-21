@@ -25,6 +25,19 @@ propagation_results :: proc(checker: ^Expression_Checker, plan_id: Plan_Id, valu
 	return nil
 }
 
+// The result types of a multi-result call argument: a call's results, or the payloads of a multi-value `or_return`.
+@(private = "package")
+expression_tuple_results :: proc(checker: ^Expression_Checker, file: ^File, node: syntax.Node_Index, info: Expression_Info) -> []types.Type_Id {
+	if info.state != .Checked || info.mode != .No_Value || info.plan == 0 || int(info.plan) >= len(checker.plans) { return nil }
+	#partial switch plan in checker.plans[info.plan] {
+	case Call_Plan:
+		if len(plan.results) >= 2 { return plan.results }
+	case Propagation_Plan:
+		if file.ast.nodes[node].kind == .Or_Return_Expr && len(plan.results) >= 2 { return plan.results }
+	}
+	return nil
+}
+
 @(private = "package")
 expression_or_else :: proc(
 	checker: ^Expression_Checker,

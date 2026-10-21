@@ -47,17 +47,22 @@ call_expansions :: proc(
 	err: Resolve_Error,
 ) {
 	for argument, position in arguments {
-		if file.ast.nodes[argument].kind != .Call_Expr { continue }
-		callee := check_expression(checker, view, scope, syntax.node_payload(file.ast, argument, syntax.Call_Expr).expr) or_return
-		if callee.state == .Invalid || callee.mode == .Builtin || callee.mode == .Type { continue }
+		kind := file.ast.nodes[argument].kind
+		if kind != .Call_Expr && kind != .Or_Return_Expr { continue }
+		if kind == .Call_Expr {
+			if is_type_of_call(file, argument) { continue }
+			definition := record_call_definition(checker.type_checker, checker.views[view].file, file, scope, argument) or_return
+			if definition != 0 { continue }
+			callee := check_expression(checker, view, scope, syntax.node_payload(file.ast, argument, syntax.Call_Expr).expr) or_return
+			if callee.state == .Invalid || callee.mode == .Builtin || callee.mode == .Type { continue }
+		}
 		info := check_expression(checker, view, scope, argument) or_return
-		if info.state == .Invalid || info.mode != .No_Value || int(info.plan) >= len(checker.plans) { continue }
-		call, is_call := checker.plans[info.plan].(Call_Plan)
-		if !is_call || len(call.results) < 2 { continue }
+		results := expression_tuple_results(checker, file, argument, info)
+		if results == nil { continue }
 		if expansions == nil {
 			expansions = make([][]types.Type_Id, len(arguments), mem.dynamic_arena_allocator(&checker.arena)) or_return
 		}
-		expansions[position] = call.results
+		expansions[position] = results
 	}
 	return expansions, nil
 }

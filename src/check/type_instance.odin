@@ -38,7 +38,7 @@ poly_match_record :: proc(match: ^Poly_Match, pattern: syntax.Node_Index, argume
 		if instance.type != argument || instance.definition != definition { continue }
 		call := syntax.node_payload(file.ast, pattern, syntax.Call_Expr)
 		arguments := syntax.node_list(file.ast, call.args)
-		if len(arguments) != len(instance.arguments) { return false, nil }
+		if len(arguments) > len(instance.arguments) { return false, nil }
 		for parameter, index in arguments {
 			if instance.constants[index] == 0 {
 				if !(poly_match_pattern(match, parameter, instance.arguments[index]) or_return) { return false, nil }
@@ -63,9 +63,74 @@ poly_match_record :: proc(match: ^Poly_Match, pattern: syntax.Node_Index, argume
 				if !valid || constant != instance.constants[index] { return false, nil }
 			}
 		}
+		if len(arguments) < len(instance.arguments) {
+			if !(poly_match_record_defaults(match, definition, instance, len(arguments)) or_return) { return false, nil }
+		}
 		return true, nil
 	}
 	return false, nil
+}
+
+// A pattern naming fewer arguments than the instance supplies matches when every remaining argument
+// equals the record's default, as `Chan($T)` constrains only `T` while `Chan(int)` fills `$D` with
+// its default. Defaults are evaluated with the bindings so far in scope, speculatively.
+@(private = "file")
+poly_match_record_defaults :: proc(match: ^Poly_Match, definition: Entity_Id, instance: Record_Instance, from: int) -> (matched: bool, err: Resolve_Error) {
+	checker := match.checker.type_checker
+	declaration := checker.generic_records[definition]
+	definition_file := checker.files[declaration.file]
+	params := syntax.node_payload(definition_file.ast, record_poly_params(definition_file, declaration.node), syntax.Field_List)
+	// Defaults live in the record's package, so they resolve in a scope parented there, with the
+	// bindings so far inserted like poly_bound_scope does.
+	bound_scope, scope_error := scope_create(checker.resolver.scopes, entity_get(checker.resolver.scopes, definition).scope, .Block)
+	if scope_error != nil { return false, binding_resolve_error(scope_error) }
+	for name, index in match.bindings.names {
+		bound := Entity {
+			name       = name,
+			kind       = .Type_Name,
+			scope      = bound_scope,
+			package_id = entity_get(checker.resolver.scopes, definition).package_id,
+			state      = .Resolved,
+			type       = match.bindings.types[index],
+		}
+		if match.bindings.constants[index] != 0 { bound.kind, bound.constant = .Constant, match.bindings.constants[index] }
+		bound_entity, create_error := entity_create(checker.resolver.scopes, bound)
+		if create_error != nil { return false, binding_resolve_error(create_error) }
+		if _, insert_error := scope_insert(checker.resolver.scopes, bound_scope, bound_entity); insert_error != nil {
+			return false, binding_resolve_error(insert_error)
+		}
+	}
+	mark := expression_speculation_begin(match.checker)
+	defer expression_speculation_end(match.checker, mark)
+	parameter_index := 0
+	for field_node in syntax.node_list(definition_file.ast, params.list) {
+		field := syntax.node_payload(definition_file.ast, field_node, syntax.Field)
+		for _ in syntax.node_list(definition_file.ast, field.names) {
+			index := parameter_index
+			parameter_index += 1
+			if index < from { continue }
+			if field.type == 0 || field.default_value == 0 { return false, nil }
+			if definition_file.ast.nodes[field.type].kind == .Typeid_Type {
+				default_type := type_expression(checker, declaration.file, bound_scope, field.default_value, true) or_return
+				if default_type == types.TYPE_POISON { return false, nil }
+				if !types.are_identical(checker.store, default_type, instance.arguments[index]) { return false, nil }
+			} else {
+				if checker.evaluate_record_argument == nil { return false, nil }
+				expected := type_expression(checker, declaration.file, bound_scope, field.type, true) or_return
+				if expected == types.TYPE_POISON { return false, nil }
+				_, constant, _, valid := checker.evaluate_record_argument(
+					checker,
+					bound_scope,
+					declaration.file,
+					field.default_value,
+					expected,
+					checker.user_data,
+				) or_return
+				if !valid || constant != instance.constants[index] { return false, nil }
+			}
+		}
+	}
+	return true, nil
 }
 
 @(private = "package")
