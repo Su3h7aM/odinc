@@ -78,6 +78,11 @@ lower_binary :: proc(
 	   (lower_union_type(state, expression.left) != types.TYPE_NONE || lower_union_type(state, expression.right) != types.TYPE_NONE) {
 		return lower_union_comparison(state, node, expression, left, right)
 	}
+	if (expression.op.kind == .Cmp_Eq || expression.op.kind == .Not_Eq) {
+		if struct_type := lower_struct_compare_type(state, expression.left, expression.right); struct_type != types.TYPE_NONE {
+			return lower_array_generated_equal(state, node, expression.op.kind, struct_type, left, right)
+		}
+	}
 	operand_type := lower_info(state, expression.left).type
 	if conversions.type != 0 { operand_type = conversions.type }
 	return lower_scalar_binary(state, node, expression.op.kind, left, right, operand_type)
@@ -677,6 +682,18 @@ lower_union_type :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> ty
 	resolved := types.resolve_named(store, info.type)
 	if types.get(store, resolved).kind != .Union { return types.TYPE_NONE }
 	return resolved
+}
+
+// The shared struct type when both operands resolve to the same struct, otherwise types.TYPE_NONE.
+// Struct equality lowers through the checker's generated field-wise procedure, so padding never compares.
+@(private)
+lower_struct_compare_type :: proc(state: ^Procedure_State, left_node, right_node: syntax.Node_Index) -> types.Type_Id {
+	store := check.type_store(state.job.program)
+	left := types.resolve_named(store, lower_info(state, left_node).type)
+	if types.get(store, left).kind != .Struct { return types.TYPE_NONE }
+	right := types.resolve_named(store, lower_info(state, right_node).type)
+	if right != left { return types.TYPE_NONE }
+	return left
 }
 
 // Whether the operand's resolved type is a bit set, whose ordered comparison needs masks.

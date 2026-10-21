@@ -512,10 +512,16 @@ expression_binary :: proc(
 		compared_type := left.type
 		if left_kind != .Union && right_kind == .Union { compared_type = right.type }
 		append(&checker.plans, Plan(Comparison_Plan{type = types.resolve_named(store, compared_type)})) or_return
+		// The generated equality the comparison lowers through calls runtime helpers for some
+		// contents, like cstrings, so they must be resolved even when no map uses them.
+		_, helper_error := expression_resolve_map_helpers(checker)
+		if helper_error != nil { return {}, helper_error }
 	}
 	// Compared arrays of structs or unions compare through the generated equality of their element type.
 	if comparison && array_compare && (array_leaf_kind == .Struct || array_leaf_kind == .Union) && (left.mode != .Constant || right.mode != .Constant) {
 		append(&checker.plans, Plan(Comparison_Plan{type = array_leaf})) or_return
+		_, helper_error := expression_resolve_map_helpers(checker)
+		if helper_error != nil { return {}, helper_error }
 	}
 	// A dynamic integer paired with an untyped operand needs concrete rows at both runtime uses.
 	if left.mode != .Constant || right.mode != .Constant {
