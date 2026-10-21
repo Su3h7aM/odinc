@@ -553,11 +553,6 @@ group_field_specialized :: proc(file: ^File, field: syntax.Field) -> bool {
 	return false
 }
 
-// An exact type scores 2, an untyped argument whose default type is the target scores 2, any other implicit
-// conversion scores 1. The argument's row is not stored, so a rejected candidate leaves no trace.
-// Scores mirror check_distance_between_types: identical 6, untyped default type 5, untyped same-family 2,
-// any other implicit conversion 1. Generic members add their concrete argument scores, then lose 1 when
-// specialized and 2 when unconstrained, so a generic beats a same-family concrete match but not a default one.
 @(private = "file")
 group_argument_is_deferred :: proc(file: ^File, argument: syntax.Node_Index) -> bool {
 	#partial switch file.ast.nodes[argument].kind {
@@ -608,7 +603,9 @@ group_argument_score :: proc(
 	matches: bool,
 	err: Resolve_Error,
 ) {
-	if types.are_identical(checker.type_checker.store, info.type, target) { return 2, true, nil }
+	// Scores mirror check_distance_between_types: identical 6, untyped default type 5, untyped same-family 2,
+	// any other implicit conversion 1.
+	if types.are_identical(checker.type_checker.store, info.type, target) { return 6, true, nil }
 	if any_integer && expression_any_integer_source(checker, info, target) { return 1, true, nil }
 	_, diagnostic, failure := check_conversion(
 		checker.constants,
@@ -624,10 +621,34 @@ group_argument_score :: proc(
 		return 0, false, nil
 	}
 	if diagnostic != .None { return 0, false, nil }
-	if conversion_untyped(types.get(checker.type_checker.store, info.type).kind) && group_default_type(checker, info.type) == target {
-		return 2, true, nil
+	store := checker.type_checker.store
+	if conversion_untyped(types.get(store, info.type).kind) {
+		if group_default_type(checker, info.type) == target { return 5, true, nil }
+		if group_same_untyped_family(store, info.type, target) { return 2, true, nil }
+		return 1, true, nil
 	}
 	return 1, true, nil
+}
+
+@(private = "file")
+group_same_untyped_family :: proc(store: ^types.Store, source, target: types.Type_Id) -> bool {
+	source_kind := types.get(store, conversion_base_type(store, source)).kind
+	target_kind := types.get(store, conversion_base_type(store, target)).kind
+	#partial switch source_kind {
+	case .Untyped_Bool:
+		return target_kind == .Bool
+	case .Untyped_Integer, .Untyped_Rune:
+		return target_kind == .Integer || target_kind == .Rune
+	case .Untyped_String:
+		return target_kind == .String
+	case .Untyped_Float:
+		return target_kind == .Float
+	case .Untyped_Complex:
+		return target_kind == .Complex || target_kind == .Quaternion
+	case .Untyped_Quaternion:
+		return target_kind == .Quaternion
+	}
+	return false
 }
 
 @(private = "file")

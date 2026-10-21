@@ -246,3 +246,54 @@ defaulted_choice := pick_defaulted(1)
 		}
 	}
 }
+
+@(test)
+proc_group_untyped_arguments_select_same_family_member :: proc(t: ^testing.T) {
+	// Official ranks an untyped constant's default type above its family and its family above a
+	// cross-family conversion, so each pair below resolves without ambiguity.
+	source := transmute([]byte)string(
+		`package sample
+add_ints :: proc "contextless" (a, b: int) -> int { return a + b }
+add_floats :: proc "contextless" (a, b: f32) -> f32 { return a + b }
+add_numbers :: proc "contextless" (a: int, b: f32, c: u8) -> int { return 0 }
+add :: proc{add_ints, add_floats, add_numbers}
+ints_choice: int = add(1, 2)
+floats_choice: f32 = add(1.0, 2.0)
+mixed_choice: int = add(1, 2.0)
+triple_choice: int = add(1, 2, 3)
+main :: proc "contextless" () {}
+`,
+	)
+	procedure, ok := check_procedure_source(t, source, .None, "", 0)
+	if ok { testing.expect(t, procedure.body_state == .Complete) }
+}
+
+@(test)
+proc_group_exact_arity_beats_filled_default :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(
+		`package sample
+bare :: proc "contextless" () -> int { return 1 }
+defaulted :: proc "contextless" (value := 3) -> int { return value }
+pick :: proc{bare, defaulted}
+choice: int = pick()
+main :: proc "contextless" () {}
+`,
+	)
+	procedure, ok := check_procedure_source(t, source, .None, "", 0)
+	if ok { testing.expect(t, procedure.body_state == .Complete) }
+}
+
+@(test)
+proc_group_generic_beats_cross_family_concrete_member :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(
+		`package sample
+fixed :: proc "contextless" (value: f32) -> f32 { return value }
+poly :: proc "contextless" (value: $T) -> T { return value }
+pick :: proc{fixed, poly}
+generic_choice: f64 = pick(1.0)
+main :: proc "contextless" () {}
+`,
+	)
+	procedure, ok := check_procedure_source(t, source, .None, "", 0)
+	if ok { testing.expect(t, procedure.body_state == .Complete) }
+}
