@@ -77,7 +77,7 @@ Endian :: bit_field u16 { a: u16be | 4 }
 	for name in names {
 		state, err := resolve_entity(&resolver, scope_lookup_current(&store, package_scope, name))
 		testing.expect(t, err == nil)
-		testing.expectf(t, (state == .Invalid) == (name != "Tagged"), "%s: %v", name, state)
+		testing.expectf(t, (state == .Invalid) == (name != "Tagged" && name != "Arrayed"), "%s: %v", name, state)
 	}
 
 	tagged_type := entity_get(&store, scope_lookup_current(&store, package_scope, "Tagged")).type
@@ -89,15 +89,20 @@ Endian :: bit_field u16 { a: u16be | 4 }
 		testing.expect(t, layout_err == .None && layout_size == 8)
 	}
 
+	arrayed_id := entity_get(&store, scope_lookup_current(&store, package_scope, "Arrayed")).type
+	arrayed := types.get(&type_store, arrayed_id)
+	array_backing := types.intern(&type_store, types.Type{kind = .Array, elem = u8_type, count = 2})
+	if testing.expect(t, arrayed.kind == .Bit_Field && arrayed.backing == array_backing && len(arrayed.fields) == 1) {
+		offset, size := types.bit_field_slot(&type_store, arrayed_id, 0)
+		testing.expect(t, offset == 0 && size == 3 && arrayed.fields[0].name == "a")
+		layout_size, _, layout_err := types.layout(&type_store, arrayed_id)
+		testing.expect(t, layout_err == .None && layout_size == 2)
+	}
+
 	expected := []struct {
 		kind: Type_Diagnostic_Kind,
 		name: string,
-	} {
-		{.Bit_Field_Out_Of_Range, ""},
-		{.Invalid_Bit_Field_Field, ""},
-		{.Unsupported_Type_Expression, "Bit_Field_Array_Backing"},
-		{.Unsupported_Type_Expression, "Bit_Field_Endian_Field"},
-	}
+	}{{.Bit_Field_Out_Of_Range, ""}, {.Invalid_Bit_Field_Field, ""}, {.Unsupported_Type_Expression, "Bit_Field_Endian_Field"}}
 	if testing.expect(t, len(data.checker.diagnostics) == len(expected)) {
 		for diagnostic, index in data.checker.diagnostics {
 			testing.expect(t, diagnostic.kind == expected[index].kind && diagnostic.name == expected[index].name)

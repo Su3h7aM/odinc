@@ -3,8 +3,7 @@ package check
 import "oc:syntax"
 import "oc:types"
 
-// `bit_field B { name: T | bits, ... }` over an integer backing. Fields are integers, enums or booleans of at most
-// 8 bytes, packed from the least significant bit. Array backings and endian-specific fields are unsupported yet.
+// `bit_field B { name: T | bits, ... }` over an integer or fixed integer-array backing. Fields are integers, enums or booleans of at most 8 bytes, packed from the least significant bit.
 bit_field_type :: proc(
 	checker: ^Type_Checker,
 	file_id: File_Id,
@@ -19,16 +18,25 @@ bit_field_type :: proc(
 	store := checker.store
 	backing := type_expression(checker, file_id, scope, record.backing_type, false) or_return
 	if backing == types.TYPE_POISON { return types.TYPE_POISON, nil }
-	backing_kind := types.get(store, underlying_type(store, backing)).kind
+	backing_type := types.get(store, underlying_type(store, backing))
+	backing_kind := backing_type.kind
 	if backing_kind == .Array {
-		type_report(checker, file_id, file, record.backing_type, .Unsupported_Type_Expression, "Bit_Field_Array_Backing") or_return
-		return types.TYPE_POISON, nil
-	}
-	if backing_kind != .Integer {
+		elem_type := types.get(store, underlying_type(store, backing_type.elem))
+		if elem_type.kind != .Integer {
+			type_report(checker, file_id, file, record.backing_type, .Invalid_Bit_Field_Backing) or_return
+			return types.TYPE_POISON, nil
+		}
+	} else if backing_kind != .Integer {
 		type_report(checker, file_id, file, record.backing_type, .Invalid_Bit_Field_Backing) or_return
 		return types.TYPE_POISON, nil
 	}
 	backing_size, _, _ := types.layout(store, backing)
+	backing_elem_type := backing_type
+	backing_elem_size := backing_size
+	if backing_kind == .Array {
+		backing_elem_type = types.get(store, underlying_type(store, backing_type.elem))
+		backing_elem_size, _, _ = types.layout(store, backing_type.elem)
+	}
 	nodes := syntax.node_list(file.ast, record.fields)
 	fields := make([]types.Type_Field, len(nodes), checker.arena_allocator) or_return
 	bit_sizes := make([]u8, len(nodes), checker.arena_allocator) or_return
@@ -61,12 +69,13 @@ bit_field_type :: proc(
 		}
 		scalar := field_type
 		if field_kind == .Enum { scalar = types.get(store, underlying_type(store, field_type)).backing }
-		if types.get(store, underlying_type(store, scalar)).endianness != .Native {
+		scalar_type := types.get(store, underlying_type(store, scalar))
+		field_size, _, _ := types.layout(store, field_type)
+		if field_kind != .Bool && field_size >= 2 && backing_elem_size >= 2 && scalar_type.endianness != backing_elem_type.endianness {
 			type_report(checker, file_id, file, field.type, .Unsupported_Type_Expression, "Bit_Field_Endian_Field") or_return
 			valid = false
 			continue
 		}
-		field_size, _, _ := types.layout(store, field_type)
 		if field_size > 8 {
 			type_report(checker, file_id, file, field.type, .Invalid_Bit_Field_Field) or_return
 			valid = false
@@ -89,6 +98,26 @@ bit_field_type :: proc(
 		bit_sizes[count] = u8(bit_size)
 		count += 1
 		total += bit_size
+	}
+	// Field-vs-field endian agreement: all fields must share the same endian variety.
+	if valid {
+		first_field_endian := types.Endian.Native
+		have_endian := false
+		for i in 0 ..< count {
+			descriptor := types.get(store, underlying_type(store, fields[i].type))
+			scalar := descriptor
+			if descriptor.kind == .Enum { scalar = types.get(store, underlying_type(store, descriptor.backing)) }
+			field_size, _, _ := types.layout(store, fields[i].type)
+			if descriptor.kind == .Bool || field_size < 2 { continue }
+			if !have_endian {
+				first_field_endian = scalar.endianness
+				have_endian = true
+			} else if scalar.endianness != first_field_endian {
+				type_report(checker, file_id, file, node, .Unsupported_Type_Expression, "Bit_Field_Endian_Field") or_return
+				valid = false
+				break
+			}
+		}
 	}
 	if valid && total > 8 * backing_size {
 		type_report(checker, file_id, file, node, .Bit_Field_Out_Of_Range) or_return

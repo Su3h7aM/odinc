@@ -466,6 +466,7 @@ lowered_integer_bytes :: proc(store: ^Store, id: Type_Id, config: Layout_Config)
 	case .Bool, .Integer, .Rune, .Type_Id, .Enum, .Bit_Set, .Bit_Field:
 		size, _ := layout_internal(store, root, config, 0)
 		return size
+	// .Bit_Field is evaluated on its backing type, the lowered type.
 	}
 	return 0
 }
