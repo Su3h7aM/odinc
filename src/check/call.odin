@@ -176,7 +176,7 @@ expression_call_slot_argument :: proc(
 }
 
 // One result of a multi-result call converted to its parameter type. The argument names the call and the result it
-// supplies; lowering rejects it, so the call is never evaluated once per result.
+// supplies; the call is evaluated once, and the conversion applies to the result it produced.
 @(private = "file")
 expression_call_tuple_argument :: proc(
 	checker: ^Expression_Checker,
@@ -201,9 +201,63 @@ expression_call_tuple_argument :: proc(
 	}
 	converted := expression_conversion(checker, view, scope, value_node, Operand(Expression_Ref{view, value_node}), info, target, .Assignment) or_return
 	if converted.state == .Invalid { return {}, false, nil }
-	return Call_Argument{value = Operand(Expression_Ref{view, value_node}), parameter = parameter, evaluation_order = order, tuple_element = element},
+	conversion: Plan_Id
+	if !types.are_identical(checker.type_checker.store, result, target) {
+		retained := checker.plans[converted.plan].(Conversion_Plan)
+		retained.source_type = result
+		conversion = Plan_Id(len(checker.plans))
+		append(&checker.plans, Plan(retained)) or_return
+	}
+	return Call_Argument {
+			value = Operand(Expression_Ref{view, value_node}),
+			parameter = parameter,
+			conversion = conversion,
+			evaluation_order = order,
+			tuple_element = element,
+		},
 		true,
 		nil
+}
+
+// The conversion of one result of a multi-result call to the type its parameter needs, without a diagnostic: the
+// caller reports the failure in its own terms. The plan's source is the call, and its source type is the result it
+// converts, so lowering applies the plan to the result the call produced.
+@(private = "file")
+call_result_conversion :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	scope: Scope_Id,
+	value_node: syntax.Node_Index,
+	result: types.Type_Id,
+	target: types.Type_Id,
+) -> (
+	plan: Plan_Id,
+	ok: bool,
+	err: Resolve_Error,
+) {
+	info := Expression_Info {
+		type  = result,
+		mode  = .Value,
+		scope = scope,
+		state = .Checked,
+	}
+	converted, diagnostic, conversion_error := check_conversion(
+		checker.constants,
+		checker.type_checker.store,
+		Operand(Expression_Ref{view, value_node}),
+		info,
+		target,
+		.Assignment,
+		checker.config,
+	)
+	if conversion_error != nil { return {}, false, nil }
+	if diagnostic != .None { return {}, false, nil }
+	conversion := converted.plan
+	conversion.source_type = result
+	if conversion.kind == .Box { expression_record_type_info(checker, result) or_return }
+	plan = Plan_Id(len(checker.plans))
+	append(&checker.plans, Plan(conversion)) or_return
+	return plan, true, nil
 }
 
 // A supplied argument converted to its parameter type. The call retains the conversion plan, if any.
@@ -241,6 +295,7 @@ expression_call_argument :: proc(
 // The trailing arguments of a variadic call become the elements of one slice argument. Non-constant
 // elements must already have the element type; constants take it from the parameter at lowering. A multi-result
 // call contributes one element per result from the first_element on, each naming the call and its 1-based result.
+// Every result converts to the element type, as official check_call_arguments_internal does for variadic operands.
 @(private = "file")
 expression_variadic_argument :: proc(
 	checker: ^Expression_Checker,
@@ -271,9 +326,14 @@ expression_variadic_argument :: proc(
 			for result, offset in results {
 				flat += 1
 				if flat <= first_element { continue }
-				if result != element_type { return {}, "Call_Tuple_Variadic_Type", false, nil }
+				conversion: Plan_Id
+				if !types.are_identical(checker.type_checker.store, result, element_type) {
+					plan, ok := call_result_conversion(checker, view, scope, element, result, element_type) or_return
+					if !ok { return {}, "Call_Tuple_Variadic_Type", false, nil }
+					conversion = plan
+				}
 				append(&elements, Operand(Expression_Ref{view, element})) or_return
-				append(&conversions, Plan_Id(0)) or_return
+				append(&conversions, conversion) or_return
 				append(&tuple_elements, offset + 1) or_return
 			}
 			continue

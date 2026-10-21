@@ -20,7 +20,13 @@ lower_variadic_spread :: proc(state: ^Procedure_State, node: syntax.Node_Index, 
 
 // lower_variadic_slice stores the packed elements of a variadic argument in a stack array and returns the slice header.
 @(private)
-lower_variadic_slice :: proc(state: ^Procedure_State, node: syntax.Node_Index, argument: check.Call_Argument, slice_type: types.Type_Id) -> ir.Node_Id {
+lower_variadic_slice :: proc(
+	state: ^Procedure_State,
+	node: syntax.Node_Index,
+	argument: check.Call_Argument,
+	slice_type: types.Type_Id,
+	cache: ^Spread_Cache,
+) -> ir.Node_Id {
 	function := state.job.function
 	element_type := lower_type(state, slice_type).elem
 	element_layout := state.job.layouts[element_type]
@@ -33,21 +39,23 @@ lower_variadic_slice :: proc(state: ^Procedure_State, node: syntax.Node_Index, a
 		return header
 	}
 	storage := ir.stack_slot(function, state.entry_control, u32(element_layout.size) * u32(count), u32(element_layout.align))
-	spread_node: syntax.Node_Index
-	spread_values: []ir.Node_Id
 	for element, index in argument.variadic_elements {
 		value: ir.Node_Id
 		if argument.variadic_tuple_elements[index] != 0 {
 			ref, is_ref := element.(check.Expression_Ref)
 			if !is_ref || ref.view != state.view { return lower_fail(state, node, .Call_Argument) }
-			if spread_values == nil || spread_node != ref.node {
-				spread_values = lower_spread_results(state, node, ref)
-				spread_node = ref.node
-				if state.failed || function.error != nil { return 0 }
-			}
+			spread_values := lower_spread_values(state, node, cache, ref)
+			if state.failed || function.error != nil { return 0 }
 			element_index := argument.variadic_tuple_elements[index] - 1
 			if element_index >= len(spread_values) { return lower_fail(state, node, .Call_Argument) }
 			value = spread_values[element_index]
+			if argument.variadic_conversions[index] != 0 {
+				conversion, ok := check.plan(state.job.program, argument.variadic_conversions[index])^.(check.Conversion_Plan)
+				if !ok { return lower_fail(state, node, .Conversion) }
+				source_type := lower_spread_source_type(state, ref, element_index)
+				if source_type == 0 { return lower_fail(state, node, .Conversion) }
+				value = lower_conversion_value(state, conversion, node, source_type, value)
+			}
 		} else if argument.variadic_conversions[index] != 0 {
 			value = lower_conversion(state, check.plan(state.job.program, argument.variadic_conversions[index])^.(check.Conversion_Plan), node)
 		} else {
@@ -60,4 +68,14 @@ lower_variadic_slice :: proc(state: ^Procedure_State, node: syntax.Node_Index, a
 	lower_store_word(state, header, storage)
 	lower_store_word(state, ir.ptr_offset(function, header, 8), ir.const_int(function, .I64, i64(count)))
 	return header
+}
+
+// The type of one result of the multi-result call a spread names.
+@(private)
+lower_spread_source_type :: proc(state: ^Procedure_State, ref: check.Expression_Ref, element: int) -> types.Type_Id {
+	call_plan := check.plan(state.job.program, lower_info(state, ref.node).plan)
+	if call_plan == nil { return 0 }
+	variant, is_call := call_plan^.(check.Call_Plan)
+	if !is_call || element >= len(variant.results) { return 0 }
+	return variant.results[element]
 }

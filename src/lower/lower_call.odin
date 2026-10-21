@@ -14,6 +14,20 @@ Call_Argument_Order :: struct {
 	evaluation_order: u32,
 }
 
+// The results of one multi-result call, evaluated once for every argument that uses them.
+@(private)
+Spread_Results :: struct {
+	ref:    check.Expression_Ref,
+	values: []ir.Node_Id,
+}
+
+// The multi-result calls of one call, each evaluated once.
+@(private)
+Spread_Cache :: struct {
+	entries: []Spread_Results,
+	count:   int,
+}
+
 @(private)
 call_operand_valid :: proc(state: ^Procedure_State, operand: check.Operand) -> bool {
 	program := state.job.program
@@ -125,8 +139,11 @@ lower_call_results :: proc(state: ^Procedure_State, node: syntax.Node_Index, inf
 	}
 	function := state.job.function
 	allocator := virtual.arena_allocator(&function.arena)
-	tuple_results, tuple_error := make([][]ir.Node_Id, len(plan.arguments), allocator)
-	if tuple_error != nil { function.error = tuple_error; return }
+	spread_entries, spread_error := make([]Spread_Results, len(plan.arguments), allocator)
+	if spread_error != nil { function.error = spread_error; return }
+	cache := Spread_Cache {
+		entries = spread_entries,
+	}
 	ordered, ordered_error := make([]Call_Argument_Order, count, allocator)
 	arguments, arguments_error := make([]ir.Node_Id, len(signature.params), allocator)
 	slots, slots_error := make([]ir.Node_Id, split_count, allocator)
@@ -203,9 +220,9 @@ lower_call_results :: proc(state: ^Procedure_State, node: syntax.Node_Index, inf
 		span := parameter_span(declaration.abi_params[first:])
 		value: ir.Node_Id
 		if argument.variadic_pack {
-			value = lower_variadic_slice(state, node, argument, descriptor.params[position])
+			value = lower_variadic_slice(state, node, argument, descriptor.params[position], &cache)
 		} else if argument.tuple_element != 0 {
-			value = lower_tuple_argument(state, node, plan, tuple_results, entry.argument_index, descriptor.params[position])
+			value = lower_tuple_argument(state, node, plan, &cache, entry.argument_index, descriptor.params[position])
 		} else if argument.variadic_spread {
 			value = lower_variadic_spread(state, node, argument, descriptor.params[position])
 		} else if argument.conversion != 0 {
@@ -406,30 +423,43 @@ lower_tuple_argument :: proc(
 	state: ^Procedure_State,
 	node: syntax.Node_Index,
 	plan: check.Call_Plan,
-	tuple_results: [][]ir.Node_Id,
+	cache: ^Spread_Cache,
 	index: int,
 	parameter_type: types.Type_Id,
 ) -> ir.Node_Id {
 	argument := plan.arguments[index]
-	source := index
-	for earlier in 0 ..< index {
-		if plan.arguments[earlier].tuple_element != 0 && same_call_operand(plan.arguments[earlier].value, argument.value) {
-			source = earlier
-			break
-		}
-	}
 	ref, is_ref := argument.value.(check.Expression_Ref)
 	if !is_ref || ref.view != state.view { return lower_fail(state, node, .Call_Argument) }
-	if tuple_results[source] == nil {
-		tuple_results[source] = lower_spread_results(state, node, ref)
-		if state.failed || state.job.function.error != nil { return 0 }
-	}
+	results := lower_spread_values(state, node, cache, ref)
+	if state.failed || state.job.function.error != nil { return 0 }
 	element := int(argument.tuple_element) - 1
-	if element >= len(tuple_results[source]) { return lower_fail(state, node, .Call_Argument) }
+	if element >= len(results) { return lower_fail(state, node, .Call_Argument) }
 	call_plan := check.plan(state.job.program, lower_info(state, ref.node).plan)
-	variant := call_plan^.(check.Call_Plan)
-	if variant.results[element] != parameter_type { return lower_fail(state, node, .Conversion) }
-	return tuple_results[source][element]
+	variant, is_call := call_plan^.(check.Call_Plan)
+	if !is_call || element >= len(variant.results) { return lower_fail(state, node, .Call_Argument) }
+	source_type := variant.results[element]
+	if argument.conversion == 0 {
+		if source_type != parameter_type { return lower_fail(state, node, .Conversion) }
+		return results[element]
+	}
+	conversion, ok := check.plan(state.job.program, argument.conversion)^.(check.Conversion_Plan)
+	if !ok { return lower_fail(state, node, .Conversion) }
+	return lower_conversion_value(state, conversion, node, source_type, results[element])
+}
+
+// The results of the multi-result call a spread names, evaluated once for every argument that uses them.
+@(private)
+lower_spread_values :: proc(state: ^Procedure_State, node: syntax.Node_Index, cache: ^Spread_Cache, ref: check.Expression_Ref) -> []ir.Node_Id {
+	for entry in cache.entries[:cache.count] {
+		if entry.ref == ref { return entry.values }
+	}
+	values := lower_spread_results(state, node, ref)
+	if state.failed || state.job.function.error != nil { return nil }
+	if cache.count < len(cache.entries) {
+		cache.entries[cache.count] = Spread_Results{ref, values}
+		cache.count += 1
+	}
+	return values
 }
 
 // lower_spread_results evaluates the multi-result call that a spread names, once, and returns its results.
