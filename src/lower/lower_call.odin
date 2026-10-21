@@ -286,9 +286,18 @@ pick_ordered :: proc(function: ^ir.Function, less_kind: ir.Node_Kind, left, righ
 }
 
 @(private)
-lower_numeric_builtin :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: check.Builtin_Plan, kind: check.Builtin_Kind) -> ir.Node_Id {
+lower_numeric_builtin :: proc(
+	state: ^Procedure_State,
+	node: syntax.Node_Index,
+	info: check.Expression_Info,
+	plan: check.Builtin_Plan,
+	kind: check.Builtin_Kind,
+) -> ir.Node_Id {
 	count := len(plan.arguments)
 	if count < 1 { return lower_fail(state, node, .Builtin) }
+	if kind == .Abs && count == 1 && call_operand_valid(state, plan.arguments[0]) && lower_complex_kind(state, operand_type(state, plan.arguments[0])) {
+		return lower_complex_abs(state, node, info, plan)
+	}
 	if is_wide_integer(state, operand_type(state, plan.arguments[0])) { return lower_wide_numeric_builtin(state, node, plan, kind) }
 	if kind == .Min || kind == .Max {
 		value := lower_operand(state, plan.arguments[0])
@@ -368,10 +377,10 @@ lower_raw_data :: proc(state: ^Procedure_State, node: syntax.Node_Index, info: c
 @(private)
 lower_builtin :: proc(state: ^Procedure_State, node: syntax.Node_Index, info: check.Expression_Info, plan: check.Builtin_Plan) -> ir.Node_Id {
 	if kind := check.builtin_kind(state.job.program, plan.builtin); kind == .Min || kind == .Max || kind == .Abs || kind == .Clamp {
-		return lower_numeric_builtin(state, node, plan, kind)
+		return lower_numeric_builtin(state, node, info, plan, kind)
 	}
 	if kind := check.builtin_kind(state.job.program, plan.builtin);
-	   kind == .Real || kind == .Imag || kind == .Jmag || kind == .Kmag || kind == .Complex || kind == .Quaternion {
+	   kind == .Real || kind == .Imag || kind == .Jmag || kind == .Kmag || kind == .Complex || kind == .Quaternion || kind == .Conj {
 		return lower_complex_builtin(state, node, info, plan, kind)
 	}
 	if check.builtin_kind(state.job.program, plan.builtin) == .Trap {

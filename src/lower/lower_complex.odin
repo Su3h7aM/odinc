@@ -37,20 +37,124 @@ lower_complex_builtin :: proc(
 		}
 		return slot
 	}
+	if kind == .Conj {
+		return lower_complex_conj(state, node, info, plan)
+	}
 	scalar := scalar_type(state, info.type)
 	if len(plan.arguments) != 1 || scalar == .None { return lower_fail(state, node, .Builtin) }
 	address := lower_operand(state, plan.arguments[0])
 	if state.failed || function.error != nil { return 0 }
+	aggregate := lower_type(state, operand_type(state, plan.arguments[0]))
+	if aggregate.kind != .Complex && aggregate.kind != .Quaternion { return lower_fail(state, node, .Builtin) }
 	index: i64
 	#partial switch kind {
+	case .Real:
+		index = complex_real_index(aggregate.kind)
 	case .Imag:
-		index = 1
+		index = 1 if aggregate.kind == .Complex else 0
 	case .Jmag:
-		index = 2
+		if aggregate.kind != .Quaternion { return lower_fail(state, node, .Builtin) }
+		index = 1
 	case .Kmag:
-		index = 3
+		if aggregate.kind != .Quaternion { return lower_fail(state, node, .Builtin) }
+		index = 2
+	case:
+		return lower_fail(state, node, .Builtin)
 	}
 	return lower_load_word(state, ir.ptr_offset(function, address, index * layout.size), scalar)
+}
+
+// A complex value stores the real part first; a quaternion stores the three imaginary parts first and the real
+// part last, matching the upstream memory layout.
+@(private)
+complex_real_index :: proc(kind: types.Kind) -> i64 {
+	return 3 if kind == .Quaternion else 0
+}
+
+// Components narrower than f32 load as their bit pattern; negation then flips the sign bit directly.
+@(private)
+complex_part_scalar :: proc(component_size: i64) -> ir.Value_Type {
+	if component_size == 2 { return .I16 }
+	if component_size == 4 { return .F32 }
+	return .F64
+}
+
+@(private)
+complex_negate :: proc(function: ^ir.Function, part: ir.Node_Id, component_size: i64) -> ir.Node_Id {
+	if component_size == 2 { return float16_negate(function, part) }
+	return ir.unary(function, .FNeg, part)
+}
+
+// The conjugate keeps the real part and negates every imaginary part.
+@(private)
+lower_complex_conj :: proc(state: ^Procedure_State, node: syntax.Node_Index, info: check.Expression_Info, plan: check.Builtin_Plan) -> ir.Node_Id {
+	function := state.job.function
+	if len(plan.arguments) != 1 || !call_operand_valid(state, plan.arguments[0]) { return lower_fail(state, node, .Builtin) }
+	operand := operand_type(state, plan.arguments[0])
+	aggregate := lower_type(state, operand)
+	count: i64
+	#partial switch aggregate.kind {
+	case .Complex:
+		count = 2
+	case .Quaternion:
+		count = 4
+	case:
+		return lower_fail(state, node, .Builtin)
+	}
+	operand_layout := state.job.layouts[operand]
+	result_layout := state.job.layouts[info.type]
+	if operand_layout.error != .None || result_layout.error != .None || operand_layout.size != result_layout.size {
+		return lower_fail(state, node, .Builtin)
+	}
+	if operand_layout.size % count != 0 { return lower_fail(state, node, .Builtin) }
+	component_size := operand_layout.size / count
+	if component_size != 2 && component_size != 4 && component_size != 8 { return lower_fail(state, node, .Builtin) }
+	address := lower_operand(state, plan.arguments[0])
+	if state.failed || function.error != nil { return 0 }
+	slot := ir.stack_slot(function, state.entry_control, u32(result_layout.size), u32(result_layout.align))
+	scalar := complex_part_scalar(component_size)
+	real := complex_real_index(aggregate.kind)
+	for index in 0 ..< count {
+		part := lower_complex_part(state, address, index, component_size, scalar)
+		if index != real { part = complex_negate(function, part, component_size) }
+		lower_store_word(state, ir.ptr_offset(function, slot, index * component_size), part)
+	}
+	return slot
+}
+
+// The magnitude is the square root of the sum of the squared components. The f16 widths have no official
+// runtime value (the official compiler exits 132 for a missing `abs_complex32` or `abs_quaternion64`), so they
+// report unsupported instead of inventing one.
+@(private)
+lower_complex_abs :: proc(state: ^Procedure_State, node: syntax.Node_Index, info: check.Expression_Info, plan: check.Builtin_Plan) -> ir.Node_Id {
+	function := state.job.function
+	if len(plan.arguments) != 1 || !call_operand_valid(state, plan.arguments[0]) { return lower_fail(state, node, .Builtin) }
+	operand := operand_type(state, plan.arguments[0])
+	aggregate := lower_type(state, operand)
+	count: i64
+	#partial switch aggregate.kind {
+	case .Complex:
+		count = 2
+	case .Quaternion:
+		count = 4
+	case:
+		return lower_fail(state, node, .Builtin)
+	}
+	layout := state.job.layouts[operand]
+	if layout.error != .None || layout.size % count != 0 { return lower_fail(state, node, .Builtin) }
+	component_size := layout.size / count
+	scalar := complex_part_scalar(component_size)
+	if scalar != .F32 && scalar != .F64 { return lower_fail(state, node, .Builtin) }
+	if scalar_type(state, info.type) != scalar { return lower_fail(state, node, .Builtin) }
+	address := lower_operand(state, plan.arguments[0])
+	if state.failed || function.error != nil { return 0 }
+	total: ir.Node_Id
+	for index in 0 ..< count {
+		part := lower_complex_part(state, address, index, component_size, scalar)
+		square := ir.binary(function, .FMul, part, part)
+		total = square if index == 0 else ir.binary(function, .FAdd, total, square)
+	}
+	return ir.unary(function, .FSqrt, total)
 }
 
 @(private)
@@ -189,13 +293,17 @@ lower_component_constant :: proc(state: ^Procedure_State, components: []check.Co
 	function := state.job.function
 	scalar := component_scalar(layout.size / count)
 	slot := ir.stack_slot(function, state.entry_control, u32(layout.size), u32(layout.align))
+	is_quaternion := lower_type(state, type).kind == .Quaternion
 	for component, index in components {
 		constant := check.constant(state.job.program, component)
 		value, is_float := constant.value.(check.Float_Value)
 		if !is_float { return lower_fail(state, state.job.procedure.body.node, .Constant) }
 		bits, bits_ok := lower_float_bits(value, scalar)
 		if !bits_ok { return lower_fail(state, state.job.procedure.body.node, .Constant) }
-		lower_store_word(state, ir.ptr_offset(function, slot, i64(index) * layout.size / count), ir.const_float(function, scalar, bits))
+		// A quaternion constant lists the real part first but stores it last.
+		memory_index := index
+		if is_quaternion { memory_index = (index + 3) % 4 }
+		lower_store_word(state, ir.ptr_offset(function, slot, i64(memory_index) * layout.size / count), ir.const_float(function, scalar, bits))
 	}
 	return slot
 }

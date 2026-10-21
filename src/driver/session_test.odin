@@ -128,3 +128,8 @@ cstring_literals_compare_with_terminators :: proc(t: ^testing.T) {
 utf16_literals_keep_code_unit_lengths_and_terminators :: proc(t: ^testing.T) {
 	expect_exit(t, "utf16_literals", 31)
 }
+
+@(test)
+complex_abs_and_conj_exit_with_result :: proc(t: ^testing.T) {
+	expect_exit(t, "complex_abs_conj", 4095)
+}
