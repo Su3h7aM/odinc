@@ -40,15 +40,17 @@ expression_membership :: proc(
 	member_value, member_ok := constant_pool_get(checker.constants, element.constant).value.(big.Int)
 	set_value, set_ok := constant_pool_get(checker.constants, set.constant).value.(big.Int)
 	if !member_ok || !set_ok { return expression_unsupported(checker, view, scope, node, "Membership_Constant") }
-	member_integer, integer_error := big.int_get_i64(&member_value)
+	member_wide, integer_error := big.int_get_i128(&member_value)
 	if integer_error != nil {
 		expression_constant_failure(checker, checker.views[view].file, node, integer_error) or_return
 		return expression_poison(scope), nil
 	}
-	offset := int(member_integer - descriptor.lower_bound)
-	if offset < 0 || i64(offset) > descriptor.upper_bound - descriptor.lower_bound {
+	offset_wide := member_wide - descriptor.enum_lower_bound
+	if offset_wide < 0 || offset_wide > descriptor.enum_upper_bound - descriptor.enum_lower_bound {
 		return expression_failure(checker, view, scope, node, .Invalid_Operand)
 	}
+	offset := int(offset_wide)
+
 	bit, bit_error := big.int_bitfield_extract_single(&set_value, offset)
 	if bit_error == big.Error.Invalid_Argument {
 		// Bits beyond the stored limbs are zero.

@@ -34,7 +34,7 @@ bind_universe_calling_convention :: proc(checker: ^Type_Checker, universe: Scope
 	for name, index in names {
 		members[index] = Enum_Member {
 			name  = name,
-			value = i64(index),
+			value = i128(index),
 		}
 	}
 	backing := types.intern(checker.store, types.Type{kind = .Integer, count = 1, signed = false})
@@ -45,8 +45,8 @@ bind_universe_calling_convention :: proc(checker: ^Type_Checker, universe: Scope
 			name = "Odin_Calling_Convention",
 			backing = backing,
 			count = i64(len(names)),
-			lower_bound = 0,
-			upper_bound = i64(len(names) - 1),
+			enum_lower_bound = 0,
+			enum_upper_bound = i128(len(names) - 1),
 		},
 	)
 	_, stored, inserted, map_error := map_entry(&checker.enum_members, enum_type)

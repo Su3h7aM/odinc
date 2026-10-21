@@ -64,10 +64,10 @@ range_enum_members :: proc(state: ^Procedure_State, enum_type: types.Type_Id) ->
 range_enum_value :: proc(state: ^Procedure_State, members: []check.Enum_Member, current: ir.Node_Id, value_type: ir.Value_Type) -> ir.Node_Id {
 	function := state.job.function
 	if len(members) == 0 { return ir.const_int(function, value_type, 0) }
-	value := ir.const_int(function, value_type, members[0].value)
+	value := ir.const_int(function, value_type, i64(members[0].value))
 	for member, position in members[1:] {
 		is_position := ir.compare(function, .Eq, current, ir.const_int(function, .I64, i64(position + 1)))
-		value = ir.select(function, is_position, ir.const_int(function, value_type, member.value), value)
+		value = ir.select(function, is_position, ir.const_int(function, value_type, i64(member.value)), value)
 	}
 	return value
 }

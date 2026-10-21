@@ -42,11 +42,12 @@ expression_composite_bit_set :: proc(
 			continue
 		}
 		integer := constant_pool_get(checker.constants, value.constant).value.(big.Int)
-		index, index_error := big.int_get_i64(&integer)
-		if index_error != .None || index < descriptor.lower_bound || index > descriptor.upper_bound {
+		index, index_error := big.int_get_i128(&integer)
+		offset := index - descriptor.enum_lower_bound
+		if index_error != .None || offset < 0 || offset > descriptor.enum_upper_bound - descriptor.enum_lower_bound {
 			return expression_failure(checker, view, scope, element, .Invalid_Operand)
 		}
-		constant_error = big.int_shl(&bit, &one, int(index - descriptor.lower_bound))
+		constant_error = big.int_shl(&bit, &one, int(offset))
 		if constant_error == nil { constant_error = big.bit_or(&bits, &bits, &bit) }
 		if constant_error != nil {
 			expression_constant_failure(checker, file_id, node, constant_error) or_return

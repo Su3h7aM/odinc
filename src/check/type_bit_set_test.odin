@@ -138,6 +138,34 @@ Backed_Negative :: bit_set[-1 ..= 5; u8]
 	}
 }
 
+@(test)
+interval_bit_set_literal_and_membership_accepted :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(
+		`package sample
+Letters :: bit_set['A' ..= 'Z']
+SET :: Letters{'F'}
+main :: proc "contextless" () {
+	a := Letters{'A', 'B'}
+	x: Letters
+	x = a
+	x += {'F'}
+	x -= {'G'}
+	y: bit_set[0 ..= 8; u16]
+	y += {1, 4, 2}
+	f_ok := 'F' in x
+	u_ok := 2 in y
+	if f_ok { x += {'G'} }
+	if u_ok { y -= {2} }
+	#assert('F' in SET)
+	#assert('G' not_in SET)
+}
+`,
+	)
+	procedure, ok := check_procedure_source(t, source, diagnostic_count = 0, type_diagnostic_count = 0)
+	if !ok { return }
+	testing.expect(t, procedure.body_state == .Complete)
+}
+
 @(private = "file")
 bit_set_test_resolver :: proc(resolver: ^Resolver, id: Entity_Id, user_data: rawptr) -> (valid: bool, err: Resolve_Error) {
 	data := (^Bit_Set_Test_Data)(user_data)
@@ -156,7 +184,7 @@ bit_set_test_integer_evaluator :: proc(
 	expression: syntax.Node_Index,
 	user_data: rawptr,
 ) -> (
-	value: i64,
+	value: i128,
 	ok: bool,
 	err: Resolve_Error,
 ) {
@@ -168,5 +196,5 @@ bit_set_test_integer_evaluator :: proc(
 		if entity.kind == .Constant { return 64, true, nil }
 	}
 	parsed, parsed_ok := strconv.parse_i64(text)
-	return parsed, parsed_ok, nil
+	return i128(parsed), parsed_ok, nil
 }

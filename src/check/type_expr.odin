@@ -38,6 +38,7 @@ Type_Diagnostic_Kind :: enum u8 {
 	Non_Contiguous_Enum_Index,
 	Invalid_Matrix_Count,
 	Invalid_Matrix_Element,
+	Enumerated_Array_Too_Large,
 }
 
 @(private = "file")
@@ -68,7 +69,7 @@ Type_Diagnostic :: struct {
 
 Enum_Member :: struct {
 	name:   string,
-	value:  i64,
+	value:  i128,
 	source: Source_Span,
 }
 
@@ -85,7 +86,7 @@ Integer_Evaluator :: #type proc(
 	expression: syntax.Node_Index,
 	user_data: rawptr,
 ) -> (
-	value: i64,
+	value: i128,
 	ok: bool,
 	err: Resolve_Error,
 )
@@ -95,7 +96,7 @@ Enum_Member_Binder :: #type proc(
 	scope: Scope_Id,
 	file: File_Id,
 	name: string,
-	value: i64,
+	value: i128,
 	backing: types.Type_Id,
 	expression: syntax.Node_Index,
 	user_data: rawptr,
@@ -166,6 +167,7 @@ Type_Checker :: struct {
 	evaluate_type_expression: Type_Expression_Evaluator,
 	user_data:                rawptr,
 	instantiating:            bool,
+	instance_poly:            Instance_Poly_Names,
 	record_instance:          Instance_Id,
 	evaluate_record_argument: Record_Argument_Evaluator,
 	generic_records:          map[Entity_Id]Node_Ref,
@@ -808,9 +810,16 @@ enumerated_array_type :: proc(
 	}
 	count := i64(0)
 	lower_bound := i64(0)
+	enum_lower, enum_upper := i128(0), i128(0)
 	if descriptor.count > 0 {
-		count = descriptor.upper_bound - descriptor.lower_bound + 1
-		lower_bound = descriptor.lower_bound
+		span := descriptor.enum_upper_bound - descriptor.enum_lower_bound + 1
+		if span > i128(max(i64)) {
+			type_report(checker, file_id, file, length, .Enumerated_Array_Too_Large) or_return
+			return types.TYPE_POISON, nil
+		}
+		count = i64(span)
+		lower_bound = i64(descriptor.enum_lower_bound)
+		enum_lower, enum_upper = descriptor.enum_lower_bound, descriptor.enum_upper_bound
 	}
 	if count > descriptor.count && !sparse {
 		type_report(checker, file_id, file, length, .Non_Contiguous_Enum_Index) or_return
@@ -818,7 +827,16 @@ enumerated_array_type :: proc(
 	}
 	return types.intern(
 			checker.store,
-			types.Type{kind = .Enumerated_Array, elem = elem, index = index, count = count, lower_bound = lower_bound, sparse = sparse},
+			types.Type {
+				kind = .Enumerated_Array,
+				elem = elem,
+				index = index,
+				count = count,
+				lower_bound = lower_bound,
+				sparse = sparse,
+				enum_lower_bound = enum_lower,
+				enum_upper_bound = enum_upper,
+			},
 		),
 		nil
 }
@@ -841,6 +859,30 @@ integer_expression :: proc(
 	node: syntax.Node_Index,
 ) -> (
 	value: i64,
+	ok: bool,
+	err: Resolve_Error,
+) {
+	if checker.evaluate_integer == nil {
+		type_report(checker, file_id, file, node, .Missing_Evaluator) or_return
+		return 0, false, nil
+	}
+	wide_value, evaluated := wide_integer_expression(checker, file_id, file, scope, node) or_return
+	if evaluated && (wide_value < i128(min(i64)) || wide_value > i128(max(i64))) {
+		type_report(checker, file_id, file, node, .Invalid_Array_Count) or_return
+		return 0, false, nil
+	}
+	return i64(wide_value), evaluated, nil
+}
+
+@(private = "file")
+wide_integer_expression :: proc(
+	checker: ^Type_Checker,
+	file_id: File_Id,
+	file: ^File,
+	scope: Scope_Id,
+	node: syntax.Node_Index,
+) -> (
+	value: i128,
 	ok: bool,
 	err: Resolve_Error,
 ) {
@@ -1002,7 +1044,7 @@ enum_descriptor :: proc(
 	nodes := syntax.node_list(file.ast, record.fields)
 	members = make([]Enum_Member, len(nodes), checker.arena_allocator) or_return
 	count := 0
-	next, lower, upper := i64(0), i64(0), i64(0)
+	next, lower, upper := i128(0), i128(0), i128(0)
 	for member_node in nodes {
 		name_node, value_node := member_node, syntax.Node_Index(0)
 		if file.ast.nodes[member_node].kind == .Field_Value {
@@ -1017,7 +1059,7 @@ enum_descriptor :: proc(
 		member_name := type_node_text(file, name_node)
 		value := next
 		if value_node != 0 {
-			evaluated, ok := integer_expression(checker, file_id, file, enum_scope, value_node) or_return
+			evaluated, ok := wide_integer_expression(checker, file_id, file, enum_scope, value_node) or_return
 			if !ok {
 				valid = false
 				continue
@@ -1052,12 +1094,12 @@ enum_descriptor :: proc(
 	}
 	members = members[:count]
 	descriptor = types.Type {
-		kind        = .Enum,
-		name        = name,
-		backing     = base,
-		count       = i64(count),
-		lower_bound = lower,
-		upper_bound = upper,
+		kind             = .Enum,
+		name             = name,
+		backing          = base,
+		count            = i64(count),
+		enum_lower_bound = lower,
+		enum_upper_bound = upper,
 	}
 	return descriptor, members, valid, nil
 }
@@ -1254,6 +1296,8 @@ record_fields :: proc(
 	for field_node in nodes {
 		field := syntax.node_payload(file.ast, field_node, syntax.Field)
 		if checker.instantiating && is_poly_name_field(file, field) { continue }
+		field_scope := scope
+		if checker.instantiating { field_scope = instance_field_scope(checker, scope, field_node) or_return }
 		type_node := field.type
 		is_variadic := false
 		if type_node != 0 && file.ast.nodes[type_node].kind == .Ellipsis {
@@ -1262,14 +1306,14 @@ record_fields :: proc(
 		}
 		field_type := types.TYPE_POISON
 		if type_node == 0 {
-			inferred, found := default_parameter_type(checker, file_id, file, scope, field.default_value) or_return
+			inferred, found := default_parameter_type(checker, file_id, file, field_scope, field.default_value) or_return
 			if found {
 				field_type = inferred
 			} else {
 				type_report(checker, file_id, file, field_node, .Missing_Field_Type) or_return
 			}
 		} else {
-			field_type = type_expression(checker, file_id, scope, type_node, direct) or_return
+			field_type = type_expression(checker, file_id, field_scope, type_node, direct) or_return
 			if is_variadic { field_type = type_wrapper(checker, .Slice, field_type) }
 		}
 		if field_type == types.TYPE_POISON { valid = false }
@@ -1352,14 +1396,13 @@ underlying_type :: proc(store: ^types.Store, id: types.Type_Id) -> types.Type_Id
 }
 
 @(private = "file")
-integer_fits :: proc(integer: ^types.Type, value: i64) -> bool {
+integer_fits :: proc(integer: ^types.Type, value: i128) -> bool {
 	bits := u64(integer.count) * 8
-	if bits >= 64 { return integer.signed || value >= 0 }
 	if integer.signed {
-		limit := i64(1) << (bits - 1)
+		limit := i128(1) << (bits - 1)
 		return -limit <= value && value < limit
 	}
-	return 0 <= value && value < i64(1) << bits
+	return 0 <= value && value < i128(1) << bits
 }
 
 @(private = "package")

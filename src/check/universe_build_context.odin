@@ -219,7 +219,7 @@ publish_intrinsics_fast_math :: proc(checker: ^Type_Checker) -> bool {
 		if allocation_error != nil { return false }
 		for name, index in names {members[index] = Enum_Member {
 				name  = name,
-				value = i64(index),
+				value = i128(index),
 			}}
 		backing := types.intern(checker.store, types.Type{kind = .Integer, count = 1})
 		enum_type := types.intern(
@@ -229,8 +229,8 @@ publish_intrinsics_fast_math :: proc(checker: ^Type_Checker) -> bool {
 				name = "Fast_Math_Flag",
 				backing = backing,
 				count = i64(len(members)),
-				lower_bound = 0,
-				upper_bound = i64(len(members) - 1),
+				enum_lower_bound = 0,
+				enum_upper_bound = i128(len(members) - 1),
 			},
 		)
 		flag_type := types.intern(checker.store, types.Type{kind = .Named, name = "Fast_Math_Flag", elem = enum_type})
@@ -240,7 +240,15 @@ publish_intrinsics_fast_math :: proc(checker: ^Type_Checker) -> bool {
 		u32_type := types.intern(checker.store, types.Type{kind = .Integer, count = 4})
 		flags_bit_set := types.intern(
 			checker.store,
-			types.Type{kind = .Bit_Set, elem = flag_type, backing = u32_type, lower_bound = 0, upper_bound = i64(len(members) - 1)},
+			types.Type {
+				kind = .Bit_Set,
+				elem = flag_type,
+				backing = u32_type,
+				lower_bound = 0,
+				upper_bound = i64(len(members) - 1),
+				enum_lower_bound = 0,
+				enum_upper_bound = i128(len(members) - 1),
+			},
 		)
 		flags_type := types.intern(checker.store, types.Type{kind = .Named, name = "Fast_Math_Flags", elem = flags_bit_set})
 		if !publish_package_type(checker, intrinsics_package.scope, "Fast_Math_Flags", flags_type) { return false }
@@ -297,7 +305,7 @@ publish_enum_type :: proc(checker: ^Type_Checker, $E: typeid, type_name: string)
 	if members_error != nil { return 0, false }
 	for name, index in names {members[index] = Enum_Member {
 			name  = name,
-			value = i64(index),
+			value = i128(index),
 		}}
 	return publish_enum_members(checker, type_name, members)
 }
@@ -312,7 +320,7 @@ publish_enum_members :: proc(checker: ^Type_Checker, type_name: string, members:
 	backing := types.intern(checker.store, types.Type{kind = .Integer, name = "int", count = types.DEFAULT_LAYOUT.int_size, signed = true})
 	enum_type = types.intern(
 		checker.store,
-		types.Type{kind = .Enum, name = type_name, backing = backing, count = i64(len(members)), lower_bound = lower, upper_bound = upper},
+		types.Type{kind = .Enum, name = type_name, backing = backing, count = i64(len(members)), enum_lower_bound = lower, enum_upper_bound = upper},
 	)
 	_, stored, inserted, map_error := map_entry(&checker.enum_members, enum_type)
 	if map_error != nil { return 0, false }
@@ -328,7 +336,7 @@ publish_optimization_mode :: proc(checker: ^Type_Checker, universe: Scope_Id, po
 	for mode, index in Optimization_Mode {
 		members[index] = Enum_Member {
 			name  = names[index],
-			value = i64(mode),
+			value = i128(mode),
 		}
 	}
 	enum_type, ok := publish_enum_members(checker, "Odin_Optimization_Mode", members)
@@ -351,7 +359,16 @@ publish_sanitizer_flags :: proc(checker: ^Type_Checker, universe: Scope_Id, pool
 	backing := types.intern(checker.store, types.Type{kind = .Integer, count = 4})
 	flags_type := types.intern(
 		checker.store,
-		types.Type{kind = .Bit_Set, name = "Odin_Sanitizer_Flags", elem = enum_type, backing = backing, lower_bound = 0, upper_bound = 2},
+		types.Type {
+			kind = .Bit_Set,
+			name = "Odin_Sanitizer_Flags",
+			elem = enum_type,
+			backing = backing,
+			lower_bound = 0,
+			upper_bound = 2,
+			enum_lower_bound = 0,
+			enum_upper_bound = 2,
+		},
 	)
 	value: big.Int
 	defer big.destroy(&value)

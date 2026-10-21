@@ -135,6 +135,7 @@ Type :: struct {
 	param_names, result_names:                      []string,
 	procedure_info:                                 Procedure_Info_Id,
 	count, lower_bound, upper_bound:                i64,
+	enum_lower_bound, enum_upper_bound:             i128,
 	backing:                                        Type_Id,
 	endianness:                                     Endian,
 	signed, variadic, c_vararg:                     bool,
@@ -329,6 +330,8 @@ descriptors_equal :: proc(a, b: Type) -> bool {
 	   a.index != b.index ||
 	   a.count != b.count ||
 	   a.lower_bound != b.lower_bound ||
+	   a.enum_lower_bound != b.enum_lower_bound ||
+	   a.enum_upper_bound != b.enum_upper_bound ||
 	   a.upper_bound != b.upper_bound ||
 	   a.backing != b.backing ||
 	   a.endianness != b.endianness ||

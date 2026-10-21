@@ -135,12 +135,12 @@ bit_field_test_integer :: proc(
 	expression: syntax.Node_Index,
 	user_data: rawptr,
 ) -> (
-	value: i64,
+	value: i128,
 	ok: bool,
 	err: Resolve_Error,
 ) {
 	source := checker.files[file]
 	span := source.ast.nodes[expression]
-	value, ok = strconv.parse_i64(string(source.source[span.start:span.end]))
-	return value, ok, nil
+	parsed, parsed_ok := strconv.parse_i64(string(source.source[span.start:span.end]))
+	return i128(parsed), parsed_ok, nil
 }

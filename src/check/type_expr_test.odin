@@ -9,7 +9,7 @@ import "oc:types"
 Type_Test_Data :: struct {
 	checker:     Type_Checker,
 	integer:     types.Type_Id,
-	enum_values: map[string]i64,
+	enum_values: map[string]i128,
 }
 
 @(test)
@@ -80,7 +80,7 @@ Loop :: ^Loop
 
 	data := Type_Test_Data {
 		integer     = integer,
-		enum_values = make(map[string]i64, context.allocator),
+		enum_values = make(map[string]i128, context.allocator),
 	}
 	defer delete(data.enum_values)
 	resolver: Resolver
@@ -143,7 +143,7 @@ Loop :: ^Loop
 	color_id := lookup(&store, package_scope, "Color").type
 	color := types.get(&type_store, color_id)
 	members := data.checker.enum_members[color_id]
-	testing.expect(t, color.kind == .Enum && color.backing == byte_type && color.lower_bound == 0 && color.upper_bound == 6)
+	testing.expect(t, color.kind == .Enum && color.backing == byte_type && color.enum_lower_bound == 0 && color.enum_upper_bound == 6)
 	if testing.expect(t, len(members) == 3) {
 		testing.expect(t, members[0].name == "Red" && members[1].value == 5 && members[2].name == "Blue" && members[2].value == 6)
 	}
@@ -205,7 +205,7 @@ test_integer_evaluator :: proc(
 	expression: syntax.Node_Index,
 	user_data: rawptr,
 ) -> (
-	value: i64,
+	value: i128,
 	ok: bool,
 	err: Resolve_Error,
 ) {
@@ -218,7 +218,7 @@ test_integer_evaluator :: proc(
 		if member_value, found := data.enum_values[text]; found { return member_value, true, nil }
 	}
 	parsed, parsed_ok := strconv.parse_i64(text)
-	return parsed, parsed_ok, nil
+	return i128(parsed), parsed_ok, nil
 }
 
 @(private = "file")
@@ -227,7 +227,7 @@ test_enum_member_binder :: proc(
 	scope: Scope_Id,
 	file: File_Id,
 	name: string,
-	value: i64,
+	value: i128,
 	backing: types.Type_Id,
 	expression: syntax.Node_Index,
 	user_data: rawptr,

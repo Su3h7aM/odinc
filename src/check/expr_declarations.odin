@@ -13,7 +13,7 @@ expression_integer_evaluator :: proc(
 	node: syntax.Node_Index,
 	user_data: rawptr,
 ) -> (
-	value: i64,
+	value: i128,
 	ok: bool,
 	err: Resolve_Error,
 ) {
@@ -25,7 +25,7 @@ expression_integer_evaluator :: proc(
 	if info.mode == .Constant && conversion_integer(types.get(type_checker.store, conversion_base_type(type_checker.store, info.type)).kind) {
 		constant := constant_pool_get(checker.constants, info.constant)
 		if integer, is_integer := constant.value.(big.Int); is_integer {
-			converted, failure := big.int_get_i64(&integer, allocator = checker.allocator)
+			converted, failure := big.int_get_i128(&integer, allocator = checker.allocator)
 			if failure == .None { return converted, true, nil }
 			if failure == .Out_Of_Memory { return 0, false, runtime.Allocator_Error.Out_Of_Memory }
 		}
@@ -39,7 +39,7 @@ expression_enum_member_binder :: proc(
 	scope: Scope_Id,
 	file: File_Id,
 	name: string,
-	value: i64,
+	value: i128,
 	backing: types.Type_Id,
 	expression: syntax.Node_Index,
 	user_data: rawptr,
@@ -223,6 +223,10 @@ expression_declaration :: proc(resolver: ^Resolver, id: Entity_Id, user_data: ra
 			binding.kind = .Type_Name
 			binding.type = info.type
 			return true, nil
+		}
+		if entity.kind == .Variable && info.mode == .Type {
+			expression_type_ambiguous_failure(checker, view, entity.scope, declaration.value.node) or_return
+			return false, nil
 		}
 		if entity.kind == .Constant && info.mode == .Value && info.entity != 0 && entity_get(resolver.scopes, info.entity).kind == .Procedure {
 			file := checker.type_checker.files[declaration.value.file]

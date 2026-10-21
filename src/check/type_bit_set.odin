@@ -36,7 +36,7 @@ bit_set_type :: proc(
 	}
 	backing := types.TYPE_NONE
 	bits := i64(BIT_SET_MAX_BITS)
-	lower := enum_descriptor.lower_bound
+	lower := enum_descriptor.enum_lower_bound
 	if record.underlying != 0 {
 		backing = type_expression(checker, file_id, scope, record.underlying, false) or_return
 		if backing == types.TYPE_POISON { return types.TYPE_POISON, nil }
@@ -47,18 +47,30 @@ bit_set_type :: proc(
 		}
 		size, _, _ := types.layout(store, backing)
 		bits = 8 * size
-		if lower < 0 {
+		if i64(lower) < 0 {
 			type_report(checker, file_id, file, record.elem, .Bit_Set_Out_Of_Range) or_return
 			return types.TYPE_POISON, nil
 		}
 		lower = 0
 	}
-	upper := enum_descriptor.upper_bound
-	if upper - lower >= bits {
+	upper := enum_descriptor.enum_upper_bound
+	if upper - lower >= i128(bits) {
 		type_report(checker, file_id, file, node, .Bit_Set_Out_Of_Range) or_return
 		return types.TYPE_POISON, nil
 	}
-	return types.intern(store, types.Type{kind = .Bit_Set, elem = elem, backing = backing, lower_bound = lower, upper_bound = upper}), nil
+	return types.intern(
+			store,
+			types.Type {
+				kind = .Bit_Set,
+				elem = elem,
+				backing = backing,
+				lower_bound = i64(lower),
+				upper_bound = i64(upper),
+				enum_lower_bound = lower,
+				enum_upper_bound = upper,
+			},
+		),
+		nil
 }
 
 // Interval `bit_set[lo..=hi]` bounds are constant integers; `..<` excludes the upper bound.
@@ -122,5 +134,17 @@ bit_set_interval_type :: proc(
 		}
 		upper -= 1
 	}
-	return types.intern(store, types.Type{kind = .Bit_Set, elem = elem, backing = backing, lower_bound = lower, upper_bound = upper}), nil
+	return types.intern(
+			store,
+			types.Type {
+				kind = .Bit_Set,
+				elem = elem,
+				backing = backing,
+				lower_bound = i64(lower),
+				upper_bound = i64(upper),
+				enum_lower_bound = i128(lower),
+				enum_upper_bound = i128(upper),
+			},
+		),
+		nil
 }
