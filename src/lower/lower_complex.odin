@@ -462,14 +462,22 @@ lower_complex_binary :: proc(
 }
 
 // Converts between complex widths (complex64 <-> complex128) componentwise.
+// A complex value converts to a quaternion by keeping the real and imaginary parts and zeroing the jmag
+// and kmag lanes.
 @(private)
 lower_complex_conversion :: proc(state: ^Procedure_State, node: syntax.Node_Index, operand: ir.Node_Id, source, target: types.Type_Id) -> ir.Node_Id {
 	function := state.job.function
 	source_layout := state.job.layouts[source]
 	target_layout := state.job.layouts[target]
-	count: i64 = 4 if lower_type(state, target).kind == .Quaternion else 2
-	source_count: i64 = 4 if lower_type(state, source).kind == .Quaternion else 2
-	if source_count != count || source_layout.error != .None || target_layout.error != .None { return lower_fail(state, node, .Conversion) }
+	target_is_quaternion := lower_type(state, target).kind == .Quaternion
+	source_is_quaternion := lower_type(state, source).kind == .Quaternion
+	if source_layout.error != .None || target_layout.error != .None { return lower_fail(state, node, .Conversion) }
+	if !source_is_quaternion && target_is_quaternion {
+		return lower_complex_to_quaternion(state, node, operand, source, target)
+	}
+	count: i64 = 4 if target_is_quaternion else 2
+	source_count: i64 = 4 if source_is_quaternion else 2
+	if source_count != count { return lower_fail(state, node, .Conversion) }
 	if source_layout.size % count != 0 || target_layout.size % count != 0 { return lower_fail(state, node, .Conversion) }
 	source_size := source_layout.size / count
 	target_size := target_layout.size / count
@@ -483,6 +491,36 @@ lower_complex_conversion :: proc(state: ^Procedure_State, node: syntax.Node_Inde
 		}
 		lower_store_word(state, ir.ptr_offset(function, slot, index * target_size), part)
 	}
+	return slot
+}
+
+// A complex value stores the real part first; a quaternion stores the three imaginary parts first and the
+// real part last, so the complex real part lands in slot 3 and the imaginary part in slot 0.
+@(private)
+lower_complex_to_quaternion :: proc(state: ^Procedure_State, node: syntax.Node_Index, operand: ir.Node_Id, source, target: types.Type_Id) -> ir.Node_Id {
+	function := state.job.function
+	source_layout := state.job.layouts[source]
+	target_layout := state.job.layouts[target]
+	if source_layout.error != .None || target_layout.error != .None { return lower_fail(state, node, .Conversion) }
+	if source_layout.size % 2 != 0 || target_layout.size % 4 != 0 { return lower_fail(state, node, .Conversion) }
+	source_size := source_layout.size / 2
+	target_size := target_layout.size / 4
+	if (source_size != 2 && source_size != 4 && source_size != 8) || (target_size != 2 && target_size != 4 && target_size != 8) {
+		return lower_fail(state, node, .Conversion)
+	}
+	real := complex_arith_part(state, operand, 0, source_size)
+	imag := complex_arith_part(state, operand, 1, source_size)
+	if complex_arith_scalar(source_size) != complex_arith_scalar(target_size) {
+		kind := ir.Node_Kind.Float_Ext if target_size > source_size else ir.Node_Kind.Float_Trunc
+		real = ir.convert(function, kind, real, complex_arith_scalar(target_size))
+		imag = ir.convert(function, kind, imag, complex_arith_scalar(target_size))
+	}
+	slot := ir.stack_slot(function, state.entry_control, u32(target_layout.size), u32(target_layout.align))
+	zero := ir.const_float(function, complex_arith_scalar(target_size), 0)
+	complex_arith_store(state, slot, 0, target_size, imag)
+	complex_arith_store(state, slot, 1, target_size, zero)
+	complex_arith_store(state, slot, 2, target_size, zero)
+	complex_arith_store(state, slot, 3, target_size, real)
 	return slot
 }
 
