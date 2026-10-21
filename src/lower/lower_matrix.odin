@@ -653,6 +653,158 @@ lower_matrix_scalar_init :: proc(state: ^Procedure_State, node: syntax.Node_Inde
 }
 
 // Element-wise product for `hadamard_product`: matrix pairs reuse the operator path, array pairs use a flat loop.
+// A matrix cast keeps each (row, column) element for identical shapes, copies the overlapping
+// top-left elements with diagonal ones for square destinations, and reorders column-major
+// elements for reshapes, converting each element like a scalar cast.
+@(private)
+lower_matrix_cast :: proc(state: ^Procedure_State, node: syntax.Node_Index, source, target: types.Type_Id, value: ir.Node_Id) -> ir.Node_Id {
+	function := state.job.function
+	store := check.type_store(state.job.program)
+	source_shape := lower_type(state, source)
+	target_shape := lower_type(state, target)
+	if state.failed { return 0 }
+	if source_shape.kind != .Matrix || target_shape.kind != .Matrix { return lower_fail(state, node, .Conversion) }
+	source_layout := state.job.layouts[source_shape.elem]
+	target_layout := state.job.layouts[target]
+	element_layout := state.job.layouts[target_shape.elem]
+	if source_layout.error != .None || target_layout.error != .None || element_layout.error != .None {
+		return lower_fail(state, node, .Conversion)
+	}
+	if source_layout.size <= 0 ||
+	   source_layout.size > i64(max(u32)) ||
+	   element_layout.size <= 0 ||
+	   element_layout.size > i64(max(u32)) ||
+	   target_layout.size > i64(max(u32)) {
+		return lower_fail(state, node, .Conversion)
+	}
+	source_size := u32(source_layout.size)
+	element_size := u32(element_layout.size)
+	slot := ir.stack_slot(function, state.entry_control, u32(max(target_layout.size, 1)), u32(target_layout.align))
+	lower_memory_effect(state, .Mem_Set, slot, ir.const_int(function, .I8, 0), ir.const_int(function, .I64, target_layout.size))
+	if state.failed { return 0 }
+	rows, columns := target_shape.count, target_shape.upper_bound
+	if source_shape.count == rows && source_shape.upper_bound == columns {
+		for row in 0 ..< rows {
+			for column in 0 ..< columns {
+				element := lower_load(state, lower_matrix_element_address(state, value, source_shape, row, column, source_size), source_shape.elem)
+				converted := lower_matrix_cast_element(state, node, element, source_shape.elem, target_shape.elem)
+				lower_store(state, lower_matrix_element_address(state, slot, target_shape, row, column, element_size), converted, target_shape.elem)
+			}
+			if state.failed || function.error != nil { return 0 }
+		}
+		return slot
+	}
+	if rows == columns {
+		one := lower_matrix_one(state, target_shape.elem)
+		if state.failed { return 0 }
+		for row in 0 ..< rows {
+			for column in 0 ..< columns {
+				if row < source_shape.count && column < source_shape.upper_bound {
+					element := lower_load(state, lower_matrix_element_address(state, value, source_shape, row, column, source_size), source_shape.elem)
+					converted := lower_matrix_cast_element(state, node, element, source_shape.elem, target_shape.elem)
+					lower_store(state, lower_matrix_element_address(state, slot, target_shape, row, column, element_size), converted, target_shape.elem)
+				} else if row == column {
+					lower_store(state, lower_matrix_element_address(state, slot, target_shape, row, column, element_size), one, target_shape.elem)
+				}
+			}
+			if state.failed || function.error != nil { return 0 }
+		}
+		return slot
+	}
+	if types.resolve_named(store, source_shape.elem) == types.resolve_named(store, target_shape.elem) && state.job.layouts[source].size == target_layout.size {
+		lower_memory_effect(state, .Mem_Copy, slot, value, ir.const_int(function, .I64, target_layout.size))
+		return slot
+	}
+	count := source_shape.count * source_shape.upper_bound
+	for index in 0 ..< count {
+		element := lower_load(
+			state,
+			lower_matrix_element_address(state, value, source_shape, index % source_shape.count, index / source_shape.count, source_size),
+			source_shape.elem,
+		)
+		converted := lower_matrix_cast_element(state, node, element, source_shape.elem, target_shape.elem)
+		lower_store(state, lower_matrix_element_address(state, slot, target_shape, index % rows, index / rows, element_size), converted, target_shape.elem)
+		if state.failed || function.error != nil { return 0 }
+	}
+	return slot
+}
+
+// Each element converts like a scalar cast; a real element becomes complex with a zero imaginary part.
+@(private)
+lower_matrix_cast_element :: proc(state: ^Procedure_State, node: syntax.Node_Index, value: ir.Node_Id, source, target: types.Type_Id) -> ir.Node_Id {
+	if source == target { return value }
+	if lower_complex_kind(state, source) && lower_complex_kind(state, target) {
+		return lower_complex_conversion(state, node, value, source, target)
+	}
+	if lower_type(state, target).kind == .Complex {
+		return lower_matrix_real_to_complex(state, node, value, source, target)
+	}
+	plan := check.Conversion_Plan {
+		kind   = .Cast,
+		target = target,
+	}
+	return lower_conversion_value(state, plan, node, source, value)
+}
+
+@(private)
+lower_matrix_real_to_complex :: proc(state: ^Procedure_State, node: syntax.Node_Index, value: ir.Node_Id, source, target: types.Type_Id) -> ir.Node_Id {
+	function := state.job.function
+	layout := state.job.layouts[target]
+	if layout.error != .None || layout.size % 2 != 0 { return lower_fail(state, node, .Conversion) }
+	component_size := layout.size / 2
+	scalar := component_scalar(component_size)
+	if scalar != .F32 && scalar != .F64 { return lower_fail(state, node, .Conversion) }
+	source_scalar := scalar_type(state, source)
+	if source_scalar == .None { return lower_fail(state, node, .Conversion) }
+	real := value
+	if source_scalar == .F16 {
+		real = float16_widen(function, real)
+		source_scalar = .F32
+	}
+	if source_scalar != scalar {
+		if source_scalar == .F32 && scalar == .F64 {
+			real = ir.convert(function, .Float_Ext, real, .F64)
+		} else if source_scalar == .F64 && scalar == .F32 {
+			real = ir.convert(function, .Float_Trunc, real, .F32)
+		} else {
+			return lower_fail(state, node, .Conversion)
+		}
+	}
+	slot := ir.stack_slot(function, state.entry_control, u32(layout.size), u32(layout.align))
+	lower_store_word(state, slot, real)
+	lower_store_word(state, ir.ptr_offset(function, slot, component_size), ir.const_float(function, scalar, 0))
+	return slot
+}
+
+// The diagonal fill for a larger square destination: one converted to the element type.
+@(private)
+lower_matrix_one :: proc(state: ^Procedure_State, elem: types.Type_Id) -> ir.Node_Id {
+	function := state.job.function
+	#partial switch lower_type(state, elem).kind {
+	case .Float:
+		if is_float16(state, elem) { return ir.const_int(function, .I16, i64(transmute(u16)f16(1))) }
+		scalar := scalar_type(state, elem)
+		if scalar == .F32 { return ir.const_float(function, scalar, u64(transmute(u32)f32(1))) }
+		if scalar == .F64 { return ir.const_float(function, scalar, transmute(u64)f64(1)) }
+	case .Integer:
+		scalar := scalar_type(state, elem)
+		if scalar >= .I8 && scalar <= .I64 { return ir.const_int(function, scalar, 1) }
+	case .Complex:
+		layout := state.job.layouts[elem]
+		if layout.error == .None && layout.size % 2 == 0 {
+			component_size := layout.size / 2
+			scalar := component_scalar(component_size)
+			if scalar == .F32 || scalar == .F64 {
+				slot := ir.stack_slot(function, state.entry_control, u32(layout.size), u32(layout.align))
+				one := ir.const_float(function, scalar, u64(transmute(u32)f32(1)) if scalar == .F32 else transmute(u64)f64(1))
+				lower_store_word(state, slot, one)
+				lower_store_word(state, ir.ptr_offset(function, slot, component_size), ir.const_float(function, scalar, 0))
+				return slot
+			}
+		}
+	}
+	return lower_fail(state, state.job.procedure.body.node, .Conversion)
+}
 @(private)
 lower_matrix_hadamard :: proc(
 	state: ^Procedure_State,

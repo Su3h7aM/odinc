@@ -123,6 +123,25 @@ check_conversion :: proc(
 			}
 			return result, .None, err
 		}
+		if core_source.kind == .Matrix && core_target.kind == .Matrix {
+			// Official check_is_castable_to: elements convert, a square source casts only to a
+			// square destination, and any other source needs the same element count.
+			element := Expression_Info {
+				type  = core_source.elem,
+				mode  = .Value,
+				scope = info.scope,
+				state = .Checked,
+			}
+			_, element_diagnostic, element_error := check_conversion(pool, store, source, element, core_target.elem, .Cast, config)
+			if element_error != nil { return {}, .None, element_error }
+			if element_diagnostic != .None { return {}, .Not_Castable, nil }
+			if core_source.count == core_source.upper_bound {
+				if core_target.count != core_target.upper_bound { return {}, .Not_Castable, nil }
+			} else if core_source.count * core_source.upper_bound != core_target.count * core_target.upper_bound {
+				return {}, .Not_Castable, nil
+			}
+			return result, .None, nil
+		}
 	}
 	if kind == .Assignment && !untyped && dst.kind == .Any && src.kind != .Any {
 		result.plan.kind = .Box

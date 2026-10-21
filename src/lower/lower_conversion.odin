@@ -60,6 +60,9 @@ lower_conversion_value :: proc(
 	if (scalar_type(state, source_id) != .None || lower_complex_kind(state, source_id)) && lower_type(state, plan.target).kind == .Matrix {
 		return lower_matrix_scalar_init(state, node, plan.target, value)
 	}
+	if lower_type(state, source_id).kind == .Matrix && lower_type(state, plan.target).kind == .Matrix {
+		return lower_matrix_cast(state, node, source_id, plan.target, value)
+	}
 	if lower_complex_kind(state, source_id) && lower_complex_kind(state, plan.target) {
 		return lower_complex_conversion(state, node, value, source_id, plan.target)
 	}
