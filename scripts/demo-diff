@@ -88,6 +88,8 @@ step "build odinc"
 "$ODIN" build "$PROJECT_ROOT/src/odinc" -out:"$work/odinc" $COLLECTION >/dev/null 2>&1 || { printf 'error: failed to build odinc\n' >&2; finish 1; }
 
 step "official build $name"
+# Both binaries keep the name `prog` and run as ./prog, so argv[0]
+# printed by the program matches without normalization.
 mkdir -p "$work/official_bin" "$work/ours_bin"
 official_ok=1
 if [[ -d "$fixture" ]]; then
