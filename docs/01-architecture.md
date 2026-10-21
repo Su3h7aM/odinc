@@ -34,6 +34,37 @@ syntax → check → lower → ir → sched → regalloc → amd64 → elf → l
 - Errors are values; the checker publishes only after its pools stop growing.
 - Names, comments and test policy follow `AGENTS.md`, which overrides the `odin-maintainer` skill on comment and test volume.
 
+## What the official compiler is for
+
+The official LLVM compiler defines *behavior*, never *structure*. What we reproduce is its observable contract:
+which programs it accepts and which it rejects, every diagnostic that a program must produce, the values the
+compiled program computes, its stdout and its exit code. Nothing about how it is implemented is part of that
+contract.
+
+So the official sources are read to answer "what should happen", and then the answer is implemented the way this
+architecture implements things — Sea of Nodes, one memory chain, nodes as `distinct u32` handles, `lower` building
+`ir` rather than emitting instructions. Copying an upstream arrangement of passes, a value representation, a
+backend's denormalization scheme or its block ordering would produce a Frankenstein: an LLVM-shaped compiler
+wearing an Odin front end, which is neither what this repository is nor faster than what it replaces.
+
+The failure mode to watch for is a change that is *only* justifiable by "upstream does it this way". If the
+justification is not a behavior difference, the change belongs in this compiler's own vocabulary.
+
+Useful references, in the order `AGENTS.md` gives for resolving disagreements:
+
+- `refs/Odin-upstream/src` — the official checker and LLVM backend. Authoritative on *what* the language does.
+  The checker is the stronger reference: it is the source of the semantics we must match, and it is not
+  LLVM-shaped.
+- `refs/odin-tilde-backend/src` — Yasser Arguelles Snape's Tilde Backend, the Sea-of-Nodes backend Ginger Bill
+  adopted in 2023 before removing it in 2026 (PR #6483). It shares our family of IR and is the closest existing
+  work to this backend's design, so it is the right place to look for how a Sea-of-Nodes backend handles
+  lowering, effect pinning, block placement and instruction selection.
+- `docs/research/01-gingerbill-vision.md` — what Ginger Bill actually said, with dates, links and quotes, and an
+  explicit list of what is settled and what is still open.
+
+Tilde is a *reference for the same problem*, not a template. It is C, it targets several backends, and it carries
+the baggage of being embedded in Cuik. Read its reasoning; write this compiler's Odin.
+
 ## Running it
 
 ```
