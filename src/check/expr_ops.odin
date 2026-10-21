@@ -277,12 +277,65 @@ expression_binary :: proc(
 	if left_base.kind == .Array && left_base.kind == right_base.kind && left_base.elem == right_base.elem && left_base.count == right_base.count {
 		array_pair = true
 	}
+	// Official identical enumerated arrays also combine element-wise; the index type is part of the identity.
+	if left_base.kind == .Enumerated_Array &&
+	   left_base.kind == right_base.kind &&
+	   left_base.elem == right_base.elem &&
+	   left_base.count == right_base.count &&
+	   left_base.index == right_base.index {
+		array_pair = true
+	}
 	// Official array programming: a scalar combines element-wise with an array when the scalar converts to it.
 	broadcast_pair := false
 	if left_base.kind == .Array && right_base.kind != .Array && operand_assignable(checker, view, binary.right, right, left.type) {
 		broadcast_pair = true
 	} else if right_base.kind == .Array && left_base.kind != .Array && operand_assignable(checker, view, binary.left, left, right.type) {
 		broadcast_pair = true
+	}
+	// Official array programming gates the operator on the innermost element, like check_binary_op over
+	// core_array_type: named wrappers unwrap at every level, matrices and simd vectors do not participate.
+	array_side := left.type
+	if left_base.kind != .Array && left_base.kind != .Enumerated_Array { array_side = right.type }
+	array_leaf := types.Type_Id(0)
+	if left_base.kind == .Array || left_base.kind == .Enumerated_Array || right_base.kind == .Array || right_base.kind == .Enumerated_Array {
+		leaf := array_side
+		for {
+			unwrapped := types.get(checker.type_checker.store, types.resolve_named(checker.type_checker.store, leaf))
+			if unwrapped.kind != .Array && unwrapped.kind != .Enumerated_Array { break }
+			leaf = unwrapped.elem
+		}
+		array_leaf = types.resolve_named(checker.type_checker.store, leaf)
+	}
+	// Official array programming also splats a scalar through nested arrays when it converts to the innermost element.
+	nested_broadcast := false
+	if !array_pair && !broadcast_pair && array_leaf != 0 {
+		if left_base.kind == .Array && right_base.kind != .Array && right_base.kind != .Enumerated_Array {
+			if operand_assignable(checker, view, binary.right, right, array_leaf) {
+				nested_broadcast = true
+			}
+		} else if right_base.kind == .Array && left_base.kind != .Array && left_base.kind != .Enumerated_Array {
+			if operand_assignable(checker, view, binary.left, left, array_leaf) {
+				nested_broadcast = true
+			}
+		}
+	}
+	array_leaf_kind := types.Kind.Invalid
+	if array_leaf != 0 { array_leaf_kind = types.get(checker.type_checker.store, array_leaf).kind }
+	array_involved := array_pair || broadcast_pair || nested_broadcast
+	array_numeric := array_involved && array_element_numeric(checker.type_checker.store, array_leaf)
+	array_integer := array_involved && (array_leaf_kind == .Integer || array_leaf_kind == .Rune)
+	// Official bitwise operators unwrap enums to their backing integer through core_type.
+	array_bitwise_integer := array_integer || (array_involved && array_element_core_integer(checker.type_checker.store, array_leaf))
+	array_boolean := array_involved && array_leaf_kind == .Bool
+	array_bit_set := array_involved && array_leaf_kind == .Bit_Set
+	array_compare := false
+	if array_involved && types.is_comparable(checker.type_checker.store, array_side) {
+		array_compare = true
+		// Compared arrays of structs or unions compare through the generated equality of their element type,
+		// which the generator cannot express for some contents, like scalar comparisons do.
+		if array_leaf_kind == .Struct || array_leaf_kind == .Union {
+			array_compare = generator_supported(checker.type_checker.store, array_leaf)
+		}
 	}
 	// Official arithmetic and equality on two identical simd vectors works element-wise.
 	simd_both := left_base.kind == .Simd_Vector && left_base.kind == right_base.kind
@@ -307,18 +360,19 @@ expression_binary :: proc(
 		(conversion_integer(right_kind) || conversion_float(right_kind) || conversion_complex(right_kind))
 	#partial switch operator {
 	case .Add, .Sub:
-		valid = integer || float_pair || array_pair || bit_set_pair || broadcast_pair || simd_arithmetic || complex_arithmetic
+		valid = integer || float_pair || array_numeric || array_bit_set || bit_set_pair || simd_arithmetic || complex_arithmetic
 		// Official string concatenation requires constant strings on both sides.
 		if operator == .Add && string_pair && left.mode == .Constant && right.mode == .Constant { valid = true }
 	case .Mul:
-		valid = integer || float_pair || array_pair || broadcast_pair || simd_arithmetic || complex_arithmetic
+		valid = integer || float_pair || array_numeric || simd_arithmetic || complex_arithmetic
 	case .Quo:
-		valid = integer || float_pair || array_pair || broadcast_pair || simd_quotient || complex_arithmetic
+		valid = integer || float_pair || array_numeric || simd_quotient || complex_arithmetic
 	case .Mod, .Mod_Mod, .Shl, .Shr:
-		valid = integer || (array_pair && (operator == .Mod || operator == .Mod_Mod || operator == .Shl || operator == .Shr))
-		valid ||= broadcast_pair && (operator == .Mod || operator == .Mod_Mod)
+		valid = integer || (array_integer && (operator == .Mod || operator == .Mod_Mod))
 	case .And, .Or, .Xor, .And_Not:
-		valid = integer || boolean || array_pair || bit_set_pair || broadcast_pair
+		array_bitwise := array_bitwise_integer || array_bit_set
+		if operator != .And_Not { array_bitwise ||= array_boolean }
+		valid = integer || boolean || array_bitwise || bit_set_pair
 	case .Cmp_And, .Cmp_Or:
 		valid = boolean
 	case .Cmp_Eq, .Not_Eq:
@@ -332,12 +386,11 @@ expression_binary :: proc(
 			pointer_pair ||
 			union_pair ||
 			struct_pair ||
-			array_pair ||
+			array_compare ||
 			simd_both ||
 			complex_pair ||
 			complex_arithmetic ||
 			quaternion_pair ||
-			broadcast_pair ||
 			bit_set_pair ||
 			procedure_pair
 	case .Lt, .Gt, .Lt_Eq, .Gt_Eq:
@@ -460,6 +513,10 @@ expression_binary :: proc(
 		if left_kind != .Union && right_kind == .Union { compared_type = right.type }
 		append(&checker.plans, Plan(Comparison_Plan{type = types.resolve_named(store, compared_type)})) or_return
 	}
+	// Compared arrays of structs or unions compare through the generated equality of their element type.
+	if comparison && array_compare && (array_leaf_kind == .Struct || array_leaf_kind == .Union) && (left.mode != .Constant || right.mode != .Constant) {
+		append(&checker.plans, Plan(Comparison_Plan{type = array_leaf})) or_return
+	}
 	// A dynamic integer paired with an untyped operand needs concrete rows at both runtime uses.
 	if left.mode != .Constant || right.mode != .Constant {
 		if conversion_untyped(types.get(store, left.type).kind) {
@@ -479,6 +536,10 @@ expression_binary :: proc(
 	}
 	result_type := left.type
 	if conversion_complex(right_kind) && !conversion_complex(left_kind) { result_type = right.type }
+	// Official array programming yields the array type when a scalar broadcasts into it, even an untyped one.
+	if broadcast_pair || nested_broadcast {
+		result_type = left.type if left_base.kind == .Array else right.type
+	}
 	if left_untyped && right_untyped && (left_kind == .Untyped_Quaternion || right_kind == .Untyped_Quaternion) {
 		result_type = types.TYPE_UNTYPED_QUATERNION
 	}
@@ -532,6 +593,29 @@ expression_binary :: proc(
 		}
 	}
 	return info, nil
+}
+
+// Like upstream is_type_numeric over the array core element: integers, floats, complex values, and enums over them.
+@(private = "file")
+array_element_numeric :: proc(store: ^types.Store, id: types.Type_Id) -> bool {
+	if id == 0 { return false }
+	descriptor := types.get(store, types.resolve_named(store, id))
+	#partial switch descriptor.kind {
+	case .Integer, .Rune, .Float, .Complex, .Quaternion:
+		return true
+	case .Enum:
+		return array_element_numeric(store, descriptor.backing)
+	}
+	return false
+}
+
+// Like upstream core_type for bitwise operators: enums unwrap to their backing integer.
+@(private = "file")
+array_element_core_integer :: proc(store: ^types.Store, id: types.Type_Id) -> bool {
+	if id == 0 { return false }
+	descriptor := types.get(store, types.resolve_named(store, id))
+	if descriptor.kind == .Enum { return array_element_core_integer(store, descriptor.backing) }
+	return descriptor.kind == .Integer || descriptor.kind == .Rune
 }
 
 // Official bit-set ordering is subset comparison through masks: a <= b holds when (a & b) == a.
