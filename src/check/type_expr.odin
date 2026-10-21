@@ -368,7 +368,22 @@ type_expression :: proc(
 		if branch_error != nil || !selected { return types.TYPE_POISON, branch_error }
 		return type_expression(checker, file_id, scope, branch, direct)
 	case .Pointer_Type:
-		elem := type_expression(checker, file_id, scope, syntax.node_payload(file.ast, node, syntax.Pointer_Type).elem, false) or_return
+		pointer := syntax.node_payload(file.ast, node, syntax.Pointer_Type)
+		if pointer.tag != 0 {
+			if expression_text(file, pointer.tag) == "#soa" {
+				elem := type_expression(checker, file_id, scope, pointer.elem, true) or_return
+				if elem == types.TYPE_POISON { return types.TYPE_POISON, nil }
+				_, _, is_soa := soa_descriptor(checker.store, elem)
+				if !is_soa {
+					type_report(checker, file_id, file, pointer.elem, .Unsupported_Type_Expression, "Invalid_Soa_Pointer_Element") or_return
+					return types.TYPE_POISON, nil
+				}
+				return types.intern(checker.store, types.Type{kind = .Soa_Pointer, elem = elem}), nil
+			}
+			type_report(checker, file_id, file, pointer.tag, .Unsupported_Type_Expression, expression_text(file, pointer.tag)) or_return
+			return types.TYPE_POISON, nil
+		}
+		elem := type_expression(checker, file_id, scope, pointer.elem, false) or_return
 		return type_wrapper(checker, .Pointer, elem), nil
 	case .Multi_Pointer_Type:
 		elem := type_expression(checker, file_id, scope, syntax.node_payload(file.ast, node, syntax.Multi_Pointer_Type).elem, false) or_return
@@ -395,6 +410,10 @@ type_expression :: proc(
 		return type_wrapper(checker, .Dynamic_Array, elem), nil
 	case .Fixed_Capacity_Dynamic_Array_Type:
 		array := syntax.node_payload(file.ast, node, syntax.Fixed_Capacity_Dynamic_Array_Type)
+		if array.tag != 0 {
+			type_report(checker, file_id, file, array.tag, .Unsupported_Type_Expression, "Invalid_Soa_Fixed_Capacity") or_return
+			return types.TYPE_POISON, nil
+		}
 		count, count_valid := array_count(checker, file_id, scope, array.capacity) or_return
 		elem := type_expression(checker, file_id, scope, array.elem, true) or_return
 		if !count_valid || elem == types.TYPE_POISON { return types.TYPE_POISON, nil }

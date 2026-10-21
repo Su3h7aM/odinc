@@ -218,9 +218,35 @@ main :: proc "contextless" () {
 	#assert(size_of(#soa[4]V2) == 32)
 	#assert(offset_of(#soa[4]V2, y) == 16)
 	#assert(size_of(#soa[]V2) == 24)
+	#assert(size_of(#soa ^#soa[4]S) == 16)
+	#assert(size_of(^#soa[4]S) == 8)
+	#assert(size_of(#soa ^#soa[]S) == 16)
 }
 `,
 	)
 	_, ok := check_procedure_source(t, source, diagnostic_count = 0)
 	testing.expect(t, ok)
+}
+
+@(test)
+soa_invalid_forms_report_the_official_rejections :: proc(t: ^testing.T) {
+	fixed_capacity := transmute([]byte)string(
+		`package sample
+S :: struct { a: i32 }
+main :: proc "contextless" () {
+	values: #soa[dynamic; 8]S
+	_ = values
+}
+`,
+	)
+	_, fixed_ok := check_procedure_source(t, fixed_capacity, diagnostic_count = 0, type_diagnostic_count = 1)
+	testing.expect(t, fixed_ok)
+	plain_pointer := transmute([]byte)string(`package sample
+main :: proc "contextless" () {
+	pointer: #soa ^i32
+	_ = pointer
+}
+`)
+	_, pointer_ok := check_procedure_source(t, plain_pointer, diagnostic_count = 0, type_diagnostic_count = 1)
+	testing.expect(t, pointer_ok)
 }
