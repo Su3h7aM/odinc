@@ -1,5 +1,6 @@
 package check
 
+import "core:math/big"
 import "core:mem"
 import "oc:syntax"
 import "oc:types"
@@ -60,7 +61,7 @@ expression_using_statement :: proc(checker: ^Expression_Checker, view: View_Id, 
 			}
 			continue
 		}
-		if descriptor.kind != .Struct || base.mode != .Variable && base.mode != .Immutable_Value && base.mode != .Value {
+		if descriptor.kind != .Struct || base.mode != .Variable && base.mode != .Immutable_Value && base.mode != .Value && base.mode != .Soa_Variable {
 			_, err := expression_failure(checker, view, scope, operand, .Invalid_Operand, "Using_Struct_Variable")
 			return err
 		}
@@ -93,11 +94,53 @@ expression_using_binding :: proc(
 	info = expression_entity_info(checker, file_id, scope, node, binding.entity) or_return
 	if info.state == .Invalid { return info, nil }
 	if len(binding.path) == 0 { return info, nil }
+	// A field promoted from an #soa element addresses its spread lane
+	// directly through the element's Soa_Plan. Deeper paths keep the
+	// Place_Plan over a gathered copy.
+	if len(binding.path) == 1 {
+		if root, is_reference := binding.root.(Expression_Ref); is_reference {
+			// Re-reading the root is idempotent for identifiers and
+			// selectors and returns its plan-carrying info.
+			root_info := check_expression(checker, root.view, scope, root.node) or_return
+			if root_info.state != .Invalid && root_info.plan != 0 {
+				if whole, is_soa := checker.plans[root_info.plan].(Soa_Plan); is_soa && whole.field == nil {
+					field: Operand
+					field, err = using_soa_field(checker, file_id, node, int(binding.path[0].field_index))
+					if err != nil { return info, err }
+					plan := Plan_Id(len(checker.plans))
+					append(
+						&checker.plans,
+						Plan(Soa_Plan{container = whole.container, index = whole.index, field = field, soa = whole.soa, policy = whole.policy}),
+					) or_return
+					info.entity = 0
+					info.plan = plan
+					return info, nil
+				}
+			}
+		}
+	}
 	plan := Plan_Id(len(checker.plans))
 	append(&checker.plans, Plan(Place_Plan{root = binding.root, path = binding.path})) or_return
 	info.entity = 0
 	info.plan = plan
 	return info, nil
+}
+
+// Interns a constant spread-field index for an #soa using binding.
+@(private = "file")
+using_soa_field :: proc(checker: ^Expression_Checker, file_id: File_Id, node: syntax.Node_Index, field: int) -> (operand: Operand, err: Resolve_Error) {
+	value: big.Int
+	defer big.destroy(&value)
+	if set_error := big.set(&value, i64(field)); set_error != nil {
+		expression_constant_failure(checker, file_id, node, set_error) or_return
+		return nil, nil
+	}
+	field_id, intern_error := constant_pool_intern_integer(checker.constants, &value, types.TYPE_UNTYPED_INTEGER)
+	if intern_error != nil {
+		expression_constant_failure(checker, file_id, node, intern_error) or_return
+		return nil, nil
+	}
+	return Operand(field_id), nil
 }
 
 @(private = "file")
@@ -173,7 +216,15 @@ using_struct_fields :: proc(
 		flags: Entity_Flags
 		root_indirect := indirect
 		if len(prefix) != 0 { root_indirect = prefix[0].indirect }
-		if !root_indirect && base.mode != .Variable { flags += {.Immutable} }
+		// An #soa loop variable reports .Soa_Variable whether it binds by
+		// value or by reference; its entity flags tell the two apart.
+		root_mutable := base.mode == .Variable
+		if base.mode == .Soa_Variable {
+			if origin := entity_get(scopes, base.entity); origin != nil {
+				root_mutable = .Immutable not_in origin.flags
+			}
+		}
+		if !root_indirect && !root_mutable { flags += {.Immutable} }
 		if origin := entity_get(scopes, base.entity); origin != nil && .Parameter in origin.flags { flags += {.Parameter, .Using} }
 		entity, create_error := entity_create(
 			scopes,

@@ -1,7 +1,9 @@
 package lower
 
+import "oc:check"
 import "oc:ir"
 import "oc:syntax"
+import "oc:types"
 
 // A slice, or any dynamic array under `#unroll(N)`, snapshots its data pointer and length; other
 // dynamic and fixed-capacity arrays read their data and length on every iteration. `#reverse` counts
@@ -13,11 +15,27 @@ lower_range_container :: proc(state: ^Procedure_State, node: syntax.Node_Index, 
 	lower_statement(state, parts.init)
 	if state.failed || state.job.function.error != nil || state.builder.control == 0 { return }
 	function := state.job.function
-	container := lower_type(state, lower_info(state, parts.expr).type)
+	store := check.type_store(state.job.program)
+	container_type := types.resolve_named(store, lower_info(state, parts.expr).type)
+	container := types.get(store, container_type)
+	through_pointer := false
+	if container.kind == .Pointer {
+		through_pointer = true
+		container_type = types.resolve_named(store, container.elem)
+		container = types.get(store, container_type)
+	}
 	kind := container.kind
 	if kind == .Struct && container.soa != .None {
 		lower_range_soa(state, node, parts)
 		return
+	}
+	if len(parts.names) >= 1 {
+		if _, by_reference := range_name_node(state, parts.names[0]); by_reference {
+			if plan, ok := lower_soa_element_plan(state, parts.expr); ok {
+				lower_range_soa_element(state, node, parts, plan)
+				return
+			}
+		}
 	}
 	element_type := container.elem
 	array_count := container.count
@@ -30,16 +48,26 @@ lower_range_container :: proc(state: ^Procedure_State, node: syntax.Node_Index, 
 	snapshot := kind == .Slice || (kind == .Dynamic_Array && parts.snapshot)
 	base_variable, count_variable, header_variable: ir.Variable
 	if is_array {
-		base_variable = ir.variable_declare(state.builder, lower_array_base(state, parts.expr))
+		if through_pointer {
+			// A pointer to an array already points at its first element.
+			base_variable = ir.variable_declare(state.builder, lower_value(state, parts.expr))
+		} else {
+			base_variable = ir.variable_declare(state.builder, lower_array_base(state, parts.expr))
+		}
 	} else if snapshot {
 		header := lower_value(state, parts.expr)
+		if state.failed || function.error != nil { return }
+		if through_pointer { header = lower_load(state, header, container_type) }
 		base := lower_load_word(state, header, .Ptr)
 		count := lower_load_word(state, ir.ptr_offset(function, header, 8), .I64)
 		if state.failed || function.error != nil { return }
 		base_variable = ir.variable_declare(state.builder, base)
 		count_variable = ir.variable_declare(state.builder, count)
 	} else {
-		header_variable = ir.variable_declare(state.builder, lower_value(state, parts.expr))
+		header := lower_value(state, parts.expr)
+		if state.failed || function.error != nil { return }
+		if through_pointer { header = lower_load(state, header, container_type) }
+		header_variable = ir.variable_declare(state.builder, header)
 	}
 	if state.failed || function.error != nil { return }
 	length_offset := (element_size * array_count + 7) / 8 * 8

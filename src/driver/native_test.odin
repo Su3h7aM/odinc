@@ -120,6 +120,7 @@ native_section_expectations := [?]NativeSectionExpectation {
 	{"literal_aggregates", 255},
 	{"struct_equality", 255},
 	{"reflect_enum_string", 0},
+	{"range_reference", 91},
 }
 
 native_section_test_directory :: proc(t: ^testing.T) -> string {

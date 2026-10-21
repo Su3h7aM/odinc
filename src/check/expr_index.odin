@@ -173,6 +173,14 @@ expression_assignable :: proc(checker: ^Expression_Checker, info: Expression_Inf
 	case .Variable, .Context:
 		return true
 	case .Soa_Variable, .Soa_Pointer:
+		// A by-value `#soa` range variable carries .Immutable on its entity,
+		// as the official EntityFlag_Value does; the whole element is not
+		// assignable through it.
+		if info.entity != 0 {
+			if origin := entity_get(checker.type_checker.resolver.scopes, info.entity); origin != nil && .Immutable in origin.flags {
+				return false
+			}
+		}
 		return true
 	case .Map_Index:
 		plan, is_map := checker.plans[info.plan].(Map_Index_Plan)
@@ -376,7 +384,20 @@ expression_soa_component_index :: proc(
 		&checker.plans,
 		Plan(Soa_Plan{container = base_plan.container, index = base_plan.index, field = field, soa = base_plan.soa, policy = policy}),
 	) or_return
-	return Expression_Info{type = core.elem, mode = .Variable, plan = plan, scope = scope, state = .Checked}, nil
+	return Expression_Info{type = core.elem, mode = soa_lane_mode(checker, base), plan = plan, scope = scope, state = .Checked}, nil
+}
+
+// A lane of an immutable `#soa` value is itself immutable: writes through a
+// by-value range variable report Assign_Destination_Mode, as the official
+// compiler's "Cannot assign" does.
+@(private = "file")
+soa_lane_mode :: proc(checker: ^Expression_Checker, base: Expression_Info) -> Addressing_Mode {
+	if base.entity != 0 {
+		if origin := entity_get(checker.type_checker.resolver.scopes, base.entity); origin != nil && .Immutable in origin.flags {
+			return .Immutable_Value
+		}
+	}
+	return .Variable
 }
 
 @(private = "package")
@@ -622,5 +643,5 @@ expression_soa_field :: proc(
 		&checker.plans,
 		Plan(Soa_Plan{container = base_plan.container, index = base_plan.index, field = field, soa = base_plan.soa, policy = base_plan.policy}),
 	) or_return
-	return Expression_Info{type = field_type, mode = .Variable, plan = plan, scope = scope, state = .Checked}, nil
+	return Expression_Info{type = field_type, mode = soa_lane_mode(checker, base), plan = plan, scope = scope, state = .Checked}, nil
 }

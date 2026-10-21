@@ -335,6 +335,13 @@ expression_range_container :: proc(
 	if type.kind == .Struct && type.soa != .None {
 		return expression_range_soa(checker, view, file_id, scope, range_scope, node, parts, container, container_type)
 	}
+	if len(parts.names) >= 1 {
+		if _, by_reference := range_name(file, parts.names[0]); by_reference {
+			if element, ok := range_soa_element_plan(checker, container); ok {
+				return expression_range_soa_element(checker, view, file_id, scope, range_scope, node, parts, element)
+			}
+		}
+	}
 	#partial switch type.kind {
 	case .Array, .Enumerated_Array, .Slice, .Dynamic_Array, .Fixed_Capacity_Array, .Bit_Set:
 	case .String, .String16:
@@ -502,8 +509,9 @@ soa_range_hidden :: proc(checker: ^Expression_Checker, range_scope: Scope_Id, ty
 // `for v[, i] in soa`: v names each scattered element and i its position.
 // The container is snapshotted once into a hidden entity, the way slice
 // ranges snapshot their header, and v resolves to a Soa_Plan over that
-// snapshot plus a hidden or user-named counter. By-reference values would
-// need an #soa pointer for the element, which stays unsupported.
+// snapshot plus a hidden or user-named counter. A `&v` value binds the same
+// plan without the immutable flag, so writes scatter into the container,
+// as the official check_stmt.cpp SoaPtrField entity does.
 @(private = "file")
 expression_range_soa :: proc(
 	checker: ^Expression_Checker,
@@ -518,9 +526,18 @@ expression_range_soa :: proc(
 	file := checker.type_checker.files[file_id]
 	store := checker.type_checker.store
 	descriptor := types.get(store, container_type)
+	// A `&v` value needs the container to stay addressable. Fixed #soa
+	// requires a variable container, as check_stmt.cpp requires; slice and
+	// dynamic kinds always are.
+	addressable := descriptor.soa == .Slice || descriptor.soa == .Dynamic
+	if !addressable {
+		addressable = container.mode == .Variable
+	}
+	value_reference := false
 	if len(parts.names) >= 1 {
 		ident, by_reference := range_name(file, parts.names[0])
-		if by_reference && expression_text(file, ident) != "_" {
+		value_reference = by_reference && expression_text(file, ident) != "_"
+		if value_reference && !addressable {
 			expression_unsupported(checker, view, scope, parts.names[0], "Range_Reference") or_return
 			return nil
 		}
@@ -541,7 +558,9 @@ expression_range_soa :: proc(
 		index_entity = soa_range_hidden(checker, range_scope, checker.default_integer) or_return
 	}
 	if len(parts.names) >= 1 {
-		ident, _ := range_name(file, parts.names[0])
+		ident, by_reference := range_name(file, parts.names[0])
+		value_flags: Entity_Flags
+		if !by_reference { value_flags += {.Immutable} }
 		loop := Soa_Plan {
 			container = Operand(snapshot),
 			index     = Operand(index_entity),
@@ -558,7 +577,7 @@ expression_range_soa :: proc(
 					kind = .Variable,
 					scope = range_scope,
 					state = .Resolved,
-					flags = {.Immutable},
+					flags = value_flags,
 					type = descriptor.soa_elem,
 					data = Variable_Data{storage = .Local},
 				},
@@ -582,6 +601,53 @@ expression_range_soa :: proc(
 		}
 	}
 	_ = container
+	expression_range_body(checker, view, file_id, node, range_scope, parts) or_return
+	expression_store(checker, view, node, Expression_Info{scope = scope, state = .Checked})
+	return nil
+}
+
+// The Soa_Plan behind `soa[i]` when it names a whole scattered element: the
+// container plus the element index and no field. Only lanes of an
+// array-typed element are iterable by reference.
+@(private = "file")
+range_soa_element_plan :: proc(checker: ^Expression_Checker, container: Expression_Info) -> (element: Soa_Plan, ok: bool) {
+	if container.plan == 0 || container.mode != .Soa_Variable { return {}, false }
+	plan, is_soa := checker.plans[container.plan].(Soa_Plan)
+	if !is_soa || plan.field != nil { return {}, false }
+	store := checker.type_checker.store
+	elem := types.get(store, types.resolve_named(store, types.get(store, plan.soa).soa_elem))
+	if elem.kind != .Array { return {}, false }
+	return plan, true
+}
+
+// `for &v[, j] in soa[i]`: v binds one lane of the scattered element at a
+// time and j its lane index. The element itself has no address, but each
+// lane does, as the official check_stmt.cpp notes for its Array case, so
+// lowering addresses lane after lane through the element's Soa_Plan. The
+// by-value form keeps the generic container path.
+@(private = "file")
+expression_range_soa_element :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	file_id: File_Id,
+	scope, range_scope: Scope_Id,
+	node: syntax.Node_Index,
+	parts: Range_Parts,
+	element: Soa_Plan,
+) -> Resolve_Error {
+	file := checker.type_checker.files[file_id]
+	store := checker.type_checker.store
+	elem := types.get(store, types.resolve_named(store, types.get(store, element.soa).soa_elem))
+	ident, _ := range_name(file, parts.names[0])
+	range_declare(checker, view, file, range_scope, ident, elem.elem, false) or_return
+	if len(parts.names) == 2 {
+		index, by_reference := range_name(file, parts.names[1])
+		if by_reference {
+			expression_unsupported(checker, view, scope, parts.names[1], "Range_Form") or_return
+			return nil
+		}
+		range_declare(checker, view, file, range_scope, index, checker.default_integer, true) or_return
+	}
 	expression_range_body(checker, view, file_id, node, range_scope, parts) or_return
 	expression_store(checker, view, node, Expression_Info{scope = scope, state = .Checked})
 	return nil
