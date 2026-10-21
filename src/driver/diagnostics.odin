@@ -61,11 +61,19 @@ write_lower_errors :: proc(session: ^Session, writer: io.Writer, errors: []lower
 			}
 		}
 		if source.file == 0 {
+			if error.code == .Verification && error.verify_code != .None {
+				fmt.wprintfln(writer, "lower %v %v %v", error.code, error.feature, error.verify_code)
+				continue
+			}
 			fmt.wprintfln(writer, "lower %v %v", error.code, error.feature)
 			continue
 		}
 		file := session.files[source.file]
 		line, column := line_column(file.source, source.start)
+		if error.code == .Verification && error.verify_code != .None {
+			fmt.wprintfln(writer, "%s:%d:%d: lower %v %v %v", file.display_path, line, column, error.code, error.feature, error.verify_code)
+			continue
+		}
 		fmt.wprintfln(writer, "%s:%d:%d: lower %v %v", file.display_path, line, column, error.code, error.feature)
 	}
 }

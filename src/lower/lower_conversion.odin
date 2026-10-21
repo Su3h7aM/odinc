@@ -67,6 +67,19 @@ lower_conversion_value :: proc(
 		return lower_complex_conversion(state, node, value, source_id, plan.target)
 	}
 	function := state.job.function
+	if scalar_type(state, plan.target) == .Bool {
+		if is_wide_integer(state, source_id) {
+			words := wide_load(state, value)
+			zero := ir.const_int(function, .I64, 0)
+			return ir.binary(function, .Or, ir.compare(function, .Ne, words.low, zero), ir.compare(function, .Ne, words.high, zero))
+		}
+		value_type := function.nodes.type[value]
+		if value_type == .Bool { return value }
+		if value_type >= .I8 && value_type <= .I64 {
+			return ir.compare(function, .Ne, value, ir.const_int(function, value_type, 0))
+		}
+		return lower_fail(state, node, .Conversion)
+	}
 	if is_wide_integer(state, plan.target) || is_wide_integer(state, source_id) {
 		return lower_wide_conversion(state, node, source_id, plan.target, value)
 	}

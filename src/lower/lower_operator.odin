@@ -61,6 +61,10 @@ lower_binary :: proc(
 		return lower_wide_operator(state, node, expression.op.kind, signed_type(state, conversions.type), false, left, right)
 	}
 	if is_wide_integer(state, lower_info(state, expression.left).type) { return lower_wide_binary(state, node, expression, left, right) }
+	if (expression.op.kind == .Shl || expression.op.kind == .Shr) && is_wide_integer(state, lower_info(state, expression.right).type) {
+		right = wide_count_word(state, right, signed_type(state, lower_info(state, expression.right).type))
+		if state.failed { return 0 }
+	}
 	if lower_operand_is_bit_set(state, expression.left) {
 		return lower_bit_set_operator(state, node, expression.op.kind, left, right)
 	}
