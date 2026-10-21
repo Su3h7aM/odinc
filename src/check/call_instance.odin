@@ -483,9 +483,13 @@ expression_instance_call :: proc(
 	entity := entity_get(checker.type_checker.resolver.scopes, instance)
 	procedure := entity.data.(Procedure_Data)
 	if entity.state != .Resolved {
-		if entity.state == .Invalid &&
-		   procedure.where_clauses.count != 0 { return expression_failure(checker, view, scope, node, .Invalid_Operand, "at caller location") }
-		return expression_poison(scope), nil
+		if entity.state == .Invalid && procedure.where_clauses.count != 0 {
+			return expression_failure(checker, view, scope, node, .Invalid_Operand, "at caller location")
+		}
+		// A recursive call finds its own instance still resolving. The signature is assigned before the
+		// body is checked, so the call checks against the known signature, like upstream's reuse of an
+		// in-progress specialization. Anything else keeps today's silent poison.
+		if entity.state != .Resolving || procedure.signature == types.TYPE_NONE { return expression_poison(scope), nil }
 	}
 	if procedure.body_state == .Invalid {
 		return expression_poison(scope), nil
