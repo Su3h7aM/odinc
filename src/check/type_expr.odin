@@ -271,6 +271,14 @@ type_declaration :: proc(checker: ^Type_Checker, id: Entity_Id) -> (handled, val
 		register_enum(checker, type, members) or_return
 		types.complete_nominal(checker.store, type, descriptor)
 		return true, record_valid, nil
+	case .Bit_Field_Type:
+		type := publish_nominal(checker, id, .Bit_Field, name) or_return
+		base := bit_field_type(checker, file_id, file, scope, value) or_return
+		if base == types.TYPE_POISON { return true, false, nil }
+		descriptor := types.get(checker.store, base)^
+		descriptor.name = name
+		types.complete_nominal(checker.store, type, descriptor)
+		return true, true, nil
 	case .Distinct_Type:
 		type := publish_nominal(checker, id, .Named, name) or_return
 		base := type_expression(checker, file_id, scope, syntax.node_payload(file.ast, value, syntax.Distinct_Type).type, true) or_return

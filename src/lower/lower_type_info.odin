@@ -168,6 +168,15 @@ write_type_info_variant :: proc(
 ) {
 	store := writer.store
 	descriptor := types.get(store, entry.type)^
+	if entry.name != "" {
+		payload := begin_variant(writer, image, "Type_Info_Named")
+		set_string_field(writer, image, payload, "name", entry.name) or_return
+		set_string_field(writer, image, payload, "pkg", entry.pkg) or_return
+		if entry.base_slot != 0 {
+			return true, set_pointer_field(writer, image, payload, "base", int(writer.first + entry.base_slot - 1))
+		}
+		return write_entry_pointer(writer, image, payload, "base", descriptor.elem)
+	}
 	if descriptor.kind == .Named {
 		payload := begin_variant(writer, image, "Type_Info_Named")
 		set_string_field(writer, image, payload, "name", descriptor.name) or_return
@@ -278,8 +287,67 @@ write_type_info_variant :: proc(
 		return write_struct_variant(writer, image, entry, descriptor)
 	case .Union:
 		return write_union_variant(writer, image, entry, descriptor)
+	case .Simd_Vector:
+		payload := begin_variant(writer, image, "Type_Info_Simd_Vector")
+		supported = write_entry_pointer(writer, image, payload, "elem", descriptor.elem) or_return
+		write_element_size(writer, image, payload, descriptor.elem)
+		write_scalar_field(writer, image, payload, "count", u64(descriptor.count), 8)
+		return supported, nil
+	case .Matrix:
+		payload := begin_variant(writer, image, "Type_Info_Matrix")
+		supported = write_entry_pointer(writer, image, payload, "elem", descriptor.elem) or_return
+		write_element_size(writer, image, payload, descriptor.elem)
+		stride := descriptor.count
+		if descriptor.row_major { stride = descriptor.upper_bound }
+		write_scalar_field(writer, image, payload, "elem_stride", u64(stride), 8)
+		write_scalar_field(writer, image, payload, "row_count", u64(descriptor.count), 8)
+		write_scalar_field(writer, image, payload, "column_count", u64(descriptor.upper_bound), 8)
+		write_scalar_field(writer, image, payload, "layout", u64(descriptor.row_major), 1)
+		return supported, nil
+	case .Bit_Field:
+		return write_bit_field_variant(writer, image, entry, descriptor)
 	}
 	return false, nil
+}
+
+@(private)
+write_bit_field_variant :: proc(
+	writer: ^Type_Info_Writer,
+	image: ^Type_Info_Image,
+	entry: check.Type_Info_Entry,
+	descriptor: types.Type,
+) -> (
+	supported: bool,
+	err: runtime.Allocator_Error,
+) {
+	payload := begin_variant(writer, image, "Type_Info_Bit_Field")
+	supported = write_entry_pointer(writer, image, payload, "backing_type", descriptor.backing) or_return
+	targets := make([]int, len(descriptor.fields), writer.allocator) or_return
+	names := make([]string, len(descriptor.fields), writer.allocator) or_return
+	sizes := make([]u64, len(descriptor.fields), writer.allocator) or_return
+	offsets := make([]u64, len(descriptor.fields), writer.allocator) or_return
+	for field, position in descriptor.fields {
+		target, found := entry_global(writer, field.type)
+		if !found { return false, nil }
+		targets[position] = target
+		names[position] = field.name
+		offset, size := types.bit_field_slot(writer.store, entry.type, position)
+		sizes[position] = u64(size)
+		offsets[position] = u64(offset)
+	}
+	count := len(descriptor.fields)
+	names_array := string_array(writer, names) or_return
+	types_array := pointer_array(writer, targets) or_return
+	sizes_array := scalar_array(writer, sizes, 8) or_return
+	offsets_array := scalar_array(writer, offsets, 8) or_return
+	tags_array := string_array(writer, make([]string, count, writer.allocator) or_return) or_return
+	set_slice_field(writer, image, payload, "names", names_array, count) or_return
+	set_slice_field(writer, image, payload, "types", types_array, count) or_return
+	set_slice_field(writer, image, payload, "bit_sizes", sizes_array, count) or_return
+	set_slice_field(writer, image, payload, "bit_offsets", offsets_array, count) or_return
+	set_slice_field(writer, image, payload, "tags", tags_array, count) or_return
+	write_scalar_field(writer, image, payload, "field_count", u64(count), 8)
+	return supported, nil
 }
 
 @(private)
@@ -347,11 +415,16 @@ write_union_variant :: proc(
 	}
 	layout, layout_error := types.union_layout(writer.store, entry.type)
 	if layout_error != .None { return false, nil }
-	tag, tag_found := entry_global(writer, check.union_tag_type(writer.store, entry.type))
+	tag_type := check.union_tag_type(writer.store, entry.type)
+	tag_offset := i64(0)
+	if layout.tag_size != 0 {
+		tag_offset = layout.variant_block_size
+	}
+	tag, tag_found := entry_global(writer, tag_type)
 	if !tag_found { return false, nil }
 	variants_array := pointer_array(writer, targets) or_return
 	set_slice_field(writer, image, payload, "variants", variants_array, len(targets)) or_return
-	write_scalar_field(writer, image, payload, "tag_offset", u64(layout.variant_block_size), 8)
+	write_scalar_field(writer, image, payload, "tag_offset", u64(tag_offset), 8)
 	set_pointer_field(writer, image, payload, "tag_type", tag) or_return
 	write_scalar_field(writer, image, payload, "custom_align", u64(descriptor.custom_align != 0), 1)
 	write_scalar_field(writer, image, payload, "no_nil", u64(descriptor.union_form == .No_Nil), 1)

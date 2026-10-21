@@ -301,7 +301,7 @@ default_type_of_untyped :: proc(store: ^Store, id: Type_Id) -> Type_Id {
 
 // reserve_nominal assigns an identity before a nominal type's base or members are known.
 reserve_nominal :: proc(store: ^Store, kind: Kind, name: string) -> Type_Id {
-	assert(kind == .Named || kind == .Struct || kind == .Union || kind == .Enum || kind == .Procedure)
+	assert(kind == .Named || kind == .Struct || kind == .Union || kind == .Enum || kind == .Procedure || kind == .Bit_Field)
 	reserve_slots(store)
 	return append_type(store, Type{kind = kind, name = name, is_nominal = true})
 }

@@ -297,35 +297,36 @@ expression_local_constant :: proc(checker: ^Expression_Checker, view: View_Id, f
 			continue
 		}
 		entity := Entity {
-			name  = expression_text(file, name_node),
-			kind  = .Constant,
-			scope = scope,
-			state = .Resolved,
+			name       = expression_text(file, name_node),
+			kind       = .Constant,
+			scope      = scope,
+			package_id = file.package_id,
+			state      = .Resolved,
 		}
 		if value_kind := file.ast.nodes[values[index]].kind; .Typeid_Type <= value_kind && value_kind <= .Bit_Field_Type {
-			if value_kind == .Distinct_Type {
+			if value_kind == .Distinct_Type ||
+			   value_kind == .Struct_Type ||
+			   value_kind == .Union_Type ||
+			   value_kind == .Enum_Type ||
+			   value_kind == .Bit_Field_Type {
 				entity.kind = .Type_Name
 				constant, create_error := entity_create(checker.type_checker.resolver.scopes, entity)
 				if create_error != nil { return binding_resolve_error(create_error) }
-				nominal := publish_nominal(checker.type_checker, constant, .Named, expression_text(file, name_node)) or_return
-				base := type_expression(
-					checker.type_checker,
-					file_id,
-					scope,
-					syntax.node_payload(file.ast, values[index], syntax.Distinct_Type).type,
-					true,
-				) or_return
-				if base != types.TYPE_POISON {
-					types.complete_nominal(checker.type_checker.store, nominal, types.Type{kind = .Named, name = entity.name, elem = base, is_nominal = true})
-				} else {
-					entity_get(checker.type_checker.resolver.scopes, constant).state = .Invalid
-				}
 				previous, insert_error := scope_insert(checker.type_checker.resolver.scopes, scope, constant)
 				if insert_error != nil { return binding_resolve_error(insert_error) }
 				if previous != 0 {
 					expression_unsupported(checker, view, scope, name_node, "Local_Constant_Duplicate") or_return
 					return nil
 				}
+				_, stored, _, declaration_error := map_entry(&checker.type_checker.declarations, constant)
+				if declaration_error != nil { return declaration_error }
+				stored^ = Collected_Declaration {
+					entity     = constant,
+					identifier = {file_id, name_node},
+					value      = {file_id, values[index]},
+				}
+				_, valid := type_declaration(checker.type_checker, constant) or_return
+				if !valid { entity_get(checker.type_checker.resolver.scopes, constant).state = .Invalid }
 				continue
 			}
 			target := type_expression(checker.type_checker, file_id, scope, values[index], true) or_return

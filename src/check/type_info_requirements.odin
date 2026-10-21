@@ -152,6 +152,7 @@ expression_checker_publish_type_info :: proc(checker: ^Expression_Checker, progr
 		collect_type_info_types(store, root, &ordered, &seen, &representatives) or_return
 	}
 	entries := make([]Type_Info_Entry, len(ordered), allocator) or_return
+	bases := make([dynamic]Type_Info_Entry, allocator) or_return
 	members := make([dynamic]Enum_Type_Members, allocator) or_return
 	for type, index in ordered {
 		size, alignment, _ := types.layout(store, type)
@@ -163,12 +164,32 @@ expression_checker_publish_type_info :: proc(checker: ^Expression_Checker, progr
 			size       = size,
 			alignment  = alignment,
 		}
+		for nominal in checker.type_checker.nominals {
+			if nominal.type != type { continue }
+			entity := entity_get(checker.type_checker.resolver.scopes, nominal.entity)
+			entries[index].name = entity.name
+			if int(entity.package_id) < len(checker.packages) {
+				entries[index].pkg = checker.packages[entity.package_id].name
+			}
+			entries[index].runtime_id |= u64(1) << 61
+			if types.get(store, type).kind != .Named {
+				base := entries[index]
+				base.slot = u32(len(ordered) + len(bases) + 1)
+				base.runtime_id = typeid_encoding(store, type, base.slot)
+				base.name, base.pkg = "", ""
+				entries[index].base_slot = base.slot
+				append(&bases, base) or_return
+			}
+			break
+		}
 		resolved := types.resolve_named(store, type)
 		if types.get(store, resolved).kind != .Enum { continue }
 		enum_members, found := checker.type_checker.enum_members[resolved]
 		if found { append(&members, Enum_Type_Members{type = resolved, members = enum_members}) or_return }
 	}
-	program.runtime.type_info = entries
+	program.runtime.type_info = make([]Type_Info_Entry, len(entries) + len(bases), allocator) or_return
+	copy(program.runtime.type_info, entries)
+	copy(program.runtime.type_info[len(entries):], bases[:])
 	program.runtime.type_info_representatives = representatives[:]
 	program.runtime.enum_members = members[:]
 	program.runtime.type_info_type = runtime_type_named(checker, "Type_Info")
@@ -181,7 +202,7 @@ expression_checker_publish_type_info :: proc(checker: ^Expression_Checker, progr
 union_tag_type :: proc(store: ^types.Store, union_type: types.Type_Id) -> types.Type_Id {
 	layout, layout_error := types.union_layout(store, union_type)
 	if layout_error != .None || layout.tag_size == 0 { return types.TYPE_NONE }
-	return types.intern(store, types.Type{kind = .Integer, count = layout.tag_size})
+	return types.sized_integer(store, layout.tag_size, false)
 }
 
 // The runtime declaration of `name`, resolved so that its layout is known to lowering.
