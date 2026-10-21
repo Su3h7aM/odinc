@@ -136,7 +136,16 @@ lower_constant_aggregate :: proc(state: ^Procedure_State, type: types.Type_Id, a
 		values[index] = check.Operand(element)
 		indices[index] = u32(index)
 	}
-	return lower_aggregate(state, state.job.procedure.body.node, check.Aggregate_Plan{type = type, values = values, field_indices = indices})
+	node := state.job.procedure.body.node
+	plan := check.Aggregate_Plan {
+		type          = type,
+		values        = values,
+		field_indices = indices,
+	}
+	if state.failed || state.job.function.error != nil { return 0 }
+	layout := state.job.layouts[type]
+	if layout.error != .None || layout.size > i64(max(u32)) { return lower_fail(state, node, .Expression) }
+	return lower_aggregate_struct_into(state, node, plan, aggregate_storage(state, layout), layout.size)
 }
 
 // Typed f32 values are stored with f64 bits. Narrow them when the target scalar is f32.

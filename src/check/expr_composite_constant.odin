@@ -36,6 +36,8 @@ expression_zero_fill_supported :: proc(checker: ^Expression_Checker, store: ^typ
 		return true
 	case .Enum, .Bit_Set:
 		return true
+	case .Raw_Pointer, .Pointer, .Multi_Pointer, .CString, .CString16, .Type_Id, .Procedure:
+		return true
 	case .Union:
 		return expression_union_variant_constant(store, element_type)
 	case .Struct:
@@ -72,6 +74,8 @@ expression_zero_fill_constants :: proc(
 		return constant_pool_intern_string(checker.constants, "", element_type)
 	case .Float:
 		return constant_pool_intern_float(checker.constants, Float_Value{width = u8(descriptor.count * 8)}, element_type)
+	case .Raw_Pointer, .Pointer, .Multi_Pointer, .CString, .CString16, .Type_Id, .Procedure:
+		return constant_pool_intern_nil(checker.constants, element_type)
 	case .Struct:
 		element_ids := make([]Const_Id, len(descriptor.fields), checker.allocator) or_return
 		defer delete(element_ids, checker.allocator)

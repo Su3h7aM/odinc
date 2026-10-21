@@ -230,6 +230,10 @@ main :: proc "contextless" () {
 	#assert(size_of(#soa ^#soa[4]S) == 16)
 	#assert(size_of(^#soa[4]S) == 8)
 	#assert(size_of(#soa ^#soa[]S) == 16)
+	#assert(size_of(#soa[2][0]u16) == 0)
+	#assert(align_of(#soa[2][0]u16) == 1)
+	#assert(size_of(#soa[dynamic][0]u16) == 32)
+	#assert(align_of(#soa[dynamic][0]u16) == 8)
 }
 `,
 	)

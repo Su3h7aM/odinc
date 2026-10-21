@@ -25,7 +25,7 @@ soa_struct :: proc(checker: ^Type_Checker, elem: types.Type_Id, count: i64, kind
 	case .Struct:
 	// A struct element spreads its own fields as the soa fields.
 	case .Array:
-		if core_descriptor.count < 1 || core_descriptor.count > 4 { return 0, false }
+		if core_descriptor.count > 4 { return 0, false }
 	// An array element spreads its members under the x/y/z/w labels.
 	case:
 		return 0, false

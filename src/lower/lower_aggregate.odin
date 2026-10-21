@@ -46,6 +46,27 @@ lower_aggregate_into :: proc(state: ^Procedure_State, node: syntax.Node_Index, p
 	if state.failed || state.job.function.error != nil { return 0 }
 	store := check.type_store(state.job.program)
 	owner := types.resolve_named(store, plan.type)
+	if types.get(store, owner).kind == .Struct && types.get(store, owner).soa == .Fixed {
+		return lower_soa_fixed_literal(state, node, plan, address, size)
+	}
+	return lower_aggregate_struct_into(state, node, plan, address, size)
+}
+
+// The column-wise fill for plain struct, array and matrix aggregates, and for
+// constant fixed `#soa` aggregates whose checker constant is already
+// transposed into spread columns. Row-wise fixed `#soa` plans keep their own
+// scatter in lower_soa_fixed_literal and never reach here.
+@(private)
+lower_aggregate_struct_into :: proc(
+	state: ^Procedure_State,
+	node: syntax.Node_Index,
+	plan: check.Aggregate_Plan,
+	address: ir.Node_Id,
+	size: i64,
+) -> ir.Node_Id {
+	if state.failed || state.job.function.error != nil { return 0 }
+	store := check.type_store(state.job.program)
+	owner := types.resolve_named(store, plan.type)
 	function := state.job.function
 	memory := ir.add_node(
 		function,
@@ -76,6 +97,14 @@ lower_aggregate_into :: proc(state: ^Procedure_State, node: syntax.Node_Index, p
 			field_offset, offset_error := types.field_offset(store, owner, index)
 			if offset_error != .None { return lower_fail(state, node, .Expression) }
 			offset = field_offset
+		}
+		if position < len(plan.field_paths) && len(plan.field_paths[position]) > 1 {
+			for step in plan.field_paths[position][1:] {
+				field_offset, offset_error := types.field_offset(store, step.type, int(step.field_index))
+				if offset_error != .None || step.indirect { return lower_fail(state, node, .Expression) }
+				field_type = types.get(store, step.type).fields[step.field_index].type
+				offset += field_offset
+			}
 		}
 		field_value: ir.Node_Id
 		if position < len(plan.conversions) && plan.conversions[position] != 0 {

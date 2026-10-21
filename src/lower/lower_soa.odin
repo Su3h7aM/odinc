@@ -499,3 +499,61 @@ lower_soa_assignment_plan :: proc(state: ^Procedure_State, node: syntax.Node_Ind
 	}
 	return true
 }
+
+// A fixed `#soa[N]T` literal lists rows; the plan carries one row operand per
+// index. Scatter each row's fields into the spread columns, leaving missing
+// rows zeroed like a sparse array literal does.
+@(private)
+lower_soa_fixed_literal :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: check.Aggregate_Plan, address: ir.Node_Id, size: i64) -> ir.Node_Id {
+	if state.failed || state.job.function.error != nil { return 0 }
+	function := state.job.function
+	store := check.type_store(state.job.program)
+	owner := types.resolve_named(store, plan.type)
+	descriptor := types.get(store, owner)
+	elem := descriptor.soa_elem
+	resolved_elem := types.resolve_named(store, elem)
+	core := types.get(store, types.core_type(store, elem))
+	spread := len(core.fields) if core.kind == .Struct else int(core.count)
+	memory := ir.add_node(
+		function,
+		.Mem_Set,
+		.Memory,
+		{
+			state.builder.control,
+			ir.variable_get(state.builder, ir.MEMORY_VARIABLE),
+			address,
+			ir.const_int(function, .I8, 0),
+			ir.const_int(function, .I64, size),
+		},
+	)
+	ir.variable_set(state.builder, ir.MEMORY_VARIABLE, memory)
+	for value, position in plan.values {
+		row := i64(plan.field_indices[position])
+		row_address: ir.Node_Id
+		if position < len(plan.conversions) && plan.conversions[position] != 0 {
+			row_address = lower_declared_conversion(state, node, plan.conversions[position])
+		} else {
+			row_address = lower_operand(state, value, elem)
+		}
+		if state.failed { return 0 }
+		for component in 0 ..< spread {
+			field_type := core.fields[component].type if core.kind == .Struct else core.elem
+			field_layout := state.job.layouts[field_type]
+			if field_layout.error != .None || field_layout.size <= 0 { return lower_fail(state, node, .Expression) }
+			source_offset: i64
+			if core.kind == .Struct {
+				offset, offset_error := types.field_offset(store, resolved_elem, component)
+				if offset_error != .None { return lower_fail(state, node, .Expression) }
+				source_offset = offset
+			} else {
+				source_offset = i64(component) * field_layout.size
+			}
+			column_offset, column_error := types.field_offset(store, owner, component)
+			if column_error != .None { return lower_fail(state, node, .Expression) }
+			destination := ir.ptr_offset(function, address, column_offset + row * field_layout.size)
+			lower_store(state, destination, lower_load(state, ir.ptr_offset(function, row_address, source_offset), field_type), field_type)
+			if state.failed { return 0 }
+		}
+	}
+	return address
+}
