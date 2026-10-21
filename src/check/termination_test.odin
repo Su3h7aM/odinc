@@ -44,14 +44,23 @@ diverging_procedure_must_end_in_a_diverging_statement :: proc(t: ^testing.T) {
 @(test)
 context_requires_an_odin_convention_or_an_assignment :: proc(t: ^testing.T) {
 	// Official: 'context' has not been defined within this scope.
-	rejected := [?]string {
-		"f :: proc \"contextless\" () { _ = context }",
-		"f :: proc \"c\" () { _ = context.allocator }",
-		"f :: proc \"contextless\" () { context.allocator = context.allocator }",
+	rejected := [?]struct {
+		source, reason: string,
+	} {
+		{"f :: proc \"contextless\" () { _ = context }", "'context' has not been defined within this scope"},
+		{"f :: proc \"c\" () { _ = context.allocator }", "'context' has not been defined within this scope"},
+		{"f :: proc \"contextless\" () { context.allocator = context.allocator }", "'context' has not been defined within this scope"},
 	}
-	for source in rejected {
-		_, ok := check_procedure_source(t, transmute([]byte)string(sample(source)), .Undefined_Context, procedure_name = "f")
-		testing.expectf(t, ok, "must reject: %s", source)
+	for entry in rejected {
+		_, ok := check_procedure_source(
+			t,
+			transmute([]byte)string(sample(entry.source)),
+			.Undefined_Context,
+			entry.reason,
+			diagnostic_count = 1,
+			procedure_name = "f",
+		)
+		testing.expectf(t, ok, "must reject: %s", entry.source)
 	}
 }
 

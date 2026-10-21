@@ -26,6 +26,10 @@ expression_dynamic_literal :: proc(
 	if len(elements) != 0 && !dynamic_literals_enabled(file) {
 		return expression_failure(checker, view, scope, node, .Invalid_Operand, "Dynamic_Literals_Disallowed")
 	}
+	// Official check_for_dynamic_literals: a non-empty literal allocates through the context allocator.
+	if len(elements) != 0 && !context_defined(checker, scope) {
+		return expression_failure(checker, view, scope, node, .Undefined_Context, "Compound literals of dynamic types require a 'context' to defined")
+	}
 	if descriptor.kind == .Dynamic_Array {
 		return expression_dynamic_array_literal(checker, view, file_id, scope, node, literal_type, elements, descriptor.elem)
 	}

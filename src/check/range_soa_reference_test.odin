@@ -33,7 +33,7 @@ soa_reference_iteration_checks :: proc(t: ^testing.T) {
 		kind:         Expression_Diagnostic_Kind,
 	} {
 		{
-			"get_soa :: proc() -> #soa[4]S { s: #soa[4]S\nreturn s }\nmain :: proc \"contextless\" () {\nfor &v in get_soa() { _ = v }\n}",
+			"get_soa :: proc \"contextless\" () -> #soa[4]S { s: #soa[4]S\nreturn s }\nmain :: proc \"contextless\" () {\nfor &v in get_soa() { _ = v }\n}",
 			"Range_Reference",
 			.Unsupported,
 		},

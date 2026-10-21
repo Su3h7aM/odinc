@@ -22,15 +22,13 @@ main :: proc "contextless" () {
 `)
 	_, map_ok := check_procedure_source(t, map_source, .Invalid_Operand, "Dynamic_Literals_Disallowed", procedure_name = "main")
 	if !map_ok { return }
-	positional_source := transmute([]byte)string(
-		`#+feature dynamic-literals
+	positional_source := transmute([]byte)string(`#+feature dynamic-literals
 package sample
-main :: proc "contextless" () {
+main :: proc() {
 	table := map[string]int{1}
 	_ = table
 }
-`,
-	)
+`)
 	_, positional_ok := check_procedure_source(t, positional_source, .Invalid_Operand, "Map_Literal_Field", procedure_name = "main")
 	if !positional_ok { return }
 }
@@ -40,7 +38,7 @@ dynamic_literals_check_with_the_file_feature :: proc(t: ^testing.T) {
 	array_source := transmute([]byte)string(
 		`#+feature dynamic-literals
 package sample
-main :: proc "contextless" () {
+main :: proc() {
 	values := [dynamic]int{1, 4, 9}
 	keyed := [dynamic]int{0 = 1, 2 = 3}
 	empty := [dynamic]int{}
@@ -55,7 +53,7 @@ main :: proc "contextless" () {
 	map_source := transmute([]byte)string(
 		`#+feature dynamic-literals using-stmt
 package sample
-main :: proc "contextless" () {
+main :: proc() {
 	table := map[string]int{"a" = 1, "b" = 2}
 	empty := map[string]int{}
 	_ = table

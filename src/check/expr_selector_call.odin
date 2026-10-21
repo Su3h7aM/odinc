@@ -43,6 +43,9 @@ expression_selector_call :: proc(
 	store := checker.type_checker.store
 	descriptor := types.get(store, types.resolve_named(store, callee.type))^
 	if len(descriptor.params) == 0 { return expression_unsupported(checker, view, scope, node, "Call_Arguments") }
+	allowed, context_error := expression_require_call_context(checker, view, scope, node, descriptor.convention)
+	if context_error != nil { return {}, context_error }
+	if !allowed { return expression_poison(scope), nil }
 	parameter := descriptor.params[0]
 	allocator := mem.dynamic_arena_allocator(&checker.arena)
 

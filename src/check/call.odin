@@ -26,6 +26,9 @@ expression_call :: proc(
 	if len(descriptor.params) != parameter_count {
 		return expression_unsupported(checker, view, scope, node, "Call_Signature")
 	}
+	allowed, context_error := expression_require_call_context(checker, view, scope, node, descriptor.convention)
+	if context_error != nil { return {}, context_error }
+	if !allowed { return expression_poison(scope), nil }
 	if descriptor.c_vararg || descriptor.variadic && descriptor.convention != .Odin && descriptor.convention != .Contextless && descriptor.convention != .C {
 		return expression_unsupported(checker, view, scope, node, "Call_Variadic_Convention")
 	}
