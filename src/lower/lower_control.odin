@@ -152,6 +152,8 @@ scan_assigned_variables :: proc(state: ^Procedure_State, node: syntax.Node_Index
 	case syntax.Switch_Stmt:
 		scan_assigned_variables(state, statement.init, assigned)
 		scan_assigned_variables(state, statement.body, assigned)
+	case syntax.Type_Switch_Stmt:
+		scan_assigned_variables(state, statement.body, assigned)
 	case syntax.Case_Clause:
 		for child in syntax.node_list(state.ast, statement.body) { scan_assigned_variables(state, child, assigned) }
 	case syntax.Range_Stmt:
