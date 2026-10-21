@@ -125,6 +125,6 @@ while IFS=$'\t' read -r path action a u o; do
 		git -C "$UPSTREAM_REPO" cat-file blob "$full_a" > "$work/a"; git -C "$UPSTREAM_REPO" cat-file blob "$full_u" > "$work/u"
 		cp "$dest" "$work/o"; git merge-file -p "$work/o" "$work/a" "$work/u" > "$dest"
 	fi
-	case "$path" in base/*|core/*) chmod 444 "$dest" ;; esac
+	case "$path" in base/*|core/*|vendor/*) chmod 444 "$dest" ;; esac
 done < "$plan"
 echo "applied. next: record $upstream as the synced base in docs/upstream-sync.md, then run the acceptance checks"

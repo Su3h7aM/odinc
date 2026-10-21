@@ -41,4 +41,8 @@ A `GUARD` line flags a new libc reference (`foreign import "system:c|dl|pthread|
 6. Run the acceptance checks: `mise run pin-check`, `mise run check`, `mise run test`, and a dry run that shows no `CONFLICT`.
 7. Make one commit with the synced files, the updated manifest if a pinned file changed, and the new commit in the first line of this file.
 
-Vendor binaries are not synced: the vendor tree is imported as source only, and the excluded patterns keep platform binaries out.
+## vendor/
+
+`vendor/` is a read-only mirror of upstream `vendor/` at `779c8c0a` (the committed blobs; Git LFS pointers resolved to their content). It holds 1249 files, 41,321,279 bytes (about 39 MiB), and 118 directories. It keeps 13 Linux x86-64 binaries: `box3d/lib/linux-amd64/libbox3d.a`, `lua/5.1` to `lua/5.4` `linux/liblua5x.a` and `.so` (8 files), and `raylib/linux/libraylib.a`, `libraylib.so.600`, `libraygui.a`, `libraygui.so`. Every other binary is excluded by `docs/upstream-sync/vendor-exclude.txt`: Windows, macOS, wasm and `linux-arm64`. Copied files are read-only (files 444, directories 555), like `base/` and `core/`. `mise run fmt` formats `src/` only, so `vendor/` is never formatted.
+
+Files above 1 MiB (jj's default `snapshot.max-new-file-size`; neither the repo nor the user jj config sets it): `vendor/miniaudio/src/miniaudio.h` (4.1 MB), `vendor/raylib/linux/libraylib.a` (2.9 MB), `vendor/raylib/linux/libraylib.so.600` (2.1 MB), `vendor/kb_text_shape/src/kb_text_shape.h` (1.7 MB), `vendor/box3d/lib/linux-amd64/libbox3d.a` (1.6 MB), `vendor/vulkan/_gen/vulkan_core.h` (1.4 MB). jj leaves them untracked until the limit is raised.

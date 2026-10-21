@@ -8,3 +8,5 @@ vendor/*/macos/*
 vendor/*/lib/darwin/*
 vendor/*/wasm/*
 vendor/*/lib/*wasm*
+vendor/*/linux-arm64/*
+vendor/box2d/lib/box2d_darwin_*
