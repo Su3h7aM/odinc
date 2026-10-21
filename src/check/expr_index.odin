@@ -554,7 +554,8 @@ expression_soa_length :: proc(
 // A selector on an #soa element: `s[i].x` names spread field k, and `s[i].x`
 // on an array element names component x/y/z/w. The result has a real address
 // (the field element pointer), so its mode is Variable, unlike the scattered
-// whole element. Multi-letter swizzles stay unsupported (Soa_Swizzle).
+// whole element. A multi-letter swizzle gathers the named lanes instead; the
+// lanes live in the spread columns, so it shares the array swizzle rules.
 @(private = "package")
 expression_soa_field :: proc(
 	checker: ^Expression_Checker,
@@ -587,7 +588,15 @@ expression_soa_field :: proc(
 		if len(path) != 1 { return expression_unsupported(checker, view, scope, node, "Soa_Using_Field") }
 		spread, field_type = int(path[0].field_index), found_type
 	} else if core.kind == .Array {
-		if len(name) != 1 { return expression_unsupported(checker, view, scope, node, "Soa_Swizzle") }
+		if len(name) != 1 {
+			element := Expression_Info {
+				type  = descriptor.soa_elem,
+				mode  = .Variable,
+				scope = scope,
+				state = .Checked,
+			}
+			return expression_array_selector(checker, view, file_id, scope, node, element, core^, false, types.TYPE_NONE)
+		}
 		switch name[0] {
 		case 'x', 'r':
 			spread = 0

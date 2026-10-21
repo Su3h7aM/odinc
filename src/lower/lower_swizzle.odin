@@ -30,6 +30,9 @@ lower_swizzle_destination :: proc(state: ^Procedure_State, plan: check.Swizzle_P
 				for index in 0 ..< int(plan.count) { result.lanes[index] = backing.lanes[plan.indices[index]] }
 				return result
 			}
+			if soa, found := check.plan(state.job.program, info.plan)^.(check.Soa_Plan); found && soa.field == nil {
+				return lower_soa_swizzle_destination(state, root.node, soa, plan, type)
+			}
 		}
 	}
 	base := lower_operand(state, plan.root)

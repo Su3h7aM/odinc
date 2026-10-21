@@ -25,13 +25,15 @@ lower_compound_assignment :: proc(state: ^Procedure_State, node: syntax.Node_Ind
 	}
 	info, ok := check.expression_info(state.job.program, state.view, node)
 	destination: Assignment_Destination
+	destination_operand: check.Operand
 	value: ir.Node_Id
 	if ok && info.plan != 0 {
 		plan := check.plan(state.job.program, info.plan)
 		assert(plan != nil)
 		checked, found := plan^.(check.Assignment_Plan)
 		if !found || len(checked.destinations) != 1 || len(checked.values) != 1 { lower_fail(state, node, .Local); return }
-		destination = lower_destination(state, checked.destinations[0])
+		destination_operand = checked.destinations[0]
+		destination = lower_destination(state, destination_operand)
 		if len(checked.conversions) != 0 && checked.conversions[0] != 0 {
 			conversion := check.plan(state.job.program, checked.conversions[0])
 			assert(conversion != nil)
@@ -42,9 +44,11 @@ lower_compound_assignment :: proc(state: ^Procedure_State, node: syntax.Node_Ind
 			value = lower_operand(state, checked.values[0], destination.type)
 		}
 	} else {
-		destination = lower_destination(state, check.Expression_Ref{state.view, left[0]})
+		destination_operand = check.Expression_Ref{state.view, left[0]}
+		destination = lower_destination(state, destination_operand)
 		if destination.lane_count != 0 {
 			value = lower_value(state, right[0])
+			if lower_soa_swizzle_compound(state, node, assignment.op.kind, destination_operand, destination, value) { return }
 			previous := lower_swizzle_read(state, destination)
 			result := lower_compound_operator(state, node, assignment.op.kind, previous, value, destination.type)
 			lower_swizzle_write(state, destination, result)
@@ -53,6 +57,7 @@ lower_compound_assignment :: proc(state: ^Procedure_State, node: syntax.Node_Ind
 		value = lower_value(state, right[0])
 	}
 	if destination.lane_count != 0 {
+		if lower_soa_swizzle_compound(state, node, assignment.op.kind, destination_operand, destination, value) { return }
 		result := lower_compound_operator(state, node, assignment.op.kind, lower_swizzle_read(state, destination), value, destination.type)
 		lower_swizzle_write(state, destination, result)
 		return

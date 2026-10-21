@@ -1,6 +1,7 @@
 package lower
 
 import "core:math/big"
+import "core:mem/virtual"
 import "oc:check"
 import "oc:ir"
 import "oc:syntax"
@@ -218,6 +219,100 @@ lower_soa_store :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: 
 	lower_soa_whole_scatter(state, node, plan, address, index, value)
 }
 
+// One address per swizzle lane: the spread column of the named component at
+// the element index. The element index keeps the plan bounds check; the lanes
+// themselves were proven in range by the checker.
+@(private)
+lower_soa_swizzle_destination :: proc(
+	state: ^Procedure_State,
+	node: syntax.Node_Index,
+	soa: check.Soa_Plan,
+	swizzle: check.Swizzle_Plan,
+	type: types.Type_Id,
+) -> Assignment_Destination {
+	function := state.job.function
+	lanes, allocation_error := make([]ir.Node_Id, swizzle.count, virtual.arena_allocator(&function.arena))
+	if allocation_error != nil { state.failed = true; return {} }
+	result := Assignment_Destination {
+		lanes      = lanes,
+		type       = type,
+		lane_count = swizzle.count,
+	}
+	address, index := lower_soa_whole_address(state, node, soa)
+	if state.failed || function.error != nil { return {} }
+	for lane in 0 ..< swizzle.count {
+		lanes[lane] = lower_soa_component_ptr(state, node, soa.soa, address, index, int(swizzle.indices[lane]))
+		if state.failed || function.error != nil { return {} }
+	}
+	return result
+}
+
+// Whether an assignment destination is a swizzle over a direct #soa element,
+// rather than over a contiguous array or an #soa pointer value owned elsewhere.
+@(private)
+lower_soa_swizzle_plans :: proc(state: ^Procedure_State, operand: check.Operand) -> (soa: check.Soa_Plan, swizzle: check.Swizzle_Plan, found: bool) {
+	reference, is_reference := operand.(check.Expression_Ref)
+	if !is_reference { return {}, {}, false }
+	info, ok := check.expression_info(state.job.program, reference.view, reference.node)
+	if !ok || info.state != .Checked || info.plan == 0 { return {}, {}, false }
+	plan := check.plan(state.job.program, info.plan)
+	if plan == nil { return {}, {}, false }
+	swizzle_plan, is_swizzle := plan^.(check.Swizzle_Plan)
+	if !is_swizzle { return {}, {}, false }
+	root, is_root := swizzle_plan.root.(check.Expression_Ref)
+	if is_root {
+		root_info, root_ok := check.expression_info(state.job.program, root.view, root.node)
+		if root_ok && root_info.state == .Checked && root_info.plan != 0 {
+			root_plan := check.plan(state.job.program, root_info.plan)
+			if root_plan != nil {
+				if soa_plan, is_soa := root_plan^.(check.Soa_Plan); is_soa && soa_plan.field == nil {
+					if lower_type(state, operand_type(state, soa_plan.container)).kind != .Soa_Pointer {
+						return soa_plan, swizzle_plan, true
+					}
+				}
+			}
+		}
+	}
+	return {}, {}, false
+}
+
+// Compound assignment to an #soa swizzle stores each distinct lane once, on
+// its first occurrence, as the official backend does (llvm_backend_stmt.cpp):
+// `v.xx += rhs` keeps the lane-0 result and drops the lane-1 one. Reports
+// whether the destination was an #soa swizzle owned here.
+@(private)
+lower_soa_swizzle_compound :: proc(
+	state: ^Procedure_State,
+	node: syntax.Node_Index,
+	operator: syntax.Token_Kind,
+	operand: check.Operand,
+	destination: Assignment_Destination,
+	value: ir.Node_Id,
+) -> bool {
+	_, swizzle, found := lower_soa_swizzle_plans(state, operand)
+	if !found { return false }
+	function := state.job.function
+	previous := lower_swizzle_read(state, destination)
+	if state.failed || function.error != nil { return true }
+	result := lower_compound_operator(state, node, operator, previous, value, destination.type)
+	if state.failed || function.error != nil { return true }
+	descriptor := lower_type(state, destination.type)
+	stride := state.job.layouts[descriptor.elem].size
+	results, allocation_error := make([]ir.Node_Id, destination.lane_count, virtual.arena_allocator(&function.arena))
+	if allocation_error != nil { state.failed = true; return true }
+	for lane in 0 ..< destination.lane_count {
+		results[lane] = lower_load(state, ir.ptr_offset(function, result, i64(lane) * stride), descriptor.elem)
+	}
+	handled := [4]bool{}
+	for lane in 0 ..< destination.lane_count {
+		component := swizzle.indices[lane]
+		if component < 0 || component >= 4 || handled[component] { continue }
+		handled[component] = true
+		lower_store(state, destination.lanes[lane], results[lane], descriptor.elem)
+	}
+	return true
+}
+
 // Slicing offsets each field pointer by the low bound and adjusts the hidden
 // length, as the official soa slice backend does (llvm_backend_expr.cpp).
 @(private)
@@ -323,7 +418,8 @@ lower_range_soa :: proc(state: ^Procedure_State, node: syntax.Node_Index, parts:
 	function := state.job.function
 	info := lower_info(state, parts.expr)
 	container_id := lower_type(state, info.type)
-	if container_id.kind == .Pointer { container_id = lower_type(state, container_id.elem) }
+	is_pointer := container_id.kind == .Pointer
+	if is_pointer { container_id = lower_type(state, container_id.elem) }
 	if container_id.kind != .Struct || container_id.soa == .None { lower_fail(state, node, .Range); return }
 	store := check.type_store(state.job.program)
 	soa := types.resolve_named(store, info.type)
@@ -333,11 +429,18 @@ lower_range_soa :: proc(state: ^Procedure_State, node: syntax.Node_Index, parts:
 	value_entity: check.Entity_Id
 	plan: check.Soa_Plan
 	has_plan := false
+	// A `&v` value writes through the snapshot, so a fixed container must
+	// snapshot the address of the variable's storage, not a gathered copy.
+	// Slice and dynamic headers share their columns through any copy, and a
+	// pointer already evaluates to the container address.
+	value_reference := false
 	if len(parts.names) >= 1 {
+		_, value_reference = range_name_node(state, parts.names[0])
 		value_entity = range_entity(state, parts.names[0])
 		if state.failed { return }
 		if value_entity != 0 {
-			use := lower_info(state, parts.names[0])
+			value_node, _ := range_name_node(state, parts.names[0])
+			use := lower_info(state, value_node)
 			if state.failed { return }
 			if use.plan != 0 {
 				if loop, is_loop := check.plan(state.job.program, use.plan)^.(check.Soa_Plan); is_loop {
@@ -351,7 +454,13 @@ lower_range_soa :: proc(state: ^Procedure_State, node: syntax.Node_Index, parts:
 	if has_plan {
 		container_entity, is_entity := plan.container.(check.Entity_Id)
 		if !is_entity { lower_fail(state, node, .Range); return }
-		bind_local(state, container_entity, lower_value(state, parts.expr), true)
+		if value_reference && !is_pointer && container_id.soa == .Fixed && info.mode == .Variable {
+			// Fixed columns live inline: bind the variable's storage address
+			// itself, so reference writes scatter into the container.
+			bind_reference_local(state, container_entity, lower_address(state, parts.expr))
+		} else {
+			bind_local(state, container_entity, lower_value(state, parts.expr), true)
+		}
 		if state.failed || function.error != nil { return }
 		snapshot = lower_operand(state, plan.container)
 	} else {
