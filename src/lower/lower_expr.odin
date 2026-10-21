@@ -250,6 +250,9 @@ lower_value :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> ir.Node
 			return lower_map_info_of(state, node, value)
 		case check.Map_Cell_Info_Plan:
 			return lower_map_cell_info_of(state, node, value)
+		case check.Address_Plan:
+			address_operand := state.ast.nodes[node].payload.(syntax.Unary_Expr).expr
+			return lower_address(state, address_operand)
 		case check.Propagation_Plan:
 			if state.ast.nodes[node].kind == .Or_Return_Expr { return lower_or_return(state, node, value) }
 			if state.ast.nodes[node].kind == .Or_Branch_Expr { return lower_or_branch(state, node, value) }
@@ -353,6 +356,8 @@ lower_address :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> ir.No
 			return lower_matrix_vector_address(state, node, value)
 		case check.Aggregate_Plan, check.Slice_Literal_Plan:
 			return lower_value(state, node)
+		case check.Type_Assertion_Plan:
+			return lower_type_assertion_address(state, node, value)
 		case:
 			return lower_fail(state, node, .Place)
 		}

@@ -77,3 +77,27 @@ lower_type_assertion :: proc(state: ^Procedure_State, node: syntax.Node_Index, p
 	}
 	return
 }
+
+// Address of a type assertion payload, for `&x.(T)`. The checker only marks an
+// assertion addressable when the payload has a stable address, so the subject
+// address is usable directly; `any` payloads live behind the data word.
+@(private)
+lower_type_assertion_address :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: check.Type_Assertion_Plan) -> ir.Node_Id {
+	source_value := lower_operand(state, plan.source)
+	if state.failed || state.job.function.error != nil { return 0 }
+	store := check.type_store(state.job.program)
+	source_type := types.resolve_named(store, plan.source_type)
+	source_descriptor := types.get(store, source_type)
+	pointer_source := source_descriptor.kind == .Pointer
+	if pointer_source {
+		source_type = types.resolve_named(store, source_descriptor.elem)
+		source_descriptor = types.get(store, source_type)
+	}
+	subject, subject_ok := lower_type_switch_subject(state, node, source_type, source_value)
+	if !subject_ok { return 0 }
+	ok := lower_type_switch_test(state, node, subject, plan.target_type)
+	if state.failed || state.job.function.error != nil { return 0 }
+	if !plan.comma_ok { lower_check(state, ok) }
+	if source_descriptor.kind == .Any { return lower_load_word(state, source_value, .Ptr) }
+	return subject.address
+}
