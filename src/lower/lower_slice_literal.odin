@@ -28,7 +28,10 @@ lower_slice_literal :: proc(state: ^Procedure_State, node: syntax.Node_Index, pl
 @(private = "file")
 lower_slice_backing :: proc(state: ^Procedure_State, node: syntax.Node_Index, backing: check.Aggregate_Plan) -> ir.Node_Id {
 	module := state.job.module
-	if module == nil { return lower_aggregate(state, node, backing) }
+	// Static storage is only for package-level initializers, which run once; generated startup procedures have no
+	// procedure entity, while every real procedure body keeps the backing in its frame. The module alone cannot tell
+	// them apart, since it is present in every procedure body.
+	if module == nil || state.job.procedure.entity != 0 { return lower_aggregate(state, node, backing) }
 	layout := state.job.layouts[backing.type]
 	if layout.error != .None || layout.size > i64(max(u32)) { return lower_fail(state, node, .Expression) }
 	index := len(module.globals)

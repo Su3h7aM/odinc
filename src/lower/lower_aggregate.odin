@@ -1,11 +1,13 @@
 package lower
 
+import "core:fmt"
+import "core:mem/virtual"
 import "oc:check"
 import "oc:ir"
 import "oc:syntax"
 import "oc:types"
 
-// A literal lives in its own stack slot; the value is that slot's address, as for every aggregate.
+// A literal lives in frame or, in startup code, static storage; the value is that storage's address, as for every aggregate.
 @(private)
 lower_aggregate :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: check.Aggregate_Plan) -> ir.Node_Id {
 	if state.failed || state.job.function.error != nil { return 0 }
@@ -14,8 +16,28 @@ lower_aggregate :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: 
 	if types.get(store, owner).kind == .Bit_Field { return lower_bit_field_aggregate(state, node, plan, owner) }
 	layout := state.job.layouts[plan.type]
 	if layout.error != .None || layout.size > i64(max(u32)) || len(plan.field_indices) != len(plan.values) { return lower_fail(state, node, .Expression) }
-	address := ir.stack_slot(state.job.function, state.entry_control, u32(max(layout.size, 1)), u32(layout.align))
-	return lower_aggregate_into(state, node, plan, address, layout.size)
+	return lower_aggregate_into(state, node, plan, aggregate_storage(state, layout), layout.size)
+}
+
+// A literal lives in its frame slot, which dies with the call. Startup code runs once, so an aggregate whose address
+// outlives it (a literal under `&` stored into a global) needs static storage instead, the way slice backing already
+// materializes a hidden global. Generated startup procedures have no procedure entity, while every real procedure has
+// one; the module alone cannot tell them apart, since it is present in every procedure body.
+@(private)
+aggregate_storage :: proc(state: ^Procedure_State, layout: Type_Layout) -> ir.Node_Id {
+	function := state.job.function
+	module := state.job.module
+	if module == nil || state.job.procedure.entity != 0 {
+		return ir.stack_slot(function, state.entry_control, u32(max(layout.size, 1)), u32(layout.align))
+	}
+	index := len(module.globals)
+	name := fmt.aprintf("__odinc_internal_aggregate_%d", index, allocator = virtual.arena_allocator(&module.arena))
+	if _, error := append(&module.globals, ir.Global{name = name, size = u32(max(layout.size, 1)), align = u32(layout.align), mutable = true}); error != nil {
+		state.job.allocation_error = error
+		state.failed = true
+		return 0
+	}
+	return ir.symbol_addr(function, ir.Symbol_Ref{space = .Global, index = u32(index)})
 }
 
 // Fills the size bytes at address with the plan's values, zeroing the rest first.

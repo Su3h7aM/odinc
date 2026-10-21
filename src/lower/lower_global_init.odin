@@ -1,7 +1,6 @@
 package lower
 
 import "base:runtime"
-import "core:fmt"
 import "core:mem/virtual"
 import "oc:check"
 import "oc:ir"
@@ -139,7 +138,7 @@ lower_global_initializers :: proc(state: ^Procedure_State) {
 			end   = span.end,
 		}
 		state.view = global.initializer_view
-		value := lower_global_initializer(state, global, global.initializer_node.node)
+		value := lower_global_initializer(state, global.initializer_node.node)
 		if state.failed || function.error != nil { return }
 		address := ir.symbol_addr(function, state.job.symbols[global.symbol])
 		if global.thread_local { address = ir.tls_addr(function, state.job.symbols[global.symbol]) }
@@ -150,60 +149,12 @@ lower_global_initializers :: proc(state: ^Procedure_State) {
 }
 
 // Evaluates a dynamic global initializer. A top-level address of a composite literal names fresh storage that must
-// outlive startup, so it is materialized as a hidden global the way slice backing already is; any other operand keeps
-// the existing path so `&other_global` still aliases its storage. Matches upstream `lb_build_addr`, which creates a
-// global for `&T{...}` in startup procedures and a local elsewhere.
+// outlive startup. `lower_aggregate` materializes that storage as a hidden global in startup jobs, so every literal
+// takes the same path here; an address of existing storage still aliases it. Matches upstream `lb_build_addr`, which
+// creates a global for `&T{...}` in startup procedures and a local elsewhere.
 @(private)
-lower_global_initializer :: proc(state: ^Procedure_State, global: ^check.Global, node: syntax.Node_Index) -> ir.Node_Id {
-	operand, is_literal_address := global_literal_address_operand(state, node)
-	if !is_literal_address { return lower_value(state, node) }
-	function := state.job.function
-	module := state.job.module
-	if module == nil { return lower_value(state, node) }
-	info := lower_info(state, operand)
-	if state.failed { return 0 }
-	layout := state.job.layouts[info.type]
-	if layout.error != .None || layout.size < 0 || layout.size > i64(max(u32)) { return lower_fail(state, operand, .Expression) }
-	index := len(module.globals)
-	name := fmt.aprintf("__odinc_internal_global_address_%d", index, allocator = virtual.arena_allocator(&module.arena))
-	if _, error := append(
-		&module.globals,
-		ir.Global{name = name, size = u32(layout.size), align = max(u32(layout.align), global.alignment), mutable = true, tls = global.thread_local},
-	); error != nil {
-		state.job.allocation_error = error
-		state.failed = true
-		return 0
-	}
-	reference := ir.Symbol_Ref {
-		space = .Global,
-		index = u32(index),
-	}
-	backing := ir.symbol_addr(function, reference)
-	if global.thread_local { backing = ir.tls_addr(function, reference) }
-	value := lower_value(state, operand)
-	if state.failed || function.error != nil { return 0 }
-	lower_store(state, backing, value, info.type)
-	if state.failed || function.error != nil { return 0 }
-	return backing
-}
-
-// The composite literal under a top-level address operator, through any parentheses. Anything else, including an
-// address of existing storage, is not a fresh literal.
-@(private)
-global_literal_address_operand :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> (syntax.Node_Index, bool) {
-	current := node
-	for state.ast.nodes[current].kind == .Paren_Expr {
-		current = state.ast.nodes[current].payload.(syntax.Paren_Expr).expr
-	}
-	if state.ast.nodes[current].kind != .Unary_Expr { return 0, false }
-	unary := state.ast.nodes[current].payload.(syntax.Unary_Expr)
-	if unary.op.kind != .And { return 0, false }
-	operand := unary.expr
-	for state.ast.nodes[operand].kind == .Paren_Expr {
-		operand = state.ast.nodes[operand].payload.(syntax.Paren_Expr).expr
-	}
-	if state.ast.nodes[operand].kind != .Comp_Lit { return 0, false }
-	return operand, true
+lower_global_initializer :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> ir.Node_Id {
+	return lower_value(state, node)
 }
 
 @(private)

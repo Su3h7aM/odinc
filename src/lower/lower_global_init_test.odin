@@ -59,7 +59,7 @@ global_address_of_literal_materializes_backing_global :: proc(t: ^testing.T) {
 	if !testing.expect_value(t, len(errors), 0) { return }
 	if !testing.expect_value(t, len(module.globals), 3) { return }
 	backing := module.globals[2]
-	testing.expect(t, strings.has_prefix(backing.name, "__odinc_internal_global_address_"), "literal backing must be a hidden global")
+	testing.expect(t, strings.has_prefix(backing.name, "__odinc_internal_aggregate_"), "literal backing must be a hidden global")
 	testing.expect_value(t, backing.size, u32(8))
 	testing.expect_value(t, backing.align, u32(8))
 	testing.expect(t, backing.mutable, "literal backing must be writable at startup")
