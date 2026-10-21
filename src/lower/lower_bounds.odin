@@ -42,7 +42,14 @@ lower_index_address :: proc(state: ^Procedure_State, node: syntax.Node_Index, pl
 	base_type := lower_type(state, lower_info(state, index.expr).type)
 	offset := lower_value(state, index.index)
 	if state.failed { return 0 }
-	if function.nodes.type[offset] != .I64 {
+	if is_wide_integer(state, lower_info(state, index.index).type) {
+		// A 128-bit index addresses its low word; with bounds checks on, a set high word is out of bounds.
+		words := wide_load(state, offset)
+		if plan.policy == .Enabled {
+			lower_check(state, ir.compare(function, .Eq, words.high, ir.const_int(function, .I64, 0)))
+		}
+		offset = words.low
+	} else if function.nodes.type[offset] != .I64 {
 		offset = ir.convert(function, .Sext if signed_type(state, lower_info(state, index.index).type) else .Zext, offset, .I64)
 	}
 	base_info := lower_info(state, index.expr)

@@ -113,6 +113,7 @@ native_section_expectations := [?]NativeSectionExpectation {
 	{"demo_section_bit_field_type", 30},
 	{"demo_section_range_statements_with_multiple_return_values", 55},
 	{"matrix_procedure_abi", 0},
+	{"atomic_bool", 127},
 }
 
 native_section_test_directory :: proc(t: ^testing.T) -> string {
