@@ -773,12 +773,23 @@ Bounds_Kind :: enum u8 {
 	Slice,
 	Multi_Pointer,
 	Matrix,
+	Soa,
 }
 Bounds_Plan :: struct {
 	kind:     Bounds_Kind,
 	operands: []Operand,
 	policy:   Check_Policy,
 	helper:   Entity_Id,
+}
+
+// One lvalue or rvalue of an #soa container: the soa struct value, the element
+// index and the selected field (minus one for the whole element).
+Soa_Plan :: struct {
+	container: Operand,
+	index:     Operand,
+	field:     i32,
+	soa:       types.Type_Id,
+	policy:    Check_Policy,
 }
 Union_Operation :: enum u8 {
 	Inject,
@@ -855,6 +866,7 @@ Plan :: union {
 	Type_Assertion_Plan,
 	Map_Index_Plan,
 	Address_Plan,
+	Soa_Plan,
 }
 Switch_Plan :: struct {
 	tag:         Entity_Id,

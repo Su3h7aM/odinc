@@ -38,6 +38,10 @@ expression_index :: proc(
 		append(&checker.plans, Plan(Map_Info_Plan{type = types.resolve_named(store, map_type)})) or_return
 		return expression_map_index(checker, view, scope, access.expr, access.index, base_descriptor.index, base_descriptor.elem, writable)
 	}
+	_, _, is_soa := soa_descriptor(store, map_type)
+	if is_soa {
+		return expression_unsupported(checker, view, scope, node, "Soa_Index")
+	}
 	is_array := base_descriptor.kind == .Array
 	is_dynamic_array := base_descriptor.kind == .Dynamic_Array
 	is_enumerated_array := base_descriptor.kind == .Enumerated_Array
@@ -114,6 +118,10 @@ expression_slice :: proc(
 	if has_pointer_base {
 		base.type = base_descriptor.elem
 		base_descriptor = types.get(store, types.resolve_named(store, base_descriptor.elem))
+	}
+	_, _, is_soa := soa_descriptor(store, base.type)
+	if is_soa {
+		return expression_unsupported(checker, view, scope, node, "Soa_Slice")
 	}
 	is_multi_pointer := base_descriptor.kind == .Multi_Pointer
 	is_string := base_descriptor.kind == .String || base_descriptor.kind == .String16

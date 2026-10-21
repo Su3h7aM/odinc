@@ -680,6 +680,7 @@ array_type :: proc(
 	if array.tag != 0 {
 		tag := expression_text(file, array.tag)
 		if tag == "#simd" { return simd_array_type(checker, file_id, file, scope, array) }
+		if tag == "#soa" { return soa_array_type(checker, file_id, file, scope, array) }
 		if tag != "#sparse" {
 			type_report(checker, file_id, file, array.tag, .Unsupported_Type_Expression, tag) or_return
 			return types.TYPE_POISON, nil
@@ -708,6 +709,38 @@ array_type :: proc(
 	elem := type_expression(checker, file_id, scope, array.elem, true) or_return
 	if !count_valid || elem == types.TYPE_POISON { return types.TYPE_POISON, nil }
 	return types.intern(checker.store, types.Type{kind = .Array, elem = elem, count = count}), nil
+}
+
+@(private = "file")
+soa_array_type :: proc(
+	checker: ^Type_Checker,
+	file_id: File_Id,
+	file: ^File,
+	scope: Scope_Id,
+	array: syntax.Array_Type,
+) -> (
+	type: types.Type_Id,
+	err: Resolve_Error,
+) {
+	if array.len == 0 {
+		elem := type_expression(checker, file_id, scope, array.elem, true) or_return
+		if elem == types.TYPE_POISON { return types.TYPE_POISON, nil }
+		soa, valid := soa_struct(checker, elem, 0, .Slice)
+		if !valid {
+			type_report(checker, file_id, file, array.elem, .Unsupported_Type_Expression, "Invalid_Soa_Element") or_return
+			return types.TYPE_POISON, nil
+		}
+		return soa, nil
+	}
+	count, count_valid := array_count(checker, file_id, scope, array.len) or_return
+	elem := type_expression(checker, file_id, scope, array.elem, true) or_return
+	if !count_valid || elem == types.TYPE_POISON { return types.TYPE_POISON, nil }
+	soa, valid := soa_struct(checker, elem, count, .Fixed)
+	if !valid {
+		type_report(checker, file_id, file, array.elem, .Unsupported_Type_Expression, "Invalid_Soa_Element") or_return
+		return types.TYPE_POISON, nil
+	}
+	return soa, nil
 }
 
 @(private = "file")

@@ -142,6 +142,7 @@ Type :: struct {
 	convention:                                     Calling_Convention,
 	union_form:                                     Union_Form,
 	soa:                                            Soa_Kind,
+	soa_elem:                                       Type_Id,
 	custom_align, min_field_align, max_field_align: i64,
 	row_major:                                      bool,
 	packed, raw_union:                              bool,
@@ -338,6 +339,7 @@ descriptors_equal :: proc(a, b: Type) -> bool {
 	   a.convention != b.convention ||
 	   a.union_form != b.union_form ||
 	   a.soa != b.soa ||
+	   a.soa_elem != b.soa_elem ||
 	   a.custom_align != b.custom_align ||
 	   a.min_field_align != b.min_field_align ||
 	   a.max_field_align != b.max_field_align ||
