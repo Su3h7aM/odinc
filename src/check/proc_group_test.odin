@@ -297,3 +297,45 @@ main :: proc "contextless" () {}
 	procedure, ok := check_procedure_source(t, source, .None, "", 0)
 	if ok { testing.expect(t, procedure.body_state == .Complete) }
 }
+
+@(test)
+proc_group_trailing_any_int_parameters_select_by_arity :: proc(t: ^testing.T) {
+	// Mirrors the `make` group: members share a leading typeid parameter and differ only in trailing
+	// `#any_int` parameters, so the argument count selects the member.
+	source := transmute([]byte)string(
+		`package sample
+make_like :: proc "contextless" ($T: typeid/[dynamic]$E, extra := "x", more := 2) -> int { return more }
+make_like_len :: proc "contextless" ($T: typeid/[dynamic]$E, #any_int len: int, extra := "x", more := 2) -> int { return len }
+make_like_cap :: proc "contextless" ($T: typeid/[dynamic]$E, #any_int len: int, #any_int cap: int) -> int { return cap }
+pick_make :: proc{make_like, make_like_len, make_like_cap}
+two_choice: int = pick_make([dynamic]int, 3)
+three_choice: int = pick_make([dynamic]int, 3, 8)
+main :: proc "contextless" () {}
+`,
+	)
+	procedure, ok := check_procedure_source(t, source, .None, "", 0)
+	if ok { testing.expect(t, procedure.body_state == .Complete) }
+}
+
+@(test)
+proc_group_inferred_default_parameter_type_filters_members :: proc(t: ^testing.T) {
+	// A parameter without an explicit type takes the type of its default value, as official
+	// handle_parameter_value infers it. An argument with no conversion to that type must reject
+	// the member instead of matching it, or two such members tie into an ambiguity. The
+	// make-shaped member keeps resolving through its `#any_int` parameter.
+	source := transmute([]byte)string(
+		`package sample
+wants_string :: proc "contextless" ($T: typeid, extra := "dflt") -> f64 { return 1.0 }
+wants_int :: proc "contextless" ($T: typeid, extra := 7) -> int { return extra }
+pick :: proc{wants_string, wants_int}
+make_like :: proc "contextless" ($T: typeid/[dynamic]$E, allocator := "s") -> int { return 1 }
+make_like_len :: proc "contextless" ($T: typeid/[dynamic]$E, #any_int len: int, allocator := "s") -> int { return len }
+pick_make :: proc{make_like, make_like_len}
+int_choice: int = pick(int, 2)
+two_choice: int = pick_make([dynamic]int, 3)
+main :: proc "contextless" () {}
+`,
+	)
+	procedure, ok := check_procedure_source(t, source, .None, "", 0)
+	if ok { testing.expect(t, procedure.body_state == .Complete) }
+}

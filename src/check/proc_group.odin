@@ -249,8 +249,9 @@ group_member_score :: proc(
 		if index >= len(procedure.defaults) { return 0, false, nil }
 		default_argument := procedure.defaults[index]
 		if default_argument.value == nil && !default_argument.caller_location && !default_argument.caller_expression { return 0, false, nil }
-		// A filled default is not evidence of a better match, so an exact-arity overload wins (check_call_arguments_internal).
-		score -= 13
+		// A filled default contributes no argument score. This mirrors check_call_arguments_internal, where a
+		// dummy's bonus and re-score discount net to -1: exact arity breaks ties without outweighing quality.
+		score -= 1
 	}
 	if descriptor.variadic && !spread { score -= 1 }
 	for argument, index in positional {
@@ -374,8 +375,9 @@ group_generic_member_score :: proc(
 					}
 				}
 				if field.default_value == 0 || file.ast.nodes[name].kind == .Poly_Type { return 0, false, nil }
-				// A filled default is not evidence of a better match, so an exact-arity overload wins (check_call_arguments_internal).
-				score -= 13
+				// A filled default contributes no argument score. This mirrors check_call_arguments_internal, where a
+				// dummy's bonus and re-score discount net to -1: exact arity breaks ties without outweighing quality.
+				score -= 1
 				continue
 			}
 			argument_score, matched := group_field_argument_score(checker, view, member, &match, spread, &deferred, field, name, positional[index]) or_return
@@ -516,7 +518,18 @@ group_field_argument_score :: proc(
 		}
 		return 2, true, nil
 	}
-	if field.type == 0 { return -1, true, nil }
+	if field.type == 0 {
+		// No explicit type: the parameter takes the type of its default value, as
+		// record_fields infers it and upstream handle_parameter_value does. Score the
+		// argument against that type instead of accepting anything.
+		mark := expression_speculation_begin(checker)
+		defer expression_speculation_end(checker, mark)
+		inferred, found, infer_error := default_parameter_type(checker.type_checker, match.definition_file, file, match.scope, field.default_value)
+		if infer_error != nil { return 0, false, infer_error }
+		if !found { return -1, true, nil }
+		if inferred == types.TYPE_POISON { return 0, false, nil }
+		return group_argument_score(checker, view, argument.value, argument.info, inferred, .Any_Int in field.flags)
+	}
 	if !poly_pattern_has_poly(file, field.type) {
 		bound_scope := group_bound_scope(checker, member, match.bindings) or_return
 		expected := type_expression(checker.type_checker, match.definition_file, bound_scope, field.type, true) or_return
