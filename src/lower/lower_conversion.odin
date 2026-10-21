@@ -12,7 +12,13 @@ lower_conversion :: proc(state: ^Procedure_State, plan: check.Conversion_Plan, n
 	if state.failed { return 0 }
 	if plan.kind == .Union_Injection && plan.source_type != 0 { source_id = plan.source_type }
 	constant_target := types.Type_Id(0)
-	if types.is_untyped(check.type_store(state.job.program), source_id) { constant_target = plan.target }
+	if types.is_untyped(check.type_store(state.job.program), source_id) {
+		constant_target = plan.target
+		if plan.kind == .Broadcast && lower_type(state, plan.target).kind == .Array {
+			constant_target = broadcast_leaf_type(state, plan.target)
+			source_id = constant_target
+		}
+	}
 	value := lower_operand(state, plan.source, constant_target)
 	if state.failed { return 0 }
 	return lower_conversion_value(state, plan, node, source_id, value)
@@ -29,6 +35,9 @@ lower_conversion_value :: proc(
 	value := initial_value
 	if plan.kind == .Box { return lower_box_value(state, node, source_id, value) }
 	if plan.kind == .Union_Injection { return lower_union_injection(state, node, plan, source_id, value) }
+	if plan.kind == .Broadcast && lower_type(state, plan.target).kind == .Array {
+		return lower_broadcast_array(state, node, plan.target, source_id, value)
+	}
 	if len(plan.path) != 0 {
 		store := check.type_store(state.job.program)
 		field_type := source_id

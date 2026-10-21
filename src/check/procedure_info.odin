@@ -58,6 +58,7 @@ expression_procedure_info_build :: proc(
 			if .Using in field.flags { flags += {.Using, .Parameter, .Immutable} }
 			if .C_Vararg in field.flags { flags += {.C_Variadic} }
 			if .Any_Int in field.flags { flags += {.Any_Integer} }
+			if .No_Broadcast in field.flags { flags += {.No_Broadcast} }
 			for _ in 0 ..< max(int(field.names.count), 1) {
 				if field.default_value != 0 {
 					info.defaults[index] = expression_default_argument(checker, view, scope, field.default_value, parameters[index]) or_return

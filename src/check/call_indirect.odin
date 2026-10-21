@@ -54,7 +54,18 @@ expression_indirect_call :: proc(
 		valid: bool
 		if slot.value != 0 {
 			any_integer := metadata != nil && .Any_Integer in metadata.parameter_flags[index]
-			argument, valid = expression_call_slot_argument(checker, view, scope, slot, expansions, descriptor.params[index], 0, any_integer) or_return
+			no_broadcast := metadata != nil && .No_Broadcast in metadata.parameter_flags[index]
+			argument, valid = expression_call_slot_argument(
+				checker,
+				view,
+				scope,
+				slot,
+				expansions,
+				descriptor.params[index],
+				0,
+				any_integer,
+				no_broadcast,
+			) or_return
 		} else {
 			if metadata == nil { return expression_unsupported(checker, view, scope, node, "Call_Default_Missing") }
 			argument, valid = expression_call_default_argument(
