@@ -2,6 +2,7 @@ package check
 
 import "core:math/big"
 import "core:testing"
+import "oc:syntax"
 import "oc:types"
 
 @(test)
@@ -125,4 +126,98 @@ constant_operators_fold_and_intern_results :: proc(t: ^testing.T) {
 	quaternion, quaternion_error := constant_pool_intern_quaternion(&pool, Quaternion_Value{max_id, one_id, max_id, one_id})
 	_, quaternion_binary_error := constant_binary_operator(&pool, .Mul, quaternion, quaternion)
 	testing.expect(t, quaternion_error == nil && quaternion_binary_error == Constant_Operation_Error_Kind.Unsupported_Constant_Op)
+}
+@(test)
+constant_compare_folds_mixed_representations :: proc(t: ^testing.T) {
+	pool: Constant_Pool
+	testing.expect(t, constant_pool_init(&pool, context.allocator) == nil)
+	defer constant_pool_destroy(&pool)
+
+	five: big.Int
+	defer big.int_destroy(&five)
+	testing.expect(t, big.int_set_from_integer(&five, 5) == nil)
+	five_id, five_error := constant_pool_intern_integer(&pool, &five)
+	testing.expect(t, five_error == nil)
+
+	five_rational: big.Rat
+	defer big.destroy(&five_rational)
+	testing.expect(t, big.rat_set_frac(&five_rational, 5, 1) == nil)
+	five_rational_id, five_rational_error := constant_pool_intern_rational(&pool, &five_rational)
+	testing.expect(t, five_rational_error == nil)
+
+	eleven_halves: big.Rat
+	defer big.destroy(&eleven_halves)
+	testing.expect(t, big.rat_set_frac(&eleven_halves, 11, 2) == nil)
+	eleven_halves_id, eleven_halves_error := constant_pool_intern_rational(&pool, &eleven_halves)
+	testing.expect(t, eleven_halves_error == nil)
+
+	third: big.Rat
+	defer big.destroy(&third)
+	testing.expect(t, big.rat_set_frac(&third, 1, 3) == nil)
+	third_id, third_error := constant_pool_intern_rational(&pool, &third)
+	testing.expect(t, third_error == nil)
+
+	half: big.Rat
+	defer big.destroy(&half)
+	testing.expect(t, big.rat_set_frac(&half, 1, 2) == nil)
+	half_id, half_error := constant_pool_intern_rational(&pool, &half)
+	testing.expect(t, half_error == nil)
+
+	five_float_id, five_float_error := constant_pool_intern_float(&pool, Float_Value{bits = transmute(u64)f64(5), width = 64})
+	testing.expect(t, five_float_error == nil)
+
+	large: big.Int
+	defer big.int_destroy(&large)
+	testing.expect(t, big.int_set_from_integer(&large, 9007199254740993) == nil)
+	large_id, large_error := constant_pool_intern_integer(&pool, &large)
+	testing.expect(t, large_error == nil)
+
+	large_rational: big.Rat
+	defer big.destroy(&large_rational)
+	testing.expect(t, big.rat_set_frac(&large_rational, 9007199254740993, 1) == nil)
+	large_rational_id, large_rational_error := constant_pool_intern_rational(&pool, &large_rational)
+	testing.expect(t, large_rational_error == nil)
+
+	large_even_rational: big.Rat
+	defer big.destroy(&large_even_rational)
+	testing.expect(t, big.rat_set_frac(&large_even_rational, 9007199254740992, 1) == nil)
+	large_even_rational_id, large_even_rational_error := constant_pool_intern_rational(&pool, &large_even_rational)
+	testing.expect(t, large_even_rational_error == nil)
+
+	rounded_float_id, rounded_float_error := constant_pool_intern_float(&pool, Float_Value{bits = transmute(u64)f64(9007199254740992), width = 64})
+	testing.expect(t, rounded_float_error == nil)
+
+	Case :: struct {
+		operator: syntax.Token_Kind,
+		left:     Const_Id,
+		right:    Const_Id,
+		want:     bool,
+	}
+	// Each row matches the official compiler's `when` probe for the same operands.
+	cases := []Case {
+		{.Eq, five_id, five_rational_id, true},
+		{.Lt, five_id, eleven_halves_id, true},
+		{.Gt, eleven_halves_id, five_id, true},
+		{.Lt_Eq, five_id, five_rational_id, true},
+		{.Gt_Eq, five_id, eleven_halves_id, false},
+		{.Not_Eq, five_id, eleven_halves_id, true},
+		{.Lt, third_id, half_id, true},
+		{.Gt, half_id, third_id, true},
+		{.Not_Eq, third_id, half_id, true},
+		{.Eq, five_float_id, five_id, true},
+		{.Eq, five_float_id, five_rational_id, true},
+		{.Eq, large_id, large_rational_id, true},
+		{.Eq, large_id, large_even_rational_id, false},
+		{.Gt, large_id, large_even_rational_id, true},
+		{.Not_Eq, large_id, large_even_rational_id, true},
+		{.Eq, rounded_float_id, large_id, true},
+		{.Eq, rounded_float_id, large_rational_id, true},
+		{.Lt, rounded_float_id, large_rational_id, false},
+	}
+	for &c in cases {
+		result_id, compare_error := constant_compare_operator(&pool, c.operator, c.left, c.right)
+		testing.expect(t, compare_error == nil)
+		if compare_error != nil { continue }
+		testing.expect(t, constant_pool_get(&pool, result_id).value.(bool) == c.want)
+	}
 }

@@ -233,6 +233,72 @@ constant_aggregate_binary_operator :: proc(
 }
 
 // Evaluates a constant binary operator and interns the result in pool.
+// Promotes two numeric constants of different representations to one shared
+// representation: integer against rational stays exact, anything against a
+// float converts the exact side to f64 at the float's width. Same-kind and
+// non-numeric pairs pass through unchanged.
+@(private = "file")
+constant_numeric_promotion :: proc(pool: ^Constant_Pool, left_id, right_id: Const_Id) -> (left, right: Const_Id, promoted: bool, err: Constant_Error) {
+	left_constant := constant_pool_get(pool, left_id)
+	right_constant := constant_pool_get(pool, right_id)
+	if left_constant == nil || right_constant == nil {
+		return left_id, right_id, false, Constant_Pool_Error.Invalid_Operand
+	}
+	if left_integer, is_integer := left_constant.value.(big.Int); is_integer {
+		if _, is_rational := right_constant.value.(big.Rat); is_rational {
+			value: big.Rat
+			defer big.destroy(&value)
+			big.rat_set_int(&value, &left_integer, allocator = context.temp_allocator) or_return
+			converted, failure := constant_pool_intern_rational(pool, &value, left_constant.type)
+			if failure != nil { return left_id, right_id, false, failure }
+			return converted, right_id, true, nil
+		}
+		if right_float, is_float := right_constant.value.(Float_Value); is_float {
+			value, failure := big.int_get_float(&left_integer, allocator = context.temp_allocator)
+			if failure != nil { return left_id, right_id, false, failure }
+			converted, intern_failure := constant_pool_intern_float(pool, constant_float_from_f64(value, right_float.width), left_constant.type)
+			if intern_failure != nil { return left_id, right_id, false, intern_failure }
+			return converted, right_id, true, nil
+		}
+		return left_id, right_id, false, nil
+	}
+	if left_float, is_float := left_constant.value.(Float_Value); is_float {
+		if right_rational, is_rational := right_constant.value.(big.Rat); is_rational {
+			value, _, failure := numeric_rational_to_f64(&right_rational, left_float.width)
+			if failure { return left_id, right_id, false, Constant_Pool_Error.Invalid_Operand }
+			converted, intern_failure := constant_pool_intern_float(pool, constant_float_from_f64(value, left_float.width), right_constant.type)
+			if intern_failure != nil { return left_id, right_id, false, intern_failure }
+			return left_id, converted, true, nil
+		}
+		if right_integer, is_integer := right_constant.value.(big.Int); is_integer {
+			value, failure := big.int_get_float(&right_integer, allocator = context.temp_allocator)
+			if failure != nil { return left_id, right_id, false, failure }
+			converted, intern_failure := constant_pool_intern_float(pool, constant_float_from_f64(value, left_float.width), right_constant.type)
+			if intern_failure != nil { return left_id, right_id, false, intern_failure }
+			return left_id, converted, true, nil
+		}
+		return left_id, right_id, false, nil
+	}
+	if left_rational, is_rational := left_constant.value.(big.Rat); is_rational {
+		if right_float, is_float := right_constant.value.(Float_Value); is_float {
+			value, _, failure := numeric_rational_to_f64(&left_rational, right_float.width)
+			if failure { return left_id, right_id, false, Constant_Pool_Error.Invalid_Operand }
+			converted, intern_failure := constant_pool_intern_float(pool, constant_float_from_f64(value, right_float.width), left_constant.type)
+			if intern_failure != nil { return left_id, right_id, false, intern_failure }
+			return converted, right_id, true, nil
+		}
+		if right_integer, is_integer := right_constant.value.(big.Int); is_integer {
+			value: big.Rat
+			defer big.destroy(&value)
+			big.rat_set_int(&value, &right_integer, allocator = context.temp_allocator) or_return
+			converted, failure := constant_pool_intern_rational(pool, &value, right_constant.type)
+			if failure != nil { return left_id, right_id, false, failure }
+			return left_id, converted, true, nil
+		}
+	}
+	return left_id, right_id, false, nil
+}
+
 @(require_results)
 constant_binary_operator :: proc(
 	pool: ^Constant_Pool,
@@ -253,48 +319,12 @@ constant_binary_operator :: proc(
 	if constant_is_aggregate(left.value) || constant_is_aggregate(right.value) {
 		return constant_aggregate_binary_operator(pool, operator, left_id, right_id, type_store)
 	}
-	if left_integer, ok := left.value.(big.Int); ok {
-		if _, is_rational := right.value.(big.Rat); is_rational {
-			value: big.Rat
-			defer big.destroy(&value)
-			big.rat_set_int(&value, &left_integer, allocator = context.temp_allocator) or_return
-			converted, failure := constant_pool_intern_rational(pool, &value, left.type)
-			if failure != nil { return 0, failure }
-			return constant_binary_operator(pool, operator, converted, right_id, result_type, division_by_zero, type_store)
-		}
-		if right_float, is_float := right.value.(Float_Value); is_float {
-			value, failure := big.int_get_float(&left_integer, allocator = context.temp_allocator)
-			if failure != nil { return 0, failure }
-			return constant_float_binary_operator(pool, operator, value, constant_float_to_f64(right_float), right_float.width, type)
-		}
-	}
-	if left_float, ok := left.value.(Float_Value); ok {
-		if right_rational, is_rational := right.value.(big.Rat); is_rational {
-			value, _, failure := numeric_rational_to_f64(&right_rational, left_float.width)
-			if failure { return 0, Constant_Operation_Error_Kind.Invalid_Operand }
-			return constant_float_binary_operator(pool, operator, constant_float_to_f64(left_float), value, left_float.width, type)
-		}
-		if right_integer, is_integer := right.value.(big.Int); is_integer {
-			value, failure := big.int_get_float(&right_integer, allocator = context.temp_allocator)
-			if failure != nil { return 0, failure }
-			return constant_float_binary_operator(pool, operator, constant_float_to_f64(left_float), value, left_float.width, type)
-		}
-	}
-	if _, ok := left.value.(big.Rat); ok {
-		left_rational := left.value.(big.Rat)
-		if right_float, is_float := right.value.(Float_Value); is_float {
-			value, _, failure := numeric_rational_to_f64(&left_rational, right_float.width)
-			if failure { return 0, Constant_Operation_Error_Kind.Invalid_Operand }
-			return constant_float_binary_operator(pool, operator, value, constant_float_to_f64(right_float), right_float.width, type)
-		}
-		if right_integer, is_integer := right.value.(big.Int); is_integer {
-			value: big.Rat
-			defer big.destroy(&value)
-			big.rat_set_int(&value, &right_integer, allocator = context.temp_allocator) or_return
-			converted, failure := constant_pool_intern_rational(pool, &value, right.type)
-			if failure != nil { return 0, failure }
-			return constant_binary_operator(pool, operator, left_id, converted, result_type, division_by_zero, type_store)
-		}
+	binary_left, binary_right, _, binary_promotion_error := constant_numeric_promotion(pool, left_id, right_id)
+	if binary_promotion_error != nil { return 0, binary_promotion_error }
+	if binary_left != left_id || binary_right != right_id {
+		left = constant_pool_get(pool, binary_left)
+		right = constant_pool_get(pool, binary_right)
+		if left == nil || right == nil { return 0, Constant_Operation_Error_Kind.Invalid_Operand }
 	}
 	#partial switch &left_value in left.value {
 	case bool:
@@ -413,21 +443,7 @@ constant_binary_operator :: proc(
 	case Float_Value:
 		right_value, ok := right.value.(Float_Value)
 		if !ok { return 0, Constant_Operation_Error_Kind.Invalid_Operand }
-		a, b := constant_float_to_f64(left_value), constant_float_to_f64(right_value)
-		result: f64
-		#partial switch operator {
-		case .Add:
-			result = a + b
-		case .Sub:
-			result = a - b
-		case .Mul:
-			result = a * b
-		case .Quo:
-			result = a / b
-		case:
-			return 0, Constant_Operation_Error_Kind.Unsupported_Operator
-		}
-		return constant_pool_intern_float(pool, constant_float_from_f64(result, left_value.width), type)
+		return constant_float_binary_operator(pool, operator, constant_float_to_f64(left_value), constant_float_to_f64(right_value), left_value.width, type)
 	case string:
 		right_value, ok := right.value.(string)
 		if !ok { return 0, Constant_Operation_Error_Kind.Invalid_Operand }
@@ -492,6 +508,13 @@ constant_compare_operator :: proc(
 	left := constant_pool_get(pool, left_id)
 	right := constant_pool_get(pool, right_id)
 	if left == nil || right == nil { return 0, Constant_Operation_Error_Kind.Invalid_Operand }
+	compared_left, compared_right, _, compared_promotion_error := constant_numeric_promotion(pool, left_id, right_id)
+	if compared_promotion_error != nil { return 0, compared_promotion_error }
+	if compared_left != left_id || compared_right != right_id {
+		left = constant_pool_get(pool, compared_left)
+		right = constant_pool_get(pool, compared_right)
+		if left == nil || right == nil { return 0, Constant_Operation_Error_Kind.Invalid_Operand }
+	}
 	comparison: int
 	#partial switch &left_value in left.value {
 	case bool:
