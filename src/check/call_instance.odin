@@ -276,6 +276,7 @@ expression_generic_call :: proc(
 				continue
 			}
 			poly_argument := types.default_type_of_untyped(checker.type_checker.store, argument.type)
+			poly_bind_deferred_in_pattern(&match, field.type, poly_argument, deferred[:]) or_return
 			matched := poly_match_pattern(&match, field.type, poly_argument) or_return
 			if !matched { return expression_unsupported(checker, view, scope, node, "Generic_Call_Pattern") }
 		}
@@ -402,7 +403,7 @@ poly_name_deferred :: proc(match: ^Poly_Match, deferred: []Untyped_Pattern, name
 	return false
 }
 
-// A typed argument binds a deferred untyped name reached through array or pointer structure, so the
+// A typed argument binds a deferred untyped name reached through a compound type, so the
 // untyped argument then converts to that binding instead of fixing the name to its default type.
 @(private = "file")
 poly_bind_deferred_in_pattern :: proc(
@@ -417,6 +418,27 @@ poly_bind_deferred_in_pattern :: proc(
 	file := match.checker.type_checker.files[match.definition_file]
 	descriptor := types.get(store, argument)
 	#partial switch file.ast.nodes[pattern].kind {
+	case .Poly_Type:
+		poly := syntax.node_payload(file.ast, pattern, syntax.Poly_Type)
+		if poly.specialization != 0 {
+			return poly_bind_deferred_in_pattern(match, poly.specialization, argument, deferred)
+		}
+	case .Proc_Type:
+		if descriptor.kind != .Procedure { return nil }
+		signature := syntax.node_payload(file.ast, pattern, syntax.Proc_Type)
+		for fields, index in ([2]syntax.Node_Index{signature.params, signature.results}) {
+			if fields == 0 { continue }
+			field_types := descriptor.params if index == 0 else descriptor.results
+			position := 0
+			for field_node in syntax.node_list(file.ast, syntax.node_payload(file.ast, fields, syntax.Field_List).list) {
+				field := syntax.node_payload(file.ast, field_node, syntax.Field)
+				for _ in 0 ..< max(1, len(syntax.node_list(file.ast, field.names))) {
+					if position >= len(field_types) { return nil }
+					poly_bind_deferred_in_pattern(match, field.type, field_types[position], deferred) or_return
+					position += 1
+				}
+			}
+		}
 	case .Ident:
 		name := expression_text(file, pattern)
 		if poly_name_deferred(match, deferred, name) {

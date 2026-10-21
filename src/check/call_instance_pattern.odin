@@ -60,6 +60,15 @@ poly_rebind_assignable :: proc(match: ^Poly_Match, name: string, argument: types
 @(private = "package")
 poly_pattern_has_poly :: proc(file: ^File, pattern: syntax.Node_Index) -> bool {
 	#partial switch file.ast.nodes[pattern].kind {
+	case .Proc_Type:
+		signature := syntax.node_payload(file.ast, pattern, syntax.Proc_Type)
+		for fields in ([2]syntax.Node_Index{signature.params, signature.results}) {
+			if fields == 0 { continue }
+			for field_node in syntax.node_list(file.ast, syntax.node_payload(file.ast, fields, syntax.Field_List).list) {
+				field := syntax.node_payload(file.ast, field_node, syntax.Field)
+				if poly_pattern_has_poly(file, field.type) { return true }
+			}
+		}
 	case .Poly_Type:
 		return true
 	case .Call_Expr:
@@ -97,6 +106,27 @@ poly_pattern_has_poly :: proc(file: ^File, pattern: syntax.Node_Index) -> bool {
 poly_match_pattern :: proc(match: ^Poly_Match, pattern: syntax.Node_Index, argument: types.Type_Id) -> (matched: bool, err: Resolve_Error) {
 	file := match.checker.type_checker.files[match.definition_file]
 	#partial switch file.ast.nodes[pattern].kind {
+	case .Proc_Type:
+		descriptor := types.get(match.checker.type_checker.store, underlying_type(match.checker.type_checker.store, argument))^
+		if descriptor.kind != .Procedure { return false, nil }
+		signature := syntax.node_payload(file.ast, pattern, syntax.Proc_Type)
+		for fields, index in ([2]syntax.Node_Index{signature.params, signature.results}) {
+			field_types := descriptor.params if index == 0 else descriptor.results
+			position := 0
+			if fields != 0 {
+				for field_node in syntax.node_list(file.ast, syntax.node_payload(file.ast, fields, syntax.Field_List).list) {
+					field := syntax.node_payload(file.ast, field_node, syntax.Field)
+					for _ in 0 ..< max(1, len(syntax.node_list(file.ast, field.names))) {
+						if position >= len(field_types) { return false, nil }
+						matched = poly_match_pattern(match, field.type, field_types[position]) or_return
+						if !matched { return false, nil }
+						position += 1
+					}
+				}
+			}
+			if position != len(field_types) { return false, nil }
+		}
+		return true, nil
 	case .Call_Expr:
 		return poly_match_record(match, pattern, argument)
 	case .Poly_Type:
@@ -170,7 +200,8 @@ poly_match_pattern :: proc(match: ^Poly_Match, pattern: syntax.Node_Index, argum
 	if is_bound { return bound_matched, nil }
 	template_matched, is_template := poly_match_record_template(match, pattern, argument) or_return
 	if is_template { return template_matched, nil }
-	expected := type_expression(match.checker.type_checker, match.definition_file, match.scope, pattern, true) or_return
+	bound_scope := poly_bound_scope(match) or_return
+	expected := type_expression(match.checker.type_checker, match.definition_file, bound_scope, pattern, true) or_return
 	return expected != types.TYPE_POISON && types.are_identical(match.checker.type_checker.store, expected, argument), nil
 }
 
@@ -283,9 +314,14 @@ poly_match_array :: proc(
 ) {
 	store := match.checker.type_checker.store
 	descriptor := types.get(store, underlying_type(store, argument))
-	if descriptor.kind != kind { return false, nil }
 	count, element := descriptor.count, descriptor.elem
 	file := match.checker.type_checker.files[match.definition_file]
+	if kind == .Array && descriptor.kind == .Enumerated_Array && file.ast.nodes[length].kind == .Poly_Type {
+		matched = poly_match_pattern(match, length, descriptor.index) or_return
+		if !matched { return false, nil }
+		return poly_match_pattern(match, elem, element)
+	}
+	if descriptor.kind != kind { return false, nil }
 	if file.ast.nodes[length].kind == .Poly_Type {
 		name := expression_text(file, syntax.node_payload(file.ast, length, syntax.Poly_Type).type)
 		constant, ok, constant_error := poly_integer_constant(match, count)
