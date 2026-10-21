@@ -15,6 +15,9 @@ lower_intrinsic :: proc(
 	plan: check.Builtin_Plan,
 	kind: check.Builtin_Kind,
 ) -> ir.Node_Id {
+	// soa_zip takes one operand per field with no intrinsic shape; it lowers
+	// its own operands, past the five-operand intrinsic limit.
+	if kind == .Soa_Zip { return lower_soa_zip(state, node, info, plan) }
 	if len(plan.results) != 0 {
 		results: [4]ir.Node_Id
 		lower_intrinsic_tuple(state, node, plan, kind, results[:])
@@ -137,6 +140,12 @@ lower_intrinsic :: proc(
 // Fills the two results of an overflow or compare-exchange intrinsic: the value and the bool, in that order.
 @(private)
 lower_intrinsic_tuple :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: check.Builtin_Plan, kind: check.Builtin_Kind, results: []ir.Node_Id) {
+	// soa_unzip lowers its own operands and fills one result per field; it
+	// takes no intrinsic shape and no fixed operand array.
+	if kind == .Soa_Unzip {
+		lower_soa_unzip(state, node, plan, results)
+		return
+	}
 	values, ok := lower_intrinsic_operands(state, node, plan)
 	if !ok { return }
 	function := state.job.function
