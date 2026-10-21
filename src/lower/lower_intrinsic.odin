@@ -3,6 +3,7 @@ package lower
 import "oc:check"
 import "oc:ir"
 import "oc:syntax"
+import "oc:types"
 
 // Lowers the intrinsics of base:intrinsics planned by the checker. Operands arrive already converted to the
 // types the checker fixed; each shape is validated here before its node is built. Intrinsics with two results
@@ -50,14 +51,25 @@ lower_intrinsic :: proc(
 		return values[0]
 	case .Volatile_Load, .Atomic_Load, .Atomic_Load_Explicit:
 		if !is_atomic_type(type) || function.nodes.type[values[0]] != .Ptr { return lower_fail(state, node, .Builtin) }
+		if type == .Bool {
+			width, width_ok := atomic_bool_access_type(state, info.type)
+			if !width_ok { return lower_fail(state, node, .Builtin) }
+			return ir.convert(function, .Trunc, lower_ordered_load(state, values[0], width, order), .Bool)
+		}
 		return lower_ordered_load(state, values[0], type, order)
 	case .Volatile_Store, .Atomic_Store, .Atomic_Store_Explicit:
 		if function.nodes.type[values[0]] != .Ptr || !is_atomic_type(function.nodes.type[values[1]]) { return lower_fail(state, node, .Builtin) }
+		stored := values[1]
+		if function.nodes.type[stored] == .Bool {
+			width, width_ok := atomic_bool_access_type(state, operand_type(state, plan.arguments[1]))
+			if !width_ok { return lower_fail(state, node, .Builtin) }
+			stored = ir.convert(function, .Zext, stored, width)
+		}
 		memory := ir.add_node(
 			function,
 			.Store,
 			.Memory,
-			{state.builder.control, ir.variable_get(state.builder, ir.MEMORY_VARIABLE), values[0], values[1]},
+			{state.builder.control, ir.variable_get(state.builder, ir.MEMORY_VARIABLE), values[0], stored},
 			{access = {order = order}},
 		)
 		ir.variable_set(state.builder, ir.MEMORY_VARIABLE, memory)
@@ -170,13 +182,26 @@ lower_intrinsic_tuple :: proc(state: ^Procedure_State, node: syntax.Node_Index, 
 			if !success_ok { return }
 		}
 		if function.nodes.type[values[0]] != .Ptr ||
-		   !is_integer_value(function, values[1]) ||
+		   !(is_integer_value(function, values[1]) || function.nodes.type[values[1]] == .Bool) ||
 		   function.nodes.type[values[2]] != function.nodes.type[values[1]] {
 			lower_fail(state, node, .Builtin)
 			return
 		}
 		weak := kind == .Atomic_Compare_Exchange_Weak || kind == .Atomic_Compare_Exchange_Weak_Explicit
-		results[0], results[1] = lower_compare_exchange(state, values[0], values[1], values[2], success, failure, weak)
+		expected, desired := values[1], values[2]
+		widened := false
+		if function.nodes.type[expected] == .Bool {
+			width, width_ok := atomic_bool_access_type(state, operand_type(state, plan.arguments[1]))
+			if !width_ok {
+				lower_fail(state, node, .Builtin)
+				return
+			}
+			expected = ir.convert(function, .Zext, expected, width)
+			desired = ir.convert(function, .Zext, desired, width)
+			widened = true
+		}
+		results[0], results[1] = lower_compare_exchange(state, values[0], expected, desired, success, failure, weak)
+		if widened { results[0] = ir.convert(function, .Trunc, results[0], .Bool) }
 	case:
 		lower_fail(state, node, .Builtin)
 	}
@@ -264,7 +289,17 @@ is_integer_type :: proc(type: ir.Value_Type) -> bool {
 
 @(private)
 is_atomic_type :: proc(type: ir.Value_Type) -> bool {
-	return is_integer_type(type) || type == .Ptr
+	return is_integer_type(type) || type == .Bool || type == .Ptr
+}
+
+// Boolean atomics run on one byte: a `Bool` value is a single bit in the IR and lives in one byte
+// in memory, so widening to `I8` matches every other boolean read and write. The IR atomic nodes
+// only take integers, so a `Bool` value is widened before the operation and narrowed after, the
+// same widening a store and narrowing a load use.
+@(private)
+atomic_bool_access_type :: proc(state: ^Procedure_State, id: types.Type_Id) -> (ir.Value_Type, bool) {
+	if lower_type(state, id).kind != .Bool { return .None, false }
+	return .I8, true
 }
 
 @(private)
