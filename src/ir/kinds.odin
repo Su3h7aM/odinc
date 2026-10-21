@@ -246,7 +246,7 @@ KIND_TABLE :: [Node_Kind]Kind_Info {
 		member_count = 2,
 	},
 	.Switch = {name = "switch", class = .Branch, min_inputs = 2, max_inputs = 2, slots = {CONTROL, INTS, {}, {}, {}}, result = TUPLE, tuple = .Open},
-	.Proj = {name = "proj", class = .Projection, min_inputs = 1, max_inputs = 1, slots = {TUPLE, {}, {}, {}, {}}, result = CONTROL + MEMORY + SCALARS},
+	.Proj = {name = "proj", class = .Projection, min_inputs = 1, max_inputs = 1, slots = {TUPLE, {}, {}, {}, {}}, result = CONTROL + MEMORY + ABI_VALUES},
 	.Return = {
 		name = "return",
 		class = .Terminator,

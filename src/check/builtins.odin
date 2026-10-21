@@ -609,6 +609,9 @@ expression_builtin_call :: proc(
 	file := checker.type_checker.files[file_id]
 	call := syntax.node_payload(file.ast, node, syntax.Call_Expr)
 	builtin := entity_get(checker.type_checker.resolver.scopes, callee.entity).data.(Builtin_Id)
+	if checker.builtin_kinds[builtin] == .Atomic_Type_Is_Lock_Free {
+		return expression_atomic_type_is_lock_free(checker, view, scope, node, arguments, call.ellipsis.kind != .Invalid)
+	}
 	if checker.builtin_kinds[builtin] == .Type_Merge {
 		return expression_type_merge(checker, view, scope, node, arguments, call.ellipsis.kind != .Invalid)
 	}
@@ -1099,7 +1102,7 @@ expression_has_target_feature :: proc(
 	return Expression_Info{type = types.TYPE_UNTYPED_BOOL, constant = constant, mode = .Constant, scope = scope, state = .Checked}, nil
 }
 
-@(private = "file")
+@(private = "package")
 target_feature_enabled :: proc(features: []string, name: string) -> bool {
 	for feature in features {
 		if feature == name { return true }
@@ -1200,6 +1203,14 @@ constant_string_length :: proc(checker: ^Expression_Checker, id: Const_Id) -> (l
 	if constant == nil { return 0, false }
 	#partial switch text in constant.value {
 	case string:
+		if constant.type == 0 { return len(text), true }
+		store := checker.type_checker.store
+		descriptor := types.get(store, types.resolve_named(store, constant.type))
+		if descriptor.kind == .Slice {
+			size, _, error := types.layout(store, descriptor.elem)
+			if error != .None || size <= 0 { return 0, false }
+			return int(i64(len(text)) / size), true
+		}
 		return len(text), true
 	case []u16:
 		return len(text), true

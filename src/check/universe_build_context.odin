@@ -94,11 +94,42 @@ Build_Configuration :: struct {
 	target_features:            []string,
 }
 
-DEFAULT_BUILD_CONFIGURATION :: Build_Configuration {
-	os     = .Linux,
-	arch   = .amd64,
-	endian = .Little,
-	no_crt = true,
+@(rodata)
+DEFAULT_BUILD_CONFIGURATION := Build_Configuration {
+	os              = .Linux,
+	arch            = .amd64,
+	endian          = .Little,
+	no_crt          = true,
+	// Upstream llvm_backend.cpp defaults Linux amd64 to x86-64-v2.
+	target_features = {
+		"64bit",
+		"64bit-mode",
+		"cmov",
+		"crc32",
+		"cx16",
+		"cx8",
+		"false-deps-popcnt",
+		"fast-15bytenop",
+		"fast-scalar-fsqrt",
+		"fast-shld-rotate",
+		"fxsr",
+		"idivq-to-divl",
+		"macrofusion",
+		"mmx",
+		"nopl",
+		"popcnt",
+		"sahf",
+		"slow-3ops-lea",
+		"slow-unaligned-mem-32",
+		"sse",
+		"sse2",
+		"sse3",
+		"sse4.1",
+		"sse4.2",
+		"ssse3",
+		"vzeroupper",
+		"x87",
+	},
 }
 
 // Names from official build_settings.cpp `target_os_names`, `target_arch_names` and `target_endian_names`.

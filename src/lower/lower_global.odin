@@ -130,11 +130,19 @@ aggregate_constant_image :: proc(
 			continue
 		}
 		if text, is_text := constant.value.(string); is_text {
-			element_kind := types.get(store, types.resolve_named(store, element_type)).kind
-			if element_kind == .String {
+			element_descriptor := types.get(store, types.resolve_named(store, element_type))
+			element_kind := element_descriptor.kind
+			if element_kind == .String || element_kind == .Slice {
 				blob, blob_error := global_string_blob(module, text)
 				if blob_error != nil { return false, blob_error }
-				write_scalar(bytes, start + 8, u64(len(text)), 8)
+				count := i64(len(text))
+				if element_kind == .Slice {
+					element_size, alignment, error := types.layout(store, element_descriptor.elem)
+					if error != .None || element_size <= 0 { return false, nil }
+					count /= element_size
+					module.globals[blob].align = u32(alignment)
+				}
+				write_scalar(bytes, start + 8, u64(count), 8)
 				append(relocations, ir.Data_Reloc{offset = u32(start), target = ir.Symbol_Ref{space = .Global, index = blob}}) or_return
 			} else if element_kind == .CString {
 				blob, blob_error := global_cstring_blob(module, text)

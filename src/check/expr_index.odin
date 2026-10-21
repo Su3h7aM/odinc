@@ -78,13 +78,22 @@ expression_index :: proc(
 		position = check_expression(checker, view, scope, access.index, checker.default_integer) or_return
 	}
 	statically_checked := false
-	if is_array && position.mode == .Constant {
+	if (is_array || is_enumerated_array) && position.mode == .Constant {
 		value := constant_pool_get(checker.constants, position.constant).value.(big.Int)
 		constant_index, value_error := big.int_get_i64(&value)
-		if value_error != .None || constant_index < 0 || constant_index >= length {
+		lower_bound := i64(0)
+		if is_enumerated_array { lower_bound = base_descriptor.lower_bound }
+		if value_error != .None || constant_index < lower_bound || constant_index - lower_bound >= length {
 			return expression_failure(checker, view, scope, access.index, .Invalid_Operand)
 		}
 		statically_checked = true
+		if base.mode == .Constant && !is_pointer {
+			aggregate, ok := constant_pool_get(checker.constants, base.constant).value.(Aggregate_Value)
+			index := constant_index - lower_bound
+			if ok && index < i64(len(aggregate.elements)) {
+				return Expression_Info{type = element_type, constant = aggregate.elements[index], mode = .Constant, scope = scope, state = .Checked}, nil
+			}
+		}
 	}
 	allocator := mem.dynamic_arena_allocator(&checker.arena)
 	operands := make([]Operand, 2, allocator) or_return

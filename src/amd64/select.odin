@@ -128,7 +128,7 @@ select_function_impl :: proc(
 		type := input.nodes.type[node]
 		if type == .Memory || type == .Control || type == .Tuple || type == .None { continue }
 		class, ok := register_class_of(type)
-		if !ok || class == .Float && type != .F32 && type != .F64 { continue }
+		if !ok || class == .Float && type != .F32 && type != .F64 && type != .V128 { continue }
 		selector.values[node] = new_vreg(output, class) or_return
 	}
 	selector.params = lower_start(output, 0, selector.signature, selector.assignment, allocator) or_return
@@ -221,6 +221,8 @@ select_width :: proc(type: ir.Value_Type) -> u8 {
 		return 8
 	case .F64:
 		return 8
+	case .V128:
+		return 16
 	}
 	return 0
 }

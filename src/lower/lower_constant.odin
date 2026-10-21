@@ -25,6 +25,11 @@ lower_constant :: proc(state: ^Procedure_State, id: check.Const_Id, target: type
 			return lower_string16(state, text)
 		case .String:
 			return lower_string(state, text)
+		case .Slice:
+			descriptor := lower_type(state, type)
+			size, alignment, error := types.layout(check.type_store(state.job.program), descriptor.elem)
+			if error != .None || size <= 0 { return lower_fail(state, state.job.procedure.body.node, .Constant) }
+			return lower_string(state, text, i64(len(text)) / size, u32(alignment))
 		case:
 			return lower_fail(state, state.job.procedure.body.node, .Constant)
 		}
@@ -163,7 +168,8 @@ lower_float_bits :: proc(value: check.Float_Value, scalar: ir.Value_Type) -> (bi
 
 // The bytes live in a blob of this function; the value is a header of data pointer and length, as for any string.
 @(private)
-lower_string :: proc(state: ^Procedure_State, text: string) -> ir.Node_Id {
+lower_string :: proc(state: ^Procedure_State, text: string, count: i64 = -1, alignment: u32 = 1) -> ir.Node_Id {
+	length := i64(len(text)) if count < 0 else count
 	function := state.job.function
 	allocator := virtual.arena_allocator(&function.arena)
 	bytes, bytes_error := make([]byte, len(text), allocator)
@@ -176,13 +182,13 @@ lower_string :: proc(state: ^Procedure_State, text: string) -> ir.Node_Id {
 		space = .Local_Blob,
 		index = u32(len(function.blobs)),
 	}
-	if _, append_error := append(&function.blobs, ir.Data_Blob{bytes = bytes, align = 1}); append_error != nil {
+	if _, append_error := append(&function.blobs, ir.Data_Blob{bytes = bytes, align = alignment}); append_error != nil {
 		function.error = append_error
 		return 0
 	}
 	slot := ir.stack_slot(function, state.entry_control, 16, 8)
 	lower_store_word(state, slot, ir.symbol_addr(function, blob))
-	lower_store_word(state, ir.ptr_offset(function, slot, 8), ir.const_int(function, .I64, i64(len(text))))
+	lower_store_word(state, ir.ptr_offset(function, slot, 8), ir.const_int(function, .I64, length))
 	return slot
 }
 

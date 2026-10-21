@@ -80,7 +80,7 @@ fill_globals :: proc(
 				if types.get(check.type_store(program), types.resolve_named(check.type_store(program), global.type)).kind == .CString {
 					bytes, relocs, string_error = global_cstring_image(module, text, output.relocs, allocator)
 				} else {
-					bytes, relocs, string_error = global_string_image(module, text, output.relocs, allocator)
+					bytes, relocs, string_error = global_load_image(module, program, global.type, text, output.relocs, allocator)
 				}
 				if string_error != nil { return string_error }
 				output = &module.globals[symbol.index]

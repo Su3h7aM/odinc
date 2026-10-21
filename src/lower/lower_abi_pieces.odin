@@ -42,6 +42,8 @@ piece_width :: proc(type: ir.Value_Type) -> i64 {
 		return 4
 	case .I64, .F64, .Ptr:
 		return 8
+	case .V128:
+		return 16
 	}
 	return 0
 }
@@ -95,6 +97,7 @@ is_aggregate :: proc(state: ^Procedure_State, type: types.Type_Id) -> bool {
 	     .Union,
 	     .Complex,
 	     .Quaternion,
+	     .Simd_Vector,
 	     .Matrix:
 		return true
 	}

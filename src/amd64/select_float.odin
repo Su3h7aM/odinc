@@ -21,6 +21,8 @@ float_move :: proc(type: ir.Value_Type) -> (mnemonic: x86.Mnemonic, width: u8, o
 		return .MOVSS, 4, true
 	case .F64:
 		return .MOVSD, 8, true
+	case .V128:
+		return .MOVUPS, 16, true
 	}
 	return {}, 0, false
 }

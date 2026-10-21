@@ -40,6 +40,8 @@ expression_zero_fill_supported :: proc(checker: ^Expression_Checker, store: ^typ
 		return true
 	case .Union:
 		return expression_union_variant_constant(store, element_type)
+	case .Array, .Enumerated_Array:
+		return expression_zero_fill_supported(checker, store, descriptor.elem)
 	case .Struct:
 		for field in descriptor.fields {
 			if !expression_zero_fill_supported(checker, store, field.type) { return false }
@@ -74,6 +76,13 @@ expression_zero_fill_constants :: proc(
 		return constant_pool_intern_string(checker.constants, "", element_type)
 	case .Float:
 		return constant_pool_intern_float(checker.constants, Float_Value{width = u8(descriptor.count * 8)}, element_type)
+	case .Array, .Enumerated_Array:
+		element_ids := make([]Const_Id, int(descriptor.count), checker.allocator) or_return
+		defer delete(element_ids, checker.allocator)
+		for &element in element_ids {
+			element = expression_zero_fill_constants(checker, store, descriptor.elem) or_return
+		}
+		return constant_pool_intern_aggregate(checker.constants, element_type, element_ids)
 	case .Raw_Pointer, .Pointer, .Multi_Pointer, .CString, .CString16, .Type_Id, .Procedure:
 		return constant_pool_intern_nil(checker.constants, element_type)
 	case .Struct:
