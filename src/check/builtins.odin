@@ -627,6 +627,9 @@ expression_builtin_call :: proc(
 	if kind := checker.builtin_kinds[builtin]; kind == .Type_Map_Info || kind == .Type_Map_Cell_Info {
 		return expression_map_info(checker, view, scope, node, kind, arguments, call.ellipsis.kind != .Invalid)
 	}
+	if checker.builtin_kinds[builtin] == .Type_Hasher_Proc {
+		return expression_type_hasher_proc(checker, view, scope, node, builtin, arguments, call.ellipsis.kind != .Invalid)
+	}
 	if kind := checker.builtin_kinds[builtin]; kind == .Min || kind == .Max || kind == .Abs || kind == .Clamp {
 		return expression_numeric_builtin(checker, view, scope, node, builtin, kind, arguments, call.ellipsis.kind != .Invalid)
 	}

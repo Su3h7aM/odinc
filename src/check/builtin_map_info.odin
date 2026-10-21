@@ -91,6 +91,16 @@ expression_checker_publish_map_cell_info :: proc(checker: ^Expression_Checker, p
 			append_map_cell_info_entry(checker, &entries, value) or_return
 		}
 	}
+	// Maps that only surface through runtime type info (printed or reflected but
+	// never indexed) still need cell info, like upstream's on-demand map info.
+	for info in program.runtime.type_info {
+		map_type := types.resolve_named(checker.type_checker.store, info.type)
+		descriptor := types.get(checker.type_checker.store, map_type)^
+		if descriptor.kind != .Map { continue }
+		if !generator_supported(checker.type_checker.store, descriptor.index) { continue }
+		append_map_cell_info_entry(checker, &entries, descriptor.index) or_return
+		append_map_cell_info_entry(checker, &entries, descriptor.elem) or_return
+	}
 	program.runtime.map_cell_info = entries[:]
 	return nil
 }

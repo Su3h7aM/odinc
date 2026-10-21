@@ -6,7 +6,17 @@ import "core:mem"
 import "oc:types"
 
 // Runtime procedures that generated map hashers and equality procedures call.
-map_helper_names := [?]string{"default_hasher_fixed", "default_hasher_string", "default_hasher_string16", "default_hasher_f64", "memory_equal"}
+map_helper_names := [?]string {
+	"default_hasher_fixed",
+	"default_hasher_string",
+	"default_hasher_string16",
+	"default_hasher_cstring",
+	"default_hasher_cstring16",
+	"default_hasher_f64",
+	"memory_equal",
+	"cstring_eq",
+	"cstring16_eq",
+}
 map_runtime_helper_names := [?]string {
 	"map_seed",
 	"map_cap",
@@ -56,7 +66,7 @@ expression_resolve_map_helpers :: proc(checker: ^Expression_Checker) -> (resolve
 generator_supported :: proc(store: ^types.Store, type: types.Type_Id) -> bool {
 	descriptor := types.get(store, types.resolve_named(store, type))
 	#partial switch descriptor.kind {
-	case .Any, .CString, .CString16, .Slice, .Dynamic_Array, .Fixed_Capacity_Array, .Map:
+	case .Any, .Slice, .Dynamic_Array, .Fixed_Capacity_Array, .Map:
 		return false
 	case .Struct:
 		fields := descriptor.fields
@@ -92,27 +102,48 @@ expression_checker_publish_map_info :: proc(checker: ^Expression_Checker, progra
 	entries := make([dynamic]Map_Info_Entry, allocator) or_return
 	for plan in checker.plans {
 		info, is_info := plan.(Map_Info_Plan)
-		if !is_info || map_info_index(entries[:], info.type) >= 0 { continue }
-		key := types.get(store, info.type).index
-		value := types.get(store, info.type).elem
-		key_hasher := map_generated_procedure(checker, .Hasher, key) or_return
-		key_equal := map_generated_procedure(checker, .Equality, key) or_return
-		name := fmt.aprintf("__odinc_internal_map_info_%d", len(entries), allocator = allocator)
-		append(&checker.symbols, Symbol{kind = .Global, name = name}) or_return
-		append(
-			&entries,
-			Map_Info_Entry {
-				type = info.type,
-				key_cell = map_cell_info_symbol(program, key),
-				value_cell = map_cell_info_symbol(program, value),
-				key_hasher = key_hasher,
-				key_equal = key_equal,
-				symbol = Symbol_Id(len(checker.symbols) - 1),
-			},
-		) or_return
+		if !is_info { continue }
+		append_map_info_entry(checker, &entries, program, info.type) or_return
+	}
+	// Maps that only surface through runtime type info (printed or reflected but
+	// never indexed) still need map info, like upstream's on-demand map info.
+	for info in program.runtime.type_info {
+		map_type := types.resolve_named(store, info.type)
+		if types.get(store, map_type).kind != .Map { continue }
+		append_map_info_entry(checker, &entries, program, map_type) or_return
 	}
 	program.runtime.map_info = entries[:]
 	program.runtime.helper_entities = map_helper_entities(checker) or_return
+	return nil
+}
+
+@(private = "file")
+append_map_info_entry :: proc(
+	checker: ^Expression_Checker,
+	entries: ^[dynamic]Map_Info_Entry,
+	program: ^Checked_Program,
+	map_type: types.Type_Id,
+) -> runtime.Allocator_Error {
+	if map_info_index(entries[:], map_type) >= 0 { return nil }
+	store := checker.type_checker.store
+	descriptor := types.get(store, map_type)^
+	if !generator_supported(store, descriptor.index) { return nil }
+	key_hasher := map_generated_procedure(checker, .Hasher, descriptor.index) or_return
+	key_equal := map_generated_procedure(checker, .Equality, descriptor.index) or_return
+	allocator := mem.dynamic_arena_allocator(&checker.arena)
+	name := fmt.aprintf("__odinc_internal_map_info_%d", len(entries), allocator = allocator)
+	append(&checker.symbols, Symbol{kind = .Global, name = name}) or_return
+	append(
+		entries,
+		Map_Info_Entry {
+			type = map_type,
+			key_cell = map_cell_info_symbol(program, descriptor.index),
+			value_cell = map_cell_info_symbol(program, descriptor.elem),
+			key_hasher = key_hasher,
+			key_equal = key_equal,
+			symbol = Symbol_Id(len(checker.symbols) - 1),
+		},
+	) or_return
 	return nil
 }
 
@@ -155,7 +186,7 @@ map_helper_entities :: proc(checker: ^Expression_Checker) -> (helpers: []Entity_
 }
 
 // One generated procedure per kind and type, shared by every map that needs it.
-@(private = "file")
+@(private = "package")
 map_generated_procedure :: proc(
 	checker: ^Expression_Checker,
 	kind: Generated_Body_Kind,
@@ -185,7 +216,7 @@ map_generated_procedure :: proc(
 	return Symbol_Id(len(checker.symbols) - 1), nil
 }
 
-@(private = "file")
+@(private = "package")
 map_generated_signature :: proc(store: ^types.Store, kind: Generated_Body_Kind, allocator: runtime.Allocator) -> (types.Type_Id, runtime.Allocator_Error) {
 	raw := types.intern(store, types.Type{kind = .Raw_Pointer})
 	params, params_error := make([]types.Type_Id, 2, allocator)

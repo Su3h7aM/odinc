@@ -24,6 +24,8 @@ STRUCT_FLAG_ALIGN :: 3
 Type_Info_Writer :: struct {
 	store:           ^types.Store,
 	module:          ^ir.Module,
+	symbols:         []ir.Symbol_Ref,
+	map_info:        []check.Map_Info_Entry,
 	allocator:       runtime.Allocator,
 	entries:         []check.Type_Info_Entry,
 	representatives: []types.Type_Id,
@@ -49,7 +51,14 @@ Type_Info_Image :: struct {
 
 // Writes the runtime type info entries and the runtime `type_table` slice from the checked entries.
 @(private)
-fill_type_info :: proc(program: ^check.Checked_Program, module: ^ir.Module, errors: ^[dynamic]Lower_Error) -> (err: runtime.Allocator_Error) {
+fill_type_info :: proc(
+	program: ^check.Checked_Program,
+	module: ^ir.Module,
+	symbols: []ir.Symbol_Ref,
+	errors: ^[dynamic]Lower_Error,
+) -> (
+	err: runtime.Allocator_Error,
+) {
 	requirements := check.runtime_requirements(program)
 	if len(requirements.type_info) == 0 { return nil }
 	store := check.type_store(program)
@@ -66,6 +75,8 @@ fill_type_info :: proc(program: ^check.Checked_Program, module: ^ir.Module, erro
 	writer := Type_Info_Writer {
 		store           = store,
 		module          = module,
+		symbols         = symbols,
+		map_info        = requirements.map_info,
 		allocator       = allocator,
 		entries         = requirements.type_info,
 		representatives = requirements.type_info_representatives,
@@ -251,7 +262,8 @@ write_type_info_variant :: proc(
 		payload := begin_variant(writer, image, "Type_Info_Map")
 		key := write_entry_pointer(writer, image, payload, "key", descriptor.index) or_return
 		value := write_entry_pointer(writer, image, payload, "value", descriptor.elem) or_return
-		return key && value, nil
+		info := write_map_info_pointer(writer, image, payload, entry.type) or_return
+		return key && value && info, nil
 	case .Bit_Set:
 		payload := begin_variant(writer, image, "Type_Info_Bit_Set")
 		elem := write_entry_pointer(writer, image, payload, "elem", descriptor.elem) or_return
@@ -654,7 +666,7 @@ enum_members_of :: proc(writer: ^Type_Info_Writer, enum_type: types.Type_Id) -> 
 }
 
 @(private)
-enum_bounds :: proc(writer: ^Type_Info_Writer, enum_type: types.Type_Id) -> (low: i64, high: i64) {
+enum_bounds :: proc(writer: ^Type_Info_Writer, enum_type: types.Type_Id) -> (low: i128, high: i128) {
 	for member, position in enum_members_of(writer, enum_type) {
 		if position == 0 || member.value < low { low = member.value }
 		if position == 0 || member.value > high { high = member.value }
@@ -737,6 +749,29 @@ write_entry_pointer :: proc(
 	index, found := entry_global(writer, target)
 	if !found { return false, nil }
 	return true, set_pointer_field(writer, image, struct_type, name, index)
+}
+
+// The Map_Info global for a map type. Stays nil when no global exists (a key
+// the generator cannot hash); the runtime prints such a map as empty.
+@(private)
+write_map_info_pointer :: proc(
+	writer: ^Type_Info_Writer,
+	image: ^Type_Info_Image,
+	struct_type: types.Type_Id,
+	type: types.Type_Id,
+) -> (
+	bool,
+	runtime.Allocator_Error,
+) {
+	map_type := types.resolve_named(writer.store, type)
+	for entry in writer.map_info {
+		if entry.type != map_type { continue }
+		if int(entry.symbol) <= 0 || int(entry.symbol) >= len(writer.symbols) { return true, nil }
+		symbol := writer.symbols[entry.symbol]
+		if symbol.space != .Global { return true, nil }
+		return true, set_pointer_field(writer, image, struct_type, "map_info", int(symbol.index))
+	}
+	return true, nil
 }
 
 // The typeid value of a `typeid_of` plan: its entry in the runtime type info holds the encoded id.

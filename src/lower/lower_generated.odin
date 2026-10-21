@@ -55,12 +55,19 @@ generated_hash_value :: proc(state: ^Procedure_State, type: types.Type_Id, addre
 	store := check.type_store(state.job.program)
 	resolved := types.resolve_named(store, type)
 	size, _, _ := types.layout(store, resolved)
+	if types.is_simple_compare(store, resolved) {
+		return generated_helper_call(state, "default_hasher_fixed", []ir.Node_Id{address, seed, ir.const_int(function, .I64, size)})
+	}
 	kind := types.get(store, resolved).kind
 	#partial switch kind {
 	case .String:
 		return generated_helper_call(state, "default_hasher_string", []ir.Node_Id{address, seed})
 	case .String16:
 		return generated_helper_call(state, "default_hasher_string16", []ir.Node_Id{address, seed})
+	case .CString:
+		return generated_helper_call(state, "default_hasher_cstring", []ir.Node_Id{address, seed})
+	case .CString16:
+		return generated_helper_call(state, "default_hasher_cstring16", []ir.Node_Id{address, seed})
 	case .Float:
 		if size != 4 && size != 8 { return generated_unsupported(state) }
 		value := lower_load(state, address, resolved)
@@ -85,7 +92,7 @@ generated_hash_value :: proc(state: ^Procedure_State, type: types.Type_Id, addre
 		return generated_hash_elements(state, elem, address, seed, size / stride, stride)
 	case .Union:
 		return generated_hash_union(state, resolved, address, seed)
-	case .Any, .CString, .CString16, .Slice, .Dynamic_Array, .Fixed_Capacity_Array, .Map:
+	case .Any, .Slice, .Dynamic_Array, .Fixed_Capacity_Array, .Map:
 		return generated_unsupported(state)
 	}
 	return generated_helper_call(state, "default_hasher_fixed", []ir.Node_Id{address, seed, ir.const_int(function, .I64, size)})
@@ -103,6 +110,10 @@ generated_equal_value :: proc(state: ^Procedure_State, type: types.Type_Id, left
 		return generated_string_equal(state, left, right, 1)
 	case .String16:
 		return generated_string_equal(state, left, right, 2)
+	case .CString:
+		return generated_helper_call(state, "cstring_eq", []ir.Node_Id{lower_load_word(state, left, .Ptr), lower_load_word(state, right, .Ptr)})
+	case .CString16:
+		return generated_helper_call(state, "cstring16_eq", []ir.Node_Id{lower_load_word(state, left, .Ptr), lower_load_word(state, right, .Ptr)})
 	case .Float:
 		if size != 4 && size != 8 { return generated_unsupported(state) }
 		return ir.compare(function, .FEq, lower_load(state, left, resolved), lower_load(state, right, resolved))
@@ -126,7 +137,7 @@ generated_equal_value :: proc(state: ^Procedure_State, type: types.Type_Id, left
 		return generated_equal_elements(state, elem, left, right, size / stride, stride)
 	case .Union:
 		return generated_equal_union(state, resolved, left, right)
-	case .Any, .CString, .CString16, .Slice, .Dynamic_Array, .Fixed_Capacity_Array, .Map:
+	case .Any, .Slice, .Dynamic_Array, .Fixed_Capacity_Array, .Map:
 		return generated_unsupported(state)
 	}
 	if size == 0 { return ir.const_int(function, .Bool, 1) }
@@ -189,6 +200,8 @@ generated_helper_call :: proc(state: ^Procedure_State, name: string, arguments: 
 	program := state.job.program
 	for entity in program.runtime.helper_entities {
 		if program.entities[entity].name != name { continue }
+		// An unresolved helper has no type or symbol; failing cleanly beats asserting in type lookup.
+		if program.entities[entity].type == types.TYPE_NONE || program.entity_symbols[entity] == 0 { continue }
 		symbol := state.job.symbols[program.entity_symbols[entity]]
 		return generated_procedure_call(state, symbol, program.entities[entity].type, arguments)
 	}
@@ -315,7 +328,7 @@ generated_hash_elements :: proc(state: ^Procedure_State, elem: types.Type_Id, ad
 	cursor := ir.variable_declare(builder, address)
 	result := ir.variable_declare(builder, seed)
 	end := ir.jump_target_make(builder)
-	loop := ir.loop_begin(builder, []ir.Variable{index, cursor, result, ir.MEMORY_VARIABLE})
+	loop := ir.loop_begin(builder, []ir.Variable{index, cursor, result})
 	branch := ir.branch_if(builder, ir.compare(function, .ULt, ir.variable_get(builder, index), ir.const_int(function, .I64, count)))
 	ir.enter_arm(builder, branch, 1)
 	ir.jump_to(builder, end)
@@ -338,7 +351,7 @@ generated_equal_elements :: proc(state: ^Procedure_State, elem: types.Type_Id, l
 	right_cursor := ir.variable_declare(builder, right)
 	result := ir.variable_declare(builder, ir.const_int(function, .Bool, 1))
 	end := ir.jump_target_make(builder)
-	loop := ir.loop_begin(builder, []ir.Variable{index, left_cursor, right_cursor, result, ir.MEMORY_VARIABLE})
+	loop := ir.loop_begin(builder, []ir.Variable{index, left_cursor, right_cursor, result})
 	branch := ir.branch_if(builder, ir.compare(function, .ULt, ir.variable_get(builder, index), ir.const_int(function, .I64, count)))
 	ir.enter_arm(builder, branch, 1)
 	ir.jump_to(builder, end)

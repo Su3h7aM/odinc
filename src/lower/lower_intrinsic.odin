@@ -19,6 +19,7 @@ lower_intrinsic :: proc(
 	// soa_zip takes one operand per field with no intrinsic shape; it lowers
 	// its own operands, past the five-operand intrinsic limit.
 	if kind == .Soa_Zip { return lower_soa_zip(state, node, info, plan) }
+	if kind == .Type_Hasher_Proc { return lower_type_hasher_proc(state, node, plan) }
 	if len(plan.results) != 0 {
 		results: [4]ir.Node_Id
 		lower_intrinsic_tuple(state, node, plan, kind, results[:])
