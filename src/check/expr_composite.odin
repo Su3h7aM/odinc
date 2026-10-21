@@ -99,6 +99,11 @@ expression_composite :: proc(
 			return Expression_Info{type = type, constant = zero, mode = .Constant, scope = scope, state = .Checked}, nil
 		}
 	}
+	if descriptor.kind == .Union && len(syntax.node_list(file.ast, literal.elems)) == 0 {
+		plan := Plan_Id(len(checker.plans))
+		append(&checker.plans, Plan(Aggregate_Plan{type = type})) or_return
+		return Expression_Info{type = type, mode = .Value, plan = plan, scope = scope, state = .Checked}, nil
+	}
 	if descriptor.kind != .Struct && descriptor.kind != .Bit_Field && descriptor.kind != .Any && !is_array && !is_matrix {
 		if descriptor.kind == .Dynamic_Array || descriptor.kind == .Map {
 			return expression_dynamic_literal(checker, view, file_id, scope, node, type, descriptor)

@@ -66,6 +66,7 @@ expression_procedure_group_declaration :: proc(
 @(private = "file")
 Group_Argument :: struct {
 	value: syntax.Node_Index,
+	scope: Scope_Id,
 	name:  string,
 	info:  Expression_Info,
 }
@@ -89,26 +90,21 @@ expression_group_call :: proc(
 	allocator := mem.dynamic_arena_allocator(&checker.arena)
 	positional := make([dynamic]Group_Argument, 0, len(arguments), allocator) or_return
 	named := make([dynamic]Group_Argument, 0, len(arguments), allocator) or_return
-	hinted := false
 	for argument in arguments {
 		group_argument := Group_Argument {
 			value = argument,
+			scope = scope,
 		}
 		if file.ast.nodes[argument].kind == .Field_Value {
 			field := syntax.node_payload(file.ast, argument, syntax.Field_Value)
 			if file.ast.nodes[field.field].kind != .Ident { return expression_unsupported(checker, view, scope, node, "Call_Named_Field") }
 			group_argument = Group_Argument {
 				value = field.value,
+				scope = scope,
 				name  = expression_text(file, field.field),
 			}
 		}
-		#partial switch file.ast.nodes[group_argument.value].kind {
-		case .Ternary_When_Expr, .Ternary_If_Expr:
-			return expression_unsupported(checker, view, scope, node, "Group_Argument_Hint")
-		}
-		if group_argument_is_deferred(file, group_argument.value) {
-			hinted = true
-		} else {
+		if !group_argument_is_deferred(file, group_argument.value) {
 			group_argument.info = check_expression(checker, view, scope, group_argument.value) or_return
 			if group_argument.info.state == .Invalid { return expression_poison(scope), nil }
 		}
@@ -129,11 +125,6 @@ expression_group_call :: proc(
 		}
 	}
 	members := entity_get(checker.type_checker.resolver.scopes, callee.entity).data.(Procedure_Group_Data).members
-	if hinted {
-		for member in members {
-			if is_generic_procedure(checker, member) { return expression_unsupported(checker, view, scope, node, "Group_Argument_Hint") }
-		}
-	}
 	best: Entity_Id
 	best_score: int
 	found := false
@@ -333,7 +324,16 @@ group_generic_member_score :: proc(
 					bound_scope := group_bound_scope(checker, member, &bindings) or_return
 					expected := type_expression(checker.type_checker, declaration.type.file, bound_scope, pattern, true) or_return
 					if expected == types.TYPE_POISON { return 0, false, nil }
-					argument_score, matched := group_argument_score(checker, view, positional[index].value, info, expected, .Any_Int in field.flags) or_return
+					argument_score, matched := group_argument_match(
+						checker,
+						view,
+						positional[index].scope,
+						checker.type_checker.files[checker.views[view].file],
+						positional[index].value,
+						info,
+						expected,
+						.Any_Int in field.flags,
+					) or_return
 					if !matched { return 0, false, nil }
 					score += argument_score
 				}
@@ -519,13 +519,31 @@ group_field_argument_score :: proc(
 		if infer_error != nil { return 0, false, infer_error }
 		if !found { return -1, true, nil }
 		if inferred == types.TYPE_POISON { return 0, false, nil }
-		return group_argument_score(checker, view, argument.value, argument.info, inferred, .Any_Int in field.flags)
+		return group_argument_match(
+			checker,
+			view,
+			argument.scope,
+			checker.type_checker.files[checker.views[view].file],
+			argument.value,
+			argument.info,
+			inferred,
+			.Any_Int in field.flags,
+		)
 	}
 	if !poly_pattern_has_poly(file, field.type) {
 		bound_scope := group_bound_scope(checker, member, match.bindings) or_return
 		expected := type_expression(checker.type_checker, match.definition_file, bound_scope, field.type, true) or_return
 		if expected == types.TYPE_POISON { return 0, false, nil }
-		return group_argument_score(checker, view, argument.value, argument.info, expected, .Any_Int in field.flags)
+		return group_argument_match(
+			checker,
+			view,
+			argument.scope,
+			checker.type_checker.files[checker.views[view].file],
+			argument.value,
+			argument.info,
+			expected,
+			.Any_Int in field.flags,
+		)
 	}
 	if poly_untyped_deferred(file, field.type, types.get(store, argument.info.type).kind) {
 		append(deferred, Untyped_Pattern{pattern = field.type, type = argument.info.type}) or_return
@@ -562,6 +580,11 @@ group_argument_is_deferred :: proc(file: ^File, argument: syntax.Node_Index) -> 
 	#partial switch file.ast.nodes[argument].kind {
 	case .Implicit_Selector_Expr:
 		return true
+	case .Paren_Expr:
+		return group_argument_is_deferred(file, syntax.node_payload(file.ast, argument, syntax.Paren_Expr).expr)
+	case .Ternary_When_Expr, .Ternary_If_Expr:
+		ternary := syntax.node_payload(file.ast, argument, syntax.Ternary_Expr)
+		return group_argument_is_deferred(file, ternary.x) || group_argument_is_deferred(file, ternary.y)
 	case .Comp_Lit:
 		return syntax.node_payload(file.ast, argument, syntax.Comp_Lit).type == 0
 	}
