@@ -323,6 +323,9 @@ expression_range_container :: proc(
 		container_type = types.resolve_named(store, type.elem)
 		type = types.get(store, container_type)
 	}
+	if type.kind == .Struct && type.soa != .None {
+		return expression_range_soa(checker, view, file_id, scope, range_scope, node, parts, container, container_type)
+	}
 	#partial switch type.kind {
 	case .Array, .Enumerated_Array, .Slice, .Dynamic_Array, .Fixed_Capacity_Array, .Bit_Set:
 	case .String, .String16:
@@ -472,5 +475,104 @@ expression_range_call :: proc(
 		),
 	) or_return
 	expression_store(checker, view, node, Expression_Info{scope = scope, state = .Checked, plan = plan})
+	return nil
+}
+
+// Declares a hidden snapshot or counter entity for an #soa range. Hidden
+// entities are never inserted in a scope, so later lookups cannot reach them.
+@(private = "file")
+soa_range_hidden :: proc(checker: ^Expression_Checker, range_scope: Scope_Id, type: types.Type_Id) -> (entity: Entity_Id, err: Resolve_Error) {
+	hidden, create_error := entity_create(
+		checker.type_checker.resolver.scopes,
+		Entity{name = "", kind = .Variable, scope = range_scope, state = .Resolved, type = type, data = Variable_Data{storage = .Local}},
+	)
+	if create_error != nil { return 0, binding_resolve_error(create_error) }
+	return hidden, nil
+}
+
+// `for v[, i] in soa`: v names each scattered element and i its position.
+// The container is snapshotted once into a hidden entity, the way slice
+// ranges snapshot their header, and v resolves to a Soa_Plan over that
+// snapshot plus a hidden or user-named counter. By-reference values would
+// need an #soa pointer for the element, which stays unsupported.
+@(private = "file")
+expression_range_soa :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	file_id: File_Id,
+	scope, range_scope: Scope_Id,
+	node: syntax.Node_Index,
+	parts: Range_Parts,
+	container: Expression_Info,
+	container_type: types.Type_Id,
+) -> Resolve_Error {
+	file := checker.type_checker.files[file_id]
+	store := checker.type_checker.store
+	descriptor := types.get(store, container_type)
+	if len(parts.names) >= 1 {
+		ident, by_reference := range_name(file, parts.names[0])
+		if by_reference && expression_text(file, ident) != "_" {
+			expression_unsupported(checker, view, scope, parts.names[0], "Range_Reference") or_return
+			return nil
+		}
+	}
+	if len(parts.names) == 2 {
+		_, by_reference := range_name(file, parts.names[1])
+		if by_reference {
+			expression_unsupported(checker, view, scope, parts.names[1], "Range_Form") or_return
+			return nil
+		}
+	}
+	snapshot := soa_range_hidden(checker, range_scope, container.type) or_return
+	index_entity: Entity_Id
+	if len(parts.names) == 2 {
+		range_declare(checker, view, file, range_scope, parts.names[1], checker.default_integer) or_return
+		index_entity = scope_lookup_current(checker.type_checker.resolver.scopes, range_scope, expression_text(file, parts.names[1]))
+	} else {
+		index_entity = soa_range_hidden(checker, range_scope, checker.default_integer) or_return
+	}
+	if len(parts.names) >= 1 {
+		ident, _ := range_name(file, parts.names[0])
+		loop := Soa_Plan {
+			container = Operand(snapshot),
+			index     = Operand(index_entity),
+			soa       = container_type,
+			policy    = .Disabled,
+		}
+		if expression_text(file, ident) == "_" {
+			expression_store(checker, view, ident, Expression_Info{state = .Checked})
+		} else {
+			value_entity, create_error := entity_create(
+				checker.type_checker.resolver.scopes,
+				Entity {
+					name = expression_text(file, ident),
+					kind = .Variable,
+					scope = range_scope,
+					state = .Resolved,
+					type = descriptor.soa_elem,
+					data = Variable_Data{storage = .Local},
+				},
+			)
+			if create_error != nil { return binding_resolve_error(create_error) }
+			if previous, insert_error := scope_insert(checker.type_checker.resolver.scopes, range_scope, value_entity); insert_error != nil {
+				return binding_resolve_error(insert_error)
+			} else if previous != 0 {
+				expression_unsupported(checker, view, scope, ident, "Range_Redeclaration") or_return
+				return nil
+			}
+			plan := Plan_Id(len(checker.plans))
+			append(&checker.plans, Plan(loop)) or_return
+			expression_store(
+				checker,
+				view,
+				ident,
+				Expression_Info{type = descriptor.soa_elem, mode = .Soa_Variable, entity = value_entity, plan = plan, scope = range_scope, state = .Checked},
+			)
+			checker.soa_loop_vars[value_entity] = loop
+		}
+	}
+	_ = container
+	expression_range_body(checker, view, file_id, node, range_scope, parts) or_return
+	expression_store(checker, view, node, Expression_Info{scope = scope, state = .Checked})
 	return nil
 }

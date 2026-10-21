@@ -794,11 +794,13 @@ Bounds_Plan :: struct {
 }
 
 // One lvalue or rvalue of an #soa container: the soa struct value, the element
-// index and the selected field (minus one for the whole element).
+// index and the selected field. A nil field is the whole element; a constant
+// field is one spread field (a struct field or an array component); an
+// expression field is a runtime array component, as in `s[i][j]`.
 Soa_Plan :: struct {
 	container: Operand,
 	index:     Operand,
-	field:     i32,
+	field:     Operand,
 	soa:       types.Type_Id,
 	policy:    Check_Policy,
 }

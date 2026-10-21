@@ -330,6 +330,7 @@ lower_assignment_plan :: proc(state: ^Procedure_State, node: syntax.Node_Index, 
 			}
 		}
 	}
+	if lower_soa_assignment_plan(state, node, plan) { return }
 	allocator := virtual.arena_allocator(&state.job.function.arena)
 	destinations, err := make([]Assignment_Destination, len(plan.destinations), allocator)
 	if err != nil { state.job.function.error = err; return }

@@ -170,6 +170,7 @@ lower_bound :: proc(state: ^Procedure_State, operand: check.Operand, default_val
 // len of a slice or string reads the length word of its header.
 @(private)
 lower_length :: proc(state: ^Procedure_State, node: syntax.Node_Index, info: check.Expression_Info, plan: check.Builtin_Plan) -> ir.Node_Id {
+	if value, handled := lower_soa_len_cap(state, node, info, plan, false); handled { return value }
 	if len(plan.arguments) != 1 || scalar_type(state, info.type) != .I64 { return lower_fail(state, node, .Builtin) }
 	argument_type := operand_type(state, plan.arguments[0])
 	if lower_type(state, argument_type).kind == .CString {
@@ -181,6 +182,7 @@ lower_length :: proc(state: ^Procedure_State, node: syntax.Node_Index, info: che
 }
 
 lower_capacity :: proc(state: ^Procedure_State, node: syntax.Node_Index, info: check.Expression_Info, plan: check.Builtin_Plan) -> ir.Node_Id {
+	if value, handled := lower_soa_len_cap(state, node, info, plan, true); handled { return value }
 	if len(plan.arguments) != 1 || scalar_type(state, info.type) != .I64 { return lower_fail(state, node, .Builtin) }
 	descriptor := lower_type(state, operand_type(state, plan.arguments[0]))
 	if descriptor.kind == .Pointer { descriptor = lower_type(state, descriptor.elem) }

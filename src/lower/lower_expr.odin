@@ -220,7 +220,10 @@ lower_value :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> ir.Node
 			return lower_bit_set_literal(state, node, value)
 		case check.Bounds_Plan:
 			if value.kind == .Slice { return lower_slice_expression(state, node, value) }
+			if value.kind == .Soa { return lower_soa_slice(state, node, value) }
 			return lower_load(state, lower_index_address(state, node, value), info.type)
+		case check.Soa_Plan:
+			return lower_soa_value(state, node, value)
 		case check.Matrix_Index_Plan:
 			return lower_load(state, lower_matrix_index_address(state, node, value), info.type)
 		case check.Matrix_Vector_Plan:
@@ -334,6 +337,8 @@ lower_address :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> ir.No
 		case check.Bounds_Plan:
 			if value.kind != .Index { return lower_fail(state, node, .Place) }
 			return lower_index_address(state, node, value)
+		case check.Soa_Plan:
+			return lower_soa_field_address(state, node, value)
 		case check.Matrix_Index_Plan:
 			return lower_matrix_index_address(state, node, value)
 		case check.Matrix_Vector_Plan:

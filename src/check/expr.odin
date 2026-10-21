@@ -69,6 +69,9 @@ Expression_Checker :: struct {
 	invalid_rows:      [dynamic]Invalid_Row,
 	stored_rows:       [dynamic]Expression_Ref,
 	speculation_depth: int,
+	// #soa range value variables: each use mints a fresh Soa_Plan from the
+	// stored descriptor, so rollback of the plan table cannot strand an id.
+	soa_loop_vars:     map[Entity_Id]Soa_Plan,
 }
 
 Invalid_Row :: struct {
@@ -111,6 +114,7 @@ expression_checker_init :: proc(
 	checker.type_info_roots.allocator = allocator
 	checker.globals.allocator = allocator
 	checker.procedure_infos.allocator = allocator
+	checker.soa_loop_vars.allocator = allocator
 	defer if err != nil { expression_checker_destroy(checker) }
 	append(&checker.views, Typed_View{}) or_return
 	append(&checker.plans, Plan{}) or_return
@@ -142,6 +146,7 @@ expression_checker_destroy :: proc(checker: ^Expression_Checker) {
 	delete(checker.invalid_rows)
 	delete(checker.stored_rows)
 	delete(checker.procedure_infos)
+	delete(checker.soa_loop_vars)
 	mem.dynamic_arena_destroy(&checker.arena)
 	checker^ = {}
 }
@@ -656,6 +661,11 @@ expression_entity_info :: proc(
 	}
 	if expression_captures_local(resolver.scopes, scope, binding) {
 		return expression_failure(checker, view, scope, node, .Invalid_Operand)
+	}
+	if loop, is_loop := checker.soa_loop_vars[target]; is_loop {
+		loop_plan := Plan_Id(len(checker.plans))
+		append(&checker.plans, Plan(loop)) or_return
+		return Expression_Info{type = binding.type, mode = .Soa_Variable, entity = target, plan = loop_plan, scope = scope, state = .Checked}, nil
 	}
 	info = Expression_Info {
 		type     = binding.type,

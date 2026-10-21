@@ -15,6 +15,10 @@ lower_range_container :: proc(state: ^Procedure_State, node: syntax.Node_Index, 
 	function := state.job.function
 	container := lower_type(state, lower_info(state, parts.expr).type)
 	kind := container.kind
+	if kind == .Struct && container.soa != .None {
+		lower_range_soa(state, node, parts)
+		return
+	}
 	element_type := container.elem
 	array_count := container.count
 	element_size := state.job.layouts[element_type].size

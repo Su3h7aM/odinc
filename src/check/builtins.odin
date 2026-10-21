@@ -1125,6 +1125,9 @@ expression_length :: proc(
 	if descriptor.kind == .Pointer {
 		descriptor = types.get(store, types.resolve_named(store, descriptor.elem))
 	}
+	if descriptor.kind == .Struct && descriptor.soa != .None {
+		return expression_soa_length(checker, view, scope, node, builtin, kind, operand, arguments[0], hint)
+	}
 	#partial switch descriptor.kind {
 	case .Array, .Enumerated_Array, .Enum:
 		if descriptor.kind == .Enum && operand.mode != .Type || descriptor.kind != .Array && kind == .Cap {

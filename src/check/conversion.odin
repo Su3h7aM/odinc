@@ -48,7 +48,7 @@ check_conversion :: proc(
 ) {
 	if info.state == .Invalid || info.type == types.TYPE_POISON { return {}, .Invalid_Value, nil }
 	#partial switch info.mode {
-	case .Constant, .Value, .Immutable_Value, .Variable, .Context, .Map_Index:
+	case .Constant, .Value, .Immutable_Value, .Variable, .Context, .Map_Index, .Soa_Variable:
 	case:
 		return {}, .Invalid_Value, nil
 	}

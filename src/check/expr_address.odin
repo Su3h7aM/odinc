@@ -227,6 +227,9 @@ expression_field :: proc(
 	if base.mode == .Type && descriptor.kind == .Enum {
 		return expression_enum_member(checker, view, scope, node, base.type, expression_text(file, selector.field))
 	}
+	if base.mode == .Soa_Variable {
+		return expression_soa_field(checker, view, file_id, scope, node, base)
+	}
 	if descriptor.kind == .Array {
 		return expression_array_selector(checker, view, file_id, scope, node, base, descriptor^, indirect, hint)
 	}
