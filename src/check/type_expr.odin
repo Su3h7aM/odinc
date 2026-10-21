@@ -376,7 +376,22 @@ type_expression :: proc(
 	case .Poly_Type:
 		return type_expression(checker, file_id, scope, syntax.node_payload(file.ast, node, syntax.Poly_Type).type, direct)
 	case .Dynamic_Array_Type:
-		elem := type_expression(checker, file_id, scope, syntax.node_payload(file.ast, node, syntax.Dynamic_Array_Type).elem, false) or_return
+		array := syntax.node_payload(file.ast, node, syntax.Dynamic_Array_Type)
+		if array.tag != 0 {
+			if expression_text(file, array.tag) == "#soa" {
+				elem := type_expression(checker, file_id, scope, array.elem, true) or_return
+				if elem == types.TYPE_POISON { return types.TYPE_POISON, nil }
+				soa, valid := soa_struct(checker, elem, 0, .Dynamic)
+				if !valid {
+					type_report(checker, file_id, file, array.elem, .Unsupported_Type_Expression, "Invalid_Soa_Element") or_return
+					return types.TYPE_POISON, nil
+				}
+				return soa, nil
+			}
+			type_report(checker, file_id, file, array.tag, .Unsupported_Type_Expression, expression_text(file, array.tag)) or_return
+			return types.TYPE_POISON, nil
+		}
+		elem := type_expression(checker, file_id, scope, array.elem, false) or_return
 		return type_wrapper(checker, .Dynamic_Array, elem), nil
 	case .Fixed_Capacity_Dynamic_Array_Type:
 		array := syntax.node_payload(file.ast, node, syntax.Fixed_Capacity_Dynamic_Array_Type)
