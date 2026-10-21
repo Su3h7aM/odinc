@@ -67,6 +67,7 @@ Optimization_Mode :: enum i8 {
 
 // Source of the ODIN_* universe constants. The driver fills it; `defines` is the slot for `-define:` values read by `#config`.
 Build_Configuration :: struct {
+	root:                       string,
 	os:                         Target_Os,
 	arch:                       Target_Arch,
 	endian:                     Target_Endian,
@@ -145,6 +146,7 @@ bind_universe_build_context :: proc(checker: ^Type_Checker, universe: Scope_Id, 
 		{"ODIN_OS_STRING", target_os_names[configuration.os]},
 		{"ODIN_ARCH_STRING", target_arch_names[configuration.arch]},
 		{"ODIN_ENDIAN_STRING", target_endian_names[configuration.endian]},
+		{"ODIN_ROOT", configuration.root},
 	}
 	for text in texts {
 		constant, constant_error := constant_pool_intern_string(pool, text.value, string_type)

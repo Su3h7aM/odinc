@@ -54,6 +54,9 @@ expression_defer_assignment :: proc(
 	assignment := syntax.node_payload(file.ast, current, syntax.Assign_Stmt)
 	if assignment.op.kind != .Eq { return nil }
 	for target in syntax.node_list(file.ast, assignment.lhs) {
+		if file.ast.nodes[target].kind == .Ident &&
+		   file.ast.nodes[target].end - file.ast.nodes[target].start == 1 &&
+		   file.source[file.ast.nodes[target].start] == '_' { continue }
 		destination := check_expression(checker, view, scope, target) or_return
 		if assigns_named_result_in_defer(checker, destination, assignment.op.kind) {
 			expression_unsupported(checker, view, scope, target, "Assign_Deferred_Result") or_return

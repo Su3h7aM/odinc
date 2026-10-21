@@ -157,6 +157,7 @@ program_histogram_collect :: proc(session: ^Session, odin_root, main_path: strin
 	if check_error := session_init_checkers(session); check_error != .None { return check_error }
 	_ = bind_whens(session)
 	for declaration in session.collection.declarations {
+		if check.entity_get(&session.scopes, declaration.entity).package_id != main_package { continue }
 		_, _ = check.resolve_entity(&session.resolver, declaration.entity)
 	}
 	return .None
@@ -191,9 +192,11 @@ histogram_print :: proc(session: ^Session, writer: io.Writer) -> Driver_Error {
 	slice.sort_by(entries[:], histogram_before)
 	total := 0
 	for entry in entries { total += entry.count }
-	for entry, index in entries {
-		if index >= 20 { break }
+	for entry in entries {
 		fmt.wprintf(writer, "%d %s\n", entry.count, entry.key)
+		for sample_index in 0 ..< entry.sample_count {
+			fmt.wprintf(writer, "  %s\n", entry.samples[sample_index])
+		}
 	}
 	fmt.wprintf(writer, "total %d\n", total)
 	return .None
@@ -397,6 +400,11 @@ session_prepare :: proc(session: ^Session, odin_root: string, user_collections: 
 	}
 	session.stage = .Collections
 	if collection_table_init(&session.collections, odin_root, allocator) != .None { return .Collection_Failed }
+	root := filepath.dir(session.collections.collections[0].path)
+	root_path, root_error := strings.concatenate({strings.trim_suffix(root, "/"), "/"}, allocator)
+	if root_error != nil { return .Allocation_Failed }
+	if error := push(&session.owned_strings, root_path); error != .None { return error }
+	session.build.root = root_path
 	for collection in user_collections {
 		if collection_add(&session.collections, collection.name, collection.path) != .None { return .Collection_Failed }
 	}
@@ -482,7 +490,11 @@ bind_whens :: proc(session: ^Session) -> Driver_Error {
 			if check.collect_when_arm(&session.collection, file, index, condition) != nil { return .Check_Failed }
 			progressed = true
 		}
-		if first_unresolved < 0 { return .None }
+		if first_unresolved < 0 {
+			valid, directive_error := check.check_package_directives(&session.checker)
+			if directive_error != nil || !valid { return .Check_Failed }
+			return .None
+		}
 		if !progressed {
 			pending := session.collection.pending[first_unresolved]
 			_, _, reason := evaluate_when(session, pending)

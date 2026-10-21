@@ -40,6 +40,7 @@ Pending_Declaration_Kind :: enum u8 {
 	Foreign_Import,
 	Foreign_Block,
 	When,
+	Directive,
 }
 Pending_Declaration :: struct {
 	entity:                     Entity_Id,
@@ -229,6 +230,8 @@ collect_declarations :: proc(
 ) -> Binding_Error {
 	for node in nodes {
 		#partial switch file.ast.nodes[node].kind {
+		case .Expr_Stmt:
+			append(&collection.pending, Pending_Declaration{kind = .Directive, declaration = {id, node}, order = order}) or_return
 		case .Value_Decl:
 			collect_value_declaration(collection, file, id, node, order, foreign_block, visibility) or_return
 		case .Import_Decl:

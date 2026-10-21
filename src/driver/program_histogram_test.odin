@@ -37,5 +37,5 @@ program_histogram_reports_load_failures :: proc(t: ^testing.T) {
 	output := strings.to_string(builder)
 	testing.expectf(t, err == .Parse_Failed, "%v", err)
 	testing.expectf(t, strings.contains(output, "load parse"), "%s", output)
-	testing.expectf(t, strings.contains(output, "1 load parse\ntotal 1\n"), "%s", output)
+	testing.expectf(t, strings.contains(output, "1 load parse\n  ") && strings.contains(output, "total 1\n"), "%s", output)
 }

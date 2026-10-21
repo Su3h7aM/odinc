@@ -26,7 +26,11 @@ expression_assert :: proc(
 	}
 	if len(arguments) == 2 {
 		message := arguments[1]
-		if file.ast.nodes[message].kind != .Basic_Lit || syntax.node_payload(file.ast, message, syntax.Basic_Lit).kind != .String {
+		if file.ast.nodes[message].kind != .Basic_Lit {
+			return expression_failure(checker, view, scope, message, .Invalid_Operand)
+		}
+		kind := syntax.node_payload(file.ast, message, syntax.Basic_Lit).kind
+		if kind != .String && kind != .Raw_String {
 			return expression_failure(checker, view, scope, message, .Invalid_Operand)
 		}
 	}

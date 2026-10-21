@@ -28,6 +28,7 @@ Expression_Diagnostic_Kind :: enum u8 {
 	Missing_Diverging_Call,
 	Undefined_Context,
 	Main_Calling_Convention,
+	Compile_Time_Panic,
 }
 Expression_Diagnostic :: struct {
 	kind:       Expression_Diagnostic_Kind,
@@ -316,6 +317,10 @@ check_expression :: proc(
 					return info, nil
 				case "#assert":
 					info = expression_assert(checker, view, scope, node, arguments) or_return
+					expression_store(checker, view, node, info)
+					return info, nil
+				case "#panic":
+					info = expression_panic(checker, view, scope, node, arguments) or_return
 					expression_store(checker, view, node, info)
 					return info, nil
 				}

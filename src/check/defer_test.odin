@@ -150,6 +150,18 @@ main :: proc "contextless" () {
 	testing.expect(t, rejected.body_state == .Invalid)
 }
 
+@(test)
+defer_assignment_to_blank_named_result_is_valid :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(`package sample
+value :: proc() -> int { return 1 }
+main :: proc() {
+	defer _ = value()
+}
+`)
+	procedure, ok := check_procedure_source(t, source)
+	if !ok { return }
+	testing.expect(t, procedure.body_state == .Complete)
+}
 
 @(test)
 assert_directive_checks_constant_boolean :: proc(t: ^testing.T) {
