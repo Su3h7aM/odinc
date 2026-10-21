@@ -8,9 +8,14 @@ import "oc:driver"
 USAGE :: "usage: odinc <file-or-dir> -histogram [-collection:<name>=<path>] | odinc <directory|main.odin> -out:<executable> [-collection:<name>=<path>]"
 
 main :: proc() {
+	if len(os.args) > 1 && os.args[1] == "test" {
+		os.exit(test_command(os.args[2:]))
+	}
 	file, out: string
 	collections: [dynamic]driver.Collection
 	defer delete(collections)
+	defines := make(map[string]string)
+	defer delete(defines)
 	histogram := false
 	for arg in os.args[1:] {
 		if arg == "-histogram" {
@@ -25,6 +30,11 @@ main :: proc() {
 			append(&collections, driver.Collection{value[:separator], value[separator + 1:]})
 		} else if strings.has_prefix(arg, "-out:") {
 			out = arg[len("-out:"):]
+		} else if strings.has_prefix(arg, "-define:") {
+			if driver.parse_define_argument(&defines, arg) != .None {
+				fmt.eprintln(driver.define_argument_error_message(arg))
+				os.exit(1)
+			}
 		} else {
 			file = arg
 		}
@@ -50,7 +60,7 @@ main :: proc() {
 		os.exit(2)
 	}
 
-	image, err := driver.build_file(odin_root, file, os.to_writer(os.stderr), context.allocator, collections[:])
+	image, err := driver.build_file(odin_root, file, os.to_writer(os.stderr), context.allocator, collections[:], defines)
 	if err != nil {
 		fmt.eprintln("build failed")
 		os.exit(1)

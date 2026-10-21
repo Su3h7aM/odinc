@@ -16,6 +16,7 @@ check_procedure_source :: proc(
 	package_kind: Package_Kind = .User,
 	type_diagnostic_count := -1,
 	package_name := "",
+	defines: map[string]string = nil,
 ) -> (
 	procedure: Procedure_Data,
 	ok: bool,
@@ -80,6 +81,7 @@ check_procedure_source :: proc(
 	) { return {}, false }
 	defer expression_checker_destroy(&checker)
 	checker.packages = []Package{{}, {kind = package_kind, name = package_name, scope = package_scope}}
+	checker.defines = defines
 	for name in intrinsic_names {
 		builtin, failure := expression_builtin_id(&checker, intrinsic_builtin_kind(name))
 		id, creation := entity_create(&scopes, Entity{name = name, kind = .Builtin, scope = universe, state = .Resolved, data = builtin})

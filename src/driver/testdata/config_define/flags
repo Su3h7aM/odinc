@@ -1,0 +1,1 @@
+-define:FLAG=TRUE -define:COUNT=5 -define:RATIO=1.5 -define:NAME=hello -define:NEGATIVE=-12 -define:MASK=0x1F -define:LENGTH=4 -define:LOW=2
