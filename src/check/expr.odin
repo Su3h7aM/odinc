@@ -310,6 +310,10 @@ check_expression :: proc(
 					info = expression_defined(checker, view, file_id, scope, node, arguments) or_return
 					expression_store(checker, view, node, info)
 					return info, nil
+				case "#exists":
+					info = expression_exists(checker, view, file_id, scope, node, arguments) or_return
+					expression_store(checker, view, node, info)
+					return info, nil
 				case "#assert":
 					info = expression_assert(checker, view, scope, node, arguments) or_return
 					expression_store(checker, view, node, info)
