@@ -13,6 +13,27 @@ Const_Id :: distinct u32
 Plan_Id :: distinct u32
 Symbol_Id :: distinct u32
 View_Id :: distinct u32
+Procedure_Info_Origin :: struct {
+	signature: Node_Ref,
+	scope:     Scope_Id,
+	view:      View_Id,
+}
+
+Procedure_Info :: struct {
+	defaults:        []Default_Argument,
+	parameter_flags: []Entity_Flags,
+}
+
+Procedure_Info_Entry :: struct {
+	id:     types.Procedure_Info_Id,
+	origin: Procedure_Info_Origin,
+	info:   ^Procedure_Info,
+}
+
+Procedure_Info_Error :: enum u8 {
+	None,
+	Invalid_Id,
+}
 Builtin_Id :: distinct u32
 
 Builtin_Kind :: enum u16 {

@@ -44,6 +44,7 @@ are_identical_internal :: proc(store: ^Store, a, b: Type_Id, check_tuple_names: 
 	x.fields, y.fields = nil, nil
 	x.variants, y.variants, x.params, y.params, x.results, y.results = nil, nil, nil, nil, nil, nil
 	x.param_names, y.param_names, x.result_names, y.result_names = nil, nil, nil, nil
+	x.procedure_info, y.procedure_info = 0, 0
 	return descriptors_equal(x, y)
 }
 

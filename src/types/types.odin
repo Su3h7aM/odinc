@@ -6,6 +6,7 @@ import "core:strings"
 // Type_Id is a stable index into Store.types. Zero denotes no type; TYPE_POISON
 // is the reserved error-recovery type whose layout is always an error.
 Type_Id :: distinct u32
+Procedure_Info_Id :: distinct u64
 TYPE_NONE :: Type_Id(0)
 TYPE_POISON :: Type_Id(1)
 
@@ -131,6 +132,7 @@ Type :: struct {
 	variants:                                       []Type_Id,
 	params, results:                                []Type_Id,
 	param_names, result_names:                      []string,
+	procedure_info:                                 Procedure_Info_Id,
 	count, lower_bound, upper_bound:                i64,
 	backing:                                        Type_Id,
 	endianness:                                     Endian,
@@ -158,8 +160,15 @@ DEFAULT_LAYOUT :: Layout_Config{8, 8, 16, 512}
 // Each descriptor is allocated once, so a pointer from get stays valid until destroy, as official alloc_type does
 // (Odin/src/types.cpp:1061-1068). Type_Id stays the handle.
 Store :: struct {
-	types:     [dynamic]^Type,
-	allocator: runtime.Allocator,
+	types:               [dynamic]^Type,
+	allocator:           runtime.Allocator,
+	last_procedure_info: Procedure_Info_Id,
+}
+
+issue_procedure_info_id :: proc(store: ^Store) -> Procedure_Info_Id {
+	assert(store.last_procedure_info < max(Procedure_Info_Id))
+	store.last_procedure_info += 1
+	return store.last_procedure_info
 }
 
 init :: proc() -> Store {
@@ -312,6 +321,7 @@ complete_nominal :: proc(store: ^Store, id: Type_Id, descriptor: Type) {
 
 descriptors_equal :: proc(a, b: Type) -> bool {
 	if a.kind != b.kind ||
+	   a.procedure_info != b.procedure_info ||
 	   a.name != b.name ||
 	   a.elem != b.elem ||
 	   a.index != b.index ||

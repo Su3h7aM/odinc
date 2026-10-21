@@ -65,6 +65,7 @@ Expression_Checker :: struct {
 	defers:            [dynamic]Defer_Registration,
 	defer_depth:       int,
 	active_instance:   Instance_Id,
+	procedure_infos:   [dynamic]Procedure_Info_Entry,
 	invalid_rows:      [dynamic]Invalid_Row,
 	stored_rows:       [dynamic]Expression_Ref,
 	speculation_depth: int,
@@ -108,6 +109,7 @@ expression_checker_init :: proc(
 	checker.builtin_kinds.allocator = allocator
 	checker.type_info_roots.allocator = allocator
 	checker.globals.allocator = allocator
+	checker.procedure_infos.allocator = allocator
 	defer if err != nil { expression_checker_destroy(checker) }
 	append(&checker.views, Typed_View{}) or_return
 	append(&checker.plans, Plan{}) or_return
@@ -137,6 +139,7 @@ expression_checker_destroy :: proc(checker: ^Expression_Checker) {
 	delete(checker.defers)
 	delete(checker.invalid_rows)
 	delete(checker.stored_rows)
+	delete(checker.procedure_infos)
 	mem.dynamic_arena_destroy(&checker.arena)
 	checker^ = {}
 }

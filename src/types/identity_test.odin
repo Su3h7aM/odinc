@@ -3,6 +3,27 @@ package types
 import "core:testing"
 
 @(test)
+procedure_metadata_identity :: proc(t: ^testing.T) {
+	store := init()
+	defer destroy(&store)
+	first_id := issue_procedure_info_id(&store)
+	second_id := issue_procedure_info_id(&store)
+	testing.expect(t, first_id != 0 && second_id != first_id)
+	first := intern(&store, Type{kind = .Procedure, procedure_info = first_id})
+	second := intern(&store, Type{kind = .Procedure, procedure_info = second_id})
+	absent := intern(&store, Type{kind = .Procedure})
+	testing.expect_value(t, intern(&store, get(&store, first)^), first)
+	for other in ([]Type_Id{second, absent}) {
+		testing.expect(t, first != other)
+		first_array := intern(&store, Type{kind = .Array, elem = first, count = 2})
+		other_array := intern(&store, Type{kind = .Array, elem = other, count = 2})
+		testing.expect(t, first_array != other_array)
+		testing.expect(t, are_identical(&store, first_array, other_array))
+		testing.expect(t, are_identical_unique_tuples(&store, first_array, other_array))
+	}
+}
+
+@(test)
 signature_identity_and_owned_names :: proc(t: ^testing.T) {
 	store := init()
 	defer destroy(&store)
