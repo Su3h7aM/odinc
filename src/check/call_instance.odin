@@ -158,13 +158,19 @@ expression_generic_call :: proc(
 				if field.type != 0 {
 					argument_hint = type_expression(checker.type_checker, declaration.type.file, definition_scope, field.type, true) or_return
 				} else {
+					// The default may name parameters bound by earlier arguments, so it is
+					// inferred in the bound scope like a concrete pattern. Speculation keeps
+					// rows keyed by the default node from leaking into the next call.
+					bound_hint_scope := poly_bound_scope(&match) or_return
+					mark := expression_speculation_begin(checker)
 					default_hint, _, hint_error := default_parameter_type(
 						checker.type_checker,
 						declaration.type.file,
 						file,
-						definition_scope,
+						bound_hint_scope,
 						field.default_value,
 					)
+					expression_speculation_end(checker, mark)
 					if hint_error != nil { return {}, hint_error }
 					argument_hint = default_hint
 				}
@@ -193,14 +199,23 @@ expression_generic_call :: proc(
 				continue
 			}
 			if field.type == 0 {
+				// The default may name parameters bound by earlier arguments, so it is
+				// inferred in the bound scope like a concrete pattern. Speculation keeps
+				// rows keyed by the default node from leaking into the next call.
+				bound_default_scope := poly_bound_scope(&match) or_return
+				mark := expression_speculation_begin(checker)
 				default_type, default_found, default_error := default_parameter_type(
 					checker.type_checker,
 					declaration.type.file,
 					file,
-					definition_scope,
+					bound_default_scope,
 					field.default_value,
 				)
+				expression_speculation_end(checker, mark)
 				if default_error != nil { return {}, default_error }
+				if default_found && default_type == types.TYPE_POISON {
+					return expression_unsupported(checker, view, scope, node, "Generic_Call_Default_Type")
+				}
 				if default_found {
 					converted := expression_conversion(
 						checker,
