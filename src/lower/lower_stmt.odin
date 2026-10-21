@@ -32,7 +32,7 @@ lower_statement :: proc(state: ^Procedure_State, node: syntax.Node_Index) {
 	case .When_Stmt:
 		lower_when(state, node, ast_node.payload.(syntax.When_Stmt))
 	case .Defer_Stmt:
-		if _, err := append(&state.defers, node); err != nil { state.job.function.error = err }
+		if _, err := append(&state.defers, Deferred_Action(node)); err != nil { state.job.function.error = err }
 	case .Range_Stmt:
 		lower_range(state, node, ast_node.payload.(syntax.Range_Stmt))
 	case .Unroll_Range_Stmt:

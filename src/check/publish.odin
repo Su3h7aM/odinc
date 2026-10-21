@@ -4,6 +4,7 @@ import "base:runtime"
 
 // Rebuilds the symbol and procedure tables from entity states; call after the last checking phase.
 expression_checker_publish_procedures :: proc(checker: ^Expression_Checker, program: ^Checked_Program) -> runtime.Allocator_Error {
+	expression_backfill_deferred_calls(checker)
 	scopes := checker.type_checker.resolver.scopes
 	clear(&checker.symbols)
 	clear(&checker.entity_symbols)
@@ -36,6 +37,7 @@ expression_checker_publish_procedures :: proc(checker: ^Expression_Checker, prog
 				results = procedure.results,
 				defers = procedure.defers,
 				convention = procedure.convention,
+				attributes = entity_get(scopes, Entity_Id(id)).attributes,
 			},
 		) or_return
 	}
@@ -53,4 +55,30 @@ expression_checker_publish_procedures :: proc(checker: ^Expression_Checker, prog
 	program.procedure_list = checker.procedures[:]
 	expression_checker_publish(checker, program)
 	return nil
+}
+
+// Flags every call to a deferred-annotated procedure with its deferred
+// target, so lowering finds the call-site defer without re-resolving.
+// Call plans are built without it because calls check before bodies do.
+@(private = "package")
+expression_backfill_deferred_calls :: proc(checker: ^Expression_Checker) {
+	scopes := checker.type_checker.resolver.scopes
+	for _, index in checker.plans {
+		call, is_call := checker.plans[index].(Call_Plan)
+		if !is_call || call.entity == 0 || call.deferred != 0 { continue }
+		target := procedure_deferred_target(scopes, call.entity)
+		if target == 0 { continue }
+		checker.plans[index] = Plan(
+			Call_Plan {
+				callee = call.callee,
+				entity = call.entity,
+				instance = call.instance,
+				arguments = call.arguments,
+				results = call.results,
+				context_plan = call.context_plan,
+				variadic = call.variadic,
+				deferred = target,
+			},
+		)
+	}
 }

@@ -1,9 +1,359 @@
 package check
 
 import "base:runtime"
+import "core:fmt"
 import "core:mem"
+import "core:strings"
 import "oc:syntax"
 import "oc:types"
+
+// Every declaration attribute the official compiler accepts on a value
+// declaration or a foreign block. Anything outside this set is rejected
+// instead of being silently ignored.
+@(private = "package")
+declaration_attribute_known :: proc(name: string) -> bool {
+	switch name {
+	case "tag",
+	     "private",
+	     "test",
+	     "export",
+	     "require",
+	     "require_results",
+	     "linkage",
+	     "link_name",
+	     "link_prefix",
+	     "link_suffix",
+	     "link_section",
+	     "init",
+	     "fini",
+	     "deprecated",
+	     "disabled",
+	     "cold",
+	     "optimization_mode",
+	     "static",
+	     "rodata",
+	     "thread_local",
+	     "align",
+	     "builtin",
+	     "default_calling_convention",
+	     "deferred",
+	     "deferred_none",
+	     "deferred_in",
+	     "deferred_out",
+	     "deferred_in_out",
+	     "deferred_in_by_ptr",
+	     "deferred_out_by_ptr",
+	     "deferred_in_out_by_ptr",
+	     "objc_name",
+	     "objc_is_class_method",
+	     "objc_type",
+	     "objc_implement",
+	     "objc_selector",
+	     "objc_class",
+	     "objc_superclass",
+	     "objc_ivar",
+	     "objc_context_provider",
+	     "raddbg_type_view",
+	     "entry_point_only",
+	     "no_instrumentation",
+	     "instrumentation_enter",
+	     "instrumentation_exit",
+	     "no_sanitize_address",
+	     "no_sanitize_memory",
+	     "no_sanitize_thread",
+	     "fast_math",
+	     "futex",
+	     "synchronizes",
+	     "synchronizes_shared",
+	     "futex_parameter",
+	     "require_target_feature",
+	     "enable_target_feature":
+		return true
+	}
+	return false
+}
+
+@(private = "package")
+deferred_attribute_kind :: proc(name: string) -> Deferred_Kind {
+	switch name {
+	case "deferred":
+		return .Legacy
+	case "deferred_none":
+		return .None
+	case "deferred_in":
+		return .In
+	case "deferred_out":
+		return .Out
+	case "deferred_in_out":
+		return .In_Out
+	case "deferred_in_by_ptr", "deferred_out_by_ptr", "deferred_in_out_by_ptr":
+		return .By_Ptr
+	}
+	return .Absent
+}
+
+// Resolved deferred target recorded on a procedure entity, if any.
+@(private = "package")
+procedure_deferred_target :: proc(scopes: ^Scope_Store, id: Entity_Id) -> Entity_Id {
+	entity := entity_get(scopes, id)
+	if entity == nil { return 0 }
+	for attribute in entity.attributes {
+		if deferred_attribute_kind(attribute.name) != .Absent && deferred_attribute_kind(attribute.name) != .Legacy {
+			return attribute.entity
+		}
+	}
+	return 0
+}
+
+// Validates the deferred_* attribute on a procedure declaration and records
+// the resolved target on the entity. Runs after the body so forward
+// references and nested literal targets already exist.
+@(private = "file")
+expression_deferred_attribute :: proc(checker: ^Expression_Checker, id: Entity_Id) -> (valid: bool, err: Resolve_Error) {
+	scopes := checker.type_checker.resolver.scopes
+	entity := entity_get(scopes, id)
+	data, is_procedure := entity.data.(Procedure_Data)
+	if !is_procedure || entity.kind != .Procedure { return true, nil }
+	if procedure_deferred_target(scopes, id) != 0 { return true, nil }
+	if entity.declaration.node == 0 { return true, nil }
+	file := checker.type_checker.files[entity.declaration.file]
+	if file.ast.nodes[entity.declaration.node].kind != .Value_Decl { return true, nil }
+	decl := syntax.node_payload(file.ast, entity.declaration.node, syntax.Value_Decl)
+	view := expression_file_view(checker, entity.declaration.file) or_return
+	scope := entity.scope
+	seen := Deferred_Kind.Absent
+	seen_name := ""
+	seen_element, seen_value: syntax.Node_Index
+	for attribute in syntax.node_list(file.ast, decl.attributes) {
+		for element in syntax.node_list(file.ast, syntax.node_payload(file.ast, attribute, syntax.Attribute).elems) {
+			name_node := element
+			value: syntax.Node_Index
+			if file.ast.nodes[element].kind == .Field_Value {
+				field := syntax.node_payload(file.ast, element, syntax.Field_Value)
+				name_node, value = field.field, field.value
+			}
+			name := expression_text(file, name_node)
+			if !declaration_attribute_known(name) {
+				expression_unsupported(
+					checker,
+					view,
+					scope,
+					element,
+					fmt.aprintf("Unknown attribute element name '%s'", name, allocator = mem.dynamic_arena_allocator(&checker.arena)),
+				) or_return
+				return false, nil
+			}
+			kind := deferred_attribute_kind(name)
+			if kind == .Absent { continue }
+			if seen != .Absent {
+				expression_unsupported(checker, view, scope, element, "Previous usage of a 'deferred_*' attribute") or_return
+				return false, nil
+			}
+			seen, seen_name, seen_element, seen_value = kind, name, element, value
+		}
+	}
+	if seen == .Absent { return true, nil }
+	if seen == .Legacy {
+		expression_unsupported(
+			checker,
+			view,
+			scope,
+			seen_element,
+			"'deferred' is not allowed any more, please use one of the following instead: 'deferred_none', 'deferred_in', 'deferred_out'",
+		) or_return
+		return false, nil
+	}
+	if seen_value == 0 || file.ast.nodes[seen_value].kind != .Ident {
+		expression_unsupported(
+			checker,
+			view,
+			scope,
+			seen_value if seen_value != 0 else seen_element,
+			fmt.aprintf("Expected a procedure entity for '%s'", seen_name, allocator = mem.dynamic_arena_allocator(&checker.arena)),
+		) or_return
+		return false, nil
+	}
+	target, _ := scope_lookup(scopes, scope, expression_text(file, seen_value))
+	if target == 0 {
+		expression_unsupported(
+			checker,
+			view,
+			scope,
+			seen_element,
+			fmt.aprintf("Expected a procedure entity for '%s'", seen_name, allocator = mem.dynamic_arena_allocator(&checker.arena)),
+		) or_return
+		return false, nil
+	}
+	if target == id {
+		expression_unsupported(
+			checker,
+			view,
+			scope,
+			seen_element,
+			fmt.aprintf(
+				"'%s' cannot be used as its own %s",
+				entity_get(scopes, target).data.(Procedure_Data).source_name,
+				seen_name,
+				allocator = mem.dynamic_arena_allocator(&checker.arena),
+			),
+		) or_return
+		return false, nil
+	}
+	state, resolve_error := resolve_entity(checker.type_checker.resolver, target)
+	if resolve_error != nil { return false, resolve_error }
+	if state == .Invalid { return false, nil }
+	entity = entity_get(scopes, id)
+	target_entity := entity_get(scopes, target)
+	target_data, target_is_procedure := target_entity.data.(Procedure_Data)
+	if !target_is_procedure || target_entity.kind != .Procedure {
+		expression_unsupported(
+			checker,
+			view,
+			scope,
+			seen_element,
+			fmt.aprintf("Expected a procedure entity for '%s'", seen_name, allocator = mem.dynamic_arena_allocator(&checker.arena)),
+		) or_return
+		return false, nil
+	}
+	if procedure_deferred_target(scopes, target) != 0 {
+		expression_unsupported(
+			checker,
+			view,
+			scope,
+			seen_element,
+			fmt.aprintf(
+				"Deferred procedure '%s' cannot be used as the target of '%s' because it has a deferred procedure itself (deferred procedure chaining is not allowed)",
+				target_data.source_name,
+				entity.data.(Procedure_Data).source_name,
+				allocator = mem.dynamic_arena_allocator(&checker.arena),
+			),
+		) or_return
+		return false, nil
+	}
+	if seen == .By_Ptr {
+		expression_unsupported(
+			checker,
+			view,
+			scope,
+			seen_element,
+			fmt.aprintf("Procedure attribute '%s' is not supported", seen_name, allocator = mem.dynamic_arena_allocator(&checker.arena)),
+		) or_return
+		return false, nil
+	}
+	if !data.generic && !target_data.generic {
+		name := syntax.node_list(file.ast, decl.names)[0]
+		if !(expression_deferred_signature(checker, view, scope, entity, target_entity, seen, seen_name, name) or_return) { return false, nil }
+		entity = entity_get(scopes, id)
+	}
+	span := file.ast.nodes[seen_element]
+	arena_attributes := mem.dynamic_arena_allocator(&checker.arena)
+	recorded := make([]Attribute, len(entity.attributes) + 1, arena_attributes) or_return
+	copy(recorded, entity.attributes)
+	recorded[len(entity.attributes)] = Attribute {
+		name   = seen_name,
+		entity = target,
+		source = {entity.declaration.file, span.start, span.end},
+	}
+	entity.attributes = recorded
+	return true, nil
+}
+
+// Matches the deferred target parameters against the annotated procedure's
+// inputs or results, with the official diagnostics.
+@(private = "file")
+expression_deferred_signature :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	scope: Scope_Id,
+	entity, target: ^Entity,
+	kind: Deferred_Kind,
+	attribute_name: string,
+	element: syntax.Node_Index,
+) -> (
+	match: bool,
+	err: Resolve_Error,
+) {
+	arena := mem.dynamic_arena_allocator(&checker.arena)
+	store := checker.type_checker.store
+	source := types.get(store, entity.type)
+	destination := types.get(store, target.type)
+	if source.kind != .Procedure || destination.kind != .Procedure { return false, nil }
+	source_name := entity.data.(Procedure_Data).source_name
+	target_name := target.data.(Procedure_Data).source_name
+	if kind == .None {
+		if len(destination.params) != 0 {
+			expression_unsupported(
+				checker,
+				view,
+				scope,
+				element,
+				fmt.aprintf("Deferred procedure '%s' must have no input parameters", target_name, allocator = arena),
+			) or_return
+			return false, nil
+		}
+		return true, nil
+	}
+	have: []types.Type_Id
+	word := "results"
+	if kind == .In {
+		have, word = source.params, "inputs"
+	} else if kind == .Out {
+		have = source.results
+	} else {
+		if len(destination.params) == 0 {
+			expression_unsupported(
+				checker,
+				view,
+				scope,
+				element,
+				fmt.aprintf("Deferred procedure must have parameters for %s", attribute_name, allocator = arena),
+			) or_return
+			return false, nil
+		}
+		have = make([]types.Type_Id, len(source.params) + len(source.results), arena) or_return
+		copy(have, source.params)
+		copy(have[len(source.params):], source.results)
+	}
+	want := destination.params
+	if len(have) == 0 && len(want) == 0 { return true, nil }
+	detail := ""
+	if len(have) != 0 && len(want) != 0 {
+		identical := len(have) == len(want)
+		for have_type, index in have {
+			if !identical { break }
+			identical = types.are_identical(store, have_type, want[index])
+		}
+		if identical { return true, nil }
+		detail = fmt.aprintf(": %s =/= %s", deferred_tuple_text(store, want, arena), deferred_tuple_text(store, have, arena), allocator = arena)
+	}
+	expression_unsupported(
+		checker,
+		view,
+		scope,
+		element,
+		fmt.aprintf(
+			"Deferred procedure '%s' parameters do not match the %s of initial procedure '%s'%s",
+			target_name,
+			word,
+			source_name,
+			detail,
+			allocator = arena,
+		),
+	) or_return
+	return false, nil
+}
+
+@(private = "file")
+deferred_tuple_text :: proc(store: ^types.Store, list: []types.Type_Id, allocator: mem.Allocator) -> string {
+	builder := strings.builder_make(allocator)
+	strings.write_byte(&builder, '(')
+	for id, index in list {
+		if index > 0 { strings.write_string(&builder, ", ") }
+		strings.write_string(&builder, record_type_name(store, id, allocator))
+	}
+	strings.write_byte(&builder, ')')
+	return strings.to_string(builder)
+}
 
 @(private = "package")
 expression_conversion_plan :: proc(checker: ^Expression_Checker, plan: Plan_Id) -> Plan_Id {
@@ -106,6 +456,11 @@ expression_procedure_body :: proc(checker: ^Expression_Checker, resolver: ^Resol
 	expression_main_convention(checker, view, id, body) or_return
 	// Nested literal bodies resolve like top-level ones; drain them here so their diagnostics count for this body. The resolver stack is empty while bodies are checked.
 	resolver_check_pending_bodies(resolver) or_return
+	if !(expression_deferred_attribute(checker, id) or_return) {
+		procedure = &entity_get(resolver.scopes, id).data.(Procedure_Data)
+		procedure.body_state = .Invalid
+		return false, nil
+	}
 	procedure = &entity_get(resolver.scopes, id).data.(Procedure_Data)
 	procedure.defers = expression_take_defers(checker, defers_first) or_return
 	procedure.body_state = .Invalid if expression_diagnostics_within(checker, diagnostics_before, body) else .Complete
@@ -170,6 +525,7 @@ expression_bodyless_signature_bindings :: proc(
 	procedure := entity_get(resolver.scopes, id).data.(Procedure_Data)
 	view := expression_file_view(checker, signature.file) or_return
 	if !(expression_procedure_where(checker, view, procedure_scope, procedure.where_clauses) or_return) { return false, nil }
+	if !(expression_deferred_attribute(checker, id) or_return) { return false, nil }
 	descriptor := types.get(checker.type_checker.store, procedure.signature)
 	return len(procedure.parameters) == len(descriptor.params), nil
 }
@@ -572,7 +928,156 @@ expression_block :: proc(checker: ^Expression_Checker, view: View_Id, file_id: F
 	for statement in statements {
 		expression_statement(checker, view, file_id, block_scope, statement) or_return
 	}
+	expression_deferred_tail_check(checker, view, file_id, block_scope, statements) or_return
 	return nil
+}
+
+// A scope ending in a diverging call after a deferred call is a check error:
+// the registered defer would never run. Mirrors the tail of the official
+// check_block, including its sibling unreachable-defer diagnostic.
+@(private = "file")
+expression_deferred_tail_check :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	file_id: File_Id,
+	scope: Scope_Id,
+	statements: []syntax.Node_Index,
+) -> Resolve_Error {
+	file := checker.type_checker.files[file_id]
+	end := len(statements)
+	for end > 0 {
+		kind := file.ast.nodes[statements[end - 1]].kind
+		if kind == .Empty_Stmt { end -= 1; continue }
+		if kind == .Value_Decl && !syntax.node_payload(file.ast, statements[end - 1], syntax.Value_Decl).is_mutable { end -= 1; continue }
+		break
+	}
+	if end == 0 { return nil }
+	last := statements[end - 1]
+	if file.ast.nodes[last].kind != .Expr_Stmt { return nil }
+	call := syntax.node_payload(file.ast, last, syntax.Expr_Stmt).expr
+	for file.ast.nodes[call].kind == .Paren_Expr {
+		call = syntax.node_payload(file.ast, call, syntax.Paren_Expr).expr
+	}
+	if file.ast.nodes[call].kind != .Call_Expr || !expression_is_diverging_call(checker, view, call) { return nil }
+	for statement in statements[:end - 1] {
+		if file.ast.nodes[statement].kind == .Defer_Stmt {
+			expression_unsupported(
+				checker,
+				view,
+				scope,
+				statement,
+				"Unreachable defer statement due to diverging procedure call at the end of the current scope",
+			) or_return
+			continue
+		}
+		if block_statement_has_deferred_call(checker, view, file, statement) {
+			expression_unsupported(
+				checker,
+				view,
+				scope,
+				statement,
+				"Unreachable deferred procedure call due to a diverging procedure call at the end of the current scope",
+			) or_return
+		}
+	}
+	return nil
+}
+
+// Whether a call expression diverges: a diverging callee or a diverging builtin.
+@(private = "file")
+expression_is_diverging_call :: proc(checker: ^Expression_Checker, view: View_Id, node: syntax.Node_Index) -> bool {
+	rows := checker.views[view].nodes
+	first := checker.views[view].first_node
+	if node < first { return false }
+	index := int(node - first)
+	if index < 0 || index >= len(rows.plans) { return false }
+	plan := rows.plans[index]
+	if plan == 0 { return false }
+	#partial switch specific in checker.plans[plan] {
+	case Builtin_Plan:
+		#partial switch checker.builtin_kinds[specific.builtin] {
+		case .Trap, .Unreachable, .Debug_Trap:
+			return true
+		}
+	case Call_Plan:
+		if specific.entity == 0 { return false }
+		type := entity_get(checker.type_checker.resolver.scopes, specific.entity).type
+		if type == 0 { return false }
+		store := checker.type_checker.store
+		descriptor := types.get(store, types.resolve_named(store, type))
+		return descriptor.kind == .Procedure && descriptor.diverging
+	}
+	return false
+}
+
+@(private = "file")
+block_statement_has_deferred_call :: proc(checker: ^Expression_Checker, view: View_Id, file: ^File, node: syntax.Node_Index) -> bool {
+	#partial switch file.ast.nodes[node].kind {
+	case .Expr_Stmt:
+		return expression_has_deferred_call(checker, view, file, syntax.node_payload(file.ast, node, syntax.Expr_Stmt).expr)
+	case .Assign_Stmt:
+		assignment := syntax.node_payload(file.ast, node, syntax.Assign_Stmt)
+		for side in syntax.node_list(file.ast, assignment.lhs) {
+			if expression_has_deferred_call(checker, view, file, side) { return true }
+		}
+		for side in syntax.node_list(file.ast, assignment.rhs) {
+			if expression_has_deferred_call(checker, view, file, side) { return true }
+		}
+	case .Value_Decl:
+		for value in syntax.node_list(file.ast, syntax.node_payload(file.ast, node, syntax.Value_Decl).values) {
+			if expression_has_deferred_call(checker, view, file, value) { return true }
+		}
+	}
+	return false
+}
+
+// Whether an expression holds a call to a procedure annotated with
+// deferred_*. Presence is textual so ordering cannot hide it; validity is
+// diagnosed separately where the procedure is declared.
+@(private = "file")
+expression_has_deferred_call :: proc(checker: ^Expression_Checker, view: View_Id, file: ^File, node: syntax.Node_Index) -> bool {
+	current := node
+	for file.ast.nodes[current].kind == .Paren_Expr {
+		current = syntax.node_payload(file.ast, current, syntax.Paren_Expr).expr
+	}
+	if file.ast.nodes[current].kind != .Call_Expr { return false }
+	call := syntax.node_payload(file.ast, current, syntax.Call_Expr)
+	if expression_has_deferred_call(checker, view, file, call.expr) { return true }
+	for argument in syntax.node_list(file.ast, call.args) {
+		if expression_has_deferred_call(checker, view, file, argument) { return true }
+	}
+	return call_callee_has_deferred_attribute(checker, view, current)
+}
+
+@(private = "file")
+call_callee_has_deferred_attribute :: proc(checker: ^Expression_Checker, view: View_Id, node: syntax.Node_Index) -> bool {
+	rows := checker.views[view].nodes
+	first := checker.views[view].first_node
+	if node < first { return false }
+	index := int(node - first)
+	if index < 0 || index >= len(rows.plans) { return false }
+	plan := rows.plans[index]
+	if plan == 0 { return false }
+	call, is_call := checker.plans[plan].(Call_Plan)
+	if !is_call || call.entity == 0 { return false }
+	target := entity_get(checker.type_checker.resolver.scopes, call.entity)
+	if target.kind != .Procedure || target.declaration.node == 0 { return false }
+	declaration_file := checker.type_checker.files[target.declaration.file]
+	if declaration_file.ast.nodes[target.declaration.node].kind != .Value_Decl { return false }
+	declaration := syntax.node_payload(declaration_file.ast, target.declaration.node, syntax.Value_Decl)
+	for attribute in syntax.node_list(declaration_file.ast, declaration.attributes) {
+		for element in syntax.node_list(declaration_file.ast, syntax.node_payload(declaration_file.ast, attribute, syntax.Attribute).elems) {
+			name := element
+			if declaration_file.ast.nodes[element].kind == .Field_Value {
+				name = syntax.node_payload(declaration_file.ast, element, syntax.Field_Value).field
+			}
+			span := declaration_file.ast.nodes[name]
+			if deferred_attribute_kind(string(declaration_file.source[span.start:span.end])) != .Absent {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 expression_statement :: proc(checker: ^Expression_Checker, view: View_Id, file_id: File_Id, scope: Scope_Id, node: syntax.Node_Index) -> Resolve_Error {
@@ -753,6 +1258,91 @@ local_variable_data :: proc(
 	return data
 }
 
+// Rejects unknown attribute names on a local declaration. A deferred_*
+// attribute is returned for stamping; mutable declarations cannot carry one.
+@(private = "file")
+expression_local_attributes :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	file_id: File_Id,
+	scope: Scope_Id,
+	node: syntax.Node_Index,
+) -> (
+	element: syntax.Node_Index,
+	name: string,
+	ok: bool,
+	err: Resolve_Error,
+) {
+	file := checker.type_checker.files[file_id]
+	declaration := syntax.node_payload(file.ast, node, syntax.Value_Decl)
+	for attribute in syntax.node_list(file.ast, declaration.attributes) {
+		for item in syntax.node_list(file.ast, syntax.node_payload(file.ast, attribute, syntax.Attribute).elems) {
+			name_node := item
+			if file.ast.nodes[item].kind == .Field_Value {
+				name_node = syntax.node_payload(file.ast, item, syntax.Field_Value).field
+			}
+			text := expression_text(file, name_node)
+			if !declaration_attribute_known(text) {
+				expression_unsupported(
+					checker,
+					view,
+					scope,
+					item,
+					fmt.aprintf("Unknown attribute element name '%s'", text, allocator = mem.dynamic_arena_allocator(&checker.arena)),
+				) or_return
+				return 0, "", false, nil
+			}
+			if deferred_attribute_kind(text) != .Absent {
+				if element != 0 {
+					expression_unsupported(checker, view, scope, item, "Previous usage of a 'deferred_*' attribute") or_return
+					return 0, "", false, nil
+				}
+				element, name = item, text
+			}
+		}
+	}
+	return element, name, true, nil
+}
+
+// Links local procedure entities to their declaration so the deferred
+// validator can find the attribute. Anything else carrying deferred_* is
+// rejected here, as the official compiler does.
+@(private = "file")
+expression_stamp_local_procedures :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	file_id: File_Id,
+	scope: Scope_Id,
+	node: syntax.Node_Index,
+	element: syntax.Node_Index,
+	name: string,
+) -> Resolve_Error {
+	if element == 0 { return nil }
+	file := checker.type_checker.files[file_id]
+	declaration := syntax.node_payload(file.ast, node, syntax.Value_Decl)
+	scopes := checker.type_checker.resolver.scopes
+	for name_node in syntax.node_list(file.ast, declaration.names) {
+		if file.ast.nodes[name_node].kind != .Ident { continue }
+		id := scope_lookup_current(scopes, scope, expression_text(file, name_node))
+		if id == 0 { continue }
+		// A predeclared `::` name stays a Constant aliasing the procedure entity.
+		target := entity_get(scopes, id)
+		if target.kind == .Constant && target.alias != 0 { target = entity_get(scopes, target.alias) }
+		if target == nil || target.kind != .Procedure {
+			expression_unsupported(
+				checker,
+				view,
+				scope,
+				element,
+				fmt.aprintf("Unknown attribute element name '%s'", name, allocator = mem.dynamic_arena_allocator(&checker.arena)),
+			) or_return
+			return nil
+		}
+		target.declaration = Node_Ref{file_id, node}
+	}
+	return nil
+}
+
 @(private = "file")
 expression_local_declaration :: proc(
 	checker: ^Expression_Checker,
@@ -766,7 +1356,23 @@ expression_local_declaration :: proc(
 	names := syntax.node_list(file.ast, declaration.names)
 	values := syntax.node_list(file.ast, declaration.values)
 	multi := len(values) == 1 && len(names) > 1
-	if !declaration.is_mutable { return expression_local_constant(checker, view, file_id, scope, node) }
+	deferred_element, deferred_name, attributes_ok := expression_local_attributes(checker, view, file_id, scope, node) or_return
+	if !attributes_ok { return nil }
+	if !declaration.is_mutable {
+		expression_local_constant(checker, view, file_id, scope, node) or_return
+		expression_stamp_local_procedures(checker, view, file_id, scope, node, deferred_element, deferred_name) or_return
+		return nil
+	}
+	if deferred_element != 0 {
+		expression_unsupported(
+			checker,
+			view,
+			scope,
+			deferred_element,
+			fmt.aprintf("Unknown attribute element name '%s'", deferred_name, allocator = mem.dynamic_arena_allocator(&checker.arena)),
+		) or_return
+		return nil
+	}
 	if (len(values) != 0 && len(values) != len(names) && !multi) || (declaration.type == 0 && len(values) == 0) {
 		expression_unsupported(checker, view, scope, node, "Local_Declaration_Arity") or_return
 		return nil

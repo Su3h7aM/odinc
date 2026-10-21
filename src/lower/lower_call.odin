@@ -150,6 +150,12 @@ lower_call_results :: proc(state: ^Procedure_State, node: syntax.Node_Index, inf
 	if ordered_error != nil { function.error = ordered_error; return }
 	if arguments_error != nil { function.error = arguments_error; return }
 	if slots_error != nil { function.error = slots_error; return }
+	captured_inputs: []ir.Node_Id
+	if plan.deferred != 0 {
+		captured, capture_error := make([]ir.Node_Id, count, allocator)
+		if capture_error != nil { function.error = capture_error; return }
+		captured_inputs = captured
+	}
 	struct_return := struct_return_index(declaration.abi_params)
 	result_slot: ir.Node_Id
 	if result_count > 0 && scalar_type(state, plan.results[result_count - 1]) == .None {
@@ -233,6 +239,14 @@ lower_call_results :: proc(state: ^Procedure_State, node: syntax.Node_Index, inf
 			value = lower_operand(state, argument.value, descriptor.params[position])
 		}
 		if state.failed || function.error != nil { return }
+		if plan.deferred != 0 {
+			captured_inputs[position] = value
+			if is_aggregate(state, descriptor.params[position]) {
+				layout := state.job.layouts[descriptor.params[position]]
+				captured_inputs[position] = ir.stack_slot(function, state.entry_control, u32(max(layout.size, 1)), u32(layout.align))
+				lower_store(state, captured_inputs[position], value, descriptor.params[position])
+			}
+		}
 		if is_aggregate(state, descriptor.params[position]) {
 			if !pass_aggregate_argument(state, value, descriptor.params[position], declaration.abi_params[first:first + span], arguments[first:first + span]) {
 				lower_fail(state, node, .Call_Argument)
@@ -254,7 +268,10 @@ lower_call_results :: proc(state: ^Procedure_State, node: syntax.Node_Index, inf
 	call := ir.call(function, state.builder.control, ir.variable_get(state.builder, ir.MEMORY_VARIABLE), callee, id, arguments)
 	memory := ir.add_node(function, .Proj, .Memory, {call}, {index = 0})
 	ir.variable_set(state.builder, ir.MEMORY_VARIABLE, memory)
-	if result_count == 0 { return }
+	if result_count == 0 {
+		if plan.deferred != 0 { register_deferred_call(state, node, plan, captured_inputs, nil) }
+		return
+	}
 	if scalar_type(state, plan.results[result_count - 1]) != .None {
 		if len(signature.results) != 1 || !call_scalar_type(signature.results[0].type) { lower_fail(state, node, .Result); return }
 		value := ir.add_node(function, .Proj, signature.results[0].type, {call}, {index = 1})
@@ -276,6 +293,7 @@ lower_call_results :: proc(state: ^Procedure_State, node: syntax.Node_Index, inf
 	for index in 0 ..< split_count {
 		values[index] = lower_load(state, slots[index], plan.results[index])
 	}
+	if plan.deferred != 0 { register_deferred_call(state, node, plan, captured_inputs, values) }
 }
 
 @(private)

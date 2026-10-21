@@ -31,8 +31,23 @@ local_scope :: proc(state: ^Procedure_State) -> Local_Scope {
 run_deferred :: proc(state: ^Procedure_State, first: int) {
 	for index := len(state.defers) - 1; index >= first; index -= 1 {
 		if state.failed || state.job.function.error != nil || state.builder.control == 0 { return }
-		body := syntax.node_payload(state.ast, state.defers[index], syntax.Defer_Stmt).stmt
-		lower_statement(state, body)
+		switch action in state.defers[index] {
+		case syntax.Node_Index:
+			body := syntax.node_payload(state.ast, action, syntax.Defer_Stmt).stmt
+			lower_statement(state, body)
+		case Deferred_Call:
+			function := state.job.function
+			call := ir.call(
+				function,
+				state.builder.control,
+				ir.variable_get(state.builder, ir.MEMORY_VARIABLE),
+				action.callee,
+				action.signature,
+				action.arguments,
+			)
+			memory := ir.add_node(function, .Proj, .Memory, {call}, {index = 0})
+			ir.variable_set(state.builder, ir.MEMORY_VARIABLE, memory)
+		}
 	}
 }
 

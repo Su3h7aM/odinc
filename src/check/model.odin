@@ -532,7 +532,21 @@ Dependency :: struct {
 Attribute :: struct {
 	name:   string,
 	value:  Const_Id,
+	// Resolved target of a deferred_* attribute. The constant pool cannot
+	// name a procedure entity, and the target may be declared later.
+	entity: Entity_Id,
 	source: Source_Span,
+}
+// Which deferred_* attribute names a procedure, if any. Stored on the
+// attribute name itself; the target lives in Attribute.entity.
+Deferred_Kind :: enum u8 {
+	Absent,
+	Legacy,
+	None,
+	In,
+	Out,
+	In_Out,
+	By_Ptr,
 }
 Storage_Kind :: enum u8 {
 	None,
@@ -748,6 +762,9 @@ Call_Plan :: struct {
 	results:      []types.Type_Id,
 	context_plan: Plan_Id,
 	variadic:     bool,
+	// Deferred procedure of the callee; 0 when the callee declares none.
+	// Backfilled after checking so lowering finds the call-site defer.
+	deferred:     Entity_Id,
 }
 Builtin_Plan :: struct {
 	builtin:   Builtin_Id,
@@ -987,6 +1004,8 @@ Type_Info_Entry :: struct {
 	type:            types.Type_Id,
 	runtime_id:      u64,
 	slot:            u32,
+	name, pkg:       string,
+	base_slot:       u32,
 	size, alignment: i64,
 	flags:           u32,
 	descriptor:      Const_Id,

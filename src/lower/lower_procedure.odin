@@ -24,7 +24,7 @@ Procedure_State :: struct {
 	call_signatures: [dynamic]Call_Signature,
 	result_pointers: [dynamic]ir.Node_Id,
 	struct_return:   ir.Node_Id,
-	defers:          [dynamic]syntax.Node_Index,
+	defers:          [dynamic]Deferred_Action,
 }
 
 @(private)
@@ -148,7 +148,7 @@ lower_procedure :: proc(job: ^Procedure_Job) -> (err: runtime.Allocator_Error) {
 		control_targets = make([dynamic]Control_Target, allocator) or_return,
 		call_signatures = make([dynamic]Call_Signature, allocator) or_return,
 		result_pointers = make([dynamic]ir.Node_Id, allocator) or_return,
-		defers          = make([dynamic]syntax.Node_Index, allocator) or_return,
+		defers          = make([dynamic]Deferred_Action, allocator) or_return,
 	}
 	for index := 0; index < len(job.parameters); {
 		parameter := job.parameters[index]

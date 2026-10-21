@@ -18,6 +18,7 @@ Collection_Diagnostic_Kind :: enum u8 {
 	Missing_Initializer,
 	Invalid_Name,
 	Arity,
+	Unknown_Attribute,
 }
 
 // Placeholder for F3. Names and source bytes are borrowed; related identifies the earlier binding.
@@ -283,7 +284,7 @@ collect_declarations :: proc(
 				) or_return
 				continue
 			}
-			block_visibility, _, _ := collect_attributes(collection, file, id, decl.attributes, visibility) or_return
+			block_visibility, _, _ := collect_attributes(collection, file, id, decl.attributes, visibility, false) or_return
 			collect_declarations(collection, file, id, syntax.node_list(file.ast, body.stmts), order, node, block_visibility) or_return
 		case .When_Stmt:
 			append(
@@ -306,7 +307,19 @@ collect_value_declaration :: proc(
 	inherited_visibility: Collection_Visibility,
 ) -> Binding_Error {
 	decl := syntax.node_payload(file.ast, node, syntax.Value_Decl)
-	visibility, flags, private_test, attribute_err := collect_attributes(collection, file, id, decl.attributes, inherited_visibility)
+	values := syntax.node_list(file.ast, decl.values)
+	is_procedure := len(values) > 0
+	for value in values {
+		target := value
+		for target != 0 && file.ast.nodes[target].kind == .Paren_Expr {
+			target = syntax.node_payload(file.ast, target, syntax.Paren_Expr).expr
+		}
+		if target == 0 || file.ast.nodes[target].kind != .Proc_Lit {
+			is_procedure = false
+			break
+		}
+	}
+	visibility, flags, private_test, attribute_err := collect_attributes(collection, file, id, decl.attributes, inherited_visibility, is_procedure)
 	if attribute_err != nil { return attribute_err }
 	if private_test {
 		collection_report(collection, file, id, node, .Private_Test) or_return
@@ -320,7 +333,6 @@ collect_value_declaration :: proc(
 		names := syntax.node_list(file.ast, decl.names)
 		if len(names) > 0 { collection_report(collection, file, id, names[0], .Using_At_File) or_return }
 	}
-	values := syntax.node_list(file.ast, decl.values)
 	for name, index in syntax.node_list(file.ast, decl.names) {
 		if file.ast.nodes[name].kind != .Ident {
 			collection_report(collection, file, id, name, .Invalid_Name) or_return
@@ -468,6 +480,7 @@ collect_attributes :: proc(
 	id: File_Id,
 	attributes: syntax.Node_Range,
 	inherited: Collection_Visibility,
+	is_procedure: bool,
 ) -> (
 	visibility: Collection_Visibility,
 	flags: Entity_Flags,
@@ -513,6 +526,23 @@ collect_attributes :: proc(
 				flags += {.Export}
 			case "require":
 				flags += {.Required}
+			case "deferred",
+			     "deferred_none",
+			     "deferred_in",
+			     "deferred_out",
+			     "deferred_in_out",
+			     "deferred_in_by_ptr",
+			     "deferred_out_by_ptr",
+			     "deferred_in_out_by_ptr":
+				// Procedure targets resolve after collection, so the expression
+				// checker validates these. Anywhere else they are unknown.
+				if !is_procedure {
+					collection_report(collection, file, id, element, .Unknown_Attribute) or_return
+				}
+			case:
+				if !is_procedure && !declaration_attribute_known(collection_node_text(file, name)) {
+					collection_report(collection, file, id, element, .Unknown_Attribute) or_return
+				}
 			}
 		}
 	}
