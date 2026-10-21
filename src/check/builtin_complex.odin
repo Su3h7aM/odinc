@@ -1,5 +1,7 @@
 package check
 
+import "core:math"
+import "core:math/big"
 import "core:mem"
 import "oc:syntax"
 import "oc:types"
@@ -209,7 +211,7 @@ complex_component :: proc(
 		nil
 }
 
-@(private = "file")
+@(private = "package")
 complex_component_type :: proc(store: ^types.Store, type: types.Type_Id) -> types.Type_Id {
 	descriptor := types.get(store, types.resolve_named(store, type))
 	if descriptor.kind == .Untyped_Complex || descriptor.kind == .Untyped_Quaternion { return types.TYPE_UNTYPED_FLOAT }
@@ -221,4 +223,109 @@ complex_component_type :: proc(store: ^types.Store, type: types.Type_Id) -> type
 	if descriptor.count == 8 { return types.intern(store, types.Type{kind = .Float, count = 2}) }
 	if descriptor.count == 16 { return types.intern(store, types.Type{kind = .Float, count = 4}) }
 	return types.intern(store, types.Type{kind = .Float, count = 8})
+}
+
+// abs of a complex or quaternion is its magnitude, typed as the operand's element float.
+@(private = "package")
+expression_abs_complex :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	scope: Scope_Id,
+	node: syntax.Node_Index,
+	builtin: Builtin_Id,
+	argument: syntax.Node_Index,
+	operand: Expression_Info,
+) -> (
+	info: Expression_Info,
+	err: Resolve_Error,
+) {
+	if operand.mode == .Type { return expression_failure(checker, view, scope, argument, .Invalid_Operand) }
+	store := checker.type_checker.store
+	result_type := complex_component_type(store, operand.type)
+	if operand.mode == .Constant {
+		if magnitude, ok := complex_magnitude_constant(checker.constants, store, operand.constant, result_type); ok {
+			folded, fold_error := constant_pool_intern_float(checker.constants, magnitude, result_type)
+			if fold_error != nil {
+				expression_constant_failure(checker, checker.views[view].file, node, fold_error) or_return
+				return expression_poison(scope), nil
+			}
+			return Expression_Info{type = result_type, constant = folded, mode = .Constant, scope = scope, state = .Checked}, nil
+		}
+		return expression_failure(checker, view, scope, node, .Invalid_Operand)
+	}
+	operands := make([]Operand, 1, mem.dynamic_arena_allocator(&checker.arena)) or_return
+	operands[0] = Operand(Expression_Ref{view, argument})
+	plan := Plan_Id(len(checker.plans))
+	append(&checker.plans, Plan(Builtin_Plan{builtin = builtin, arguments = operands})) or_return
+	return Expression_Info{type = result_type, mode = .Value, plan = plan, scope = scope, state = .Checked}, nil
+}
+
+@(private = "file")
+complex_magnitude_constant :: proc(pool: ^Constant_Pool, store: ^types.Store, id: Const_Id, result_type: types.Type_Id) -> (Float_Value, bool) {
+	constant := constant_pool_get(pool, id)
+	if constant == nil { return {}, false }
+	components: [4]Const_Id
+	count := 0
+	#partial switch aggregate in constant.value {
+	case Complex_Value:
+		components[0], components[1] = aggregate[0], aggregate[1]
+		count = 2
+	case Quaternion_Value:
+		components = aggregate
+		count = 4
+	}
+	if count == 0 { return {}, false }
+	sum := 0.0
+	for index in 0 ..< count {
+		part, ok := complex_magnitude_component(pool, components[index])
+		if !ok { return {}, false }
+		sum += part * part
+	}
+	return complex_magnitude_float(math.sqrt(sum), complex_magnitude_width(store, result_type)), true
+}
+
+@(private = "file")
+complex_magnitude_width :: proc(store: ^types.Store, result_type: types.Type_Id) -> u8 {
+	descriptor := types.get(store, types.resolve_named(store, result_type))
+	if descriptor.kind == .Float && descriptor.count > 0 { return u8(descriptor.count * 8) }
+	return 64
+}
+
+@(private = "file")
+complex_magnitude_component :: proc(pool: ^Constant_Pool, id: Const_Id) -> (value: f64, ok: bool) {
+	constant := constant_pool_get(pool, id)
+	if constant == nil { return 0, false }
+	#partial switch component in constant.value {
+	case Float_Value:
+		switch component.width {
+		case 16:
+			return f64(transmute(f16)u16(component.bits)), true
+		case 32:
+			return f64(transmute(f32)u32(component.bits)), true
+		case 64:
+			return transmute(f64)component.bits, true
+		}
+	case big.Int:
+		integer := component
+		magnitude, failure := big.int_get_float(&integer, allocator = context.temp_allocator)
+		if failure != nil { return 0, false }
+		return magnitude, true
+	case big.Rat:
+		rational := component
+		magnitude, _, failure := numeric_rational_to_f64(&rational, 64)
+		if failure { return 0, false }
+		return magnitude, true
+	}
+	return 0, false
+}
+
+@(private = "file")
+complex_magnitude_float :: proc(value: f64, width: u8) -> Float_Value {
+	switch width {
+	case 16:
+		return Float_Value{bits = u64(transmute(u16)f16(value)), width = 16}
+	case 32:
+		return Float_Value{bits = u64(transmute(u32)f32(value)), width = 32}
+	}
+	return Float_Value{bits = transmute(u64)value, width = 64}
 }

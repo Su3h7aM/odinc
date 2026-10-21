@@ -835,6 +835,17 @@ expression_numeric_builtin :: proc(
 	if ellipsis || (kind == .Abs && count != 1) || (kind == .Clamp && count != 3) || ((kind == .Min || kind == .Max) && count < 2) {
 		return expression_unsupported(checker, view, scope, node, "Numeric_Arguments")
 	}
+	if kind == .Abs {
+		operand := check_expression(checker, view, scope, arguments[0]) or_return
+		if operand.state == .Invalid { return expression_poison(scope), nil }
+		descriptor := types.get(store, types.resolve_named(store, operand.type))
+		#partial switch descriptor.kind {
+		case .Complex, .Untyped_Complex, .Quaternion, .Untyped_Quaternion:
+			return expression_abs_complex(checker, view, scope, node, builtin, arguments[0], operand)
+		case:
+			return expression_abs_scalar(checker, view, scope, node, builtin, kind, arguments[0], operand)
+		}
+	}
 	allocator := mem.dynamic_arena_allocator(&checker.arena)
 	values := make([]Expression_Info, count, allocator) or_return
 	result_type: types.Type_Id
@@ -870,6 +881,42 @@ expression_numeric_builtin :: proc(
 	plan := Plan_Id(len(checker.plans))
 	append(&checker.plans, Plan(Builtin_Plan{builtin = builtin, arguments = operands})) or_return
 	return Expression_Info{type = result_type, mode = .Value, plan = plan, scope = scope, state = .Checked}, nil
+}
+
+@(private = "file")
+expression_abs_scalar :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	scope: Scope_Id,
+	node: syntax.Node_Index,
+	builtin: Builtin_Id,
+	kind: Builtin_Kind,
+	argument: syntax.Node_Index,
+	operand: Expression_Info,
+) -> (
+	info: Expression_Info,
+	err: Resolve_Error,
+) {
+	store := checker.type_checker.store
+	descriptor := types.get(store, types.resolve_named(store, operand.type))
+	if operand.mode == .Type || !(conversion_integer(descriptor.kind) || conversion_float(descriptor.kind)) {
+		return expression_failure(checker, view, scope, argument, .Invalid_Operand)
+	}
+	if operand.mode == .Constant {
+		values := [1]Expression_Info{operand}
+		result, failure := constant_numeric_builtin(checker.constants, store, kind, values[:], operand.type)
+		if failure != nil {
+			expression_constant_failure(checker, checker.views[view].file, node, failure) or_return
+			return expression_poison(scope), nil
+		}
+		return Expression_Info{type = operand.type, constant = result, mode = .Constant, scope = scope, state = .Checked}, nil
+	}
+	allocator := mem.dynamic_arena_allocator(&checker.arena)
+	operands := make([]Operand, 1, allocator) or_return
+	operands[0] = Operand(Expression_Ref{view, argument})
+	plan := Plan_Id(len(checker.plans))
+	append(&checker.plans, Plan(Builtin_Plan{builtin = builtin, arguments = operands})) or_return
+	return Expression_Info{type = operand.type, mode = .Value, plan = plan, scope = scope, state = .Checked}, nil
 }
 
 @(private = "file")
