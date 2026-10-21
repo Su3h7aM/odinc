@@ -169,7 +169,13 @@ expression_generic_call :: proc(
 			argument_kind := caller.ast.nodes[argument_node].kind
 			if (argument_kind == .Implicit_Selector_Expr || argument_kind == .Comp_Lit) && !poly_pattern_has_poly(file, field.type) {
 				if field.type != 0 {
-					argument_hint = type_expression(checker.type_checker, declaration.type.file, definition_scope, field.type, true) or_return
+					// A pattern can mention names bound by other parameters. Resolve the
+					// hint speculatively; an unresolved dependent pattern is not a hint.
+					bound_hint_scope := poly_bound_scope(&match) or_return
+					mark := expression_speculation_begin(checker)
+					hint_type, hint_error := type_expression(checker.type_checker, declaration.type.file, bound_hint_scope, field.type, true)
+					expression_speculation_end(checker, mark)
+					if hint_error == nil && hint_type != types.TYPE_POISON { argument_hint = hint_type }
 				} else {
 					// The default may name parameters bound by earlier arguments, so it is
 					// inferred in the bound scope like a concrete pattern. Speculation keeps

@@ -16,3 +16,16 @@ main :: proc() {
 	procedure, ok := check_last_procedure_source(t, source)
 	if ok { testing.expect(t, procedure.body_state == .Complete) }
 }
+
+@(test)
+generic_call_implicit_selector_uses_earlier_type_argument :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(`package sample
+Kind :: enum { A, B }
+consume :: proc($K: typeid, value: K) {}
+main :: proc() {
+	consume(Kind, .A)
+}
+`)
+	procedure, ok := check_last_procedure_source(t, source)
+	if ok { testing.expect(t, procedure.body_state == .Complete) }
+}

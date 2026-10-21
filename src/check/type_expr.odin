@@ -240,6 +240,12 @@ type_declaration :: proc(checker: ^Type_Checker, id: Entity_Id) -> (handled, val
 	file := checker.files[file_id]
 	scope, name := entity.scope, entity.name
 	value := type_unparen(file, collected.value.node)
+	definition := value
+	helper_wrapped := false
+	for file.ast.nodes[definition].kind == .Helper_Type {
+		helper_wrapped = true
+		definition = type_unparen(file, syntax.node_payload(file.ast, definition, syntax.Helper_Type).type)
+	}
 	if entity.kind == .Constant {
 		is_type := type_value_is_type(checker, file_id, file, scope, value) or_return
 		if !is_type { return }
@@ -247,7 +253,7 @@ type_declaration :: proc(checker: ^Type_Checker, id: Entity_Id) -> (handled, val
 		entity.kind = .Type_Name
 	}
 	handled = true
-	record := value
+	record := definition
 	if file.ast.nodes[record].kind == .Distinct_Type {
 		record = type_unparen(file, syntax.node_payload(file.ast, record, syntax.Distinct_Type).type)
 	}
@@ -255,27 +261,27 @@ type_declaration :: proc(checker: ^Type_Checker, id: Entity_Id) -> (handled, val
 		checker.generic_records[id] = Node_Ref{file_id, record}
 		return true, true, nil
 	}
-	#partial switch file.ast.nodes[value].kind {
+	#partial switch file.ast.nodes[definition].kind {
 	case .Struct_Type:
 		type := publish_nominal(checker, id, .Struct, name) or_return
-		descriptor, field_flags, record_valid := struct_descriptor(checker, file_id, file, scope, value, name) or_return
+		descriptor, field_flags, record_valid := struct_descriptor(checker, file_id, file, scope, definition, name) or_return
 		register_field_flags(checker, type, field_flags) or_return
 		types.complete_nominal(checker.store, type, descriptor)
 		return true, record_valid, nil
 	case .Union_Type:
 		type := publish_nominal(checker, id, .Union, name) or_return
-		descriptor, record_valid := union_descriptor(checker, file_id, file, scope, value, name) or_return
+		descriptor, record_valid := union_descriptor(checker, file_id, file, scope, definition, name) or_return
 		types.complete_nominal(checker.store, type, descriptor)
 		return true, record_valid, nil
 	case .Enum_Type:
 		type := publish_nominal(checker, id, .Enum, name) or_return
-		descriptor, members, record_valid := enum_descriptor(checker, file_id, file, scope, value, name) or_return
+		descriptor, members, record_valid := enum_descriptor(checker, file_id, file, scope, definition, name) or_return
 		register_enum(checker, type, members) or_return
 		types.complete_nominal(checker.store, type, descriptor)
 		return true, record_valid, nil
 	case .Bit_Field_Type:
 		type := publish_nominal(checker, id, .Bit_Field, name) or_return
-		base := bit_field_type(checker, file_id, file, scope, value) or_return
+		base := bit_field_type(checker, file_id, file, scope, definition) or_return
 		if base == types.TYPE_POISON { return true, false, nil }
 		descriptor := types.get(checker.store, base)^
 		descriptor.name = name
@@ -283,16 +289,27 @@ type_declaration :: proc(checker: ^Type_Checker, id: Entity_Id) -> (handled, val
 		return true, true, nil
 	case .Distinct_Type:
 		type := publish_nominal(checker, id, .Named, name) or_return
-		base := type_expression(checker, file_id, scope, syntax.node_payload(file.ast, value, syntax.Distinct_Type).type, true) or_return
+		base := type_expression(checker, file_id, scope, syntax.node_payload(file.ast, definition, syntax.Distinct_Type).type, true) or_return
 		types.complete_nominal(checker.store, type, types.Type{kind = .Named, name = name, elem = base})
 		return true, base != types.TYPE_POISON, nil
 	case .Proc_Type:
-		type := publish_nominal(checker, id, .Named, name) or_return
-		base := procedure_type(checker, file_id, file, scope, value) or_return
-		types.complete_nominal(checker.store, type, types.Type{kind = .Named, name = name, elem = base})
+		if !helper_wrapped {
+			type := publish_nominal(checker, id, .Named, name) or_return
+			base := procedure_type(checker, file_id, file, scope, definition) or_return
+			types.complete_nominal(checker.store, type, types.Type{kind = .Named, name = name, elem = base})
+			return true, base != types.TYPE_POISON, nil
+		}
+		type := publish_nominal(checker, id, .Procedure, name) or_return
+		base := procedure_type(checker, file_id, file, scope, definition) or_return
+		descriptor := types.get(checker.store, base)^
+		descriptor.name = name
+		types.complete_nominal(checker.store, type, descriptor)
+		types.get(checker.store, type).is_nominal = false
+		types.get(checker.store, type).is_complete = types.get(checker.store, base).is_complete
+		types.get(checker.store, type).name = ""
 		return true, base != types.TYPE_POISON, nil
 	}
-	type := type_expression(checker, file_id, scope, value, true) or_return
+	type := type_expression(checker, file_id, scope, definition, true) or_return
 	entity = entity_get(scopes, id)
 	entity.type = type
 	entity.flags += {.Type_Alias}
@@ -742,12 +759,18 @@ array_type :: proc(
 		type_report(checker, file_id, file, length, .Invalid_Array_Count) or_return
 		return types.TYPE_POISON, nil
 	}
-	if file.ast.nodes[length].kind == .Ident {
-		sparse := array.tag != 0 && expression_text(file, array.tag) == "#sparse"
-		if target, _ := scope_lookup(checker.resolver.scopes, scope, type_node_text(file, length));
-		   target != 0 && entity_get(checker.resolver.scopes, target).kind == .Type_Name {
-			return enumerated_array_type(checker, file_id, file, scope, array, length, sparse)
+	for file.ast.nodes[length].kind == .Poly_Type || file.ast.nodes[length].kind == .Helper_Type {
+		if file.ast.nodes[length].kind == .Poly_Type {
+			length = type_unparen(file, syntax.node_payload(file.ast, length, syntax.Poly_Type).type)
+		} else {
+			length = type_unparen(file, syntax.node_payload(file.ast, length, syntax.Helper_Type).type)
 		}
+	}
+	is_type, type_err := type_value_is_type(checker, file_id, file, scope, length)
+	if type_err != nil { return types.TYPE_POISON, type_err }
+	if is_type {
+		sparse := array.tag != 0 && expression_text(file, array.tag) == "#sparse"
+		return enumerated_array_type(checker, file_id, file, scope, array, length, sparse)
 	}
 	count, count_valid := array_count(checker, file_id, scope, length) or_return
 	elem := type_expression(checker, file_id, scope, array.elem, true) or_return
