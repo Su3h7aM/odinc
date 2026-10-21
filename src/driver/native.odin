@@ -4,6 +4,7 @@ import "base:runtime"
 import "core:fmt"
 import "core:io"
 import "core:mem/virtual"
+import "core:strings"
 import "oc:amd64"
 import "oc:check"
 import "oc:ir"
@@ -38,6 +39,11 @@ Entry_Emit_Failed :: struct {
 	err: amd64.Emit_Error,
 }
 
+Stub_Emit_Failed :: struct {
+	name: string,
+	err:  amd64.Emit_Error,
+}
+
 Link_Failed :: struct {
 	err: link.Link_Error,
 }
@@ -51,6 +57,7 @@ Build_Error :: union {
 	Allocate_Failed,
 	Emit_Failed,
 	Entry_Emit_Failed,
+	Stub_Emit_Failed,
 	Link_Failed,
 }
 
@@ -124,6 +131,8 @@ write_build_error :: proc(log: io.Writer, err: Build_Error) {
 		fmt.wprintfln(log, "%s: machine code emission failed: %v", value.function, value.err)
 	case Entry_Emit_Failed:
 		fmt.wprintfln(log, "entry code emission failed: %v", value.err)
+	case Stub_Emit_Failed:
+		fmt.wprintfln(log, "thread stub %s emission failed: %v", value.name, value.err)
 	case Link_Failed:
 		fmt.wprintfln(log, "link failed: %v", value.err)
 	}
@@ -202,7 +211,7 @@ build_image :: proc(module: ^ir.Module, entry_name: string, log: io.Writer, allo
 
 	symbols := make([]link.Symbol, symbol_count, scratch_allocator) or_return
 	startup_atom := blob_base + blob_count
-	atoms := make([]link.Atom, startup_atom + 2, scratch_allocator) or_return
+	atoms := make([dynamic]link.Atom, startup_atom + 2, startup_atom + 2, scratch_allocator) or_return
 	defer {
 		for &atom in atoms[1:1 + function_count] { amd64.atom_destroy(&atom, allocator) }
 	}
@@ -230,10 +239,12 @@ build_image :: proc(module: ^ir.Module, entry_name: string, log: io.Writer, allo
 				addend = reloc.addend,
 			}
 		}
+		bytes := global.bytes
+		section := global_section(global)
 		atoms[global_base + index] = link.Atom {
-			section = global_section(global),
+			section = section,
 			align   = global.align,
-			bytes   = global.bytes,
+			bytes   = bytes,
 			size    = u64(global.size),
 			relocs  = relocs,
 		}
@@ -265,9 +276,20 @@ build_image :: proc(module: ^ir.Module, entry_name: string, log: io.Writer, allo
 		}
 	}
 	for extern, index in module.externs {
+		atom := link.ATOM_UNDEFINED
+		stub, emitted, stub_err := emit_thread_stub(extern.name, scratch_allocator)
+		// The name is cloned for the error: it must not reference the module.
+		if stub_err != nil {
+			name := strings.clone(extern.name, scratch_allocator) or_return
+			return nil, Stub_Emit_Failed{name, stub_err}
+		}
+		if emitted {
+			append(&atoms, stub) or_return
+			atom = u32(len(atoms) - 1)
+		}
 		symbols[extern_base + index] = link.Symbol {
 			name = extern.name,
-			atom = link.ATOM_UNDEFINED,
+			atom = atom,
 		}
 	}
 	for name, slot in STARTUP_SLOT_NAMES {
@@ -309,6 +331,10 @@ build_image :: proc(module: ^ir.Module, entry_name: string, log: io.Writer, allo
 	if init_index >= 0 { init_symbol = function_symbols[init_index] }
 	fini_symbol: Maybe(u32)
 	if fini_index >= 0 { fini_symbol = function_symbols[fini_index] }
+	tls_header_symbol: Maybe(u32)
+	for global, index in module.globals {
+		if global.name == "_odin_linux_tls_header" { tls_header_symbol = global_symbols[index] }
+	}
 	entry_atom, entry_err := amd64.emit_linux_entry(
 		amd64.Linux_Entry_Symbols {
 			main = function_symbols[main_index],
@@ -320,13 +346,14 @@ build_image :: proc(module: ^ir.Module, entry_name: string, log: io.Writer, allo
 			argv = u32(startup_base + 1),
 			envp = u32(startup_base + 2),
 			thread_pointer = thread_pointer_symbol,
+			tls_header = tls_header_symbol,
 		},
 		scratch_allocator,
 	)
 	if entry_err != nil { return nil, Entry_Emit_Failed{entry_err} }
 	atoms[0] = entry_atom
 
-	inputs := []link.Input{{atoms = atoms, symbols = symbols}}
+	inputs := []link.Input{{atoms = atoms[:], symbols = symbols}}
 	linked, link_err := link.link(inputs, "_start", allocator)
 	if link_err != nil { return nil, Link_Failed{link_err} }
 	return linked, nil
@@ -336,6 +363,21 @@ build_image :: proc(module: ^ir.Module, entry_name: string, log: io.Writer, allo
 symbol_of :: proc(indices: amd64.Symbol_Indices, reference: ir.Symbol_Ref) -> u32 {
 	assert(int(reference.index) < len(indices[reference.space]))
 	return indices[reference.space][reference.index]
+}
+
+// The synthesized atom defining a referenced thread stub, or no atom for any
+// other extern, which links as undefined and fails honestly at link time.
+@(private = "file")
+emit_thread_stub :: proc(name: string, allocator: runtime.Allocator) -> (atom: link.Atom, emitted: bool, err: amd64.Emit_Error) {
+	switch name {
+	case "_odin_linux_clone":
+		atom, err = amd64.emit_linux_clone(allocator)
+		return atom, err == nil, err
+	case "_odin_linux_tls_layout":
+		atom, err = amd64.emit_linux_tls_layout(allocator)
+		return atom, err == nil, err
+	}
+	return {}, false, nil
 }
 
 @(private = "file")

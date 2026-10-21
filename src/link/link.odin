@@ -229,6 +229,7 @@ link_with :: proc(inputs: []Input, needed: []string, provided: map[string]bool, 
 		if tls_err != nil { return nil, tls_err }
 	}
 	elf.executable_set_entry(&builder, entry_symbol.address)
+	elf.executable_load_headers(&builder, BASE)
 	configure_dynamic_program(&builder, layout, fixups, needed)
 
 	object, write_err := elf.executable_write(&builder, allocator)
