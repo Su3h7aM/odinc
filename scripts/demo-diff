@@ -6,11 +6,26 @@ source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 # usage: mise run demo-diff [--keep] [fixture]
 #
 # Builds the fixture with the official compiler and with odinc, runs the
-# official binary N times, and requires our output to contain the longest
-# common subsequence of the official runs' stdout, in order. The fixture is
-# a single .odin file or a directory, defaulting to examples/demo/demo.odin.
+# official binary N times, and compares our stdout and stderr against the
+# official runs section by section. A section starts at a line beginning with
+# `## ` or `# `; output before the first header is its own section.
 #
-# Decisions, all measured 2026-10-21:
+# Per section:
+# - byte-identical across all official runs: ours must equal it line for
+#   line, in order (exact).
+# - otherwise (multiset): each distinct line's count in ours must lie within
+#   [min, max] of its counts across the official runs, where a run that lacks
+#   the line counts 0. A line no official run printed therefore fails. Lines
+#   whose counts vary (thread order, random output) are tolerated by count only.
+# - sections present in all official runs must exist in ours, and sections
+#   present in ours must exist in some official run; their order must match
+#   official run 1.
+# Addresses 0x[0-9A-Fa-f]+ are normalized to 0xADDR before comparison (the
+# official compiler prints uppercase hex). Stderr is
+# compared as one section with the same rules. The exit code must match
+# official run 1.
+#
+# Decisions, measured 2026-10-21:
 # - No ODIN_ROOT override on the official side: both compilers use
 #   ODIN_ROOT=$PROJECT_ROOT (inherited from _lib.sh). The fork binary
 #   ODIN_BIN builds the demo cleanly against either $PROJECT_ROOT or
@@ -18,10 +33,9 @@ source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 #   odin paired with fork sources, which nothing here uses.
 # - Both binaries are named `prog` in separate directories and run as
 #   ./prog, so argv[0] (baked into demo stdout line 3) is identical.
-# - Official demo stdout is nondeterministic (map order, thread
-#   interleaving, ASLR addresses, math/big randomness), so whole-output
-#   comparison is impossible by construction. The LCS across 5 official
-#   runs excludes unstable lines automatically, with no mask table.
+# - Official demo stdout is nondeterministic (map order, thread interleaving,
+#   ASLR addresses, math/big randomness). Whole-output or line-order comparison
+#   is impossible, so the per-section rules above replace it, with no mask table.
 #
 # Everything lives under mktemp -d; pass --keep to inspect a failure.
 
@@ -31,172 +45,292 @@ usage() {
 
 N_RUNS=5
 
-keep=0
-args=()
-for a in "$@"; do
-	if [[ "$a" == "--keep" ]]; then keep=1; elif [[ "$a" == "-h" || "$a" == "--help" ]]; then usage; exit 0; elif [[ "$a" == -* ]]; then die "unknown flag: $a"; else args+=("$a"); fi
-done
-
-fixture="${args[0]:-$PROJECT_ROOT/examples/demo/demo.odin}"
-if [[ "$fixture" != /* ]]; then fixture="$PROJECT_ROOT/$fixture"; fi
-[[ -e "$fixture" ]] || die "no such fixture: $fixture"
-name="$(basename "$fixture")"
-
-work="$(mktemp -d)"
-finish() {
-	if [[ $keep -eq 1 ]]; then printf 'kept %s\n' "$work"; else rm -rf "$work"; fi
-	exit "$1"
+# split_on_headers (1|0), unsplit_name, file: emits section records
+# F (file start), H<TAB>header, L<TAB>line.
+sectionize() {
+	awk -v split_on_headers="$1" -v unsplit_name="$2" '
+		BEGIN { print "F\t"; opened = 0 }
+		split_on_headers == 1 && (/^## / || /^# /) { print "H\t" $0; opened = 1; next }
+		{
+			if (!opened) { print "H\t" (split_on_headers == 1 ? "" : unsplit_name); opened = 1 }
+			print "L\t" $0
+		}
+		END { if (!opened) print "H\t" (split_on_headers == 1 ? "" : unsplit_name) }
+	' "$3"
 }
 
-lcs_lines() {
-	awk '
-		NR == FNR { a[++na]=$0; next }
-		{ b[++nb]=$0 }
-		END {
-			stride = nb + 1
-			for (i = 1; i <= na; i++)
-				for (j = 1; j <= nb; j++) {
-					if (a[i] == b[j]) L[i*stride+j] = (L[(i-1)*stride+j-1] + 0) + 1
-					else {
-						x = L[(i-1)*stride+j] + 0; y = L[i*stride+j-1] + 0
-						L[i*stride+j] = (x > y ? x : y)
-					}
+# split_on_headers (1|0), unsplit_name, ours_file, official_file...
+# Prints one OK/DIFF line per section; exits 0 when every section is OK.
+compare_sections() {
+	local split_on_headers="$1" unsplit_name="$2"
+	shift 2
+	local file
+	for file in "$@"; do
+		sectionize "$split_on_headers" "$unsplit_name" "$file"
+	done | awk '
+		function normalize(text) {
+			gsub(/0x[0-9A-Fa-f]+/, "0xADDR", text)
+			return text
+		}
+		function section_name(id,    label) {
+			label = (kname[id] == "") ? "(before first header)" : kname[id]
+			return (kocc[id] > 1) ? label " (occurrence " kocc[id] ")" : label
+		}
+		function shape(text,    s) {
+			if (index(text, ": ") > 0) return substr(text, 1, index(text, ": ") + 1) "*"
+			s = text
+			gsub(/[0-9]+/, "#", s)
+			gsub(/[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]+/, "#", s)
+			return s
+		}
+		function present_in_all(id,    r, total) {
+			total = 0
+			for (r = 1; r <= nruns; r++) total += present[r, id]
+			return total == nruns
+		}
+		{
+			kind = substr($0, 1, 1)
+			text = substr($0, 3)
+			if (kind == "F") { nruns++; cur = nruns; curk = 0; next }
+			if (kind == "H") {
+				occ = ++header_count[cur, text]
+				if (!((text SUBSEP occ) in kid)) {
+					nkeys++
+					kid[text SUBSEP occ] = nkeys
+					kname[nkeys] = text
+					kocc[nkeys] = occ
 				}
-			i = na; j = nb; n = 0
-			while (i > 0 && j > 0) {
-				if (a[i] == b[j]) { out[++n] = a[i]; i--; j-- }
-				else if ((L[(i-1)*stride+j] + 0) >= (L[i*stride+j-1] + 0)) i--
-				else j--
+				curk = kid[text SUBSEP occ]
+				present[cur, curk] = 1
+				order_len[cur]++
+				order[cur, order_len[cur]] = curk
+				next
 			}
-			for (k = n; k >= 1; k--) print out[k]
-		}' "$1" "$2" >"$3"
-}
-
-first_diff_line() {
-	awk 'NR==FNR { a[NR]=$0; na=NR; next }
-		{ seen2=1 }
-		FNR>na { print FNR; done=1; exit }
-		$0 != a[FNR] { print FNR; done=1; exit }
-		END { if (!done && seen2 && FNR < na) print FNR+1; else if (!done && !seen2 && na+0 > 0) print 1 }' "$1" "$2"
-}
-
-show_context() {
-	awk -v line="$2" 'NR >= (line > 3 ? line - 3 : 1) && NR <= line + 3 { printf "%d: %s\n", NR, $0 }' "$1"
-}
-
-step "build odinc"
-"$ODIN" build "$PROJECT_ROOT/src/odinc" -out:"$work/odinc" $COLLECTION >/dev/null 2>&1 || { printf 'error: failed to build odinc\n' >&2; finish 1; }
-
-step "official build $name"
-# Both binaries keep the name `prog` and run as ./prog, so argv[0]
-# printed by the program matches without normalization.
-mkdir -p "$work/official_bin" "$work/ours_bin"
-official_ok=1
-if [[ -d "$fixture" ]]; then
-	(cd "$fixture" && "$ODIN" build . -out:"$work/official_bin/prog" >"$work/official.build.out" 2>"$work/official.build.err") || official_ok=0
-else
-	(cd "$(dirname "$fixture")" && "$ODIN" build "$(basename "$fixture")" -file -out:"$work/official_bin/prog" >"$work/official.build.out" 2>"$work/official.build.err") || official_ok=0
-fi
-if [[ "$official_ok" -eq 0 ]]; then
-	printf 'BROKEN BASELINE %s: official compiler rejected the fixture:\n' "$name"
-	head -n 10 "$work/official.build.err"
-	finish 1
-fi
-
-step "official run $name ($N_RUNS times)"
-off_rc=()
-for r in $(seq "$N_RUNS"); do
-	rc=0
-	(cd "$work/official_bin" && ./prog >"$work/off$r.out" 2>"$work/off$r.err") || rc=$?
-	off_rc[$r]=$rc
-done
-off_rc1="${off_rc[1]}"
-if [[ "$off_rc1" -ne 0 ]]; then
-	for r in $(seq 2 "$N_RUNS"); do
-		if [[ "${off_rc[$r]}" != "$off_rc1" ]]; then
-			printf 'note: official exit code is nondeterministic (run1=%s run%s=%s); comparing against run1\n' "$off_rc1" "$r" "${off_rc[$r]}"
-			break
-		fi
-	done
-fi
-
-identical=1
-for r in $(seq 2 "$N_RUNS"); do
-	cmp -s "$work/off1.out" "$work/off$r.out" || identical=0
-done
-
-step "odinc build $name"
-if ! (ODIN_ROOT="$PROJECT_ROOT" "$work/odinc" "$fixture" -out:"$work/ours_bin/prog" -collection:oc="$PROJECT_ROOT/src" >"$work/ours.build.out" 2>"$work/ours.build.err"); then
-	printf 'FAIL %s: odinc rejected the fixture (%s diagnostics):\n' "$name" "$(wc -l <"$work/ours.build.err")"
-	sort "$work/ours.build.err" | uniq -c | sort -rn
-	printf -- '--- first 20 diagnostics ---\n'
-	head -n 20 "$work/ours.build.err"
-	finish 1
-fi
-
-our_rc=0
-(cd "$work/ours_bin" && ./prog >"$work/ours.out" 2>"$work/ours.err") || our_rc=$?
-
-if [[ "$our_rc" != "$off_rc1" ]]; then
-	printf 'FAIL %s: exit code differs (official=%s ours=%s)\n' "$name" "$off_rc1" "$our_rc"
-	finish 1
-fi
-
-our_lines="$(wc -l <"$work/ours.out")"
-verdict=""
-if [[ "$identical" -eq 1 ]]; then
-	if ! cmp -s "$work/off1.out" "$work/ours.out"; then
-		n="$(first_diff_line "$work/off1.out" "$work/ours.out")"
-		printf 'FAIL %s: stdout differs (official %s lines, ours %s lines), first difference at line %s:\n' "$name" "$(wc -l <"$work/off1.out")" "$our_lines" "$n"
-		printf -- '--- official ---\n'
-		show_context "$work/off1.out" "$n"
-		printf -- '--- ours ---\n'
-		show_context "$work/ours.out" "$n"
-		finish 1
-	fi
-	verdict="official runs byte-identical ($our_lines lines), ours matches exactly"
-else
-	cp "$work/off1.out" "$work/stable.out"
-	for r in $(seq 2 "$N_RUNS"); do
-		lcs_lines "$work/stable.out" "$work/off$r.out" "$work/stable.next"
-		mv "$work/stable.next" "$work/stable.out"
-	done
-	check="$(awk 'NR==FNR { s[++ns]=$0; next }
-		{ t[++nt]=$0 }
+			line = normalize(text)
+			nl[cur, curk]++
+			ln[cur, curk, nl[cur, curk]] = line
+			raw_body[cur, curk] = raw_body[cur, curk] "\n" text
+			cnt[cur, curk, line]++
+			if (!((curk SUBSEP line) in seen)) {
+				seen[curk SUBSEP line] = 1
+				uniq_n[curk]++
+				uniq[curk, uniq_n[curk]] = line
+			}
+		}
 		END {
-			i = 1
-			for (k = 1; k <= nt && i <= ns; k++)
-				if (t[k] == s[i]) i++
-			printf "%d %d\n", i - 1, ns
-			for (j = i; j <= ns && j < i + 10; j++)
-				printf "stable[%d]: %s\n", j, s[j]
-		}' "$work/stable.out" "$work/ours.out")"
-	matched="$(printf '%s\n' "$check" | head -n 1 | cut -d' ' -f1)"
-	stable_total="$(printf '%s\n' "$check" | head -n 1 | cut -d' ' -f2)"
-	missing=$((stable_total - matched))
-	if [[ "$missing" -gt 0 ]]; then
-		printf 'FAIL %s: stable=%s ours=%s missing=%s; first missing stable lines:\n' "$name" "$stable_total" "$our_lines" "$missing"
-		printf '%s\n' "$check" | tail -n +2
-		finish 1
-	fi
-	verdict="stable=$stable_total ours=$our_lines missing=0"
-fi
+			official = nruns - 1
+			failures = 0
+			for (id = 1; id <= nkeys; id++) {
+				name = section_name(id)
+				official_here = 0
+				for (r = 2; r <= nruns; r++) official_here += present[r, id]
+				if (!present[1, id]) {
+					if (official_here == official) {
+						failures++
+						printf "DIFF %s: missing from ours (present in all %d official runs)\n", name, official
+					} else {
+						printf "OK   %s: absent from ours and from %d of %d official runs (optional)\n", name, official - official_here, official
+					}
+					continue
+				}
+				ours_lines = nl[1, id] + 0
+				off_lo = -1; off_hi = 0
+				for (r = 2; r <= nruns; r++) {
+					c = nl[r, id] + 0
+					if (off_lo < 0 || c < off_lo) off_lo = c
+					if (c > off_hi) off_hi = c
+				}
+				bad = 0; detail = ""
+				deterministic = (official_here == official)
+				for (r = 3; r <= nruns && deterministic; r++)
+					if (raw_body[r, id] != raw_body[2, id]) deterministic = 0
+				if (deterministic) {
+					off_n = nl[2, id] + 0
+					longest = (ours_lines > off_n) ? ours_lines : off_n
+					for (i = 1; i <= longest; i++) {
+						if (i > ours_lines) {
+							msg = sprintf("line %d missing (official: \"%s\")", i, ln[2, id, i])
+						} else if (i > off_n) {
+							msg = sprintf("line %d extra (ours: \"%s\")", i, ln[1, id, i])
+						} else if (ln[1, id, i] != ln[2, id, i]) {
+							msg = sprintf("line %d differs (official: \"%s\", ours: \"%s\")", i, ln[2, id, i], ln[1, id, i])
+						} else {
+							continue
+						}
+						bad++
+						if (bad <= 10) detail = detail "    " msg "\n"
+					}
+					mode = sprintf("exact, ours %d lines, official %d lines", ours_lines, off_n)
+				} else {
+					variable = 0
+					content_varies = 0
+					unseen_ok = 0
+					shape_n[id] = 0
+					for (j = 1; j <= uniq_n[id]; j++) {
+						line = uniq[id, j]
+						hits = 0
+						for (r = 2; r <= nruns; r++) if (cnt[r, id, line] > 0) hits++
+						if (hits > 0 && hits < official) content_varies = 1
+					}
+					for (j = 1; j <= uniq_n[id]; j++) {
+						line = uniq[id, j]
+						lo = -1; hi = 0
+						for (r = 2; r <= nruns; r++) {
+							c = cnt[r, id, line] + 0
+							if (lo < 0 || c < lo) lo = c
+							if (c > hi) hi = c
+						}
+						if (lo != hi) variable++
+						o = cnt[1, id, line] + 0
+						sh = shape(line)
+						if (!((id SUBSEP sh) in shape_seen)) {
+							shape_seen[id SUBSEP sh] = 1
+							shape_n[id]++
+							shape_list[id, shape_n[id]] = sh
+						}
+						for (r = 1; r <= nruns; r++) shape_cnt[r, id, sh] += cnt[r, id, line]
+						if (hi == 0 && content_varies) { unseen_ok++; continue }
+						if (o < lo || o > hi) {
+							bad++
+							if (bad <= 10) detail = detail sprintf("    ours %d, official %d..%d: \"%s\"\n", o, lo, hi, line)
+						}
+					}
+					if (content_varies) {
+						for (k = 1; k <= shape_n[id]; k++) {
+							sh = shape_list[id, k]
+							slo = -1; shi = 0
+							for (r = 2; r <= nruns; r++) {
+								c = shape_cnt[r, id, sh] + 0
+								if (slo < 0 || c < slo) slo = c
+								if (c > shi) shi = c
+							}
+							so = shape_cnt[1, id, sh] + 0
+							if (so < slo || so > shi) {
+								bad++
+								if (bad <= 10) detail = detail sprintf("    shape ours %d, official %d..%d: \"%s\"\n", so, slo, shi, sh)
+							}
+						}
+						if (ours_lines < off_lo || ours_lines > off_hi) {
+							bad++
+							if (bad <= 10) detail = detail sprintf("    line count ours %d, official %d..%d\n", ours_lines, off_lo, off_hi)
+						}
+					}
+					mode = sprintf("multiset, ours %d lines, official %d..%d lines, %d variable lines", ours_lines, off_lo, off_hi, variable)
+					if (content_varies) mode = mode sprintf(", official content varies: %d unseen lines accepted by shape", unseen_ok)
+				}
+				status = bad ? "DIFF" : "OK  "
+				printf "%s %s (%s)\n", status, name, mode
+				printf "%s", detail
+				if (bad > 10) printf "    ... and %d more\n", bad - 10
+				if (bad) failures++
+			}
+			ours_order = ""; off_order = ""; ours_names = ""; off_names = ""
+			for (i = 1; i <= order_len[1]; i++) if (present_in_all(order[1, i])) {
+				ours_order = ours_order " " order[1, i]
+				ours_names = ours_names " | " section_name(order[1, i])
+			}
+			for (i = 1; i <= order_len[2]; i++) if (present_in_all(order[2, i])) {
+				off_order = off_order " " order[2, i]
+				off_names = off_names " | " section_name(order[2, i])
+			}
+			if (ours_order != off_order) {
+				failures++
+				printf "DIFF section order: ours [%s] official [%s]\n", ours_names, off_names
+			}
+			exit (failures ? 1 : 0)
+		}'
+}
 
-if ! cmp -s "$work/off1.err" "$work/ours.err"; then
-	sort -o "$work/off1.serr" "$work/off1.err"
-	sort -o "$work/ours.serr" "$work/ours.err"
-	if cmp -s "$work/off1.serr" "$work/ours.serr"; then
-		printf 'note: stderr differs only in line ordering (ignored)\n'
+main() {
+	local keep=0 args=() a
+	for a in "$@"; do
+		if [[ "$a" == "--keep" ]]; then keep=1; elif [[ "$a" == "-h" || "$a" == "--help" ]]; then usage; exit 0; elif [[ "$a" == -* ]]; then die "unknown flag: $a"; else args+=("$a"); fi
+	done
+
+	local fixture="${args[0]:-$PROJECT_ROOT/examples/demo/demo.odin}"
+	if [[ "$fixture" != /* ]]; then fixture="$PROJECT_ROOT/$fixture"; fi
+	[[ -e "$fixture" ]] || die "no such fixture: $fixture"
+	local name work
+	name="$(basename "$fixture")"
+
+	work="$(mktemp -d)"
+	finish() {
+		if [[ $keep -eq 1 ]]; then printf 'kept %s\n' "$work"; else rm -rf "$work"; fi
+		exit "$1"
+	}
+
+	step "build odinc"
+	"$ODIN" build "$PROJECT_ROOT/src/odinc" -out:"$work/odinc" $COLLECTION >/dev/null 2>&1 || { printf 'error: failed to build odinc\n' >&2; finish 1; }
+
+	step "official build $name"
+	# Both binaries keep the name `prog` and run as ./prog, so argv[0]
+	# printed by the program matches without normalization.
+	mkdir -p "$work/official_bin" "$work/ours_bin"
+	local official_ok=1
+	if [[ -d "$fixture" ]]; then
+		(cd "$fixture" && "$ODIN" build . -out:"$work/official_bin/prog" >"$work/official.build.out" 2>"$work/official.build.err") || official_ok=0
 	else
-		n="$(first_diff_line "$work/off1.err" "$work/ours.err")"
-		printf 'FAIL %s: stderr differs (official %s lines, ours %s lines), first difference at line %s:\n' "$name" "$(wc -l <"$work/off1.err")" "$(wc -l <"$work/ours.err")" "$n"
-		printf -- '--- official ---\n'
-		show_context "$work/off1.err" "$n"
-		printf -- '--- ours ---\n'
-		show_context "$work/ours.err" "$n"
+		(cd "$(dirname "$fixture")" && "$ODIN" build "$(basename "$fixture")" -file -out:"$work/official_bin/prog" >"$work/official.build.out" 2>"$work/official.build.err") || official_ok=0
+	fi
+	if [[ "$official_ok" -eq 0 ]]; then
+		printf 'BROKEN BASELINE %s: official compiler rejected the fixture:\n' "$name"
+		head -n 10 "$work/official.build.err"
 		finish 1
 	fi
-fi
 
-printf 'OK %s: exit=%s, %s\n' "$name" "$off_rc1" "$verdict"
-finish 0
+	step "official run $name ($N_RUNS times)"
+	local off_rc=() r rc
+	for r in $(seq "$N_RUNS"); do
+		rc=0
+		(cd "$work/official_bin" && ./prog >"$work/off$r.out" 2>"$work/off$r.err") || rc=$?
+		off_rc[$r]=$rc
+	done
+	local off_rc1="${off_rc[1]}"
+	if [[ "$off_rc1" -ne 0 ]]; then
+		for r in $(seq 2 "$N_RUNS"); do
+			if [[ "${off_rc[$r]}" != "$off_rc1" ]]; then
+				printf 'note: official exit code is nondeterministic (run1=%s run%s=%s); comparing against run1\n' "$off_rc1" "$r" "${off_rc[$r]}"
+				break
+			fi
+		done
+	fi
+
+	step "odinc build $name"
+	if ! (ODIN_ROOT="$PROJECT_ROOT" "$work/odinc" "$fixture" -out:"$work/ours_bin/prog" -collection:oc="$PROJECT_ROOT/src" >"$work/ours.build.out" 2>"$work/ours.build.err"); then
+		printf 'FAIL %s: odinc rejected the fixture (%s diagnostics):\n' "$name" "$(wc -l <"$work/ours.build.err")"
+		sort "$work/ours.build.err" | uniq -c | sort -rn
+		printf -- '--- first 20 diagnostics ---\n'
+		head -n 20 "$work/ours.build.err"
+		finish 1
+	fi
+
+	local our_rc=0
+	(cd "$work/ours_bin" && ./prog >"$work/ours.out" 2>"$work/ours.err") || our_rc=$?
+	if [[ "$our_rc" != "$off_rc1" ]]; then
+		printf 'FAIL %s: exit code differs (official=%s ours=%s)\n' "$name" "$off_rc1" "$our_rc"
+		finish 1
+	fi
+
+	local out_files=("$work/ours.out") err_files=("$work/ours.err")
+	for r in $(seq "$N_RUNS"); do
+		out_files+=("$work/off$r.out")
+		err_files+=("$work/off$r.err")
+	done
+
+	step "compare stdout: ours vs $N_RUNS official runs"
+	local stdout_ok=1 stderr_ok=1
+	compare_sections 1 stdout "${out_files[@]}" || stdout_ok=0
+	step "compare stderr: ours vs $N_RUNS official runs"
+	compare_sections 0 stderr "${err_files[@]}" || stderr_ok=0
+
+	if [[ "$stdout_ok" -eq 1 && "$stderr_ok" -eq 1 ]]; then
+		printf 'OK %s: exit=%s, stdout %s lines (ours) across %s sections, stderr compared\n' "$name" "$off_rc1" "$(wc -l <"$work/ours.out")" "$(grep -c '^## \|^# ' "$work/ours.out" || true)"
+		finish 0
+	fi
+	printf 'FAIL %s: stdout %s, stderr %s\n' "$name" "$([[ $stdout_ok -eq 1 ]] && echo ok || echo differs)" "$([[ $stderr_ok -eq 1 ]] && echo ok || echo differs)"
+	finish 1
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+	main "$@"
+fi
