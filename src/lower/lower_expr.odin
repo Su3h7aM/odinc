@@ -175,6 +175,9 @@ lower_entity_value :: proc(state: ^Procedure_State, entity: check.Entity_Id) -> 
 		}
 		return lower_load(state, address, state.job.program.entities[entity].type)
 	}
+	if state.job.program.entities[entity].kind == .Type_Name {
+		return lower_runtime_typeid(state, state.job.procedure.body.node, state.job.program.entities[entity].type)
+	}
 	return lower_fail(state, state.job.procedure.body.node, .Local)
 }
 
