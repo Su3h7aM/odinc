@@ -1,0 +1,10 @@
+# non-Linux binaries are not mirrored
+vendor/*/windows/*
+vendor/*/lib/*.lib
+vendor/*/lib/*.dll
+vendor/*/*.dll
+vendor/*/*.lib
+vendor/*/macos/*
+vendor/*/lib/darwin/*
+vendor/*/wasm/*
+vendor/*/lib/*wasm*

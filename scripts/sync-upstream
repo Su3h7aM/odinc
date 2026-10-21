@@ -1,0 +1,130 @@
+#!/usr/bin/env bash
+#MISE description="Plan (dry run) or apply a three-way upstream sync of base/ core/ vendor/ tests/"
+# upstream-sync: three-way plan (and optional apply) for base/ core/ vendor/ tests/ against an upstream Odin checkout.
+#
+#   base     = the upstream commit last synced (ancestor)
+#   upstream = the upstream commit to bring in
+#   ours     = the working tree of this repository
+#
+# usage: mise run sync-upstream -- --base <commit> --upstream <commit> [--apply] [--force] [--only <path-prefix>] [--pinned <file>] [--exclude <file>] [--out <plan.tsv>]
+# UPSTREAM_REPO: upstream checkout (default ~/Projects/refs/Odin-upstream). SYNC_ROOT: tree to sync (default this repository).
+#
+# Per path where upstream differs from base:
+#   TAKE      ours == base            -> copy upstream (delete when upstream removed it)
+#   ALREADY   ours == upstream        -> nothing to do
+#   MERGE     both changed, path not pinned -> git merge-file; written only when clean, else CONFLICT
+#   HOLD      both changed, path pinned     -> never written; a human decides
+#   EXCLUDED  path matches an exclude pattern (non-Linux binaries) -> skipped
+# Paths upstream did not change are never touched, so local additions, deletions and rewrites survive.
+# Dry run by default; --apply needs a clean plan (no CONFLICT) unless --force.
+set -euo pipefail
+
+source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
+
+UPSTREAM_REPO="${UPSTREAM_REPO:-$HOME/Projects/refs/Odin-upstream}"
+ROOT="${SYNC_ROOT:-$PROJECT_ROOT}"
+PATHS=(base core vendor tests)
+base= upstream= apply=0 force=0 only= out=
+pinned="$ROOT/docs/upstream-sync/pinned-paths.txt"
+exclude="$ROOT/docs/upstream-sync/vendor-exclude.txt"
+
+while (($#)); do
+	case "$1" in
+		--base) base=$2; shift 2 ;;
+		--upstream) upstream=$2; shift 2 ;;
+		--apply) apply=1; shift ;;
+		--force) force=1; shift ;;
+		--pinned) pinned=$2; shift 2 ;;
+		--exclude) exclude=$2; shift 2 ;;
+		--out) out=$2; shift 2 ;;
+		--only) only=$2; shift 2 ;;
+		*) echo "unknown argument: $1" >&2; exit 2 ;;
+	esac
+done
+[[ -n "$base" && -n "$upstream" ]] || { echo "usage: upstream-sync --base <commit> --upstream <commit> [--apply]" >&2; exit 2; }
+base=$(git -C "$UPSTREAM_REPO" rev-parse --verify "$base^{commit}")
+upstream=$(git -C "$UPSTREAM_REPO" rev-parse --verify "$upstream^{commit}")
+work=$(mktemp -d); trap 'rm -rf "$work"' EXIT
+
+tree() { git -C "$UPSTREAM_REPO" ls-tree -r "$1" -- "${PATHS[@]}" | awk -F'\t' '{split($1,a," "); print $2 "\t" a[3]}' | sort -t$'\t' -k1,1; }
+tree "$base" > "$work/base"
+tree "$upstream" > "$work/up"
+# only paths upstream changed
+join -t$'\t' -a1 -a2 -e - -o 0,1.2,2.2 "$work/base" "$work/up" | awk -F'\t' '$2!=$3' > "$work/changed"
+
+: > "$work/ours"
+while IFS=$'\t' read -r path _ _; do
+	if [[ -f "$ROOT/$path" ]]; then printf '%s\t%s\n' "$path" "$(git -C "$UPSTREAM_REPO" hash-object --no-filters "$ROOT/$path")"; else printf '%s\t-\n' "$path"; fi
+done < "$work/changed" | sort -t$'\t' -k1,1 > "$work/ours"
+join -t$'\t' -e - -o 0,1.2,1.3,2.2 "$work/changed" "$work/ours" > "$work/rows"
+if [[ -n "$only" ]]; then
+	awk -F'\t' -v prefix="$only" 'index($1, prefix) == 1' "$work/rows" > "$work/rows.only"
+	mv "$work/rows.only" "$work/rows"
+fi
+
+is_listed() { # path, file of globs
+	[[ -n "$2" && -f "$2" ]] || return 1
+	local glob
+	while IFS= read -r glob; do
+		[[ -z "$glob" || "$glob" == \#* ]] && continue
+		# shellcheck disable=SC2254
+		case "$1" in $glob) return 0 ;; esac
+	done < "$2"
+	return 1
+}
+
+plan="$work/plan"; : > "$plan"; : > "$work/guards"
+while IFS=$'\t' read -r path a u o; do
+	if is_listed "$path" "$exclude"; then action=EXCLUDED
+	elif [[ "$o" == "$u" ]]; then action=ALREADY
+	elif [[ "$o" == "$a" ]]; then action=TAKE
+	elif is_listed "$path" "$pinned"; then action=HOLD
+	elif [[ "$a" == - || "$u" == - || "$o" == - ]]; then action=HOLD
+	else
+		git -C "$UPSTREAM_REPO" cat-file blob "$a" > "$work/a"
+		git -C "$UPSTREAM_REPO" cat-file blob "$u" > "$work/u"
+		cp "$ROOT/$path" "$work/o"
+		if git merge-file -p "$work/o" "$work/a" "$work/u" > "$work/m"; then
+			if cmp -s "$work/m" "$work/o"; then action=ALREADY; else action=MERGE; fi
+		else action=CONFLICT; fi
+	fi
+	if [[ "$action" == TAKE || "$action" == MERGE ]] && [[ "$u" != - ]] && [[ "$path" == base/* || "$path" == core/* ]]; then
+		case "$path" in
+			*_windows*|*_darwin*|*_bsd*|*_freebsd*|*_netbsd*|*_openbsd*|*_wasm*|*_js*|*_orca*|*_wasi*|*_haiku*|*_essence*) ;;
+			*)
+				full_u=$(awk -F'\t' -v p="$path" '$1==p {print $2}' "$work/up")
+				if git -C "$UPSTREAM_REPO" cat-file blob "$full_u" | grep -nE 'foreign import .*"system:(c|dl|pthread|m|rt)"|link_name *= *"(malloc|calloc|realloc|free|pthread_[a-z_]*|dlopen|mmap)"' > "$work/guard"; then
+					printf 'GUARD\t%s\tlibc reference in a file Linux may build:\t%s\n' "$path" "$(head -1 "$work/guard" | cut -c1-120)" >> "$work/guards"
+				fi ;;
+		esac
+	fi
+	printf '%s\t%s\t%s\t%s\t%s\n' "$path" "$action" "${a:0:8}" "${u:0:8}" "${o:0:8}" >> "$plan"
+done < "$work/rows"
+
+if [[ -n "$out" ]]; then { printf 'path\taction\tbase\tupstream\tours\n'; cat "$plan"; } > "$out"; fi
+echo "base=$base upstream=$upstream"
+cut -f2 "$plan" | sort | uniq -c | sort -rn
+awk -F'\t' '$2=="HOLD" || $2=="CONFLICT" {print $2 "\t" $1}' "$plan"
+cat "$work/guards"
+
+((apply)) || exit 0
+if grep -q $'\tCONFLICT\t' "$plan" && ((!force)); then echo "refusing to apply: conflicts present" >&2; exit 1; fi
+while IFS=$'\t' read -r path action a u o; do
+	case "$action" in
+		TAKE|MERGE) ;;
+		*) continue ;;
+	esac
+	dest="$ROOT/$path"; mkdir -p "$(dirname "$dest")"
+	[[ -e "$dest" ]] && chmod u+w "$dest"
+	full_u=$(awk -F'\t' -v p="$path" '$1==p {print $2}' "$work/up")
+	if [[ -z "$full_u" ]]; then rm -f "$dest"; continue; fi
+	if [[ "$action" == TAKE ]]; then
+		git -C "$UPSTREAM_REPO" cat-file blob "$full_u" > "$dest"
+	else
+		full_a=$(awk -F'\t' -v p="$path" '$1==p {print $2}' "$work/base")
+		git -C "$UPSTREAM_REPO" cat-file blob "$full_a" > "$work/a"; git -C "$UPSTREAM_REPO" cat-file blob "$full_u" > "$work/u"
+		cp "$dest" "$work/o"; git merge-file -p "$work/o" "$work/a" "$work/u" > "$dest"
+	fi
+	case "$path" in base/*|core/*) chmod 444 "$dest" ;; esac
+done < "$plan"
+echo "applied. next: record $upstream as the synced base in docs/upstream-sync.md, then run the acceptance checks"

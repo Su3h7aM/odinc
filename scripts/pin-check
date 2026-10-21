@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+#MISE description="Verify pinned local adaptations of base/ core/ against docs/upstream-sync/pinned-manifest.tsv"
+# pin-check: verify that the pinned local adaptations are byte-identical to the recorded manifest.
+# usage: mise run pin-check [-- --update] [manifest.tsv]
+#        check (default manifest: docs/upstream-sync/pinned-manifest.tsv); --update rewrites the manifest from the working tree, in the same commit that edits a pinned file
+# Manifest columns: path, blob sha1 ('-' means the path must stay absent).
+set -euo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
+ROOT="${SYNC_ROOT:-$PROJECT_ROOT}"
+update=0
+if [[ "${1:-}" == --update ]]; then update=1; shift; fi
+manifest="${1:-$ROOT/docs/upstream-sync/pinned-manifest.tsv}"
+
+if ((update)); then
+	tmp=$(mktemp)
+	printf 'path\tblob_sha1\n' > "$tmp"
+	while IFS=$'\t' read -r path _; do
+		[[ "$path" == path ]] && continue
+		if [[ -f "$ROOT/$path" ]]; then printf '%s\t%s\n' "$path" "$(git hash-object --no-filters "$ROOT/$path")" >> "$tmp"; else printf '%s\t-\n' "$path" >> "$tmp"; fi
+	done < "$manifest"
+	mv "$tmp" "$manifest"
+	echo "pin-check: manifest updated"
+	exit 0
+fi
+
+bad=0 total=0
+while IFS=$'\t' read -r path blob; do
+	[[ "$path" == path ]] && continue
+	total=$((total + 1))
+	if [[ "$blob" == - ]]; then
+		[[ ! -e "$ROOT/$path" ]] || { echo "PRESENT (must stay deleted): $path"; bad=$((bad + 1)); }
+	elif [[ ! -f "$ROOT/$path" ]]; then
+		echo "MISSING: $path"; bad=$((bad + 1))
+	else
+		actual=$(git hash-object --no-filters "$ROOT/$path")
+		[[ "$actual" == "$blob" ]] || { echo "CHANGED: $path"; bad=$((bad + 1)); }
+	fi
+done < "$manifest"
+echo "pin-check: $total pinned paths, $bad differ"
+((bad == 0))
