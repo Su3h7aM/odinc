@@ -1,6 +1,7 @@
 package types
 
 import "base:runtime"
+import "core:strings"
 
 // Type_Id is a stable index into Store.types. Zero denotes no type; TYPE_POISON
 // is the reserved error-recovery type whose layout is always an error.
@@ -119,6 +120,8 @@ Union_Layout :: struct {
 // Type is an immutable canonical descriptor. Element, index, and fields refer to
 // types already present in the store; field, variant, parameter, and result
 // slices are borrowed and must remain unchanged while the descriptor is stored.
+// Parameter/result names are cloned, including their strings, and owned by Store;
+// each name slice must be empty or match its corresponding type slice's length.
 Type :: struct {
 	kind:                                           Kind,
 	name:                                           string,
@@ -127,6 +130,7 @@ Type :: struct {
 	bit_sizes:                                      []u8,
 	variants:                                       []Type_Id,
 	params, results:                                []Type_Id,
+	param_names, result_names:                      []string,
 	count, lower_bound, upper_bound:                i64,
 	backing:                                        Type_Id,
 	endianness:                                     Endian,
@@ -182,7 +186,7 @@ reserve_slots :: proc(store: ^Store) {
 }
 
 destroy :: proc(store: ^Store) {
-	for descriptor in store.types { _ = free(descriptor, store.allocator) }
+	for descriptor in store.types { destroy_names(descriptor, store.allocator); _ = free(descriptor, store.allocator) }
 	delete(store.types)
 	store^ = Store{}
 }
@@ -191,12 +195,15 @@ append_type :: proc(store: ^Store, descriptor: Type) -> Type_Id {
 	allocated, allocation_error := new(Type, store.allocator)
 	if allocation_error != nil { panic("type store is out of memory") }
 	allocated^ = descriptor
+	clone_names(allocated, store.allocator)
 	append(&store.types, allocated)
 	return Type_Id(len(store.types) - 1)
 }
 
 pop_type :: proc(store: ^Store) {
-	_ = free(pop(&store.types), store.allocator)
+	descriptor := pop(&store.types)
+	destroy_names(descriptor, store.allocator)
+	_ = free(descriptor, store.allocator)
 }
 
 // Intern returns a deterministic id, reusing a structurally identical descriptor.
@@ -298,6 +305,8 @@ complete_nominal :: proc(store: ^Store, id: Type_Id, descriptor: Type) {
 	completed.is_nominal = true
 	completed.is_complete = true
 	completed.layout_state = .Unlaid_Out
+	clone_names(&completed, store.allocator)
+	destroy_names(reserved, store.allocator)
 	reserved^ = completed
 }
 
@@ -336,9 +345,41 @@ descriptors_equal :: proc(a, b: Type) -> bool {
 	for i in 0 ..< len(a.bit_sizes) { if a.bit_sizes[i] != b.bit_sizes[i] { return false } }
 	for i in 0 ..< len(a.variants) { if a.variants[i] != b.variants[i] { return false } }
 	if len(a.params) != len(b.params) || len(a.results) != len(b.results) { return false }
+	if !names_equal(a.param_names, b.param_names) || !names_equal(a.result_names, b.result_names) { return false }
 	for i in 0 ..< len(a.params) { if a.params[i] != b.params[i] { return false } }
 	for i in 0 ..< len(a.results) { if a.results[i] != b.results[i] { return false } }
 	return true
+}
+
+@(private)
+names_equal :: proc(a, b: []string) -> bool {
+	if len(a) != len(b) { return false }
+	for name, i in a { if name != b[i] { return false } }
+	return true
+}
+
+@(private)
+clone_names :: proc(descriptor: ^Type, allocator: runtime.Allocator) {
+	assert(len(descriptor.param_names) == 0 || len(descriptor.param_names) == len(descriptor.params))
+	assert(len(descriptor.result_names) == 0 || len(descriptor.result_names) == len(descriptor.results))
+	for names in ([2]^[]string{&descriptor.param_names, &descriptor.result_names}) {
+		if len(names^) == 0 { names^ = nil; continue }
+		cloned, allocation_error := make([]string, len(names^), allocator)
+		if allocation_error != nil { panic("type store is out of memory") }
+		for name, i in names^ {
+			cloned[i], allocation_error = strings.clone(name, allocator)
+			if allocation_error != nil { panic("type store is out of memory") }
+		}
+		names^ = cloned
+	}
+}
+
+@(private)
+destroy_names :: proc(descriptor: ^Type, allocator: runtime.Allocator) {
+	for names in ([2][]string{descriptor.param_names, descriptor.result_names}) {
+		for name in names { delete(name, allocator) }
+		delete(names, allocator)
+	}
 }
 
 layout :: proc(store: ^Store, id: Type_Id, config := DEFAULT_LAYOUT) -> (size, alignment: i64, err: Layout_Error) {
