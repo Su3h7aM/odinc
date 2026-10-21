@@ -81,20 +81,30 @@ poly_match_pattern :: proc(match: ^Poly_Match, pattern: syntax.Node_Index, argum
 		if !bound || poly.specialization == 0 { return bound, nil }
 		return poly_match_pattern(match, poly.specialization, argument)
 	case .Pointer_Type:
-		elem := syntax.node_payload(file.ast, pattern, syntax.Pointer_Type).elem
-		return poly_match_element(match, .Pointer, elem, argument)
+		pointer := syntax.node_payload(file.ast, pattern, syntax.Pointer_Type)
+		if pointer.tag != 0 {
+			return poly_match_soa_pointer(match, file, pointer.tag, pointer.elem, argument)
+		}
+		return poly_match_element(match, .Pointer, pointer.elem, argument)
 	case .Multi_Pointer_Type:
 		elem := syntax.node_payload(file.ast, pattern, syntax.Multi_Pointer_Type).elem
 		return poly_match_element(match, .Multi_Pointer, elem, argument)
 	case .Dynamic_Array_Type:
 		array := syntax.node_payload(file.ast, pattern, syntax.Dynamic_Array_Type)
-		if array.tag != 0 { return false, nil }
-		return poly_match_element(match, .Dynamic_Array, array.elem, argument)
+		if array.tag == 0 {
+			return poly_match_element(match, .Dynamic_Array, array.elem, argument)
+		}
+		return poly_match_soa(match, file, array.tag, .Dynamic, 0, array.elem, argument)
 	case .Array_Type:
 		array := syntax.node_payload(file.ast, pattern, syntax.Array_Type)
-		if array.tag != 0 { return false, nil }
-		if array.len == 0 { return poly_match_element(match, .Slice, array.elem, argument) }
-		return poly_match_array(match, .Array, array.len, array.elem, argument)
+		if array.tag == 0 {
+			if array.len == 0 { return poly_match_element(match, .Slice, array.elem, argument) }
+			return poly_match_array(match, .Array, array.len, array.elem, argument)
+		}
+		if array.len == 0 {
+			return poly_match_soa(match, file, array.tag, .Slice, 0, array.elem, argument)
+		}
+		return poly_match_soa(match, file, array.tag, .Fixed, array.len, array.elem, argument)
 	case .Fixed_Capacity_Dynamic_Array_Type:
 		array := syntax.node_payload(file.ast, pattern, syntax.Fixed_Capacity_Dynamic_Array_Type)
 		return poly_match_array(match, .Fixed_Capacity_Array, array.capacity, array.elem, argument)
@@ -181,6 +191,52 @@ poly_match_element :: proc(match: ^Poly_Match, kind: types.Kind, elem: syntax.No
 	if descriptor.kind != kind { return false, nil }
 	element := descriptor.elem
 	return poly_match_pattern(match, elem, element)
+}
+
+// A `#soa` array pattern matches only an `#soa` type of the same form; the element pattern is matched
+// against the soa element type. A non-soa argument never matches, and any other tag never matches.
+@(private = "file")
+poly_match_soa :: proc(
+	match: ^Poly_Match,
+	file: ^File,
+	tag: syntax.Node_Index,
+	kind: types.Soa_Kind,
+	length: syntax.Node_Index,
+	elem: syntax.Node_Index,
+	argument: types.Type_Id,
+) -> (
+	matched: bool,
+	err: Resolve_Error,
+) {
+	if expression_text(file, tag) != "#soa" { return false, nil }
+	store := match.checker.type_checker.store
+	_, descriptor, ok := soa_descriptor(store, argument)
+	if !ok || descriptor.soa != kind { return false, nil }
+	if kind == .Fixed {
+		expected, valid, count_error := poly_match_count(match, length)
+		if count_error != nil { return false, count_error }
+		if !valid || expected != descriptor.count { return false, nil }
+	}
+	return poly_match_pattern(match, elem, descriptor.soa_elem)
+}
+
+// A `^#soa` pointer pattern matches only an `#soa` pointer; other pointers never match.
+@(private = "file")
+poly_match_soa_pointer :: proc(
+	match: ^Poly_Match,
+	file: ^File,
+	tag: syntax.Node_Index,
+	elem: syntax.Node_Index,
+	argument: types.Type_Id,
+) -> (
+	matched: bool,
+	err: Resolve_Error,
+) {
+	if expression_text(file, tag) != "#soa" { return false, nil }
+	store := match.checker.type_checker.store
+	descriptor := types.get(store, underlying_type(store, argument))
+	if descriptor.kind != .Soa_Pointer { return false, nil }
+	return poly_match_pattern(match, elem, descriptor.elem)
 }
 
 // A length that is a polymorphic name binds the count as a constant; any other length must equal the count.

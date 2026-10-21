@@ -122,6 +122,7 @@ expression_checker_init :: proc(
 	append(&checker.builtin_kinds, Builtin_Kind.Type_Info_Of) or_return
 	append(&checker.builtin_kinds, Builtin_Kind.Offset_Of, Builtin_Kind.Offset_Of_By_String) or_return
 	append(&checker.builtin_kinds, Builtin_Kind.Complex, .Quaternion, .Real, .Imag, .Jmag, .Kmag, .Conj, .Swizzle) or_return
+	append(&checker.builtin_kinds, Builtin_Kind.Soa_Zip, Builtin_Kind.Soa_Unzip) or_return
 	return nil
 }
 

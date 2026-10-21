@@ -173,6 +173,8 @@ UNIVERSE_JMAG :: Builtin_Id(20)
 UNIVERSE_KMAG :: Builtin_Id(21)
 UNIVERSE_CONJ :: Builtin_Id(22)
 UNIVERSE_SWIZZLE :: Builtin_Id(23)
+UNIVERSE_SOA_ZIP :: Builtin_Id(24)
+UNIVERSE_SOA_UNZIP :: Builtin_Id(25)
 
 // Binds the universal builtin procedures as builtin entities in the universal scope.
 bind_universe_builtins :: proc(scopes: ^Scope_Store, universe: Scope_Id) -> Binding_Error {
@@ -202,6 +204,8 @@ bind_universe_builtins :: proc(scopes: ^Scope_Store, universe: Scope_Id) -> Bind
 		{"kmag", UNIVERSE_KMAG},
 		{"conj", UNIVERSE_CONJ},
 		{"swizzle", UNIVERSE_SWIZZLE},
+		{"soa_zip", UNIVERSE_SOA_ZIP},
+		{"soa_unzip", UNIVERSE_SOA_UNZIP},
 	}
 	for binding in bindings {
 		id, create_error := entity_create(scopes, Entity{name = binding.name, kind = .Builtin, scope = universe, state = .Resolved, data = binding.builtin})

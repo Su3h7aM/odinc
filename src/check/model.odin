@@ -260,6 +260,8 @@ Builtin_Kind :: enum u16 {
 	Simd_Trunc,
 	Soa_Copy_From_Slice,
 	Soa_Struct,
+	Soa_Zip,
+	Soa_Unzip,
 	Stack_Pointer,
 	Syscall_Bsd,
 	Transpose,
