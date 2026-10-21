@@ -120,11 +120,23 @@ expression_generic_call :: proc(
 			}
 			argument_node := slot.value
 			if file.ast.nodes[name].kind == .Poly_Type && !is_type_param_field(file, field) {
-				constant_type := type_expression(checker.type_checker, declaration.type.file, definition_scope, field.type, true) or_return
-				if constant_type == types.TYPE_POISON { return expression_poison(scope), nil }
-				argument := check_expression(checker, view, scope, argument_node, constant_type) or_return
+				// `$N: $I` makes the constant's type a polymorphic type name, bound to the argument's type.
+				constant_type_name := poly_constant_type_name(file, field.type)
+				constant_type: types.Type_Id
+				argument_hint: types.Type_Id
+				if constant_type_name == "" {
+					constant_type = type_expression(checker.type_checker, declaration.type.file, definition_scope, field.type, true) or_return
+					if constant_type == types.TYPE_POISON { return expression_poison(scope), nil }
+					argument_hint = constant_type
+				}
+				argument := check_expression(checker, view, scope, argument_node, argument_hint) or_return
 				if argument.state == .Invalid { return expression_poison(scope), nil }
 				if argument.mode != .Constant { return expression_unsupported(checker, view, scope, node, "Generic_Call_Constant_Parameter") }
+				if constant_type_name != "" {
+					constant_type = types.default_type_of_untyped(checker.type_checker.store, argument.type)
+					bound := poly_bind(checker.type_checker.store, &bindings, constant_type_name, constant_type, 0) or_return
+					if !bound { return expression_unsupported(checker, view, scope, node, "Generic_Call_Type_Conflict") }
+				}
 				converted := expression_conversion(
 					checker,
 					view,
@@ -203,7 +215,21 @@ expression_generic_call :: proc(
 					if converted.state == .Invalid { return expression_poison(scope), nil }
 				}
 			}
-			if !poly_pattern_has_poly(file, field.type) { continue }
+			// A concrete pattern is resolved against the parameters bound so far, as the group scorer
+			// does. A bare name bound only later, or never, rejects the call the way official does.
+			if !poly_pattern_has_poly(file, field.type) {
+				if field.type != 0 && file.ast.nodes[field.type].kind != .Ellipsis {
+					bound_scope := poly_bound_scope(&match) or_return
+					mark := expression_speculation_begin(checker)
+					expected, type_error := type_expression(checker.type_checker, declaration.type.file, bound_scope, field.type, true)
+					expression_speculation_end(checker, mark)
+					if type_error != nil { return {}, type_error }
+					if expected == types.TYPE_POISON {
+						return expression_unsupported(checker, view, scope, node, "Generic_Call_Pattern")
+					}
+				}
+				continue
+			}
 			poly_argument := types.default_type_of_untyped(checker.type_checker.store, argument.type)
 			matched := poly_match_pattern(&match, field.type, poly_argument) or_return
 			if !matched { return expression_unsupported(checker, view, scope, node, "Generic_Call_Pattern") }
@@ -250,6 +276,17 @@ is_type_param_field :: proc(file: ^File, field: syntax.Field) -> bool {
 @(private = "package")
 is_poly_name_field :: proc(file: ^File, field: syntax.Field) -> bool {
 	return field.names.count > 0 && file.ast.nodes[syntax.node_list(file.ast, field.names)[0]].kind == .Poly_Type
+}
+
+// The type name that a constant parameter's `$I` type declares, or "" when its type is concrete.
+@(private = "file")
+poly_constant_type_name :: proc(file: ^File, type_node: syntax.Node_Index) -> string {
+	if type_node == 0 { return "" }
+	node := type_unparen(file, type_node)
+	if file.ast.nodes[node].kind != .Poly_Type { return "" }
+	poly := syntax.node_payload(file.ast, node, syntax.Poly_Type)
+	if poly.specialization != 0 { return "" }
+	return expression_text(file, poly.type)
 }
 
 // A spread's slice matches the `..P` parameter's element pattern P. A bare name that the definition does not declare is one of its polymorphic names.

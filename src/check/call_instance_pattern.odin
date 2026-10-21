@@ -126,8 +126,52 @@ poly_match_pattern :: proc(match: ^Poly_Match, pattern: syntax.Node_Index, argum
 		}
 		return poly_match_pattern(match, set_type.underlying, backing)
 	}
+	bound_matched, is_bound := poly_match_bound_type(match, pattern, argument) or_return
+	if is_bound { return bound_matched, nil }
+	template_matched, is_template := poly_match_record_template(match, pattern, argument) or_return
+	if is_template { return template_matched, nil }
 	expected := type_expression(match.checker.type_checker, match.definition_file, match.scope, pattern, true) or_return
 	return expected != types.TYPE_POISON && types.are_identical(match.checker.type_checker.store, expected, argument), nil
+}
+
+// A plain name in a later parameter may refer to a type bound by an earlier one.
+@(private = "file")
+poly_match_bound_type :: proc(match: ^Poly_Match, pattern: syntax.Node_Index, argument: types.Type_Id) -> (matched: bool, found: bool, err: Resolve_Error) {
+	file := match.checker.type_checker.files[match.definition_file]
+	if file.ast.nodes[pattern].kind != .Ident { return false, false, nil }
+	name := expression_text(file, pattern)
+	for bound_name, index in match.bindings.names {
+		if bound_name != name { continue }
+		if match.bindings.constants[index] != 0 { return false, true, nil }
+		return types.are_identical(match.checker.type_checker.store, match.bindings.types[index], argument), true, nil
+	}
+	return false, false, nil
+}
+
+// A bare generic record name used as a constraint (`$T/Table`) accepts an instance of that record.
+@(private = "file")
+poly_match_record_template :: proc(
+	match: ^Poly_Match,
+	pattern: syntax.Node_Index,
+	argument: types.Type_Id,
+) -> (
+	matched: bool,
+	found: bool,
+	err: Resolve_Error,
+) {
+	checker := match.checker.type_checker
+	file := checker.files[match.definition_file]
+	kind := file.ast.nodes[pattern].kind
+	if kind != .Ident && kind != .Selector_Expr { return false, false, nil }
+	definition := type_name_entity(checker, file, match.scope, pattern)
+	if definition == 0 { return false, false, nil }
+	state := resolve_type_dependency(checker, definition, type_node_span(match.definition_file, file, pattern), .Name) or_return
+	if state == .Invalid { return false, true, nil }
+	if _, is_generic := checker.generic_records[definition]; !is_generic { return false, false, nil }
+	for instance in checker.record_instances {
+		if instance.definition == definition && instance.type == argument { return true, true, nil }
+	}
+	return false, true, nil
 }
 
 @(private = "file")
@@ -163,11 +207,66 @@ poly_match_array :: proc(
 		bound := poly_bind(match.checker.type_checker.store, match.bindings, name, match.checker.default_integer, constant) or_return
 		if !bound { return false, nil }
 	} else {
-		expected, valid, count_error := array_count(match.checker.type_checker, match.definition_file, match.scope, length)
+		expected, valid, count_error := poly_match_count(match, length)
 		if count_error != nil { return false, count_error }
 		if !valid || expected != count { return false, nil }
 	}
 	return poly_match_pattern(match, elem, element)
+}
+
+// A dimension may name a constant bound by an earlier parameter, so it is evaluated with those bindings in scope.
+@(private = "package")
+poly_bound_scope :: proc(match: ^Poly_Match) -> (scope: Scope_Id, err: Resolve_Error) {
+	checker := match.checker.type_checker
+	scopes := checker.resolver.scopes
+	bound_scope, scope_error := scope_create(scopes, match.scope, .Block)
+	if scope_error != nil { return 0, binding_resolve_error(scope_error) }
+	for name, index in match.bindings.names {
+		bound := Entity {
+			name  = name,
+			kind  = .Type_Name,
+			scope = bound_scope,
+			state = .Resolved,
+			type  = match.bindings.types[index],
+		}
+		if match.bindings.constants[index] != 0 { bound.kind, bound.constant = .Constant, match.bindings.constants[index] }
+		bound_entity, create_error := entity_create(scopes, bound)
+		if create_error != nil { return 0, binding_resolve_error(create_error) }
+		if _, insert_error := scope_insert(scopes, bound_scope, bound_entity); insert_error != nil {
+			return 0, binding_resolve_error(insert_error)
+		}
+	}
+	return bound_scope, nil
+}
+
+poly_match_count :: proc(match: ^Poly_Match, length: syntax.Node_Index) -> (count: i64, valid: bool, err: Resolve_Error) {
+	scope := match.scope
+	has_constant_binding := false
+	for _, index in match.bindings.names {
+		if match.bindings.constants[index] != 0 { has_constant_binding = true; break }
+	}
+	if has_constant_binding {
+		scopes := match.checker.type_checker.resolver.scopes
+		bound_scope, scope_error := scope_create(scopes, match.scope, .Block)
+		if scope_error != nil { return 0, false, binding_resolve_error(scope_error) }
+		for name, index in match.bindings.names {
+			constant := match.bindings.constants[index]
+			if constant == 0 { continue }
+			entity, create_error := entity_create(
+				scopes,
+				Entity{name = name, kind = .Constant, scope = bound_scope, state = .Resolved, type = match.bindings.types[index], constant = constant},
+			)
+			if create_error != nil { return 0, false, binding_resolve_error(create_error) }
+			if _, insert_error := scope_insert(scopes, bound_scope, entity); insert_error != nil {
+				return 0, false, binding_resolve_error(insert_error)
+			}
+		}
+		scope = bound_scope
+	}
+	// Rows are keyed by node, so bindings from this call would leak into the next one without speculation.
+	mark := expression_speculation_begin(match.checker)
+	defer expression_speculation_end(match.checker, mark)
+	return array_count(match.checker.type_checker, match.definition_file, scope, length)
 }
 
 @(private = "file")
