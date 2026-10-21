@@ -182,14 +182,13 @@ raw_many := raw_data(bytes, bytes)
 		testing.expectf(t, err == nil && (state == .Invalid) == invalid, "%s: %v %v", name, state, err)
 	}
 	testing.expect(t, len(type_checker.diagnostics) == 0 && len(resolver.diagnostics) == 0)
-	found_composite_reason := false
+	found_dynamic_gate := false
 	for diagnostic in checker.diagnostics {
-		if diagnostic.kind == .Unsupported {
-			testing.expect(t, diagnostic.reason != "")
-			if diagnostic.reason == "Composite_Dynamic_Array" { found_composite_reason = true }
+		if diagnostic.kind == .Invalid_Operand && diagnostic.reason == "Dynamic_Literals_Disallowed" {
+			found_dynamic_gate = true
 		}
 	}
-	testing.expect(t, found_composite_reason)
+	testing.expect(t, found_dynamic_gate)
 	program: Checked_Program
 	expression_checker_publish(&checker, &program)
 	program.files = []File{{}, file}

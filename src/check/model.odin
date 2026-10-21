@@ -763,6 +763,15 @@ Slice_Literal_Plan :: struct {
 	type:    types.Type_Id,
 	backing: Aggregate_Plan,
 }
+Dynamic_Array_Literal_Plan :: struct {
+	type:    types.Type_Id,
+	backing: Aggregate_Plan,
+}
+Map_Literal_Plan :: struct {
+	type:                               types.Type_Id,
+	keys, values:                       []Operand,
+	key_conversions, value_conversions: []Plan_Id,
+}
 Assignment_Plan :: struct {
 	destinations, values: []Operand,
 	conversions:          []Plan_Id,
@@ -845,6 +854,8 @@ Plan :: union {
 	Builtin_Plan,
 	Aggregate_Plan,
 	Slice_Literal_Plan,
+	Dynamic_Array_Literal_Plan,
+	Map_Literal_Plan,
 	Bit_Set_Literal_Plan,
 	Assignment_Plan,
 	Bounds_Plan,

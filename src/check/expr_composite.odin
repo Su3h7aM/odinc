@@ -94,14 +94,13 @@ expression_composite :: proc(
 		}
 	}
 	if descriptor.kind != .Struct && descriptor.kind != .Bit_Field && descriptor.kind != .Any && !is_array && !is_matrix {
+		if descriptor.kind == .Dynamic_Array || descriptor.kind == .Map {
+			return expression_dynamic_literal(checker, view, file_id, scope, node, type, descriptor)
+		}
 		reason := "Composite_Type"
 		#partial switch descriptor.kind {
 		case .Slice:
 			reason = "Composite_Slice"
-		case .Dynamic_Array:
-			reason = "Composite_Dynamic_Array"
-		case .Map:
-			reason = "Composite_Map"
 		}
 		return expression_unsupported(checker, view, scope, node, reason)
 	}
