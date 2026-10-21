@@ -5,7 +5,7 @@ import "oc:syntax"
 
 @(test)
 file_features_come_from_parsed_tags_and_preserve_supplied_policy :: proc(t: ^testing.T) {
-	source := transmute([]byte)string("/*\n#+feature using-stmt\n*/\n#+feature other /* using-stmt */\n#+feature second\npackage sample\n")
+	source := transmute([]byte)string("/*\n#+feature using-stmt\n*/\n#+feature global-context /* using-stmt */\n#+feature dynamic-literals\npackage sample\n")
 	ast: syntax.Ast
 	syntax.ast_init(&ast, context.allocator)
 	defer syntax.ast_destroy(&ast)
@@ -30,7 +30,7 @@ file_features_come_from_parsed_tags_and_preserve_supplied_policy :: proc(t: ^tes
 	if !testing.expect_value(t, collect_file_features(&collection, &file, root), nil) { return }
 	if !testing.expect_value(t, len(file.policy.features), 3) { return }
 	testing.expect_value(t, file.policy.features[0], "supplied")
-	testing.expect_value(t, file.policy.features[1], "other")
-	testing.expect_value(t, file.policy.features[2], "second")
+	testing.expect_value(t, file.policy.features[1], "global-context")
+	testing.expect_value(t, file.policy.features[2], "dynamic-literals")
 	testing.expect_value(t, file.policy.bounds_check, Check_Policy.Enabled)
 }

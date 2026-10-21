@@ -7,6 +7,7 @@ package syntax
 
 import "core:mem"
 import "core:strings"
+import "core:unicode/utf8"
 
 Parse_Error_Kind :: enum u8 {
 	Expected_Token,
@@ -42,6 +43,20 @@ Parse_Error_Kind :: enum u8 {
 	Invalid_Asm_Clobber,
 	Invalid_Asm_Specification,
 	Missing_Asm_Body,
+	// Invalid_Feature_Flag is an unknown name in a #+feature tag. The official
+	// text is "Invalid feature flag name: %s" followed by the expected list.
+	Invalid_Feature_Flag,
+	// Notted_Feature_Flag is `!` on a flag that forbids it. The official text
+	// is "Feature flag does not support notting with '!' - '%s'".
+	Notted_Feature_Flag,
+	// Expected_Feature_Name is a bare `!` with no flag after it.
+	Expected_Feature_Name,
+	// Conflicting_Feature_Flags is more than one integer-division-by-zero flag
+	// on one #+feature line.
+	Conflicting_Feature_Flags,
+	// Expected_Space_After_Feature is a tag starting with #+feature but with no
+	// space after it, e.g. #+featurex.
+	Expected_Space_After_Feature,
 }
 
 // Parse_Error is a syntax error at a byte offset; `expected` is set for Expected_Token.
@@ -173,6 +188,122 @@ parse_ident :: proc(p: ^Parser) -> Node_Index {
 	return add_node(p, .Ident, tok.start, tok.end, Ident{})
 }
 
+// Feature_Flag is one opt-in language feature from a #+feature file tag. The set
+// mirrors the official compiler (build_settings.cpp get_feature_flag_from_name).
+Feature_Flag :: enum {
+	Dynamic_Literals,
+	Global_Context,
+	Division_Trap,
+	Division_Zero,
+	Division_Self,
+	Division_All_Bits,
+	Force_Type_Assert,
+	Using_Stmt,
+}
+
+Feature_Flags :: bit_set[Feature_Flag; u8]
+
+feature_flag_from_name :: proc(name: string) -> (Feature_Flag, bool) {
+	switch name {
+	case "dynamic-literals":
+		return .Dynamic_Literals, true
+	case "global-context":
+		return .Global_Context, true
+	case "integer-division-by-zero:trap":
+		return .Division_Trap, true
+	case "integer-division-by-zero:zero":
+		return .Division_Zero, true
+	case "integer-division-by-zero:self":
+		return .Division_Self, true
+	case "integer-division-by-zero:all-bits":
+		return .Division_All_Bits, true
+	case "force-type-assert":
+		return .Force_Type_Assert, true
+	case "using-stmt":
+		return .Using_Stmt, true
+	}
+	return {}, false
+}
+
+// next_feature_name splits one flag name off the front of a #+feature tag body,
+// mirroring vet_tag_get_token with allow_colon in the official parser: names hold
+// letters, digits, '-' and ':', with '!' allowed only first. Anything else ends
+// the name, and a leading separator is its own token.
+next_feature_name :: proc(body: string) -> (name, rest: string) {
+	trimmed := strings.trim_space(body)
+	offset := 0
+	for offset < len(trimmed) {
+		char, width := utf8.decode_rune_in_string(trimmed[offset:])
+		if offset == 0 && char == '!' {
+			// Consumed below.
+		} else if !is_letter(char) && !is_digit(char) && char != '-' && char != ':' {
+			if offset == 0 {
+				return trimmed[:width], trimmed[width:]
+			}
+			return trimmed[:offset], trimmed[offset:]
+		}
+		offset += width
+	}
+	return trimmed, ""
+}
+
+// validate_feature_tag rejects unknown #+feature flag names at parse time, like
+// the official parser.cpp parse_feature_tag. The error offset is the tag start,
+// matching the official span. force-type-assert is valid here although the
+// official suggestion list omits it.
+validate_feature_tag :: proc(p: ^Parser, start: u32, text: string) {
+	body := text[len("#+feature"):]
+	if len(body) == 0 {
+		return
+	}
+	if body[0] != ' ' {
+		if strings.trim_space(body) != "" {
+			report(p, .Expected_Space_After_Feature, start)
+		}
+		return
+	}
+	enabled, disabled: Feature_Flags
+	for len(strings.trim_space(body)) > 0 {
+		name: string
+		name, body = next_feature_name(body)
+		name = strings.trim_space(name)
+		if len(name) == 0 {
+			break
+		}
+		flag_name := name
+		notted := false
+		if flag_name[0] == '!' {
+			notted = true
+			flag_name = flag_name[1:]
+			if len(flag_name) == 0 {
+				report(p, .Expected_Feature_Name, start)
+				return
+			}
+		}
+		flag, ok := feature_flag_from_name(flag_name)
+		if !ok {
+			report(p, .Invalid_Feature_Flag, start)
+			return
+		}
+		if notted {
+			// The official compiler rejects `!` on trap, zero and all-bits but
+			// accepts it on self.
+			switch flag {
+			case .Division_Trap, .Division_Zero, .Division_All_Bits:
+				report(p, .Notted_Feature_Flag, start)
+			case .Dynamic_Literals, .Global_Context, .Division_Self, .Force_Type_Assert, .Using_Stmt:
+			}
+			disabled += {flag}
+		} else {
+			enabled += {flag}
+		}
+	}
+	divisions := (enabled - disabled) & {.Division_Trap, .Division_Zero, .Division_Self, .Division_All_Bits}
+	if card(divisions) > 1 {
+		report(p, .Conflicting_Feature_Flags, start)
+	}
+}
+
 // parse_file parses the file header, then statements up to EOF, and sets `ast.root`.
 parse_file :: proc(p: ^Parser) -> Node_Index {
 	tags := make([dynamic]Node_Index, 0, 4, p.allocator)
@@ -186,6 +317,9 @@ parse_file :: proc(p: ^Parser) -> Node_Index {
 		}
 		advance_token(p)
 		append(&tags, add_node(p, .File_Tag, start, p.prev.end, File_Tag{}))
+		if text := token_text(p.tokenizer.source, p.prev); strings.has_prefix(text, "#+feature") {
+			validate_feature_tag(p, start, text)
+		}
 		expect_semicolon(p, 0)
 	}
 
