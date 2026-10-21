@@ -30,9 +30,11 @@ expression_array_selector :: proc(
 	if len(name) == 1 && descriptor.count > 4 {
 		return expression_failure(checker, view, scope, selector.field, .Undeclared_Name)
 	}
+	indices := make([]i64, len(name), mem.dynamic_arena_allocator(&checker.arena)) or_return
 	plan := Swizzle_Plan {
+		indices  = indices,
 		root     = Operand(Expression_Ref{view, selector.expr}),
-		count    = u8(len(name)),
+		count    = len(name),
 		indirect = indirect,
 	}
 	xyzw, rgba := false, false
@@ -107,15 +109,15 @@ expression_swizzle_builtin :: proc(
 	if base.state == .Invalid { return expression_poison(scope), nil }
 	store := checker.type_checker.store
 	descriptor := types.get(store, types.resolve_named(store, base.type))
-	if descriptor.kind == .Simd_Vector {
-		return expression_unsupported(checker, view, scope, arguments[0], "Swizzle_Simd")
-	}
-	if descriptor.kind != .Array {
+	if descriptor.kind != .Array && descriptor.kind != .Simd_Vector {
 		return expression_failure(checker, view, scope, arguments[0], .Invalid_Operand)
 	}
 	count := len(arguments) - 1
 	if count < 2 { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
-	indices := [4]u8{}
+	if descriptor.kind == .Simd_Vector && ((count & (count - 1)) != 0 || count > 64) {
+		return expression_failure(checker, view, scope, node, .Invalid_Operand)
+	}
+	indices := make([]i64, count, mem.dynamic_arena_allocator(&checker.arena)) or_return
 	for i in 0 ..< count {
 		value := check_expression(checker, view, scope, arguments[i + 1]) or_return
 		if value.state == .Invalid { return expression_poison(scope), nil }
@@ -134,23 +136,23 @@ expression_swizzle_builtin :: proc(
 		if index_error != .None || n < 0 || n >= descriptor.count {
 			return expression_failure(checker, view, scope, arguments[i + 1], .Invalid_Operand)
 		}
-		indices[i] = u8(n)
+		indices[i] = n
 	}
 	plan := Swizzle_Plan {
 		root     = Operand(Expression_Ref{view, arguments[0]}),
-		count    = u8(count),
+		indices  = indices,
+		count    = count,
 		indirect = false,
 	}
-	for i in 0 ..< count { plan.indices[i] = indices[i] }
 	result_type := descriptor.elem
 	if count > 1 {
-		result_type = types.intern(store, types.Type{kind = .Array, elem = descriptor.elem, count = i64(count)})
+		result_type = types.intern(store, types.Type{kind = descriptor.kind, elem = descriptor.elem, count = i64(count)})
 		if i64(count) == descriptor.count {
 			result_type = base.type
 		}
 		if hint != 0 {
 			hint_descriptor := types.get(store, types.resolve_named(store, hint))
-			if hint_descriptor.kind == .Array && hint_descriptor.count == i64(count) && hint_descriptor.elem == descriptor.elem {
+			if hint_descriptor.kind == descriptor.kind && hint_descriptor.count == i64(count) && hint_descriptor.elem == descriptor.elem {
 				result_type = hint
 			}
 		}
@@ -158,6 +160,6 @@ expression_swizzle_builtin :: proc(
 	plan_id := Plan_Id(len(checker.plans))
 	append(&checker.plans, Plan(plan)) or_return
 	mode := Addressing_Mode.Value
-	if base.mode == .Variable { mode = .Variable }
+	if base.mode == .Variable && descriptor.kind == .Array { mode = .Variable }
 	return Expression_Info{type = result_type, mode = mode, plan = plan_id, scope = scope, state = .Checked}, nil
 }

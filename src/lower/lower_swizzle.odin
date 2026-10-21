@@ -1,5 +1,6 @@
 package lower
 
+import "core:mem/virtual"
 import "oc:check"
 import "oc:ir"
 import "oc:syntax"
@@ -7,7 +8,10 @@ import "oc:types"
 
 @(private)
 lower_swizzle_destination :: proc(state: ^Procedure_State, plan: check.Swizzle_Plan, type: types.Type_Id) -> Assignment_Destination {
+	lanes, allocation_error := make([]ir.Node_Id, plan.count, virtual.arena_allocator(&state.job.function.arena))
+	if allocation_error != nil { state.failed = true; return {} }
 	result := Assignment_Destination {
+		lanes      = lanes,
 		type       = type,
 		lane_count = plan.count,
 	}
@@ -52,7 +56,8 @@ lower_swizzle_write :: proc(state: ^Procedure_State, destination: Assignment_Des
 	if destination.lane_count == 1 { lower_store(state, destination.lanes[0], value, destination.type); return }
 	descriptor := lower_type(state, destination.type)
 	stride := state.job.layouts[descriptor.elem].size
-	values: [4]ir.Node_Id
+	values, allocation_error := make([]ir.Node_Id, destination.lane_count, virtual.arena_allocator(&state.job.function.arena))
+	if allocation_error != nil { state.failed = true; return }
 	for index in 0 ..< int(destination.lane_count) { values[index] = lower_load(state, ir.ptr_offset(state.job.function, value, i64(index) * stride), descriptor.elem) }
 	for index in 0 ..< int(destination.lane_count) { lower_store(state, destination.lanes[index], values[index], descriptor.elem) }
 }
