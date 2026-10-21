@@ -249,6 +249,8 @@ group_member_score :: proc(
 		if index >= len(procedure.defaults) { return 0, false, nil }
 		default_argument := procedure.defaults[index]
 		if default_argument.value == nil && !default_argument.caller_location && !default_argument.caller_expression { return 0, false, nil }
+		// A filled default is not evidence of a better match, so an exact-arity overload wins (check_call_arguments_internal).
+		score -= 13
 	}
 	if descriptor.variadic && !spread { score -= 1 }
 	for argument, index in positional {
@@ -372,6 +374,8 @@ group_generic_member_score :: proc(
 					}
 				}
 				if field.default_value == 0 || file.ast.nodes[name].kind == .Poly_Type { return 0, false, nil }
+				// A filled default is not evidence of a better match, so an exact-arity overload wins (check_call_arguments_internal).
+				score -= 13
 				continue
 			}
 			argument_score, matched := group_field_argument_score(checker, view, member, &match, spread, &deferred, field, name, positional[index]) or_return
@@ -521,11 +525,11 @@ group_field_argument_score :: proc(
 	}
 	if poly_untyped_deferred(file, field.type, types.get(store, argument.info.type).kind) {
 		append(deferred, Untyped_Pattern{pattern = field.type, type = argument.info.type}) or_return
-		return 1, true, nil
+		return 5, true, nil
 	}
 	poly_matched := poly_match_pattern(match, field.type, types.default_type_of_untyped(store, argument.info.type)) or_return
 	if !poly_matched { return 0, false, nil }
-	if conversion_untyped(types.get(store, argument.info.type).kind) { return 1, true, nil }
+	if conversion_untyped(types.get(store, argument.info.type).kind) { return 5, true, nil }
 	return 2, true, nil
 }
 
@@ -551,6 +555,9 @@ group_field_specialized :: proc(file: ^File, field: syntax.Field) -> bool {
 
 // An exact type scores 2, an untyped argument whose default type is the target scores 2, any other implicit
 // conversion scores 1. The argument's row is not stored, so a rejected candidate leaves no trace.
+// Scores mirror check_distance_between_types: identical 6, untyped default type 5, untyped same-family 2,
+// any other implicit conversion 1. Generic members add their concrete argument scores, then lose 1 when
+// specialized and 2 when unconstrained, so a generic beats a same-family concrete match but not a default one.
 @(private = "file")
 group_argument_is_deferred :: proc(file: ^File, argument: syntax.Node_Index) -> bool {
 	#partial switch file.ast.nodes[argument].kind {

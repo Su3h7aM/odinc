@@ -188,15 +188,22 @@ expression_predeclare_constants :: proc(
 		values := syntax.node_list(file.ast, declaration.values)
 		if len(names) == 0 || len(values) != len(names) { continue }
 		for name_node, index in names {
+			kind := Entity_Kind.Constant
+			data: Entity_Data
+			if file.ast.nodes[values[index]].kind == .Proc_Group {
+				kind = .Procedure_Group
+				data = Procedure_Group_Data{}
+			}
 			constant, create_error := entity_create(
 				scopes,
 				Entity {
 					name = expression_text(file, name_node),
-					kind = .Constant,
+					kind = kind,
 					scope = scope,
 					package_id = file.package_id,
 					declaration = {file_id, name_node},
 					state = .Unresolved,
+					data = data,
 				},
 			)
 			if create_error != nil { return binding_resolve_error(create_error) }
@@ -247,6 +254,33 @@ expression_local_constant :: proc(checker: ^Expression_Checker, view: View_Id, f
 		if predeclared, declared := expression_predeclared_constant(checker, file_id, scope, name_node); declared {
 			_, resolve_error := resolve_entity(checker.type_checker.resolver, predeclared)
 			if resolve_error != nil { return resolve_error }
+			continue
+		}
+		if file.ast.nodes[values[index]].kind == .Proc_Group {
+			entity := Entity {
+				name       = expression_text(file, name_node),
+				kind       = .Procedure_Group,
+				scope      = scope,
+				package_id = file.package_id,
+				state      = .Resolved,
+				data       = Procedure_Group_Data{},
+			}
+			group, create_error := entity_create(checker.type_checker.resolver.scopes, entity)
+			if create_error != nil { return binding_resolve_error(create_error) }
+			previous, insert_error := scope_insert(checker.type_checker.resolver.scopes, scope, group)
+			if insert_error != nil { return binding_resolve_error(insert_error) }
+			if previous != 0 {
+				expression_unsupported(checker, view, scope, name_node, "Local_Constant_Duplicate") or_return
+				return nil
+			}
+			declaration := Collected_Declaration {
+				entity     = group,
+				identifier = {file_id, name_node},
+				value      = {file_id, values[index]},
+			}
+			valid, group_error := expression_procedure_group_declaration(checker, checker.type_checker.resolver, group, declaration, scope)
+			if group_error != nil { return group_error }
+			if !valid { entity_get(checker.type_checker.resolver.scopes, group).state = .Invalid }
 			continue
 		}
 		if file.ast.nodes[values[index]].kind == .Proc_Lit {
