@@ -612,7 +612,7 @@ expression_builtin_call :: proc(
 	if kind := checker.builtin_kinds[builtin]; kind >= .Type_Array && kind <= .Type_Elem_Type {
 		return expression_type_query(checker, view, scope, node, kind, arguments, call.ellipsis.kind != .Invalid)
 	}
-	if kind := checker.builtin_kinds[builtin]; kind >= .Type_Comparable && kind <= .Type_Core_Type {
+	if kind := checker.builtin_kinds[builtin]; builtin_type_predicate_kind(kind) {
 		return expression_type_predicate(checker, view, scope, node, kind, arguments, call.ellipsis.kind != .Invalid)
 	}
 	if kind := checker.builtin_kinds[builtin]; kind == .Saturating_Add || kind == .Saturating_Sub {
