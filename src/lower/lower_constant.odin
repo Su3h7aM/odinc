@@ -61,7 +61,14 @@ lower_constant :: proc(state: ^Procedure_State, id: check.Const_Id, target: type
 		allocator := virtual.arena_allocator(&function.arena)
 		if signed_type(state, type) {
 			bits, error := big.int_get_i64(&integer, allocator)
-			if error != .None { return lower_constant_error(state, error) }
+			if error != .None {
+				// An untyped constant past the signed range still fits an unsigned use; keep its low 64 bits.
+				source := target if target != 0 else constant.type
+				if !types.is_untyped(check.type_store(state.job.program), source) { return lower_constant_error(state, error) }
+				unsigned, unsigned_error := big.int_get_u64(&integer, allocator)
+				if unsigned_error != .None { return lower_constant_error(state, unsigned_error) }
+				return ir.const_int(function, scalar, i64(unsigned))
+			}
 			return ir.const_int(function, scalar, bits)
 		}
 		bits, error := big.int_get_u64(&integer, allocator)
