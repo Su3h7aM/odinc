@@ -14,7 +14,7 @@ if [[ -n "$target" ]]; then packages=("$target"); fi
 failed=()
 for package in "${packages[@]}"; do
 	package_has_tests "$package" || continue
-	step "test $package"
+	step "test $package" >&2
 	"$ODIN" test "$PROJECT_ROOT/src/$package" "${flags[@]}" -out:"$PROJECT_ROOT/build/test_$package" || failed+=("$package")
 done
 if ((${#failed[@]})); then die "tests failed: ${failed[*]}"; fi
