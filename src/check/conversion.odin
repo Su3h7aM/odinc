@@ -182,6 +182,7 @@ check_conversion :: proc(
 		}
 	}
 	if kind == .Assignment && !untyped {
+		allowed ||= conversion_procedure_assignment(store, info.type, target)
 		allowed ||= info.mode == .Constant && src.kind == .String && dst.kind == .CString
 		allowed ||= conversion_implicit_raw_pointer(store, info.type, target)
 		allowed ||= conversion_implicit_pointer(store, info.type, target)
@@ -391,6 +392,28 @@ conversion_base_type :: proc(store: ^types.Store, id: types.Type_Id) -> types.Ty
 		id = descriptor.elem
 	}
 	return types.TYPE_POISON
+}
+
+conversion_procedure_assignment :: proc(store: ^types.Store, source, target: types.Type_Id) -> bool {
+	source_type := types.get(store, conversion_base_type(store, source))
+	target_type := types.get(store, conversion_base_type(store, target))
+	if source_type.kind != .Procedure || target_type.kind != .Procedure { return false }
+	if source_type.convention != target_type.convention ||
+	   source_type.variadic != target_type.variadic ||
+	   source_type.c_vararg != target_type.c_vararg ||
+	   source_type.optional_result != target_type.optional_result ||
+	   source_type.diverging != target_type.diverging ||
+	   len(source_type.params) != len(target_type.params) ||
+	   len(source_type.results) != len(target_type.results) {
+		return false
+	}
+	for index in 0 ..< len(source_type.params) {
+		if source_type.params[index] != target_type.params[index] { return false }
+	}
+	for index in 0 ..< len(source_type.results) {
+		if source_type.results[index] != target_type.results[index] { return false }
+	}
+	return true
 }
 
 // Matches official core_type: named, enum and bit_field types unwrap to their underlying type.

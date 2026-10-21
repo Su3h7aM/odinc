@@ -159,7 +159,16 @@ Loop :: ^Loop
 	testing.expect(t, types.get(&type_store, lookup(&store, package_scope, "Choice").type).kind == .Union)
 	testing.expect(t, types.get(&type_store, lookup(&store, package_scope, "Optional").type).union_form == .Maybe_Pointer)
 	callback := types.get(&type_store, lookup(&store, package_scope, "Callback").type)
-	testing.expect(t, callback.kind == .Procedure && callback.convention == .C && len(callback.params) == 2 && len(callback.results) == 2)
+	callback_signature := types.get(&type_store, callback.elem)
+	testing.expect(
+		t,
+		callback.kind == .Named &&
+		callback.is_nominal &&
+		callback_signature.kind == .Procedure &&
+		callback_signature.convention == .C &&
+		len(callback_signature.params) == 2 &&
+		len(callback_signature.results) == 2,
+	)
 	table := types.get(&type_store, lookup(&store, package_scope, "Table").type)
 	testing.expect(t, table.kind == .Enumerated_Array && table.index == color_id && table.count == 7)
 	names_map := types.get(&type_store, lookup(&store, package_scope, "Names").type)

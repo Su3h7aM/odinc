@@ -273,3 +273,65 @@ untyped_scalar_broadcasts_to_arrays_through_the_element_type :: proc(t: ^testing
 	_, diagnostic, err = check_conversion(&pool, &store, value, info, bytes_type, .Assignment, config)
 	testing.expect(t, err == nil && diagnostic == .Not_Representable)
 }
+
+@(test)
+named_procedure_assignment_requires_matching_top_level_signatures :: proc(t: ^testing.T) {
+	store := types.init()
+	defer types.destroy(&store)
+	pool: Constant_Pool
+	if !testing.expect(t, constant_pool_init(&pool, context.allocator) == nil) { return }
+	defer constant_pool_destroy(&pool)
+	integer := types.intern(&store, types.Type{kind = .Integer, count = 8, signed = true})
+	string_type := types.intern(&store, types.Type{kind = .String})
+	parameters := [1]types.Type_Id{integer}
+	wrong_parameters := [1]types.Type_Id{string_type}
+	results := [1]types.Type_Id{integer}
+	procedure := types.intern(&store, types.Type{kind = .Procedure, params = parameters[:], results = results[:]})
+	string_procedure := types.intern(&store, types.Type{kind = .Procedure, params = wrong_parameters[:], results = results[:]})
+	named_a := types.reserve_nominal(&store, .Named, "A")
+	named_b := types.reserve_nominal(&store, .Named, "B")
+	named_wrong := types.reserve_nominal(&store, .Named, "Wrong")
+	types.complete_nominal(&store, named_a, types.Type{kind = .Named, name = "A", elem = procedure})
+	types.complete_nominal(&store, named_b, types.Type{kind = .Named, name = "B", elem = procedure})
+	types.complete_nominal(&store, named_wrong, types.Type{kind = .Named, name = "Wrong", elem = string_procedure})
+	value := Operand(Expression_Ref{view = 1, node = 2})
+	config := Conversion_Config {
+		layout = types.DEFAULT_LAYOUT,
+	}
+	info := Expression_Info {
+		type  = procedure,
+		mode  = .Value,
+		state = .Checked,
+	}
+	_, diagnostic, err := check_conversion(&pool, &store, value, info, named_a, .Assignment, config)
+	testing.expect(t, err == nil && diagnostic == .None)
+	info.type = named_a
+	_, diagnostic, err = check_conversion(&pool, &store, value, info, named_b, .Assignment, config)
+	testing.expect(t, err == nil && diagnostic == .None)
+	_, diagnostic, err = check_conversion(&pool, &store, value, info, procedure, .Assignment, config)
+	testing.expect(t, err == nil && diagnostic == .None)
+	_, diagnostic, err = check_conversion(&pool, &store, value, info, named_b, .Cast, config)
+	testing.expect(t, err == nil && diagnostic == .None)
+	_, diagnostic, err = check_conversion(&pool, &store, value, info, named_wrong, .Assignment, config)
+	testing.expect(t, err == nil && diagnostic == .Not_Assignable)
+	procedure_slice := types.intern(&store, types.Type{kind = .Slice, elem = procedure})
+	named_slice := types.intern(&store, types.Type{kind = .Slice, elem = named_a})
+	info.type = procedure_slice
+	_, diagnostic, err = check_conversion(&pool, &store, value, info, named_slice, .Assignment, config)
+	testing.expect(t, err == nil && diagnostic == .Not_Assignable)
+}
+
+@(test)
+named_procedure_assignment_rejects_a_different_signature :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(
+		`package sample
+Callback :: proc(value: int) -> int
+wrong :: proc(value: string) -> int { return 0 }
+main :: proc() {
+	callback: Callback = wrong
+}
+`,
+	)
+	_, ok := check_procedure_source(t, source, .Mismatched_Types)
+	testing.expect(t, ok)
+}

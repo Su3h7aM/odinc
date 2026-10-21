@@ -265,6 +265,11 @@ type_declaration :: proc(checker: ^Type_Checker, id: Entity_Id) -> (handled, val
 		base := type_expression(checker, file_id, scope, syntax.node_payload(file.ast, value, syntax.Distinct_Type).type, true) or_return
 		types.complete_nominal(checker.store, type, types.Type{kind = .Named, name = name, elem = base})
 		return true, base != types.TYPE_POISON, nil
+	case .Proc_Type:
+		type := publish_nominal(checker, id, .Named, name) or_return
+		base := procedure_type(checker, file_id, file, scope, value) or_return
+		types.complete_nominal(checker.store, type, types.Type{kind = .Named, name = name, elem = base})
+		return true, base != types.TYPE_POISON, nil
 	}
 	type := type_expression(checker, file_id, scope, value, true) or_return
 	entity = entity_get(scopes, id)
