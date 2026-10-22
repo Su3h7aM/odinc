@@ -1,5 +1,6 @@
 package check
 
+import "core:fmt"
 import "core:math/big"
 import "core:mem"
 import "oc:syntax"
@@ -41,6 +42,24 @@ expression_index :: proc(
 		writable := base.mode == .Variable || is_pointer
 		append(&checker.plans, Plan(Map_Info_Plan{type = types.resolve_named(store, map_type)})) or_return
 		return expression_map_index(checker, view, scope, access.expr, access.index, base_descriptor.index, base_descriptor.elem, writable)
+	}
+	if base.mode == .Constant || (base.mode == .Immutable_Value && entity_declared_constant(checker, base.entity)) {
+		#partial switch base_descriptor.kind {
+		case .Array, .Enumerated_Array, .Slice, .Fixed_Capacity_Array, .String, .String16, .Matrix:
+			hint := types.TYPE_NONE
+			if base_descriptor.kind == .Enumerated_Array { hint = base_descriptor.index }
+			position := check_expression(checker, view, scope, access.index, hint) or_return
+			if position.state == .Invalid { return expression_poison(scope), nil }
+			if position.mode != .Constant {
+				span := file.ast.nodes[access.expr]
+				reason := fmt.aprintf(
+					"Cannot index a constant '%s' with a variable index",
+					string(file.source[span.start:span.end]),
+					allocator = mem.dynamic_arena_allocator(&checker.arena),
+				)
+				return expression_failure(checker, view, scope, access.expr, .Invalid_Operand, reason)
+			}
+		}
 	}
 	_, _, is_soa := soa_descriptor(store, map_type)
 	if is_soa {
@@ -108,6 +127,17 @@ expression_index :: proc(
 	plan := Plan_Id(len(checker.plans))
 	append(&checker.plans, Plan(Bounds_Plan{kind = .Index, operands = operands, policy = policy})) or_return
 	return Expression_Info{type = element_type, mode = mode, plan = plan, scope = scope, state = .Checked}, nil
+}
+
+@(private = "file")
+entity_declared_constant :: proc(checker: ^Expression_Checker, entity: Entity_Id) -> bool {
+	if entity == 0 { return false }
+	binding := entity_get(checker.type_checker.resolver.scopes, entity)
+	declaration := binding.declaration
+	if declaration.node == 0 { return false }
+	file := checker.type_checker.files[declaration.file]
+	if file.ast.nodes[declaration.node].kind != .Value_Decl { return false }
+	return !syntax.node_payload(file.ast, declaration.node, syntax.Value_Decl).is_mutable
 }
 
 // Slicing an addressable array or any slice yields a slice header. An absent bound is a nil operand; lowering

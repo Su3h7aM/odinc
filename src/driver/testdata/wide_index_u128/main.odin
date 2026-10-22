@@ -6,11 +6,12 @@ _WORD :: distinct u128
 TABLE :: "0123456789abcdef"
 
 main :: proc() {
-	first := TABLE[_WORD(10)]
+	table := TABLE
+	first := table[_WORD(10)]
 	high, low := _WORD(0x23), _WORD(0x10)
 	quotient := high / low
 	rest := high - quotient * low
-	second := TABLE[rest]
+	second := table[rest]
 	if first != 'a' || second != '3' {
 		intrinsics.syscall(60, 1)
 	}
