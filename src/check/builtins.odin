@@ -86,6 +86,26 @@ intrinsic_builtin_kind :: proc(name: string) -> Builtin_Kind {
 		return .X86_Cpuid
 	case "x86_xgetbv":
 		return .X86_Xgetbv
+	case "x86_aesenc":
+		return .X86_Aesenc
+	case "x86_aesenclast":
+		return .X86_Aesenclast
+	case "x86_aesimc":
+		return .X86_Aesimc
+	case "x86_aeskeygenassist":
+		return .X86_Aeskeygenassist
+	case "x86_aesdec":
+		return .X86_Aesdec
+	case "x86_aesdeclast":
+		return .X86_Aesdeclast
+	case "x86_pclmulqdq":
+		return .X86_Pclmulqdq
+	case "x86_sha256msg1":
+		return .X86_Sha256msg1
+	case "x86_sha256msg2":
+		return .X86_Sha256msg2
+	case "x86_sha256rnds2":
+		return .X86_Sha256rnds2
 	case "constant_log2":
 		return .Constant_Log2
 	case "saturating_add":

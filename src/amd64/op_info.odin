@@ -53,6 +53,19 @@ op_info :: proc(mnemonic: x86.Mnemonic) -> (info: Op_Info, known: bool) {
 		info.access = {.Def, .Use, .Use, .None}
 		info.two_address = true
 		info.reads_flags = true
+	case .AESENC, .AESENCLAST, .AESDEC, .AESDECLAST, .PSHUFB, .PCLMULQDQ:
+		info.access = {.Def, .Use, .Use, .None}
+		info.two_address = true
+	case .SHA256MSG1, .SHA256MSG2:
+		info.access = {.Def, .Use, .Use, .None}
+		info.two_address = true
+	case .SHA256RNDS2:
+		info.access = {.Def, .Use, .Use, .Use}
+		info.two_address = true
+	case .AESIMC:
+		info.access = {.Def, .Use, .None, .None}
+	case .AESKEYGENASSIST:
+		info.access = {.Def, .Use, .None, .None}
 	case .CMP, .TEST, .UCOMISS, .UCOMISD:
 		info.access = {.Use, .Use, .None, .None}
 		info.writes_flags = true

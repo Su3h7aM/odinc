@@ -138,24 +138,46 @@ Target_Op :: enum u32 {
 	Pause,
 	Debug_Trap,
 	Rdtsc,
+	Aesenc,
+	Aesenclast,
+	Aesimc,
+	Aeskeygenassist,
+	Aesdec,
+	Aesdeclast,
+	Pshufb,
+	Pclmulqdq,
+	Sha256msg1,
+	Sha256msg2,
+	Sha256rnds2,
 }
 
 // Arguments follow the control and memory inputs; results follow the memory member.
 Target_Op_Info :: struct {
 	name:         string,
 	arg_count:    u8,
-	args:         [2]Value_Type,
+	args:         [3]Value_Type,
 	result_count: u8,
 	results:      [4]Value_Type,
 }
 
 @(rodata)
 target_op_info := [Target_Op]Target_Op_Info {
-	.Cpuid = {name = "cpuid", arg_count = 2, args = {.I32, .I32}, result_count = 4, results = {.I32, .I32, .I32, .I32}},
-	.Xgetbv = {name = "xgetbv", arg_count = 1, args = {.I32, .None}, result_count = 2, results = {.I32, .I32, .None, .None}},
+	.Cpuid = {name = "cpuid", arg_count = 2, args = {.I32, .I32, .None}, result_count = 4, results = {.I32, .I32, .I32, .I32}},
+	.Xgetbv = {name = "xgetbv", arg_count = 1, args = {.I32, .None, .None}, result_count = 2, results = {.I32, .I32, .None, .None}},
 	.Pause = {name = "pause"},
 	.Debug_Trap = {name = "debug_trap"},
 	.Rdtsc = {name = "rdtsc", result_count = 1, results = {.I64, .None, .None, .None}},
+	.Aesenc = {name = "aesenc", arg_count = 2, args = {.V128, .V128, .None}, result_count = 1, results = {.V128, .None, .None, .None}},
+	.Aesenclast = {name = "aesenclast", arg_count = 2, args = {.V128, .V128, .None}, result_count = 1, results = {.V128, .None, .None, .None}},
+	.Aesimc = {name = "aesimc", arg_count = 1, args = {.V128, .None, .None}, result_count = 1, results = {.V128, .None, .None, .None}},
+	.Aeskeygenassist = {name = "aeskeygenassist", arg_count = 2, args = {.V128, .I8, .None}, result_count = 1, results = {.V128, .None, .None, .None}},
+	.Aesdec = {name = "aesdec", arg_count = 2, args = {.V128, .V128, .None}, result_count = 1, results = {.V128, .None, .None, .None}},
+	.Aesdeclast = {name = "aesdeclast", arg_count = 2, args = {.V128, .V128, .None}, result_count = 1, results = {.V128, .None, .None, .None}},
+	.Pshufb = {name = "pshufb", arg_count = 2, args = {.V128, .V128, .None}, result_count = 1, results = {.V128, .None, .None, .None}},
+	.Pclmulqdq = {name = "pclmulqdq", arg_count = 3, args = {.V128, .V128, .I8}, result_count = 1, results = {.V128, .None, .None, .None}},
+	.Sha256msg1 = {name = "sha256msg1", arg_count = 2, args = {.V128, .V128, .None}, result_count = 1, results = {.V128, .None, .None, .None}},
+	.Sha256msg2 = {name = "sha256msg2", arg_count = 2, args = {.V128, .V128, .None}, result_count = 1, results = {.V128, .None, .None, .None}},
+	.Sha256rnds2 = {name = "sha256rnds2", arg_count = 3, args = {.V128, .V128, .V128}, result_count = 1, results = {.V128, .None, .None, .None}},
 }
 
 @(rodata)
@@ -404,9 +426,9 @@ KIND_TABLE :: [Node_Kind]Kind_Info {
 		name = "target_op",
 		class = .Pinned,
 		min_inputs = 2,
-		max_inputs = 4,
+		max_inputs = 5,
 		slots = {CONTROL, MEMORY, {}, {}, {}},
-		tail = INTS,
+		tail = INTS + VECTOR,
 		result = TUPLE,
 		tuple = .Open,
 		members = {.Memory, .None},

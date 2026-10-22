@@ -19,7 +19,7 @@ lower_target_op :: proc(state: ^Procedure_State, node: syntax.Node_Index, operat
 		}
 	}
 	memory := ir.variable_get(state.builder, ir.MEMORY_VARIABLE)
-	inputs := [4]ir.Node_Id{state.builder.control, memory, 0, 0}
+	inputs := [5]ir.Node_Id{state.builder.control, memory, 0, 0, 0}
 	copy(inputs[2:], arguments)
 	effect := ir.add_node(function, .Target_Op, .Tuple, inputs[:2 + len(arguments)], {index = u32(operation)})
 	ir.variable_set(state.builder, ir.MEMORY_VARIABLE, ir.add_node(function, .Proj, .Memory, {effect}, {index = 0}))

@@ -55,7 +55,7 @@ simd_builtin_kind :: proc(kind: Builtin_Kind) -> bool {
 		return true
 	case .Simd_Add, .Simd_Sub, .Simd_Mul, .Simd_Div, .Simd_Bit_And, .Simd_Bit_Or, .Simd_Bit_Xor, .Simd_Bit_And_Not, .Simd_Min, .Simd_Max:
 		return true
-	case .Simd_Saturating_Add, .Simd_Saturating_Sub:
+	case .Simd_Saturating_Add, .Simd_Saturating_Sub, .Simd_Runtime_Swizzle:
 		return true
 	case .Simd_Ceil, .Simd_Floor, .Simd_Trunc, .Simd_Nearest, .Simd_Approx_Recip, .Simd_Approx_Recip_Sqrt, .Simd_Abs, .Simd_Neg:
 		return true
@@ -300,7 +300,8 @@ expression_simd_call :: proc(
 	     .Simd_Min,
 	     .Simd_Max,
 	     .Simd_Saturating_Add,
-	     .Simd_Saturating_Sub:
+	     .Simd_Saturating_Sub,
+	     .Simd_Runtime_Swizzle:
 		if len(arguments) != 2 { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
 		left := check_expression(checker, view, scope, arguments[0]) or_return
 		if left.state == .Invalid { return expression_poison(scope), nil }

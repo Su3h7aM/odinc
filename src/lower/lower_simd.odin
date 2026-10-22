@@ -52,6 +52,19 @@ lower_simd_builtin :: proc(
 		return lower_simd_operation(state, node, info, plan, kind), true
 	case .Simd_Shuffle:
 		return lower_simd_shuffle(state, node, info, plan), true
+	case .X86_Aesenc,
+	     .X86_Aesenclast,
+	     .X86_Aesimc,
+	     .X86_Aeskeygenassist,
+	     .X86_Aesdec,
+	     .X86_Aesdeclast,
+	     .X86_Pclmulqdq,
+	     .X86_Sha256msg1,
+	     .X86_Sha256msg2,
+	     .X86_Sha256rnds2:
+		return lower_simd_target_op(state, node, info, plan, kind), true
+	case .Simd_Runtime_Swizzle:
+		return lower_simd_runtime_swizzle(state, node, info, plan), true
 	}
 	return 0, false
 }

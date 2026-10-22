@@ -17,11 +17,16 @@ select_fixed_target_op :: proc(selector: ^Selector, node: ir.Node_Id, mnemonic: 
 		append(&operands, fixed(argument, gpr(register), .Use)) or_return
 	}
 	values := make([]Vreg, len(results), selector.allocator) or_return
+	fixed_results := make([]Vreg, len(results), selector.allocator) or_return
 	for register, index in results {
-		values[index] = new_vreg(output, .Int) or_return
-		append(&operands, fixed(values[index], gpr(register), .Def)) or_return
+		fixed_results[index] = new_vreg(output, .Int) or_return
+		append(&operands, fixed(fixed_results[index], gpr(register), .Def)) or_return
 	}
 	emit_instruction(output, selector.block, Machine_Instruction{mnemonic = mnemonic, operands = operands[:]}) or_return
+	for fixed_result, index in fixed_results {
+		values[index] = new_vreg(output, .Int) or_return
+		emit_pseudo(output, selector.block, .Copy, values[index], fixed_result) or_return
+	}
 	selector.tuples[node] = values
 	return nil
 }

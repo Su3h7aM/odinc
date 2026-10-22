@@ -152,7 +152,7 @@ selected_test_run :: proc(t: ^testing.T, function: ^ir.Function, expected: int, 
 		symbols = []link.Symbol{{name = "_start", atom = 0}, {name = callee.name, atom = 1}}
 	}
 	image, link_err := link.link([]link.Input{{atoms = atoms, symbols = symbols}}, "_start", context.allocator)
-	testing.expect_value(t, link_err, nil)
+	testing.expectf(t, link_err == nil, "link failed: %v", link_err)
 	if link_err != nil { return }
 	defer delete(image)
 	directory, directory_err := os.make_directory_temp("", "amd64-select-boundary-*", context.temp_allocator)
@@ -388,7 +388,7 @@ selected_loop_exits_with_fifty_five :: proc(t: ^testing.T) {
 	if emit_err != nil { return }
 	defer atom_destroy(&atom, context.allocator)
 	image, link_err := link.link([]link.Input{{atoms = {atom}, symbols = {{name = "_start", atom = 0}}}}, "_start", context.allocator)
-	testing.expect_value(t, link_err, nil)
+	testing.expectf(t, link_err == nil, "link failed: %v", link_err)
 	if link_err != nil { return }
 	defer delete(image)
 	directory, directory_err := os.make_directory_temp("", "amd64-select-*", context.temp_allocator)
