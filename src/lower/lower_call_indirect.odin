@@ -1,5 +1,6 @@
 package lower
 
+import "base:runtime"
 import "core:mem/virtual"
 import "core:strconv"
 import "core:strings"
@@ -22,7 +23,7 @@ call_declaration :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan:
 }
 
 // A bodyless foreign procedure has no job and no checker symbol. Its ABI comes
-// from its declared signature and its address from an extern of its link name.
+// from its planned signature and its address from an extern of its link name.
 // Anything else without a declaration keeps the call failure above.
 @(private)
 extern_declaration :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: check.Call_Plan) -> (declaration: Procedure_Declaration, valid: bool) {
@@ -41,48 +42,28 @@ extern_declaration :: proc(state: ^Procedure_State, node: syntax.Node_Index, pla
 		lower_fail(state, node, .Call)
 		return {}, false
 	}
-	store := check.type_store(program)
-	descriptor := types.get(store, types.resolve_named(store, procedure.signature))
-	if descriptor.kind != .Procedure {
+	planned := state.job.abi_plans.foreign_plans[plan.entity]
+	if !planned.valid {
 		lower_fail(state, node, .Call)
 		return {}, false
 	}
-	function := state.job.function
-	allocator := virtual.arena_allocator(&function.arena)
-	by_pointer, pointer_error := make([]bool, len(procedure.parameters), allocator)
-	if pointer_error != nil {
-		function.error = pointer_error
-		return {}, false
-	}
-	for parameter, index in procedure.parameters {
-		if int(parameter) <= 0 || int(parameter) >= len(program.entities) {
-			lower_fail(state, node, .Call)
-			return {}, false
-		}
-		by_pointer[index] = .By_Pointer in program.entities[parameter].flags
-	}
-	abi, abi_error := types.plan_abi(store, procedure.signature, by_pointer, allocator = allocator)
-	if abi_error != .None {
-		lower_fail(state, node, .Call)
-		return {}, false
-	}
-	signature, signature_error := abi_signature(abi, allocator)
+	allocator := virtual.arena_allocator(&state.job.function.arena)
+	signature, signature_error := abi_signature(planned.plan, allocator)
 	if signature_error != nil {
-		function.error = signature_error
+		state.job.function.error = signature_error
 		return {}, false
 	}
 	link_name := foreign_link_name(program, plan.entity, allocator)
-	symbol, symbol_valid := extern_symbol(state, node, link_name)
+	symbol, symbol_valid := extern_symbol(state, link_name)
 	if !symbol_valid { return {}, false }
-	declaration = Procedure_Declaration {
-		type       = procedure.signature,
-		parameters = procedure.parameters,
-		abi_params = abi.params,
-		signature  = signature,
-		symbol     = symbol,
-	}
-	state.job.declarations[plan.entity] = declaration
-	return declaration, true
+	return Procedure_Declaration {
+			type = procedure.signature,
+			parameters = procedure.parameters,
+			abi_params = planned.plan.params,
+			signature = signature,
+			symbol = symbol,
+		},
+		true
 }
 
 // The checker's symbol name for a foreign procedure: its link name attribute,
@@ -124,26 +105,68 @@ foreign_link_name :: proc(program: ^check.Checked_Program, entity: check.Entity_
 	return program.entities[entity].name
 }
 
-// The extern of a name, reusing the existing entry. Lowering runs one worker
-// today, so the shared module table needs no lock; revisit with worker_count.
+@(private = "file")
+extern_index :: proc(module: ^ir.Module, name: string) -> (index: u32, found: bool) {
+	for extern, position in module.externs {
+		if extern.name == name { return u32(position), true }
+	}
+	return 0, false
+}
+
+// Names an extern for this job. A name already in the module keeps its index; a new name gets extern_base plus its
+// position in the job. merge_job_externs interns the new names in job order, so indices never depend on timing.
 @(private)
-extern_symbol :: proc(state: ^Procedure_State, node: syntax.Node_Index, name: string) -> (symbol: ir.Symbol_Ref, valid: bool) {
-	module := state.job.module
-	if module == nil {
-		lower_fail(state, node, .Call)
-		return {}, false
+extern_symbol :: proc(state: ^Procedure_State, name: string) -> (symbol: ir.Symbol_Ref, valid: bool) {
+	job := state.job
+	if index, found := extern_index(job.module, name); found { return ir.Symbol_Ref{space = .Extern, index = index}, true }
+	for existing, position in job.extern_names {
+		if existing == name { return ir.Symbol_Ref{space = .Extern, index = job.extern_base + u32(position)}, true }
 	}
-	for extern, index in module.externs {
-		if extern.name == name { return ir.Symbol_Ref{space = .Extern, index = u32(index)}, true }
-	}
-	stored, clone_error := strings.clone(name, virtual.arena_allocator(&module.arena))
+	allocator := virtual.arena_allocator(&job.function.arena)
+	stored, clone_error := strings.clone(name, allocator)
 	if clone_error != nil {
-		state.job.function.error = clone_error
+		job.function.error = clone_error
 		return {}, false
 	}
-	index := len(module.externs)
-	append(&module.externs, ir.Extern{name = stored})
-	return ir.Symbol_Ref{space = .Extern, index = u32(index)}, true
+	if len(job.extern_names) == 0 { job.extern_base = u32(len(job.module.externs)) }
+	if _, append_error := append(&job.extern_names, stored); append_error != nil {
+		job.function.error = append_error
+		return {}, false
+	}
+	return ir.Symbol_Ref{space = .Extern, index = job.extern_base + u32(len(job.extern_names) - 1)}, true
+}
+
+// Interns a job's new extern names in order and rewrites its local extern references to module indices.
+@(private)
+merge_job_externs :: proc(module: ^ir.Module, job: ^Procedure_Job) -> runtime.Allocator_Error {
+	if len(job.extern_names) == 0 { return nil }
+	function := job.function
+	indices := make([]u32, len(job.extern_names), virtual.arena_allocator(&function.arena)) or_return
+	module_allocator := virtual.arena_allocator(&module.arena)
+	for name, position in job.extern_names {
+		index, found := extern_index(module, name)
+		if !found {
+			index = u32(len(module.externs))
+			append(&module.externs, ir.Extern{name = strings.clone(name, module_allocator) or_return}) or_return
+		}
+		indices[position] = index
+	}
+	for index in 1 ..< len(function.nodes) {
+		kind := function.nodes.kind[index]
+		if kind != .Symbol_Addr && kind != .Tls_Addr { continue }
+		symbol := function.nodes.data[index].symbol
+		if symbol.space == .Extern && symbol.index >= job.extern_base {
+			function.nodes.data[index].symbol.index = indices[symbol.index - job.extern_base]
+		}
+	}
+	for &blob in function.blobs {
+		for &reloc in blob.relocs {
+			if reloc.target.space == .Extern && reloc.target.index >= job.extern_base {
+				reloc.target.index = indices[reloc.target.index - job.extern_base]
+			}
+		}
+	}
+	return nil
 }
 
 @(private)
@@ -161,13 +184,13 @@ indirect_declaration :: proc(state: ^Procedure_State, node: syntax.Node_Index, p
 		lower_fail(state, node, .Call)
 		return {}, false
 	}
-	allocator := virtual.arena_allocator(&state.job.function.arena)
-	abi, abi_error := types.plan_abi(store, procedure, allocator = allocator)
-	if abi_error != .None {
+	planned := state.job.abi_plans.procedures[procedure]
+	if !planned.valid {
 		lower_fail(state, node, .Call)
 		return {}, false
 	}
-	signature, signature_error := abi_signature(abi, allocator)
+	allocator := virtual.arena_allocator(&state.job.function.arena)
+	signature, signature_error := abi_signature(planned.plan, allocator)
 	if signature_error != nil {
 		state.job.function.error = signature_error
 		return {}, false
@@ -177,5 +200,5 @@ indirect_declaration :: proc(state: ^Procedure_State, node: syntax.Node_Index, p
 		state.job.function.error = parameters_error
 		return {}, false
 	}
-	return Procedure_Declaration{type = procedure, parameters = parameters, abi_params = abi.params, signature = signature}, true
+	return Procedure_Declaration{type = procedure, parameters = parameters, abi_params = planned.plan.params, signature = signature}, true
 }

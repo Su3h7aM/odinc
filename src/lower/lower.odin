@@ -17,7 +17,10 @@ Procedure_Job :: struct {
 	parameters:       []types.Abi_Param,
 	layouts:          []Type_Layout,
 	declarations:     []Procedure_Declaration,
+	abi_plans:        ^Abi_Plans,
 	address_taken:    []bool,
+	extern_base:      u32,
+	extern_names:     [dynamic]string,
 	errors:           [dynamic]Lower_Error,
 	allocation_error: runtime.Allocator_Error,
 }
@@ -66,7 +69,6 @@ lower_program :: proc(
 		append(&collected, Lower_Error{code = .Unsupported, feature = .Startup}) or_return
 	}
 	jobs := make([]Procedure_Job, len(module.functions), scratch_allocator) or_return
-	layouts := prepare_layouts(check.type_store(program), scratch_allocator) or_return
 	for procedure in check.procedures(program) {
 		assert(int(procedure.symbol) > 0 && int(procedure.symbol) < len(symbols))
 		symbol := symbols[procedure.symbol]
@@ -80,27 +82,34 @@ lower_program :: proc(
 			function        = module.functions[symbol.index],
 			symbols         = symbols,
 			default_context = default_context,
-			layouts         = layouts,
 			errors          = make([dynamic]Lower_Error, virtual.arena_allocator(&module.functions[symbol.index].arena)) or_return,
+			extern_names    = make([dynamic]string, virtual.arena_allocator(&module.functions[symbol.index].arena)) or_return,
 		}
 		prepare_procedure(job, scratch_allocator) or_return
 	}
 	for &job in jobs {
 		assert(job.program != nil, "missing checked procedure")
 	}
+	abi_plans := prepare_abi_plans(program, scratch_allocator) or_return
+	layouts := prepare_layouts(check.type_store(program), scratch_allocator) or_return
 	declarations := prepare_declarations(jobs, len(program.entities), scratch_allocator) or_return
 	address_taken := scan_address_taken(program, scratch_allocator) or_return
 	for &job in jobs {
+		job.layouts = layouts
 		job.declarations = declarations
 		job.address_taken = address_taken
+		job.abi_plans = &abi_plans
 	}
 	// The generated startup procedures lower before reachability, so helpers referenced only by dynamic
 	// global initializers are marked reached instead of stubbed with an unreachable trap.
 	startup_base := len(module.functions)
-	append_startup_procedures(program, module, symbols, declarations, layouts, default_context, &collected, allocator) or_return
+	append_startup_procedures(program, module, symbols, declarations, layouts, &abi_plans, default_context, &collected, allocator) or_return
 	startup_roots := make([]u32, len(module.functions) - startup_base, scratch_allocator) or_return
 	for index in startup_base ..< len(module.functions) { startup_roots[index - startup_base] = u32(index) }
 	reached_globals := lower_reachable(program, module, jobs, startup_roots, symbols, worker_count, allocator, scratch_allocator) or_return
+	for &job in jobs {
+		merge_job_externs(module, &job) or_return
+	}
 	prune_unreached_global_errors(program, symbols, reached_globals, &collected) or_return
 	for &job in jobs {
 		if job.allocation_error != nil { return nil, job.allocation_error }

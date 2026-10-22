@@ -21,6 +21,7 @@ append_startup_procedures :: proc(
 	symbols: []ir.Symbol_Ref,
 	declarations: []Procedure_Declaration,
 	layouts: []Type_Layout,
+	abi_plans: ^Abi_Plans,
 	default_context: ir.Symbol_Ref,
 	errors: ^[dynamic]Lower_Error,
 	allocator: runtime.Allocator,
@@ -32,6 +33,7 @@ append_startup_procedures :: proc(
 			symbols,
 			declarations,
 			layouts,
+			abi_plans,
 			default_context,
 			errors,
 			GLOBAL_INITIALIZER_NAME,
@@ -46,6 +48,7 @@ append_startup_procedures :: proc(
 		symbols,
 		declarations,
 		layouts,
+		abi_plans,
 		default_context,
 		errors,
 		PROGRAM_FINALIZER_NAME,
@@ -61,6 +64,7 @@ append_generated_procedure :: proc(
 	symbols: []ir.Symbol_Ref,
 	declarations: []Procedure_Declaration,
 	layouts: []Type_Layout,
+	abi_plans: ^Abi_Plans,
 	default_context: ir.Symbol_Ref,
 	errors: ^[dynamic]Lower_Error,
 	name: string,
@@ -91,6 +95,8 @@ append_generated_procedure :: proc(
 		default_context = default_context,
 		declarations    = declarations,
 		layouts         = layouts,
+		abi_plans       = abi_plans,
+		extern_names    = make([dynamic]string, allocator_arena) or_return,
 		errors          = make([dynamic]Lower_Error, allocator_arena) or_return,
 	}
 	state := Procedure_State {
@@ -116,6 +122,7 @@ append_generated_procedure :: proc(
 		case nil:
 		}
 	}
+	merge_job_externs(module, &job) or_return
 	if job.allocation_error != nil { return job.allocation_error }
 	for lower_error in job.errors { append(errors, lower_error) or_return }
 	return nil

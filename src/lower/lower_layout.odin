@@ -14,10 +14,14 @@ prepare_layouts :: proc(store: ^types.Store, allocator: runtime.Allocator) -> (l
 	layouts = make([]Type_Layout, len(store.types), allocator) or_return
 	for _, index in store.types {
 		if index == 0 { continue }
-		type := types.Type_Id(index)
 		layout := &layouts[index]
-		layout.size, layout.align, layout.error = types.layout(store, type)
-		if layout.error != .None { continue }
+		layout.size, layout.align, layout.error = types.layout(store, types.Type_Id(index))
+	}
+	// A failed layout resets every layout state, so the valid types are laid out again once no failure follows.
+	for layout, index in layouts {
+		if index != 0 && layout.error == .None {
+			_, _, _ = types.layout(store, types.Type_Id(index))
+		}
 	}
 	return layouts, nil
 }

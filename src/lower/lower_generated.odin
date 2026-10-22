@@ -232,11 +232,9 @@ generated_procedure_call :: proc(state: ^Procedure_State, symbol: ir.Symbol_Ref,
 	resolved := types.resolve_named(store, signature)
 	descriptor := types.get(store, resolved)
 	result_type := descriptor.results[0]
-	by_pointer := [4]bool{}
-	count := len(descriptor.params)
-	plan, plan_error := types.plan_abi(store, resolved, by_pointer[:count], allocator = allocator)
-	if plan_error != .None { return generated_unsupported(state) }
-	abi, abi_error := abi_signature(plan, allocator)
+	planned := state.job.abi_plans.procedures[resolved]
+	if !planned.valid { return generated_unsupported(state) }
+	abi, abi_error := abi_signature(planned.plan, allocator)
 	if abi_error != nil { return generated_unsupported(state) }
 	id := ir.add_signature(function, abi)
 	callee := ir.symbol_addr(function, symbol)

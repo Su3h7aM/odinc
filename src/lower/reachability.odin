@@ -1,7 +1,9 @@
 package lower
 
 import "base:runtime"
-import "core:mem"
+import "core:mem/virtual"
+import "core:slice"
+import "core:sync"
 import "core:thread"
 import "oc:check"
 import "oc:ir"
@@ -128,9 +130,20 @@ lower_reachable :: proc(
 	for ordered in runtime_requirements.fini_procedures { mark_entity(program, symbols, &marks, ordered.entity) }
 	for entity in runtime_requirements.tests { mark_entity(program, symbols, &marks, entity) }
 
-	locked_allocator: mem.Mutex_Allocator
-	mem.mutex_allocator_init(&locked_allocator, allocator)
-	worker_allocator := mem.mutex_allocator(&locked_allocator)
+	pool_arena: virtual.Arena
+	pool: thread.Pool
+	pooled := worker_count > 1
+	if pooled {
+		virtual.arena_init_growing(&pool_arena) or_return
+		thread.pool_init(&pool, virtual.arena_allocator(&pool_arena), worker_count)
+		thread.pool_start(&pool)
+	}
+	defer if pooled {
+		thread.pool_join(&pool)
+		thread.pool_destroy(&pool)
+		virtual.arena_destroy(&pool_arena)
+	}
+	done: sync.Sema
 	for {
 		grow_reach_marks(&marks, len(module.globals), scratch) or_return
 		scan_reached_globals(module, &marks)
@@ -142,15 +155,23 @@ lower_reachable :: proc(
 			}
 		}
 		if len(pending) == 0 { break }
-		pool: thread.Pool
-		thread.pool_init(&pool, worker_allocator, min(max(worker_count, 1), len(pending)))
+		slice.stable_sort_by(pending[:], larger_procedure_first)
 		for job in pending {
-			job.function.allocator = worker_allocator
-			thread.pool_add_task(&pool, worker_allocator, run_procedure, job)
+			job.function.allocator = virtual.arena_allocator(&job.function.arena)
 		}
-		thread.pool_start(&pool)
-		thread.pool_finish(&pool)
-		thread.pool_destroy(&pool)
+		if pooled {
+			tasks := make([]Pool_Task, len(pending), scratch) or_return
+			for job, index in pending {
+				tasks[index] = Pool_Task {
+					job  = job,
+					done = &done,
+				}
+				thread.pool_add_task(&pool, job.function.allocator, run_pool_task, &tasks[index])
+			}
+			for _ in pending { sync.wait(&done) }
+		} else {
+			for job in pending { run_procedure_serially(job) }
+		}
 		grow_reach_marks(&marks, len(module.globals), scratch) or_return
 		for job in pending {
 			job.function.allocator = allocator
@@ -188,4 +209,34 @@ prune_unreached_global_errors :: proc(
 		kept += 1
 	}
 	return resize(errors, kept)
+}
+
+@(private)
+Pool_Task :: struct {
+	job:  ^Procedure_Job,
+	done: ^sync.Sema,
+}
+
+@(private)
+run_pool_task :: proc(task: thread.Task) {
+	pool_task := (^Pool_Task)(task.data)
+	run_procedure(thread.Task{data = pool_task.job})
+	sync.post(pool_task.done, 1)
+}
+
+@(private)
+run_procedure_serially :: proc(job: ^Procedure_Job) {
+	context.allocator = job.function.allocator
+	run_procedure(thread.Task{data = job})
+}
+
+@(private)
+procedure_source_length :: proc(job: ^Procedure_Job) -> i64 {
+	return i64(job.procedure.source.end) - i64(job.procedure.source.start)
+}
+
+// Scheduling only: every job writes its own function, so the dispatch order does not change the output.
+@(private)
+larger_procedure_first :: proc(a, b: ^Procedure_Job) -> bool {
+	return procedure_source_length(a) > procedure_source_length(b)
 }

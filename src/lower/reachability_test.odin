@@ -96,10 +96,12 @@ lowering_output_is_independent_of_worker_count :: proc(t: ^testing.T) {
 
 	serial, serial_ok := lowered_text(&program, 1)
 	repeated, repeated_ok := lowered_text(&program, 1)
-	parallel, parallel_ok := lowered_text(&program, 4)
-	testing.expect(t, serial_ok && repeated_ok && parallel_ok)
+	parallel, parallel_ok := lowered_text(&program, 3)
+	wide, wide_ok := lowered_text(&program, 8)
+	testing.expect(t, serial_ok && repeated_ok && parallel_ok && wide_ok)
 	testing.expect_value(t, repeated, serial)
 	testing.expect_value(t, parallel, serial)
+	testing.expect_value(t, wide, serial)
 }
 
 @(private = "file")

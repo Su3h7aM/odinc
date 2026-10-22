@@ -18,7 +18,8 @@ lower_caller_location :: proc(state: ^Procedure_State, node: syntax.Node_Index, 
 	}
 	function := job.function
 	file := job.program.files[job.procedure.body.file]
-	line, column := source_line_column(file.source, state.ast.nodes[node].start)
+	assert(len(file.lines.starts) > 0, "file has no line table")
+	line, column := syntax.line_col(file.lines, state.ast.nodes[node].start)
 	procedure_name := job.program.entities[job.procedure.entity].name
 	slot := ir.stack_slot(function, state.entry_control, u32(layout.size), u32(layout.align))
 	lower_store_string(state, slot, file.path)
@@ -34,18 +35,4 @@ lower_store_string :: proc(state: ^Procedure_State, address: ir.Node_Id, text: s
 	header := lower_string(state, text)
 	lower_store_word(state, address, lower_load_word(state, header, .Ptr))
 	lower_store_word(state, ir.ptr_offset(function, address, 8), lower_load_word(state, ir.ptr_offset(function, header, 8), .I64))
-}
-
-// Lines and columns are 1-based; the column counts bytes.
-@(private)
-source_line_column :: proc(source: []byte, offset: u32) -> (line, column: int) {
-	line = 1
-	line_start := 0
-	for index in 0 ..< int(offset) {
-		if source[index] == '\n' {
-			line += 1
-			line_start = index + 1
-		}
-	}
-	return line, int(offset) - line_start + 1
 }

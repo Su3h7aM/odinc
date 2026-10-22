@@ -20,6 +20,66 @@ Call_Signature :: struct {
 	id:   ir.Signature_Id,
 }
 
+// Planned before the parallel phase, so workers only read it: types.plan_abi appends a temporary tuple to the
+// shared type store on its C multiple-result path.
+@(private)
+Planned_Abi :: struct {
+	plan:  types.Abi_Plan,
+	valid: bool,
+}
+
+@(private)
+Abi_Plans :: struct {
+	procedures:    []Planned_Abi, // by procedure type id, without by-pointer parameters
+	foreign_plans: []Planned_Abi, // by entity id, for bodyless foreign procedures
+}
+
+@(private)
+prepare_abi_plans :: proc(program: ^check.Checked_Program, allocator: runtime.Allocator) -> (plans: Abi_Plans, err: runtime.Allocator_Error) {
+	store := check.type_store(program)
+	plans.procedures = make([]Planned_Abi, len(store.types), allocator) or_return
+	for index in 1 ..< len(store.types) {
+		id := types.Type_Id(index)
+		if types.get(store, id).kind != .Procedure { continue }
+		plans.procedures[index] = plan_signature(store, id, nil, allocator) or_return
+	}
+	plans.foreign_plans = make([]Planned_Abi, len(program.entities), allocator) or_return
+	for entity, index in program.entities {
+		procedure, is_procedure := entity.data.(check.Procedure_Data)
+		if !is_procedure || entity.kind != .Procedure || entity.state != .Resolved || .Foreign not_in entity.flags || procedure.body.node != 0 {
+			continue
+		}
+		if procedure.signature == types.TYPE_NONE { continue }
+		by_pointer := make([]bool, len(procedure.parameters), allocator) or_return
+		valid := true
+		for parameter, position in procedure.parameters {
+			if int(parameter) <= 0 || int(parameter) >= len(program.entities) {
+				valid = false
+				break
+			}
+			by_pointer[position] = .By_Pointer in program.entities[parameter].flags
+		}
+		if !valid || types.get(store, types.resolve_named(store, procedure.signature)).kind != .Procedure { continue }
+		plans.foreign_plans[index] = plan_signature(store, procedure.signature, by_pointer, allocator) or_return
+	}
+	return plans, nil
+}
+
+@(private)
+plan_signature :: proc(
+	store: ^types.Store,
+	procedure: types.Type_Id,
+	by_pointer: []bool,
+	allocator: runtime.Allocator,
+) -> (
+	planned: Planned_Abi,
+	err: runtime.Allocator_Error,
+) {
+	plan, plan_error := types.plan_abi(store, procedure, by_pointer, allocator = allocator)
+	if plan_error == .Out_Of_Memory { return {}, .Out_Of_Memory }
+	return Planned_Abi{plan, plan_error == .None}, nil
+}
+
 @(private)
 prepare_declarations :: proc(
 	jobs: []Procedure_Job,
