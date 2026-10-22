@@ -46,7 +46,8 @@ lower_simd_builtin :: proc(
 	     .Simd_Shr,
 	     .Simd_Shl_Masked,
 	     .Simd_Shr_Masked,
-	     .Simd_Reduce_Min:
+	     .Simd_Reduce_Min,
+	     .Simd_Reduce_Max:
 		return lower_simd_operation(state, node, info, plan, kind), true
 	case .Simd_Shuffle:
 		return lower_simd_shuffle(state, node, info, plan), true
@@ -111,7 +112,7 @@ lower_simd_operation :: proc(
 	case .Simd_Shl, .Simd_Shr, .Simd_Shl_Masked, .Simd_Shr_Masked:
 		if len(plan.arguments) != 2 { return lower_fail(state, node, .Builtin) }
 		return lower_simd_shift(state, info.type, operand_type(state, plan.arguments[1]), kind, values)
-	case .Simd_Reduce_Or, .Simd_Reduce_Min:
+	case .Simd_Reduce_Or, .Simd_Reduce_Min, .Simd_Reduce_Max:
 		if len(plan.arguments) != 1 { return lower_fail(state, node, .Builtin) }
 		return lower_simd_reduce(state, node, kind, operand_type(state, plan.arguments[0]), values[0])
 	}
@@ -220,25 +221,29 @@ lower_simd_reduce :: proc(
 	elem, lanes := simd_shape(state, vector_type)
 	floating := lower_type(state, elem).kind == .Float
 	less_kind := ir.Node_Kind.SLt if signed_type(state, elem) else ir.Node_Kind.ULt
+	half := is_float16(state, elem)
 	accumulator := simd_lane_value(state, vector, 0, elem)
+	if half { accumulator = float16_widen(function, accumulator) }
 	for lane in 1 ..< lanes {
 		if state.failed || function.error != nil { return 0 }
 		next := simd_lane_value(state, vector, lane, elem)
+		if half { next = float16_widen(function, next) }
 		if kind == .Simd_Reduce_Or {
 			accumulator = ir.binary(function, .Or, accumulator, next)
 		} else if floating {
-			accumulator = pick_minnum(function, accumulator, next)
+			accumulator = pick_float_extreme(function, accumulator, next, kind == .Simd_Reduce_Min)
 		} else {
-			accumulator = pick_ordered(function, less_kind, accumulator, next, true)
+			accumulator = pick_ordered(function, less_kind, accumulator, next, kind == .Simd_Reduce_Min)
 		}
 	}
+	if half { accumulator = float16_from_f32(function, accumulator) }
 	return accumulator
 }
 
-// Floating minimum with `fmin` semantics, as llvm.vector.reduce.fmin: a NaN operand yields the other one.
+// Floating reductions ignore a NaN operand when the other operand is a number.
 @(private)
-pick_minnum :: proc(function: ^ir.Function, accumulator, next: ir.Node_Id) -> ir.Node_Id {
-	next_less := ir.compare(function, .FLt, next, accumulator)
+pick_float_extreme :: proc(function: ^ir.Function, accumulator, next: ir.Node_Id, want_min: bool) -> ir.Node_Id {
+	next_less := ir.compare(function, .FLt, next, accumulator) if want_min else ir.compare(function, .FLt, accumulator, next)
 	accumulator_nan := ir.compare(function, .FNe, accumulator, accumulator)
 	choose_next := ir.binary(function, .Or, next_less, accumulator_nan)
 	lane_type := function.nodes.type[accumulator]
@@ -248,8 +253,9 @@ pick_minnum :: proc(function: ^ir.Function, accumulator, next: ir.Node_Id) -> ir
 	next_zero := ir.compare(function, .FEq, next, zero)
 	next_sign := ir.convert(function, .Bitcast, next, integer_type)
 	next_negative := ir.compare(function, .SLt, next_sign, ir.const_int(function, integer_type, 0))
-	negative_zero_preference := ir.binary(function, .And, accumulator_zero, ir.binary(function, .And, next_zero, next_negative))
-	choose_next = ir.binary(function, .Or, choose_next, negative_zero_preference)
+	preferred_sign := next_negative if want_min else bool_not(function, next_negative)
+	zero_preference := ir.binary(function, .And, accumulator_zero, ir.binary(function, .And, next_zero, preferred_sign))
+	choose_next = ir.binary(function, .Or, choose_next, zero_preference)
 	return ir.select(function, choose_next, next, accumulator)
 }
 
