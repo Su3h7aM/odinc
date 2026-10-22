@@ -225,3 +225,26 @@ layout_matches_target :: proc(t: ^testing.T) {
 	_, _, poison_err := layout(&store, TYPE_POISON)
 	testing.expect(t, poison_err == .Poison, "poison type has no layout")
 }
+
+@(test)
+target_feature_levels_are_cumulative :: proc(t: ^testing.T) {
+	previous := x86_level_features(.V1)
+	testing.expect(t, card(previous) == 7, "v1 carries its seven architectural features")
+	for level in X86_Level {
+		current := x86_level_features(level)
+		for feature in X86_Feature {
+			if feature in previous {
+				testing.expect(t, feature in current, "higher levels keep every lower feature")
+			}
+		}
+		testing.expect(t, level == .V1 || card(current) > card(previous), "higher levels add features")
+		previous = current
+	}
+	independent := X86_Features{.Aes, .Pclmul, .Sha, .Adx, .Rdrand, .Rdseed}
+	for level in X86_Level {
+		features := x86_level_features(level)
+		for feature in independent {
+			testing.expect(t, feature not_in features, "level sets hold no independent feature")
+		}
+	}
+}
