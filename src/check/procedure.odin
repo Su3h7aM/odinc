@@ -406,6 +406,7 @@ expression_procedure_declaration :: proc(
 		expression_unsupported(checker, view, scope, declaration.identifier.node, "Procedure_Declaration") or_return
 		return false, nil
 	}
+	require_target_feature, enable_target_feature := check_procedure_target_features(checker, scope, id) or_return
 	if syntax.node_payload(checker.type_checker.files[declaration.type.file].ast, declaration.type.node, syntax.Proc_Type).generic {
 		procedure := &entity_get(resolver.scopes, id).data.(Procedure_Data)
 		procedure.generic = true
@@ -414,6 +415,9 @@ expression_procedure_declaration :: proc(
 	signature := type_expression(checker.type_checker, declaration.type.file, scope, declaration.type.node, true) or_return
 	if signature == types.TYPE_POISON { return false, nil }
 	descriptor := types.get(checker.type_checker.store, signature)
+	if info, info_error := expression_procedure_info(checker, descriptor.procedure_info); info_error == .None && info != nil {
+		info.require_target_feature, info.enable_target_feature = require_target_feature, enable_target_feature
+	}
 	entity := entity_get(resolver.scopes, id)
 	procedure := &entity.data.(Procedure_Data)
 	procedure.signature = signature

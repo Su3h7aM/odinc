@@ -20,8 +20,11 @@ Procedure_Info_Origin :: struct {
 }
 
 Procedure_Info :: struct {
-	defaults:        []Default_Argument,
-	parameter_flags: []Entity_Flags,
+	defaults:                                      []Default_Argument,
+	parameter_flags:                               []Entity_Flags,
+	// Raw comma-separated `@(require_target_feature)` / `@(enable_target_feature)` lists of the
+	// declaration that produced this signature; empty when the procedure declares neither.
+	require_target_feature, enable_target_feature: string,
 }
 
 Procedure_Info_Entry :: struct {
@@ -1027,6 +1030,9 @@ Checked_Procedure :: struct {
 	parameters, results: []Entity_Id,
 	result_defaults:     []Default_Argument,
 	convention:          types.Calling_Convention,
+	// Parsed `@(enable_target_feature)` list, plus the global level the procedure was checked against.
+	target_features:     types.X86_Features,
+	microarch:           types.X86_Level,
 	attributes:          []Attribute,
 	source:              Source_Span,
 	defers:              []Defer_Registration,

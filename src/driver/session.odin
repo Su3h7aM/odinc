@@ -515,6 +515,7 @@ session_init_checkers :: proc(session: ^Session) -> Driver_Error {
 	if checker_error != nil { return .Allocation_Failed }
 	session.checker.packages = session.packages[:]
 	session.checker.target_features = session.build.target_features
+	session.checker.microarch = session.build.microarch
 	session.checker.defines = session.build.defines
 	return .None
 }

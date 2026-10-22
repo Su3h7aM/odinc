@@ -30,6 +30,7 @@ Expression_Diagnostic_Kind :: enum u8 {
 	Undefined_Context,
 	Main_Calling_Convention,
 	Compile_Time_Panic,
+	Target_Feature,
 }
 Expression_Diagnostic :: struct {
 	kind:       Expression_Diagnostic_Kind,
@@ -51,6 +52,7 @@ Expression_Checker :: struct {
 	constants:            ^Constant_Pool,
 	config:               Conversion_Config,
 	target_features:      []string,
+	microarch:            types.X86_Level,
 	defines:              map[string]string,
 	default_integer:      types.Type_Id,
 	boolean:              types.Type_Id,

@@ -84,6 +84,7 @@ check_procedure_source :: proc(
 	checker.packages = []Package{{}, {kind = package_kind, name = package_name, scope = package_scope}}
 	checker.defines = defines
 	checker.target_features = types.x86_features_list(types.x86_level_features(microarch), context.allocator)
+	checker.microarch = microarch
 	defer delete(checker.target_features, context.allocator)
 	for name in intrinsic_names {
 		builtin, failure := expression_builtin_id(&checker, intrinsic_builtin_kind(name))

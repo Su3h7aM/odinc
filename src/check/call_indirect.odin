@@ -33,6 +33,9 @@ expression_indirect_call :: proc(
 	allowed, context_error := expression_require_call_context(checker, view, scope, node, descriptor.convention)
 	if context_error != nil { return {}, context_error }
 	if !allowed { return expression_poison(scope), nil }
+	features_allowed, feature_error := check_call_target_features(checker, view, scope, node, callee.type, 0)
+	if feature_error != nil { return {}, feature_error }
+	if !features_allowed { return expression_poison(scope), nil }
 	if descriptor.variadic { return expression_unsupported(checker, view, scope, node, "Indirect_Call_Variadic") }
 	file := checker.type_checker.files[checker.views[view].file]
 	positional_count := call_positional_count(file, arguments)

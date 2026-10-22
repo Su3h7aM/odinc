@@ -130,6 +130,7 @@ expression_group_call :: proc(
 	found := false
 	ambiguous := false
 	for member in members {
+		if .Disabled in entity_get(checker.type_checker.resolver.scopes, member).flags { continue }
 		score, matches := group_member_score(checker, view, scope, node, positional[:], named[:], spread, member) or_return
 		if !matches { continue }
 		if !found || score > best_score {

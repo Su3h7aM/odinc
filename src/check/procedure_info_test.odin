@@ -23,7 +23,7 @@ procedure_info_origin_and_checker_ownership :: proc(t: ^testing.T) {
 	}
 	defaults := []Default_Argument{{kind = .Constant, value = Operand(Const_Id(7))}}
 	flags := []Entity_Flags{{.Any_Integer}}
-	id, err := expression_procedure_info_intern(&first, origin, {defaults, flags})
+	id, err := expression_procedure_info_intern(&first, origin, {defaults, flags, "", ""})
 	if !testing.expect(t, err == nil && id != 0) { return }
 	defaults[0] = {}
 	flags[0] = {}

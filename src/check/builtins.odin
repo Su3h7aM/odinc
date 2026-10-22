@@ -3,7 +3,6 @@ package check
 import "base:runtime"
 import "core:math/big"
 import "core:mem"
-import "core:strings"
 import "oc:syntax"
 import "oc:types"
 
@@ -1096,7 +1095,10 @@ expression_layout_query :: proc(
 	return Expression_Info{type = types.TYPE_UNTYPED_INTEGER, constant = constant, mode = .Constant, scope = scope, state = .Checked}, nil
 }
 
-// has_target_feature folds to an untyped bool: every comma-separated feature must be in the build's target features.
+// has_target_feature folds against the global build features, even inside an
+// enabled procedure: only the declaration site changes code generation. Names
+// that are not x86 features fold the way an absent feature does instead of
+// diagnosing, since portable `when` conditions query other architectures.
 @(private = "file")
 expression_has_target_feature :: proc(
 	checker: ^Expression_Checker,
@@ -1112,13 +1114,41 @@ expression_has_target_feature :: proc(
 	if len(arguments) != 1 || ellipsis { return expression_unsupported(checker, view, scope, node, "Target_Feature_Arguments") }
 	feature := check_expression(checker, view, scope, arguments[0]) or_return
 	if feature.state == .Invalid { return expression_poison(scope), nil }
-	names, is_string := constant_pool_get(checker.constants, feature.constant).value.(string)
-	if feature.mode != .Constant || !is_string { return expression_failure(checker, view, scope, arguments[0], .Invalid_Operand) }
-	enabled := true
-	for name in strings.split_iterator(&names, ",") {
-		enabled &&= target_feature_enabled(checker.target_features, name)
+	names := ""
+	if feature.mode == .Constant {
+		constant, is_string := constant_pool_get(checker.constants, feature.constant).value.(string)
+		if !is_string { return expression_failure(checker, view, scope, arguments[0], .Invalid_Operand) }
+		names = constant
+	} else {
+		store := checker.type_checker.store
+		descriptor := types.get(store, types.resolve_named(store, feature.type))
+		require, enable := "", ""
+		scopes := checker.type_checker.resolver.scopes
+		if feature.entity != 0 && entity_get(scopes, feature.entity).kind == .Procedure {
+			require, enable = entity_target_features(checker, feature.entity) or_return
+		} else if descriptor.kind == .Procedure {
+			if info, info_error := expression_procedure_info(checker, descriptor.procedure_info); info_error == .None && info != nil {
+				require, enable = info.require_target_feature, info.enable_target_feature
+			}
+		}
+		is_procedure_operand := (feature.entity != 0 && entity_get(scopes, feature.entity).kind == .Procedure) || descriptor.kind == .Procedure
+		if require != "" {
+			names = require
+		} else if enable != "" {
+			names = enable
+		} else {
+			return expression_failure(
+				checker,
+				view,
+				scope,
+				arguments[0],
+				.Invalid_Operand,
+				"Expected the procedure type given to 'has_target_feature' to have @(require_target_feature=\"...\") or @(enable_target_feature=\"...\")" if is_procedure_operand else "Expected a constant string or procedure type for 'has_target_feature'",
+			)
+		}
 	}
-	constant, constant_error := constant_pool_intern_bool(checker.constants, enabled, types.TYPE_UNTYPED_BOOL)
+	_, satisfied := target_features_satisfied(types.x86_level_features(checker.microarch), names)
+	constant, constant_error := constant_pool_intern_bool(checker.constants, satisfied, types.TYPE_UNTYPED_BOOL)
 	if constant_error != nil {
 		expression_constant_failure(checker, checker.views[view].file, node, constant_error) or_return
 		return expression_poison(scope), nil

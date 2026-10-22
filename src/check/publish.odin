@@ -24,6 +24,7 @@ expression_checker_publish_procedures :: proc(checker: ^Expression_Checker, prog
 		checker.entity_symbols[id] = symbol
 		view := expression_body_view(checker, procedure, procedure.body.file) or_return
 		span := checker.type_checker.files[procedure.body.file].ast.nodes[procedure.body.node]
+		target_features, microarch, _ := procedure_effective_features(checker, Entity_Id(id))
 		append(
 			&checker.procedures,
 			Checked_Procedure {
@@ -38,6 +39,8 @@ expression_checker_publish_procedures :: proc(checker: ^Expression_Checker, prog
 				result_defaults = procedure.result_defaults,
 				defers = procedure.defers,
 				convention = procedure.convention,
+				target_features = target_features,
+				microarch = microarch,
 				attributes = entity_get(scopes, Entity_Id(id)).attributes,
 			},
 		) or_return

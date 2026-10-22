@@ -29,6 +29,9 @@ expression_call :: proc(
 	allowed, context_error := expression_require_call_context(checker, view, scope, node, descriptor.convention)
 	if context_error != nil { return {}, context_error }
 	if !allowed { return expression_poison(scope), nil }
+	features_allowed, feature_error := check_call_target_features(checker, view, scope, node, procedure.signature, callee.entity)
+	if feature_error != nil { return {}, feature_error }
+	if !features_allowed { return expression_poison(scope), nil }
 	if descriptor.c_vararg && descriptor.convention != .C ||
 	   descriptor.variadic && !descriptor.c_vararg && descriptor.convention != .Odin && descriptor.convention != .Contextless && descriptor.convention != .C {
 		return expression_unsupported(checker, view, scope, node, "Call_Variadic_Convention")
