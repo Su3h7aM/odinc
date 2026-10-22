@@ -120,7 +120,7 @@ selected_test_run :: proc(t: ^testing.T, function: ^ir.Function, expected: int, 
 	if schedule_err != nil { return }
 	defer sched.schedule_destroy(&schedule, context.allocator)
 	machine: Machine_Function
-	selection_err := select_function(&machine, function, &schedule, {convention = .C})
+	selection_err := select_function(&machine, function, &schedule, {convention = .C}, .V1)
 	testing.expect_value(t, selection_err, Select_Error{})
 	if selection_err.kind != .None { return }
 	defer machine_function_destroy(&machine)
@@ -190,7 +190,7 @@ selected_test_callee :: proc(t: ^testing.T, function: ^ir.Function, plan := type
 			results    = {{type = .I64}},
 		}
 	}
-	selection_err := select_function(&machine, function, &schedule, chosen)
+	selection_err := select_function(&machine, function, &schedule, chosen, .V1)
 	testing.expect_value(t, selection_err, Select_Error{})
 	if selection_err.kind != .None { return {} }
 	defer machine_function_destroy(&machine)
@@ -362,7 +362,7 @@ selected_loop_exits_with_fifty_five :: proc(t: ^testing.T) {
 	if schedule_err != nil { return }
 	defer sched.schedule_destroy(&schedule, context.allocator)
 	machine: Machine_Function
-	selection_err := select_function(&machine, function, &schedule, {convention = .C})
+	selection_err := select_function(&machine, function, &schedule, {convention = .C}, .V1)
 	testing.expect_value(t, selection_err, Select_Error{})
 	if selection_err.kind != .None { return }
 	defer machine_function_destroy(&machine)

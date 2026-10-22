@@ -32,9 +32,15 @@ Select_Error :: struct {
 
 // Borrows verified IR, its schedule and ABI plan. Initializes output on success;
 // destroy it with machine_function_destroy. Failures identify the offending node.
-select_function :: proc(output: ^Machine_Function, input: ^ir.Function, schedule: ^sched.Schedule, plan: types.Abi_Plan) -> Select_Error {
+select_function :: proc(
+	output: ^Machine_Function,
+	input: ^ir.Function,
+	schedule: ^sched.Schedule,
+	plan: types.Abi_Plan,
+	microarch: types.X86_Level,
+) -> Select_Error {
 	failed_node: ir.Node_Id
-	status := select_function_impl(output, input, schedule, plan, &failed_node)
+	status := select_function_impl(output, input, schedule, plan, microarch, &failed_node)
 	switch value in status {
 	case Select_Failure_Kind:
 		return {value, failed_node}
@@ -51,6 +57,8 @@ Selector :: struct {
 	input:      ^ir.Function,
 	output:     ^Machine_Function,
 	schedule:   ^sched.Schedule,
+	// Effective features for this function: its own enable set union the module baseline.
+	features:   types.X86_Features,
 	allocator:  mem.Allocator,
 	values:     []Vreg,
 	tuples:     [][]Vreg,
@@ -70,6 +78,7 @@ select_function_impl :: proc(
 	input: ^ir.Function,
 	schedule: ^sched.Schedule,
 	plan: types.Abi_Plan,
+	microarch: types.X86_Level,
 	failed_node: ^ir.Node_Id,
 ) -> (
 	err: Select_Status,
@@ -91,6 +100,7 @@ select_function_impl :: proc(
 		blocks    = make([]u32, len(schedule.blocks), allocator) or_return,
 		edges     = make([][]u32, len(schedule.blocks), allocator) or_return,
 	}
+	selector.features = input.target_features | types.x86_level_features(microarch)
 	if len(schedule.blocks) == 0 || int(input.signature) >= len(input.signatures) {
 		return Select_Failure_Kind.Malformed_Input
 	}

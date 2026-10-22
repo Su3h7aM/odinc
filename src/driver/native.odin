@@ -364,6 +364,7 @@ build_image :: proc(
 		guarded,
 		thread_count,
 		scratch_allocator,
+		module.microarch,
 	); emit_err != nil {
 		if failed_function >= 0 { error_context.function_name = module.functions[failed_function].name }
 		return nil, emit_err
@@ -503,7 +504,15 @@ blob_atom :: proc(blob: ir.Data_Blob, indices: amd64.Symbol_Indices, allocator: 
 native_scratch: virtual.Arena
 
 @(private = "file")
-native_function :: proc(function: ^ir.Function, indices: amd64.Symbol_Indices, allocator: runtime.Allocator) -> (atom: link.Atom, err: Build_Error) {
+native_function :: proc(
+	function: ^ir.Function,
+	indices: amd64.Symbol_Indices,
+	allocator: runtime.Allocator,
+	microarch: types.X86_Level,
+) -> (
+	atom: link.Atom,
+	err: Build_Error,
+) {
 	if native_scratch.curr_block == nil {
 		virtual.arena_init_growing(&native_scratch) or_return
 	}
@@ -515,7 +524,7 @@ native_function :: proc(function: ^ir.Function, indices: amd64.Symbol_Indices, a
 	plan := signature_plan(function.signatures[function.signature], scratch) or_return
 
 	machine: amd64.Machine_Function
-	select_err := amd64.select_function(&machine, function, &schedule, plan)
+	select_err := amd64.select_function(&machine, function, &schedule, plan, microarch)
 	if select_err.kind != .None { return {}, Select_Failed{select_err} }
 	defer amd64.machine_function_destroy(&machine)
 
@@ -540,6 +549,7 @@ Emit_Task :: struct {
 	function:  ^ir.Function,
 	indices:   amd64.Symbol_Indices,
 	allocator: runtime.Allocator,
+	microarch: types.X86_Level,
 	slot:      ^Emit_Slot,
 }
 
@@ -553,7 +563,7 @@ run_emit_task :: proc(job: ^Emit_Task) {
 	}
 	previous := context.allocator
 	context.allocator = virtual.arena_allocator(&native_scratch)
-	atom, err := native_function(job.function, job.indices, job.allocator)
+	atom, err := native_function(job.function, job.indices, job.allocator, job.microarch)
 	context.allocator = previous
 	if err == nil {
 		virtual.arena_destroy(&job.function.arena)
@@ -582,6 +592,7 @@ emit_function_atoms :: proc(
 	allocator: runtime.Allocator,
 	thread_count: int,
 	scratch: runtime.Allocator,
+	microarch: types.X86_Level,
 ) -> (
 	err: Build_Error,
 	failed_function: int,
@@ -596,6 +607,7 @@ emit_function_atoms :: proc(
 			function  = function,
 			indices   = indices[index],
 			allocator = allocator,
+			microarch = microarch,
 			slot      = &slots[index],
 		}
 	}
