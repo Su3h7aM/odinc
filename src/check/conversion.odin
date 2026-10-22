@@ -652,8 +652,3 @@ conversion_code_unit_slice :: proc(store: ^types.Store, descriptor: types.Type, 
 	element := types.get(store, conversion_base_type(store, descriptor.elem))^
 	return element.kind == .Integer && element.count == width && !element.signed
 }
-
-@(private = "file")
-conversion_scalar :: proc(kind: types.Kind) -> bool {
-	return conversion_integer(kind) || conversion_boolean(kind) || conversion_pointer(kind) || kind == .CString || kind == .Float
-}

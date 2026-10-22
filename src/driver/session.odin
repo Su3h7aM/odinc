@@ -166,27 +166,11 @@ program_histogram :: proc(
 
 @(private = "file")
 program_histogram_collect :: proc(session: ^Session, odin_root, main_path: string, user_collections: []Collection) -> Driver_Error {
-	if error := session_prepare(session, odin_root, user_collections); error != .None { return error }
-	if _, runtime_error := load_runtime(session); runtime_error != .None { return runtime_error }
-	main_key, absolute_error := filepath.abs(main_path, session.allocator)
-	if absolute_error != nil { return .Read_Failed }
-	if key_error := push(&session.owned_strings, main_key); key_error != .None { return key_error }
-	main_package, main_scope, package_error := add_package(session, main_key, "main", .User)
-	if package_error != .None { return package_error }
-	info, stat_error := os.stat(main_key, session.allocator)
-	if stat_error != nil { return .Read_Failed }
-	is_directory := info.type == .Directory
-	os.file_info_delete(info, session.allocator)
-	if is_directory {
-		if error := load_package(session, main_key, main_package, main_scope); error != .None { return error }
-	} else {
-		main_file, load_error := load_file(session, main_key, main_package, main_scope)
-		if load_error == .Parse_Failed {
-			if error := push(&session.load_failures, main_key); error != .None { return error }
-		}
-		if load_error != .None { return load_error }
-		if check.collect_file(&session.collection, session.files[main_file], main_file, {}) != nil { return .Check_Failed }
+	main_package, _, main_key, load_error := load_main_package(session, odin_root, main_path, user_collections)
+	if load_error == .Parse_Failed {
+		if error := push(&session.load_failures, main_key); error != .None { return error }
 	}
+	if load_error != .None { return load_error }
 	if check_error := bind_imports(session); check_error != .None { return check_error }
 	if check_error := session_init_checkers(session); check_error != .None { return check_error }
 	_ = bind_whens(session)
@@ -358,28 +342,47 @@ span_node_kind :: proc(ast: ^syntax.Ast, source: check.Source_Span) -> string {
 	return fmt.tprint(ast.nodes[found].kind)
 }
 
+// Prepares the session, loads base:runtime and the main package, and returns the package, its scope and its
+// absolute path. A single-file main that fails to parse is left to the caller, which decides whether to record it.
 @(private = "package")
-check_session :: proc(session: ^Session, odin_root, main_path: string, user_collections: []Collection) -> Driver_Error {
-	if error := session_prepare(session, odin_root, user_collections); error != .None { return error }
-	if _, runtime_error := load_runtime(session); runtime_error != .None { return runtime_error }
-	main_key, absolute_error := filepath.abs(main_path, session.allocator)
-	if absolute_error != nil { return .Read_Failed }
-	key_error := push(&session.owned_strings, main_key)
-	if key_error != .None { return key_error }
+load_main_package :: proc(
+	session: ^Session,
+	odin_root, main_path: string,
+	user_collections: []Collection,
+) -> (
+	package_id: check.Package_Id,
+	package_scope: check.Scope_Id,
+	main_key: string,
+	err: Driver_Error,
+) {
+	if error := session_prepare(session, odin_root, user_collections); error != .None { return 0, 0, "", error }
+	if _, runtime_error := load_runtime(session); runtime_error != .None { return 0, 0, "", runtime_error }
+	absolute_key, absolute_error := filepath.abs(main_path, session.allocator)
+	if absolute_error != nil { return 0, 0, "", .Read_Failed }
+	main_key = absolute_key
+	if key_error := push(&session.owned_strings, main_key); key_error != .None { return 0, 0, main_key, key_error }
 	main_package, main_scope, package_error := add_package(session, main_key, "main", .User)
-	if package_error != .None { return package_error }
-	session.main_scope = main_scope
+	if package_error != .None { return 0, 0, main_key, package_error }
 	info, stat_error := os.stat(main_key, session.allocator)
-	if stat_error != nil { return .Read_Failed }
+	if stat_error != nil { return 0, 0, main_key, .Read_Failed }
 	is_directory := info.type == .Directory
 	os.file_info_delete(info, session.allocator)
 	if is_directory {
-		if error := load_package(session, main_key, main_package, main_scope); error != .None { return error }
-	} else {
-		main_file, load_error := load_file(session, main_key, main_package, main_scope)
-		if load_error != .None { return load_error }
-		if check.collect_file(&session.collection, session.files[main_file], main_file, {}) != nil { return .Check_Failed }
+		return main_package, main_scope, main_key, load_package(session, main_key, main_package, main_scope)
 	}
+	main_file, load_error := load_file(session, main_key, main_package, main_scope)
+	if load_error != .None { return main_package, main_scope, main_key, load_error }
+	if check.collect_file(&session.collection, session.files[main_file], main_file, {}) != nil {
+		return main_package, main_scope, main_key, .Check_Failed
+	}
+	return main_package, main_scope, main_key, .None
+}
+
+@(private = "package")
+check_session :: proc(session: ^Session, odin_root, main_path: string, user_collections: []Collection) -> Driver_Error {
+	main_package, main_scope, _, load_error := load_main_package(session, odin_root, main_path, user_collections)
+	if load_error != .None { return load_error }
+	session.main_scope = main_scope
 	if error := bind_imports(session); error != .None { return error }
 	if len(session.unsupported_imports) != 0 { return .Unsupported_Import }
 	if len(session.load_failures) != 0 { return .Parse_Failed }

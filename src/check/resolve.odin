@@ -192,20 +192,6 @@ resolve_dependency :: proc(resolver: ^Resolver, dependency: Dependency, need := 
 	return
 }
 
-resolution_diagnostic_format :: proc(kind: Resolution_Diagnostic_Kind) -> string {
-	switch kind {
-	case .None:
-		return ""
-	case .Declaration_Cycle:
-		return "Illegal declaration cycle of `%s`"
-	case .Refers_To:
-		return "\t%s refers to"
-	case .Cycle_End:
-		return "\t%s"
-	}
-	unreachable()
-}
-
 @(private = "file")
 resolver_poison :: proc(resolver: ^Resolver, id: Entity_Id) {
 	entity := entity_get(resolver.scopes, id)
