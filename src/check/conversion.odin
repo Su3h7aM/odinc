@@ -145,6 +145,7 @@ check_conversion :: proc(
 	}
 	if kind == .Assignment && !untyped && dst.kind == .Any && src.kind != .Any {
 		result.plan.kind = .Box
+		result.plan.source_addressable = info.mode == .Variable
 		return result, .None, nil
 	}
 	if kind == .Assignment && !untyped && dst.kind == .Union && info.type != target && conversion_union_variant(store, dst.variants, info.type) {

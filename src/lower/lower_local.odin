@@ -102,6 +102,10 @@ scan_address_taken :: proc(program: ^check.Checked_Program, allocator: runtime.A
 		address_taken = address_taken,
 	}
 	for view in 1 ..< len(program.typed_views) { scan_view_addresses(&scan, check.View_Id(view)) }
+	for plan in program.plan_table {
+		conversion, is_conversion := plan.(check.Conversion_Plan)
+		if is_conversion && conversion.kind == .Box && conversion.source_addressable { mark_address_taken(&scan, conversion.source) }
+	}
 	return address_taken, nil
 }
 

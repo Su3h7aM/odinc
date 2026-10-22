@@ -181,6 +181,22 @@ lower_procedure :: proc(job: ^Procedure_Job) -> (err: runtime.Allocator_Error) {
 	}
 	for entity in procedure.results { bind_local(&state, entity, 0, true) }
 	if state.failed { return job.allocation_error }
+	for entity, index in procedure.results {
+		argument := procedure.result_defaults[index]
+		#partial switch argument.kind {
+		case .Constant, .Value:
+		case:
+			continue
+		}
+		value: ir.Node_Id
+		if argument.conversion != 0 {
+			value = lower_declared_conversion(&state, procedure.body.node, argument.conversion)
+		} else {
+			value = lower_operand(&state, argument.value, state.job.program.entities[entity].type)
+		}
+		if state.failed { return job.allocation_error }
+		store_result_entity(&state, entity, value)
+	}
 	if function.error != nil { return function.error }
 	lower_statement(&state, procedure.body.node)
 	if function.error != nil { return function.error }

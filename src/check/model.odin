@@ -167,6 +167,16 @@ Builtin_Kind :: enum u16 {
 	Read_Cycle_Counter,
 	X86_Cpuid,
 	X86_Xgetbv,
+	X86_Aesenc,
+	X86_Aesenclast,
+	X86_Aesimc,
+	X86_Aeskeygenassist,
+	X86_Aesdec,
+	X86_Aesdeclast,
+	X86_Pclmulqdq,
+	X86_Sha256msg1,
+	X86_Sha256msg2,
+	X86_Sha256rnds2,
 	Complex,
 	Quaternion,
 	Real,
@@ -600,6 +610,7 @@ Procedure_Data :: struct {
 	source_name:         string,
 	parameters, results: []Entity_Id,
 	defaults:            []Default_Argument,
+	result_defaults:     []Default_Argument,
 	signature:           types.Type_Id,
 	convention:          types.Calling_Convention,
 	variadic_index:      int,
@@ -639,6 +650,7 @@ Entity :: struct {
 	alias:           Entity_Id,
 	data:            Entity_Data,
 	foreign_library: string,
+	link_name:       string,
 }
 
 Typed_Nodes :: struct {
@@ -733,11 +745,13 @@ Conversion_Kind :: enum u8 {
 	Type_Assertion,
 }
 Conversion_Plan :: struct {
-	kind:        Conversion_Kind,
-	source:      Operand,
-	target:      types.Type_Id,
-	source_type: types.Type_Id,
-	path:        []Member_Step,
+	kind:               Conversion_Kind,
+	source:             Operand,
+	target:             types.Type_Id,
+	source_type:        types.Type_Id,
+	path:               []Member_Step,
+	// A `.Box` of an addressable operand refers to the variable itself, as official Odin does.
+	source_addressable: bool,
 }
 Place_Plan :: struct {
 	root:                 Operand,
@@ -1011,6 +1025,7 @@ Checked_Procedure :: struct {
 	generated:           Generated_Body,
 	view:                View_Id,
 	parameters, results: []Entity_Id,
+	result_defaults:     []Default_Argument,
 	convention:          types.Calling_Convention,
 	attributes:          []Attribute,
 	source:              Source_Span,

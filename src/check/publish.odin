@@ -35,6 +35,7 @@ expression_checker_publish_procedures :: proc(checker: ^Expression_Checker, prog
 				source = {procedure.body.file, span.start, span.end},
 				parameters = procedure.parameters,
 				results = procedure.results,
+				result_defaults = procedure.result_defaults,
 				defers = procedure.defers,
 				convention = procedure.convention,
 				attributes = entity_get(scopes, Entity_Id(id)).attributes,

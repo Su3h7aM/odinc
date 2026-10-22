@@ -10,6 +10,11 @@ lower_conversion :: proc(state: ^Procedure_State, plan: check.Conversion_Plan, n
 	assert(plan.kind != .Invalid, "missing checked conversion kind")
 	source_id := operand_type(state, plan.source)
 	if state.failed { return 0 }
+	if plan.kind == .Box && plan.source_addressable && has_source_address(state, plan.source) {
+		address := lower_operand_address(state, plan.source)
+		if state.failed { return 0 }
+		return lower_any_of_data(state, node, source_id, address)
+	}
 	if plan.kind == .Union_Injection && plan.source_type != 0 { source_id = plan.source_type }
 	constant_target := types.Type_Id(0)
 	if types.is_untyped(check.type_store(state.job.program), source_id) {
@@ -153,7 +158,19 @@ lower_conversion_value :: proc(
 	return lower_fail(state, node, .Conversion)
 }
 
-// `any(value)`: a stack copy of the value, and an `any` slot holding its data pointer and typeid.
+// A multi-component swizzle and a bit_field member are values even when their base is a variable.
+@(private)
+has_source_address :: proc(state: ^Procedure_State, source: check.Operand) -> bool {
+	expression, is_expression := source.(check.Expression_Ref)
+	if !is_expression { return true }
+	info, ok := check.expression_info(state.job.program, expression.view, expression.node)
+	if !ok || info.plan == 0 { return true }
+	plan := check.plan(state.job.program, info.plan)
+	if place, is_place := plan^.(check.Place_Plan); is_place && place.bit_size != 0 { return false }
+	swizzle, is_swizzle := plan^.(check.Swizzle_Plan)
+	return !is_swizzle || swizzle.count == 1
+}
+
 @(private)
 lower_box_value :: proc(state: ^Procedure_State, node: syntax.Node_Index, source_id: types.Type_Id, value: ir.Node_Id) -> ir.Node_Id {
 	source_layout := state.job.layouts[source_id]
@@ -161,8 +178,15 @@ lower_box_value :: proc(state: ^Procedure_State, node: syntax.Node_Index, source
 	function := state.job.function
 	data := ir.stack_slot(function, state.entry_control, u32(max(source_layout.size, 1)), u32(source_layout.align))
 	lower_store(state, data, value, source_id)
+	return lower_any_of_data(state, node, source_id, data)
+}
+
+// An `any` slot holding the data pointer and typeid of a value stored at `data`.
+@(private)
+lower_any_of_data :: proc(state: ^Procedure_State, node: syntax.Node_Index, source_id: types.Type_Id, data: ir.Node_Id) -> ir.Node_Id {
 	typeid_value := lower_runtime_typeid(state, node, source_id)
 	if state.failed { return 0 }
+	function := state.job.function
 	any_slot := ir.stack_slot(function, state.entry_control, 16, 8)
 	lower_store_word(state, any_slot, data)
 	lower_store_word(state, ir.ptr_offset(function, any_slot, 8), typeid_value)

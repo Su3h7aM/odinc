@@ -568,6 +568,7 @@ expression_signature_bindings :: proc(
 	metadata, metadata_error := expression_procedure_info(checker, descriptor.procedure_info)
 	assert(metadata_error == .None)
 	named_results: []Entity_Id
+	result_defaults: []Default_Argument
 	if proc_type.params != 0 {
 		for field_node in syntax.node_list(file.ast, syntax.node_payload(file.ast, proc_type.params, syntax.Field_List).list) {
 			field := syntax.node_payload(file.ast, field_node, syntax.Field)
@@ -623,10 +624,11 @@ expression_signature_bindings :: proc(
 		}
 	}
 	if proc_type.results != 0 {
-		bindings, bound, bind_error := expression_result_bindings(checker, resolver, view, signature.file, scope, proc_type.results, result_types)
+		bindings, defaults, bound, bind_error := expression_result_bindings(checker, resolver, view, signature.file, scope, proc_type.results, result_types)
 		if bind_error != nil { return bind_error }
 		if !bound { return nil }
 		named_results = bindings
+		result_defaults = defaults
 	}
 	for parameter in parameters {
 		entity := entity_get(resolver.scopes, parameter)
@@ -639,6 +641,7 @@ expression_signature_bindings :: proc(
 	procedure.parameters = parameters[:]
 	if metadata != nil { procedure.defaults = metadata.defaults }
 	procedure.results = named_results
+	procedure.result_defaults = result_defaults
 	return nil
 }
 
