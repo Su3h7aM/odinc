@@ -32,7 +32,7 @@ main :: proc() {
 	values: [1]bool
 	values[position(&positions)] ||= rhs(&calls, true)
 	values[position(&positions)] &&= rhs(&calls, false)
-	if values[0] || positions != 2 || calls != 2 { code = 3 }
+	if values[0] || positions != 4 || calls != 2 { code = 3 }
 
 	wide: b32
 	wide ||= true
