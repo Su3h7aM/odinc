@@ -288,7 +288,7 @@ lower_call_results :: proc(state: ^Procedure_State, node: syntax.Node_Index, inf
 			offset := i64(0)
 			for result, index in signature.results {
 				piece := ir.add_node(function, .Proj, result.type, {call}, {index = u32(index + 1)})
-				lower_store_word(state, ir.ptr_offset(function, result_slot, offset), piece)
+				lower_store_abi_piece(state, ir.ptr_offset(function, result_slot, offset), piece, i64(result.size))
 				offset = next_piece_offset(i64(result.size), offset)
 			}
 		}

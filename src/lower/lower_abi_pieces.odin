@@ -53,8 +53,7 @@ piece_width :: proc(type: ir.Value_Type) -> i64 {
 parameters_tile :: proc(parameters: []types.Abi_Param, size: i64) -> bool {
 	offset := i64(0)
 	for parameter in parameters {
-		width := piece_width(piece_type(parameter.type))
-		if parameter.attr != .Direct || width == 0 || width > i64(parameter.size) { return false }
+		if parameter.attr != .Direct || !abi_piece_size_valid(piece_type(parameter.type), i64(parameter.size)) { return false }
 		offset = next_piece_offset(i64(parameter.size), offset)
 	}
 	return offset == (size + 7) / 8 * 8
@@ -73,8 +72,7 @@ next_piece_offset :: proc(piece_size: i64, offset: i64) -> i64 {
 results_tile :: proc(results: []ir.Result, size: i64) -> bool {
 	offset := i64(0)
 	for result in results {
-		width := piece_width(result.type)
-		if width == 0 || width > i64(result.size) { return false }
+		if !abi_piece_size_valid(result.type, i64(result.size)) { return false }
 		offset = next_piece_offset(i64(result.size), offset)
 	}
 	return offset == (size + 7) / 8 * 8
@@ -154,7 +152,7 @@ bind_aggregate_parameter :: proc(state: ^Procedure_State, entity: check.Entity_I
 		address := state.locals[entity].address
 		offset := i64(0)
 		for parameter, index in parameters {
-			lower_store_word(state, ir.ptr_offset(job.function, address, offset), values[index])
+			lower_store_abi_piece(state, ir.ptr_offset(job.function, address, offset), values[index], i64(parameter.size))
 			offset = next_piece_offset(i64(parameter.size), offset)
 		}
 	}
@@ -179,7 +177,7 @@ pass_aggregate_argument :: proc(
 	if layout.error != .None || !parameters_tile(parameters, layout.size) { return false }
 	offset := i64(0)
 	for parameter, index in parameters {
-		arguments[index] = lower_load_word(state, ir.ptr_offset(function, value, offset), piece_type(parameter.type))
+		arguments[index] = lower_load_abi_piece(state, ir.ptr_offset(function, value, offset), piece_type(parameter.type), i64(parameter.size))
 		offset = next_piece_offset(i64(parameter.size), offset)
 	}
 	return true
@@ -210,7 +208,7 @@ lower_last_result :: proc(state: ^Procedure_State, node: syntax.Node_Index, valu
 	pieces: [2]ir.Node_Id
 	offset := i64(0)
 	for result, index in signature.results {
-		pieces[index] = lower_load_word(state, ir.ptr_offset(function, value, offset), result.type)
+		pieces[index] = lower_load_abi_piece(state, ir.ptr_offset(function, value, offset), result.type, i64(result.size))
 		offset = next_piece_offset(i64(result.size), offset)
 	}
 	run_deferred(state, 0)
