@@ -76,14 +76,7 @@ lower_map_literal :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan
 		lower_store(state, key_address, key_value, descriptor.index)
 		lower_store(state, value_address, inserted_value, descriptor.elem)
 		if state.failed || function.error != nil { return 0 }
-		key_hash := ir.Node_Id(0)
-		for entry in check.runtime_requirements(state.job.program).map_info {
-			if entry.type != map_type { continue }
-			hasher_symbol := state.job.symbols[entry.key_hasher]
-			hasher_signature := check.symbols(state.job.program)[int(entry.key_hasher) - 1].type
-			key_hash = generated_procedure_call(state, hasher_symbol, hasher_signature, {key_address, seed})
-			break
-		}
+		key_hash := lower_map_key_hash(state, node, map_type, key_address, seed)
 		if key_hash == 0 || state.failed || function.error != nil { return 0 }
 		lower_map_set_call(state, node, header, map_info, key_hash, key_address, value_address)
 		if state.failed || function.error != nil { return 0 }

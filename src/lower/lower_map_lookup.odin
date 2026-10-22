@@ -12,6 +12,42 @@ Map_Operands :: struct {
 }
 
 @(private)
+lower_map_descriptor :: proc(
+	state: ^Procedure_State,
+	node: syntax.Node_Index,
+	plan: check.Map_Index_Plan,
+) -> (
+	map_type: types.Type_Id,
+	descriptor: ^types.Type,
+) {
+	map_expression, is_expression := plan.map_value.(check.Expression_Ref)
+	if !is_expression { lower_fail(state, node, .Expression); return 0, nil }
+	store := check.type_store(state.job.program)
+	map_type = types.resolve_named(store, lower_info(state, map_expression.node).type)
+	descriptor = types.get(store, map_type)
+	if descriptor.kind == .Pointer {
+		map_type = types.resolve_named(store, descriptor.elem)
+		descriptor = types.get(store, map_type)
+	}
+	if descriptor.kind != .Map { lower_fail(state, node, .Expression); return 0, nil }
+	return map_type, descriptor
+}
+
+@(private)
+lower_map_key_hash :: proc(state: ^Procedure_State, node: syntax.Node_Index, map_type: types.Type_Id, key_address, seed: ir.Node_Id) -> ir.Node_Id {
+	key_hash := ir.Node_Id(0)
+	for entry in check.runtime_requirements(state.job.program).map_info {
+		if entry.type != map_type { continue }
+		hasher := state.job.symbols[entry.key_hasher]
+		hasher_type := check.symbols(state.job.program)[int(entry.key_hasher) - 1].type
+		key_hash = generated_procedure_call(state, hasher, hasher_type, []ir.Node_Id{key_address, seed})
+		break
+	}
+	if key_hash == 0 || state.failed || state.job.function.error != nil { return 0 }
+	return key_hash
+}
+
+@(private)
 lower_map_entry :: proc(
 	state: ^Procedure_State,
 	node: syntax.Node_Index,
@@ -21,17 +57,8 @@ lower_map_entry :: proc(
 	found_pointer, ok: ir.Node_Id,
 	value_type: types.Type_Id,
 ) {
-	map_expression, is_expression := plan.map_value.(check.Expression_Ref)
-	if !is_expression { lower_fail(state, node, .Expression); return }
-	map_info := lower_info(state, map_expression.node)
-	store := check.type_store(state.job.program)
-	map_type := types.resolve_named(store, map_info.type)
-	map_descriptor := types.get(store, map_type)
-	if map_descriptor.kind == .Pointer {
-		map_type = types.resolve_named(store, map_descriptor.elem)
-		map_descriptor = types.get(store, map_type)
-	}
-	if map_descriptor.kind != .Map { lower_fail(state, node, .Expression); return }
+	map_type, map_descriptor := lower_map_descriptor(state, node, plan)
+	if state.failed || state.job.function.error != nil { return }
 	map_value := lower_operand(state, plan.map_value)
 	key_value := lower_operand(state, plan.key, map_descriptor.index)
 	if state.failed || state.job.function.error != nil { return }
@@ -46,14 +73,7 @@ lower_map_entry :: proc(
 	if operands != nil { operands^ = {map_value, key_address} }
 	seed := lower_map_runtime_call(state, node, "map_seed", []ir.Node_Id{map_value})
 	map_info_value := lower_map_info_of(state, node, check.Map_Info_Plan{type = map_type})
-	key_hash := ir.Node_Id(0)
-	for entry in check.runtime_requirements(state.job.program).map_info {
-		if entry.type != map_type { continue }
-		hasher := state.job.symbols[entry.key_hasher]
-		hasher_type := check.symbols(state.job.program)[int(entry.key_hasher) - 1].type
-		key_hash = generated_procedure_call(state, hasher, hasher_type, []ir.Node_Id{key_address, seed})
-		break
-	}
+	key_hash := lower_map_key_hash(state, node, map_type, key_address, seed)
 	if key_hash == 0 || state.failed || state.job.function.error != nil { return }
 	found_pointer = lower_map_runtime_call(state, node, "__dynamic_map_get", []ir.Node_Id{map_value, map_info_value, key_hash, key_address})
 	if state.failed || state.job.function.error != nil { return }
@@ -142,17 +162,8 @@ lower_zero_memory :: proc(state: ^Procedure_State, address: ir.Node_Id, size: i6
 
 @(private)
 lower_map_store :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: check.Map_Index_Plan, value: ir.Node_Id, operands := Map_Operands{}) {
-	map_expression, is_expression := plan.map_value.(check.Expression_Ref)
-	if !is_expression { lower_fail(state, node, .Expression); return }
-	map_info := lower_info(state, map_expression.node)
-	store := check.type_store(state.job.program)
-	map_type := types.resolve_named(store, map_info.type)
-	map_descriptor := types.get(store, map_type)
-	if map_descriptor.kind == .Pointer {
-		map_type = types.resolve_named(store, map_descriptor.elem)
-		map_descriptor = types.get(store, map_type)
-	}
-	if map_descriptor.kind != .Map { lower_fail(state, node, .Expression); return }
+	map_type, map_descriptor := lower_map_descriptor(state, node, plan)
+	if state.failed || state.job.function.error != nil { return }
 	map_value := operands.map_value
 	key_value: ir.Node_Id
 	if map_value == 0 { map_value = lower_operand(state, plan.map_value) }
@@ -176,14 +187,7 @@ lower_map_store :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: 
 	if state.failed || function.error != nil { return }
 	seed := lower_map_runtime_call(state, node, "map_seed", []ir.Node_Id{map_value})
 	map_info_value := lower_map_info_of(state, node, check.Map_Info_Plan{type = map_type})
-	key_hash := ir.Node_Id(0)
-	for entry in check.runtime_requirements(state.job.program).map_info {
-		if entry.type != map_type { continue }
-		hasher := state.job.symbols[entry.key_hasher]
-		hasher_type := check.symbols(state.job.program)[int(entry.key_hasher) - 1].type
-		key_hash = generated_procedure_call(state, hasher, hasher_type, []ir.Node_Id{key_address, seed})
-		break
-	}
+	key_hash := lower_map_key_hash(state, node, map_type, key_address, seed)
 	if key_hash == 0 || state.failed || function.error != nil { return }
 	lower_map_set_call(state, node, map_value, map_info_value, key_hash, key_address, value_address)
 }
