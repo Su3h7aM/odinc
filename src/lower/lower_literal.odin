@@ -91,21 +91,27 @@ lower_map_literal :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan
 	return header
 }
 
-// A call to a named runtime procedure taking scalar arguments plus a trailing caller location, for helpers the
-// checker did not plan. The arguments pass positionally; a context is added for Odin-convention procedures.
 @(private)
-lower_literal_runtime_call :: proc(state: ^Procedure_State, node: syntax.Node_Index, name: string, values: []ir.Node_Id) {
+lower_runtime_procedure :: proc(state: ^Procedure_State, name: string) -> (declaration: Procedure_Declaration, found: bool) {
 	program := state.job.program
 	target: check.Entity_Id
 	for candidate in 1 ..< len(program.entities) {
 		if program.entities[candidate].name == name { target = check.Entity_Id(candidate); break }
 	}
-	if target == 0 || int(target) >= len(state.job.declarations) || program.entity_symbols[target] == 0 {
+	if target == 0 || int(target) >= len(state.job.declarations) || program.entity_symbols[target] == 0 { return {}, false }
+	return state.job.declarations[target], true
+}
+
+// A call to a named runtime procedure taking scalar arguments plus a trailing caller location, for helpers the
+// checker did not plan. The arguments pass positionally; a context is added for Odin-convention procedures.
+@(private)
+lower_literal_runtime_call :: proc(state: ^Procedure_State, node: syntax.Node_Index, name: string, values: []ir.Node_Id) {
+	declaration, found := lower_runtime_procedure(state, name)
+	if !found {
 		lower_fail(state, node, .Expression)
 		return
 	}
-	declaration := state.job.declarations[target]
-	store := check.type_store(program)
+	store := check.type_store(state.job.program)
 	descriptor := types.get(store, types.resolve_named(store, declaration.type))
 	if descriptor.kind != .Procedure || len(descriptor.params) != len(values) + 1 || len(descriptor.results) != 1 {
 		lower_fail(state, node, .Call)

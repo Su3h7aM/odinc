@@ -547,16 +547,42 @@ lower_wide_conversion :: proc(state: ^Procedure_State, node: syntax.Node_Index, 
 	function := state.job.function
 	if is_wide_integer(state, target) {
 		if is_wide_integer(state, source) || types.is_untyped(check.type_store(state.job.program), source) { return value }
+		if float_source := scalar_type(state, source); float_source == .F32 || float_source == .F64 {
+			float_value := value
+			if float_source == .F32 { float_value = ir.convert(function, .Float_Ext, value, .F64) }
+			declaration, found := lower_runtime_procedure(state, "fixdfti" if signed_type(state, target) else "fixunsdfti")
+			if !found { return lower_fail(state, node, .Conversion) }
+			low, high := lower_runtime_two_word_call(state, declaration, []ir.Node_Id{float_value})
+			return wide_store(state, Wide_Words{low = low, high = high})
+		}
 		scalar := scalar_type(state, source)
-		if scalar < .I8 || scalar > .I64 { return lower_fail(state, node, .Conversion) }
+		if (scalar < .I8 || scalar > .I64) && scalar != .Bool { return lower_fail(state, node, .Conversion) }
 		low := widen_to_word(state, value, source)
 		high := ir.const_int(function, .I64, 0)
 		if signed_type(state, source) { high = ir.binary(function, .Sar, low, ir.const_int(function, .I64, 63)) }
 		return wide_store(state, Wide_Words{low = low, high = high})
+	}
+	if scalar_type(state, target) == .F32 || scalar_type(state, target) == .F64 {
+		declaration, found := lower_runtime_procedure(state, "floattidf" if signed_type(state, source) else "floattidf_unsigned")
+		if !found { return lower_fail(state, node, .Conversion) }
+		words := wide_load(state, value)
+		result := lower_runtime_scalar_call(state, declaration, []ir.Node_Id{words.low, words.high})
+		if scalar_type(state, target) == .F32 { return ir.convert(function, .Float_Trunc, result, .F32) }
+		return result
 	}
 	scalar := scalar_type(state, target)
 	if scalar < .I8 || scalar > .I64 { return lower_fail(state, node, .Conversion) }
 	low := lower_load_word(state, value, .I64)
 	if scalar == .I64 { return low }
 	return ir.convert(function, .Trunc, low, scalar)
+}
+
+@(private)
+lower_runtime_scalar_call :: proc(state: ^Procedure_State, declaration: Procedure_Declaration, arguments: []ir.Node_Id) -> ir.Node_Id {
+	function := state.job.function
+	callee := ir.symbol_addr(function, declaration.symbol)
+	call := ir.call(function, state.builder.control, ir.variable_get(state.builder, ir.MEMORY_VARIABLE), callee, call_signature(state, declaration), arguments)
+	memory := ir.add_node(function, .Proj, .Memory, {call}, {index = 0})
+	ir.variable_set(state.builder, ir.MEMORY_VARIABLE, memory)
+	return ir.add_node(function, .Proj, declaration.signature.results[0].type, {call}, {index = 1})
 }

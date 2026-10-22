@@ -738,6 +738,24 @@ expression_entity_info :: proc(
 	return info, nil
 }
 
+// Runtime helper that converts between a float and a 128-bit integer, named as in base/runtime/internal_i128.odin.
+// Empty when the conversion needs none, or is folded into a constant by the caller.
+@(private = "file")
+conversion_runtime_helper :: proc(checker: ^Expression_Checker, source, target: types.Type_Id) -> string {
+	store := checker.type_checker.store
+	source_core := types.get(store, conversion_core_type(store, source))
+	target_core := types.get(store, conversion_core_type(store, target))
+	source_size, _, _ := types.layout(store, source, checker.config.layout)
+	target_size, _, _ := types.layout(store, target, checker.config.layout)
+	if source_core.kind == .Float && (source_size == 4 || source_size == 8) && target_core.kind == .Integer && target_size == 16 {
+		return "fixdfti" if target_core.signed else "fixunsdfti"
+	}
+	if source_core.kind == .Integer && source_size == 16 && target_core.kind == .Float && (target_size == 4 || target_size == 8) {
+		return "floattidf" if source_core.signed else "floattidf_unsigned"
+	}
+	return ""
+}
+
 @(private = "package")
 expression_conversion :: proc(
 	checker: ^Expression_Checker,
@@ -786,6 +804,12 @@ expression_conversion :: proc(
 		return expression_poison(scope), nil
 	}
 	converted = result.info
+	if result.info.mode != .Constant {
+		if helper := conversion_runtime_helper(checker, info.type, target); helper != "" {
+			_, helper_error := expression_resolve_runtime_helpers(checker, []string{helper})
+			if helper_error != nil { return {}, helper_error }
+		}
+	}
 	converted.plan = Plan_Id(len(checker.plans))
 	if result.plan.kind == .Box { expression_record_type_info(checker, info.type) or_return }
 	append(&checker.plans, Plan(result.plan)) or_return

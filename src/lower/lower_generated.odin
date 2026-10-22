@@ -246,6 +246,19 @@ generated_procedure_call :: proc(state: ^Procedure_State, symbol: ir.Symbol_Ref,
 	return value
 }
 
+// Calls a runtime procedure whose result is two words, such as a 128-bit integer, and returns both pieces.
+@(private)
+lower_runtime_two_word_call :: proc(state: ^Procedure_State, declaration: Procedure_Declaration, arguments: []ir.Node_Id) -> (low, high: ir.Node_Id) {
+	function := state.job.function
+	callee := ir.symbol_addr(function, declaration.symbol)
+	call := ir.call(function, state.builder.control, ir.variable_get(state.builder, ir.MEMORY_VARIABLE), callee, call_signature(state, declaration), arguments)
+	memory := ir.add_node(function, .Proj, .Memory, {call}, {index = 0})
+	ir.variable_set(state.builder, ir.MEMORY_VARIABLE, memory)
+	low = ir.add_node(function, .Proj, declaration.signature.results[0].type, {call}, {index = 1})
+	high = ir.add_node(function, .Proj, declaration.signature.results[1].type, {call}, {index = 2})
+	return low, high
+}
+
 @(private = "file")
 integer_value_type :: proc(size: i64) -> ir.Value_Type {
 	switch size {
