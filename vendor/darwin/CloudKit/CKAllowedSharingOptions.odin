@@ -4,7 +4,7 @@ package darwin_CloudKit
 
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class="CKAllowedSharingOptions", objc_superclass=NS.Object)
+@(objc_class = "CKAllowedSharingOptions", objc_superclass = NS.Object)
 AllowedSharingOptions :: struct {
 	using _: NS.Object,
 	using _: NS.SecureCoding,
@@ -12,33 +12,33 @@ AllowedSharingOptions :: struct {
 }
 
 foreign lib {
-	@(objc_type=AllowedSharingOptions, objc_selector="initWithAllowedParticipantPermissionOptions:allowedParticipantAccessOptions:", objc_name="initWithAllowedParticipantPermissionOptions")
+	@(objc_type = AllowedSharingOptions, objc_selector = "initWithAllowedParticipantPermissionOptions:allowedParticipantAccessOptions:", objc_name = "initWithAllowedParticipantPermissionOptions")
 	AllowedSharingOptions_initWithAllowedParticipantPermissionOptions :: proc(self: ^AllowedSharingOptions, allowedParticipantPermissionOptions: SharingParticipantPermissionOptions, allowedParticipantAccessOptions: SharingParticipantAccessOptions) -> instancetype ---
 
-	@(objc_type=AllowedSharingOptions, objc_selector="allowedParticipantPermissionOptions", objc_name="allowedParticipantPermissionOptions")
+	@(objc_type = AllowedSharingOptions, objc_selector = "allowedParticipantPermissionOptions", objc_name = "allowedParticipantPermissionOptions")
 	AllowedSharingOptions_allowedParticipantPermissionOptions :: proc(self: ^AllowedSharingOptions) -> SharingParticipantPermissionOptions ---
 
-	@(objc_type=AllowedSharingOptions, objc_selector="setAllowedParticipantPermissionOptions:", objc_name="setAllowedParticipantPermissionOptions")
+	@(objc_type = AllowedSharingOptions, objc_selector = "setAllowedParticipantPermissionOptions:", objc_name = "setAllowedParticipantPermissionOptions")
 	AllowedSharingOptions_setAllowedParticipantPermissionOptions :: proc(self: ^AllowedSharingOptions, allowedParticipantPermissionOptions: SharingParticipantPermissionOptions) ---
 
-	@(objc_type=AllowedSharingOptions, objc_selector="allowedParticipantAccessOptions", objc_name="allowedParticipantAccessOptions")
+	@(objc_type = AllowedSharingOptions, objc_selector = "allowedParticipantAccessOptions", objc_name = "allowedParticipantAccessOptions")
 	AllowedSharingOptions_allowedParticipantAccessOptions :: proc(self: ^AllowedSharingOptions) -> SharingParticipantAccessOptions ---
 
-	@(objc_type=AllowedSharingOptions, objc_selector="setAllowedParticipantAccessOptions:", objc_name="setAllowedParticipantAccessOptions")
+	@(objc_type = AllowedSharingOptions, objc_selector = "setAllowedParticipantAccessOptions:", objc_name = "setAllowedParticipantAccessOptions")
 	AllowedSharingOptions_setAllowedParticipantAccessOptions :: proc(self: ^AllowedSharingOptions, allowedParticipantAccessOptions: SharingParticipantAccessOptions) ---
 
-	@(objc_type=AllowedSharingOptions, objc_selector="allowsParticipantsToInviteOthers", objc_name="allowsParticipantsToInviteOthers")
+	@(objc_type = AllowedSharingOptions, objc_selector = "allowsParticipantsToInviteOthers", objc_name = "allowsParticipantsToInviteOthers")
 	AllowedSharingOptions_allowsParticipantsToInviteOthers :: proc(self: ^AllowedSharingOptions) -> bool ---
 
-	@(objc_type=AllowedSharingOptions, objc_selector="setAllowsParticipantsToInviteOthers:", objc_name="setAllowsParticipantsToInviteOthers")
+	@(objc_type = AllowedSharingOptions, objc_selector = "setAllowsParticipantsToInviteOthers:", objc_name = "setAllowsParticipantsToInviteOthers")
 	AllowedSharingOptions_setAllowsParticipantsToInviteOthers :: proc(self: ^AllowedSharingOptions, allowsParticipantsToInviteOthers: bool) ---
 
-	@(objc_type=AllowedSharingOptions, objc_selector="standardOptions", objc_name="standardOptions", objc_is_class_method=true)
+	@(objc_type = AllowedSharingOptions, objc_selector = "standardOptions", objc_name = "standardOptions", objc_is_class_method = true)
 	AllowedSharingOptions_standardOptions :: proc() -> ^AllowedSharingOptions ---
 
-	@(objc_type=AllowedSharingOptions, objc_selector="allowsAccessRequests", objc_name="allowsAccessRequests")
+	@(objc_type = AllowedSharingOptions, objc_selector = "allowsAccessRequests", objc_name = "allowsAccessRequests")
 	AllowedSharingOptions_allowsAccessRequests :: proc(self: ^AllowedSharingOptions) -> bool ---
 
-	@(objc_type=AllowedSharingOptions, objc_selector="setAllowsAccessRequests:", objc_name="setAllowsAccessRequests")
+	@(objc_type = AllowedSharingOptions, objc_selector = "setAllowsAccessRequests:", objc_name = "setAllowsAccessRequests")
 	AllowedSharingOptions_setAllowsAccessRequests :: proc(self: ^AllowedSharingOptions, allowsAccessRequests: bool) ---
 }

@@ -57,19 +57,24 @@ Plane :: struct {
 	offset: f32,
 }
 
-Vec3_zero          :: Vec3{0.0, 0.0, 0.0}
-Vec3_one           :: Vec3{1.0, 1.0, 1.0}
-Vec3_axisX         :: Vec3{1.0, 0.0, 0.0}
-Vec3_axisY         :: Vec3{0.0, 1.0, 0.0}
-Vec3_axisZ         :: Vec3{0.0, 0.0, 1.0}
-Quat_identity      :: Quat(1)
-Transform_identity :: Transform{p={0, 0, 0}, q=1}
-Mat3_zero          :: Matrix3(0)
-Mat3_identity      :: Matrix3(1)
+Vec3_zero :: Vec3{0.0, 0.0, 0.0}
+Vec3_one :: Vec3{1.0, 1.0, 1.0}
+Vec3_axisX :: Vec3{1.0, 0.0, 0.0}
+Vec3_axisY :: Vec3{0.0, 1.0, 0.0}
+Vec3_axisZ :: Vec3{0.0, 0.0, 1.0}
+Quat_identity :: Quat(1)
+Transform_identity :: Transform {
+	p = {0, 0, 0},
+	q = 1,
+}
+Mat3_zero :: Matrix3(0)
+Mat3_identity :: Matrix3(1)
 
-Pos_zero                :: Pos{0.0, 0.0, 0.0}
-WorldTransform_identity :: WorldTransform{p={0, 0, 0}, q=1}
-
+Pos_zero :: Pos{0.0, 0.0, 0.0}
+WorldTransform_identity :: WorldTransform {
+	p = {0, 0, 0},
+	q = 1,
+}
 
 
 // @return the minimum of two integers.
@@ -87,7 +92,7 @@ SegmentDistanceResult :: struct {
 }
 
 
-@(link_prefix="b3", default_calling_convention="c", require_results)
+@(link_prefix = "b3", default_calling_convention = "c", require_results)
 foreign lib {
 	// Compute an approximate arctangent in the range [-pi, pi]
 	// This is hand coded for cross-platform determinism. The atan2f
@@ -149,7 +154,6 @@ foreign lib {
 	ComputeQuatBetweenUnitVectors :: proc(v1, v2: Vec3) -> Quat ---
 
 
-
 }
 
 AbsFloat :: builtin.abs
@@ -195,7 +199,7 @@ Normalize :: proc "c" (a: Vec3) -> Vec3 {
 
 	if lengthSquared > 1000.0 * min(f32) {
 		s := 1.0 / math.sqrt(lengthSquared)
-		return Vec3{ s * a.x, s * a.y, s * a.z }
+		return Vec3{s * a.x, s * a.y, s * a.z}
 	}
 
 	return Vec3{0.0, 0.0, 0.0}
@@ -246,11 +250,7 @@ Lerp :: linalg.lerp
 // Blend two vectors: s * a + t * b
 @(require_results)
 Blend2 :: proc "c" (s: f32, a: Vec3, t: f32, b: Vec3) -> Vec3 {
-	return {
-		s * a.x + t * b.x,
-		s * a.y + t * b.y,
-		s * a.z + t * b.z,
-	}
+	return {s * a.x + t * b.x, s * a.y + t * b.y, s * a.z + t * b.z}
 }
 
 // Component-wise absolute value.
@@ -280,7 +280,7 @@ SafeScale :: proc "c" (a: Vec3) -> Vec3 {
 
 // Does the supplied quaternion have unit length?
 @(require_results)
-IsNormalizedQuat :: proc "c" (q: Quat)  -> bool {
+IsNormalizedQuat :: proc "c" (q: Quat) -> bool {
 	qq := q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w
 	return 1.0 - 20.0 * FLT_EPSILON < qq && qq < 1.0 + 20.0 * FLT_EPSILON
 }
@@ -324,7 +324,7 @@ InvMulQuat :: proc "c" (q1, q2: Quat) -> Quat {
 	t1 := Cross(q2.xyz, q1.xyz)
 	t2 := t1 * q1.w + q2.xyz
 	t3 := t2 * q2.w - q1.xyz
-	return quaternion(x=t3.x, y=t3.y, z=t3.z, w=q1.w * q2.w + Dot(q1.xyz, q2.xyz))
+	return quaternion(x = t3.x, y = t3.y, z = t3.z, w = q1.w * q2.w + Dot(q1.xyz, q2.xyz))
 }
 
 // Quaternion conjugate (cheap inverse).
@@ -353,7 +353,7 @@ NormalizeQuat :: proc "c" (q: Quat) -> Quat {
 MakeQuatFromAxisAngle :: proc "c" (axis: Vec3, radians: f32) -> Quat {
 	ASSERT(IsNormalized(axis))
 	cs := ComputeCosSin(0.5 * radians)
-	return quaternion(x=cs.sine * axis.x, y=cs.sine * axis.y, z=cs.sine * axis.z, w=cs.cosine)
+	return quaternion(x = cs.sine * axis.x, y = cs.sine * axis.y, z = cs.sine * axis.z, w = cs.cosine)
 }
 
 // Get the axis and angle from a quaternion. Assumes the quaternion is normalized.
@@ -637,9 +637,9 @@ MakeMatrixFromQuat :: proc "c" (q: Quat) -> (out: Matrix3) {
 	yw := q.y * q.w
 	zw := q.z * q.w
 
-	out[0] = { 1.0 - 2.0 * (yy + zz), 2.0 * (xy + zw), 2.0 * (xz - yw) }
-	out[1] = { 2.0 * (xy - zw), 1.0 - 2.0 * (xx + zz), 2.0 * (yz + xw) }
-	out[2] = { 2.0 * (xz + yw), 2.0 * (yz - xw), 1.0 - 2.0 * (xx + yy) }
+	out[0] = {1.0 - 2.0 * (yy + zz), 2.0 * (xy + zw), 2.0 * (xz - yw)}
+	out[1] = {2.0 * (xy - zw), 1.0 - 2.0 * (xx + zz), 2.0 * (yz + xw)}
+	out[2] = {2.0 * (xz + yw), 2.0 * (yz - xw), 1.0 - 2.0 * (xx + yy)}
 	return
 }
 
@@ -648,7 +648,7 @@ MakeMatrixFromQuat :: proc "c" (q: Quat) -> (out: Matrix3) {
 MakeAABB :: proc "c" (points: []Vec3, radius: f32) -> (a: AABB) #no_bounds_check {
 	ASSERT(len(points) > 0)
 	a = AABB{points[0], points[0]}
-	for i in 1..<len(points) {
+	for i in 1 ..< len(points) {
 		a.lowerBound = Min(a.lowerBound, points[i])
 		a.upperBound = Max(a.upperBound, points[i])
 	}

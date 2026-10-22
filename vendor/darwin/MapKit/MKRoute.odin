@@ -2,58 +2,62 @@
 #+build darwin
 package darwin_MapKit
 
-import CL "vendor:darwin/CoreLocation"
 import NS "core:sys/darwin/Foundation"
+import CL "vendor:darwin/CoreLocation"
 
-@(objc_class="MKRoute", objc_superclass=NS.Object)
-Route :: struct { using _: NS.Object}
+@(objc_class = "MKRoute", objc_superclass = NS.Object)
+Route :: struct {
+	using _: NS.Object,
+}
 
 foreign lib {
-	@(objc_type=Route, objc_selector="name", objc_name="name")
+	@(objc_type = Route, objc_selector = "name", objc_name = "name")
 	Route_name :: proc(self: ^Route) -> ^NS.String ---
 
-	@(objc_type=Route, objc_selector="advisoryNotices", objc_name="advisoryNotices")
+	@(objc_type = Route, objc_selector = "advisoryNotices", objc_name = "advisoryNotices")
 	Route_advisoryNotices :: proc(self: ^Route) -> ^NS.Array ---
 
-	@(objc_type=Route, objc_selector="distance", objc_name="distance")
+	@(objc_type = Route, objc_selector = "distance", objc_name = "distance")
 	Route_distance :: proc(self: ^Route) -> CL.LocationDistance ---
 
-	@(objc_type=Route, objc_selector="expectedTravelTime", objc_name="expectedTravelTime")
+	@(objc_type = Route, objc_selector = "expectedTravelTime", objc_name = "expectedTravelTime")
 	Route_expectedTravelTime :: proc(self: ^Route) -> NS.TimeInterval ---
 
-	@(objc_type=Route, objc_selector="transportType", objc_name="transportType")
+	@(objc_type = Route, objc_selector = "transportType", objc_name = "transportType")
 	Route_transportType :: proc(self: ^Route) -> DirectionsTransportType ---
 
-	@(objc_type=Route, objc_selector="polyline", objc_name="polyline")
+	@(objc_type = Route, objc_selector = "polyline", objc_name = "polyline")
 	Route_polyline :: proc(self: ^Route) -> ^Polyline ---
 
-	@(objc_type=Route, objc_selector="steps", objc_name="steps")
+	@(objc_type = Route, objc_selector = "steps", objc_name = "steps")
 	Route_steps :: proc(self: ^Route) -> ^NS.Array ---
 
-	@(objc_type=Route, objc_selector="hasTolls", objc_name="hasTolls")
+	@(objc_type = Route, objc_selector = "hasTolls", objc_name = "hasTolls")
 	Route_hasTolls :: proc(self: ^Route) -> bool ---
 
-	@(objc_type=Route, objc_selector="hasHighways", objc_name="hasHighways")
+	@(objc_type = Route, objc_selector = "hasHighways", objc_name = "hasHighways")
 	Route_hasHighways :: proc(self: ^Route) -> bool ---
 }
 
 
-@(objc_class="MKRouteStep", objc_superclass=NS.Object)
-RouteStep :: struct { using _: NS.Object}
+@(objc_class = "MKRouteStep", objc_superclass = NS.Object)
+RouteStep :: struct {
+	using _: NS.Object,
+}
 
 foreign lib {
-	@(objc_type=RouteStep, objc_selector="instructions", objc_name="instructions")
+	@(objc_type = RouteStep, objc_selector = "instructions", objc_name = "instructions")
 	RouteStep_instructions :: proc(self: ^RouteStep) -> ^NS.String ---
 
-	@(objc_type=RouteStep, objc_selector="notice", objc_name="notice")
+	@(objc_type = RouteStep, objc_selector = "notice", objc_name = "notice")
 	RouteStep_notice :: proc(self: ^RouteStep) -> ^NS.String ---
 
-	@(objc_type=RouteStep, objc_selector="polyline", objc_name="polyline")
+	@(objc_type = RouteStep, objc_selector = "polyline", objc_name = "polyline")
 	RouteStep_polyline :: proc(self: ^RouteStep) -> ^Polyline ---
 
-	@(objc_type=RouteStep, objc_selector="distance", objc_name="distance")
+	@(objc_type = RouteStep, objc_selector = "distance", objc_name = "distance")
 	RouteStep_distance :: proc(self: ^RouteStep) -> CL.LocationDistance ---
 
-	@(objc_type=RouteStep, objc_selector="transportType", objc_name="transportType")
+	@(objc_type = RouteStep, objc_selector = "transportType", objc_name = "transportType")
 	RouteStep_transportType :: proc(self: ^RouteStep) -> DirectionsTransportType ---
 }

@@ -4,29 +4,29 @@ package darwin_AppKit
 
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class="NSNib", objc_superclass=NS.Object)
+@(objc_class = "NSNib", objc_superclass = NS.Object)
 Nib :: struct {
 	using _: NS.Object,
 	using _: NS.Coding,
 }
 
-@(default_calling_convention="c")
+@(default_calling_convention = "c")
 foreign lib {
-	@(objc_type=Nib, objc_selector="initWithNibNamed:bundle:", objc_name="initWithNibNamed")
+	@(objc_type = Nib, objc_selector = "initWithNibNamed:bundle:", objc_name = "initWithNibNamed")
 	Nib_initWithNibNamed :: proc(self: ^Nib, nibName: ^NS.String, bundle: ^NS.Bundle) -> instancetype ---
 
-	@(objc_type=Nib, objc_selector="initWithNibData:bundle:", objc_name="initWithNibData")
+	@(objc_type = Nib, objc_selector = "initWithNibData:bundle:", objc_name = "initWithNibData")
 	Nib_initWithNibData :: proc(self: ^Nib, nibData: ^NS.Data, bundle: ^NS.Bundle) -> instancetype ---
 
-	@(objc_type=Nib, objc_selector="instantiateWithOwner:topLevelObjects:", objc_name="instantiateWithOwner")
+	@(objc_type = Nib, objc_selector = "instantiateWithOwner:topLevelObjects:", objc_name = "instantiateWithOwner")
 	Nib_instantiateWithOwner :: proc(self: ^Nib, owner: id, topLevelObjects: ^^NS.Array) -> bool ---
 
-	@(objc_type=Nib, objc_selector="initWithContentsOfURL:", objc_name="initWithContentsOfURL")
+	@(objc_type = Nib, objc_selector = "initWithContentsOfURL:", objc_name = "initWithContentsOfURL")
 	Nib_initWithContentsOfURL :: proc(self: ^Nib, nibFileURL: ^NS.URL) -> id ---
 
-	@(objc_type=Nib, objc_selector="instantiateNibWithExternalNameTable:", objc_name="instantiateNibWithExternalNameTable")
+	@(objc_type = Nib, objc_selector = "instantiateNibWithExternalNameTable:", objc_name = "instantiateNibWithExternalNameTable")
 	Nib_instantiateNibWithExternalNameTable :: proc(self: ^Nib, externalNameTable: ^NS.Dictionary) -> bool ---
 
-	@(objc_type=Nib, objc_selector="instantiateNibWithOwner:topLevelObjects:", objc_name="instantiateNibWithOwner")
+	@(objc_type = Nib, objc_selector = "instantiateNibWithOwner:topLevelObjects:", objc_name = "instantiateNibWithOwner")
 	Nib_instantiateNibWithOwner :: proc(self: ^Nib, owner: id, topLevelObjects: ^^NS.Array) -> bool ---
 }

@@ -12,14 +12,14 @@ foreign import wgi "system:gameinput.lib"
 import win "core:sys/windows"
 
 HRESULT :: win.HRESULT
-HANDLE  :: win.HANDLE
-IUnknown	:: win.IUnknown
+HANDLE :: win.HANDLE
+IUnknown :: win.IUnknown
 IUnknown_VTable :: win.IUnknown_VTable
-IID		:: win.IID
+IID :: win.IID
 
 APP_LOCAL_DEVICE_ID :: distinct [32]byte
 
-Kind :: distinct bit_set[KindFlag; u32]
+Kind :: distinct bit_set[KindFlag;u32]
 KindFlag :: enum u32 {
 	RawDeviceReport  = 0,
 	ControllerAxis   = 1,
@@ -36,7 +36,7 @@ KindFlag :: enum u32 {
 	UiNavigation     = 20,
 }
 KindUnknown :: Kind{}
-KindController :: Kind{ .ControllerAxis, .ControllerButton, .ControllerSwitch }
+KindController :: Kind{.ControllerAxis, .ControllerButton, .ControllerSwitch}
 
 EnumerationKind :: enum i32 {
 	NoEnumeration       = 0,
@@ -44,7 +44,7 @@ EnumerationKind :: enum i32 {
 	BlockingEnumeration = 2,
 }
 
-FocusPolicy :: distinct bit_set[FocusPolicyFlag; u32]
+FocusPolicy :: distinct bit_set[FocusPolicyFlag;u32]
 FocusPolicyFlag :: enum u32 {
 	DisableBackgroundInput         = 0,
 	ExclusiveForegroundInput       = 1,
@@ -83,7 +83,7 @@ KeyboardKind :: enum i32 {
 	JisKeyboard     = 4,
 }
 
-MouseButtons :: distinct bit_set[MouseButtonsFlag; u32]
+MouseButtons :: distinct bit_set[MouseButtonsFlag;u32]
 MouseButtonsFlag :: enum u32 {
 	LeftButton     = 0,
 	RightButton    = 1,
@@ -114,7 +114,7 @@ MotionAccuracy :: enum i32 {
 	Accurate        = 3,
 }
 
-ArcadeStickButtons :: distinct bit_set[ArcadeStickButtonsFlag; u32]
+ArcadeStickButtons :: distinct bit_set[ArcadeStickButtonsFlag;u32]
 ArcadeStickButtonsFlag :: enum u32 {
 	Menu     = 0,
 	View     = 1,
@@ -133,7 +133,7 @@ ArcadeStickButtonsFlag :: enum u32 {
 }
 ArcadeStickNone :: ArcadeStickButtons{}
 
-FlightStickButtons :: distinct bit_set[FlightStickButtonsFlag; u32]
+FlightStickButtons :: distinct bit_set[FlightStickButtonsFlag;u32]
 FlightStickButtonsFlag :: enum u32 {
 	Menu          = 0,
 	View          = 1,
@@ -142,7 +142,7 @@ FlightStickButtonsFlag :: enum u32 {
 }
 FlightStickNone :: FlightStickButtons{}
 
-GamepadButtons :: distinct bit_set[GamepadButtonsFlag; u32]
+GamepadButtons :: distinct bit_set[GamepadButtonsFlag;u32]
 GamepadButtonsFlag :: enum u32 {
 	Menu            = 0,
 	View            = 1,
@@ -161,7 +161,7 @@ GamepadButtonsFlag :: enum u32 {
 }
 GamepadNone :: GamepadButtons{}
 
-RacingWheelButtons :: distinct bit_set[RacingWheelButtonsFlag; u32]
+RacingWheelButtons :: distinct bit_set[RacingWheelButtonsFlag;u32]
 RacingWheelButtonsFlag :: enum u32 {
 	Menu         = 0,
 	View         = 1,
@@ -174,7 +174,7 @@ RacingWheelButtonsFlag :: enum u32 {
 }
 RacingWheelNone :: RacingWheelButtons{}
 
-UiNavigationButtons :: distinct bit_set[UiNavigationButtonsFlag; u32]
+UiNavigationButtons :: distinct bit_set[UiNavigationButtonsFlag;u32]
 UiNavigationButtonsFlag :: enum u32 {
 	Menu        = 0,
 	View        = 1,
@@ -199,14 +199,14 @@ UiNavigationButtonsFlag :: enum u32 {
 }
 UiNavigationNone :: UiNavigationButtons{}
 
-SystemButtons :: distinct bit_set[SystemButtonsFlag; u32]
+SystemButtons :: distinct bit_set[SystemButtonsFlag;u32]
 SystemButtonsFlag :: enum u32 {
 	Guide = 0,
 	Share = 1,
 }
 SystemButtonNone :: SystemButtons{}
 
-DeviceStatus :: distinct bit_set[DeviceStatusFlag; u32]
+DeviceStatus :: distinct bit_set[DeviceStatusFlag;u32]
 DeviceStatusFlag :: enum u32 {
 	Connected     = 0,
 	InputEnabled  = 1,
@@ -238,7 +238,7 @@ DeviceFamily :: enum i32 {
 	I8042     = 4,
 }
 
-DeviceCapabilities :: distinct bit_set[DeviceCapabilitiesFlag; u32]
+DeviceCapabilities :: distinct bit_set[DeviceCapabilitiesFlag;u32]
 DeviceCapabilitiesFlag :: enum u32 {
 	Audio           = 0,
 	PluginModule    = 1,
@@ -254,7 +254,7 @@ RawDeviceReportKind :: enum i32 {
 	FeatureReport = 2,
 }
 
-RawDeviceReportItemFlags :: distinct bit_set[RawDeviceReportItemFlag; u32]
+RawDeviceReportItemFlags :: distinct bit_set[RawDeviceReportItemFlag;u32]
 RawDeviceReportItemFlag :: enum u32 {
 	ConstantItem   = 0,
 	ArrayItem      = 1,
@@ -447,7 +447,7 @@ Location :: enum i32 {
 	TouchPad = 6,
 }
 
-FeedbackAxes :: distinct bit_set[FeedbackAxesFlag; u32]
+FeedbackAxes :: distinct bit_set[FeedbackAxesFlag;u32]
 FeedbackAxesFlag :: enum u32 {
 	LinearX  = 0,
 	LinearY  = 1,
@@ -479,7 +479,7 @@ ForceFeedbackEffectKind :: enum i32 {
 	Inertia          = 10,
 }
 
-RumbleMotors :: distinct bit_set[RumbleMotorsFlag; u32]
+RumbleMotors :: distinct bit_set[RumbleMotorsFlag;u32]
 RumbleMotorsFlag :: enum u32 {
 	LowFrequency  = 0,
 	HighFrequency = 1,
@@ -493,10 +493,31 @@ CallbackToken :: distinct u64
 CURRENT_CALLBACK_TOKEN_VALUE :: CallbackToken(0xFFFFFFFFFFFFFFFF)
 INVALID_CALLBACK_TOKEN_VALUE :: CallbackToken(0x0000000000000000)
 
-ReadingCallback        :: #type proc "stdcall" (callbackToken: CallbackToken, ctx: rawptr, reading: ^IReading, hasOverrunOccured: bool)
-DeviceCallback         :: #type proc "stdcall" (callbackToken: CallbackToken, ctx: rawptr, device: ^IDevice, timestamp: u64, currentStatus: DeviceStatus, previousStatus: DeviceStatus)
-SystemButtonCallback   :: #type proc "stdcall" (callbackToken: CallbackToken, ctx: rawptr, device: ^IDevice, timestamp: u64, currentButtons: SystemButtons, previousButtons: SystemButtons)
-KeyboardLayoutCallback :: #type proc "stdcall" (callbackToken: CallbackToken, ctx: rawptr, device: ^IDevice, timestamp: u64, currentLayout: u32, previousLayout: u32)
+ReadingCallback :: #type proc "stdcall" (callbackToken: CallbackToken, ctx: rawptr, reading: ^IReading, hasOverrunOccured: bool)
+DeviceCallback :: #type proc "stdcall" (
+	callbackToken: CallbackToken,
+	ctx: rawptr,
+	device: ^IDevice,
+	timestamp: u64,
+	currentStatus: DeviceStatus,
+	previousStatus: DeviceStatus,
+)
+SystemButtonCallback :: #type proc "stdcall" (
+	callbackToken: CallbackToken,
+	ctx: rawptr,
+	device: ^IDevice,
+	timestamp: u64,
+	currentButtons: SystemButtons,
+	previousButtons: SystemButtons,
+)
+KeyboardLayoutCallback :: #type proc "stdcall" (
+	callbackToken: CallbackToken,
+	ctx: rawptr,
+	device: ^IDevice,
+	timestamp: u64,
+	currentLayout: u32,
+	previousLayout: u32,
+)
 
 KeyState :: struct {
 	scanCode:   u32,
@@ -948,7 +969,7 @@ ForceFeedbackRampParams :: struct {
 }
 
 ForceFeedbackParams :: struct {
-	kind: ForceFeedbackEffectKind,
+	kind:       ForceFeedbackEffectKind,
 	using data: struct #raw_union {
 		constant:         ForceFeedbackConstantParams,
 		ramp:             ForceFeedbackRampParams,
@@ -982,20 +1003,62 @@ RumbleParams :: struct {
 IGameInput_UUID_STRING :: "11BE2A7E-4254-445A-9C09-FFC40F006918"
 IGameInput_UUID := &IID{0x11BE2A7E, 0x4254, 0x445A, {0x9C, 0x09, 0xFF, 0xC4, 0x0F, 0x00, 0x69, 0x18}}
 IGameInput :: struct #raw_union {
-	#subtype iunknown: IUnknown,
+	#subtype iunknown:       IUnknown,
 	using igameinput_vtable: ^IGameInput_VTable,
 }
 IGameInput_VTable :: struct {
-	using iunknown_vtable: IUnknown_VTable,
+	using iunknown_vtable:          IUnknown_VTable,
 	GetCurrentTimestamp:            proc "system" (this: ^IGameInput) -> u64,
 	GetCurrentReading:              proc "system" (this: ^IGameInput, inputKind: Kind, device: ^IDevice, reading: ^^IReading) -> HRESULT,
-	GetNextReading:                 proc "system" (this: ^IGameInput, referenceReading: ^IReading, inputKind: Kind, device: ^IDevice, reading: ^^IReading) -> HRESULT,
-	GetPreviousReading:             proc "system" (this: ^IGameInput, referenceReading: ^IReading, inputKind: Kind, device: ^IDevice, reading: ^^IReading) -> HRESULT,
+	GetNextReading:                 proc "system" (
+		this: ^IGameInput,
+		referenceReading: ^IReading,
+		inputKind: Kind,
+		device: ^IDevice,
+		reading: ^^IReading,
+	) -> HRESULT,
+	GetPreviousReading:             proc "system" (
+		this: ^IGameInput,
+		referenceReading: ^IReading,
+		inputKind: Kind,
+		device: ^IDevice,
+		reading: ^^IReading,
+	) -> HRESULT,
 	GetTemporalReading:             proc "system" (this: ^IGameInput, timestamp: u64, device: ^IDevice, reading: ^^IReading) -> HRESULT,
-	RegisterReadingCallback:        proc "system" (this: ^IGameInput, device: ^IDevice, inputKind: Kind, analogThreshold: f32, ctx: rawptr, callbackFunc: ReadingCallback, callbackToken: ^CallbackToken) -> HRESULT,
-	RegisterDeviceCallback:         proc "system" (this: ^IGameInput, device: ^IDevice, inputKind: Kind, statusFilter: DeviceStatus, enumerationKind: EnumerationKind, ctx: rawptr, callbackFunc: DeviceCallback, callbackToken: ^CallbackToken) -> HRESULT,
-	RegisterSystemButtonCallback:   proc "system" (this: ^IGameInput, device: ^IDevice, buttonFilter: SystemButtons, ctx: rawptr, callbackFunc: SystemButtonCallback, callbackToken: ^CallbackToken) -> HRESULT,
-	RegisterKeyboardLayoutCallback: proc "system" (this: ^IGameInput, device: ^IDevice, ctx: rawptr, callbackFunc: KeyboardLayoutCallback, callbackToken: ^CallbackToken) -> HRESULT,
+	RegisterReadingCallback:        proc "system" (
+		this: ^IGameInput,
+		device: ^IDevice,
+		inputKind: Kind,
+		analogThreshold: f32,
+		ctx: rawptr,
+		callbackFunc: ReadingCallback,
+		callbackToken: ^CallbackToken,
+	) -> HRESULT,
+	RegisterDeviceCallback:         proc "system" (
+		this: ^IGameInput,
+		device: ^IDevice,
+		inputKind: Kind,
+		statusFilter: DeviceStatus,
+		enumerationKind: EnumerationKind,
+		ctx: rawptr,
+		callbackFunc: DeviceCallback,
+		callbackToken: ^CallbackToken,
+	) -> HRESULT,
+	RegisterSystemButtonCallback:   proc "system" (
+		this: ^IGameInput,
+		device: ^IDevice,
+		buttonFilter: SystemButtons,
+		ctx: rawptr,
+		callbackFunc: SystemButtonCallback,
+		callbackToken: ^CallbackToken,
+	) -> HRESULT,
+	RegisterKeyboardLayoutCallback: proc "system" (
+		this: ^IGameInput,
+		device: ^IDevice,
+		ctx: rawptr,
+		callbackFunc: KeyboardLayoutCallback,
+		callbackToken: ^CallbackToken,
+	) -> HRESULT,
 	StopCallback:                   proc "system" (this: ^IGameInput, callbackToken: CallbackToken),
 	UnregisterCallback:             proc "system" (this: ^IGameInput, callbackToken: CallbackToken, timeoutInMicroseconds: u64) -> bool,
 	CreateDispatcher:               proc "system" (this: ^IGameInput, dispatcher: ^^IDispatcher) -> HRESULT,
@@ -1011,11 +1074,11 @@ IGameInput_VTable :: struct {
 IReading_UUID_STRING :: "2156947A-E1FA-4DE0-A30B-D812931DBD8D"
 IReading_UUID := &IID{0x2156947A, 0xE1FA, 0x4DE0, {0xA3, 0x0B, 0xD8, 0x12, 0x93, 0x1D, 0x0BD, 0x8D}}
 IReading :: struct #raw_union {
-	#subtype iunknown: IUnknown,
+	#subtype iunknown:              IUnknown,
 	using igameinputreading_vtable: ^IReading_VTable,
 }
 IReading_VTable :: struct {
-	using iunknown_vtable: IUnknown_VTable,
+	using iunknown_vtable:    IUnknown_VTable,
 	GetInputKind:             proc "system" (this: ^IReading) -> Kind,
 	GetSequenceNumber:        proc "system" (this: ^IReading, inputKind: Kind) -> u64,
 	GetTimestamp:             proc "system" (this: ^IReading) -> u64,
@@ -1043,11 +1106,11 @@ IReading_VTable :: struct {
 IDevice_UUID_STRING :: "31DD86FB-4C1B-408A-868F-439B3CD47125"
 IDevice_UUID := &IID{0x31DD86FB, 0x4C1B, 0x408A, {0x86, 0x8F, 0x43, 0x9B, 0x3C, 0xD4, 0x71, 0x25}}
 IDevice :: struct #raw_union {
-	#subtype iunknown: IUnknown,
+	#subtype iunknown:             IUnknown,
 	using igameinputdevice_vtable: ^IDevice_Vtable,
 }
 IDevice_Vtable :: struct {
-	using iunknown_vtable: IUnknown_VTable,
+	using iunknown_vtable:           IUnknown_VTable,
 	GetDeviceInfo:                   proc "system" (this: ^IDevice) -> ^DeviceInfo,
 	GetDeviceStatus:                 proc "system" (this: ^IDevice) -> DeviceStatus,
 	GetBatteryState:                 proc "system" (this: ^IDevice, state: ^BatteryState),
@@ -1064,7 +1127,15 @@ IDevice_Vtable :: struct {
 	SetRawDeviceFeature:             proc "system" (this: ^IDevice, report: ^IRawDeviceReport) -> HRESULT,
 	SendRawDeviceOutput:             proc "system" (this: ^IDevice, report: ^IRawDeviceReport) -> HRESULT,
 	SendRawDeviceOutputWithResponse: proc "system" (this: ^IDevice, requestReport: ^IRawDeviceReport, responseReport: ^^IRawDeviceReport) -> HRESULT,
-	ExecuteRawDeviceIoControl:       proc "system" (this: ^IDevice, controlCode: u32, inputBufferSize: win.SIZE_T, inputBuffer: rawptr, outputBufferSize: win.SIZE_T, outputBuffer: rawptr, outputSize: ^win.SIZE_T) -> HRESULT,
+	ExecuteRawDeviceIoControl:       proc "system" (
+		this: ^IDevice,
+		controlCode: u32,
+		inputBufferSize: win.SIZE_T,
+		inputBuffer: rawptr,
+		outputBufferSize: win.SIZE_T,
+		outputBuffer: rawptr,
+		outputSize: ^win.SIZE_T,
+	) -> HRESULT,
 	AcquireExclusiveRawDeviceAccess: proc "system" (this: ^IDevice, timeoutInMicroseconds: u64) -> bool,
 	ReleaseExclusiveRawDeviceAccess: proc "system" (this: ^IDevice),
 }
@@ -1072,60 +1143,60 @@ IDevice_Vtable :: struct {
 IDispatcher_UUID_STRING :: "415EED2E-98CB-42C2-8F28-B94601074E31"
 IDispatcher_UUID := &IID{0x415EED2E, 0x98CB, 0x42C2, {0x8F, 0x28, 0xB9, 0x46, 0x01, 0x07, 0x4E, 0x31}}
 IDispatcher :: struct #raw_union {
-	#subtype iunknown: IUnknown,
+	#subtype iunknown:                 IUnknown,
 	using igameinputdispatcher_vtable: ^IDispatcher_Vtable,
 }
 IDispatcher_Vtable :: struct {
 	using iunknown_vtable: IUnknown_VTable,
-	Dispatch:       proc "system" (this: ^IDispatcher, quotaInMicroseconds: u64) -> bool,
-	OpenWaitHandle: proc "system" (this: ^IDispatcher, waitHandle: ^HANDLE) -> HRESULT,
+	Dispatch:              proc "system" (this: ^IDispatcher, quotaInMicroseconds: u64) -> bool,
+	OpenWaitHandle:        proc "system" (this: ^IDispatcher, waitHandle: ^HANDLE) -> HRESULT,
 }
 
 IForceFeedbackEffect_UUID_STRING :: "51BDA05E-F742-45D9-B085-9444AE48381D"
 IForceFeedbackEffect_UUID := &IID{0x51BDA05E, 0xF742, 0x45D9, {0xB0, 0x85, 0x94, 0x44, 0xAE, 0x48, 0x38, 0x1D}}
 IForceFeedbackEffect :: struct #raw_union {
-	#subtype iunknown: IUnknown,
+	#subtype iunknown:                          IUnknown,
 	using igameinputforcefeedbackeffect_vtable: ^IForceFeedbackEffect_Vtable,
 }
 IForceFeedbackEffect_Vtable :: struct {
 	using iunknown_vtable: IUnknown_VTable,
-	GetDevice:     proc "system" (this: ^IForceFeedbackEffect, device: ^^IDevice),
-	GetMotorIndex: proc "system" (this: ^IForceFeedbackEffect) -> u32,
-	GetGain:       proc "system" (this: ^IForceFeedbackEffect) -> f32,
-	SetGain:       proc "system" (this: ^IForceFeedbackEffect, gain: f32),
-	GetParams:     proc "system" (this: ^IForceFeedbackEffect, params: ^ForceFeedbackParams),
-	SetParams:     proc "system" (this: ^IForceFeedbackEffect, params: ^ForceFeedbackParams) -> bool,
-	GetState:      proc "system" (this: ^IForceFeedbackEffect) -> FeedbackEffectState,
-	SetState:      proc "system" (this: ^IForceFeedbackEffect, state: FeedbackEffectState),
+	GetDevice:             proc "system" (this: ^IForceFeedbackEffect, device: ^^IDevice),
+	GetMotorIndex:         proc "system" (this: ^IForceFeedbackEffect) -> u32,
+	GetGain:               proc "system" (this: ^IForceFeedbackEffect) -> f32,
+	SetGain:               proc "system" (this: ^IForceFeedbackEffect, gain: f32),
+	GetParams:             proc "system" (this: ^IForceFeedbackEffect, params: ^ForceFeedbackParams),
+	SetParams:             proc "system" (this: ^IForceFeedbackEffect, params: ^ForceFeedbackParams) -> bool,
+	GetState:              proc "system" (this: ^IForceFeedbackEffect) -> FeedbackEffectState,
+	SetState:              proc "system" (this: ^IForceFeedbackEffect, state: FeedbackEffectState),
 }
 
 IRawDeviceReport_UUID_STRING :: "61F08CF1-1FFC-40CA-A2B8-E1AB8BC5B6DC"
 IRawDeviceReport_UUID := &IID{0x61F08CF1, 0x1FFC, 0x40CA, {0xA2, 0xB8, 0xE1, 0xAB, 0x8B, 0xC5, 0xB6, 0xDC}}
 IRawDeviceReport :: struct #raw_union {
-	#subtype iunknown: IUnknown,
+	#subtype iunknown:                      IUnknown,
 	using igameinputrawdevicereport_vtable: ^IRawDeviceReport_Vtable,
 }
 IRawDeviceReport_Vtable :: struct {
 	using iunknown_vtable: IUnknown_VTable,
-	GetDevice:      proc "system" (this: ^IRawDeviceReport, device: ^^IDevice),
-	GetReportInfo:  proc "system" (this: ^IRawDeviceReport) -> ^RawDeviceReportInfo,
-	GetRawDataSize: proc "system" (this: ^IRawDeviceReport) -> win.SIZE_T,
-	GetRawData:     proc "system" (this: ^IRawDeviceReport, bufferSize: win.SIZE_T, buffer: rawptr) -> win.SIZE_T,
-	SetRawData:     proc "system" (this: ^IRawDeviceReport, bufferSize: win.SIZE_T, buffer: rawptr) -> bool,
-	GetItemValue:   proc "system" (this: ^IRawDeviceReport, itemIndex: u32, value: ^u64) -> bool,
-	SetItemValue:   proc "system" (this: ^IRawDeviceReport, itemIndex: u32, value: u64) -> bool,
-	ResetItemValue: proc "system" (this: ^IRawDeviceReport, itemIndex: u32) -> bool,
-	ResetAllItems:  proc "system" (this: ^IRawDeviceReport) -> bool,
+	GetDevice:             proc "system" (this: ^IRawDeviceReport, device: ^^IDevice),
+	GetReportInfo:         proc "system" (this: ^IRawDeviceReport) -> ^RawDeviceReportInfo,
+	GetRawDataSize:        proc "system" (this: ^IRawDeviceReport) -> win.SIZE_T,
+	GetRawData:            proc "system" (this: ^IRawDeviceReport, bufferSize: win.SIZE_T, buffer: rawptr) -> win.SIZE_T,
+	SetRawData:            proc "system" (this: ^IRawDeviceReport, bufferSize: win.SIZE_T, buffer: rawptr) -> bool,
+	GetItemValue:          proc "system" (this: ^IRawDeviceReport, itemIndex: u32, value: ^u64) -> bool,
+	SetItemValue:          proc "system" (this: ^IRawDeviceReport, itemIndex: u32, value: u64) -> bool,
+	ResetItemValue:        proc "system" (this: ^IRawDeviceReport, itemIndex: u32) -> bool,
+	ResetAllItems:         proc "system" (this: ^IRawDeviceReport) -> bool,
 }
 
-@(default_calling_convention="system", link_prefix="GameInput")
+@(default_calling_convention = "system", link_prefix = "GameInput")
 foreign wgi {
 	Create :: proc(gameInput: ^^IGameInput) -> HRESULT ---
 }
 
-DEVICE_DISCONNECTED                   :: HRESULT(-0x7C75FFFF)
-DEVICE_NOT_FOUND                      :: HRESULT(-0x7C75FFFE)
-READING_NOT_FOUND                     :: HRESULT(-0x7C75FFFD)
-REFERENCE_READING_TOO_OLD             :: HRESULT(-0x7C75FFFC)
-TIMESTAMP_OUT_OF_RANGE                :: HRESULT(-0x7C75FFFB)
+DEVICE_DISCONNECTED :: HRESULT(-0x7C75FFFF)
+DEVICE_NOT_FOUND :: HRESULT(-0x7C75FFFE)
+READING_NOT_FOUND :: HRESULT(-0x7C75FFFD)
+REFERENCE_READING_TOO_OLD :: HRESULT(-0x7C75FFFC)
+TIMESTAMP_OUT_OF_RANGE :: HRESULT(-0x7C75FFFB)
 INSUFFICIENT_FORCE_FEEDBACK_RESOURCES :: HRESULT(-0x7C75FFFA)

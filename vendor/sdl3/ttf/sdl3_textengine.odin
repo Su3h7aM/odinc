@@ -42,7 +42,7 @@ TextData :: struct {
 	num_ops:             c.int,
 	ops:                 [^]DrawOperation `fmt:"v,num_ops"`,
 	num_clusters:        c.int,
-	clusters:            [^]SubString     `fmt:"v,num_clusters"`,
+	clusters:            [^]SubString `fmt:"v,num_clusters"`,
 	props:               SDL.PropertiesID,
 	needs_engine_update: bool,
 	engine:              ^TextEngine,
@@ -56,7 +56,4 @@ TextEngine :: struct {
 	DestroyText: proc "c" (userdata: rawptr, Textext: ^Text),
 }
 
-#assert(
-	(size_of(TextEngine) == 16 && size_of(rawptr) == 4) ||
-	(size_of(TextEngine) == 32 && size_of(rawptr) == 8),
-)
+#assert((size_of(TextEngine) == 16 && size_of(rawptr) == 4) || (size_of(TextEngine) == 32 && size_of(rawptr) == 8))

@@ -5,72 +5,71 @@ package darwin_Metal
 import "base:intrinsics"
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class="MTLLibrary")
+@(objc_class = "MTLLibrary")
 Library :: struct {
 	using _: intrinsics.objc_object,
 	using _: NS.ObjectProtocol,
 }
 
 foreign lib {
-	@(objc_type=Library, objc_selector="newFunctionWithName:", objc_name="newFunctionWithName_")
+	@(objc_type = Library, objc_selector = "newFunctionWithName:", objc_name = "newFunctionWithName_")
 	Library_newFunctionWithName_ :: proc(self: ^Library, functionName: ^NS.String) -> ^Function ---
 
-	@(objc_type=Library, objc_selector="newFunctionWithName:constantValues:error:", objc_name="newFunctionWithName_constantValues_error")
+	@(objc_type = Library, objc_selector = "newFunctionWithName:constantValues:error:", objc_name = "newFunctionWithName_constantValues_error")
 	Library_newFunctionWithName_constantValues_error :: proc(self: ^Library, name: ^NS.String, constantValues: ^FunctionConstantValues, error: ^^NS.Error) -> ^Function ---
 
-	@(objc_type=Library, objc_selector="newFunctionWithName:constantValues:completionHandler:", objc_name="newFunctionWithName_constantValues_completionHandler")
-	Library_newFunctionWithName_constantValues_completionHandler :: proc(self: ^Library, name: ^NS.String, constantValues: ^FunctionConstantValues, completionHandler: ^Objc_Block(proc "c" ( function: ^Function, error: ^NS.Error ))) ---
+	@(objc_type = Library, objc_selector = "newFunctionWithName:constantValues:completionHandler:", objc_name = "newFunctionWithName_constantValues_completionHandler")
+	Library_newFunctionWithName_constantValues_completionHandler :: proc(self: ^Library, name: ^NS.String, constantValues: ^FunctionConstantValues, completionHandler: ^Objc_Block(proc "c" (function: ^Function, error: ^NS.Error))) ---
 
-	@(objc_type=Library, objc_selector="reflectionForFunctionWithName:", objc_name="reflectionForFunctionWithName")
+	@(objc_type = Library, objc_selector = "reflectionForFunctionWithName:", objc_name = "reflectionForFunctionWithName")
 	Library_reflectionForFunctionWithName :: proc(self: ^Library, functionName: ^NS.String) -> ^FunctionReflection ---
 
-	@(objc_type=Library, objc_selector="newFunctionWithDescriptor:completionHandler:", objc_name="newFunctionWithDescriptor_completionHandler")
-	Library_newFunctionWithDescriptor_completionHandler :: proc(self: ^Library, descriptor: ^FunctionDescriptor, completionHandler: ^Objc_Block(proc "c" ( function: ^Function, error: ^NS.Error ))) ---
+	@(objc_type = Library, objc_selector = "newFunctionWithDescriptor:completionHandler:", objc_name = "newFunctionWithDescriptor_completionHandler")
+	Library_newFunctionWithDescriptor_completionHandler :: proc(self: ^Library, descriptor: ^FunctionDescriptor, completionHandler: ^Objc_Block(proc "c" (function: ^Function, error: ^NS.Error))) ---
 
-	@(objc_type=Library, objc_selector="newFunctionWithDescriptor:error:", objc_name="newFunctionWithDescriptor_error")
+	@(objc_type = Library, objc_selector = "newFunctionWithDescriptor:error:", objc_name = "newFunctionWithDescriptor_error")
 	Library_newFunctionWithDescriptor_error :: proc(self: ^Library, descriptor: ^FunctionDescriptor, error: ^^NS.Error) -> ^Function ---
 
-	@(objc_type=Library, objc_selector="newIntersectionFunctionWithDescriptor:completionHandler:", objc_name="newIntersectionFunctionWithDescriptor_completionHandler")
-	Library_newIntersectionFunctionWithDescriptor_completionHandler :: proc(self: ^Library, descriptor: ^IntersectionFunctionDescriptor, completionHandler: ^Objc_Block(proc "c" ( function: ^Function, error: ^NS.Error ))) ---
+	@(objc_type = Library, objc_selector = "newIntersectionFunctionWithDescriptor:completionHandler:", objc_name = "newIntersectionFunctionWithDescriptor_completionHandler")
+	Library_newIntersectionFunctionWithDescriptor_completionHandler :: proc(self: ^Library, descriptor: ^IntersectionFunctionDescriptor, completionHandler: ^Objc_Block(proc "c" (function: ^Function, error: ^NS.Error))) ---
 
-	@(objc_type=Library, objc_selector="newIntersectionFunctionWithDescriptor:error:", objc_name="newIntersectionFunctionWithDescriptor_error")
+	@(objc_type = Library, objc_selector = "newIntersectionFunctionWithDescriptor:error:", objc_name = "newIntersectionFunctionWithDescriptor_error")
 	Library_newIntersectionFunctionWithDescriptor_error :: proc(self: ^Library, descriptor: ^IntersectionFunctionDescriptor, error: ^^NS.Error) -> ^Function ---
 
-	@(objc_type=Library, objc_selector="label", objc_name="label")
+	@(objc_type = Library, objc_selector = "label", objc_name = "label")
 	Library_label :: proc(self: ^Library) -> ^NS.String ---
 
-	@(objc_type=Library, objc_selector="setLabel:", objc_name="setLabel")
+	@(objc_type = Library, objc_selector = "setLabel:", objc_name = "setLabel")
 	Library_setLabel :: proc(self: ^Library, label: ^NS.String) ---
 
-	@(objc_type=Library, objc_selector="device", objc_name="device")
+	@(objc_type = Library, objc_selector = "device", objc_name = "device")
 	Library_device :: proc(self: ^Library) -> ^Device ---
 
-	@(objc_type=Library, objc_selector="functionNames", objc_name="functionNames")
+	@(objc_type = Library, objc_selector = "functionNames", objc_name = "functionNames")
 	Library_functionNames :: proc(self: ^Library) -> ^NS.Array ---
 
-	@(objc_type=Library, objc_selector="type", objc_name="type")
+	@(objc_type = Library, objc_selector = "type", objc_name = "type")
 	Library_type :: proc(self: ^Library) -> LibraryType ---
 
-	@(objc_type=Library, objc_selector="installName", objc_name="installName")
+	@(objc_type = Library, objc_selector = "installName", objc_name = "installName")
 	Library_installName :: proc(self: ^Library) -> ^NS.String ---
 }
 
 
-
-@(objc_type=Library, objc_name="newFunctionWithName")
+@(objc_type = Library, objc_name = "newFunctionWithName")
 Library_newFunctionWithName :: proc {
 	Library_newFunctionWithName_,
 	Library_newFunctionWithName_constantValues,
 	Library_newFunctionWithName_constantValues_completionHandler,
 }
 
-@(objc_type=Library, objc_name="newFunctionWithDescriptor")
+@(objc_type = Library, objc_name = "newFunctionWithDescriptor")
 Library_newFunctionWithDescriptor :: proc {
 	Library_newFunctionWithDescriptor_completionHandler,
 	Library_newFunctionWithDescriptor_,
 }
 
-@(objc_type=Library, objc_name="newIntersectionFunctionWithDescriptor")
+@(objc_type = Library, objc_name = "newIntersectionFunctionWithDescriptor")
 Library_newIntersectionFunctionWithDescriptor :: proc {
 	Library_newIntersectionFunctionWithDescriptor_completionHandler,
 	Library_newIntersectionFunctionWithDescriptor_,
@@ -79,119 +78,132 @@ Library_newIntersectionFunctionWithDescriptor :: proc {
 
 // Odin-style wrappers for methods with a trailing `^^Error` out-parameter
 
-@(objc_type=Library, objc_name="newFunctionWithName_constantValues")
-Library_newFunctionWithName_constantValues :: #force_inline proc "c" (self: ^Library, name: ^NS.String, constantValues: ^FunctionConstantValues) -> (res: ^Function, err: ^NS.Error) {
+@(objc_type = Library, objc_name = "newFunctionWithName_constantValues")
+Library_newFunctionWithName_constantValues :: #force_inline proc "c" (
+	self: ^Library,
+	name: ^NS.String,
+	constantValues: ^FunctionConstantValues,
+) -> (
+	res: ^Function,
+	err: ^NS.Error,
+) {
 	res = Library_newFunctionWithName_constantValues_error(self, name, constantValues, &err)
 	return
 }
 
-@(objc_type=Library, objc_name="newFunctionWithDescriptor_")
+@(objc_type = Library, objc_name = "newFunctionWithDescriptor_")
 Library_newFunctionWithDescriptor_ :: #force_inline proc "c" (self: ^Library, descriptor: ^FunctionDescriptor) -> (res: ^Function, err: ^NS.Error) {
 	res = Library_newFunctionWithDescriptor_error(self, descriptor, &err)
 	return
 }
 
-@(objc_type=Library, objc_name="newIntersectionFunctionWithDescriptor_")
-Library_newIntersectionFunctionWithDescriptor_ :: #force_inline proc "c" (self: ^Library, descriptor: ^IntersectionFunctionDescriptor) -> (res: ^Function, err: ^NS.Error) {
+@(objc_type = Library, objc_name = "newIntersectionFunctionWithDescriptor_")
+Library_newIntersectionFunctionWithDescriptor_ :: #force_inline proc "c" (
+	self: ^Library,
+	descriptor: ^IntersectionFunctionDescriptor,
+) -> (
+	res: ^Function,
+	err: ^NS.Error,
+) {
 	res = Library_newIntersectionFunctionWithDescriptor_error(self, descriptor, &err)
 	return
 }
 
 
-@(objc_class="MTLCompileOptions", objc_superclass=NS.Object)
+@(objc_class = "MTLCompileOptions", objc_superclass = NS.Object)
 CompileOptions :: struct {
 	using _: NS.Object,
 	using _: NS.Copying,
 }
 
 foreign lib {
-	@(objc_type=CompileOptions, objc_selector="preprocessorMacros", objc_name="preprocessorMacros")
+	@(objc_type = CompileOptions, objc_selector = "preprocessorMacros", objc_name = "preprocessorMacros")
 	CompileOptions_preprocessorMacros :: proc(self: ^CompileOptions) -> ^NS.Dictionary ---
 
-	@(objc_type=CompileOptions, objc_selector="setPreprocessorMacros:", objc_name="setPreprocessorMacros")
+	@(objc_type = CompileOptions, objc_selector = "setPreprocessorMacros:", objc_name = "setPreprocessorMacros")
 	CompileOptions_setPreprocessorMacros :: proc(self: ^CompileOptions, preprocessorMacros: ^NS.Dictionary) ---
 
-	@(objc_type=CompileOptions, objc_selector="fastMathEnabled", objc_name="fastMathEnabled")
+	@(objc_type = CompileOptions, objc_selector = "fastMathEnabled", objc_name = "fastMathEnabled")
 	CompileOptions_fastMathEnabled :: proc(self: ^CompileOptions) -> bool ---
 
-	@(objc_type=CompileOptions, objc_selector="setFastMathEnabled:", objc_name="setFastMathEnabled")
+	@(objc_type = CompileOptions, objc_selector = "setFastMathEnabled:", objc_name = "setFastMathEnabled")
 	CompileOptions_setFastMathEnabled :: proc(self: ^CompileOptions, fastMathEnabled: bool) ---
 
-	@(objc_type=CompileOptions, objc_selector="mathMode", objc_name="mathMode")
+	@(objc_type = CompileOptions, objc_selector = "mathMode", objc_name = "mathMode")
 	CompileOptions_mathMode :: proc(self: ^CompileOptions) -> MathMode ---
 
-	@(objc_type=CompileOptions, objc_selector="setMathMode:", objc_name="setMathMode")
+	@(objc_type = CompileOptions, objc_selector = "setMathMode:", objc_name = "setMathMode")
 	CompileOptions_setMathMode :: proc(self: ^CompileOptions, mathMode: MathMode) ---
 
-	@(objc_type=CompileOptions, objc_selector="mathFloatingPointFunctions", objc_name="mathFloatingPointFunctions")
+	@(objc_type = CompileOptions, objc_selector = "mathFloatingPointFunctions", objc_name = "mathFloatingPointFunctions")
 	CompileOptions_mathFloatingPointFunctions :: proc(self: ^CompileOptions) -> MathFloatingPointFunctions ---
 
-	@(objc_type=CompileOptions, objc_selector="setMathFloatingPointFunctions:", objc_name="setMathFloatingPointFunctions")
+	@(objc_type = CompileOptions, objc_selector = "setMathFloatingPointFunctions:", objc_name = "setMathFloatingPointFunctions")
 	CompileOptions_setMathFloatingPointFunctions :: proc(self: ^CompileOptions, mathFloatingPointFunctions: MathFloatingPointFunctions) ---
 
-	@(objc_type=CompileOptions, objc_selector="languageVersion", objc_name="languageVersion")
+	@(objc_type = CompileOptions, objc_selector = "languageVersion", objc_name = "languageVersion")
 	CompileOptions_languageVersion :: proc(self: ^CompileOptions) -> LanguageVersion ---
 
-	@(objc_type=CompileOptions, objc_selector="setLanguageVersion:", objc_name="setLanguageVersion")
+	@(objc_type = CompileOptions, objc_selector = "setLanguageVersion:", objc_name = "setLanguageVersion")
 	CompileOptions_setLanguageVersion :: proc(self: ^CompileOptions, languageVersion: LanguageVersion) ---
 
-	@(objc_type=CompileOptions, objc_selector="libraryType", objc_name="libraryType")
+	@(objc_type = CompileOptions, objc_selector = "libraryType", objc_name = "libraryType")
 	CompileOptions_libraryType :: proc(self: ^CompileOptions) -> LibraryType ---
 
-	@(objc_type=CompileOptions, objc_selector="setLibraryType:", objc_name="setLibraryType")
+	@(objc_type = CompileOptions, objc_selector = "setLibraryType:", objc_name = "setLibraryType")
 	CompileOptions_setLibraryType :: proc(self: ^CompileOptions, libraryType: LibraryType) ---
 
-	@(objc_type=CompileOptions, objc_selector="installName", objc_name="installName")
+	@(objc_type = CompileOptions, objc_selector = "installName", objc_name = "installName")
 	CompileOptions_installName :: proc(self: ^CompileOptions) -> ^NS.String ---
 
-	@(objc_type=CompileOptions, objc_selector="setInstallName:", objc_name="setInstallName")
+	@(objc_type = CompileOptions, objc_selector = "setInstallName:", objc_name = "setInstallName")
 	CompileOptions_setInstallName :: proc(self: ^CompileOptions, installName: ^NS.String) ---
 
-	@(objc_type=CompileOptions, objc_selector="libraries", objc_name="libraries")
+	@(objc_type = CompileOptions, objc_selector = "libraries", objc_name = "libraries")
 	CompileOptions_libraries :: proc(self: ^CompileOptions) -> ^NS.Array ---
 
-	@(objc_type=CompileOptions, objc_selector="setLibraries:", objc_name="setLibraries")
+	@(objc_type = CompileOptions, objc_selector = "setLibraries:", objc_name = "setLibraries")
 	CompileOptions_setLibraries :: proc(self: ^CompileOptions, libraries: ^NS.Array) ---
 
-	@(objc_type=CompileOptions, objc_selector="preserveInvariance", objc_name="preserveInvariance")
+	@(objc_type = CompileOptions, objc_selector = "preserveInvariance", objc_name = "preserveInvariance")
 	CompileOptions_preserveInvariance :: proc(self: ^CompileOptions) -> bool ---
 
-	@(objc_type=CompileOptions, objc_selector="setPreserveInvariance:", objc_name="setPreserveInvariance")
+	@(objc_type = CompileOptions, objc_selector = "setPreserveInvariance:", objc_name = "setPreserveInvariance")
 	CompileOptions_setPreserveInvariance :: proc(self: ^CompileOptions, preserveInvariance: bool) ---
 
-	@(objc_type=CompileOptions, objc_selector="optimizationLevel", objc_name="optimizationLevel")
+	@(objc_type = CompileOptions, objc_selector = "optimizationLevel", objc_name = "optimizationLevel")
 	CompileOptions_optimizationLevel :: proc(self: ^CompileOptions) -> LibraryOptimizationLevel ---
 
-	@(objc_type=CompileOptions, objc_selector="setOptimizationLevel:", objc_name="setOptimizationLevel")
+	@(objc_type = CompileOptions, objc_selector = "setOptimizationLevel:", objc_name = "setOptimizationLevel")
 	CompileOptions_setOptimizationLevel :: proc(self: ^CompileOptions, optimizationLevel: LibraryOptimizationLevel) ---
 
-	@(objc_type=CompileOptions, objc_selector="compileSymbolVisibility", objc_name="compileSymbolVisibility")
+	@(objc_type = CompileOptions, objc_selector = "compileSymbolVisibility", objc_name = "compileSymbolVisibility")
 	CompileOptions_compileSymbolVisibility :: proc(self: ^CompileOptions) -> CompileSymbolVisibility ---
 
-	@(objc_type=CompileOptions, objc_selector="setCompileSymbolVisibility:", objc_name="setCompileSymbolVisibility")
+	@(objc_type = CompileOptions, objc_selector = "setCompileSymbolVisibility:", objc_name = "setCompileSymbolVisibility")
 	CompileOptions_setCompileSymbolVisibility :: proc(self: ^CompileOptions, compileSymbolVisibility: CompileSymbolVisibility) ---
 
-	@(objc_type=CompileOptions, objc_selector="allowReferencingUndefinedSymbols", objc_name="allowReferencingUndefinedSymbols")
+	@(objc_type = CompileOptions, objc_selector = "allowReferencingUndefinedSymbols", objc_name = "allowReferencingUndefinedSymbols")
 	CompileOptions_allowReferencingUndefinedSymbols :: proc(self: ^CompileOptions) -> bool ---
 
-	@(objc_type=CompileOptions, objc_selector="setAllowReferencingUndefinedSymbols:", objc_name="setAllowReferencingUndefinedSymbols")
+	@(objc_type = CompileOptions, objc_selector = "setAllowReferencingUndefinedSymbols:", objc_name = "setAllowReferencingUndefinedSymbols")
 	CompileOptions_setAllowReferencingUndefinedSymbols :: proc(self: ^CompileOptions, allowReferencingUndefinedSymbols: bool) ---
 
-	@(objc_type=CompileOptions, objc_selector="maxTotalThreadsPerThreadgroup", objc_name="maxTotalThreadsPerThreadgroup")
+	@(objc_type = CompileOptions, objc_selector = "maxTotalThreadsPerThreadgroup", objc_name = "maxTotalThreadsPerThreadgroup")
 	CompileOptions_maxTotalThreadsPerThreadgroup :: proc(self: ^CompileOptions) -> NS.UInteger ---
 
-	@(objc_type=CompileOptions, objc_selector="setMaxTotalThreadsPerThreadgroup:", objc_name="setMaxTotalThreadsPerThreadgroup")
+	@(objc_type = CompileOptions, objc_selector = "setMaxTotalThreadsPerThreadgroup:", objc_name = "setMaxTotalThreadsPerThreadgroup")
 	CompileOptions_setMaxTotalThreadsPerThreadgroup :: proc(self: ^CompileOptions, maxTotalThreadsPerThreadgroup: NS.UInteger) ---
 
-	@(objc_type=CompileOptions, objc_selector="requiredThreadsPerThreadgroup", objc_name="requiredThreadsPerThreadgroup")
+	@(objc_type = CompileOptions, objc_selector = "requiredThreadsPerThreadgroup", objc_name = "requiredThreadsPerThreadgroup")
 	CompileOptions_requiredThreadsPerThreadgroup :: proc(self: ^CompileOptions) -> Size ---
 
-	@(objc_type=CompileOptions, objc_selector="setRequiredThreadsPerThreadgroup:", objc_name="setRequiredThreadsPerThreadgroup")
+	@(objc_type = CompileOptions, objc_selector = "setRequiredThreadsPerThreadgroup:", objc_name = "setRequiredThreadsPerThreadgroup")
 	CompileOptions_setRequiredThreadsPerThreadgroup :: proc(self: ^CompileOptions, requiredThreadsPerThreadgroup: Size) ---
 
-	@(objc_type=CompileOptions, objc_selector="enableLogging", objc_name="enableLogging")
+	@(objc_type = CompileOptions, objc_selector = "enableLogging", objc_name = "enableLogging")
 	CompileOptions_enableLogging :: proc(self: ^CompileOptions) -> bool ---
 
-	@(objc_type=CompileOptions, objc_selector="setEnableLogging:", objc_name="setEnableLogging")
+	@(objc_type = CompileOptions, objc_selector = "setEnableLogging:", objc_name = "setEnableLogging")
 	CompileOptions_setEnableLogging :: proc(self: ^CompileOptions, enableLogging: bool) ---
 }

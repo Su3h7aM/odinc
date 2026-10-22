@@ -59,31 +59,28 @@ JointId :: struct {
 /// Use these to make your identifiers null.
 /// You may also use zero initialization to get null.
 nullWorldId :: WorldId{}
-nullBodyId  :: BodyId{}
+nullBodyId :: BodyId{}
 nullShapeId :: ShapeId{}
 nullChainId :: ChainId{}
 nullJointId :: JointId{}
 
 /// Macro to determine if any id is null.
-IS_NULL :: #force_inline proc "c" (id: $T) -> bool
-	where intrinsics.type_is_struct(T),
-	      intrinsics.type_has_field(T, "index1") {
+IS_NULL :: #force_inline proc "c" (id: $T) -> bool where intrinsics.type_is_struct(T),
+	intrinsics.type_has_field(T, "index1") {
 	return id.index1 == 0
 }
 
 /// Macro to determine if any id is non-null.
-IS_NON_NULL :: #force_inline proc "c" (id: $T) -> bool
-	where intrinsics.type_is_struct(T),
-	      intrinsics.type_has_field(T, "index1") {
+IS_NON_NULL :: #force_inline proc "c" (id: $T) -> bool where intrinsics.type_is_struct(T),
+	intrinsics.type_has_field(T, "index1") {
 	return id.index1 != 0
 }
 
 /// Compare two ids for equality. Doesn't work for b2WorldId.
-ID_EQUALS :: #force_inline proc "c" (id1, id2: $T) -> bool
-	where intrinsics.type_is_struct(T),
-	      intrinsics.type_has_field(T, "index1"),
-	      intrinsics.type_has_field(T, "world0"),
-	      intrinsics.type_has_field(T, "generation") {
+ID_EQUALS :: #force_inline proc "c" (id1, id2: $T) -> bool where intrinsics.type_is_struct(T),
+	intrinsics.type_has_field(T, "index1"),
+	intrinsics.type_has_field(T, "world0"),
+	intrinsics.type_has_field(T, "generation") {
 	return id1.index1 == id2.index1 && id1.world0 == id2.world0 && id1.generation == id2.generation
 }
 
@@ -94,8 +91,5 @@ StoreWorldId :: #force_inline proc "c" (id: WorldId) -> u32 {
 
 // Load a u32 into a world id.
 LoadWorldId :: #force_inline proc "c" (x: u32) -> WorldId {
-	return {
-		u16(x >> 16),
-		u16(x),
-	}
+	return {u16(x >> 16), u16(x)}
 }

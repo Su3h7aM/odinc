@@ -194,7 +194,7 @@ SegmentDistanceResult :: struct {
 // Users should generally just zero initialize this structure for each call.
 SimplexCache :: struct {
 	// The number of stored simplex points
-	count: u16,
+	count:  u16,
 
 	// The cached simplex indices on shape A
 	indexA: [3]u8 `fmt:"v,count"`,
@@ -208,10 +208,10 @@ emptySimplexCache :: SimplexCache{}
 // Input for b2ShapeDistance
 DistanceInput :: struct {
 	// The proxy for shape A
-	proxyA: ShapeProxy,
+	proxyA:     ShapeProxy,
 
 	// The proxy for shape B
-	proxyB: ShapeProxy,
+	proxyB:     ShapeProxy,
 
 	// The world transform for shape A
 	transformA: Transform,
@@ -220,7 +220,7 @@ DistanceInput :: struct {
 	transformB: Transform,
 
 	// Should the proxy radius be considered?
-	useRadii: bool,
+	useRadii:   bool,
 }
 
 // Output for b2ShapeDistance
@@ -228,17 +228,17 @@ DistanceOutput :: struct {
 	pointA:       Vec2, // Closest point on shapeA
 	pointB:       Vec2, // Closest point on shapeB
 	normal:       Vec2, // Normal vector that points from A to B. Invalid if distance is zero.
-	distance:     f32,  // The final distance, zero if overlapped
-	iterations:   i32,  // Number of GJK iterations used
-	simplexCount: i32,  // The number of simplexes stored in the simplex array
+	distance:     f32, // The final distance, zero if overlapped
+	iterations:   i32, // Number of GJK iterations used
+	simplexCount: i32, // The number of simplexes stored in the simplex array
 }
 
 // Simplex vertex for debugging the GJK algorithm
 SimplexVertex :: struct {
-	wA:     Vec2,  // support point in proxyA
-	wB:     Vec2,  // support point in proxyB
-	w:      Vec2,  // wB - wA
-	a:      f32,   // barycentric coordinate for closest point
+	wA:     Vec2, // support point in proxyA
+	wB:     Vec2, // support point in proxyB
+	w:      Vec2, // wB - wA
+	a:      f32, // barycentric coordinate for closest point
 	indexA: c.int, // wA index
 	indexB: c.int, // wB index
 }
@@ -246,7 +246,7 @@ SimplexVertex :: struct {
 // Simplex from the GJK algorithm
 Simplex :: struct {
 	v1, v2, v3: SimplexVertex `fmt:"v,count"`, // vertices
-	count: c.int, // number of valid vertices
+	count:      c.int, // number of valid vertices
 }
 
 // Input parameters for b2ShapeCast
@@ -268,17 +268,17 @@ Sweep :: struct {
 	localCenter: Vec2, // Local center of mass position
 	c1:          Vec2, // Starting center of mass world position
 	c2:          Vec2, // Ending center of mass world position
-	q1:          Rot,  // Starting world rotation
-	q2:          Rot,  // Ending world rotation
+	q1:          Rot, // Starting world rotation
+	q2:          Rot, // Ending world rotation
 }
 
 // Input parameters for b2TimeOfImpact
 TOIInput :: struct {
 	proxyA:      ShapeProxy, // The proxy for shape A
 	proxyB:      ShapeProxy, // The proxy for shape B
-	sweepA:      Sweep,      // The movement of shape A
-	sweepB:      Sweep,      // The movement of shape B
-	maxFraction: f32,        // Defines the sweep interval [0, maxFraction]
+	sweepA:      Sweep, // The movement of shape A
+	sweepB:      Sweep, // The movement of shape B
+	maxFraction: f32, // Defines the sweep interval [0, maxFraction]
 }
 
 // Describes the TOI output
@@ -293,9 +293,8 @@ TOIState :: enum c.int {
 // Output parameters for b2TimeOfImpact.
 TOIOutput :: struct {
 	state:    TOIState, // The type of result
-	fraction: f32,      // The sweep time of the collision
+	fraction: f32, // The sweep time of the collision
 }
-
 
 
 /**
@@ -311,39 +310,39 @@ TOIOutput :: struct {
 ManifoldPoint :: struct {
 	// Location of the contact point in world space. Subject to precision loss at large coordinates.
 	//	@note Should only be used for debugging.
-	point:            Vec2,
+	point:              Vec2,
 
 	// Location of the contact point relative to shapeA's origin in world space
 	//	@note When used internally to the Box2D solver, this is relative to the body center of mass.
-	anchorA:          Vec2,
+	anchorA:            Vec2,
 
 	// Location of the contact point relative to shapeB's origin in world space
 	// @note When used internally to the Box2D solver, this is relative to the body center of mass.
-	anchorB:          Vec2,
+	anchorB:            Vec2,
 
 	// The separation of the contact point, negative if penetrating
-	separation:       f32,
+	separation:         f32,
 
 	// The total normal impulse applied across sub-stepping and restitution. This is important
 	// to identify speculative contact points that had an interaction in the time step.
 	totalNormalImpulse: f32,
 
 	// The friction impulse
-	tangentImpulse:   f32,
+	tangentImpulse:     f32,
 
 	// The maximum normal impulse applied during sub-stepping
 	//	todo not sure this is needed
-	maxNormalImpulse: f32,
+	maxNormalImpulse:   f32,
 
 	// Relative normal velocity pre-solve. Used for hit events. If the normal impulse is
 	// zero then there was no hit. Negative means shapes are approaching.
-	normalVelocity:   f32,
+	normalVelocity:     f32,
 
 	// Uniquely identifies a contact point between two shapes
-	id:               u16,
+	id:                 u16,
 
 	// Did this contact point exist the previous step?
-	persisted:        bool,
+	persisted:          bool,
 }
 
 // A contact manifold describes the contact points between colliding shapes.
@@ -429,7 +428,7 @@ TreeStats :: struct {
 
 // This function receives proxies found in the AABB query.
 // @return true if the query should continue
-TreeQueryCallbackFcn     :: #type proc "c" (proxyId: i32, userData: u64, ctx: rawptr) -> bool
+TreeQueryCallbackFcn :: #type proc "c" (proxyId: i32, userData: u64, ctx: rawptr) -> bool
 
 // This function receives clipped ray cast input for a proxy. The function
 // returns the new ray fraction.
@@ -444,7 +443,7 @@ TreeShapeCastCallbackFcn :: #type proc "c" (#by_ptr input: ShapeCastInput, proxy
 // - return a value of 0 to terminate the ray cast
 // - return a value less than input->maxFraction to clip the ray
 // - return a value of input->maxFraction to continue the ray cast without clipping
-TreeRayCastCallbackFcn   :: #type proc "c" (#by_ptr input: RayCastInput, proxyId: i32, userData: u64, ctx: rawptr) -> f32
+TreeRayCastCallbackFcn :: #type proc "c" (#by_ptr input: RayCastInput, proxyId: i32, userData: u64, ctx: rawptr) -> f32
 
 /**@}*/
 

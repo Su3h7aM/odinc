@@ -5,119 +5,128 @@ package darwin_Metal
 import "base:intrinsics"
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class="MTLBuffer")
+@(objc_class = "MTLBuffer")
 Buffer :: struct {
 	using _: intrinsics.objc_object,
 	using _: Resource,
 }
 
 foreign lib {
-	@(objc_type=Buffer, objc_selector="contents", objc_name="contents")
+	@(objc_type = Buffer, objc_selector = "contents", objc_name = "contents")
 	Buffer_contents :: proc(self: ^Buffer) -> rawptr ---
 
-	@(objc_type=Buffer, objc_selector="didModifyRange:", objc_name="didModifyRange")
+	@(objc_type = Buffer, objc_selector = "didModifyRange:", objc_name = "didModifyRange")
 	Buffer_didModifyRange :: proc(self: ^Buffer, range: NS._NSRange) ---
 
-	@(objc_type=Buffer, objc_selector="newTextureWithDescriptor:offset:bytesPerRow:", objc_name="newTextureWithDescriptor")
+	@(objc_type = Buffer, objc_selector = "newTextureWithDescriptor:offset:bytesPerRow:", objc_name = "newTextureWithDescriptor")
 	Buffer_newTextureWithDescriptor :: proc(self: ^Buffer, descriptor: ^TextureDescriptor, offset: NS.UInteger, bytesPerRow: NS.UInteger) -> ^Texture ---
 
-	@(objc_type=Buffer, objc_selector="newTensorWithDescriptor:offset:error:", objc_name="newTensorWithDescriptor_error")
+	@(objc_type = Buffer, objc_selector = "newTensorWithDescriptor:offset:error:", objc_name = "newTensorWithDescriptor_error")
 	Buffer_newTensorWithDescriptor_error :: proc(self: ^Buffer, descriptor: ^TensorDescriptor, offset: NS.UInteger, error: ^^NS.Error) -> ^Tensor ---
 
-	@(objc_type=Buffer, objc_selector="addDebugMarker:range:", objc_name="addDebugMarker")
+	@(objc_type = Buffer, objc_selector = "addDebugMarker:range:", objc_name = "addDebugMarker")
 	Buffer_addDebugMarker :: proc(self: ^Buffer, marker: ^NS.String, range: NS._NSRange) ---
 
-	@(objc_type=Buffer, objc_selector="removeAllDebugMarkers", objc_name="removeAllDebugMarkers")
+	@(objc_type = Buffer, objc_selector = "removeAllDebugMarkers", objc_name = "removeAllDebugMarkers")
 	Buffer_removeAllDebugMarkers :: proc(self: ^Buffer) ---
 
 	when ODIN_PLATFORM_SUBTARGET == .Default {
-		@(objc_type=Buffer, objc_selector="newRemoteBufferViewForDevice:", objc_name="newRemoteBufferViewForDevice")
+		@(objc_type = Buffer, objc_selector = "newRemoteBufferViewForDevice:", objc_name = "newRemoteBufferViewForDevice")
 		Buffer_newRemoteBufferViewForDevice :: proc(self: ^Buffer, device: ^Device) -> ^Buffer ---
 	}
 
-	@(objc_type=Buffer, objc_selector="length", objc_name="length")
+	@(objc_type = Buffer, objc_selector = "length", objc_name = "length")
 	Buffer_length :: proc(self: ^Buffer) -> NS.UInteger ---
 
 	when ODIN_PLATFORM_SUBTARGET == .Default {
-		@(objc_type=Buffer, objc_selector="remoteStorageBuffer", objc_name="remoteStorageBuffer")
+		@(objc_type = Buffer, objc_selector = "remoteStorageBuffer", objc_name = "remoteStorageBuffer")
 		Buffer_remoteStorageBuffer :: proc(self: ^Buffer) -> ^Buffer ---
 	}
 
-	@(objc_type=Buffer, objc_selector="gpuAddress", objc_name="gpuAddress")
+	@(objc_type = Buffer, objc_selector = "gpuAddress", objc_name = "gpuAddress")
 	Buffer_gpuAddress :: proc(self: ^Buffer) -> GPUAddress ---
 
-	@(objc_type=Buffer, objc_selector="sparseBufferTier", objc_name="sparseBufferTier")
+	@(objc_type = Buffer, objc_selector = "sparseBufferTier", objc_name = "sparseBufferTier")
 	Buffer_sparseBufferTier :: proc(self: ^Buffer) -> BufferSparseTier ---
 }
 
 
 // Odin-style wrappers for methods with a trailing `^^Error` out-parameter
 
-@(objc_type=Buffer, objc_name="newTensorWithDescriptor")
-Buffer_newTensorWithDescriptor :: #force_inline proc "c" (self: ^Buffer, descriptor: ^TensorDescriptor, offset: NS.UInteger) -> (res: ^Tensor, err: ^NS.Error) {
+@(objc_type = Buffer, objc_name = "newTensorWithDescriptor")
+Buffer_newTensorWithDescriptor :: #force_inline proc "c" (
+	self: ^Buffer,
+	descriptor: ^TensorDescriptor,
+	offset: NS.UInteger,
+) -> (
+	res: ^Tensor,
+	err: ^NS.Error,
+) {
 	res = Buffer_newTensorWithDescriptor_error(self, descriptor, offset, &err)
 	return
 }
 
 
-@(objc_class="MTLBufferBinding")
+@(objc_class = "MTLBufferBinding")
 BufferBinding :: struct {
 	using _: intrinsics.objc_object,
 	using _: Binding,
 }
 
 foreign lib {
-	@(objc_type=BufferBinding, objc_selector="bufferAlignment", objc_name="bufferAlignment")
+	@(objc_type = BufferBinding, objc_selector = "bufferAlignment", objc_name = "bufferAlignment")
 	BufferBinding_bufferAlignment :: proc(self: ^BufferBinding) -> NS.UInteger ---
 
-	@(objc_type=BufferBinding, objc_selector="bufferDataSize", objc_name="bufferDataSize")
+	@(objc_type = BufferBinding, objc_selector = "bufferDataSize", objc_name = "bufferDataSize")
 	BufferBinding_bufferDataSize :: proc(self: ^BufferBinding) -> NS.UInteger ---
 
-	@(objc_type=BufferBinding, objc_selector="bufferDataType", objc_name="bufferDataType")
+	@(objc_type = BufferBinding, objc_selector = "bufferDataType", objc_name = "bufferDataType")
 	BufferBinding_bufferDataType :: proc(self: ^BufferBinding) -> DataType ---
 
-	@(objc_type=BufferBinding, objc_selector="bufferStructType", objc_name="bufferStructType")
+	@(objc_type = BufferBinding, objc_selector = "bufferStructType", objc_name = "bufferStructType")
 	BufferBinding_bufferStructType :: proc(self: ^BufferBinding) -> ^StructType ---
 
-	@(objc_type=BufferBinding, objc_selector="bufferPointerType", objc_name="bufferPointerType")
+	@(objc_type = BufferBinding, objc_selector = "bufferPointerType", objc_name = "bufferPointerType")
 	BufferBinding_bufferPointerType :: proc(self: ^BufferBinding) -> ^PointerType ---
 }
 
 
-@(objc_class="MTLBufferLayoutDescriptor", objc_superclass=NS.Object)
+@(objc_class = "MTLBufferLayoutDescriptor", objc_superclass = NS.Object)
 BufferLayoutDescriptor :: struct {
 	using _: NS.Object,
 	using _: NS.Copying,
 }
 
 foreign lib {
-	@(objc_type=BufferLayoutDescriptor, objc_selector="stride", objc_name="stride")
+	@(objc_type = BufferLayoutDescriptor, objc_selector = "stride", objc_name = "stride")
 	BufferLayoutDescriptor_stride :: proc(self: ^BufferLayoutDescriptor) -> NS.UInteger ---
 
-	@(objc_type=BufferLayoutDescriptor, objc_selector="setStride:", objc_name="setStride")
+	@(objc_type = BufferLayoutDescriptor, objc_selector = "setStride:", objc_name = "setStride")
 	BufferLayoutDescriptor_setStride :: proc(self: ^BufferLayoutDescriptor, stride: NS.UInteger) ---
 
-	@(objc_type=BufferLayoutDescriptor, objc_selector="stepFunction", objc_name="stepFunction")
+	@(objc_type = BufferLayoutDescriptor, objc_selector = "stepFunction", objc_name = "stepFunction")
 	BufferLayoutDescriptor_stepFunction :: proc(self: ^BufferLayoutDescriptor) -> StepFunction ---
 
-	@(objc_type=BufferLayoutDescriptor, objc_selector="setStepFunction:", objc_name="setStepFunction")
+	@(objc_type = BufferLayoutDescriptor, objc_selector = "setStepFunction:", objc_name = "setStepFunction")
 	BufferLayoutDescriptor_setStepFunction :: proc(self: ^BufferLayoutDescriptor, stepFunction: StepFunction) ---
 
-	@(objc_type=BufferLayoutDescriptor, objc_selector="stepRate", objc_name="stepRate")
+	@(objc_type = BufferLayoutDescriptor, objc_selector = "stepRate", objc_name = "stepRate")
 	BufferLayoutDescriptor_stepRate :: proc(self: ^BufferLayoutDescriptor) -> NS.UInteger ---
 
-	@(objc_type=BufferLayoutDescriptor, objc_selector="setStepRate:", objc_name="setStepRate")
+	@(objc_type = BufferLayoutDescriptor, objc_selector = "setStepRate:", objc_name = "setStepRate")
 	BufferLayoutDescriptor_setStepRate :: proc(self: ^BufferLayoutDescriptor, stepRate: NS.UInteger) ---
 }
 
 
-@(objc_class="MTLBufferLayoutDescriptorArray", objc_superclass=NS.Object)
-BufferLayoutDescriptorArray :: struct { using _: NS.Object}
+@(objc_class = "MTLBufferLayoutDescriptorArray", objc_superclass = NS.Object)
+BufferLayoutDescriptorArray :: struct {
+	using _: NS.Object,
+}
 
 foreign lib {
-	@(objc_type=BufferLayoutDescriptorArray, objc_selector="objectAtIndexedSubscript:", objc_name="objectAtIndexedSubscript")
+	@(objc_type = BufferLayoutDescriptorArray, objc_selector = "objectAtIndexedSubscript:", objc_name = "objectAtIndexedSubscript")
 	BufferLayoutDescriptorArray_objectAtIndexedSubscript :: proc(self: ^BufferLayoutDescriptorArray, index: NS.UInteger) -> ^BufferLayoutDescriptor ---
 
-	@(objc_type=BufferLayoutDescriptorArray, objc_selector="setObject:atIndexedSubscript:", objc_name="setObject")
+	@(objc_type = BufferLayoutDescriptorArray, objc_selector = "setObject:atIndexedSubscript:", objc_name = "setObject")
 	BufferLayoutDescriptorArray_setObject :: proc(self: ^BufferLayoutDescriptorArray, bufferDesc: ^BufferLayoutDescriptor, index: NS.UInteger) ---
 }

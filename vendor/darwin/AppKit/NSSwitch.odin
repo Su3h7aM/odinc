@@ -2,17 +2,17 @@
 #+build darwin:default
 package darwin_AppKit
 
-@(objc_class="NSSwitch", objc_superclass=Control)
+@(objc_class = "NSSwitch", objc_superclass = Control)
 Switch :: struct {
 	using _: Control,
 	using _: AccessibilitySwitch,
 }
 
-@(default_calling_convention="c")
+@(default_calling_convention = "c")
 foreign lib {
-	@(objc_type=Switch, objc_selector="state", objc_name="state")
+	@(objc_type = Switch, objc_selector = "state", objc_name = "state")
 	Switch_state :: proc(self: ^Switch) -> ControlStateValue ---
 
-	@(objc_type=Switch, objc_selector="setState:", objc_name="setState")
+	@(objc_type = Switch, objc_selector = "setState:", objc_name = "setState")
 	Switch_setState :: proc(self: ^Switch, state: ControlStateValue) ---
 }

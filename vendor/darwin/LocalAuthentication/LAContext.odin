@@ -5,78 +5,80 @@ package darwin_LocalAuthentication
 import NS "core:sys/darwin/Foundation"
 import Sec "core:sys/darwin/Security"
 
-@(objc_class="LAContext", objc_superclass=NS.Object)
-Context :: struct { using _: NS.Object}
+@(objc_class = "LAContext", objc_superclass = NS.Object)
+Context :: struct {
+	using _: NS.Object,
+}
 
 foreign lib {
-	@(objc_type=Context, objc_selector="canEvaluatePolicy:error:", objc_name="canEvaluatePolicy_error")
+	@(objc_type = Context, objc_selector = "canEvaluatePolicy:error:", objc_name = "canEvaluatePolicy_error")
 	Context_canEvaluatePolicy_error :: proc(self: ^Context, policy: Policy, error: ^^NS.Error) -> bool ---
 
-	@(objc_type=Context, objc_selector="evaluatePolicy:localizedReason:reply:", objc_name="evaluatePolicy")
-	Context_evaluatePolicy :: proc(self: ^Context, policy: Policy, localizedReason: ^NS.String, reply: ^Objc_Block(proc "c" ( success: bool, error: ^NS.Error ))) ---
+	@(objc_type = Context, objc_selector = "evaluatePolicy:localizedReason:reply:", objc_name = "evaluatePolicy")
+	Context_evaluatePolicy :: proc(self: ^Context, policy: Policy, localizedReason: ^NS.String, reply: ^Objc_Block(proc "c" (success: bool, error: ^NS.Error))) ---
 
-	@(objc_type=Context, objc_selector="invalidate", objc_name="invalidate")
+	@(objc_type = Context, objc_selector = "invalidate", objc_name = "invalidate")
 	Context_invalidate :: proc(self: ^Context) ---
 
-	@(objc_type=Context, objc_selector="setCredential:type:", objc_name="setCredential")
+	@(objc_type = Context, objc_selector = "setCredential:type:", objc_name = "setCredential")
 	Context_setCredential :: proc(self: ^Context, credential: ^NS.Data, type: CredentialType) -> bool ---
 
-	@(objc_type=Context, objc_selector="isCredentialSet:", objc_name="isCredentialSet")
+	@(objc_type = Context, objc_selector = "isCredentialSet:", objc_name = "isCredentialSet")
 	Context_isCredentialSet :: proc(self: ^Context, type: CredentialType) -> bool ---
 
-	@(objc_type=Context, objc_selector="evaluateAccessControl:operation:localizedReason:reply:", objc_name="evaluateAccessControl")
-	Context_evaluateAccessControl :: proc(self: ^Context, accessControl: Sec.SecAccessControlRef, operation: AccessControlOperation, localizedReason: ^NS.String, reply: ^Objc_Block(proc "c" ( success: bool, error: ^NS.Error ))) ---
+	@(objc_type = Context, objc_selector = "evaluateAccessControl:operation:localizedReason:reply:", objc_name = "evaluateAccessControl")
+	Context_evaluateAccessControl :: proc(self: ^Context, accessControl: Sec.SecAccessControlRef, operation: AccessControlOperation, localizedReason: ^NS.String, reply: ^Objc_Block(proc "c" (success: bool, error: ^NS.Error))) ---
 
-	@(objc_type=Context, objc_selector="localizedFallbackTitle", objc_name="localizedFallbackTitle")
+	@(objc_type = Context, objc_selector = "localizedFallbackTitle", objc_name = "localizedFallbackTitle")
 	Context_localizedFallbackTitle :: proc(self: ^Context) -> ^NS.String ---
 
-	@(objc_type=Context, objc_selector="setLocalizedFallbackTitle:", objc_name="setLocalizedFallbackTitle")
+	@(objc_type = Context, objc_selector = "setLocalizedFallbackTitle:", objc_name = "setLocalizedFallbackTitle")
 	Context_setLocalizedFallbackTitle :: proc(self: ^Context, localizedFallbackTitle: ^NS.String) ---
 
-	@(objc_type=Context, objc_selector="maxBiometryFailures", objc_name="maxBiometryFailures")
+	@(objc_type = Context, objc_selector = "maxBiometryFailures", objc_name = "maxBiometryFailures")
 	Context_maxBiometryFailures :: proc(self: ^Context) -> ^NS.Number ---
 
-	@(objc_type=Context, objc_selector="setMaxBiometryFailures:", objc_name="setMaxBiometryFailures")
+	@(objc_type = Context, objc_selector = "setMaxBiometryFailures:", objc_name = "setMaxBiometryFailures")
 	Context_setMaxBiometryFailures :: proc(self: ^Context, maxBiometryFailures: ^NS.Number) ---
 
-	@(objc_type=Context, objc_selector="localizedCancelTitle", objc_name="localizedCancelTitle")
+	@(objc_type = Context, objc_selector = "localizedCancelTitle", objc_name = "localizedCancelTitle")
 	Context_localizedCancelTitle :: proc(self: ^Context) -> ^NS.String ---
 
-	@(objc_type=Context, objc_selector="setLocalizedCancelTitle:", objc_name="setLocalizedCancelTitle")
+	@(objc_type = Context, objc_selector = "setLocalizedCancelTitle:", objc_name = "setLocalizedCancelTitle")
 	Context_setLocalizedCancelTitle :: proc(self: ^Context, localizedCancelTitle: ^NS.String) ---
 
-	@(objc_type=Context, objc_selector="touchIDAuthenticationAllowableReuseDuration", objc_name="touchIDAuthenticationAllowableReuseDuration")
+	@(objc_type = Context, objc_selector = "touchIDAuthenticationAllowableReuseDuration", objc_name = "touchIDAuthenticationAllowableReuseDuration")
 	Context_touchIDAuthenticationAllowableReuseDuration :: proc(self: ^Context) -> NS.TimeInterval ---
 
-	@(objc_type=Context, objc_selector="setTouchIDAuthenticationAllowableReuseDuration:", objc_name="setTouchIDAuthenticationAllowableReuseDuration")
+	@(objc_type = Context, objc_selector = "setTouchIDAuthenticationAllowableReuseDuration:", objc_name = "setTouchIDAuthenticationAllowableReuseDuration")
 	Context_setTouchIDAuthenticationAllowableReuseDuration :: proc(self: ^Context, touchIDAuthenticationAllowableReuseDuration: NS.TimeInterval) ---
 
-	@(objc_type=Context, objc_selector="localizedReason", objc_name="localizedReason")
+	@(objc_type = Context, objc_selector = "localizedReason", objc_name = "localizedReason")
 	Context_localizedReason :: proc(self: ^Context) -> ^NS.String ---
 
-	@(objc_type=Context, objc_selector="setLocalizedReason:", objc_name="setLocalizedReason")
+	@(objc_type = Context, objc_selector = "setLocalizedReason:", objc_name = "setLocalizedReason")
 	Context_setLocalizedReason :: proc(self: ^Context, localizedReason: ^NS.String) ---
 
-	@(objc_type=Context, objc_selector="interactionNotAllowed", objc_name="interactionNotAllowed")
+	@(objc_type = Context, objc_selector = "interactionNotAllowed", objc_name = "interactionNotAllowed")
 	Context_interactionNotAllowed :: proc(self: ^Context) -> bool ---
 
-	@(objc_type=Context, objc_selector="setInteractionNotAllowed:", objc_name="setInteractionNotAllowed")
+	@(objc_type = Context, objc_selector = "setInteractionNotAllowed:", objc_name = "setInteractionNotAllowed")
 	Context_setInteractionNotAllowed :: proc(self: ^Context, interactionNotAllowed: bool) ---
 
-	@(objc_type=Context, objc_selector="biometryType", objc_name="biometryType")
+	@(objc_type = Context, objc_selector = "biometryType", objc_name = "biometryType")
 	Context_biometryType :: proc(self: ^Context) -> BiometryType ---
 
-	@(objc_type=Context, objc_selector="evaluatedPolicyDomainState", objc_name="evaluatedPolicyDomainState")
+	@(objc_type = Context, objc_selector = "evaluatedPolicyDomainState", objc_name = "evaluatedPolicyDomainState")
 	Context_evaluatedPolicyDomainState :: proc(self: ^Context) -> ^NS.Data ---
 
-	@(objc_type=Context, objc_selector="domainState", objc_name="domainState")
+	@(objc_type = Context, objc_selector = "domainState", objc_name = "domainState")
 	Context_domainState :: proc(self: ^Context) -> ^DomainState ---
 }
 
 
 // Odin-style wrappers for methods with a trailing `^^Error` out-parameter
 
-@(objc_type=Context, objc_name="canEvaluatePolicy")
+@(objc_type = Context, objc_name = "canEvaluatePolicy")
 Context_canEvaluatePolicy :: #force_inline proc "c" (self: ^Context, policy: Policy) -> (ok: bool, err: ^NS.Error) {
 	ok = Context_canEvaluatePolicy_error(self, policy, &err)
 	return

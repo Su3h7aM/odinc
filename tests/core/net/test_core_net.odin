@@ -443,6 +443,8 @@ percent_encode_test :: proc(t: ^testing.T) {
 	test_cases := []struct {
 		input, expected: string,
 	} {
+
+
 		// Bytes < 0x10 must be zero-padded to two hex digits
 		{"\n", "%0A"},
 		{"\t", "%09"},

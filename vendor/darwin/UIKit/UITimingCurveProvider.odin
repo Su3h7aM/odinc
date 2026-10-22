@@ -5,21 +5,21 @@ package darwin_UIKit
 import "base:intrinsics"
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class="UITimingCurveProvider")
+@(objc_class = "UITimingCurveProvider")
 TimingCurveProvider :: struct {
 	using _: intrinsics.objc_object,
 	using _: NS.Coding,
 	using _: NS.Copying,
 }
 
-@(default_calling_convention="c")
+@(default_calling_convention = "c")
 foreign lib {
-	@(objc_type=TimingCurveProvider, objc_selector="timingCurveType", objc_name="timingCurveType")
+	@(objc_type = TimingCurveProvider, objc_selector = "timingCurveType", objc_name = "timingCurveType")
 	TimingCurveProvider_timingCurveType :: proc(self: ^TimingCurveProvider) -> TimingCurveType ---
 
-	@(objc_type=TimingCurveProvider, objc_selector="cubicTimingParameters", objc_name="cubicTimingParameters")
+	@(objc_type = TimingCurveProvider, objc_selector = "cubicTimingParameters", objc_name = "cubicTimingParameters")
 	TimingCurveProvider_cubicTimingParameters :: proc(self: ^TimingCurveProvider) -> ^CubicTimingParameters ---
 
-	@(objc_type=TimingCurveProvider, objc_selector="springTimingParameters", objc_name="springTimingParameters")
+	@(objc_type = TimingCurveProvider, objc_selector = "springTimingParameters", objc_name = "springTimingParameters")
 	TimingCurveProvider_springTimingParameters :: proc(self: ^TimingCurveProvider) -> ^SpringTimingParameters ---
 }

@@ -58,7 +58,7 @@ transmute_through_aligned_pointer_storage :: proc(t: ^testing.T) {
 	arr := [8]f32{0, 1, 2, 3, 4, 5, 6, 7}
 	s := Helper {
 		p = (^[4]f32)(&arr[1]),
-	} 	// [4]f32 and arr[1] are both align 4
+	} // [4]f32 and arr[1] are both align 4
 
 	v := transmute_pointed_array(&s)
 	testing.expect_value(t, transmute([4]f32)v, [4]f32{1, 2, 3, 4})
@@ -68,11 +68,11 @@ transmute_through_aligned_pointer_storage :: proc(t: ^testing.T) {
 transmute_from_less_aligned_src :: proc(t: ^testing.T) {
 	Vec4 :: struct {
 		x, y, z, w: f32,
-	} 	// align 4
+	} // align 4
 	P :: struct {
 		id:  u32,
 		pos: Vec4,
-	} 	// pos at offs 4
+	} // pos at offs 4
 
 	ps := make([]P, 4)
 	defer delete(ps)
@@ -87,11 +87,11 @@ transmute_from_less_aligned_src :: proc(t: ^testing.T) {
 
 	H :: struct {
 		lo, hi: u64,
-	} 	// align 8
+	} // align 8
 	Rec :: struct {
 		a: u64,
 		h: H,
-	} 	// h at offs 8
+	} // h at offs 8
 	r := Rec{1, {3, 5}}
 	testing.expect_value(t, transmute(u128)r.h, u128(5) << 64 | 3)
 
@@ -105,10 +105,10 @@ transmute_from_less_aligned_src :: proc(t: ^testing.T) {
 
 Transmute_Vec4 :: struct {
 	x, y, z, w: f32,
-} 	// align 4
+} // align 4
 Transmute_H :: struct {
 	lo, hi: u64,
-} 	// align 8
+} // align 8
 
 @(export)
 transmute_struct_to_simd :: #force_no_inline proc(v: ^Transmute_Vec4) -> #simd[4]f32 {

@@ -4,17 +4,19 @@ package darwin_UIKit
 
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class="UINib", objc_superclass=NS.Object)
-Nib :: struct { using _: NS.Object}
+@(objc_class = "UINib", objc_superclass = NS.Object)
+Nib :: struct {
+	using _: NS.Object,
+}
 
-@(default_calling_convention="c")
+@(default_calling_convention = "c")
 foreign lib {
-	@(objc_type=Nib, objc_selector="nibWithNibName:bundle:", objc_name="nibWithNibName", objc_is_class_method=true)
+	@(objc_type = Nib, objc_selector = "nibWithNibName:bundle:", objc_name = "nibWithNibName", objc_is_class_method = true)
 	Nib_nibWithNibName :: proc(name: ^NS.String, bundleOrNil: ^NS.Bundle) -> ^Nib ---
 
-	@(objc_type=Nib, objc_selector="nibWithData:bundle:", objc_name="nibWithData", objc_is_class_method=true)
+	@(objc_type = Nib, objc_selector = "nibWithData:bundle:", objc_name = "nibWithData", objc_is_class_method = true)
 	Nib_nibWithData :: proc(data: ^NS.Data, bundleOrNil: ^NS.Bundle) -> ^Nib ---
 
-	@(objc_type=Nib, objc_selector="instantiateWithOwner:options:", objc_name="instantiateWithOwner")
+	@(objc_type = Nib, objc_selector = "instantiateWithOwner:options:", objc_name = "instantiateWithOwner")
 	Nib_instantiateWithOwner :: proc(self: ^Nib, ownerOrNil: id, optionsOrNil: ^NS.Dictionary) -> ^NS.Array ---
 }

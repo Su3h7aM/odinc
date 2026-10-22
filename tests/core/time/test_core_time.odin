@@ -14,7 +14,7 @@ test_time_and_date_formatting :: proc(t: ^testing.T) {
 	{
 		now := time.Time {
 			_nsec = min(i64),
-		} 	// 1677-09-21 00:12:44.145224192 +0000 UTC
+		} // 1677-09-21 00:12:44.145224192 +0000 UTC
 		d := time.Duration(now._nsec)
 
 		testing.expect_value(t, time.to_string_hms(now, buf[:]), "00:12:44")
@@ -32,7 +32,7 @@ test_time_and_date_formatting :: proc(t: ^testing.T) {
 	{
 		now := time.Time {
 			_nsec = max(i64),
-		} 	// 2262-04-11 23:47:16.854775807 +0000 UTC
+		} // 2262-04-11 23:47:16.854775807 +0000 UTC
 		d := time.Duration(now._nsec)
 
 		testing.expect_value(t, time.to_string_hms(now, buf[:]), "23:47:16")

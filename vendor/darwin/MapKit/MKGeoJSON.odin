@@ -2,46 +2,48 @@
 #+build darwin
 package darwin_MapKit
 
-import NS "core:sys/darwin/Foundation"
 import "base:intrinsics"
+import NS "core:sys/darwin/Foundation"
 
-@(objc_class="MKGeoJSONDecoder", objc_superclass=NS.Object)
-GeoJSONDecoder :: struct { using _: NS.Object}
+@(objc_class = "MKGeoJSONDecoder", objc_superclass = NS.Object)
+GeoJSONDecoder :: struct {
+	using _: NS.Object,
+}
 
 foreign lib {
-	@(objc_type=GeoJSONDecoder, objc_selector="geoJSONObjectsWithData:error:", objc_name="geoJSONObjectsWithData_error")
+	@(objc_type = GeoJSONDecoder, objc_selector = "geoJSONObjectsWithData:error:", objc_name = "geoJSONObjectsWithData_error")
 	GeoJSONDecoder_geoJSONObjectsWithData_error :: proc(self: ^GeoJSONDecoder, data: ^NS.Data, errorPtr: ^^NS.Error) -> ^NS.Array ---
 }
 
 
 // Odin-style wrappers for methods with a trailing `^^Error` out-parameter
 
-@(objc_type=GeoJSONDecoder, objc_name="geoJSONObjectsWithData")
+@(objc_type = GeoJSONDecoder, objc_name = "geoJSONObjectsWithData")
 GeoJSONDecoder_geoJSONObjectsWithData :: #force_inline proc "c" (self: ^GeoJSONDecoder, data: ^NS.Data) -> (res: ^NS.Array, err: ^NS.Error) {
 	res = GeoJSONDecoder_geoJSONObjectsWithData_error(self, data, &err)
 	return
 }
 
 
-@(objc_class="MKGeoJSONFeature", objc_superclass=NS.Object)
+@(objc_class = "MKGeoJSONFeature", objc_superclass = NS.Object)
 GeoJSONFeature :: struct {
 	using _: NS.Object,
 	using _: GeoJSONObject,
 }
 
 foreign lib {
-	@(objc_type=GeoJSONFeature, objc_selector="identifier", objc_name="identifier")
+	@(objc_type = GeoJSONFeature, objc_selector = "identifier", objc_name = "identifier")
 	GeoJSONFeature_identifier :: proc(self: ^GeoJSONFeature) -> ^NS.String ---
 
-	@(objc_type=GeoJSONFeature, objc_selector="properties", objc_name="properties")
+	@(objc_type = GeoJSONFeature, objc_selector = "properties", objc_name = "properties")
 	GeoJSONFeature_properties :: proc(self: ^GeoJSONFeature) -> ^NS.Data ---
 
-	@(objc_type=GeoJSONFeature, objc_selector="geometry", objc_name="geometry")
+	@(objc_type = GeoJSONFeature, objc_selector = "geometry", objc_name = "geometry")
 	GeoJSONFeature_geometry :: proc(self: ^GeoJSONFeature) -> ^NS.Array ---
 }
 
 
-@(objc_class="MKGeoJSONObject")
+@(objc_class = "MKGeoJSONObject")
 GeoJSONObject :: struct {
 	using _: intrinsics.objc_object,
 	using _: NS.ObjectProtocol,

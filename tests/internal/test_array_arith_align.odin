@@ -29,7 +29,7 @@ array_arith_through_aligned_pointer_slot :: proc(t: ^testing.T) {
 	buf := [8]f32{0, 1, 2, 3, 4, 5, 6, 7}
 	h := AlignHelper {
 		p = (^[4]f32)(&buf[1]),
-	} 	// legit, [4]f32 is type align 4, buf[1] is align 4
+	} // legit, [4]f32 is type align 4, buf[1] is align 4
 
 	testing.expect_value(t, array_arith_add_pointed(&h, &h), [4]f32{2, 4, 6, 8})
 	testing.expect_value(t, array_arith_neg_pointed(&h), [4]f32{-1, -2, -3, -4})

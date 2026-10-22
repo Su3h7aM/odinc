@@ -4,30 +4,32 @@ package darwin_GameController
 
 import "base:intrinsics"
 
-@(objc_class="GCButtonElement")
+@(objc_class = "GCButtonElement")
 ButtonElement :: struct {
 	using _: intrinsics.objc_object,
 	using _: PhysicalInputElement,
 }
 
 foreign lib {
-	@(objc_type=ButtonElement, objc_selector="pressedInput", objc_name="pressedInput")
+	@(objc_type = ButtonElement, objc_selector = "pressedInput", objc_name = "pressedInput")
 	ButtonElement_pressedInput :: proc(self: ^ButtonElement) -> ^id ---
 
-	@(objc_type=ButtonElement, objc_selector="touchedInput", objc_name="touchedInput")
+	@(objc_type = ButtonElement, objc_selector = "touchedInput", objc_name = "touchedInput")
 	ButtonElement_touchedInput :: proc(self: ^ButtonElement) -> ^TouchedStateInput ---
 
-	@(objc_type=ButtonElement, objc_selector="forceInput", objc_name="forceInput")
+	@(objc_type = ButtonElement, objc_selector = "forceInput", objc_name = "forceInput")
 	ButtonElement_forceInput :: proc(self: ^ButtonElement) -> ^LinearInput ---
 }
 
 
-@(objc_class="GCButtonElementName")
+@(objc_class = "GCButtonElementName")
 ButtonElementName :: struct {
 	using _: intrinsics.objc_object,
 	using _: PhysicalInputElementName,
 }
 
 
-@(objc_class="GCButtonInput")
-ButtonInput :: struct { using _: intrinsics.objc_object}
+@(objc_class = "GCButtonInput")
+ButtonInput :: struct {
+	using _: intrinsics.objc_object,
+}

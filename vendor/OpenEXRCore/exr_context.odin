@@ -4,7 +4,7 @@ import "core:c"
 
 #assert(size_of(c.int) == size_of(b32))
 
-context_t       :: distinct rawptr
+context_t :: distinct rawptr
 const_context_t :: context_t
 
 /**
@@ -84,13 +84,7 @@ query_size_func_ptr_t :: proc "c" (ctxt: const_context_t, userdata: rawptr) -> i
  * caching of data to give the appearance of being able to seek/read
  * atomically.
  */
-read_func_ptr_t :: proc "c" (
-	ctxt:     const_context_t,
-	userdata: rawptr,
-	buffer:   rawptr,
-	sz:       u64,
-	offset:   u64,
-	error_cb: stream_error_func_ptr_t) -> i64
+read_func_ptr_t :: proc "c" (ctxt: const_context_t, userdata: rawptr, buffer: rawptr, sz: u64, offset: u64, error_cb: stream_error_func_ptr_t) -> i64
 
 /** Write custom function pointer
  *
@@ -116,13 +110,7 @@ read_func_ptr_t :: proc "c" (
  *
  *  - at file close, the chunk offset tables are written to the file.
  */
-write_func_ptr_t :: proc "c" (
-	ctxt:         const_context_t,
-	userdata:     rawptr,
-	buffer:       rawptr,
-	sz:           u64,
-	offset:       u64,
-	error_cb:     stream_error_func_ptr_t) -> i64
+write_func_ptr_t :: proc "c" (ctxt: const_context_t, userdata: rawptr, buffer: rawptr, sz: u64, offset: u64, error_cb: stream_error_func_ptr_t) -> i64
 
 /** @brief Struct used to pass function pointers into the context
  * initialization routines.
@@ -152,7 +140,7 @@ context_initializer_t :: struct {
 	 * structure. This allows EXR to add functions or other
 	 * initializers in the future, and retain version compatibility
 	 */
-	size: c.size_t,
+	size:             c.size_t,
 
 	/** @brief Error callback function pointer
 	 *
@@ -172,7 +160,7 @@ context_initializer_t :: struct {
 	/** Blind data passed to custom read, size, write, destroy
 	 * functions below. Up to user to manage this pointer.
 	 */
-	user_data: rawptr,
+	user_data:        rawptr,
 
 	/** @brief Custom read routine.
 	 *
@@ -194,7 +182,7 @@ context_initializer_t :: struct {
 	 *
 	 * @sa exr_read_func_ptr_t
 	 */
-	read_fn: read_func_ptr_t,
+	read_fn:          read_func_ptr_t,
 
 	/** @brief Custom size query routine.
 	 *
@@ -208,7 +196,7 @@ context_initializer_t :: struct {
 	 *
 	 * @sa exr_query_size_func_ptr_t
 	 */
-	size_fn: query_size_func_ptr_t,
+	size_fn:          query_size_func_ptr_t,
 
 	/** @brief Custom write routine.
 	 *
@@ -227,7 +215,7 @@ context_initializer_t :: struct {
 	 *
 	 * @sa exr_write_func_ptr_t
 	 */
-	write_fn: write_func_ptr_t,
+	write_fn:         write_func_ptr_t,
 
 	/** @brief Optional function to destroy the user data block of a custom stream.
 	 *
@@ -235,13 +223,13 @@ context_initializer_t :: struct {
 	 *
 	 * @sa exr_destroy_stream_func_ptr_t
 	 * */
-	destroy_fn: destroy_stream_func_ptr_t,
+	destroy_fn:       destroy_stream_func_ptr_t,
 
 	/** Initialize a field specifying what the maximum image width
 	 * allowed by the context is. See exr_set_default_maximum_image_size() to
 	 * understand how this interacts with global defaults.
 	 */
-	max_image_width: c.int,
+	max_image_width:  c.int,
 
 	/** Initialize a field specifying what the maximum image height
 	 * allowed by the context is. See exr_set_default_maximum_image_size() to
@@ -253,31 +241,30 @@ context_initializer_t :: struct {
 	 * allowed by the context is. See exr_set_default_maximum_tile_size() to
 	 * understand how this interacts with global defaults.
 	 */
-	max_tile_width: c.int,
+	max_tile_width:   c.int,
 
 	/** Initialize a field specifying what the maximum tile height
 	 * allowed by the context is. See exr_set_default_maximum_tile_size() to
 	 * understand how this interacts with global defaults.
 	 */
-	max_tile_height: c.int,
+	max_tile_height:  c.int,
 
 	/** Initialize a field specifying what the default zip compression level should be
 	 * for this context. See exr_set_default_zip_compresion_level() to
 	 * set it for all contexts.
 	 */
-	zip_level: c.int,
+	zip_level:        c.int,
 
 	/** Initialize the default dwa compression quality. See
 	 * exr_set_default_dwa_compression_quality() to set the default
 	 * for all contexts.
 	 */
-	dwa_quality: f32,
+	dwa_quality:      f32,
 
 	/** Initialize with a bitwise or of the various context flags
 	 */
-	flags: c.int,
-
-	pad: [4]u8,
+	flags:            c.int,
+	pad:              [4]u8,
 }
 
 /** @brief context flag which will enforce strict header validation
@@ -302,19 +289,22 @@ CONTEXT_FLAG_SILENT_HEADER_PARSE :: (1 << 1)
 CONTEXT_FLAG_DISABLE_CHUNK_RECONSTRUCTION :: (1 << 2)
 
 /** @brief Simple macro to initialize the context initializer with default values. */
-DEFAULT_CONTEXT_INITIALIZER :: context_initializer_t{zip_level = -2, dwa_quality = -1}
+DEFAULT_CONTEXT_INITIALIZER :: context_initializer_t {
+	zip_level   = -2,
+	dwa_quality = -1,
+}
 
-/** @} */ /* context function pointer declarations */
+/** @} *//* context function pointer declarations */
 
 
 /** @brief Enum describing how default files are handled during write. */
 default_write_mode_t :: enum c.int {
-	WRITE_FILE_DIRECTLY = 0, /**< Overwrite filename provided directly, deleted upon error. */
+	WRITE_FILE_DIRECTLY    = 0, /**< Overwrite filename provided directly, deleted upon error. */
 	INTERMEDIATE_TEMP_FILE = 1, /**< Create a temporary file, renaming it upon successful write, leaving original upon error */
 }
 
 
-@(link_prefix="exr_", default_calling_convention="c")
+@(link_prefix = "exr_", default_calling_convention = "c")
 foreign lib {
 	/** @brief Check the magic number of the file and report
 	 * `EXR_ERR_SUCCESS` if the file appears to be a valid file (or at least
@@ -350,10 +340,7 @@ foreign lib {
 	 * documentation \ref exr_context_initializer_t. The @p ctxtdata parameter
 	 * is optional, if `NULL`, default values will be used.
 	 */
-	start_read :: proc(
-		ctxt:     ^context_t,
-		filename: cstring,
-		ctxtdata: ^context_initializer_t) -> result_t ---
+	start_read :: proc(ctxt: ^context_t, filename: cstring, ctxtdata: ^context_initializer_t) -> result_t ---
 
 	/** @brief Create and initialize a write-only context.
 	 *
@@ -393,11 +380,7 @@ foreign lib {
 	 * documentation \ref exr_context_initializer_t. The @p ctxtdata
 	 * parameter is optional, if `NULL`, default values will be used.
 	 */
-	start_write :: proc(
-		ctxt:         ^context_t,
-		filename:     cstring,
-		default_mode: default_write_mode_t,
-		ctxtdata:     ^context_initializer_t) -> result_t ---
+	start_write :: proc(ctxt: ^context_t, filename: cstring, default_mode: default_write_mode_t, ctxtdata: ^context_initializer_t) -> result_t ---
 
 	/** @brief Create a new context for updating an exr file in place.
 	 *
@@ -409,10 +392,7 @@ foreign lib {
 	 * documentation \ref exr_context_initializer_t. The @p ctxtdata parameter
 	 * is optional, if `NULL`, default values will be used.
 	 */
-	start_inplace_header_update :: proc(
-		ctxt:     ^context_t,
-		filename: cstring,
-		ctxtdata: ^context_initializer_t) -> result_t ---
+	start_inplace_header_update :: proc(ctxt: ^context_t, filename: cstring, ctxtdata: ^context_initializer_t) -> result_t ---
 
 	/** @brief Create a new context for temporary use in memory.
 	*
@@ -429,10 +409,7 @@ foreign lib {
 	* overrides or other controls. The @p ctxtdata parameter is optional,
 	* if `NULL`, default values will be used.
 	*/
-	start_temporary_context :: proc(
-		ctxt:         ^context_t,
-		context_name: cstring,
-		ctxtdata:     ^context_initializer_t) -> result_t ---
+	start_temporary_context :: proc(ctxt: ^context_t, context_name: cstring, ctxtdata: ^context_initializer_t) -> result_t ---
 
 	/** @brief Retrieve the file name the context is for as provided
 	 * during the start routine.
@@ -467,24 +444,7 @@ foreign lib {
 	 * size can be re-updated to have the final, precise size to put into
 	 * the file.
 	 */
-	register_attr_type_handler :: proc(
-		ctxt: context_t,
-		type: cstring,
-		unpack_func_ptr: proc "c" (
-			ctxt:      context_t,
-			data:      rawptr,
-			attrsize:  i32,
-			outsize:   ^i32,
-			outbuffer: ^rawptr) -> result_t,
-		pack_func_ptr: proc "c" (
-			ctxt:      context_t,
-			data:      rawptr,
-			datasize:  i32,
-			outsize:   ^i32,
-			outbuffer: rawptr) -> result_t,
-		destroy_unpacked_func_ptr: proc "c" (
-			ctxt: context_t, data: rawptr, datasize: i32),
-	) -> result_t ---
+	register_attr_type_handler :: proc(ctxt: context_t, type: cstring, unpack_func_ptr: proc "c" (ctxt: context_t, data: rawptr, attrsize: i32, outsize: ^i32, outbuffer: ^rawptr) -> result_t, pack_func_ptr: proc "c" (ctxt: context_t, data: rawptr, datasize: i32, outsize: ^i32, outbuffer: rawptr) -> result_t, destroy_unpacked_func_ptr: proc "c" (ctxt: context_t, data: rawptr, datasize: i32)) -> result_t ---
 
 	/** @brief Enable long name support in the output context */
 

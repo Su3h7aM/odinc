@@ -3,7 +3,7 @@ package directx_dxc
 import "core:c"
 
 FILETIME :: struct {
-	dwLowDateTime: DWORD,
+	dwLowDateTime:  DWORD,
 	dwHighDateTime: DWORD,
 }
 
@@ -14,18 +14,18 @@ GUID :: struct {
 	Data4: [8]BYTE,
 }
 
-BYTE            :: distinct u8
-WORD            :: u16
-DWORD           :: u32
-BOOL            :: distinct b32
-SIZE_T          :: uint
-ULONG           :: c.ulong
-CLSID           :: GUID
-IID             :: GUID
-LONG            :: distinct c.long
-HRESULT         :: distinct LONG
-wstring         :: [^]c.wchar_t
-BSTR            :: wstring
+BYTE :: distinct u8
+WORD :: u16
+DWORD :: u32
+BOOL :: distinct b32
+SIZE_T :: uint
+ULONG :: c.ulong
+CLSID :: GUID
+IID :: GUID
+LONG :: distinct c.long
+HRESULT :: distinct LONG
+wstring :: [^]c.wchar_t
+BSTR :: wstring
 
 IUnknown :: struct {
 	using _iunknown_vtable: ^IUnknown_VTable,

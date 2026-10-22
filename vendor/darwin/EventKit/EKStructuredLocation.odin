@@ -3,38 +3,38 @@
 package darwin_EventKit
 
 import cffi "core:c"
+import NS "core:sys/darwin/Foundation"
 import CL "vendor:darwin/CoreLocation"
 import MK "vendor:darwin/MapKit"
-import NS "core:sys/darwin/Foundation"
 
-@(objc_class="EKStructuredLocation", objc_superclass=Object)
+@(objc_class = "EKStructuredLocation", objc_superclass = Object)
 StructuredLocation :: struct {
 	using _: Object,
 	using _: NS.Copying,
 }
 
 foreign lib {
-	@(objc_type=StructuredLocation, objc_selector="locationWithTitle:", objc_name="locationWithTitle", objc_is_class_method=true)
+	@(objc_type = StructuredLocation, objc_selector = "locationWithTitle:", objc_name = "locationWithTitle", objc_is_class_method = true)
 	StructuredLocation_locationWithTitle :: proc(title: ^NS.String) -> instancetype ---
 
-	@(objc_type=StructuredLocation, objc_selector="locationWithMapItem:", objc_name="locationWithMapItem", objc_is_class_method=true)
+	@(objc_type = StructuredLocation, objc_selector = "locationWithMapItem:", objc_name = "locationWithMapItem", objc_is_class_method = true)
 	StructuredLocation_locationWithMapItem :: proc(mapItem: ^MK.MapItem) -> instancetype ---
 
-	@(objc_type=StructuredLocation, objc_selector="title", objc_name="title")
+	@(objc_type = StructuredLocation, objc_selector = "title", objc_name = "title")
 	StructuredLocation_title :: proc(self: ^StructuredLocation) -> ^NS.String ---
 
-	@(objc_type=StructuredLocation, objc_selector="setTitle:", objc_name="setTitle")
+	@(objc_type = StructuredLocation, objc_selector = "setTitle:", objc_name = "setTitle")
 	StructuredLocation_setTitle :: proc(self: ^StructuredLocation, title: ^NS.String) ---
 
-	@(objc_type=StructuredLocation, objc_selector="geoLocation", objc_name="geoLocation")
+	@(objc_type = StructuredLocation, objc_selector = "geoLocation", objc_name = "geoLocation")
 	StructuredLocation_geoLocation :: proc(self: ^StructuredLocation) -> ^CL.Location ---
 
-	@(objc_type=StructuredLocation, objc_selector="setGeoLocation:", objc_name="setGeoLocation")
+	@(objc_type = StructuredLocation, objc_selector = "setGeoLocation:", objc_name = "setGeoLocation")
 	StructuredLocation_setGeoLocation :: proc(self: ^StructuredLocation, geoLocation: ^CL.Location) ---
 
-	@(objc_type=StructuredLocation, objc_selector="radius", objc_name="radius")
+	@(objc_type = StructuredLocation, objc_selector = "radius", objc_name = "radius")
 	StructuredLocation_radius :: proc(self: ^StructuredLocation) -> cffi.double ---
 
-	@(objc_type=StructuredLocation, objc_selector="setRadius:", objc_name="setRadius")
+	@(objc_type = StructuredLocation, objc_selector = "setRadius:", objc_name = "setRadius")
 	StructuredLocation_setRadius :: proc(self: ^StructuredLocation, radius: cffi.double) ---
 }

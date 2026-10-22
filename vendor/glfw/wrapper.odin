@@ -1,12 +1,12 @@
 package glfw
 
-import "core:c"
 import glfw "bindings"
+import "core:c"
 
-Init      :: glfw.Init
+Init :: glfw.Init
 Terminate :: glfw.Terminate
 
-InitHint  :: glfw.InitHint
+InitHint :: glfw.InitHint
 
 InitAllocator :: glfw.InitAllocator
 
@@ -50,11 +50,11 @@ SetMonitorUserPointer :: glfw.SetMonitorUserPointer
 GetMonitorUserPointer :: glfw.GetMonitorUserPointer
 
 GetVideoMode :: glfw.GetVideoMode
-SetGamma     :: glfw.SetGamma
+SetGamma :: glfw.SetGamma
 GetGammaRamp :: glfw.GetGammaRamp
 SetGammaRamp :: glfw.SetGammaRamp
 
-CreateWindow  :: glfw.CreateWindow
+CreateWindow :: glfw.CreateWindow
 DestroyWindow :: glfw.DestroyWindow
 
 WindowHint_int :: proc "contextless" (hint: c.int, value: c.int) {
@@ -62,7 +62,7 @@ WindowHint_int :: proc "contextless" (hint: c.int, value: c.int) {
 }
 
 WindowHint_bool :: proc "contextless" (hint: c.int, value: b32) {
-	glfw.WindowHint(hint, cast(c.int) value)
+	glfw.WindowHint(hint, cast(c.int)value)
 }
 
 WindowHint :: proc {
@@ -71,20 +71,20 @@ WindowHint :: proc {
 }
 
 DefaultWindowHints :: glfw.DefaultWindowHints
-WindowHintString   :: glfw.WindowHintString
-WindowShouldClose  :: glfw.WindowShouldClose
+WindowHintString :: glfw.WindowHintString
+WindowShouldClose :: glfw.WindowShouldClose
 
 SwapInterval :: glfw.SwapInterval
-SwapBuffers  :: glfw.SwapBuffers
+SwapBuffers :: glfw.SwapBuffers
 
 SetWindowTitle :: glfw.SetWindowTitle
 SetWindowIcon :: proc "c" (window: WindowHandle, images: []Image) {
 	glfw.SetWindowIcon(window, c.int(len(images)), raw_data(images))
 }
-SetWindowPos         :: glfw.SetWindowPos
-SetWindowSizeLimits  :: glfw.SetWindowSizeLimits
+SetWindowPos :: glfw.SetWindowPos
+SetWindowSizeLimits :: glfw.SetWindowSizeLimits
 SetWindowAspectRatio :: glfw.SetWindowAspectRatio
-SetWindowSize        :: glfw.SetWindowSize
+SetWindowSize :: glfw.SetWindowSize
 GetWindowPos :: proc "c" (window: WindowHandle) -> (xpos, ypos: c.int) {
 	glfw.GetWindowPos(window, &xpos, &ypos)
 	return
@@ -129,38 +129,38 @@ GetKeyName :: proc "c" (key, scancode: c.int) -> string {
 	return string(glfw.GetKeyName(key, scancode))
 }
 SetWindowShouldClose :: glfw.SetWindowShouldClose
-GetWindowTitle       :: glfw.GetWindowTitle
-JoystickPresent      :: glfw.JoystickPresent
+GetWindowTitle :: glfw.GetWindowTitle
+JoystickPresent :: glfw.JoystickPresent
 GetJoystickName :: proc "c" (joy: c.int) -> string {
 	return string(glfw.GetJoystickName(joy))
 }
 GetKeyScancode :: glfw.GetKeyScancode
 
-IconifyWindow  :: glfw.IconifyWindow
-RestoreWindow  :: glfw.RestoreWindow
+IconifyWindow :: glfw.IconifyWindow
+RestoreWindow :: glfw.RestoreWindow
 MaximizeWindow :: glfw.MaximizeWindow
-ShowWindow     :: glfw.ShowWindow
-HideWindow     :: glfw.HideWindow
-FocusWindow    :: glfw.FocusWindow
+ShowWindow :: glfw.ShowWindow
+HideWindow :: glfw.HideWindow
+FocusWindow :: glfw.FocusWindow
 
 RequestWindowAttention :: glfw.RequestWindowAttention
 
-GetWindowMonitor     :: glfw.GetWindowMonitor
-SetWindowMonitor     :: glfw.SetWindowMonitor
-GetWindowAttrib      :: glfw.GetWindowAttrib
+GetWindowMonitor :: glfw.GetWindowMonitor
+SetWindowMonitor :: glfw.SetWindowMonitor
+GetWindowAttrib :: glfw.GetWindowAttrib
 SetWindowUserPointer :: glfw.SetWindowUserPointer
 GetWindowUserPointer :: glfw.GetWindowUserPointer
 
 SetWindowAttrib :: glfw.SetWindowAttrib
 
-PollEvents        :: glfw.PollEvents
-WaitEvents        :: glfw.WaitEvents
+PollEvents :: glfw.PollEvents
+WaitEvents :: glfw.WaitEvents
 WaitEventsTimeout :: glfw.WaitEventsTimeout
-PostEmptyEvent    :: glfw.PostEmptyEvent
+PostEmptyEvent :: glfw.PostEmptyEvent
 
 RawMouseMotionSupported :: glfw.RawMouseMotionSupported
-GetInputMode            :: glfw.GetInputMode
-SetInputMode            :: glfw.SetInputMode
+GetInputMode :: glfw.GetInputMode
+SetInputMode :: glfw.SetInputMode
 
 GetMouseButton :: glfw.GetMouseButton
 GetCursorPos :: proc "c" (window: WindowHandle) -> (xpos, ypos: f64) {
@@ -169,9 +169,9 @@ GetCursorPos :: proc "c" (window: WindowHandle) -> (xpos, ypos: f64) {
 }
 SetCursorPos :: glfw.SetCursorPos
 
-CreateCursor         :: glfw.CreateCursor
-DestroyCursor        :: glfw.DestroyCursor
-SetCursor            :: glfw.SetCursor
+CreateCursor :: glfw.CreateCursor
+DestroyCursor :: glfw.DestroyCursor
+SetCursor :: glfw.SetCursor
 CreateStandardCursor :: glfw.CreateStandardCursor
 
 GetJoystickAxes :: proc "c" (joy: c.int) -> []f32 {
@@ -194,23 +194,23 @@ GetJoystickGUID :: proc "c" (jid: c.int) -> string {
 }
 SetJoystickUserPointer :: glfw.SetJoystickUserPointer
 GetJoystickUserPointer :: glfw.GetJoystickUserPointer
-JoystickIsGamepad      :: glfw.JoystickIsGamepad
-UpdateGamepadMappings  :: glfw.UpdateGamepadMappings
+JoystickIsGamepad :: glfw.JoystickIsGamepad
+UpdateGamepadMappings :: glfw.UpdateGamepadMappings
 GetGamepadName :: proc "c" (jid: c.int) -> string {
 	return string(glfw.GetGamepadName(jid))
 }
-GetGamepadState    :: glfw.GetGamepadState
+GetGamepadState :: glfw.GetGamepadState
 
 SetClipboardString :: glfw.SetClipboardString
 
-SetTime            :: glfw.SetTime
-GetTime            :: glfw.GetTime
-GetTimerValue      :: glfw.GetTimerValue
-GetTimerFrequency  :: glfw.GetTimerFrequency
+SetTime :: glfw.SetTime
+GetTime :: glfw.GetTime
+GetTimerValue :: glfw.GetTimerValue
+GetTimerFrequency :: glfw.GetTimerFrequency
 
 MakeContextCurrent :: glfw.MakeContextCurrent
-GetCurrentContext  :: glfw.GetCurrentContext
-GetProcAddress     :: glfw.GetProcAddress
+GetCurrentContext :: glfw.GetCurrentContext
+GetProcAddress :: glfw.GetProcAddress
 ExtensionSupported :: glfw.ExtensionSupported
 
 VulkanSupported :: glfw.VulkanSupported
@@ -219,34 +219,34 @@ GetRequiredInstanceExtensions :: proc "c" () -> []cstring {
 	exts := glfw.GetRequiredInstanceExtensions(&count)
 	return exts[:count]
 }
-GetInstanceProcAddress               :: glfw.GetInstanceProcAddress
+GetInstanceProcAddress :: glfw.GetInstanceProcAddress
 GetPhysicalDevicePresentationSupport :: glfw.GetPhysicalDevicePresentationSupport
-CreateWindowSurface                  :: glfw.CreateWindowSurface
+CreateWindowSurface :: glfw.CreateWindowSurface
 
-SetWindowIconifyCallback      :: glfw.SetWindowIconifyCallback
-SetWindowRefreshCallback      :: glfw.SetWindowRefreshCallback
-SetWindowFocusCallback        :: glfw.SetWindowFocusCallback
-SetWindowCloseCallback        :: glfw.SetWindowCloseCallback
-SetWindowSizeCallback         :: glfw.SetWindowSizeCallback
-SetWindowPosCallback          :: glfw.SetWindowPosCallback
-SetFramebufferSizeCallback    :: glfw.SetFramebufferSizeCallback
-SetDropCallback               :: glfw.SetDropCallback
-SetMonitorCallback            :: glfw.SetMonitorCallback
-SetWindowMaximizeCallback     :: glfw.SetWindowMaximizeCallback
+SetWindowIconifyCallback :: glfw.SetWindowIconifyCallback
+SetWindowRefreshCallback :: glfw.SetWindowRefreshCallback
+SetWindowFocusCallback :: glfw.SetWindowFocusCallback
+SetWindowCloseCallback :: glfw.SetWindowCloseCallback
+SetWindowSizeCallback :: glfw.SetWindowSizeCallback
+SetWindowPosCallback :: glfw.SetWindowPosCallback
+SetFramebufferSizeCallback :: glfw.SetFramebufferSizeCallback
+SetDropCallback :: glfw.SetDropCallback
+SetMonitorCallback :: glfw.SetMonitorCallback
+SetWindowMaximizeCallback :: glfw.SetWindowMaximizeCallback
 SetWindowContentScaleCallback :: glfw.SetWindowContentScaleCallback
 
-SetKeyCallback         :: glfw.SetKeyCallback
+SetKeyCallback :: glfw.SetKeyCallback
 SetMouseButtonCallback :: glfw.SetMouseButtonCallback
-SetCursorPosCallback   :: glfw.SetCursorPosCallback
-SetScrollCallback      :: glfw.SetScrollCallback
-SetCharCallback        :: glfw.SetCharCallback
-SetCharModsCallback    :: glfw.SetCharModsCallback
+SetCursorPosCallback :: glfw.SetCursorPosCallback
+SetScrollCallback :: glfw.SetScrollCallback
+SetCharCallback :: glfw.SetCharCallback
+SetCharModsCallback :: glfw.SetCharModsCallback
 SetCursorEnterCallback :: glfw.SetCursorEnterCallback
-SetJoystickCallback    :: glfw.SetJoystickCallback
+SetJoystickCallback :: glfw.SetJoystickCallback
 
 SetErrorCallback :: glfw.SetErrorCallback
 
-GetPlatform       :: glfw.GetPlatform
+GetPlatform :: glfw.GetPlatform
 PlatformSupported :: glfw.PlatformSupported
 
 // Used by vendor:OpenGL

@@ -13,15 +13,15 @@ import "core:testing"
 Pad_Int_Float :: struct {
 	a: i64,
 	b: f32,
-} 	// f32 alone in eightbyte 1
+} // f32 alone in eightbyte 1
 Pad_Float_Double :: struct {
 	a: f32,
 	b: f64,
-} 	// f32 alone in eightbyte 0
+} // f32 alone in eightbyte 0
 No_Pad :: struct {
 	a: f32,
 	b: f32,
-} 	// fills its eightbyte exactly
+} // fills its eightbyte exactly
 Nested :: struct {
 	a: struct {
 		x: f32,

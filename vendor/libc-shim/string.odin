@@ -2,30 +2,30 @@ package odin_libc
 
 import "base:intrinsics"
 
-import "core:c"
-import "core:strings"
-import "core:mem"
 import "core:bytes"
+import "core:c"
+import "core:mem"
+import "core:strings"
 
 // NOTE: already defined by Odin.
 // void *memcpy(void *, const void *, size_t);
 // void *memset(void *, int, size_t);
 
-@(require, linkage="strong", link_name="memcmp")
+@(require, linkage = "strong", link_name = "memcmp")
 memcmp :: proc "c" (lhs: [^]byte, rhs: [^]byte, count: uint) -> i32 {
 	icount := int(count)
 	assert_contextless(icount >= 0)
 	return i32(mem.compare(lhs[:icount], rhs[:icount]))
 }
 
-@(require, linkage="strong", link_name="strlen")
+@(require, linkage = "strong", link_name = "strlen")
 strlen :: proc "c" (str: cstring) -> c.ulong {
 	return c.ulong(len(str))
 }
 
-@(require, linkage="strong", link_name="strchr")
+@(require, linkage = "strong", link_name = "strchr")
 strchr :: proc "c" (str: cstring, ch: i32) -> cstring {
-	bch  := u8(ch)
+	bch := u8(ch)
 	sstr := string(str)
 	if bch == 0 {
 		return cstring(raw_data(sstr)[len(sstr):])
@@ -39,9 +39,9 @@ strchr :: proc "c" (str: cstring, ch: i32) -> cstring {
 	return cstring(raw_data(sstr)[idx:])
 }
 
-@(require, linkage="strong", link_name="strrchr")
+@(require, linkage = "strong", link_name = "strrchr")
 strrchr :: proc "c" (str: cstring, ch: i32) -> cstring {
-	bch  := u8(ch)
+	bch := u8(ch)
 	sstr := string(str)
 	if bch == 0 {
 		return cstring(raw_data(sstr)[len(sstr):])
@@ -55,23 +55,23 @@ strrchr :: proc "c" (str: cstring, ch: i32) -> cstring {
 	return cstring(raw_data(sstr)[idx:])
 }
 
-@(require, linkage="strong", link_name="strncpy")
+@(require, linkage = "strong", link_name = "strncpy")
 strncpy :: proc "c" (dst: [^]byte, src: cstring, count: uint) -> cstring {
 	icount := int(count)
 	assert_contextless(icount >= 0)
 	cnt := min(len(src), icount)
 	intrinsics.mem_copy_non_overlapping(dst, rawptr(src), cnt)
-	dst[icount-cnt] = 0
+	dst[icount - cnt] = 0
 	return cstring(dst)
 }
 
-@(require, linkage="strong", link_name="strcpy")
+@(require, linkage = "strong", link_name = "strcpy")
 strcpy :: proc "c" (dst: [^]byte, src: cstring) -> cstring {
-	intrinsics.mem_copy_non_overlapping(dst, rawptr(src), len(src)+1)
+	intrinsics.mem_copy_non_overlapping(dst, rawptr(src), len(src) + 1)
 	return cstring(dst)
 }
 
-@(require, linkage="strong", link_name="strcspn")
+@(require, linkage = "strong", link_name = "strcspn")
 strcspn :: proc "c" (dst: cstring, src: cstring) -> uint {
 	context = g_ctx
 	sdst := string(dst)
@@ -82,7 +82,7 @@ strcspn :: proc "c" (dst: cstring, src: cstring) -> uint {
 	return uint(idx)
 }
 
-@(require, linkage="strong", link_name="strncmp")
+@(require, linkage = "strong", link_name = "strncmp")
 strncmp :: proc "c" (lhs: cstring, rhs: cstring, count: uint) -> i32 {
 	icount := int(count)
 	assert_contextless(icount >= 0)
@@ -91,12 +91,12 @@ strncmp :: proc "c" (lhs: cstring, rhs: cstring, count: uint) -> i32 {
 	return i32(strings.compare(lhss, rhss))
 }
 
-@(require, linkage="strong", link_name="strcmp")
+@(require, linkage = "strong", link_name = "strcmp")
 strcmp :: proc "c" (lhs: cstring, rhs: cstring) -> i32 {
 	return i32(strings.compare(string(lhs), string(rhs)))
 }
 
-@(require, linkage="strong", link_name="strstr")
+@(require, linkage = "strong", link_name = "strstr")
 strstr :: proc "c" (str: cstring, substr: cstring) -> cstring {
 	if substr == "" {
 		return str
@@ -110,7 +110,7 @@ strstr :: proc "c" (str: cstring, substr: cstring) -> cstring {
 	return cstring(([^]byte)(str)[idx:])
 }
 
-@(require, linkage="strong", link_name="memchr")
+@(require, linkage = "strong", link_name = "memchr")
 memchr :: proc "c" (str: [^]byte, c: i32, n: uint) -> [^]byte {
 	idx := bytes.index_byte(str[:n], u8(c))
 	if idx < 0 {

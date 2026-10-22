@@ -16,8 +16,8 @@ A_ENABLED :: B_VALUE > 0
 
 // file private names
 when PRIV == 5 { FROM_PRIV :: true } else { FROM_PRIV :: false }
-when true { @(private = "file")
-	PRIV :: 5 }
+when true {@(private = "file")
+	PRIV :: 5}
 
 // a 'when' within a 'foreign' block
 when size_of(type_of(foreign_proc)) == size_of(rawptr) { FOREIGN_OK :: true } else { FOREIGN_OK :: false }

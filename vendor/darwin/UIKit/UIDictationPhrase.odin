@@ -4,14 +4,16 @@ package darwin_UIKit
 
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class="UIDictationPhrase", objc_superclass=NS.Object)
-DictationPhrase :: struct { using _: NS.Object}
+@(objc_class = "UIDictationPhrase", objc_superclass = NS.Object)
+DictationPhrase :: struct {
+	using _: NS.Object,
+}
 
-@(default_calling_convention="c")
+@(default_calling_convention = "c")
 foreign lib {
-	@(objc_type=DictationPhrase, objc_selector="text", objc_name="text")
+	@(objc_type = DictationPhrase, objc_selector = "text", objc_name = "text")
 	DictationPhrase_text :: proc(self: ^DictationPhrase) -> ^NS.String ---
 
-	@(objc_type=DictationPhrase, objc_selector="alternativeInterpretations", objc_name="alternativeInterpretations")
+	@(objc_type = DictationPhrase, objc_selector = "alternativeInterpretations", objc_name = "alternativeInterpretations")
 	DictationPhrase_alternativeInterpretations :: proc(self: ^DictationPhrase) -> ^NS.Array ---
 }

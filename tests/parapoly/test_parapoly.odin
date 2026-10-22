@@ -23,7 +23,7 @@ PP_E :: enum {
 	A = 1,
 	B = 3,
 	C = 7,
-} 	// non-contiguous -> requires #sparse
+} // non-contiguous -> requires #sparse
 
 PP_Stack :: struct($T: typeid) {
 	data: [dynamic]T,
@@ -307,7 +307,7 @@ parapoly_record_compound_arg :: proc(t: ^testing.T) { 	// record whose polymorph
 
 PP_Vec :: struct($N: int, $name: string, $signed: bool) {
 	data: [N]int,
-} 	// non-type poly const params
+} // non-type poly const params
 pp_vec_name :: proc(v: PP_Vec($N, $name, $signed)) -> string { return name }
 pp_vec_n :: proc(v: PP_Vec($N, $name, $signed)) -> int { return N }
 pp_vec_signed :: proc(v: PP_Vec($N, $name, $signed)) -> bool { return signed }

@@ -50,7 +50,7 @@ memory_allocation_func_t :: proc "c" (bytes: c.size_t) -> rawptr
  */
 memory_free_func_t :: proc "c" (ptr: rawptr)
 
-@(link_prefix="exr_", default_calling_convention="c")
+@(link_prefix = "exr_", default_calling_convention = "c")
 foreign lib {
 	/** @brief Retrieve the current library version. The @p extra string is for
 	 * custom installs, and is a static string, do not free the returned

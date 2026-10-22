@@ -6,10 +6,10 @@ main :: proc() {
 	_, _ = **arr // ok: array value
 	_, _ = **struct {
 		x, y: int,
-	}{} 	// ok: struct value
+	}{} // ok: struct value
 
 	_, _ = **[2]int // error: array type
 	_, _ = **struct {
 		x, y: int,
-	} 	// error: struct type
+	} // error: struct type
 }

@@ -1,16 +1,16 @@
 package test_core_flags
 
-import            "base:runtime"
-import            "core:bytes"
-import            "core:flags"
-import            "core:fmt"
+import "base:runtime"
+import "core:bytes"
+import "core:flags"
+import "core:fmt"
 @(require) import "core:log"
-import            "core:math"
+import "core:math"
 @(require) import "core:net"
-import            "core:os"
-import            "core:strings"
-import            "core:testing"
-import            "core:time/datetime"
+import "core:os"
+import "core:strings"
+import "core:testing"
+import "core:time/datetime"
 
 Custom_Data :: struct {
 	a: int,
@@ -23,7 +23,7 @@ init_custom_type_setter :: proc "contextless" () {
 	// reported by using `-sanitize:thread`.
 	//
 	// Do mind that this means every test here acknowledges the `Custom_Data` type.
-	flags.register_type_setter(proc (data: rawptr, data_type: typeid, _, _: string) -> (string, bool, runtime.Allocator_Error) {
+	flags.register_type_setter(proc(data: rawptr, data_type: typeid, _, _: string) -> (string, bool, runtime.Allocator_Error) {
 		if data_type == Custom_Data {
 			(cast(^Custom_Data)data).a = 32
 			return "", true, nil
@@ -50,7 +50,7 @@ test_two_flags :: proc(t: ^testing.T) {
 		o: string,
 	}
 	s: S
-	args := [?]string { "-i:hellope", "-o:world" }
+	args := [?]string{"-i:hellope", "-o:world"}
 	result := flags.parse(&s, args[:])
 	testing.expect_value(t, result, nil)
 	testing.expect_value(t, s.i, "hellope")
@@ -63,7 +63,7 @@ test_extra_arg :: proc(t: ^testing.T) {
 		a: string,
 	}
 	s: S
-	args := [?]string { "-a:hellope", "world" }
+	args := [?]string{"-a:hellope", "world"}
 	result := flags.parse(&s, args[:])
 	err, ok := result.(flags.Parse_Error)
 	testing.expectf(t, ok, "unexpected result: %v", result)
@@ -80,21 +80,21 @@ test_assignment_oddities :: proc(t: ^testing.T) {
 	s: S
 
 	{
-		args := [?]string { "-s:=" }
+		args := [?]string{"-s:="}
 		result := flags.parse(&s, args[:])
 		testing.expect_value(t, result, nil)
 		testing.expect_value(t, s.s, "=")
 	}
 
 	{
-		args := [?]string { "-s=:" }
+		args := [?]string{"-s=:"}
 		result := flags.parse(&s, args[:])
 		testing.expect_value(t, result, nil)
 		testing.expect_value(t, s.s, ":")
 	}
 
 	{
-		args := [?]string { "-" }
+		args := [?]string{"-"}
 		result := flags.parse(&s, args[:])
 		err, ok := result.(flags.Parse_Error)
 		testing.expectf(t, ok, "unexpected result: %v", result)
@@ -110,7 +110,7 @@ test_string_into_int :: proc(t: ^testing.T) {
 		n: int,
 	}
 	s: S
-	args := [?]string { "-n:hellope" }
+	args := [?]string{"-n:hellope"}
 	result := flags.parse(&s, args[:])
 	err, ok := result.(flags.Parse_Error)
 	testing.expectf(t, ok, "unexpected result: %v", result)
@@ -125,7 +125,7 @@ test_string_into_bool :: proc(t: ^testing.T) {
 		b: bool,
 	}
 	s: S
-	args := [?]string { "-b:hellope" }
+	args := [?]string{"-b:hellope"}
 	result := flags.parse(&s, args[:])
 	err, ok := result.(flags.Parse_Error)
 	testing.expectf(t, ok, "unexpected result: %v", result)
@@ -146,7 +146,7 @@ test_all_bools :: proc(t: ^testing.T) {
 	s: S
 	s.a = true
 	s.c = true
-	args := [?]string { "-a:false", "-b:true", "-c:0", "-d", "-e:1" }
+	args := [?]string{"-a:false", "-b:true", "-c:0", "-d", "-e:1"}
 	result := flags.parse(&s, args[:])
 	testing.expect_value(t, result, nil)
 	testing.expect_value(t, s.a, false)
@@ -209,7 +209,7 @@ test_all_floats :: proc(t: ^testing.T) {
 		e: f64,
 	}
 	s: S
-	args := [?]string { "-a:100", "-b:3.14", "-c:-123.456", "-d:nan", "-e:inf" }
+	args := [?]string{"-a:100", "-b:3.14", "-c:-123.456", "-d:nan", "-e:inf"}
 	result := flags.parse(&s, args[:])
 	testing.expect_value(t, result, nil)
 	testing.expect_value(t, s.a, 100)
@@ -221,13 +221,19 @@ test_all_floats :: proc(t: ^testing.T) {
 
 @(test)
 test_all_enums :: proc(t: ^testing.T) {
-	E :: enum { A, B }
+	E :: enum {
+		A,
+		B,
+	}
 	S :: struct {
-		nameless: enum { C, D },
-		named: E,
+		nameless: enum {
+			C,
+			D,
+		},
+		named:    E,
 	}
 	s: S
-	args := [?]string { "-nameless:D", "-named:B" }
+	args := [?]string{"-nameless:D", "-named:B"}
 	result := flags.parse(&s, args[:])
 	testing.expect_value(t, result, nil)
 	testing.expect_value(t, cast(int)s.nameless, 1)
@@ -242,7 +248,7 @@ test_all_complex :: proc(t: ^testing.T) {
 		c: complex128,
 	}
 	s: S
-	args := [?]string { "-a:1+0i", "-b:3+7i", "-c:NaNNaNi" }
+	args := [?]string{"-a:1+0i", "-b:3+7i", "-c:NaNNaNi"}
 	result := flags.parse(&s, args[:])
 	testing.expect_value(t, result, nil)
 	testing.expect_value(t, real(s.a), 1)
@@ -261,7 +267,7 @@ test_all_quaternion :: proc(t: ^testing.T) {
 		c: quaternion256,
 	}
 	s: S
-	args := [?]string { "-a:1+0i+1j+0k", "-b:3+7i+5j-3k", "-c:NaNNaNi+Infj-Infk" }
+	args := [?]string{"-a:1+0i+1j+0k", "-b:3+7i+5j-3k", "-c:NaNNaNi+Infj-Infk"}
 	result := flags.parse(&s, args[:])
 	testing.expect_value(t, result, nil)
 
@@ -292,14 +298,14 @@ test_all_bit_sets :: proc(t: ^testing.T) {
 		Option_B,
 	}
 	S :: struct {
-		a: bit_set[0..<8],
-		b: bit_set[0..<16; u16],
-		c: bit_set[16..<18; rune],
-		d: bit_set[0..<1; i8],
-		e: bit_set[0..<128],
-		f: bit_set[-32..<32],
+		a: bit_set[0 ..< 8],
+		b: bit_set[0 ..< 16;u16],
+		c: bit_set[16 ..< 18;rune],
+		d: bit_set[0 ..< 1;i8],
+		e: bit_set[0 ..< 128],
+		f: bit_set[-32 ..< 32],
 		g: bit_set[E],
-		i: bit_set[E; u8],
+		i: bit_set[E;u8],
 	}
 	s: S
 	{
@@ -315,17 +321,17 @@ test_all_bit_sets :: proc(t: ^testing.T) {
 		}
 		result := flags.parse(&s, args[:])
 		testing.expect_value(t, result, nil)
-		testing.expect_value(t, s.a, bit_set[0..<8]{0, 2, 4})
-		testing.expect_value(t, s.b, bit_set[0..<16; u16]{15})
-		testing.expect_value(t, s.c, bit_set[16..<18; rune]{16, 17})
-		testing.expect_value(t, s.d, bit_set[0..<1; i8]{0})
-		testing.expect_value(t, s.e, bit_set[0..<128]{127})
-		testing.expect_value(t, s.f, bit_set[-32..<32]{-32})
+		testing.expect_value(t, s.a, bit_set[0 ..< 8]{0, 2, 4})
+		testing.expect_value(t, s.b, bit_set[0 ..< 16;u16]{15})
+		testing.expect_value(t, s.c, bit_set[16 ..< 18;rune]{16, 17})
+		testing.expect_value(t, s.d, bit_set[0 ..< 1;i8]{0})
+		testing.expect_value(t, s.e, bit_set[0 ..< 128]{127})
+		testing.expect_value(t, s.f, bit_set[-32 ..< 32]{-32})
 		testing.expect_value(t, s.g, bit_set[E]{E.Option_B})
-		testing.expect_value(t, s.i, bit_set[E; u8]{E.Option_A})
+		testing.expect_value(t, s.i, bit_set[E;u8]{E.Option_A})
 	}
 	{
-		args := [?]string { "-d:11" }
+		args := [?]string{"-d:11"}
 		result := flags.parse(&s, args[:])
 		err, ok := result.(flags.Parse_Error)
 		testing.expectf(t, ok, "unexpected result: %v", result)
@@ -335,7 +341,7 @@ test_all_bit_sets :: proc(t: ^testing.T) {
 	}
 	{
 		// Starting a binary string with underscore is disallowed.
-		args := [?]string { "-d:_1" }
+		args := [?]string{"-d:_1"}
 		result := flags.parse(&s, args[:])
 		err, ok := result.(flags.Parse_Error)
 		testing.expectf(t, ok, "unexpected result: %v", result)
@@ -345,9 +351,9 @@ test_all_bit_sets :: proc(t: ^testing.T) {
 	}
 
 	E2 :: enum {
-		Option_A=5,
+		Option_A = 5,
 		Option_B,
-		Option_C=3,
+		Option_C = 3,
 		Option_D,
 	}
 	R :: struct {
@@ -356,15 +362,13 @@ test_all_bit_sets :: proc(t: ^testing.T) {
 	r: R
 	{
 		// Least significant bit > 0
-		args := [?]string {
-			"-a:Option_A,Option_D",
-		}
+		args := [?]string{"-a:Option_A,Option_D"}
 		result := flags.parse(&r, args[:])
 		testing.expect_value(t, result, nil)
 		testing.expect_value(t, r.a, bit_set[E2]{E2.Option_A, E2.Option_D})
 	}
 	{
-		args := [?]string { "-a:Option_Non_Existent" }
+		args := [?]string{"-a:Option_Non_Existent"}
 		result := flags.parse(&r, args[:])
 		err, ok := result.(flags.Parse_Error)
 		testing.expectf(t, ok, "unexpected result: %v", result)
@@ -374,7 +378,7 @@ test_all_bit_sets :: proc(t: ^testing.T) {
 	}
 	{
 		// Value names list must be strictly comma-separated.
-		args := [?]string { "-a:Option_A, Option_B" }
+		args := [?]string{"-a:Option_A, Option_B"}
 		result := flags.parse(&r, args[:])
 		err, ok := result.(flags.Parse_Error)
 		testing.expectf(t, ok, "unexpected result: %v", result)
@@ -384,7 +388,7 @@ test_all_bit_sets :: proc(t: ^testing.T) {
 	}
 	{
 		// Value names list must not end with a comma.
-		args := [?]string { "-a:Option_A,Option_B," }
+		args := [?]string{"-a:Option_A,Option_B,"}
 		result := flags.parse(&r, args[:])
 		err, ok := result.(flags.Parse_Error)
 		testing.expectf(t, ok, "unexpected result: %v", result)
@@ -398,10 +402,10 @@ test_all_bit_sets :: proc(t: ^testing.T) {
 test_all_strings :: proc(t: ^testing.T) {
 	S :: struct {
 		a, b, c: string,
-		d: cstring,
+		d:       cstring,
 	}
 	s: S
-	args := [?]string { "-a:hi", "-b:hellope", "-c:spaced out", "-d:cstr", "-d:cstr-overwrite" }
+	args := [?]string{"-a:hi", "-b:hellope", "-c:spaced out", "-d:cstr", "-d:cstr-overwrite"}
 	result := flags.parse(&s, args[:])
 	defer delete(s.d)
 	testing.expect_value(t, result, nil)
@@ -417,7 +421,7 @@ test_runes :: proc(t: ^testing.T) {
 		a, b, c: rune,
 	}
 	s: S
-	args := [?]string { "-a:a", "-b:ツ", "-c:\U0010FFFF" }
+	args := [?]string{"-a:a", "-b:ツ", "-c:\U0010FFFF"}
 	result := flags.parse(&s, args[:])
 	testing.expect_value(t, result, nil)
 	testing.expect_value(t, s.a, 'a')
@@ -433,7 +437,7 @@ test_no_value :: proc(t: ^testing.T) {
 	s: S
 
 	{
-		args := [?]string { "-a:" }
+		args := [?]string{"-a:"}
 		result := flags.parse(&s, args[:])
 		err, ok := result.(flags.Parse_Error)
 		testing.expectf(t, ok, "unexpected result: %v", result)
@@ -443,7 +447,7 @@ test_no_value :: proc(t: ^testing.T) {
 	}
 
 	{
-		args := [?]string { "-a=" }
+		args := [?]string{"-a="}
 		result := flags.parse(&s, args[:])
 		err, ok := result.(flags.Parse_Error)
 		testing.expectf(t, ok, "unexpected result: %v", result)
@@ -459,7 +463,7 @@ test_overflow :: proc(t: ^testing.T) {
 		a: u8,
 	}
 	s: S
-	args := [?]string { "-a:256" }
+	args := [?]string{"-a:256"}
 	result := flags.parse(&s, args[:])
 	err, ok := result.(flags.Parse_Error)
 	testing.expectf(t, ok, "unexpected result: %v", result)
@@ -474,7 +478,7 @@ test_underflow :: proc(t: ^testing.T) {
 		a: i8,
 	}
 	s: S
-	args := [?]string { "-a:-129" }
+	args := [?]string{"-a:-129"}
 	result := flags.parse(&s, args[:])
 	err, ok := result.(flags.Parse_Error)
 	testing.expectf(t, ok, "unexpected result: %v", result)
@@ -490,7 +494,7 @@ test_arrays :: proc(t: ^testing.T) {
 		b: [dynamic]int,
 	}
 	s: S
-	args := [?]string { "-a:abc", "-b:1", "-a:foo", "-b:3" }
+	args := [?]string{"-a:abc", "-b:1", "-a:foo", "-b:3"}
 	result := flags.parse(&s, args[:])
 	defer {
 		delete(s.a)
@@ -516,7 +520,7 @@ test_varargs :: proc(t: ^testing.T) {
 		overflow: [dynamic]string,
 	}
 	s: S
-	args := [?]string { "abc", "foo", "bar" }
+	args := [?]string{"abc", "foo", "bar"}
 	result := flags.parse(&s, args[:])
 	defer delete(s.overflow)
 	testing.expect_value(t, result, nil)
@@ -534,11 +538,11 @@ test_varargs :: proc(t: ^testing.T) {
 @(test)
 test_mixed_varargs :: proc(t: ^testing.T) {
 	S :: struct {
-		input: string `args:"pos=0"`,
+		input:    string `args:"pos=0"`,
 		overflow: [dynamic]string,
 	}
 	s: S
-	args := [?]string { "abc", "foo", "bar" }
+	args := [?]string{"abc", "foo", "bar"}
 	result := flags.parse(&s, args[:])
 	defer delete(s.overflow)
 	testing.expect_value(t, result, nil)
@@ -560,7 +564,7 @@ test_maps :: proc(t: ^testing.T) {
 		b: map[string]int,
 	}
 	s: S
-	args := [?]string { "-a:abc=foo", "-b:bar=42" }
+	args := [?]string{"-a:abc=foo", "-b:bar=42"}
 	result := flags.parse(&s, args[:])
 	defer {
 		delete(s.a)
@@ -589,7 +593,7 @@ test_invalid_map_syntax :: proc(t: ^testing.T) {
 		a: map[string]string,
 	}
 	s: S
-	args := [?]string { "-a:foo:42" }
+	args := [?]string{"-a:foo:42"}
 	result := flags.parse(&s, args[:])
 	err, ok := result.(flags.Parse_Error)
 	testing.expectf(t, ok, "unexpected result: %v", result)
@@ -604,7 +608,7 @@ test_underline_name_to_dash :: proc(t: ^testing.T) {
 		a_b: int,
 	}
 	s: S
-	args := [?]string { "-a-b:3" }
+	args := [?]string{"-a-b:3"}
 	result := flags.parse(&s, args[:])
 	testing.expect_value(t, result, nil)
 	testing.expect_value(t, s.a_b, 3)
@@ -617,7 +621,7 @@ test_tags_pos :: proc(t: ^testing.T) {
 		a: int `args:"pos=0"`,
 	}
 	s: S
-	args := [?]string { "42", "99" }
+	args := [?]string{"42", "99"}
 	result := flags.parse(&s, args[:])
 	testing.expect_value(t, result, nil)
 	testing.expect_value(t, s.a, 42)
@@ -631,7 +635,7 @@ test_tags_name :: proc(t: ^testing.T) {
 		b: int `args:"name=bill"`,
 	}
 	s: S
-	args := [?]string { "-alice:1", "-bill:2" }
+	args := [?]string{"-alice:1", "-bill:2"}
 	result := flags.parse(&s, args[:])
 	testing.expect_value(t, result, nil)
 	testing.expect_value(t, s.a, 1)
@@ -645,7 +649,7 @@ test_tags_required :: proc(t: ^testing.T) {
 		b: int `args:"required"`,
 	}
 	s: S
-	args := [?]string { "-a:1" }
+	args := [?]string{"-a:1"}
 	result := flags.parse(&s, args[:])
 	_, ok := result.(flags.Validation_Error)
 	testing.expectf(t, ok, "unexpected result: %v", result)
@@ -658,7 +662,7 @@ test_tags_required_pos :: proc(t: ^testing.T) {
 		b: int `args:"pos=1"`,
 	}
 	s: S
-	args := [?]string { "-b:5" }
+	args := [?]string{"-b:5"}
 	result := flags.parse(&s, args[:])
 	_, ok := result.(flags.Validation_Error)
 	testing.expectf(t, ok, "unexpected result: %v", result)
@@ -672,7 +676,7 @@ test_tags_required_limit_min :: proc(t: ^testing.T) {
 
 	{
 		s: S
-		args := [?]string { "-n:1" }
+		args := [?]string{"-n:1"}
 		result := flags.parse(&s, args[:])
 		defer delete(s.n)
 		_, ok := result.(flags.Validation_Error)
@@ -681,7 +685,7 @@ test_tags_required_limit_min :: proc(t: ^testing.T) {
 
 	{
 		s: S
-		args := [?]string { "-n:3", "-n:5", "-n:7" }
+		args := [?]string{"-n:3", "-n:5", "-n:7"}
 		result := flags.parse(&s, args[:])
 		defer delete(s.n)
 		testing.expect_value(t, result, nil)
@@ -703,7 +707,7 @@ test_tags_required_limit_min_max :: proc(t: ^testing.T) {
 
 	{
 		s: S
-		args := [?]string { "-n:1" }
+		args := [?]string{"-n:1"}
 		result := flags.parse(&s, args[:])
 		defer delete(s.n)
 		_, ok := result.(flags.Validation_Error)
@@ -712,7 +716,7 @@ test_tags_required_limit_min_max :: proc(t: ^testing.T) {
 
 	{
 		s: S
-		args := [?]string { "-n:1", "-n:2", "-n:3", "-n:4" }
+		args := [?]string{"-n:1", "-n:2", "-n:3", "-n:4"}
 		result := flags.parse(&s, args[:])
 		defer delete(s.n)
 		_, ok := result.(flags.Validation_Error)
@@ -721,7 +725,7 @@ test_tags_required_limit_min_max :: proc(t: ^testing.T) {
 
 	{
 		s: S
-		args := [?]string { "-n:3", "-n:5", "-n:7" }
+		args := [?]string{"-n:3", "-n:5", "-n:7"}
 		result := flags.parse(&s, args[:])
 		defer delete(s.n)
 		testing.expect_value(t, result, nil)
@@ -750,7 +754,7 @@ test_tags_required_limit_max :: proc(t: ^testing.T) {
 
 	{
 		s: S
-		args := [?]string { "-n:1", "-n:2", "-n:3", "-n:4" }
+		args := [?]string{"-n:1", "-n:2", "-n:3", "-n:4"}
 		result := flags.parse(&s, args[:])
 		defer delete(s.n)
 		_, ok := result.(flags.Validation_Error)
@@ -759,7 +763,7 @@ test_tags_required_limit_max :: proc(t: ^testing.T) {
 
 	{
 		s: S
-		args := [?]string { "-n:3", "-n:5", "-n:7" }
+		args := [?]string{"-n:3", "-n:5", "-n:7"}
 		result := flags.parse(&s, args[:])
 		defer delete(s.n)
 		testing.expect_value(t, result, nil)
@@ -776,11 +780,11 @@ test_tags_required_limit_max :: proc(t: ^testing.T) {
 @(test)
 test_tags_pos_out_of_order :: proc(t: ^testing.T) {
 	S :: struct {
-		a: int `args:"pos=2"`,
+		a:        int `args:"pos=2"`,
 		overflow: [dynamic]int,
 	}
 	s: S
-	args := [?]string { "1", "2", "3", "4" }
+	args := [?]string{"1", "2", "3", "4"}
 	result := flags.parse(&s, args[:])
 	defer delete(s.overflow)
 	testing.expect_value(t, result, nil)
@@ -802,7 +806,7 @@ test_missing_flag :: proc(t: ^testing.T) {
 		a: int,
 	}
 	s: S
-	args := [?]string { "-b" }
+	args := [?]string{"-b"}
 	result := flags.parse(&s, args[:])
 	err, ok := result.(flags.Parse_Error)
 	testing.expectf(t, ok, "unexpected result: %v", result)
@@ -817,7 +821,7 @@ test_alt_syntax :: proc(t: ^testing.T) {
 		a: int,
 	}
 	s: S
-	args := [?]string { "-a=3" }
+	args := [?]string{"-a=3"}
 	result := flags.parse(&s, args[:])
 	testing.expect_value(t, result, nil)
 	testing.expect_value(t, s.a, 3)
@@ -830,8 +834,8 @@ test_strict_returns_first_error :: proc(t: ^testing.T) {
 		c: int,
 	}
 	s: S
-	args := [?]string { "-a=3", "-b=3" }
-	result := flags.parse(&s, args[:], strict=true)
+	args := [?]string{"-a=3", "-b=3"}
+	result := flags.parse(&s, args[:], strict = true)
 	err, ok := result.(flags.Parse_Error)
 	testing.expect_value(t, s.b, 0)
 	testing.expectf(t, ok, "unexpected result: %v", result)
@@ -847,8 +851,8 @@ test_non_strict_returns_last_error :: proc(t: ^testing.T) {
 		b: int,
 	}
 	s: S
-	args := [?]string { "-a=foo", "-b=2", "-c=3" }
-	result := flags.parse(&s, args[:], strict=false)
+	args := [?]string{"-a=foo", "-b=2", "-c=3"}
+	result := flags.parse(&s, args[:], strict = false)
 	err, ok := result.(flags.Parse_Error)
 	testing.expect_value(t, s.b, 2)
 	testing.expectf(t, ok, "unexpected result: %v", result)
@@ -863,7 +867,7 @@ test_map_overwrite :: proc(t: ^testing.T) {
 		m: map[string]int,
 	}
 	s: S
-	args := [?]string { "-m:foo=3", "-m:foo=5" }
+	args := [?]string{"-m:foo=3", "-m:foo=5"}
 	result := flags.parse(&s, args[:])
 	defer delete(s.m)
 	testing.expect_value(t, result, nil)
@@ -880,7 +884,7 @@ test_maps_of_arrays :: proc(t: ^testing.T) {
 		m: map[string][dynamic]int,
 	}
 	s: S
-	args := [?]string { "-m:foo=1", "-m:foo=2", "-m:bar=3" }
+	args := [?]string{"-m:foo=1", "-m:foo=2", "-m:bar=3"}
 	result := flags.parse(&s, args[:])
 	defer {
 		for _, v in s.m {
@@ -922,8 +926,8 @@ test_builtin_help_flag :: proc(t: ^testing.T) {
 	S :: struct {}
 	s: S
 
-	args_short  := [?]string { "-h" }
-	args_normal := [?]string { "-help" }
+	args_short := [?]string{"-h"}
+	args_normal := [?]string{"-help"}
 
 	result := flags.parse(&s, args_short[:])
 	_, ok := result.(flags.Help_Request)
@@ -933,8 +937,8 @@ test_builtin_help_flag :: proc(t: ^testing.T) {
 	_, ok = result.(flags.Help_Request)
 	testing.expectf(t, ok, "unexpected result: %v", result)
 
-	args_unix_short  := [?]string { "-h" }
-	args_unix_normal := [?]string { "--help" }
+	args_unix_short := [?]string{"-h"}
+	args_unix_normal := [?]string{"--help"}
 
 	result = flags.parse(&s, args_unix_short[:], .Unix)
 	_, ok = result.(flags.Help_Request)
@@ -956,7 +960,7 @@ test_pos_nonoverlap :: proc(t: ^testing.T) {
 	}
 	s: S
 
-	args := [?]string { "-a:3", "5" }
+	args := [?]string{"-a:3", "5"}
 
 	result := flags.parse(&s, args[:])
 	testing.expect_value(t, result, nil)
@@ -970,10 +974,10 @@ test_pos_nonoverlap :: proc(t: ^testing.T) {
 test_pos_many_args :: proc(t: ^testing.T) {
 	S :: struct {
 		overflow: [dynamic]int,
-		a: int `args:"pos=0,required"`,
-		b: int `args:"pos=64,required"`,
-		c: int `args:"pos=66,required"`,
-		d: int `args:"pos=129,required"`,
+		a:        int `args:"pos=0,required"`,
+		b:        int `args:"pos=64,required"`,
+		c:        int `args:"pos=66,required"`,
+		d:        int `args:"pos=129,required"`,
 	}
 	s: S
 
@@ -1011,7 +1015,7 @@ test_unix :: proc(t: ^testing.T) {
 
 	{
 		s: S
-		args := [?]string { "--a", "hellope" }
+		args := [?]string{"--a", "hellope"}
 
 		result := flags.parse(&s, args[:], .Unix)
 		testing.expect_value(t, result, nil)
@@ -1020,7 +1024,7 @@ test_unix :: proc(t: ^testing.T) {
 
 	{
 		s: S
-		args := [?]string { "--a=world" }
+		args := [?]string{"--a=world"}
 
 		result := flags.parse(&s, args[:], .Unix)
 		testing.expect_value(t, result, nil)
@@ -1031,13 +1035,13 @@ test_unix :: proc(t: ^testing.T) {
 @(test)
 test_unix_rejects_undeclared_short :: proc(t: ^testing.T) {
 	S :: struct {
-		a: string,
+		a:      string,
 		output: string,
 	}
 
 	{
 		s: S
-		args := [?]string { "-a", "hellope" }
+		args := [?]string{"-a", "hellope"}
 
 		result := flags.parse(&s, args[:], .Unix)
 		err, ok := result.(flags.Parse_Error)
@@ -1050,7 +1054,7 @@ test_unix_rejects_undeclared_short :: proc(t: ^testing.T) {
 
 	{
 		s: S
-		args := [?]string { "-a=hellope" }
+		args := [?]string{"-a=hellope"}
 
 		result := flags.parse(&s, args[:], .Unix)
 		err, ok := result.(flags.Parse_Error)
@@ -1063,7 +1067,7 @@ test_unix_rejects_undeclared_short :: proc(t: ^testing.T) {
 
 	{
 		s: S
-		args := [?]string { "-output", "hellope" }
+		args := [?]string{"-output", "hellope"}
 
 		result := flags.parse(&s, args[:], .Unix)
 		err, ok := result.(flags.Parse_Error)
@@ -1079,12 +1083,12 @@ test_unix_rejects_undeclared_short :: proc(t: ^testing.T) {
 test_unix_short :: proc(t: ^testing.T) {
 	S :: struct {
 		output:  string `args:"short=o"`,
-		verbose: bool   `args:"short=v"`,
+		verbose: bool `args:"short=v"`,
 	}
 
 	{
 		s: S
-		args := [?]string { "-o", "short", "-v" }
+		args := [?]string{"-o", "short", "-v"}
 
 		result := flags.parse(&s, args[:], .Unix)
 		testing.expect_value(t, result, nil)
@@ -1094,7 +1098,7 @@ test_unix_short :: proc(t: ^testing.T) {
 
 	{
 		s: S
-		args := [?]string { "-o=equals" }
+		args := [?]string{"-o=equals"}
 
 		result := flags.parse(&s, args[:], .Unix)
 		testing.expect_value(t, result, nil)
@@ -1103,7 +1107,7 @@ test_unix_short :: proc(t: ^testing.T) {
 
 	{
 		s: S
-		args := [?]string { "--output", "long" }
+		args := [?]string{"--output", "long"}
 
 		result := flags.parse(&s, args[:], .Unix)
 		testing.expect_value(t, result, nil)
@@ -1112,7 +1116,7 @@ test_unix_short :: proc(t: ^testing.T) {
 
 	{
 		s: S
-		args := [?]string { "-output", "single-dash-long" }
+		args := [?]string{"-output", "single-dash-long"}
 
 		result := flags.parse(&s, args[:], .Unix)
 		err, ok := result.(flags.Parse_Error)
@@ -1127,15 +1131,15 @@ test_unix_short :: proc(t: ^testing.T) {
 @(test)
 test_unix_short_bundle :: proc(t: ^testing.T) {
 	S :: struct {
-		alpha: bool `args:"short=a"`,
-		beta: bool `args:"short=b"`,
+		alpha:   bool `args:"short=a"`,
+		beta:    bool `args:"short=b"`,
 		charlie: bool `args:"short=c"`,
-		output: string `args:"short=o"`,
+		output:  string `args:"short=o"`,
 	}
 
 	{
 		s: S
-		args := [?]string { "-abc" }
+		args := [?]string{"-abc"}
 
 		result := flags.parse(&s, args[:], .Unix)
 		testing.expect_value(t, result, nil)
@@ -1146,7 +1150,7 @@ test_unix_short_bundle :: proc(t: ^testing.T) {
 
 	{
 		s: S
-		args := [?]string { "-abo", "file.txt" }
+		args := [?]string{"-abo", "file.txt"}
 
 		result := flags.parse(&s, args[:], .Unix)
 		testing.expect_value(t, result, nil)
@@ -1157,7 +1161,7 @@ test_unix_short_bundle :: proc(t: ^testing.T) {
 
 	{
 		s: S
-		args := [?]string { "-abo=attached.txt" }
+		args := [?]string{"-abo=attached.txt"}
 
 		result := flags.parse(&s, args[:], .Unix)
 		testing.expect_value(t, result, nil)
@@ -1168,7 +1172,7 @@ test_unix_short_bundle :: proc(t: ^testing.T) {
 
 	{
 		s: S
-		args := [?]string { "-aob", "file.txt" }
+		args := [?]string{"-aob", "file.txt"}
 
 		result := flags.parse(&s, args[:], .Unix)
 		err, ok := result.(flags.Parse_Error)
@@ -1189,7 +1193,7 @@ test_unix_manifold :: proc(t: ^testing.T) {
 	}
 	s: S
 
-	args := [?]string { "--a", "7", "32", "11" }
+	args := [?]string{"--a", "7", "32", "11"}
 
 	result := flags.parse(&s, args[:], .Unix)
 	defer delete(s.a)
@@ -1213,7 +1217,7 @@ test_unix_manifold_limited :: proc(t: ^testing.T) {
 	}
 	s: S
 
-	args := [?]string { "--a", "11", "101", "--b", "3" }
+	args := [?]string{"--a", "11", "101", "--b", "3"}
 
 	result := flags.parse(&s, args[:], .Unix)
 	defer delete(s.a)
@@ -1238,7 +1242,7 @@ test_unix_two_manifold_limited :: proc(t: ^testing.T) {
 	}
 	s: S
 
-	args := [?]string { "--a", "11", "101", "--b", "3", "7", "--c", "9" }
+	args := [?]string{"--a", "11", "101", "--b", "3", "7", "--c", "9"}
 
 	result := flags.parse(&s, args[:], .Unix)
 	defer {
@@ -1271,7 +1275,7 @@ test_unix_two_manifold_string :: proc(t: ^testing.T) {
 	}
 	s: S
 
-	args := [?]string { "--a", "11", "101", "--b", "3", "7", "--c", "9" }
+	args := [?]string{"--a", "11", "101", "--b", "3", "7", "--c", "9"}
 
 	result := flags.parse(&s, args[:], .Unix)
 	defer {
@@ -1307,7 +1311,7 @@ test_unix_two_manifold_int :: proc(t: ^testing.T) {
 	}
 	s: S
 
-	args := [?]string { "--a", "11", "101", "--b", "3", "7", "--c", "9" }
+	args := [?]string{"--a", "11", "101", "--b", "3", "7", "--c", "9"}
 
 	result := flags.parse(&s, args[:], .Unix)
 	defer {
@@ -1341,7 +1345,7 @@ test_unix_positional :: proc(t: ^testing.T) {
 	}
 	s: S
 
-	args := [?]string { "--b", "17", "11" }
+	args := [?]string{"--b", "17", "11"}
 
 	result := flags.parse(&s, args[:], .Unix)
 	testing.expect_value(t, result, nil)
@@ -1353,11 +1357,11 @@ test_unix_positional :: proc(t: ^testing.T) {
 test_unix_positional_with_manifold :: proc(t: ^testing.T) {
 	S :: struct {
 		overflow: [dynamic]int,
-		v: [dynamic]int `args:"manifold"`,
+		v:        [dynamic]int `args:"manifold"`,
 	}
 	s: S
 
-	args := [?]string { "35", "--v", "17", "11" }
+	args := [?]string{"35", "--v", "17", "11"}
 
 	result := flags.parse(&s, args[:], .Unix)
 	defer {
@@ -1373,11 +1377,11 @@ test_unix_positional_with_manifold :: proc(t: ^testing.T) {
 test_unix_double_dash_varargs :: proc(t: ^testing.T) {
 	S :: struct {
 		overflow: [dynamic]string,
-		i: int,
+		i:        int,
 	}
 	s: S
 
-	args := [?]string { "--i", "3", "--", "hellope", "-i", "5" }
+	args := [?]string{"--i", "3", "--", "hellope", "-i", "5"}
 
 	result := flags.parse(&s, args[:], .Unix)
 	defer {
@@ -1403,7 +1407,7 @@ test_unix_no_value :: proc(t: ^testing.T) {
 	}
 	s: S
 
-	args := [?]string { "--i" }
+	args := [?]string{"--i"}
 
 	result := flags.parse(&s, args[:], .Unix)
 	err, ok := result.(flags.Parse_Error)
@@ -1421,7 +1425,7 @@ test_if_dynamic_cstrings_get_freed :: proc(t: ^testing.T) {
 	}
 	s: S
 
-	args := [?]string { "Hellope", "world!" }
+	args := [?]string{"Hellope", "world!"}
 	result := flags.parse(&s, args[:])
 	defer {
 		for v in s.overflow {
@@ -1440,7 +1444,7 @@ test_if_map_cstrings_get_freed :: proc(t: ^testing.T) {
 	}
 	s: S
 
-	args := [?]string { "-m:hellope=world", "-m:hellope=bar", "-m:hellope=foo" }
+	args := [?]string{"-m:hellope=world", "-m:hellope=bar", "-m:hellope=foo"}
 	result := flags.parse(&s, args[:])
 	defer {
 		for _, v in s.m {
@@ -1470,7 +1474,7 @@ test_os_handle :: proc(t: ^testing.T) {
 	}
 	w: W
 
-	args := [?]string { fmt.tprintf("-outf:%s", TEMPORARY_FILENAME) }
+	args := [?]string{fmt.tprintf("-outf:%s", TEMPORARY_FILENAME)}
 	result := flags.parse(&w, args[:])
 	testing.expect_value(t, result, nil)
 	if result != nil {
@@ -1484,7 +1488,7 @@ test_os_handle :: proc(t: ^testing.T) {
 	}
 	r: R
 
-	args = [?]string { fmt.tprintf("-inf:%s", TEMPORARY_FILENAME) }
+	args = [?]string{fmt.tprintf("-inf:%s", TEMPORARY_FILENAME)}
 	result = flags.parse(&r, args[:])
 	testing.expect_value(t, result, nil)
 	if result != nil {
@@ -1501,17 +1505,17 @@ test_os_handle :: proc(t: ^testing.T) {
 test_distinct_types :: proc(t: ^testing.T) {
 	I :: distinct int
 	S :: struct {
-		base_i: I `args:"indistinct"`,
+		base_i:       I `args:"indistinct"`,
 		unmodified_i: I,
 	}
 	s: S
 	{
-		args := [?]string {"-base-i:1"}
+		args := [?]string{"-base-i:1"}
 		result := flags.parse(&s, args[:])
 		testing.expect_value(t, result, nil)
 	}
 	{
-		args := [?]string {"-unmodified-i:1"}
+		args := [?]string{"-unmodified-i:1"}
 		result := flags.parse(&s, args[:])
 		err, ok := result.(flags.Parse_Error)
 		testing.expectf(t, ok, "unexpected result: %v", result)
@@ -1529,7 +1533,7 @@ test_datetime :: proc(t: ^testing.T) {
 		}
 		w: W
 
-		args := [?]string { "-t:2024-06-04T12:34:56Z" }
+		args := [?]string{"-t:2024-06-04T12:34:56Z"}
 		result := flags.parse(&w, args[:])
 		testing.expect_value(t, result, nil)
 		if result != nil {
@@ -1551,7 +1555,7 @@ test_net :: proc(t: ^testing.T) {
 		}
 		w: W
 
-		args := [?]string { "-addr:odin-lang.org:80" }
+		args := [?]string{"-addr:odin-lang.org:80"}
 		result := flags.parse(&w, args[:])
 		testing.expect_value(t, result, nil)
 		if result != nil {
@@ -1576,7 +1580,7 @@ test_custom_type_setter :: proc(t: ^testing.T) {
 	}
 	s: S
 
-	args := [?]string { "-a:hellope", "-b:true" }
+	args := [?]string{"-a:hellope", "-b:true"}
 	result := flags.parse(&s, args[:])
 	testing.expect_value(t, result, nil)
 	testing.expect_value(t, s.a.a, 32)
@@ -1620,30 +1624,25 @@ Flags:
 
 	S :: struct {
 		required_number: int `args:"pos=0,required" usage:"some number"`,
-		number: int `args:"pos=1" usage:"some other number"`,
-		name: string `args:"pos=2" usage:"
+		number:          int `args:"pos=1" usage:"some other number"`,
+		name:            string `args:"pos=2" usage:"
 	Multi-line documentation
 		gets formatted
 very nicely.
 
 "`,
-
-		c: u8 `args:"name=count"`,
-		greek: Custom_Enum,
-
-		array: [dynamic]rune,
-		map_type: map[cstring]byte,
-
-		gadgets: [dynamic]string `args:"required=1"`,
-		widgets: [dynamic]string `args:"required=<3"`,
-		foos: [dynamic]string `args:"required=2<4"`,
-		bars: [dynamic]string `args:"required=3<4"`,
-		bots: [dynamic]string `args:"required"`,
-
-		debug: bool `args:"hidden" usage:"print debug info"`,
-		verbose: bool,
-
-		overflow: [dynamic]string,
+		c:               u8 `args:"name=count"`,
+		greek:           Custom_Enum,
+		array:           [dynamic]rune,
+		map_type:        map[cstring]byte,
+		gadgets:         [dynamic]string `args:"required=1"`,
+		widgets:         [dynamic]string `args:"required=<3"`,
+		foos:            [dynamic]string `args:"required=2<4"`,
+		bars:            [dynamic]string `args:"required=3<4"`,
+		bots:            [dynamic]string `args:"required"`,
+		debug:           bool `args:"hidden" usage:"print debug info"`,
+		verbose:         bool,
+		overflow:        [dynamic]string,
 	}
 
 	builder := strings.builder_make()
@@ -1685,30 +1684,25 @@ Flags:
 
 	S :: struct {
 		required_number: int `args:"pos=0,required" usage:"some number"`,
-		number: int `args:"pos=1" usage:"some other number"`,
-		name: string `args:"pos=2" usage:"
+		number:          int `args:"pos=1" usage:"some other number"`,
+		name:            string `args:"pos=2" usage:"
 	Multi-line documentation
 		gets formatted
 very nicely.
 
 "`,
-
-		c: u8 `args:"name=count,short=c"`,
-		greek: Custom_Enum,
-
-		array: [dynamic]rune,
-		manifold_flag: [dynamic]int `args:"manifold,required=2"`,
-
-		gadgets: [dynamic]string `args:"required=1"`,
-		widgets: [dynamic]string `args:"required=<3"`,
-		foos: [dynamic]string `args:"required=2<4"`,
-		bars: [dynamic]string `args:"required=3<4"`,
-		bots: [dynamic]string `args:"required"`,
-
-		debug: bool `args:"hidden" usage:"print debug info"`,
-		verbose: bool `args:"short=v"`,
-
-		overflow: [dynamic]string,
+		c:               u8 `args:"name=count,short=c"`,
+		greek:           Custom_Enum,
+		array:           [dynamic]rune,
+		manifold_flag:   [dynamic]int `args:"manifold,required=2"`,
+		gadgets:         [dynamic]string `args:"required=1"`,
+		widgets:         [dynamic]string `args:"required=<3"`,
+		foos:            [dynamic]string `args:"required=2<4"`,
+		bars:            [dynamic]string `args:"required=3<4"`,
+		bots:            [dynamic]string `args:"required"`,
+		debug:           bool `args:"hidden" usage:"print debug info"`,
+		verbose:         bool `args:"short=v"`,
+		overflow:        [dynamic]string,
 	}
 
 	builder := strings.builder_make()

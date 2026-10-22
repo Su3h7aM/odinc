@@ -4,10 +4,10 @@ package glfw
 
 import NS "vendor:darwin/AppKit"
 
-@(default_calling_convention="c", link_prefix="glfw")
-foreign {
+@(default_calling_convention = "c", link_prefix = "glfw")
+foreign _ {
 	GetCocoaWindow :: proc(window: WindowHandle) -> ^NS.Window ---
-	GetCocoaView   :: proc(window: WindowHandle) -> ^NS.View   ---
+	GetCocoaView :: proc(window: WindowHandle) -> ^NS.View ---
 }
 
 // TODO:

@@ -4,16 +4,18 @@ package darwin_LocalAuthentication
 
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class="LASecret", objc_superclass=NS.Object)
-Secret :: struct { using _: NS.Object}
+@(objc_class = "LASecret", objc_superclass = NS.Object)
+Secret :: struct {
+	using _: NS.Object,
+}
 
 foreign lib {
-	@(objc_type=Secret, objc_selector="loadDataWithCompletion:", objc_name="loadDataWithCompletion")
-	Secret_loadDataWithCompletion :: proc(self: ^Secret, handler: ^Objc_Block(proc "c" ( _0: ^NS.Data, _1: ^NS.Error ))) ---
+	@(objc_type = Secret, objc_selector = "loadDataWithCompletion:", objc_name = "loadDataWithCompletion")
+	Secret_loadDataWithCompletion :: proc(self: ^Secret, handler: ^Objc_Block(proc "c" (_0: ^NS.Data, _1: ^NS.Error))) ---
 
-	@(objc_type=Secret, objc_selector="new", objc_name="new", objc_is_class_method=true)
+	@(objc_type = Secret, objc_selector = "new", objc_name = "new", objc_is_class_method = true)
 	Secret_new :: proc() -> ^Secret ---
 
-	@(objc_type=Secret, objc_selector="init", objc_name="init")
+	@(objc_type = Secret, objc_selector = "init", objc_name = "init")
 	Secret_init :: proc(self: ^Secret) -> instancetype ---
 }

@@ -5,13 +5,13 @@ package darwin_Metal
 import "base:intrinsics"
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class="MTLAllocation")
+@(objc_class = "MTLAllocation")
 Allocation :: struct {
 	using _: intrinsics.objc_object,
 	using _: NS.ObjectProtocol,
 }
 
 foreign lib {
-	@(objc_type=Allocation, objc_selector="allocatedSize", objc_name="allocatedSize")
+	@(objc_type = Allocation, objc_selector = "allocatedSize", objc_name = "allocatedSize")
 	Allocation_allocatedSize :: proc(self: ^Allocation) -> NS.UInteger ---
 }

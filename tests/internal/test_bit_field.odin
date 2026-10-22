@@ -41,7 +41,7 @@ bit_field_declared_sizes_and_offsets :: proc(t: ^testing.T) {
 		b: u16  | 9,
 		c: bool | 1,
 		d: u8   | 7,
-	} 	// 12 bits spare
+	} // 12 bits spare
 
 	testing.expect_value(t, intrinsics.type_field_bit_size(BF, "a"), 3)
 	testing.expect_value(t, intrinsics.type_field_bit_size(BF, "b"), 9)
@@ -68,7 +68,7 @@ bit_field_writes_leave_neighbours_alone :: proc(t: ^testing.T) {
 	P :: bit_field u16 {
 		a: u8 | 3,
 		b: u8 | 2,
-	} 	// 11 bits spare
+	} // 11 bits spare
 
 	p := transmute(P)u16(0xFFFF)
 	p.a = 0

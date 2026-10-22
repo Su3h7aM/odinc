@@ -2,440 +2,444 @@
 #+build darwin:ios
 package darwin_UIKit
 
-import NS "core:sys/darwin/Foundation"
-import CG "core:sys/darwin/CoreGraphics"
 import "base:intrinsics"
+import CG "core:sys/darwin/CoreGraphics"
+import NS "core:sys/darwin/Foundation"
 
-@(objc_class="UIScrollEdgeEffect", objc_superclass=NS.Object)
-ScrollEdgeEffect :: struct { using _: NS.Object}
+@(objc_class = "UIScrollEdgeEffect", objc_superclass = NS.Object)
+ScrollEdgeEffect :: struct {
+	using _: NS.Object,
+}
 
-@(default_calling_convention="c")
+@(default_calling_convention = "c")
 foreign lib {
-	@(objc_type=ScrollEdgeEffect, objc_selector="init", objc_name="init")
+	@(objc_type = ScrollEdgeEffect, objc_selector = "init", objc_name = "init")
 	ScrollEdgeEffect_init :: proc(self: ^ScrollEdgeEffect) -> instancetype ---
 
-	@(objc_type=ScrollEdgeEffect, objc_selector="new", objc_name="new", objc_is_class_method=true)
+	@(objc_type = ScrollEdgeEffect, objc_selector = "new", objc_name = "new", objc_is_class_method = true)
 	ScrollEdgeEffect_new :: proc() -> ^ScrollEdgeEffect ---
 
-	@(objc_type=ScrollEdgeEffect, objc_selector="style", objc_name="style")
+	@(objc_type = ScrollEdgeEffect, objc_selector = "style", objc_name = "style")
 	ScrollEdgeEffect_style :: proc(self: ^ScrollEdgeEffect) -> ^ScrollEdgeEffectStyle ---
 
-	@(objc_type=ScrollEdgeEffect, objc_selector="setStyle:", objc_name="setStyle")
+	@(objc_type = ScrollEdgeEffect, objc_selector = "setStyle:", objc_name = "setStyle")
 	ScrollEdgeEffect_setStyle :: proc(self: ^ScrollEdgeEffect, style: ^ScrollEdgeEffectStyle) ---
 
-	@(objc_type=ScrollEdgeEffect, objc_selector="isHidden", objc_name="isHidden")
+	@(objc_type = ScrollEdgeEffect, objc_selector = "isHidden", objc_name = "isHidden")
 	ScrollEdgeEffect_isHidden :: proc(self: ^ScrollEdgeEffect) -> bool ---
 
-	@(objc_type=ScrollEdgeEffect, objc_selector="setHidden:", objc_name="setHidden")
+	@(objc_type = ScrollEdgeEffect, objc_selector = "setHidden:", objc_name = "setHidden")
 	ScrollEdgeEffect_setHidden :: proc(self: ^ScrollEdgeEffect, hidden: bool) ---
 }
 
 
-@(objc_class="UIScrollEdgeEffectStyle", objc_superclass=NS.Object)
-ScrollEdgeEffectStyle :: struct { using _: NS.Object}
+@(objc_class = "UIScrollEdgeEffectStyle", objc_superclass = NS.Object)
+ScrollEdgeEffectStyle :: struct {
+	using _: NS.Object,
+}
 
-@(default_calling_convention="c")
+@(default_calling_convention = "c")
 foreign lib {
-	@(objc_type=ScrollEdgeEffectStyle, objc_selector="init", objc_name="init")
+	@(objc_type = ScrollEdgeEffectStyle, objc_selector = "init", objc_name = "init")
 	ScrollEdgeEffectStyle_init :: proc(self: ^ScrollEdgeEffectStyle) -> instancetype ---
 
-	@(objc_type=ScrollEdgeEffectStyle, objc_selector="new", objc_name="new", objc_is_class_method=true)
+	@(objc_type = ScrollEdgeEffectStyle, objc_selector = "new", objc_name = "new", objc_is_class_method = true)
 	ScrollEdgeEffectStyle_new :: proc() -> ^ScrollEdgeEffectStyle ---
 
-	@(objc_type=ScrollEdgeEffectStyle, objc_selector="automaticStyle", objc_name="automaticStyle", objc_is_class_method=true)
+	@(objc_type = ScrollEdgeEffectStyle, objc_selector = "automaticStyle", objc_name = "automaticStyle", objc_is_class_method = true)
 	ScrollEdgeEffectStyle_automaticStyle :: proc() -> ^ScrollEdgeEffectStyle ---
 
-	@(objc_type=ScrollEdgeEffectStyle, objc_selector="softStyle", objc_name="softStyle", objc_is_class_method=true)
+	@(objc_type = ScrollEdgeEffectStyle, objc_selector = "softStyle", objc_name = "softStyle", objc_is_class_method = true)
 	ScrollEdgeEffectStyle_softStyle :: proc() -> ^ScrollEdgeEffectStyle ---
 
-	@(objc_type=ScrollEdgeEffectStyle, objc_selector="hardStyle", objc_name="hardStyle", objc_is_class_method=true)
+	@(objc_type = ScrollEdgeEffectStyle, objc_selector = "hardStyle", objc_name = "hardStyle", objc_is_class_method = true)
 	ScrollEdgeEffectStyle_hardStyle :: proc() -> ^ScrollEdgeEffectStyle ---
 }
 
 
-@(objc_class="UIScrollView", objc_superclass=View)
+@(objc_class = "UIScrollView", objc_superclass = View)
 ScrollView :: struct {
 	using _: View,
 	using _: NS.Coding,
 	using _: FocusItemScrollableContainer,
 }
 
-@(default_calling_convention="c")
+@(default_calling_convention = "c")
 foreign lib {
-	@(objc_type=ScrollView, objc_selector="adjustedContentInsetDidChange", objc_name="adjustedContentInsetDidChange")
+	@(objc_type = ScrollView, objc_selector = "adjustedContentInsetDidChange", objc_name = "adjustedContentInsetDidChange")
 	ScrollView_adjustedContentInsetDidChange :: proc(self: ^ScrollView) ---
 
-	@(objc_type=ScrollView, objc_selector="scrollIndicatorInsets", objc_name="scrollIndicatorInsets")
+	@(objc_type = ScrollView, objc_selector = "scrollIndicatorInsets", objc_name = "scrollIndicatorInsets")
 	ScrollView_scrollIndicatorInsets :: proc(self: ^ScrollView) -> EdgeInsets ---
 
-	@(objc_type=ScrollView, objc_selector="setContentOffset:animated:", objc_name="setContentOffset_animated")
+	@(objc_type = ScrollView, objc_selector = "setContentOffset:animated:", objc_name = "setContentOffset_animated")
 	ScrollView_setContentOffset_animated :: proc(self: ^ScrollView, contentOffset: CG.Point, animated: bool) ---
 
-	@(objc_type=ScrollView, objc_selector="scrollRectToVisible:animated:", objc_name="scrollRectToVisible")
+	@(objc_type = ScrollView, objc_selector = "scrollRectToVisible:animated:", objc_name = "scrollRectToVisible")
 	ScrollView_scrollRectToVisible :: proc(self: ^ScrollView, rect: CG.Rect, animated: bool) ---
 
-	@(objc_type=ScrollView, objc_selector="flashScrollIndicators", objc_name="flashScrollIndicators")
+	@(objc_type = ScrollView, objc_selector = "flashScrollIndicators", objc_name = "flashScrollIndicators")
 	ScrollView_flashScrollIndicators :: proc(self: ^ScrollView) ---
 
-	@(objc_type=ScrollView, objc_selector="withScrollIndicatorsShownForContentOffsetChanges:", objc_name="withScrollIndicatorsShownForContentOffsetChanges")
+	@(objc_type = ScrollView, objc_selector = "withScrollIndicatorsShownForContentOffsetChanges:", objc_name = "withScrollIndicatorsShownForContentOffsetChanges")
 	ScrollView_withScrollIndicatorsShownForContentOffsetChanges :: proc(self: ^ScrollView, changes: ^Objc_Block(proc "c" ())) ---
 
-	@(objc_type=ScrollView, objc_selector="touchesShouldBegin:withEvent:inContentView:", objc_name="touchesShouldBegin")
+	@(objc_type = ScrollView, objc_selector = "touchesShouldBegin:withEvent:inContentView:", objc_name = "touchesShouldBegin")
 	ScrollView_touchesShouldBegin :: proc(self: ^ScrollView, touches: ^NS.Set, event: ^Event, view: ^View) -> bool ---
 
-	@(objc_type=ScrollView, objc_selector="touchesShouldCancelInContentView:", objc_name="touchesShouldCancelInContentView")
+	@(objc_type = ScrollView, objc_selector = "touchesShouldCancelInContentView:", objc_name = "touchesShouldCancelInContentView")
 	ScrollView_touchesShouldCancelInContentView :: proc(self: ^ScrollView, view: ^View) -> bool ---
 
-	@(objc_type=ScrollView, objc_selector="setZoomScale:animated:", objc_name="setZoomScale_animated")
+	@(objc_type = ScrollView, objc_selector = "setZoomScale:animated:", objc_name = "setZoomScale_animated")
 	ScrollView_setZoomScale_animated :: proc(self: ^ScrollView, scale: CG.Float, animated: bool) ---
 
-	@(objc_type=ScrollView, objc_selector="zoomToRect:animated:", objc_name="zoomToRect")
+	@(objc_type = ScrollView, objc_selector = "zoomToRect:animated:", objc_name = "zoomToRect")
 	ScrollView_zoomToRect :: proc(self: ^ScrollView, rect: CG.Rect, animated: bool) ---
 
-	@(objc_type=ScrollView, objc_selector="stopScrollingAndZooming", objc_name="stopScrollingAndZooming")
+	@(objc_type = ScrollView, objc_selector = "stopScrollingAndZooming", objc_name = "stopScrollingAndZooming")
 	ScrollView_stopScrollingAndZooming :: proc(self: ^ScrollView) ---
 
-	@(objc_type=ScrollView, objc_selector="contentOffset", objc_name="contentOffset")
+	@(objc_type = ScrollView, objc_selector = "contentOffset", objc_name = "contentOffset")
 	ScrollView_contentOffset :: proc(self: ^ScrollView) -> CG.Point ---
 
-	@(objc_type=ScrollView, objc_selector="setContentOffset:", objc_name="setContentOffset_")
+	@(objc_type = ScrollView, objc_selector = "setContentOffset:", objc_name = "setContentOffset_")
 	ScrollView_setContentOffset_ :: proc(self: ^ScrollView, contentOffset: CG.Point) ---
 
-	@(objc_type=ScrollView, objc_selector="contentSize", objc_name="contentSize")
+	@(objc_type = ScrollView, objc_selector = "contentSize", objc_name = "contentSize")
 	ScrollView_contentSize :: proc(self: ^ScrollView) -> CG.Size ---
 
-	@(objc_type=ScrollView, objc_selector="setContentSize:", objc_name="setContentSize")
+	@(objc_type = ScrollView, objc_selector = "setContentSize:", objc_name = "setContentSize")
 	ScrollView_setContentSize :: proc(self: ^ScrollView, contentSize: CG.Size) ---
 
-	@(objc_type=ScrollView, objc_selector="contentInset", objc_name="contentInset")
+	@(objc_type = ScrollView, objc_selector = "contentInset", objc_name = "contentInset")
 	ScrollView_contentInset :: proc(self: ^ScrollView) -> EdgeInsets ---
 
-	@(objc_type=ScrollView, objc_selector="setContentInset:", objc_name="setContentInset")
+	@(objc_type = ScrollView, objc_selector = "setContentInset:", objc_name = "setContentInset")
 	ScrollView_setContentInset :: proc(self: ^ScrollView, contentInset: EdgeInsets) ---
 
-	@(objc_type=ScrollView, objc_selector="contentAlignmentPoint", objc_name="contentAlignmentPoint")
+	@(objc_type = ScrollView, objc_selector = "contentAlignmentPoint", objc_name = "contentAlignmentPoint")
 	ScrollView_contentAlignmentPoint :: proc(self: ^ScrollView) -> CG.Point ---
 
-	@(objc_type=ScrollView, objc_selector="setContentAlignmentPoint:", objc_name="setContentAlignmentPoint")
+	@(objc_type = ScrollView, objc_selector = "setContentAlignmentPoint:", objc_name = "setContentAlignmentPoint")
 	ScrollView_setContentAlignmentPoint :: proc(self: ^ScrollView, contentAlignmentPoint: CG.Point) ---
 
-	@(objc_type=ScrollView, objc_selector="adjustedContentInset", objc_name="adjustedContentInset")
+	@(objc_type = ScrollView, objc_selector = "adjustedContentInset", objc_name = "adjustedContentInset")
 	ScrollView_adjustedContentInset :: proc(self: ^ScrollView) -> EdgeInsets ---
 
-	@(objc_type=ScrollView, objc_selector="contentInsetAdjustmentBehavior", objc_name="contentInsetAdjustmentBehavior")
+	@(objc_type = ScrollView, objc_selector = "contentInsetAdjustmentBehavior", objc_name = "contentInsetAdjustmentBehavior")
 	ScrollView_contentInsetAdjustmentBehavior :: proc(self: ^ScrollView) -> ScrollViewContentInsetAdjustmentBehavior ---
 
-	@(objc_type=ScrollView, objc_selector="setContentInsetAdjustmentBehavior:", objc_name="setContentInsetAdjustmentBehavior")
+	@(objc_type = ScrollView, objc_selector = "setContentInsetAdjustmentBehavior:", objc_name = "setContentInsetAdjustmentBehavior")
 	ScrollView_setContentInsetAdjustmentBehavior :: proc(self: ^ScrollView, contentInsetAdjustmentBehavior: ScrollViewContentInsetAdjustmentBehavior) ---
 
-	@(objc_type=ScrollView, objc_selector="automaticallyAdjustsScrollIndicatorInsets", objc_name="automaticallyAdjustsScrollIndicatorInsets")
+	@(objc_type = ScrollView, objc_selector = "automaticallyAdjustsScrollIndicatorInsets", objc_name = "automaticallyAdjustsScrollIndicatorInsets")
 	ScrollView_automaticallyAdjustsScrollIndicatorInsets :: proc(self: ^ScrollView) -> bool ---
 
-	@(objc_type=ScrollView, objc_selector="setAutomaticallyAdjustsScrollIndicatorInsets:", objc_name="setAutomaticallyAdjustsScrollIndicatorInsets")
+	@(objc_type = ScrollView, objc_selector = "setAutomaticallyAdjustsScrollIndicatorInsets:", objc_name = "setAutomaticallyAdjustsScrollIndicatorInsets")
 	ScrollView_setAutomaticallyAdjustsScrollIndicatorInsets :: proc(self: ^ScrollView, automaticallyAdjustsScrollIndicatorInsets: bool) ---
 
-	@(objc_type=ScrollView, objc_selector="contentLayoutGuide", objc_name="contentLayoutGuide")
+	@(objc_type = ScrollView, objc_selector = "contentLayoutGuide", objc_name = "contentLayoutGuide")
 	ScrollView_contentLayoutGuide :: proc(self: ^ScrollView) -> ^LayoutGuide ---
 
-	@(objc_type=ScrollView, objc_selector="frameLayoutGuide", objc_name="frameLayoutGuide")
+	@(objc_type = ScrollView, objc_selector = "frameLayoutGuide", objc_name = "frameLayoutGuide")
 	ScrollView_frameLayoutGuide :: proc(self: ^ScrollView) -> ^LayoutGuide ---
 
-	@(objc_type=ScrollView, objc_selector="delegate", objc_name="delegate")
+	@(objc_type = ScrollView, objc_selector = "delegate", objc_name = "delegate")
 	ScrollView_delegate :: proc(self: ^ScrollView) -> ^ScrollViewDelegate ---
 
-	@(objc_type=ScrollView, objc_selector="setDelegate:", objc_name="setDelegate")
+	@(objc_type = ScrollView, objc_selector = "setDelegate:", objc_name = "setDelegate")
 	ScrollView_setDelegate :: proc(self: ^ScrollView, delegate: ^ScrollViewDelegate) ---
 
-	@(objc_type=ScrollView, objc_selector="isDirectionalLockEnabled", objc_name="isDirectionalLockEnabled")
+	@(objc_type = ScrollView, objc_selector = "isDirectionalLockEnabled", objc_name = "isDirectionalLockEnabled")
 	ScrollView_isDirectionalLockEnabled :: proc(self: ^ScrollView) -> bool ---
 
-	@(objc_type=ScrollView, objc_selector="setDirectionalLockEnabled:", objc_name="setDirectionalLockEnabled")
+	@(objc_type = ScrollView, objc_selector = "setDirectionalLockEnabled:", objc_name = "setDirectionalLockEnabled")
 	ScrollView_setDirectionalLockEnabled :: proc(self: ^ScrollView, directionalLockEnabled: bool) ---
 
-	@(objc_type=ScrollView, objc_selector="bounces", objc_name="bounces")
+	@(objc_type = ScrollView, objc_selector = "bounces", objc_name = "bounces")
 	ScrollView_bounces :: proc(self: ^ScrollView) -> bool ---
 
-	@(objc_type=ScrollView, objc_selector="setBounces:", objc_name="setBounces")
+	@(objc_type = ScrollView, objc_selector = "setBounces:", objc_name = "setBounces")
 	ScrollView_setBounces :: proc(self: ^ScrollView, bounces: bool) ---
 
-	@(objc_type=ScrollView, objc_selector="bouncesHorizontally", objc_name="bouncesHorizontally")
+	@(objc_type = ScrollView, objc_selector = "bouncesHorizontally", objc_name = "bouncesHorizontally")
 	ScrollView_bouncesHorizontally :: proc(self: ^ScrollView) -> bool ---
 
-	@(objc_type=ScrollView, objc_selector="setBouncesHorizontally:", objc_name="setBouncesHorizontally")
+	@(objc_type = ScrollView, objc_selector = "setBouncesHorizontally:", objc_name = "setBouncesHorizontally")
 	ScrollView_setBouncesHorizontally :: proc(self: ^ScrollView, bouncesHorizontally: bool) ---
 
-	@(objc_type=ScrollView, objc_selector="bouncesVertically", objc_name="bouncesVertically")
+	@(objc_type = ScrollView, objc_selector = "bouncesVertically", objc_name = "bouncesVertically")
 	ScrollView_bouncesVertically :: proc(self: ^ScrollView) -> bool ---
 
-	@(objc_type=ScrollView, objc_selector="setBouncesVertically:", objc_name="setBouncesVertically")
+	@(objc_type = ScrollView, objc_selector = "setBouncesVertically:", objc_name = "setBouncesVertically")
 	ScrollView_setBouncesVertically :: proc(self: ^ScrollView, bouncesVertically: bool) ---
 
-	@(objc_type=ScrollView, objc_selector="alwaysBounceVertical", objc_name="alwaysBounceVertical")
+	@(objc_type = ScrollView, objc_selector = "alwaysBounceVertical", objc_name = "alwaysBounceVertical")
 	ScrollView_alwaysBounceVertical :: proc(self: ^ScrollView) -> bool ---
 
-	@(objc_type=ScrollView, objc_selector="setAlwaysBounceVertical:", objc_name="setAlwaysBounceVertical")
+	@(objc_type = ScrollView, objc_selector = "setAlwaysBounceVertical:", objc_name = "setAlwaysBounceVertical")
 	ScrollView_setAlwaysBounceVertical :: proc(self: ^ScrollView, alwaysBounceVertical: bool) ---
 
-	@(objc_type=ScrollView, objc_selector="alwaysBounceHorizontal", objc_name="alwaysBounceHorizontal")
+	@(objc_type = ScrollView, objc_selector = "alwaysBounceHorizontal", objc_name = "alwaysBounceHorizontal")
 	ScrollView_alwaysBounceHorizontal :: proc(self: ^ScrollView) -> bool ---
 
-	@(objc_type=ScrollView, objc_selector="setAlwaysBounceHorizontal:", objc_name="setAlwaysBounceHorizontal")
+	@(objc_type = ScrollView, objc_selector = "setAlwaysBounceHorizontal:", objc_name = "setAlwaysBounceHorizontal")
 	ScrollView_setAlwaysBounceHorizontal :: proc(self: ^ScrollView, alwaysBounceHorizontal: bool) ---
 
-	@(objc_type=ScrollView, objc_selector="isPagingEnabled", objc_name="isPagingEnabled")
+	@(objc_type = ScrollView, objc_selector = "isPagingEnabled", objc_name = "isPagingEnabled")
 	ScrollView_isPagingEnabled :: proc(self: ^ScrollView) -> bool ---
 
-	@(objc_type=ScrollView, objc_selector="setPagingEnabled:", objc_name="setPagingEnabled")
+	@(objc_type = ScrollView, objc_selector = "setPagingEnabled:", objc_name = "setPagingEnabled")
 	ScrollView_setPagingEnabled :: proc(self: ^ScrollView, pagingEnabled: bool) ---
 
-	@(objc_type=ScrollView, objc_selector="isScrollEnabled", objc_name="isScrollEnabled")
+	@(objc_type = ScrollView, objc_selector = "isScrollEnabled", objc_name = "isScrollEnabled")
 	ScrollView_isScrollEnabled :: proc(self: ^ScrollView) -> bool ---
 
-	@(objc_type=ScrollView, objc_selector="setScrollEnabled:", objc_name="setScrollEnabled")
+	@(objc_type = ScrollView, objc_selector = "setScrollEnabled:", objc_name = "setScrollEnabled")
 	ScrollView_setScrollEnabled :: proc(self: ^ScrollView, scrollEnabled: bool) ---
 
-	@(objc_type=ScrollView, objc_selector="transfersHorizontalScrollingToParent", objc_name="transfersHorizontalScrollingToParent")
+	@(objc_type = ScrollView, objc_selector = "transfersHorizontalScrollingToParent", objc_name = "transfersHorizontalScrollingToParent")
 	ScrollView_transfersHorizontalScrollingToParent :: proc(self: ^ScrollView) -> bool ---
 
-	@(objc_type=ScrollView, objc_selector="setTransfersHorizontalScrollingToParent:", objc_name="setTransfersHorizontalScrollingToParent")
+	@(objc_type = ScrollView, objc_selector = "setTransfersHorizontalScrollingToParent:", objc_name = "setTransfersHorizontalScrollingToParent")
 	ScrollView_setTransfersHorizontalScrollingToParent :: proc(self: ^ScrollView, transfersHorizontalScrollingToParent: bool) ---
 
-	@(objc_type=ScrollView, objc_selector="transfersVerticalScrollingToParent", objc_name="transfersVerticalScrollingToParent")
+	@(objc_type = ScrollView, objc_selector = "transfersVerticalScrollingToParent", objc_name = "transfersVerticalScrollingToParent")
 	ScrollView_transfersVerticalScrollingToParent :: proc(self: ^ScrollView) -> bool ---
 
-	@(objc_type=ScrollView, objc_selector="setTransfersVerticalScrollingToParent:", objc_name="setTransfersVerticalScrollingToParent")
+	@(objc_type = ScrollView, objc_selector = "setTransfersVerticalScrollingToParent:", objc_name = "setTransfersVerticalScrollingToParent")
 	ScrollView_setTransfersVerticalScrollingToParent :: proc(self: ^ScrollView, transfersVerticalScrollingToParent: bool) ---
 
-	@(objc_type=ScrollView, objc_selector="showsVerticalScrollIndicator", objc_name="showsVerticalScrollIndicator")
+	@(objc_type = ScrollView, objc_selector = "showsVerticalScrollIndicator", objc_name = "showsVerticalScrollIndicator")
 	ScrollView_showsVerticalScrollIndicator :: proc(self: ^ScrollView) -> bool ---
 
-	@(objc_type=ScrollView, objc_selector="setShowsVerticalScrollIndicator:", objc_name="setShowsVerticalScrollIndicator")
+	@(objc_type = ScrollView, objc_selector = "setShowsVerticalScrollIndicator:", objc_name = "setShowsVerticalScrollIndicator")
 	ScrollView_setShowsVerticalScrollIndicator :: proc(self: ^ScrollView, showsVerticalScrollIndicator: bool) ---
 
-	@(objc_type=ScrollView, objc_selector="showsHorizontalScrollIndicator", objc_name="showsHorizontalScrollIndicator")
+	@(objc_type = ScrollView, objc_selector = "showsHorizontalScrollIndicator", objc_name = "showsHorizontalScrollIndicator")
 	ScrollView_showsHorizontalScrollIndicator :: proc(self: ^ScrollView) -> bool ---
 
-	@(objc_type=ScrollView, objc_selector="setShowsHorizontalScrollIndicator:", objc_name="setShowsHorizontalScrollIndicator")
+	@(objc_type = ScrollView, objc_selector = "setShowsHorizontalScrollIndicator:", objc_name = "setShowsHorizontalScrollIndicator")
 	ScrollView_setShowsHorizontalScrollIndicator :: proc(self: ^ScrollView, showsHorizontalScrollIndicator: bool) ---
 
-	@(objc_type=ScrollView, objc_selector="indicatorStyle", objc_name="indicatorStyle")
+	@(objc_type = ScrollView, objc_selector = "indicatorStyle", objc_name = "indicatorStyle")
 	ScrollView_indicatorStyle :: proc(self: ^ScrollView) -> ScrollViewIndicatorStyle ---
 
-	@(objc_type=ScrollView, objc_selector="setIndicatorStyle:", objc_name="setIndicatorStyle")
+	@(objc_type = ScrollView, objc_selector = "setIndicatorStyle:", objc_name = "setIndicatorStyle")
 	ScrollView_setIndicatorStyle :: proc(self: ^ScrollView, indicatorStyle: ScrollViewIndicatorStyle) ---
 
-	@(objc_type=ScrollView, objc_selector="verticalScrollIndicatorInsets", objc_name="verticalScrollIndicatorInsets")
+	@(objc_type = ScrollView, objc_selector = "verticalScrollIndicatorInsets", objc_name = "verticalScrollIndicatorInsets")
 	ScrollView_verticalScrollIndicatorInsets :: proc(self: ^ScrollView) -> EdgeInsets ---
 
-	@(objc_type=ScrollView, objc_selector="setVerticalScrollIndicatorInsets:", objc_name="setVerticalScrollIndicatorInsets")
+	@(objc_type = ScrollView, objc_selector = "setVerticalScrollIndicatorInsets:", objc_name = "setVerticalScrollIndicatorInsets")
 	ScrollView_setVerticalScrollIndicatorInsets :: proc(self: ^ScrollView, verticalScrollIndicatorInsets: EdgeInsets) ---
 
-	@(objc_type=ScrollView, objc_selector="horizontalScrollIndicatorInsets", objc_name="horizontalScrollIndicatorInsets")
+	@(objc_type = ScrollView, objc_selector = "horizontalScrollIndicatorInsets", objc_name = "horizontalScrollIndicatorInsets")
 	ScrollView_horizontalScrollIndicatorInsets :: proc(self: ^ScrollView) -> EdgeInsets ---
 
-	@(objc_type=ScrollView, objc_selector="setHorizontalScrollIndicatorInsets:", objc_name="setHorizontalScrollIndicatorInsets")
+	@(objc_type = ScrollView, objc_selector = "setHorizontalScrollIndicatorInsets:", objc_name = "setHorizontalScrollIndicatorInsets")
 	ScrollView_setHorizontalScrollIndicatorInsets :: proc(self: ^ScrollView, horizontalScrollIndicatorInsets: EdgeInsets) ---
 
-	@(objc_type=ScrollView, objc_selector="setScrollIndicatorInsets:", objc_name="setScrollIndicatorInsets")
+	@(objc_type = ScrollView, objc_selector = "setScrollIndicatorInsets:", objc_name = "setScrollIndicatorInsets")
 	ScrollView_setScrollIndicatorInsets :: proc(self: ^ScrollView, scrollIndicatorInsets: EdgeInsets) ---
 
-	@(objc_type=ScrollView, objc_selector="decelerationRate", objc_name="decelerationRate")
+	@(objc_type = ScrollView, objc_selector = "decelerationRate", objc_name = "decelerationRate")
 	ScrollView_decelerationRate :: proc(self: ^ScrollView) -> ScrollViewDecelerationRate ---
 
-	@(objc_type=ScrollView, objc_selector="setDecelerationRate:", objc_name="setDecelerationRate")
+	@(objc_type = ScrollView, objc_selector = "setDecelerationRate:", objc_name = "setDecelerationRate")
 	ScrollView_setDecelerationRate :: proc(self: ^ScrollView, decelerationRate: ScrollViewDecelerationRate) ---
 
-	@(objc_type=ScrollView, objc_selector="indexDisplayMode", objc_name="indexDisplayMode")
+	@(objc_type = ScrollView, objc_selector = "indexDisplayMode", objc_name = "indexDisplayMode")
 	ScrollView_indexDisplayMode :: proc(self: ^ScrollView) -> ScrollViewIndexDisplayMode ---
 
-	@(objc_type=ScrollView, objc_selector="setIndexDisplayMode:", objc_name="setIndexDisplayMode")
+	@(objc_type = ScrollView, objc_selector = "setIndexDisplayMode:", objc_name = "setIndexDisplayMode")
 	ScrollView_setIndexDisplayMode :: proc(self: ^ScrollView, indexDisplayMode: ScrollViewIndexDisplayMode) ---
 
-	@(objc_type=ScrollView, objc_selector="topEdgeEffect", objc_name="topEdgeEffect")
+	@(objc_type = ScrollView, objc_selector = "topEdgeEffect", objc_name = "topEdgeEffect")
 	ScrollView_topEdgeEffect :: proc(self: ^ScrollView) -> ^ScrollEdgeEffect ---
 
-	@(objc_type=ScrollView, objc_selector="leftEdgeEffect", objc_name="leftEdgeEffect")
+	@(objc_type = ScrollView, objc_selector = "leftEdgeEffect", objc_name = "leftEdgeEffect")
 	ScrollView_leftEdgeEffect :: proc(self: ^ScrollView) -> ^ScrollEdgeEffect ---
 
-	@(objc_type=ScrollView, objc_selector="bottomEdgeEffect", objc_name="bottomEdgeEffect")
+	@(objc_type = ScrollView, objc_selector = "bottomEdgeEffect", objc_name = "bottomEdgeEffect")
 	ScrollView_bottomEdgeEffect :: proc(self: ^ScrollView) -> ^ScrollEdgeEffect ---
 
-	@(objc_type=ScrollView, objc_selector="rightEdgeEffect", objc_name="rightEdgeEffect")
+	@(objc_type = ScrollView, objc_selector = "rightEdgeEffect", objc_name = "rightEdgeEffect")
 	ScrollView_rightEdgeEffect :: proc(self: ^ScrollView) -> ^ScrollEdgeEffect ---
 
-	@(objc_type=ScrollView, objc_selector="isTracking", objc_name="isTracking")
+	@(objc_type = ScrollView, objc_selector = "isTracking", objc_name = "isTracking")
 	ScrollView_isTracking :: proc(self: ^ScrollView) -> bool ---
 
-	@(objc_type=ScrollView, objc_selector="isDragging", objc_name="isDragging")
+	@(objc_type = ScrollView, objc_selector = "isDragging", objc_name = "isDragging")
 	ScrollView_isDragging :: proc(self: ^ScrollView) -> bool ---
 
-	@(objc_type=ScrollView, objc_selector="isDecelerating", objc_name="isDecelerating")
+	@(objc_type = ScrollView, objc_selector = "isDecelerating", objc_name = "isDecelerating")
 	ScrollView_isDecelerating :: proc(self: ^ScrollView) -> bool ---
 
-	@(objc_type=ScrollView, objc_selector="isScrollAnimating", objc_name="isScrollAnimating")
+	@(objc_type = ScrollView, objc_selector = "isScrollAnimating", objc_name = "isScrollAnimating")
 	ScrollView_isScrollAnimating :: proc(self: ^ScrollView) -> bool ---
 
-	@(objc_type=ScrollView, objc_selector="delaysContentTouches", objc_name="delaysContentTouches")
+	@(objc_type = ScrollView, objc_selector = "delaysContentTouches", objc_name = "delaysContentTouches")
 	ScrollView_delaysContentTouches :: proc(self: ^ScrollView) -> bool ---
 
-	@(objc_type=ScrollView, objc_selector="setDelaysContentTouches:", objc_name="setDelaysContentTouches")
+	@(objc_type = ScrollView, objc_selector = "setDelaysContentTouches:", objc_name = "setDelaysContentTouches")
 	ScrollView_setDelaysContentTouches :: proc(self: ^ScrollView, delaysContentTouches: bool) ---
 
-	@(objc_type=ScrollView, objc_selector="canCancelContentTouches", objc_name="canCancelContentTouches")
+	@(objc_type = ScrollView, objc_selector = "canCancelContentTouches", objc_name = "canCancelContentTouches")
 	ScrollView_canCancelContentTouches :: proc(self: ^ScrollView) -> bool ---
 
-	@(objc_type=ScrollView, objc_selector="setCanCancelContentTouches:", objc_name="setCanCancelContentTouches")
+	@(objc_type = ScrollView, objc_selector = "setCanCancelContentTouches:", objc_name = "setCanCancelContentTouches")
 	ScrollView_setCanCancelContentTouches :: proc(self: ^ScrollView, canCancelContentTouches: bool) ---
 
-	@(objc_type=ScrollView, objc_selector="minimumZoomScale", objc_name="minimumZoomScale")
+	@(objc_type = ScrollView, objc_selector = "minimumZoomScale", objc_name = "minimumZoomScale")
 	ScrollView_minimumZoomScale :: proc(self: ^ScrollView) -> CG.Float ---
 
-	@(objc_type=ScrollView, objc_selector="setMinimumZoomScale:", objc_name="setMinimumZoomScale")
+	@(objc_type = ScrollView, objc_selector = "setMinimumZoomScale:", objc_name = "setMinimumZoomScale")
 	ScrollView_setMinimumZoomScale :: proc(self: ^ScrollView, minimumZoomScale: CG.Float) ---
 
-	@(objc_type=ScrollView, objc_selector="maximumZoomScale", objc_name="maximumZoomScale")
+	@(objc_type = ScrollView, objc_selector = "maximumZoomScale", objc_name = "maximumZoomScale")
 	ScrollView_maximumZoomScale :: proc(self: ^ScrollView) -> CG.Float ---
 
-	@(objc_type=ScrollView, objc_selector="setMaximumZoomScale:", objc_name="setMaximumZoomScale")
+	@(objc_type = ScrollView, objc_selector = "setMaximumZoomScale:", objc_name = "setMaximumZoomScale")
 	ScrollView_setMaximumZoomScale :: proc(self: ^ScrollView, maximumZoomScale: CG.Float) ---
 
-	@(objc_type=ScrollView, objc_selector="zoomScale", objc_name="zoomScale")
+	@(objc_type = ScrollView, objc_selector = "zoomScale", objc_name = "zoomScale")
 	ScrollView_zoomScale :: proc(self: ^ScrollView) -> CG.Float ---
 
-	@(objc_type=ScrollView, objc_selector="setZoomScale:", objc_name="setZoomScale_")
+	@(objc_type = ScrollView, objc_selector = "setZoomScale:", objc_name = "setZoomScale_")
 	ScrollView_setZoomScale_ :: proc(self: ^ScrollView, zoomScale: CG.Float) ---
 
-	@(objc_type=ScrollView, objc_selector="bouncesZoom", objc_name="bouncesZoom")
+	@(objc_type = ScrollView, objc_selector = "bouncesZoom", objc_name = "bouncesZoom")
 	ScrollView_bouncesZoom :: proc(self: ^ScrollView) -> bool ---
 
-	@(objc_type=ScrollView, objc_selector="setBouncesZoom:", objc_name="setBouncesZoom")
+	@(objc_type = ScrollView, objc_selector = "setBouncesZoom:", objc_name = "setBouncesZoom")
 	ScrollView_setBouncesZoom :: proc(self: ^ScrollView, bouncesZoom: bool) ---
 
-	@(objc_type=ScrollView, objc_selector="isZooming", objc_name="isZooming")
+	@(objc_type = ScrollView, objc_selector = "isZooming", objc_name = "isZooming")
 	ScrollView_isZooming :: proc(self: ^ScrollView) -> bool ---
 
-	@(objc_type=ScrollView, objc_selector="isZoomBouncing", objc_name="isZoomBouncing")
+	@(objc_type = ScrollView, objc_selector = "isZoomBouncing", objc_name = "isZoomBouncing")
 	ScrollView_isZoomBouncing :: proc(self: ^ScrollView) -> bool ---
 
-	@(objc_type=ScrollView, objc_selector="isZoomAnimating", objc_name="isZoomAnimating")
+	@(objc_type = ScrollView, objc_selector = "isZoomAnimating", objc_name = "isZoomAnimating")
 	ScrollView_isZoomAnimating :: proc(self: ^ScrollView) -> bool ---
 
-	@(objc_type=ScrollView, objc_selector="scrollsToTop", objc_name="scrollsToTop")
+	@(objc_type = ScrollView, objc_selector = "scrollsToTop", objc_name = "scrollsToTop")
 	ScrollView_scrollsToTop :: proc(self: ^ScrollView) -> bool ---
 
-	@(objc_type=ScrollView, objc_selector="setScrollsToTop:", objc_name="setScrollsToTop")
+	@(objc_type = ScrollView, objc_selector = "setScrollsToTop:", objc_name = "setScrollsToTop")
 	ScrollView_setScrollsToTop :: proc(self: ^ScrollView, scrollsToTop: bool) ---
 
-	@(objc_type=ScrollView, objc_selector="panGestureRecognizer", objc_name="panGestureRecognizer")
+	@(objc_type = ScrollView, objc_selector = "panGestureRecognizer", objc_name = "panGestureRecognizer")
 	ScrollView_panGestureRecognizer :: proc(self: ^ScrollView) -> ^PanGestureRecognizer ---
 
-	@(objc_type=ScrollView, objc_selector="pinchGestureRecognizer", objc_name="pinchGestureRecognizer")
+	@(objc_type = ScrollView, objc_selector = "pinchGestureRecognizer", objc_name = "pinchGestureRecognizer")
 	ScrollView_pinchGestureRecognizer :: proc(self: ^ScrollView) -> ^PinchGestureRecognizer ---
 
-	@(objc_type=ScrollView, objc_selector="directionalPressGestureRecognizer", objc_name="directionalPressGestureRecognizer")
+	@(objc_type = ScrollView, objc_selector = "directionalPressGestureRecognizer", objc_name = "directionalPressGestureRecognizer")
 	ScrollView_directionalPressGestureRecognizer :: proc(self: ^ScrollView) -> ^GestureRecognizer ---
 
-	@(objc_type=ScrollView, objc_selector="keyboardDismissMode", objc_name="keyboardDismissMode")
+	@(objc_type = ScrollView, objc_selector = "keyboardDismissMode", objc_name = "keyboardDismissMode")
 	ScrollView_keyboardDismissMode :: proc(self: ^ScrollView) -> ScrollViewKeyboardDismissMode ---
 
-	@(objc_type=ScrollView, objc_selector="setKeyboardDismissMode:", objc_name="setKeyboardDismissMode")
+	@(objc_type = ScrollView, objc_selector = "setKeyboardDismissMode:", objc_name = "setKeyboardDismissMode")
 	ScrollView_setKeyboardDismissMode :: proc(self: ^ScrollView, keyboardDismissMode: ScrollViewKeyboardDismissMode) ---
 
-	@(objc_type=ScrollView, objc_selector="refreshControl", objc_name="refreshControl")
+	@(objc_type = ScrollView, objc_selector = "refreshControl", objc_name = "refreshControl")
 	ScrollView_refreshControl :: proc(self: ^ScrollView) -> ^RefreshControl ---
 
-	@(objc_type=ScrollView, objc_selector="setRefreshControl:", objc_name="setRefreshControl")
+	@(objc_type = ScrollView, objc_selector = "setRefreshControl:", objc_name = "setRefreshControl")
 	ScrollView_setRefreshControl :: proc(self: ^ScrollView, refreshControl: ^RefreshControl) ---
 
-	@(objc_type=ScrollView, objc_selector="allowsKeyboardScrolling", objc_name="allowsKeyboardScrolling")
+	@(objc_type = ScrollView, objc_selector = "allowsKeyboardScrolling", objc_name = "allowsKeyboardScrolling")
 	ScrollView_allowsKeyboardScrolling :: proc(self: ^ScrollView) -> bool ---
 
-	@(objc_type=ScrollView, objc_selector="setAllowsKeyboardScrolling:", objc_name="setAllowsKeyboardScrolling")
+	@(objc_type = ScrollView, objc_selector = "setAllowsKeyboardScrolling:", objc_name = "setAllowsKeyboardScrolling")
 	ScrollView_setAllowsKeyboardScrolling :: proc(self: ^ScrollView, allowsKeyboardScrolling: bool) ---
 
-	@(objc_type=ScrollView, objc_selector="lookToScrollAxes", objc_name="lookToScrollAxes")
+	@(objc_type = ScrollView, objc_selector = "lookToScrollAxes", objc_name = "lookToScrollAxes")
 	ScrollView_lookToScrollAxes :: proc(self: ^ScrollView) -> Axis ---
 
-	@(objc_type=ScrollView, objc_selector="setLookToScrollAxes:", objc_name="setLookToScrollAxes")
+	@(objc_type = ScrollView, objc_selector = "setLookToScrollAxes:", objc_name = "setLookToScrollAxes")
 	ScrollView_setLookToScrollAxes :: proc(self: ^ScrollView, lookToScrollAxes: Axis) ---
 }
 
-@(objc_type=ScrollView, objc_name="setContentOffset")
+@(objc_type = ScrollView, objc_name = "setContentOffset")
 ScrollView_setContentOffset :: proc {
 	ScrollView_setContentOffset_animated,
 	ScrollView_setContentOffset_,
 }
 
-@(objc_type=ScrollView, objc_name="setZoomScale")
+@(objc_type = ScrollView, objc_name = "setZoomScale")
 ScrollView_setZoomScale :: proc {
 	ScrollView_setZoomScale_animated,
 	ScrollView_setZoomScale_,
 }
 
 
-@(objc_class="UIScrollViewDelegate")
+@(objc_class = "UIScrollViewDelegate")
 ScrollViewDelegate :: struct {
 	using _: intrinsics.objc_object,
 	using _: NS.ObjectProtocol,
 }
 
-@(default_calling_convention="c")
+@(default_calling_convention = "c")
 foreign lib {
-	@(objc_type=ScrollViewDelegate, objc_selector="scrollViewDidScroll:", objc_name="scrollViewDidScroll")
+	@(objc_type = ScrollViewDelegate, objc_selector = "scrollViewDidScroll:", objc_name = "scrollViewDidScroll")
 	ScrollViewDelegate_scrollViewDidScroll :: proc(self: ^ScrollViewDelegate, scrollView: ^ScrollView) ---
 
-	@(objc_type=ScrollViewDelegate, objc_selector="scrollViewDidZoom:", objc_name="scrollViewDidZoom")
+	@(objc_type = ScrollViewDelegate, objc_selector = "scrollViewDidZoom:", objc_name = "scrollViewDidZoom")
 	ScrollViewDelegate_scrollViewDidZoom :: proc(self: ^ScrollViewDelegate, scrollView: ^ScrollView) ---
 
-	@(objc_type=ScrollViewDelegate, objc_selector="scrollViewWillBeginDragging:", objc_name="scrollViewWillBeginDragging")
+	@(objc_type = ScrollViewDelegate, objc_selector = "scrollViewWillBeginDragging:", objc_name = "scrollViewWillBeginDragging")
 	ScrollViewDelegate_scrollViewWillBeginDragging :: proc(self: ^ScrollViewDelegate, scrollView: ^ScrollView) ---
 
-	@(objc_type=ScrollViewDelegate, objc_selector="scrollViewWillEndDragging:withVelocity:targetContentOffset:", objc_name="scrollViewWillEndDragging")
+	@(objc_type = ScrollViewDelegate, objc_selector = "scrollViewWillEndDragging:withVelocity:targetContentOffset:", objc_name = "scrollViewWillEndDragging")
 	ScrollViewDelegate_scrollViewWillEndDragging :: proc(self: ^ScrollViewDelegate, scrollView: ^ScrollView, velocity: CG.Point, targetContentOffset: ^CG.Point) ---
 
-	@(objc_type=ScrollViewDelegate, objc_selector="scrollViewDidEndDragging:willDecelerate:", objc_name="scrollViewDidEndDragging")
+	@(objc_type = ScrollViewDelegate, objc_selector = "scrollViewDidEndDragging:willDecelerate:", objc_name = "scrollViewDidEndDragging")
 	ScrollViewDelegate_scrollViewDidEndDragging :: proc(self: ^ScrollViewDelegate, scrollView: ^ScrollView, decelerate: bool) ---
 
-	@(objc_type=ScrollViewDelegate, objc_selector="scrollViewWillBeginDecelerating:", objc_name="scrollViewWillBeginDecelerating")
+	@(objc_type = ScrollViewDelegate, objc_selector = "scrollViewWillBeginDecelerating:", objc_name = "scrollViewWillBeginDecelerating")
 	ScrollViewDelegate_scrollViewWillBeginDecelerating :: proc(self: ^ScrollViewDelegate, scrollView: ^ScrollView) ---
 
-	@(objc_type=ScrollViewDelegate, objc_selector="scrollViewDidEndDecelerating:", objc_name="scrollViewDidEndDecelerating")
+	@(objc_type = ScrollViewDelegate, objc_selector = "scrollViewDidEndDecelerating:", objc_name = "scrollViewDidEndDecelerating")
 	ScrollViewDelegate_scrollViewDidEndDecelerating :: proc(self: ^ScrollViewDelegate, scrollView: ^ScrollView) ---
 
-	@(objc_type=ScrollViewDelegate, objc_selector="scrollViewDidEndScrollingAnimation:", objc_name="scrollViewDidEndScrollingAnimation")
+	@(objc_type = ScrollViewDelegate, objc_selector = "scrollViewDidEndScrollingAnimation:", objc_name = "scrollViewDidEndScrollingAnimation")
 	ScrollViewDelegate_scrollViewDidEndScrollingAnimation :: proc(self: ^ScrollViewDelegate, scrollView: ^ScrollView) ---
 
-	@(objc_type=ScrollViewDelegate, objc_selector="viewForZoomingInScrollView:", objc_name="viewForZoomingInScrollView")
+	@(objc_type = ScrollViewDelegate, objc_selector = "viewForZoomingInScrollView:", objc_name = "viewForZoomingInScrollView")
 	ScrollViewDelegate_viewForZoomingInScrollView :: proc(self: ^ScrollViewDelegate, scrollView: ^ScrollView) -> ^View ---
 
-	@(objc_type=ScrollViewDelegate, objc_selector="scrollViewWillBeginZooming:withView:", objc_name="scrollViewWillBeginZooming")
+	@(objc_type = ScrollViewDelegate, objc_selector = "scrollViewWillBeginZooming:withView:", objc_name = "scrollViewWillBeginZooming")
 	ScrollViewDelegate_scrollViewWillBeginZooming :: proc(self: ^ScrollViewDelegate, scrollView: ^ScrollView, view: ^View) ---
 
-	@(objc_type=ScrollViewDelegate, objc_selector="scrollViewDidEndZooming:withView:atScale:", objc_name="scrollViewDidEndZooming")
+	@(objc_type = ScrollViewDelegate, objc_selector = "scrollViewDidEndZooming:withView:atScale:", objc_name = "scrollViewDidEndZooming")
 	ScrollViewDelegate_scrollViewDidEndZooming :: proc(self: ^ScrollViewDelegate, scrollView: ^ScrollView, view: ^View, scale: CG.Float) ---
 
-	@(objc_type=ScrollViewDelegate, objc_selector="scrollViewShouldScrollToTop:", objc_name="scrollViewShouldScrollToTop")
+	@(objc_type = ScrollViewDelegate, objc_selector = "scrollViewShouldScrollToTop:", objc_name = "scrollViewShouldScrollToTop")
 	ScrollViewDelegate_scrollViewShouldScrollToTop :: proc(self: ^ScrollViewDelegate, scrollView: ^ScrollView) -> bool ---
 
-	@(objc_type=ScrollViewDelegate, objc_selector="scrollViewDidScrollToTop:", objc_name="scrollViewDidScrollToTop")
+	@(objc_type = ScrollViewDelegate, objc_selector = "scrollViewDidScrollToTop:", objc_name = "scrollViewDidScrollToTop")
 	ScrollViewDelegate_scrollViewDidScrollToTop :: proc(self: ^ScrollViewDelegate, scrollView: ^ScrollView) ---
 
-	@(objc_type=ScrollViewDelegate, objc_selector="scrollViewDidChangeAdjustedContentInset:", objc_name="scrollViewDidChangeAdjustedContentInset")
+	@(objc_type = ScrollViewDelegate, objc_selector = "scrollViewDidChangeAdjustedContentInset:", objc_name = "scrollViewDidChangeAdjustedContentInset")
 	ScrollViewDelegate_scrollViewDidChangeAdjustedContentInset :: proc(self: ^ScrollViewDelegate, scrollView: ^ScrollView) ---
 }
 
 
-@(objc_class="UIScrollViewAccessibilityDelegate")
+@(objc_class = "UIScrollViewAccessibilityDelegate")
 ScrollViewAccessibilityDelegate :: struct {
 	using _: intrinsics.objc_object,
 	using _: ScrollViewDelegate,
 }
 
-@(default_calling_convention="c")
+@(default_calling_convention = "c")
 foreign lib {
-	@(objc_type=ScrollViewAccessibilityDelegate, objc_selector="accessibilityScrollStatusForScrollView:", objc_name="accessibilityScrollStatusForScrollView")
+	@(objc_type = ScrollViewAccessibilityDelegate, objc_selector = "accessibilityScrollStatusForScrollView:", objc_name = "accessibilityScrollStatusForScrollView")
 	ScrollViewAccessibilityDelegate_accessibilityScrollStatusForScrollView :: proc(self: ^ScrollViewAccessibilityDelegate, scrollView: ^ScrollView) -> ^NS.String ---
 
-	@(objc_type=ScrollViewAccessibilityDelegate, objc_selector="accessibilityAttributedScrollStatusForScrollView:", objc_name="accessibilityAttributedScrollStatusForScrollView")
+	@(objc_type = ScrollViewAccessibilityDelegate, objc_selector = "accessibilityAttributedScrollStatusForScrollView:", objc_name = "accessibilityAttributedScrollStatusForScrollView")
 	ScrollViewAccessibilityDelegate_accessibilityAttributedScrollStatusForScrollView :: proc(self: ^ScrollViewAccessibilityDelegate, scrollView: ^ScrollView) -> ^NS.AttributedString ---
 }

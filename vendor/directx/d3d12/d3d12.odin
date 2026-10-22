@@ -3,47 +3,47 @@ package directx_d3d12
 
 foreign import "system:d3d12.lib"
 
-import "../dxgi"
 import "../d3d_common"
+import "../dxgi"
 import win32 "core:sys/windows"
 
-IUnknown        :: dxgi.IUnknown
+IUnknown :: dxgi.IUnknown
 IUnknown_VTable :: dxgi.IUnknown_VTable
 
-HANDLE  :: dxgi.HANDLE
+HANDLE :: dxgi.HANDLE
 HMODULE :: dxgi.HMODULE
 HRESULT :: dxgi.HRESULT
-HWND    :: dxgi.HWND
-LUID    :: dxgi.LUID
-UUID    :: dxgi.UUID
-GUID    :: dxgi.GUID
-IID     :: dxgi.IID
-SIZE_T  :: dxgi.SIZE_T
-BOOL    :: dxgi.BOOL
+HWND :: dxgi.HWND
+LUID :: dxgi.LUID
+UUID :: dxgi.UUID
+GUID :: dxgi.GUID
+IID :: dxgi.IID
+SIZE_T :: dxgi.SIZE_T
+BOOL :: dxgi.BOOL
 
 RECT :: dxgi.RECT
 
-LPCSTR  :: win32.LPCSTR
+LPCSTR :: win32.LPCSTR
 LPCWSTR :: win32.LPCWSTR
 
-IBlob   :: d3d_common.ID3DBlob
+IBlob :: d3d_common.ID3DBlob
 
-@(default_calling_convention="system", link_prefix="D3D12")
+@(default_calling_convention = "system", link_prefix = "D3D12")
 foreign d3d12 {
-	CreateDevice                             :: proc(pAdapter: ^IUnknown, MinimumFeatureLevel: FEATURE_LEVEL, riid: ^IID, ppDevice: ^rawptr) -> HRESULT ---
-	CreateRootSignatureDeserializer          :: proc(pSrcData: rawptr, SrcDataSizeInBytes: SIZE_T, pRootSignatureDeserializerInterface: ^IID, ppRootSignatureDeserializer: ^rawptr) -> HRESULT ---
+	CreateDevice :: proc(pAdapter: ^IUnknown, MinimumFeatureLevel: FEATURE_LEVEL, riid: ^IID, ppDevice: ^rawptr) -> HRESULT ---
+	CreateRootSignatureDeserializer :: proc(pSrcData: rawptr, SrcDataSizeInBytes: SIZE_T, pRootSignatureDeserializerInterface: ^IID, ppRootSignatureDeserializer: ^rawptr) -> HRESULT ---
 	CreateVersionedRootSignatureDeserializer :: proc(pSrcData: rawptr, SrcDataSizeInBytes: SIZE_T, pRootSignatureDeserializerInterface: ^IID, ppRootSignatureDeserializer: ^rawptr) -> HRESULT ---
-	EnableExperimentalFeatures               :: proc(NumFeatures: u32, pIIDs: [^]IID, pConfigurationStructs: rawptr, pConfigurationStructSizes: [^]u32) -> HRESULT ---
-	GetDebugInterface                        :: proc(riid: ^IID, ppvDebug: ^rawptr) -> HRESULT ---
-	SerializeRootSignature                   :: proc(pRootSignature: ^ROOT_SIGNATURE_DESC, Version: ROOT_SIGNATURE_VERSION, ppBlob: ^^IBlob, ppErrorBlob: ^^IBlob) -> HRESULT ---
-	SerializeVersionedRootSignature          :: proc(pRootSignature: ^VERSIONED_ROOT_SIGNATURE_DESC, ppBlob: ^^IBlob, ppErrorBlob: ^^IBlob) -> HRESULT ---
+	EnableExperimentalFeatures :: proc(NumFeatures: u32, pIIDs: [^]IID, pConfigurationStructs: rawptr, pConfigurationStructSizes: [^]u32) -> HRESULT ---
+	GetDebugInterface :: proc(riid: ^IID, ppvDebug: ^rawptr) -> HRESULT ---
+	SerializeRootSignature :: proc(pRootSignature: ^ROOT_SIGNATURE_DESC, Version: ROOT_SIGNATURE_VERSION, ppBlob: ^^IBlob, ppErrorBlob: ^^IBlob) -> HRESULT ---
+	SerializeVersionedRootSignature :: proc(pRootSignature: ^VERSIONED_ROOT_SIGNATURE_DESC, ppBlob: ^^IBlob, ppErrorBlob: ^^IBlob) -> HRESULT ---
 }
 
 WKPDID_D3DDebugObjectNameW_UUID_STRING :: "4CCA5FD8-921F-42C8-8566-70CAF2A9B741"
-WKPDID_D3DDebugObjectNameW_UUID        := &IID{0x4cca5fd8, 0x921f, 0x42c8, {0x85, 0x66, 0x70, 0xca, 0xf2, 0xa9, 0xb7, 0x41}}
+WKPDID_D3DDebugObjectNameW_UUID := &IID{0x4cca5fd8, 0x921f, 0x42c8, {0x85, 0x66, 0x70, 0xca, 0xf2, 0xa9, 0xb7, 0x41}}
 
 WKPDID_CommentStringW_UUID_STRING :: "d0149dc0-90e8-4ec8-8144-e900ad266bb2"
-WKPDID_CommentStringW_UUID        := &IID{0xd0149dc0, 0x90e8, 0x4ec8, {0x81, 0x44, 0xe9, 0x00, 0xad, 0x26, 0x6b, 0xb2}}
+WKPDID_CommentStringW_UUID := &IID{0xd0149dc0, 0x90e8, 0x4ec8, {0x81, 0x44, 0xe9, 0x00, 0xad, 0x26, 0x6b, 0xb2}}
 
 DEBUG_D3D12_UUID_STRING :: "cf59a98c-a950-4326-91ef-9ba17bfd95"
 DEBUG_D3D12_UUID := &IID{0xcf59a98c, 0xa950, 0x4326, {0x91, 0xef, 0x9b, 0xba, 0xa1, 0x7b, 0xfd, 0x95}}
@@ -52,16 +52,16 @@ PROTECTED_RESOURCES_SESSION_HARDWARE_PROTECTED_UUID_STRING :: "62b0084e-c70e-4da
 PROTECTED_RESOURCES_SESSION_HARDWARE_PROTECTED_UUID := &IID{0x62b0084e, 0xc70e, 0x4daa, {0xa1, 0x09, 0x30, 0xff, 0x8d, 0x5a, 0x04, 0x82}}
 
 TEXTURE_LAYOUT_ROW_MAJOR_UUID_STRING :: "b5dc234f-72bb-4bec-9705-8cf258df6b6c"
-TEXTURE_LAYOUT_ROW_MAJOR_UUID        := &IID{0xb5dc234f, 0x72bb, 0x4bec, {0x97, 0x05, 0x8c, 0xf2, 0x58, 0xdf, 0x6b, 0x6c}}
+TEXTURE_LAYOUT_ROW_MAJOR_UUID := &IID{0xb5dc234f, 0x72bb, 0x4bec, {0x97, 0x05, 0x8c, 0xf2, 0x58, 0xdf, 0x6b, 0x6c}}
 
 TEXTURE_LAYOUT_64KB_STANDARD_SWIZZLE_UUID_STRING :: "4c0f29e3-3f5f-4d35-84c9-bc0983b62c28"
-TEXTURE_LAYOUT_64KB_STANDARD_SWIZZLE_UUID        := &IID{0x4c0f29e3, 0x3f5f, 0x4d35, {0x84, 0xc9, 0xbc, 0x09, 0x83, 0xb6, 0x2c, 0x28}}
+TEXTURE_LAYOUT_64KB_STANDARD_SWIZZLE_UUID := &IID{0x4c0f29e3, 0x3f5f, 0x4d35, {0x84, 0xc9, 0xbc, 0x09, 0x83, 0xb6, 0x2c, 0x28}}
 
 ExperimentalShaderModels_UUID_STRING :: "76f5573e-f13a-40f5-b297-81ce9e18933f"
-ExperimentalShaderModels_UUID        := &IID{0x76f5573e, 0xf13a, 0x40f5, {0xb2, 0x97, 0x81, 0xce, 0x9e, 0x18, 0x93, 0x3f}}
+ExperimentalShaderModels_UUID := &IID{0x76f5573e, 0xf13a, 0x40f5, {0xb2, 0x97, 0x81, 0xce, 0x9e, 0x18, 0x93, 0x3f}}
 
 TiledResourceTier4_UUID_STRING :: "c9c4725f-a81a-4f56-8c5b-c51039d694fb"
-TiledResourceTier4_UUID        := &IID{0xc9c4725f, 0xa81a, 0x4f56, {0x8c, 0x5b, 0xc5, 0x10, 0x39, 0xd6, 0x94, 0xfb}}
+TiledResourceTier4_UUID := &IID{0xc9c4725f, 0xa81a, 0x4f56, {0x8c, 0x5b, 0xc5, 0x10, 0x39, 0xd6, 0x94, 0xfb}}
 
 
 DRIVER_TYPE :: enum i32 {
@@ -196,123 +196,128 @@ PFN_DESTRUCTION_CALLBACK :: #type proc "c" (a0: rawptr)
 ID3DDestructionNotifier_UUID_STRING :: "a06eb39a-50da-425b-8c31-4eecd6c270f3"
 ID3DDestructionNotifier_UUID := &IID{0xa06eb39a, 0x50da, 0x425b, {0x8c, 0x31, 0x4e, 0xec, 0xd6, 0xc2, 0x70, 0xf3}}
 ID3DDestructionNotifier :: struct #raw_union {
-	#subtype iunknown: IUnknown,
+	#subtype iunknown:                    IUnknown,
 	using id3ddestructionnotifier_vtable: ^ID3DDestructionNotifier_VTable,
 }
 ID3DDestructionNotifier_VTable :: struct {
-	using iunknown_vtable: IUnknown_VTable,
-	RegisterDestructionCallback:   proc "system" (this: ^ID3DDestructionNotifier, callbackFn: PFN_DESTRUCTION_CALLBACK, pData: rawptr, pCallbackID: ^u32) -> HRESULT,
+	using iunknown_vtable:         IUnknown_VTable,
+	RegisterDestructionCallback:   proc "system" (
+		this: ^ID3DDestructionNotifier,
+		callbackFn: PFN_DESTRUCTION_CALLBACK,
+		pData: rawptr,
+		pCallbackID: ^u32,
+	) -> HRESULT,
 	UnregisterDestructionCallback: proc "system" (this: ^ID3DDestructionNotifier, callbackID: u32) -> HRESULT,
 }
 
 SHADER_VARIABLE_CLASS :: enum i32 {
-	SCALAR                = 0,
-	VECTOR                = 1,
-	MATRIX_ROWS           = 2,
-	MATRIX_COLUMNS        = 3,
-	OBJECT                = 4,
-	STRUCT                = 5,
-	INTERFACE_CLASS       = 6,
-	INTERFACE_POINTER     = 7,
+	SCALAR            = 0,
+	VECTOR            = 1,
+	MATRIX_ROWS       = 2,
+	MATRIX_COLUMNS    = 3,
+	OBJECT            = 4,
+	STRUCT            = 5,
+	INTERFACE_CLASS   = 6,
+	INTERFACE_POINTER = 7,
 }
 
-SHADER_VARIABLE_FLAGS :: distinct bit_set[SHADER_VARIABLE_FLAG; u32]
+SHADER_VARIABLE_FLAGS :: distinct bit_set[SHADER_VARIABLE_FLAG;u32]
 SHADER_VARIABLE_FLAG :: enum u32 {
-	USERPACKED              = 0,
-	USED                    = 1,
-	INTERFACE_POINTER       = 2,
-	INTERFACE_PARAMETER     = 3,
+	USERPACKED          = 0,
+	USED                = 1,
+	INTERFACE_POINTER   = 2,
+	INTERFACE_PARAMETER = 3,
 }
 
 SHADER_VARIABLE_TYPE :: enum i32 {
-	VOID                          = 0,
-	BOOL                          = 1,
-	INT                           = 2,
-	FLOAT                         = 3,
-	STRING                        = 4,
-	TEXTURE                       = 5,
-	TEXTURE1D                     = 6,
-	TEXTURE2D                     = 7,
-	TEXTURE3D                     = 8,
-	TEXTURECUBE                   = 9,
-	SAMPLER                       = 10,
-	SAMPLER1D                     = 11,
-	SAMPLER2D                     = 12,
-	SAMPLER3D                     = 13,
-	SAMPLERCUBE                   = 14,
-	PIXELSHADER                   = 15,
-	VERTEXSHADER                  = 16,
-	PIXELFRAGMENT                 = 17,
-	VERTEXFRAGMENT                = 18,
-	UINT                          = 19,
-	UINT8                         = 20,
-	GEOMETRYSHADER                = 21,
-	RASTERIZER                    = 22,
-	DEPTHSTENCIL                  = 23,
-	BLEND                         = 24,
-	BUFFER                        = 25,
-	CBUFFER                       = 26,
-	TBUFFER                       = 27,
-	TEXTURE1DARRAY                = 28,
-	TEXTURE2DARRAY                = 29,
-	RENDERTARGETVIEW              = 30,
-	DEPTHSTENCILVIEW              = 31,
-	TEXTURE2DMS                   = 32,
-	TEXTURE2DMSARRAY              = 33,
-	TEXTURECUBEARRAY              = 34,
-	HULLSHADER                    = 35,
-	DOMAINSHADER                  = 36,
-	INTERFACE_POINTER             = 37,
-	COMPUTESHADER                 = 38,
-	DOUBLE                        = 39,
-	RWTEXTURE1D                   = 40,
-	RWTEXTURE1DARRAY              = 41,
-	RWTEXTURE2D                   = 42,
-	RWTEXTURE2DARRAY              = 43,
-	RWTEXTURE3D                   = 44,
-	RWBUFFER                      = 45,
-	BYTEADDRESS_BUFFER            = 46,
-	RWBYTEADDRESS_BUFFER          = 47,
-	STRUCTURED_BUFFER             = 48,
-	RWSTRUCTURED_BUFFER           = 49,
-	APPEND_STRUCTURED_BUFFER      = 50,
-	CONSUME_STRUCTURED_BUFFER     = 51,
-	MIN8FLOAT                     = 52,
-	MIN10FLOAT                    = 53,
-	MIN16FLOAT                    = 54,
-	MIN12INT                      = 55,
-	MIN16INT                      = 56,
-	MIN16UINT                     = 57,
+	VOID                      = 0,
+	BOOL                      = 1,
+	INT                       = 2,
+	FLOAT                     = 3,
+	STRING                    = 4,
+	TEXTURE                   = 5,
+	TEXTURE1D                 = 6,
+	TEXTURE2D                 = 7,
+	TEXTURE3D                 = 8,
+	TEXTURECUBE               = 9,
+	SAMPLER                   = 10,
+	SAMPLER1D                 = 11,
+	SAMPLER2D                 = 12,
+	SAMPLER3D                 = 13,
+	SAMPLERCUBE               = 14,
+	PIXELSHADER               = 15,
+	VERTEXSHADER              = 16,
+	PIXELFRAGMENT             = 17,
+	VERTEXFRAGMENT            = 18,
+	UINT                      = 19,
+	UINT8                     = 20,
+	GEOMETRYSHADER            = 21,
+	RASTERIZER                = 22,
+	DEPTHSTENCIL              = 23,
+	BLEND                     = 24,
+	BUFFER                    = 25,
+	CBUFFER                   = 26,
+	TBUFFER                   = 27,
+	TEXTURE1DARRAY            = 28,
+	TEXTURE2DARRAY            = 29,
+	RENDERTARGETVIEW          = 30,
+	DEPTHSTENCILVIEW          = 31,
+	TEXTURE2DMS               = 32,
+	TEXTURE2DMSARRAY          = 33,
+	TEXTURECUBEARRAY          = 34,
+	HULLSHADER                = 35,
+	DOMAINSHADER              = 36,
+	INTERFACE_POINTER         = 37,
+	COMPUTESHADER             = 38,
+	DOUBLE                    = 39,
+	RWTEXTURE1D               = 40,
+	RWTEXTURE1DARRAY          = 41,
+	RWTEXTURE2D               = 42,
+	RWTEXTURE2DARRAY          = 43,
+	RWTEXTURE3D               = 44,
+	RWBUFFER                  = 45,
+	BYTEADDRESS_BUFFER        = 46,
+	RWBYTEADDRESS_BUFFER      = 47,
+	STRUCTURED_BUFFER         = 48,
+	RWSTRUCTURED_BUFFER       = 49,
+	APPEND_STRUCTURED_BUFFER  = 50,
+	CONSUME_STRUCTURED_BUFFER = 51,
+	MIN8FLOAT                 = 52,
+	MIN10FLOAT                = 53,
+	MIN16FLOAT                = 54,
+	MIN12INT                  = 55,
+	MIN16INT                  = 56,
+	MIN16UINT                 = 57,
 }
 
-SHADER_INPUT_FLAGS :: distinct bit_set[SHADER_INPUT_FLAG; u32]
+SHADER_INPUT_FLAGS :: distinct bit_set[SHADER_INPUT_FLAG;u32]
 SHADER_INPUT_FLAG :: enum u32 {
-	USERPACKED              = 0,
-	COMPARISON_SAMPLER      = 1,
-	TEXTURE_COMPONENT_0     = 2,
-	TEXTURE_COMPONENT_1     = 3,
-	UNUSED                  = 4,
+	USERPACKED          = 0,
+	COMPARISON_SAMPLER  = 1,
+	TEXTURE_COMPONENT_0 = 2,
+	TEXTURE_COMPONENT_1 = 3,
+	UNUSED              = 4,
 }
 
 
 SHADER_INPUT_TYPE :: enum i32 {
-	CBUFFER                        = 0,
-	TBUFFER                        = 1,
-	TEXTURE                        = 2,
-	SAMPLER                        = 3,
-	UAV_RWTYPED                    = 4,
-	STRUCTURED                     = 5,
-	UAV_RWSTRUCTURED               = 6,
-	BYTEADDRESS                    = 7,
-	UAV_RWBYTEADDRESS              = 8,
-	UAV_APPEND_STRUCTURED          = 9,
-	UAV_CONSUME_STRUCTURED         = 10,
-	UAV_RWSTRUCTURED_WITH_COUNTER  = 11,
-	RTACCELERATIONSTRUCTURE        = 12,
-	UAV_FEEDBACKTEXTURE            = 13,
+	CBUFFER                       = 0,
+	TBUFFER                       = 1,
+	TEXTURE                       = 2,
+	SAMPLER                       = 3,
+	UAV_RWTYPED                   = 4,
+	STRUCTURED                    = 5,
+	UAV_RWSTRUCTURED              = 6,
+	BYTEADDRESS                   = 7,
+	UAV_RWBYTEADDRESS             = 8,
+	UAV_APPEND_STRUCTURED         = 9,
+	UAV_CONSUME_STRUCTURED        = 10,
+	UAV_RWSTRUCTURED_WITH_COUNTER = 11,
+	RTACCELERATIONSTRUCTURE       = 12,
+	UAV_FEEDBACKTEXTURE           = 13,
 }
 
-SHADER_CBUFFER_FLAGS :: distinct bit_set[SHADER_CBUFFER_FLAG; u32]
+SHADER_CBUFFER_FLAGS :: distinct bit_set[SHADER_CBUFFER_FLAG;u32]
 SHADER_CBUFFER_FLAG :: enum u32 {
 	USERPACKED = 0,
 }
@@ -355,21 +360,21 @@ NAME :: enum i32 {
 }
 
 RESOURCE_RETURN_TYPE :: enum i32 {
-	UNORM         = 1,
-	SNORM         = 2,
-	SINT          = 3,
-	UINT          = 4,
-	FLOAT         = 5,
-	MIXED         = 6,
-	DOUBLE        = 7,
-	CONTINUED     = 8,
+	UNORM     = 1,
+	SNORM     = 2,
+	SINT      = 3,
+	UINT      = 4,
+	FLOAT     = 5,
+	MIXED     = 6,
+	DOUBLE    = 7,
+	CONTINUED = 8,
 }
 
 REGISTER_COMPONENT_TYPE :: enum i32 {
-	UNKNOWN     = 0,
-	UINT32      = 1,
-	SINT32      = 2,
-	FLOAT32     = 3,
+	UNKNOWN = 0,
+	UINT32  = 1,
+	SINT32  = 2,
+	FLOAT32 = 3,
 }
 
 TESSELLATOR_DOMAIN :: enum i32 {
@@ -388,11 +393,11 @@ TESSELLATOR_PARTITIONING :: enum i32 {
 }
 
 TESSELLATOR_OUTPUT_PRIMITIVE :: enum i32 {
-	UNDEFINED        = 0,
-	POINT            = 1,
-	LINE             = 2,
-	TRIANGLE_CW      = 3,
-	TRIANGLE_CCW     = 4,
+	UNDEFINED    = 0,
+	POINT        = 1,
+	LINE         = 2,
+	TRIANGLE_CW  = 3,
+	TRIANGLE_CCW = 4,
 }
 
 MIN_PRECISION :: enum i32 {
@@ -417,10 +422,10 @@ INTERPOLATION_MODE :: enum i32 {
 	LINEAR_NOPERSPECTIVE_SAMPLE   = 7,
 }
 
-PARAMETER_FLAGS :: distinct bit_set[PARAMETER_FLAG; u32]
+PARAMETER_FLAGS :: distinct bit_set[PARAMETER_FLAG;u32]
 PARAMETER_FLAG :: enum u32 {
-	IN   = 0,
-	OUT  = 1,
+	IN  = 0,
+	OUT = 1,
 }
 
 GPU_VIRTUAL_ADDRESS :: u64
@@ -435,7 +440,7 @@ COMMAND_LIST_TYPE :: enum i32 {
 	VIDEO_ENCODE  = 6,
 }
 
-COMMAND_QUEUE_FLAGS :: distinct bit_set[COMMAND_QUEUE_FLAG; u32]
+COMMAND_QUEUE_FLAGS :: distinct bit_set[COMMAND_QUEUE_FLAG;u32]
 COMMAND_QUEUE_FLAG :: enum u32 {
 	DISABLE_GPU_TIMEOUT = 0,
 }
@@ -599,13 +604,13 @@ BLEND_OP :: enum i32 {
 	MAX          = 5,
 }
 
-COLOR_WRITE_ENABLE_MASK   :: distinct bit_set[COLOR_WRITE_ENABLE; u32]
+COLOR_WRITE_ENABLE_MASK :: distinct bit_set[COLOR_WRITE_ENABLE;u32]
 
-COLOR_WRITE_ENABLE_RED   :: COLOR_WRITE_ENABLE_MASK{.RED}
+COLOR_WRITE_ENABLE_RED :: COLOR_WRITE_ENABLE_MASK{.RED}
 COLOR_WRITE_ENABLE_GREEN :: COLOR_WRITE_ENABLE_MASK{.GREEN}
-COLOR_WRITE_ENABLE_BLUE  :: COLOR_WRITE_ENABLE_MASK{.BLUE}
+COLOR_WRITE_ENABLE_BLUE :: COLOR_WRITE_ENABLE_MASK{.BLUE}
 COLOR_WRITE_ENABLE_ALPHA :: COLOR_WRITE_ENABLE_MASK{.ALPHA}
-COLOR_WRITE_ENABLE_ALL   :: COLOR_WRITE_ENABLE_MASK{.RED, .GREEN, .BLUE, .ALPHA}
+COLOR_WRITE_ENABLE_ALL :: COLOR_WRITE_ENABLE_MASK{.RED, .GREEN, .BLUE, .ALPHA}
 
 COLOR_WRITE_ENABLE :: enum i32 {
 	RED   = 0,
@@ -675,11 +680,11 @@ RASTERIZER_DESC :: struct {
 IObject_UUID_STRING :: "c4fec28f-7966-4e95-9f94-f431cb56c3b8"
 IObject_UUID := &IID{0xc4fec28f, 0x7966, 0x4e95, {0x9f, 0x94, 0xf4, 0x31, 0xcb, 0x56, 0xc3, 0xb8}}
 IObject :: struct #raw_union {
-	#subtype iunknown: IUnknown,
+	#subtype iunknown:         IUnknown,
 	using id3d12object_vtable: ^IObject_VTable,
 }
 IObject_VTable :: struct {
-	using iunknown_vtable: IUnknown_VTable,
+	using iunknown_vtable:   IUnknown_VTable,
 	GetPrivateData:          proc "system" (this: ^IObject, guid: ^GUID, pDataSize: ^u32, pData: rawptr) -> HRESULT,
 	SetPrivateData:          proc "system" (this: ^IObject, guid: ^GUID, DataSize: u32, pData: rawptr) -> HRESULT,
 	SetPrivateDataInterface: proc "system" (this: ^IObject, guid: ^GUID, pData: ^IUnknown) -> HRESULT,
@@ -690,12 +695,12 @@ IObject_VTable :: struct {
 IDeviceChild_UUID_STRING :: "905db94b-a00c-4140-9df5-2b64ca9ea357"
 IDeviceChild_UUID := &IID{0x905db94b, 0xa00c, 0x4140, {0x9d, 0xf5, 0x2b, 0x64, 0xca, 0x9e, 0xa3, 0x57}}
 IDeviceChild :: struct #raw_union {
-	#subtype id3d12object: IObject,
+	#subtype id3d12object:          IObject,
 	using id3d12devicechild_vtable: ^IDeviceChild_VTable,
 }
 IDeviceChild_VTable :: struct {
 	using id3d12object_vtable: IObject_VTable,
-	GetDevice: proc "system" (this: ^IDeviceChild, riid: ^IID, ppvDevice: ^rawptr) -> HRESULT,
+	GetDevice:                 proc "system" (this: ^IDeviceChild, riid: ^IID, ppvDevice: ^rawptr) -> HRESULT,
 }
 
 
@@ -734,7 +739,7 @@ CACHED_PIPELINE_STATE :: struct {
 	CachedBlobSizeInBytes: SIZE_T,
 }
 
-PIPELINE_STATE_FLAGS :: distinct bit_set[PIPELINE_STATE_FLAG; u32]
+PIPELINE_STATE_FLAGS :: distinct bit_set[PIPELINE_STATE_FLAG;u32]
 PIPELINE_STATE_FLAG :: enum u32 {
 	TOOL_DEBUG = 0,
 }
@@ -852,18 +857,18 @@ FEATURE :: enum i32 {
 	OPTIONS19                             = 48,
 	OPTIONS20                             = 49,
 	PREDICATION                           = 50,
-	PLACED_RESOURCE_SUPPORT_INFO	      = 51,
-	HARDWARE_COPY	                      = 52,
-	OPTIONS21	                          = 53,
-	TIGHT_ALIGNMENT	                      = 54,
-	APPLICATION_SPECIFIC_DRIVER_STATE	  = 56,
-	BYTECODE_BYPASS_HASH_SUPPORTED	      = 57,
-	SHADER_CACHE_ABI_SUPPORT	          = 61,
-	BARRIER_LAYOUT	                      = 64,
+	PLACED_RESOURCE_SUPPORT_INFO          = 51,
+	HARDWARE_COPY                         = 52,
+	OPTIONS21                             = 53,
+	TIGHT_ALIGNMENT                       = 54,
+	APPLICATION_SPECIFIC_DRIVER_STATE     = 56,
+	BYTECODE_BYPASS_HASH_SUPPORTED        = 57,
+	SHADER_CACHE_ABI_SUPPORT              = 61,
+	BARRIER_LAYOUT                        = 64,
 	OPTIONS22                             = 65,
 }
 
-SHADER_MIN_PRECISION_SUPPORT :: distinct bit_set[SHADER_MIN_PRECISION_SUPPORT_FLAG; u32]
+SHADER_MIN_PRECISION_SUPPORT :: distinct bit_set[SHADER_MIN_PRECISION_SUPPORT_FLAG;u32]
 SHADER_MIN_PRECISION_SUPPORT_FLAG :: enum i32 {
 	_10_BIT,
 	_16_BIT,
@@ -890,7 +895,7 @@ CONSERVATIVE_RASTERIZATION_TIER :: enum i32 {
 	_3            = 3,
 }
 
-FORMAT_SUPPORT1 :: distinct bit_set[FORMAT_SUPPORT1_FLAG; u32]
+FORMAT_SUPPORT1 :: distinct bit_set[FORMAT_SUPPORT1_FLAG;u32]
 FORMAT_SUPPORT1_FLAG :: enum i32 {
 	BUFFER                      = 0,
 	IA_VERTEX_BUFFER            = 1,
@@ -905,11 +910,9 @@ FORMAT_SUPPORT1_FLAG :: enum i32 {
 	SHADER_SAMPLE_COMPARISON    = 10,
 	SHADER_SAMPLE_MONO_TEXT     = 11,
 	MIP                         = 12,
-
 	RENDER_TARGET               = 14,
 	BLENDABLE                   = 15,
 	DEPTH_STENCIL               = 16,
-
 	MULTISAMPLE_RESOLVE         = 18,
 	DISPLAY                     = 19,
 	CAST_WITHIN_BIT_LAYOUT      = 20,
@@ -925,7 +928,7 @@ FORMAT_SUPPORT1_FLAG :: enum i32 {
 	VIDEO_ENCODER               = 30,
 }
 
-FORMAT_SUPPORT2 :: distinct bit_set[FORMAT_SUPPORT2_FLAG; u32]
+FORMAT_SUPPORT2 :: distinct bit_set[FORMAT_SUPPORT2_FLAG;u32]
 FORMAT_SUPPORT2_FLAG :: enum i32 {
 	UAV_ATOMIC_ADD                               = 0,
 	UAV_ATOMIC_BITWISE_OPS                       = 1,
@@ -937,12 +940,11 @@ FORMAT_SUPPORT2_FLAG :: enum i32 {
 	UAV_TYPED_STORE                              = 7,
 	OUTPUT_MERGER_LOGIC_OP                       = 8,
 	TILED                                        = 9,
-
 	MULTIPLANE_OVERLAY                           = 14,
 	SAMPLER_FEEDBACK                             = 15,
 }
 
-MULTISAMPLE_QUALITY_LEVEL_FLAGS :: distinct bit_set[MULTISAMPLE_QUALITY_LEVEL_FLAG; u32]
+MULTISAMPLE_QUALITY_LEVEL_FLAGS :: distinct bit_set[MULTISAMPLE_QUALITY_LEVEL_FLAG;u32]
 MULTISAMPLE_QUALITY_LEVEL_FLAG :: enum u32 {
 	TILED_RESOURCE = 0,
 }
@@ -1080,7 +1082,7 @@ FEATURE_DATA_GPU_VIRTUAL_ADDRESS_SUPPORT :: struct {
 	MaxGPUVirtualAddressBitsPerProcess:  u32,
 }
 
-SHADER_CACHE_SUPPORT_FLAGS :: distinct bit_set[SHADER_CACHE_SUPPORT_FLAG; u32]
+SHADER_CACHE_SUPPORT_FLAGS :: distinct bit_set[SHADER_CACHE_SUPPORT_FLAG;u32]
 SHADER_CACHE_SUPPORT_FLAG :: enum u32 {
 	SINGLE_PSO             = 0,
 	LIBRARY                = 1,
@@ -1099,7 +1101,7 @@ FEATURE_DATA_COMMAND_QUEUE_PRIORITY :: struct {
 	PriorityForTypeIsSupported: BOOL,
 }
 
-COMMAND_LIST_SUPPORT_FLAGS :: distinct bit_set[COMMAND_LIST_SUPPORT_FLAG; u32]
+COMMAND_LIST_SUPPORT_FLAGS :: distinct bit_set[COMMAND_LIST_SUPPORT_FLAG;u32]
 COMMAND_LIST_SUPPORT_FLAG :: enum u32 {
 	DIRECT        = 0,
 	BUNDLE        = 1,
@@ -1234,7 +1236,7 @@ FEATURE_DATA_OPTIONS11 :: struct {
 }
 
 TRI_STATE :: enum i32 {
-	UNKNOWN	= -1,
+	UNKNOWN = -1,
 	FALSE   = 0,
 	TRUE    = 1,
 }
@@ -1417,25 +1419,25 @@ HEAP_PROPERTIES :: struct {
 	VisibleNodeMask:      u32,
 }
 
-HEAP_FLAGS :: distinct bit_set[HEAP_FLAG; u32]
+HEAP_FLAGS :: distinct bit_set[HEAP_FLAG;u32]
 HEAP_FLAG :: enum u32 {
-	SHARED                         = 0,
-	DENY_BUFFERS                   = 2,
-	ALLOW_DISPLAY                  = 3,
-	SHARED_CROSS_ADAPTER           = 5,
-	DENY_RT_DS_TEXTURES            = 6,
-	DENY_NON_RT_DS_TEXTURES        = 7,
-	HARDWARE_PROTECTED             = 8,
-	ALLOW_WRITE_WATCH              = 9,
-	ALLOW_SHADER_ATOMICS           = 10,
-	CREATE_NOT_RESIDENT            = 11,
-	CREATE_NOT_ZEROED              = 12,
+	SHARED                  = 0,
+	DENY_BUFFERS            = 2,
+	ALLOW_DISPLAY           = 3,
+	SHARED_CROSS_ADAPTER    = 5,
+	DENY_RT_DS_TEXTURES     = 6,
+	DENY_NON_RT_DS_TEXTURES = 7,
+	HARDWARE_PROTECTED      = 8,
+	ALLOW_WRITE_WATCH       = 9,
+	ALLOW_SHADER_ATOMICS    = 10,
+	CREATE_NOT_RESIDENT     = 11,
+	CREATE_NOT_ZEROED       = 12,
 }
 
 HEAP_FLAG_ALLOW_ALL_BUFFERS_AND_TEXTURES :: HEAP_FLAGS{}
-HEAP_FLAG_ALLOW_ONLY_BUFFERS             :: HEAP_FLAGS{.DENY_RT_DS_TEXTURES, .DENY_NON_RT_DS_TEXTURES}
-HEAP_FLAG_ALLOW_ONLY_NON_RT_DS_TEXTURES  :: HEAP_FLAGS{.DENY_BUFFERS, .DENY_RT_DS_TEXTURES}
-HEAP_FLAG_ALLOW_ONLY_RT_DS_TEXTURES      :: HEAP_FLAGS{.DENY_BUFFERS, .DENY_NON_RT_DS_TEXTURES}
+HEAP_FLAG_ALLOW_ONLY_BUFFERS :: HEAP_FLAGS{.DENY_RT_DS_TEXTURES, .DENY_NON_RT_DS_TEXTURES}
+HEAP_FLAG_ALLOW_ONLY_NON_RT_DS_TEXTURES :: HEAP_FLAGS{.DENY_BUFFERS, .DENY_RT_DS_TEXTURES}
+HEAP_FLAG_ALLOW_ONLY_RT_DS_TEXTURES :: HEAP_FLAGS{.DENY_BUFFERS, .DENY_NON_RT_DS_TEXTURES}
 
 HEAP_DESC :: struct {
 	SizeInBytes: u64,
@@ -1459,7 +1461,7 @@ TEXTURE_LAYOUT :: enum i32 {
 	_64KB_STANDARD_SWIZZLE  = 3,
 }
 
-RESOURCE_FLAGS :: distinct bit_set[RESOURCE_FLAG; u32]
+RESOURCE_FLAGS :: distinct bit_set[RESOURCE_FLAG;u32]
 RESOURCE_FLAG :: enum u32 {
 	ALLOW_RENDER_TARGET               = 0,
 	ALLOW_DEPTH_STENCIL               = 1,
@@ -1512,7 +1514,7 @@ DEPTH_STENCIL_VALUE :: struct {
 }
 
 CLEAR_VALUE :: struct {
-	Format: dxgi.FORMAT,
+	Format:  dxgi.FORMAT,
 	using _: struct #raw_union {
 		Color:        [4]f32,
 		DepthStencil: DEPTH_STENCIL_VALUE,
@@ -1555,7 +1557,7 @@ TILE_REGION_SIZE :: struct {
 	Depth:    u16,
 }
 
-TILE_RANGE_FLAGS :: distinct bit_set[TILE_RANGE_FLAG; u32]
+TILE_RANGE_FLAGS :: distinct bit_set[TILE_RANGE_FLAG;u32]
 TILE_RANGE_FLAG :: enum u32 {
 	NULL              = 0,
 	SKIP              = 1,
@@ -1582,19 +1584,19 @@ PACKED_MIP_INFO :: struct {
 	StartTileIndexInOverallResource: u32,
 }
 
-TILE_MAPPING_FLAGS :: distinct bit_set[TILE_MAPPING_FLAG; u32]
+TILE_MAPPING_FLAGS :: distinct bit_set[TILE_MAPPING_FLAG;u32]
 TILE_MAPPING_FLAG :: enum u32 {
 	NO_HAZARD = 0,
 }
 
-TILE_COPY_FLAGS :: distinct bit_set[TILE_COPY_FLAG; u32]
+TILE_COPY_FLAGS :: distinct bit_set[TILE_COPY_FLAG;u32]
 TILE_COPY_FLAG :: enum u32 {
 	NO_HAZARD                                = 0,
 	LINEAR_BUFFER_TO_SWIZZLED_TILED_RESOURCE = 1,
 	SWIZZLED_TILED_RESOURCE_TO_LINEAR_BUFFER = 2,
 }
 
-RESOURCE_STATES :: distinct bit_set[RESOURCE_STATE; u32]
+RESOURCE_STATES :: distinct bit_set[RESOURCE_STATE;u32]
 RESOURCE_STATE :: enum i32 {
 	VERTEX_AND_CONSTANT_BUFFER        = 0,
 	INDEX_BUFFER                      = 1,
@@ -1623,12 +1625,15 @@ RESOURCE_STATE :: enum i32 {
 
 RESOURCE_STATE_COMMON :: RESOURCE_STATES{}
 RESOURCE_STATE_PRESENT :: RESOURCE_STATES{}
-RESOURCE_STATE_GENERIC_READ :: RESOURCE_STATES{
-	.VERTEX_AND_CONSTANT_BUFFER, .INDEX_BUFFER, .NON_PIXEL_SHADER_RESOURCE, .PIXEL_SHADER_RESOURCE, .INDIRECT_ARGUMENT, .COPY_SOURCE,
+RESOURCE_STATE_GENERIC_READ :: RESOURCE_STATES {
+	.VERTEX_AND_CONSTANT_BUFFER,
+	.INDEX_BUFFER,
+	.NON_PIXEL_SHADER_RESOURCE,
+	.PIXEL_SHADER_RESOURCE,
+	.INDIRECT_ARGUMENT,
+	.COPY_SOURCE,
 }
-RESOURCE_STATE_ALL_SHADER_RESOURCE :: RESOURCE_STATES{
-	.NON_PIXEL_SHADER_RESOURCE, .PIXEL_SHADER_RESOURCE,
-}
+RESOURCE_STATE_ALL_SHADER_RESOURCE :: RESOURCE_STATES{.NON_PIXEL_SHADER_RESOURCE, .PIXEL_SHADER_RESOURCE}
 
 RESOURCE_BARRIER_TYPE :: enum i32 {
 	TRANSITION = 0,
@@ -1652,15 +1657,15 @@ RESOURCE_UAV_BARRIER :: struct {
 	pResource: ^IResource,
 }
 
-RESOURCE_BARRIER_FLAGS :: distinct bit_set[RESOURCE_BARRIER_FLAG; u32]
+RESOURCE_BARRIER_FLAGS :: distinct bit_set[RESOURCE_BARRIER_FLAG;u32]
 RESOURCE_BARRIER_FLAG :: enum u32 {
 	BEGIN_ONLY = 0,
 	END_ONLY   = 1,
 }
 
 RESOURCE_BARRIER :: struct {
-	Type:  RESOURCE_BARRIER_TYPE,
-	Flags: RESOURCE_BARRIER_FLAGS,
+	Type:    RESOURCE_BARRIER_TYPE,
+	Flags:   RESOURCE_BARRIER_FLAGS,
 	using _: struct #raw_union {
 		Transition: RESOURCE_TRANSITION_BARRIER,
 		Aliasing:   RESOURCE_ALIASING_BARRIER,
@@ -1689,7 +1694,7 @@ TEXTURE_COPY_TYPE :: enum i32 {
 TEXTURE_COPY_LOCATION :: struct {
 	pResource: ^IResource,
 	Type:      TEXTURE_COPY_TYPE,
-	using _: struct #raw_union {
+	using _:   struct #raw_union {
 		PlacedFootprint:  PLACED_SUBRESOURCE_FOOTPRINT,
 		SubresourceIndex: u32,
 	},
@@ -1714,7 +1719,7 @@ VIEW_INSTANCE_LOCATION :: struct {
 	RenderTargetArrayIndex: u32,
 }
 
-VIEW_INSTANCING_FLAGS :: distinct bit_set[VIEW_INSTANCING_FLAG; u32]
+VIEW_INSTANCING_FLAGS :: distinct bit_set[VIEW_INSTANCING_FLAG;u32]
 VIEW_INSTANCING_FLAG :: enum u32 {
 	ENABLE_VIEW_INSTANCE_MASKING = 0,
 }
@@ -1734,17 +1739,19 @@ SHADER_COMPONENT_MAPPING :: enum u32 {
 	FORCE_VALUE_1           = 5,
 }
 ENCODE_SHADER_4_COMPONENT_MAPPING :: #force_inline proc "contextless" (Src0, Src1, Src2, Src3: u32) -> u32 {
-	return (Src0 & SHADER_COMPONENT_MAPPING_MASK) |
-	       ((Src1 & SHADER_COMPONENT_MAPPING_MASK) << SHADER_COMPONENT_MAPPING_SHIFT) |
-	       ((Src2 & SHADER_COMPONENT_MAPPING_MASK) << (SHADER_COMPONENT_MAPPING_SHIFT * 2)) |
-	       ((Src3 & SHADER_COMPONENT_MAPPING_MASK) << (SHADER_COMPONENT_MAPPING_SHIFT * 3)) |
-	       SHADER_COMPONENT_MAPPING_ALWAYS_SET_BIT_AVOIDING_ZEROMEM_MISTAKES
+	return(
+		(Src0 & SHADER_COMPONENT_MAPPING_MASK) |
+		((Src1 & SHADER_COMPONENT_MAPPING_MASK) << SHADER_COMPONENT_MAPPING_SHIFT) |
+		((Src2 & SHADER_COMPONENT_MAPPING_MASK) << (SHADER_COMPONENT_MAPPING_SHIFT * 2)) |
+		((Src3 & SHADER_COMPONENT_MAPPING_MASK) << (SHADER_COMPONENT_MAPPING_SHIFT * 3)) |
+		SHADER_COMPONENT_MAPPING_ALWAYS_SET_BIT_AVOIDING_ZEROMEM_MISTAKES \
+	)
 }
 DECODE_SHADER_4_COMPONENT_MAPPING :: #force_inline proc "contextless" (ComponentToExtract, Mapping: u32) -> u32 {
 	return Mapping >> (SHADER_COMPONENT_MAPPING_SHIFT * ComponentToExtract) & SHADER_COMPONENT_MAPPING_MASK
 }
 
-BUFFER_SRV_FLAGS :: distinct bit_set[BUFFER_SRV_FLAG; u32]
+BUFFER_SRV_FLAGS :: distinct bit_set[BUFFER_SRV_FLAG;u32]
 BUFFER_SRV_FLAG :: enum u32 {
 	RAW = 0,
 }
@@ -1830,7 +1837,7 @@ SHADER_RESOURCE_VIEW_DESC :: struct {
 	Format:                  dxgi.FORMAT,
 	ViewDimension:           SRV_DIMENSION,
 	Shader4ComponentMapping: u32,
-	using _: struct #raw_union {
+	using _:                 struct #raw_union {
 		Buffer:                          BUFFER_SRV,
 		Texture1D:                       TEX1D_SRV,
 		Texture1DArray:                  TEX1D_ARRAY_SRV,
@@ -1923,7 +1930,7 @@ SAMPLER_DESC :: struct {
 	MaxLOD:         f32,
 }
 
-BUFFER_UAV_FLAGS :: distinct bit_set[BUFFER_UAV_FLAG; u32]
+BUFFER_UAV_FLAGS :: distinct bit_set[BUFFER_UAV_FLAG;u32]
 BUFFER_UAV_FLAG :: enum u32 {
 	RAW = 0,
 }
@@ -1986,7 +1993,7 @@ UAV_DIMENSION :: enum i32 {
 UNORDERED_ACCESS_VIEW_DESC :: struct {
 	Format:        dxgi.FORMAT,
 	ViewDimension: UAV_DIMENSION,
-	using _: struct #raw_union {
+	using _:       struct #raw_union {
 		Buffer:           BUFFER_UAV,
 		Texture1D:        TEX1D_UAV,
 		Texture1DArray:   TEX1D_ARRAY_UAV,
@@ -2054,7 +2061,7 @@ RTV_DIMENSION :: enum i32 {
 RENDER_TARGET_VIEW_DESC :: struct {
 	Format:        dxgi.FORMAT,
 	ViewDimension: RTV_DIMENSION,
-	using _: struct #raw_union {
+	using _:       struct #raw_union {
 		Buffer:           BUFFER_RTV,
 		Texture1D:        TEX1D_RTV,
 		Texture1DArray:   TEX1D_ARRAY_RTV,
@@ -2095,7 +2102,7 @@ TEX2DMS_ARRAY_DSV :: struct {
 	ArraySize:       u32,
 }
 
-DSV_FLAGS :: distinct bit_set[DSV_FLAG; u32]
+DSV_FLAGS :: distinct bit_set[DSV_FLAG;u32]
 DSV_FLAG :: enum u32 {
 	READ_ONLY_DEPTH   = 0,
 	READ_ONLY_STENCIL = 1,
@@ -2115,7 +2122,7 @@ DEPTH_STENCIL_VIEW_DESC :: struct {
 	Format:        dxgi.FORMAT,
 	ViewDimension: DSV_DIMENSION,
 	Flags:         DSV_FLAGS,
-	using _: struct #raw_union {
+	using _:       struct #raw_union {
 		Texture1D:        TEX1D_DSV,
 		Texture1DArray:   TEX1D_ARRAY_DSV,
 		Texture2D:        TEX2D_DSV,
@@ -2125,13 +2132,13 @@ DEPTH_STENCIL_VIEW_DESC :: struct {
 	},
 }
 
-CLEAR_FLAGS :: distinct bit_set[CLEAR_FLAG; u32]
+CLEAR_FLAGS :: distinct bit_set[CLEAR_FLAG;u32]
 CLEAR_FLAG :: enum u32 {
 	DEPTH   = 0,
 	STENCIL = 1,
 }
 
-FENCE_FLAGS :: distinct bit_set[FENCE_FLAG; u32]
+FENCE_FLAGS :: distinct bit_set[FENCE_FLAG;u32]
 FENCE_FLAG :: enum u32 {
 	SHARED               = 0,
 	SHARED_CROSS_ADAPTER = 1,
@@ -2145,7 +2152,7 @@ DESCRIPTOR_HEAP_TYPE :: enum i32 {
 	DSV         = 3,
 }
 
-DESCRIPTOR_HEAP_FLAGS :: distinct bit_set[DESCRIPTOR_HEAP_FLAG; u32]
+DESCRIPTOR_HEAP_FLAGS :: distinct bit_set[DESCRIPTOR_HEAP_FLAG;u32]
 DESCRIPTOR_HEAP_FLAG :: enum u32 {
 	SHADER_VISIBLE = 0,
 }
@@ -2208,8 +2215,8 @@ ROOT_PARAMETER_TYPE :: enum i32 {
 }
 
 ROOT_PARAMETER :: struct {
-	ParameterType: ROOT_PARAMETER_TYPE,
-	using _: struct #raw_union {
+	ParameterType:    ROOT_PARAMETER_TYPE,
+	using _:          struct #raw_union {
 		DescriptorTable: ROOT_DESCRIPTOR_TABLE,
 		Constants:       ROOT_CONSTANTS,
 		Descriptor:      ROOT_DESCRIPTOR,
@@ -2217,7 +2224,7 @@ ROOT_PARAMETER :: struct {
 	ShaderVisibility: SHADER_VISIBILITY,
 }
 
-ROOT_SIGNATURE_FLAGS :: distinct bit_set[ROOT_SIGNATURE_FLAG; u32]
+ROOT_SIGNATURE_FLAGS :: distinct bit_set[ROOT_SIGNATURE_FLAG;u32]
 ROOT_SIGNATURE_FLAG :: enum u32 {
 	ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT    = 0,
 	DENY_VERTEX_SHADER_ROOT_ACCESS        = 1,
@@ -2263,7 +2270,7 @@ ROOT_SIGNATURE_DESC :: struct {
 	Flags:             ROOT_SIGNATURE_FLAGS,
 }
 
-DESCRIPTOR_RANGE_FLAGS :: distinct bit_set[DESCRIPTOR_RANGE_FLAG; u32]
+DESCRIPTOR_RANGE_FLAGS :: distinct bit_set[DESCRIPTOR_RANGE_FLAG;u32]
 DESCRIPTOR_RANGE_FLAG :: enum u32 {
 	DESCRIPTORS_VOLATILE                            = 0,
 	DATA_VOLATILE                                   = 1,
@@ -2286,7 +2293,7 @@ ROOT_DESCRIPTOR_TABLE1 :: struct {
 	pDescriptorRanges:   ^DESCRIPTOR_RANGE1,
 }
 
-ROOT_DESCRIPTOR_FLAGS :: distinct bit_set[ROOT_DESCRIPTOR_FLAG; u32]
+ROOT_DESCRIPTOR_FLAGS :: distinct bit_set[ROOT_DESCRIPTOR_FLAG;u32]
 ROOT_DESCRIPTOR_FLAG :: enum u32 {
 	DATA_VOLATILE                    = 2,
 	DATA_STATIC_WHILE_SET_AT_EXECUTE = 3,
@@ -2301,7 +2308,7 @@ ROOT_DESCRIPTOR1 :: struct {
 
 ROOT_PARAMETER1 :: struct {
 	ParameterType:    ROOT_PARAMETER_TYPE,
-	using _: struct #raw_union {
+	using _:          struct #raw_union {
 		DescriptorTable: ROOT_DESCRIPTOR_TABLE1,
 		Constants:       ROOT_CONSTANTS,
 		Descriptor:      ROOT_DESCRIPTOR1,
@@ -2329,30 +2336,34 @@ VERSIONED_ROOT_SIGNATURE_DESC :: struct {
 IRootSignatureDeserializer_UUID_STRING :: "34AB647B-3CC8-46AC-841B-C0965645C046"
 IRootSignatureDeserializer_UUID := &IID{0x34AB647B, 0x3CC8, 0x46AC, {0x84, 0x1B, 0xC0, 0x96, 0x56, 0x45, 0xC0, 0x46}}
 IRootSignatureDeserializer :: struct #raw_union {
-	#subtype iunknown: IUnknown,
+	#subtype iunknown:                            IUnknown,
 	using id3d12rootsignaturedeserializer_vtable: ^IRootSignatureDeserializer_VTable,
 }
 IRootSignatureDeserializer_VTable :: struct {
 	using iunknown_vtable: IUnknown_VTable,
-	GetRootSignatureDesc: proc "system" (this: ^IRootSignatureDeserializer) -> ^ROOT_SIGNATURE_DESC,
+	GetRootSignatureDesc:  proc "system" (this: ^IRootSignatureDeserializer) -> ^ROOT_SIGNATURE_DESC,
 }
 
 
 IVersionedRootSignatureDeserializer_UUID_STRING :: "7F91CE67-090C-4BB7-B78E-ED8FF2E31DA0"
 IVersionedRootSignatureDeserializer_UUID := &IID{0x7F91CE67, 0x090C, 0x4BB7, {0xB7, 0x8E, 0xED, 0x8F, 0xF2, 0xE3, 0x1D, 0xA0}}
 IVersionedRootSignatureDeserializer :: struct #raw_union {
-	#subtype iunknown: IUnknown,
+	#subtype iunknown:                                     IUnknown,
 	using id3d12versionedrootsignaturedeserializer_vtable: ^IVersionedRootSignatureDeserializer_VTable,
 }
 IVersionedRootSignatureDeserializer_VTable :: struct {
-	using iunknown_vtable: IUnknown_VTable,
-	GetRootSignatureDescAtVersion:   proc "system" (this: ^IVersionedRootSignatureDeserializer, convertToVersion: ROOT_SIGNATURE_VERSION, ppDesc: ^^VERSIONED_ROOT_SIGNATURE_DESC) -> HRESULT,
+	using iunknown_vtable:           IUnknown_VTable,
+	GetRootSignatureDescAtVersion:   proc "system" (
+		this: ^IVersionedRootSignatureDeserializer,
+		convertToVersion: ROOT_SIGNATURE_VERSION,
+		ppDesc: ^^VERSIONED_ROOT_SIGNATURE_DESC,
+	) -> HRESULT,
 	GetUnconvertedRootSignatureDesc: proc "system" (this: ^IVersionedRootSignatureDeserializer) -> ^VERSIONED_ROOT_SIGNATURE_DESC,
 }
 
-PFN_SERIALIZE_ROOT_SIGNATURE                     :: #type proc "c" (a0: ^ROOT_SIGNATURE_DESC, a1: ROOT_SIGNATURE_VERSION, a2: ^^IBlob, a3: ^^IBlob) -> HRESULT
-PFN_CREATE_ROOT_SIGNATURE_DESERIALIZER           :: #type proc "c" (a0: rawptr, a1: SIZE_T, a2: ^IID, a3: ^rawptr) -> HRESULT
-PFN_SERIALIZE_VERSIONED_ROOT_SIGNATURE           :: #type proc "c" (a0: ^VERSIONED_ROOT_SIGNATURE_DESC, a1: ^^IBlob, a2: ^^IBlob) -> HRESULT
+PFN_SERIALIZE_ROOT_SIGNATURE :: #type proc "c" (a0: ^ROOT_SIGNATURE_DESC, a1: ROOT_SIGNATURE_VERSION, a2: ^^IBlob, a3: ^^IBlob) -> HRESULT
+PFN_CREATE_ROOT_SIGNATURE_DESERIALIZER :: #type proc "c" (a0: rawptr, a1: SIZE_T, a2: ^IID, a3: ^rawptr) -> HRESULT
+PFN_SERIALIZE_VERSIONED_ROOT_SIGNATURE :: #type proc "c" (a0: ^VERSIONED_ROOT_SIGNATURE_DESC, a1: ^^IBlob, a2: ^^IBlob) -> HRESULT
 PFN_CREATE_VERSIONED_ROOT_SIGNATURE_DESERIALIZER :: #type proc "c" (a0: rawptr, a1: SIZE_T, a2: ^IID, a3: ^rawptr) -> HRESULT
 
 
@@ -2495,20 +2506,20 @@ INDIRECT_ARGUMENT_TYPE :: enum i32 {
 }
 
 INDIRECT_ARGUMENT_DESC :: struct {
-	Type: INDIRECT_ARGUMENT_TYPE,
+	Type:    INDIRECT_ARGUMENT_TYPE,
 	using _: struct #raw_union {
-		VertexBuffer: struct {
+		VertexBuffer:        struct {
 			Slot: u32,
 		},
-		Constant: struct {
+		Constant:            struct {
 			RootParameterIndex:      u32,
 			DestOffsetIn32BitValues: u32,
 			Num32BitValuesToSet:     u32,
 		},
-		ConstantBufferView: struct {
+		ConstantBufferView:  struct {
 			RootParameterIndex: u32,
 		},
-		ShaderResourceView: struct {
+		ShaderResourceView:  struct {
 			RootParameterIndex: u32,
 		},
 		UnorderedAccessView: struct {
@@ -2540,86 +2551,100 @@ IHeap :: struct #raw_union {
 }
 IHeap_VTable :: struct {
 	using id3d12devicechild_vtable: IDeviceChild_VTable,
-	GetDesc: proc "system" (this: ^IHeap, pRetValue: ^HEAP_DESC) -> ^HEAP_DESC,
+	GetDesc:                        proc "system" (this: ^IHeap, pRetValue: ^HEAP_DESC) -> ^HEAP_DESC,
 }
 
 
 IResource_UUID_STRING :: "696442be-a72e-4059-bc79-5b5c98040fad"
 IResource_UUID := &IID{0x696442be, 0xa72e, 0x4059, {0xbc, 0x79, 0x5b, 0x5c, 0x98, 0x04, 0x0f, 0xad}}
 IResource :: struct #raw_union {
-	#subtype id3d12pageable: IPageable,
+	#subtype id3d12pageable:     IPageable,
 	using id3d12resource_vtable: ^IResource_VTable,
 }
 IResource_VTable :: struct {
 	using id3d12devicechild_vtable: IDeviceChild_VTable,
-	Map:                  proc "system" (this: ^IResource, Subresource: u32, pReadRange: ^RANGE, ppData: ^rawptr) -> HRESULT,
-	Unmap:                proc "system" (this: ^IResource, Subresource: u32, pWrittenRange: ^RANGE),
-	GetDesc:              proc "system" (this: ^IResource, pRetValue: ^RESOURCE_DESC) -> ^RESOURCE_DESC,
-	GetGPUVirtualAddress: proc "system" (this: ^IResource) -> GPU_VIRTUAL_ADDRESS,
-	WriteToSubresource:   proc "system" (this: ^IResource, DstSubresource: u32, pDstBox: ^BOX, pSrcData: rawptr, SrcRowPitch: u32, SrcDepthPitch: u32) -> HRESULT,
-	ReadFromSubresource:  proc "system" (this: ^IResource, pDstData: rawptr, DstRowPitch: u32, DstDepthPitch: u32, SrcSubresource: u32, pSrcBox: ^BOX) -> HRESULT,
-	GetHeapProperties:    proc "system" (this: ^IResource, pHeapProperties: ^HEAP_PROPERTIES, pHeapFlags: ^HEAP_FLAGS) -> HRESULT,
+	Map:                            proc "system" (this: ^IResource, Subresource: u32, pReadRange: ^RANGE, ppData: ^rawptr) -> HRESULT,
+	Unmap:                          proc "system" (this: ^IResource, Subresource: u32, pWrittenRange: ^RANGE),
+	GetDesc:                        proc "system" (this: ^IResource, pRetValue: ^RESOURCE_DESC) -> ^RESOURCE_DESC,
+	GetGPUVirtualAddress:           proc "system" (this: ^IResource) -> GPU_VIRTUAL_ADDRESS,
+	WriteToSubresource:             proc "system" (
+		this: ^IResource,
+		DstSubresource: u32,
+		pDstBox: ^BOX,
+		pSrcData: rawptr,
+		SrcRowPitch: u32,
+		SrcDepthPitch: u32,
+	) -> HRESULT,
+	ReadFromSubresource:            proc "system" (
+		this: ^IResource,
+		pDstData: rawptr,
+		DstRowPitch: u32,
+		DstDepthPitch: u32,
+		SrcSubresource: u32,
+		pSrcBox: ^BOX,
+	) -> HRESULT,
+	GetHeapProperties:              proc "system" (this: ^IResource, pHeapProperties: ^HEAP_PROPERTIES, pHeapFlags: ^HEAP_FLAGS) -> HRESULT,
 }
 
 
 ICommandAllocator_UUID_STRING :: "6102dee4-af59-4b09-b999-b44d73f09b24"
 ICommandAllocator_UUID := &IID{0x6102dee4, 0xaf59, 0x4b09, {0xb9, 0x99, 0xb4, 0x4d, 0x73, 0xf0, 0x9b, 0x24}}
 ICommandAllocator :: struct #raw_union {
-	#subtype id3d12pageable: IPageable,
+	#subtype id3d12pageable:             IPageable,
 	using id3d12commandallocator_vtable: ^ICommandAllocator_VTable,
 }
 ICommandAllocator_VTable :: struct {
 	using id3d12devicechild_vtable: IDeviceChild_VTable,
-	Reset: proc "system" (this: ^ICommandAllocator) -> HRESULT,
+	Reset:                          proc "system" (this: ^ICommandAllocator) -> HRESULT,
 }
 
 
 IFence_UUID_STRING :: "0a753dcf-c4d8-4b91-adf6-be5a60d95a76"
-IFence_UUID := &IID {0x0a753dcf, 0xc4d8, 0x4b91, {0xad, 0xf6, 0xbe, 0x5a, 0x60, 0xd9, 0x5a, 0x76}}
+IFence_UUID := &IID{0x0a753dcf, 0xc4d8, 0x4b91, {0xad, 0xf6, 0xbe, 0x5a, 0x60, 0xd9, 0x5a, 0x76}}
 IFence :: struct #raw_union {
-	#subtype id3d12pageable: IPageable,
+	#subtype id3d12pageable:  IPageable,
 	using id3d12fence_vtable: ^IFence_VTable,
 }
 IFence_VTable :: struct {
 	using id3d12devicechild_vtable: IDeviceChild_VTable,
-	GetCompletedValue:    proc "system" (this: ^IFence) -> u64,
-	SetEventOnCompletion: proc "system" (this: ^IFence, Value: u64, hEvent: HANDLE) -> HRESULT,
-	Signal:               proc "system" (this: ^IFence, Value: u64) -> HRESULT,
+	GetCompletedValue:              proc "system" (this: ^IFence) -> u64,
+	SetEventOnCompletion:           proc "system" (this: ^IFence, Value: u64, hEvent: HANDLE) -> HRESULT,
+	Signal:                         proc "system" (this: ^IFence, Value: u64) -> HRESULT,
 }
 
 
 IFence1_UUID_STRING :: "433685fe-e22b-4ca0-a8db-b5b4f4dd0e4a"
 IFence1_UUID := &IID{0x433685fe, 0xe22b, 0x4ca0, {0xa8, 0xdb, 0xb5, 0xb4, 0xf4, 0xdd, 0x0e, 0x4a}}
 IFence1 :: struct #raw_union {
-	#subtype id3d12fence: IFence,
+	#subtype id3d12fence:      IFence,
 	using id3d12fence1_vtable: ^IFence1_VTable,
 }
 IFence1_VTable :: struct {
 	using id3d12fence_vtable: IFence_VTable,
-	GetCreationFlags: proc "system" (this: ^IFence1) -> FENCE_FLAGS,
+	GetCreationFlags:         proc "system" (this: ^IFence1) -> FENCE_FLAGS,
 }
 
 
 IPipelineState_UUID_STRING :: "765a30f3-f624-4c6f-a828-ace948622445"
 IPipelineState_UUID := &IID{0x765a30f3, 0xf624, 0x4c6f, {0xa8, 0x28, 0xac, 0xe9, 0x48, 0x62, 0x24, 0x45}}
 IPipelineState :: struct #raw_union {
-	#subtype id3d12pageable: IPageable,
+	#subtype id3d12pageable:          IPageable,
 	using id3d12pipelinestate_vtable: ^IPipelineState_VTable,
 }
 IPipelineState_VTable :: struct {
 	using id3d12devicechild_vtable: IDeviceChild_VTable,
-	GetCachedBlob: proc "system" (this: ^IPipelineState, ppBlob: ^^IBlob) -> HRESULT,
+	GetCachedBlob:                  proc "system" (this: ^IPipelineState, ppBlob: ^^IBlob) -> HRESULT,
 }
 
 
 IDescriptorHeap_UUID_STRING :: "8efb471d-616c-4f49-90f7-127bb763fa51"
-IDescriptorHeap_UUID := &IID{0x8efb471d, 0x616c, 0x4f49, { 0x90, 0xf7, 0x12, 0x7b, 0xb7, 0x63, 0xfa, 0x51}}
+IDescriptorHeap_UUID := &IID{0x8efb471d, 0x616c, 0x4f49, {0x90, 0xf7, 0x12, 0x7b, 0xb7, 0x63, 0xfa, 0x51}}
 IDescriptorHeap :: struct #raw_union {
-	#subtype id3d12pageable: IPageable,
+	#subtype id3d12pageable:           IPageable,
 	using id3d12descriptorheap_vtable: ^IDescriptorHeap_VTable,
 }
 IDescriptorHeap_VTable :: struct {
-	using id3d12devicechild_vtable: IDeviceChild_VTable,
+	using id3d12devicechild_vtable:     IDeviceChild_VTable,
 	GetDesc:                            proc "system" (this: ^IDescriptorHeap, desc: ^DESCRIPTOR_HEAP_DESC),
 	GetCPUDescriptorHandleForHeapStart: proc "system" (this: ^IDescriptorHeap, handle: ^CPU_DESCRIPTOR_HANDLE),
 	GetGPUDescriptorHandleForHeapStart: proc "system" (this: ^IDescriptorHeap, handle: ^GPU_DESCRIPTOR_HANDLE),
@@ -2640,36 +2665,79 @@ ICommandSignature :: struct {
 
 
 ICommandList_UUID_STRING :: "7116d91c-e7e4-47ce-b8c6-ec8168f437e5"
-ICommandList_UUID := &IID {0x7116d91c, 0xe7e4, 0x47ce, {0xb8, 0xc6, 0xec, 0x81, 0x68, 0xf4, 0x37, 0xe5}}
+ICommandList_UUID := &IID{0x7116d91c, 0xe7e4, 0x47ce, {0xb8, 0xc6, 0xec, 0x81, 0x68, 0xf4, 0x37, 0xe5}}
 ICommandList :: struct #raw_union {
-	#subtype id3d12devicechild: IDeviceChild,
+	#subtype id3d12devicechild:     IDeviceChild,
 	using id3d12commandlist_vtable: ^ICommandList_VTable,
 }
 ICommandList_VTable :: struct {
 	using id3d12devicechild_vtable: IDeviceChild_VTable,
-	GetType: proc "system" (this: ^ICommandList) -> COMMAND_LIST_TYPE,
+	GetType:                        proc "system" (this: ^ICommandList) -> COMMAND_LIST_TYPE,
 }
 
 
 IGraphicsCommandList_UUID_STRING :: "5b160d0f-ac1b-4185-8ba8-b3ae42a5a455"
 IGraphicsCommandList_UUID := &IID{0x5b160d0f, 0xac1b, 0x4185, {0x8b, 0xa8, 0xb3, 0xae, 0x42, 0xa5, 0xa4, 0x55}}
 IGraphicsCommandList :: struct #raw_union {
-	#subtype id3d12commandlist: ICommandList,
+	#subtype id3d12commandlist:             ICommandList,
 	using id3d12graphicscommandlist_vtable: ^IGraphicsCommandList_VTable,
 }
 IGraphicsCommandList_VTable :: struct {
-	using id3d12commandlist_vtable: ICommandList_VTable,
+	using id3d12commandlist_vtable:     ICommandList_VTable,
 	Close:                              proc "system" (this: ^IGraphicsCommandList) -> HRESULT,
 	Reset:                              proc "system" (this: ^IGraphicsCommandList, pAllocator: ^ICommandAllocator, pInitialState: ^IPipelineState) -> HRESULT,
 	ClearState:                         proc "system" (this: ^IGraphicsCommandList, pPipelineState: ^IPipelineState),
-	DrawInstanced:                      proc "system" (this: ^IGraphicsCommandList, VertexCountPerInstance: u32, InstanceCount: u32, StartVertexLocation: u32, StartInstanceLocation: u32),
-	DrawIndexedInstanced:               proc "system" (this: ^IGraphicsCommandList, IndexCountPerInstance: u32, InstanceCount: u32, StartIndexLocation: u32, BaseVertexLocation: i32, StartInstanceLocation: u32),
+	DrawInstanced:                      proc "system" (
+		this: ^IGraphicsCommandList,
+		VertexCountPerInstance: u32,
+		InstanceCount: u32,
+		StartVertexLocation: u32,
+		StartInstanceLocation: u32,
+	),
+	DrawIndexedInstanced:               proc "system" (
+		this: ^IGraphicsCommandList,
+		IndexCountPerInstance: u32,
+		InstanceCount: u32,
+		StartIndexLocation: u32,
+		BaseVertexLocation: i32,
+		StartInstanceLocation: u32,
+	),
 	Dispatch:                           proc "system" (this: ^IGraphicsCommandList, ThreadGroupCountX: u32, ThreadGroupCountY: u32, ThreadGroupCountZ: u32),
-	CopyBufferRegion:                   proc "system" (this: ^IGraphicsCommandList, pDstBuffer: ^IResource, DstOffset: u64, pSrcBuffer: ^IResource, SrcOffset: u64, NumBytes: u64),
-	CopyTextureRegion:                  proc "system" (this: ^IGraphicsCommandList, pDst: ^TEXTURE_COPY_LOCATION, DstX: u32, DstY: u32, DstZ: u32, pSrc: ^TEXTURE_COPY_LOCATION, pSrcBox: ^BOX),
+	CopyBufferRegion:                   proc "system" (
+		this: ^IGraphicsCommandList,
+		pDstBuffer: ^IResource,
+		DstOffset: u64,
+		pSrcBuffer: ^IResource,
+		SrcOffset: u64,
+		NumBytes: u64,
+	),
+	CopyTextureRegion:                  proc "system" (
+		this: ^IGraphicsCommandList,
+		pDst: ^TEXTURE_COPY_LOCATION,
+		DstX: u32,
+		DstY: u32,
+		DstZ: u32,
+		pSrc: ^TEXTURE_COPY_LOCATION,
+		pSrcBox: ^BOX,
+	),
 	CopyResource:                       proc "system" (this: ^IGraphicsCommandList, pDstResource: ^IResource, pSrcResource: ^IResource),
-	CopyTiles:                          proc "system" (this: ^IGraphicsCommandList, pTiledResource: ^IResource, pTileRegionStartCoordinate: ^TILED_RESOURCE_COORDINATE, pTileRegionSize: ^TILE_REGION_SIZE, pBuffer: ^IResource, BufferStartOffsetInBytes: u64, Flags: TILE_COPY_FLAGS),
-	ResolveSubresource:                 proc "system" (this: ^IGraphicsCommandList, pDstResource: ^IResource, DstSubresource: u32, pSrcResource: ^IResource, SrcSubresource: u32, Format: dxgi.FORMAT),
+	CopyTiles:                          proc "system" (
+		this: ^IGraphicsCommandList,
+		pTiledResource: ^IResource,
+		pTileRegionStartCoordinate: ^TILED_RESOURCE_COORDINATE,
+		pTileRegionSize: ^TILE_REGION_SIZE,
+		pBuffer: ^IResource,
+		BufferStartOffsetInBytes: u64,
+		Flags: TILE_COPY_FLAGS,
+	),
+	ResolveSubresource:                 proc "system" (
+		this: ^IGraphicsCommandList,
+		pDstResource: ^IResource,
+		DstSubresource: u32,
+		pSrcResource: ^IResource,
+		SrcSubresource: u32,
+		Format: dxgi.FORMAT,
+	),
 	IASetPrimitiveTopology:             proc "system" (this: ^IGraphicsCommandList, PrimitiveTopology: PRIMITIVE_TOPOLOGY),
 	RSSetViewports:                     proc "system" (this: ^IGraphicsCommandList, NumViewports: u32, pViewports: [^]VIEWPORT),
 	RSSetScissorRects:                  proc "system" (this: ^IGraphicsCommandList, NumRects: u32, pRects: [^]RECT),
@@ -2685,8 +2753,20 @@ IGraphicsCommandList_VTable :: struct {
 	SetGraphicsRootDescriptorTable:     proc "system" (this: ^IGraphicsCommandList, RootParameterIndex: u32, BaseDescriptor: GPU_DESCRIPTOR_HANDLE),
 	SetComputeRoot32BitConstant:        proc "system" (this: ^IGraphicsCommandList, RootParameterIndex: u32, SrcData: u32, DestOffsetIn32BitValues: u32),
 	SetGraphicsRoot32BitConstant:       proc "system" (this: ^IGraphicsCommandList, RootParameterIndex: u32, SrcData: u32, DestOffsetIn32BitValues: u32),
-	SetComputeRoot32BitConstants:       proc "system" (this: ^IGraphicsCommandList, RootParameterIndex: u32, Num32BitValuesToSet: u32, pSrcData: rawptr, DestOffsetIn32BitValues: u32),
-	SetGraphicsRoot32BitConstants:      proc "system" (this: ^IGraphicsCommandList, RootParameterIndex: u32, Num32BitValuesToSet: u32, pSrcData: rawptr, DestOffsetIn32BitValues: u32),
+	SetComputeRoot32BitConstants:       proc "system" (
+		this: ^IGraphicsCommandList,
+		RootParameterIndex: u32,
+		Num32BitValuesToSet: u32,
+		pSrcData: rawptr,
+		DestOffsetIn32BitValues: u32,
+	),
+	SetGraphicsRoot32BitConstants:      proc "system" (
+		this: ^IGraphicsCommandList,
+		RootParameterIndex: u32,
+		Num32BitValuesToSet: u32,
+		pSrcData: rawptr,
+		DestOffsetIn32BitValues: u32,
+	),
 	SetComputeRootConstantBufferView:   proc "system" (this: ^IGraphicsCommandList, RootParameterIndex: u32, BufferLocation: GPU_VIRTUAL_ADDRESS),
 	SetGraphicsRootConstantBufferView:  proc "system" (this: ^IGraphicsCommandList, RootParameterIndex: u32, BufferLocation: GPU_VIRTUAL_ADDRESS),
 	SetComputeRootShaderResourceView:   proc "system" (this: ^IGraphicsCommandList, RootParameterIndex: u32, BufferLocation: GPU_VIRTUAL_ADDRESS),
@@ -2696,37 +2776,123 @@ IGraphicsCommandList_VTable :: struct {
 	IASetIndexBuffer:                   proc "system" (this: ^IGraphicsCommandList, pView: ^INDEX_BUFFER_VIEW),
 	IASetVertexBuffers:                 proc "system" (this: ^IGraphicsCommandList, StartSlot: u32, NumViews: u32, pViews: [^]VERTEX_BUFFER_VIEW),
 	SOSetTargets:                       proc "system" (this: ^IGraphicsCommandList, StartSlot: u32, NumViews: u32, pViews: [^]STREAM_OUTPUT_BUFFER_VIEW),
-	OMSetRenderTargets:                 proc "system" (this: ^IGraphicsCommandList, NumRenderTargetDescriptors: u32, pRenderTargetDescriptors: [^]CPU_DESCRIPTOR_HANDLE, RTsSingleHandleToDescriptorRange: BOOL, pDepthStencilDescriptor: ^CPU_DESCRIPTOR_HANDLE),
-	ClearDepthStencilView:              proc "system" (this: ^IGraphicsCommandList, DepthStencilView: CPU_DESCRIPTOR_HANDLE, ClearFlags: CLEAR_FLAGS, Depth: f32, Stencil: u8, NumRects: u32, pRects: [^]RECT),
-	ClearRenderTargetView:              proc "system" (this: ^IGraphicsCommandList, RenderTargetView: CPU_DESCRIPTOR_HANDLE, ColorRGBA: ^[4]f32, NumRects: u32, pRects: [^]RECT),
-	ClearUnorderedAccessViewUint:       proc "system" (this: ^IGraphicsCommandList, ViewGPUHandleInCurrentHeap: GPU_DESCRIPTOR_HANDLE, ViewCPUHandle: CPU_DESCRIPTOR_HANDLE, pResource: ^IResource, Values: ^[4]u32, NumRects: u32, pRects: [^]RECT),
-	ClearUnorderedAccessViewFloat:      proc "system" (this: ^IGraphicsCommandList, ViewGPUHandleInCurrentHeap: GPU_DESCRIPTOR_HANDLE, ViewCPUHandle: CPU_DESCRIPTOR_HANDLE, pResource: ^IResource, Values: ^[4]f32, NumRects: u32, pRects: [^]RECT),
+	OMSetRenderTargets:                 proc "system" (
+		this: ^IGraphicsCommandList,
+		NumRenderTargetDescriptors: u32,
+		pRenderTargetDescriptors: [^]CPU_DESCRIPTOR_HANDLE,
+		RTsSingleHandleToDescriptorRange: BOOL,
+		pDepthStencilDescriptor: ^CPU_DESCRIPTOR_HANDLE,
+	),
+	ClearDepthStencilView:              proc "system" (
+		this: ^IGraphicsCommandList,
+		DepthStencilView: CPU_DESCRIPTOR_HANDLE,
+		ClearFlags: CLEAR_FLAGS,
+		Depth: f32,
+		Stencil: u8,
+		NumRects: u32,
+		pRects: [^]RECT,
+	),
+	ClearRenderTargetView:              proc "system" (
+		this: ^IGraphicsCommandList,
+		RenderTargetView: CPU_DESCRIPTOR_HANDLE,
+		ColorRGBA: ^[4]f32,
+		NumRects: u32,
+		pRects: [^]RECT,
+	),
+	ClearUnorderedAccessViewUint:       proc "system" (
+		this: ^IGraphicsCommandList,
+		ViewGPUHandleInCurrentHeap: GPU_DESCRIPTOR_HANDLE,
+		ViewCPUHandle: CPU_DESCRIPTOR_HANDLE,
+		pResource: ^IResource,
+		Values: ^[4]u32,
+		NumRects: u32,
+		pRects: [^]RECT,
+	),
+	ClearUnorderedAccessViewFloat:      proc "system" (
+		this: ^IGraphicsCommandList,
+		ViewGPUHandleInCurrentHeap: GPU_DESCRIPTOR_HANDLE,
+		ViewCPUHandle: CPU_DESCRIPTOR_HANDLE,
+		pResource: ^IResource,
+		Values: ^[4]f32,
+		NumRects: u32,
+		pRects: [^]RECT,
+	),
 	DiscardResource:                    proc "system" (this: ^IGraphicsCommandList, pResource: ^IResource, pRegion: ^DISCARD_REGION),
 	BeginQuery:                         proc "system" (this: ^IGraphicsCommandList, pQueryHeap: ^IQueryHeap, Type: QUERY_TYPE, Index: u32),
 	EndQuery:                           proc "system" (this: ^IGraphicsCommandList, pQueryHeap: ^IQueryHeap, Type: QUERY_TYPE, Index: u32),
-	ResolveQueryData:                   proc "system" (this: ^IGraphicsCommandList, pQueryHeap: ^IQueryHeap, Type: QUERY_TYPE, StartIndex: u32, NumQueries: u32, pDestinationBuffer: ^IResource, AlignedDestinationBufferOffset: u64),
+	ResolveQueryData:                   proc "system" (
+		this: ^IGraphicsCommandList,
+		pQueryHeap: ^IQueryHeap,
+		Type: QUERY_TYPE,
+		StartIndex: u32,
+		NumQueries: u32,
+		pDestinationBuffer: ^IResource,
+		AlignedDestinationBufferOffset: u64,
+	),
 	SetPredication:                     proc "system" (this: ^IGraphicsCommandList, pBuffer: ^IResource, AlignedBufferOffset: u64, Operation: PREDICATION_OP),
 	SetMarker:                          proc "system" (this: ^IGraphicsCommandList, Metadata: u32, pData: rawptr, Size: u32),
 	BeginEvent:                         proc "system" (this: ^IGraphicsCommandList, Metadata: u32, pData: rawptr, Size: u32),
 	EndEvent:                           proc "system" (this: ^IGraphicsCommandList),
-	ExecuteIndirect:                    proc "system" (this: ^IGraphicsCommandList, pCommandSignature: ^ICommandSignature, MaxCommandCount: u32, pArgumentBuffer: ^IResource, ArgumentBufferOffset: u64, pCountBuffer: ^IResource, CountBufferOffset: u64),
+	ExecuteIndirect:                    proc "system" (
+		this: ^IGraphicsCommandList,
+		pCommandSignature: ^ICommandSignature,
+		MaxCommandCount: u32,
+		pArgumentBuffer: ^IResource,
+		ArgumentBufferOffset: u64,
+		pCountBuffer: ^IResource,
+		CountBufferOffset: u64,
+	),
 }
 
 
 IGraphicsCommandList1_UUID_STRING :: "553103fb-1fe7-4557-bb38-946d7d0e7ca7"
 IGraphicsCommandList1_UUID := &IID{0x553103fb, 0x1fe7, 0x4557, {0xbb, 0x38, 0x94, 0x6d, 0x7d, 0x0e, 0x7c, 0xa7}}
 IGraphicsCommandList1 :: struct #raw_union {
-	#subtype id3d12graphicscommandlist: IGraphicsCommandList,
+	#subtype id3d12graphicscommandlist:      IGraphicsCommandList,
 	using id3d12graphicscommandlist1_vtable: ^IGraphicsCommandList1_VTable,
 }
 IGraphicsCommandList1_VTable :: struct {
 	using id3d12graphicscommandlist_vtable: IGraphicsCommandList_VTable,
-	AtomicCopyBufferUINT:     proc "system" (this: ^IGraphicsCommandList1, pDstBuffer: ^IResource, DstOffset: u64, pSrcBuffer: ^IResource, SrcOffset: u64, Dependencies: u32, ppDependentResources: [^]^IResource, pDependentSubresourceRanges: [^]SUBRESOURCE_RANGE_UINT64),
-	AtomicCopyBufferUINT64:   proc "system" (this: ^IGraphicsCommandList1, pDstBuffer: ^IResource, DstOffset: u64, pSrcBuffer: ^IResource, SrcOffset: u64, Dependencies: u32, ppDependentResources: [^]^IResource, pDependentSubresourceRanges: [^]SUBRESOURCE_RANGE_UINT64),
-	OMSetDepthBounds:         proc "system" (this: ^IGraphicsCommandList1, Min: f32, Max: f32),
-	SetSamplePositions:       proc "system" (this: ^IGraphicsCommandList1, NumSamplesPerPixel: u32, NumPixels: u32, pSamplePositions: [^]SAMPLE_POSITION),
-	ResolveSubresourceRegion: proc "system" (this: ^IGraphicsCommandList1, pDstResource: ^IResource, DstSubresource: u32, DstX: u32, DstY: u32, pSrcResource: ^IResource, SrcSubresource: u32, pSrcRect: ^RECT, Format: dxgi.FORMAT, ResolveMode: RESOLVE_MODE),
-	SetViewInstanceMask:      proc "system" (this: ^IGraphicsCommandList1, Mask: u32),
+	AtomicCopyBufferUINT:                   proc "system" (
+		this: ^IGraphicsCommandList1,
+		pDstBuffer: ^IResource,
+		DstOffset: u64,
+		pSrcBuffer: ^IResource,
+		SrcOffset: u64,
+		Dependencies: u32,
+		ppDependentResources: [^]^IResource,
+		pDependentSubresourceRanges: [^]SUBRESOURCE_RANGE_UINT64,
+	),
+	AtomicCopyBufferUINT64:                 proc "system" (
+		this: ^IGraphicsCommandList1,
+		pDstBuffer: ^IResource,
+		DstOffset: u64,
+		pSrcBuffer: ^IResource,
+		SrcOffset: u64,
+		Dependencies: u32,
+		ppDependentResources: [^]^IResource,
+		pDependentSubresourceRanges: [^]SUBRESOURCE_RANGE_UINT64,
+	),
+	OMSetDepthBounds:                       proc "system" (this: ^IGraphicsCommandList1, Min: f32, Max: f32),
+	SetSamplePositions:                     proc "system" (
+		this: ^IGraphicsCommandList1,
+		NumSamplesPerPixel: u32,
+		NumPixels: u32,
+		pSamplePositions: [^]SAMPLE_POSITION,
+	),
+	ResolveSubresourceRegion:               proc "system" (
+		this: ^IGraphicsCommandList1,
+		pDstResource: ^IResource,
+		DstSubresource: u32,
+		DstX: u32,
+		DstY: u32,
+		pSrcResource: ^IResource,
+		SrcSubresource: u32,
+		pSrcRect: ^RECT,
+		Format: dxgi.FORMAT,
+		ResolveMode: RESOLVE_MODE,
+	),
+	SetViewInstanceMask:                    proc "system" (this: ^IGraphicsCommandList1, Mask: u32),
 }
 
 WRITEBUFFERIMMEDIATE_PARAMETER :: struct {
@@ -2744,81 +2910,220 @@ WRITEBUFFERIMMEDIATE_MODE :: enum i32 {
 IGraphicsCommandList2_UUID_STRING :: "38C3E585-FF17-412C-9150-4FC6F9D72A28"
 IGraphicsCommandList2_UUID := &IID{0x38C3E585, 0xFF17, 0x412C, {0x91, 0x50, 0x4F, 0xC6, 0xF9, 0xD7, 0x2A, 0x28}}
 IGraphicsCommandList2 :: struct #raw_union {
-	#subtype id3d12graphicscommandlist1: IGraphicsCommandList1,
+	#subtype id3d12graphicscommandlist1:     IGraphicsCommandList1,
 	using id3d12graphicscommandlist2_vtable: ^IGraphicsCommandList2_VTable,
 }
 IGraphicsCommandList2_VTable :: struct {
 	using id3d12graphicscommandlist1_vtable: IGraphicsCommandList1_VTable,
-	WriteBufferImmediate: proc "system" (this: ^IGraphicsCommandList2, Count: u32, pParams: [^]WRITEBUFFERIMMEDIATE_PARAMETER, pModes: [^]WRITEBUFFERIMMEDIATE_MODE),
+	WriteBufferImmediate:                    proc "system" (
+		this: ^IGraphicsCommandList2,
+		Count: u32,
+		pParams: [^]WRITEBUFFERIMMEDIATE_PARAMETER,
+		pModes: [^]WRITEBUFFERIMMEDIATE_MODE,
+	),
 }
 
 
 ICommandQueue_UUID_STRING :: "0ec870a6-5d7e-4c22-8cfc-5baae07616ed"
-ICommandQueue_UUID := &IID{0x0ec870a6, 0x5d7e, 0x4c22, { 0x8c, 0xfc, 0x5b, 0xaa, 0xe0, 0x76, 0x16, 0xed}}
+ICommandQueue_UUID := &IID{0x0ec870a6, 0x5d7e, 0x4c22, {0x8c, 0xfc, 0x5b, 0xaa, 0xe0, 0x76, 0x16, 0xed}}
 ICommandQueue :: struct #raw_union {
-	#subtype id3d12pageable: IPageable,
+	#subtype id3d12pageable:         IPageable,
 	using id3d12commandqueue_vtable: ^ICommandQueue_VTable,
 }
 ICommandQueue_VTable :: struct {
 	using id3d12devicechild_vtable: IDeviceChild_VTable,
-	UpdateTileMappings:    proc "system" (this: ^ICommandQueue, pResource: ^IResource, NumResourceRegions: u32, pResourceRegionStartCoordinates: [^]TILED_RESOURCE_COORDINATE, pResourceRegionSizes: [^]TILE_REGION_SIZE, pHeap: ^IHeap, NumRanges: u32, pRangeFlags: [^]TILE_RANGE_FLAGS, pHeapRangeStartOffsets: [^]u32, pRangeTileCounts: [^]u32, Flags: TILE_MAPPING_FLAGS),
-	CopyTileMappings:      proc "system" (this: ^ICommandQueue, pDstResource: ^IResource, pDstRegionStartCoordinate: ^TILED_RESOURCE_COORDINATE, pSrcResource: ^IResource, pSrcRegionStartCoordinate: ^TILED_RESOURCE_COORDINATE, pRegionSize: ^TILE_REGION_SIZE, Flags: TILE_MAPPING_FLAGS),
-	ExecuteCommandLists:   proc "system" (this: ^ICommandQueue, NumCommandLists: u32, ppCommandLists: [^]^ICommandList),
-	SetMarker:             proc "system" (this: ^ICommandQueue, Metadata: u32, pData: rawptr, Size: u32),
-	BeginEvent:            proc "system" (this: ^ICommandQueue, Metadata: u32, pData: rawptr, Size: u32),
-	EndEvent:              proc "system" (this: ^ICommandQueue),
-	Signal:                proc "system" (this: ^ICommandQueue, pFence: ^IFence, Value: u64) -> HRESULT,
-	Wait:                  proc "system" (this: ^ICommandQueue, pFence: ^IFence, Value: u64) -> HRESULT,
-	GetTimestampFrequency: proc "system" (this: ^ICommandQueue, pFrequency: ^u64) -> HRESULT,
-	GetClockCalibration:   proc "system" (this: ^ICommandQueue, pGpuTimestamp: ^u64, pCpuTimestamp: ^u64) -> HRESULT,
-	GetDesc:               proc "system" (this: ^ICommandQueue, pRetVal: ^COMMAND_QUEUE_DESC) -> ^COMMAND_QUEUE_DESC,
+	UpdateTileMappings:             proc "system" (
+		this: ^ICommandQueue,
+		pResource: ^IResource,
+		NumResourceRegions: u32,
+		pResourceRegionStartCoordinates: [^]TILED_RESOURCE_COORDINATE,
+		pResourceRegionSizes: [^]TILE_REGION_SIZE,
+		pHeap: ^IHeap,
+		NumRanges: u32,
+		pRangeFlags: [^]TILE_RANGE_FLAGS,
+		pHeapRangeStartOffsets: [^]u32,
+		pRangeTileCounts: [^]u32,
+		Flags: TILE_MAPPING_FLAGS,
+	),
+	CopyTileMappings:               proc "system" (
+		this: ^ICommandQueue,
+		pDstResource: ^IResource,
+		pDstRegionStartCoordinate: ^TILED_RESOURCE_COORDINATE,
+		pSrcResource: ^IResource,
+		pSrcRegionStartCoordinate: ^TILED_RESOURCE_COORDINATE,
+		pRegionSize: ^TILE_REGION_SIZE,
+		Flags: TILE_MAPPING_FLAGS,
+	),
+	ExecuteCommandLists:            proc "system" (this: ^ICommandQueue, NumCommandLists: u32, ppCommandLists: [^]^ICommandList),
+	SetMarker:                      proc "system" (this: ^ICommandQueue, Metadata: u32, pData: rawptr, Size: u32),
+	BeginEvent:                     proc "system" (this: ^ICommandQueue, Metadata: u32, pData: rawptr, Size: u32),
+	EndEvent:                       proc "system" (this: ^ICommandQueue),
+	Signal:                         proc "system" (this: ^ICommandQueue, pFence: ^IFence, Value: u64) -> HRESULT,
+	Wait:                           proc "system" (this: ^ICommandQueue, pFence: ^IFence, Value: u64) -> HRESULT,
+	GetTimestampFrequency:          proc "system" (this: ^ICommandQueue, pFrequency: ^u64) -> HRESULT,
+	GetClockCalibration:            proc "system" (this: ^ICommandQueue, pGpuTimestamp: ^u64, pCpuTimestamp: ^u64) -> HRESULT,
+	GetDesc:                        proc "system" (this: ^ICommandQueue, pRetVal: ^COMMAND_QUEUE_DESC) -> ^COMMAND_QUEUE_DESC,
 }
 
 
 IDevice_UUID_STRING :: "189819f1-1db6-4b57-be54-1821339b85f7"
-IDevice_UUID := &IID{0x189819f1, 0x1db6, 0x4b57, { 0xbe, 0x54, 0x18, 0x21, 0x33, 0x9b, 0x85, 0xf7}}
+IDevice_UUID := &IID{0x189819f1, 0x1db6, 0x4b57, {0xbe, 0x54, 0x18, 0x21, 0x33, 0x9b, 0x85, 0xf7}}
 IDevice :: struct #raw_union {
-	#subtype id3d12object: IObject,
+	#subtype id3d12object:     IObject,
 	using id3d12device_vtable: ^IDevice_VTable,
 }
 IDevice_VTable :: struct {
-	using id3d12object_vtable: IObject_VTable,
+	using id3d12object_vtable:        IObject_VTable,
 	GetNodeCount:                     proc "system" (this: ^IDevice) -> u32,
 	CreateCommandQueue:               proc "system" (this: ^IDevice, pDesc: ^COMMAND_QUEUE_DESC, riid: ^IID, ppCommandQueue: ^rawptr) -> HRESULT,
 	CreateCommandAllocator:           proc "system" (this: ^IDevice, type: COMMAND_LIST_TYPE, riid: ^IID, ppCommandAllocator: ^rawptr) -> HRESULT,
 	CreateGraphicsPipelineState:      proc "system" (this: ^IDevice, pDesc: ^GRAPHICS_PIPELINE_STATE_DESC, riid: ^IID, ppPipelineState: ^rawptr) -> HRESULT,
 	CreateComputePipelineState:       proc "system" (this: ^IDevice, pDesc: ^COMPUTE_PIPELINE_STATE_DESC, riid: ^IID, ppPipelineState: ^rawptr) -> HRESULT,
-	CreateCommandList:                proc "system" (this: ^IDevice, nodeMask: u32, type: COMMAND_LIST_TYPE, pCommandAllocator: ^ICommandAllocator, pInitialState: ^IPipelineState, riid: ^IID, ppCommandList: ^rawptr) -> HRESULT,
+	CreateCommandList:                proc "system" (
+		this: ^IDevice,
+		nodeMask: u32,
+		type: COMMAND_LIST_TYPE,
+		pCommandAllocator: ^ICommandAllocator,
+		pInitialState: ^IPipelineState,
+		riid: ^IID,
+		ppCommandList: ^rawptr,
+	) -> HRESULT,
 	CheckFeatureSupport:              proc "system" (this: ^IDevice, Feature: FEATURE, pFeatureSupportData: rawptr, FeatureSupportDataSize: u32) -> HRESULT,
 	CreateDescriptorHeap:             proc "system" (this: ^IDevice, pDescriptorHeapDesc: ^DESCRIPTOR_HEAP_DESC, riid: ^IID, ppvHeap: ^rawptr) -> HRESULT,
 	GetDescriptorHandleIncrementSize: proc "system" (this: ^IDevice, DescriptorHeapType: DESCRIPTOR_HEAP_TYPE) -> u32,
-	CreateRootSignature:              proc "system" (this: ^IDevice, nodeMask: u32, pBlobWithRootSignature: rawptr, blobLengthInBytes: SIZE_T, riid: ^IID, ppvRootSignature: ^rawptr) -> HRESULT,
+	CreateRootSignature:              proc "system" (
+		this: ^IDevice,
+		nodeMask: u32,
+		pBlobWithRootSignature: rawptr,
+		blobLengthInBytes: SIZE_T,
+		riid: ^IID,
+		ppvRootSignature: ^rawptr,
+	) -> HRESULT,
 	CreateConstantBufferView:         proc "system" (this: ^IDevice, pDesc: ^CONSTANT_BUFFER_VIEW_DESC, DestDescriptor: CPU_DESCRIPTOR_HANDLE),
-	CreateShaderResourceView:         proc "system" (this: ^IDevice, pResource: ^IResource, pDesc: ^SHADER_RESOURCE_VIEW_DESC, DestDescriptor: CPU_DESCRIPTOR_HANDLE),
-	CreateUnorderedAccessView:        proc "system" (this: ^IDevice, pResource: ^IResource, pCounterResource: ^IResource, pDesc: ^UNORDERED_ACCESS_VIEW_DESC, DestDescriptor: CPU_DESCRIPTOR_HANDLE),
-	CreateRenderTargetView:           proc "system" (this: ^IDevice, pResource: ^IResource, pDesc: ^RENDER_TARGET_VIEW_DESC, DestDescriptor: CPU_DESCRIPTOR_HANDLE),
-	CreateDepthStencilView:           proc "system" (this: ^IDevice, pResource: ^IResource, pDesc: ^DEPTH_STENCIL_VIEW_DESC, DestDescriptor: CPU_DESCRIPTOR_HANDLE),
+	CreateShaderResourceView:         proc "system" (
+		this: ^IDevice,
+		pResource: ^IResource,
+		pDesc: ^SHADER_RESOURCE_VIEW_DESC,
+		DestDescriptor: CPU_DESCRIPTOR_HANDLE,
+	),
+	CreateUnorderedAccessView:        proc "system" (
+		this: ^IDevice,
+		pResource: ^IResource,
+		pCounterResource: ^IResource,
+		pDesc: ^UNORDERED_ACCESS_VIEW_DESC,
+		DestDescriptor: CPU_DESCRIPTOR_HANDLE,
+	),
+	CreateRenderTargetView:           proc "system" (
+		this: ^IDevice,
+		pResource: ^IResource,
+		pDesc: ^RENDER_TARGET_VIEW_DESC,
+		DestDescriptor: CPU_DESCRIPTOR_HANDLE,
+	),
+	CreateDepthStencilView:           proc "system" (
+		this: ^IDevice,
+		pResource: ^IResource,
+		pDesc: ^DEPTH_STENCIL_VIEW_DESC,
+		DestDescriptor: CPU_DESCRIPTOR_HANDLE,
+	),
 	CreateSampler:                    proc "system" (this: ^IDevice, pDesc: ^SAMPLER_DESC, DestDescriptor: CPU_DESCRIPTOR_HANDLE),
-	CopyDescriptors:                  proc "system" (this: ^IDevice, NumDestDescriptorRanges: u32, pDestDescriptorRangeStarts: [^]CPU_DESCRIPTOR_HANDLE, pDestDescriptorRangeSizes: [^]u32, NumSrcDescriptorRanges: u32, pSrcDescriptorRangeStarts: [^]CPU_DESCRIPTOR_HANDLE, pSrcDescriptorRangeSizes: [^]u32, DescriptorHeapsType: DESCRIPTOR_HEAP_TYPE),
-	CopyDescriptorsSimple:            proc "system" (this: ^IDevice, NumDescriptors: u32, DestDescriptorRangeStart: CPU_DESCRIPTOR_HANDLE, SrcDescriptorRangeStart: CPU_DESCRIPTOR_HANDLE, DescriptorHeapsType: DESCRIPTOR_HEAP_TYPE),
-	GetResourceAllocationInfo:        proc "system" (this: ^IDevice, RetVal: ^RESOURCE_ALLOCATION_INFO, visibleMask: u32, numResourceDescs: u32, pResourceDescs: [^]RESOURCE_DESC),
+	CopyDescriptors:                  proc "system" (
+		this: ^IDevice,
+		NumDestDescriptorRanges: u32,
+		pDestDescriptorRangeStarts: [^]CPU_DESCRIPTOR_HANDLE,
+		pDestDescriptorRangeSizes: [^]u32,
+		NumSrcDescriptorRanges: u32,
+		pSrcDescriptorRangeStarts: [^]CPU_DESCRIPTOR_HANDLE,
+		pSrcDescriptorRangeSizes: [^]u32,
+		DescriptorHeapsType: DESCRIPTOR_HEAP_TYPE,
+	),
+	CopyDescriptorsSimple:            proc "system" (
+		this: ^IDevice,
+		NumDescriptors: u32,
+		DestDescriptorRangeStart: CPU_DESCRIPTOR_HANDLE,
+		SrcDescriptorRangeStart: CPU_DESCRIPTOR_HANDLE,
+		DescriptorHeapsType: DESCRIPTOR_HEAP_TYPE,
+	),
+	GetResourceAllocationInfo:        proc "system" (
+		this: ^IDevice,
+		RetVal: ^RESOURCE_ALLOCATION_INFO,
+		visibleMask: u32,
+		numResourceDescs: u32,
+		pResourceDescs: [^]RESOURCE_DESC,
+	),
 	GetCustomHeapProperties:          proc "system" (this: ^IDevice, nodeMask: u32, heapType: HEAP_TYPE) -> HEAP_PROPERTIES,
-	CreateCommittedResource:          proc "system" (this: ^IDevice, pHeapProperties: ^HEAP_PROPERTIES, HeapFlags: HEAP_FLAGS, pDesc: ^RESOURCE_DESC, InitialResourceState: RESOURCE_STATES, pOptimizedClearValue: ^CLEAR_VALUE, riidResource: ^IID, ppvResource: ^rawptr) -> HRESULT,
+	CreateCommittedResource:          proc "system" (
+		this: ^IDevice,
+		pHeapProperties: ^HEAP_PROPERTIES,
+		HeapFlags: HEAP_FLAGS,
+		pDesc: ^RESOURCE_DESC,
+		InitialResourceState: RESOURCE_STATES,
+		pOptimizedClearValue: ^CLEAR_VALUE,
+		riidResource: ^IID,
+		ppvResource: ^rawptr,
+	) -> HRESULT,
 	CreateHeap:                       proc "system" (this: ^IDevice, pDesc: ^HEAP_DESC, riid: ^IID, ppvHeap: ^rawptr) -> HRESULT,
-	CreatePlacedResource:             proc "system" (this: ^IDevice, pHeap: ^IHeap, HeapOffset: u64, pDesc: ^RESOURCE_DESC, InitialState: RESOURCE_STATES, pOptimizedClearValue: ^CLEAR_VALUE, riid: ^IID, ppvResource: ^rawptr) -> HRESULT,
-	CreateReservedResource:           proc "system" (this: ^IDevice, pDesc: ^RESOURCE_DESC, InitialState: RESOURCE_STATES, pOptimizedClearValue: ^CLEAR_VALUE, riid: ^IID, ppvResource: ^rawptr) -> HRESULT,
-	CreateSharedHandle:               proc "system" (this: ^IDevice, pObject: ^IDeviceChild, pAttributes: ^win32.SECURITY_ATTRIBUTES, Access: u32, Name: LPCWSTR, pHandle: ^HANDLE) -> HRESULT,
+	CreatePlacedResource:             proc "system" (
+		this: ^IDevice,
+		pHeap: ^IHeap,
+		HeapOffset: u64,
+		pDesc: ^RESOURCE_DESC,
+		InitialState: RESOURCE_STATES,
+		pOptimizedClearValue: ^CLEAR_VALUE,
+		riid: ^IID,
+		ppvResource: ^rawptr,
+	) -> HRESULT,
+	CreateReservedResource:           proc "system" (
+		this: ^IDevice,
+		pDesc: ^RESOURCE_DESC,
+		InitialState: RESOURCE_STATES,
+		pOptimizedClearValue: ^CLEAR_VALUE,
+		riid: ^IID,
+		ppvResource: ^rawptr,
+	) -> HRESULT,
+	CreateSharedHandle:               proc "system" (
+		this: ^IDevice,
+		pObject: ^IDeviceChild,
+		pAttributes: ^win32.SECURITY_ATTRIBUTES,
+		Access: u32,
+		Name: LPCWSTR,
+		pHandle: ^HANDLE,
+	) -> HRESULT,
 	OpenSharedHandle:                 proc "system" (this: ^IDevice, NTHandle: HANDLE, riid: ^IID, ppvObj: ^rawptr) -> HRESULT,
 	OpenSharedHandleByName:           proc "system" (this: ^IDevice, Name: LPCWSTR, Access: u32, pNTHandle: ^HANDLE) -> HRESULT,
 	MakeResident:                     proc "system" (this: ^IDevice, NumObjects: u32, ppObjects: [^]^IPageable) -> HRESULT,
 	Evict:                            proc "system" (this: ^IDevice, NumObjects: u32, ppObjects: [^]^IPageable) -> HRESULT,
 	CreateFence:                      proc "system" (this: ^IDevice, InitialValue: u64, Flags: FENCE_FLAGS, riid: ^IID, ppFence: ^rawptr) -> HRESULT,
 	GetDeviceRemovedReason:           proc "system" (this: ^IDevice) -> HRESULT,
-	GetCopyableFootprints:            proc "system" (this: ^IDevice, pResourceDesc: ^RESOURCE_DESC, FirstSubresource: u32, NumSubresources: u32, BaseOffset: u64, pLayouts: [^]PLACED_SUBRESOURCE_FOOTPRINT, pNumRows: [^]u32, pRowSizeInBytes: [^]u64, pTotalBytes: ^u64),
+	GetCopyableFootprints:            proc "system" (
+		this: ^IDevice,
+		pResourceDesc: ^RESOURCE_DESC,
+		FirstSubresource: u32,
+		NumSubresources: u32,
+		BaseOffset: u64,
+		pLayouts: [^]PLACED_SUBRESOURCE_FOOTPRINT,
+		pNumRows: [^]u32,
+		pRowSizeInBytes: [^]u64,
+		pTotalBytes: ^u64,
+	),
 	CreateQueryHeap:                  proc "system" (this: ^IDevice, pDesc: ^QUERY_HEAP_DESC, riid: ^IID, ppvHeap: ^rawptr) -> HRESULT,
 	SetStablePowerState:              proc "system" (this: ^IDevice, Enable: BOOL) -> HRESULT,
-	CreateCommandSignature:           proc "system" (this: ^IDevice, pDesc: ^COMMAND_SIGNATURE_DESC, pRootSignature: ^IRootSignature, riid: ^IID, ppvCommandSignature: ^rawptr) -> HRESULT,
-	GetResourceTiling:                proc "system" (this: ^IDevice, pTiledResource: ^IResource, pNumTilesForEntireResource: ^u32, pPackedMipDesc: ^PACKED_MIP_INFO, pStandardTileShapeForNonPackedMips: ^TILE_SHAPE, pNumSubresourceTilings: ^u32, FirstSubresourceTilingToGet: u32, pSubresourceTilingsForNonPackedMips: ^SUBRESOURCE_TILING),
+	CreateCommandSignature:           proc "system" (
+		this: ^IDevice,
+		pDesc: ^COMMAND_SIGNATURE_DESC,
+		pRootSignature: ^IRootSignature,
+		riid: ^IID,
+		ppvCommandSignature: ^rawptr,
+	) -> HRESULT,
+	GetResourceTiling:                proc "system" (
+		this: ^IDevice,
+		pTiledResource: ^IResource,
+		pNumTilesForEntireResource: ^u32,
+		pPackedMipDesc: ^PACKED_MIP_INFO,
+		pStandardTileShapeForNonPackedMips: ^TILE_SHAPE,
+		pNumSubresourceTilings: ^u32,
+		FirstSubresourceTilingToGet: u32,
+		pSubresourceTilingsForNonPackedMips: ^SUBRESOURCE_TILING,
+	),
 	GetAdapterLuid:                   proc "system" (this: ^IDevice) -> LUID,
 }
 
@@ -2826,37 +3131,55 @@ IDevice_VTable :: struct {
 IPipelineLibrary_UUID_STRING :: "c64226a8-9201-46af-b4cc-53fb9ff7414f"
 IPipelineLibrary_UUID := &IID{0xc64226a8, 0x9201, 0x46af, {0xb4, 0xcc, 0x53, 0xfb, 0x9f, 0xf7, 0x41, 0x4f}}
 IPipelineLibrary :: struct #raw_union {
-	#subtype id3d12devicechild: IDeviceChild,
+	#subtype id3d12devicechild:         IDeviceChild,
 	using id3d12pipelinelibrary_vtable: ^IPipelineLibrary_VTable,
 }
 IPipelineLibrary_VTable :: struct {
 	using id3d12devicechild_vtable: IDeviceChild_VTable,
-	StorePipeline:        proc "system" (this: ^IPipelineLibrary, pName: LPCWSTR, pPipeline: ^IPipelineState) -> HRESULT,
-	LoadGraphicsPipeline: proc "system" (this: ^IPipelineLibrary, pName: LPCWSTR, pDesc: ^GRAPHICS_PIPELINE_STATE_DESC, riid: ^IID, ppPipelineState: ^rawptr) -> HRESULT,
-	LoadComputePipeline:  proc "system" (this: ^IPipelineLibrary, pName: LPCWSTR, pDesc: ^COMPUTE_PIPELINE_STATE_DESC, riid: ^IID, ppPipelineState: ^rawptr) -> HRESULT,
-	GetSerializedSize:    proc "system" (this: ^IPipelineLibrary) -> SIZE_T,
-	Serialize:            proc "system" (this: ^IPipelineLibrary, pData: rawptr, DataSizeInBytes: SIZE_T) -> HRESULT,
+	StorePipeline:                  proc "system" (this: ^IPipelineLibrary, pName: LPCWSTR, pPipeline: ^IPipelineState) -> HRESULT,
+	LoadGraphicsPipeline:           proc "system" (
+		this: ^IPipelineLibrary,
+		pName: LPCWSTR,
+		pDesc: ^GRAPHICS_PIPELINE_STATE_DESC,
+		riid: ^IID,
+		ppPipelineState: ^rawptr,
+	) -> HRESULT,
+	LoadComputePipeline:            proc "system" (
+		this: ^IPipelineLibrary,
+		pName: LPCWSTR,
+		pDesc: ^COMPUTE_PIPELINE_STATE_DESC,
+		riid: ^IID,
+		ppPipelineState: ^rawptr,
+	) -> HRESULT,
+	GetSerializedSize:              proc "system" (this: ^IPipelineLibrary) -> SIZE_T,
+	Serialize:                      proc "system" (this: ^IPipelineLibrary, pData: rawptr, DataSizeInBytes: SIZE_T) -> HRESULT,
 }
 
 
 IPipelineLibrary1_UUID_STRING :: "80eabf42-2568-4e5e-bd82-c37f86961dc3"
 IPipelineLibrary1_UUID := &IID{0x80eabf42, 0x2568, 0x4e5e, {0xbd, 0x82, 0xc3, 0x7f, 0x86, 0x96, 0x1d, 0xc3}}
 IPipelineLibrary1 :: struct #raw_union {
-	#subtype id3d12pipelinelibrary: IPipelineLibrary,
+	#subtype id3d12pipelinelibrary:      IPipelineLibrary,
 	using id3d12pipelinelibrary1_vtable: ^IPipelineLibrary1_VTable,
 }
 IPipelineLibrary1_VTable :: struct {
 	using id3d12pipelinelibrary_vtable: IPipelineLibrary_VTable,
-	LoadPipeline: proc "system" (this: ^IPipelineLibrary1, pName: LPCWSTR, pDesc: ^PIPELINE_STATE_STREAM_DESC, riid: ^IID, ppPipelineState: ^rawptr) -> HRESULT,
+	LoadPipeline:                       proc "system" (
+		this: ^IPipelineLibrary1,
+		pName: LPCWSTR,
+		pDesc: ^PIPELINE_STATE_STREAM_DESC,
+		riid: ^IID,
+		ppPipelineState: ^rawptr,
+	) -> HRESULT,
 }
 
-MULTIPLE_FENCE_WAIT_FLAGS :: distinct bit_set[MULTIPLE_FENCE_WAIT_FLAG; u32]
+MULTIPLE_FENCE_WAIT_FLAGS :: distinct bit_set[MULTIPLE_FENCE_WAIT_FLAG;u32]
 MULTIPLE_FENCE_WAIT_FLAG :: enum u32 {
 	ANY = 0,
 }
 MULTIPLE_FENCE_WAIT_FLAG_NONE :: MULTIPLE_FENCE_WAIT_FLAGS{}
-MULTIPLE_FENCE_WAIT_FLAG_ANY  :: MULTIPLE_FENCE_WAIT_FLAGS{.ANY}
-MULTIPLE_FENCE_WAIT_FLAG_ALL  :: MULTIPLE_FENCE_WAIT_FLAGS{}
+MULTIPLE_FENCE_WAIT_FLAG_ANY :: MULTIPLE_FENCE_WAIT_FLAGS{.ANY}
+MULTIPLE_FENCE_WAIT_FLAG_ALL :: MULTIPLE_FENCE_WAIT_FLAGS{}
 
 RESIDENCY_PRIORITY :: enum i32 {
 	MINIMUM = 671088640,
@@ -2870,29 +3193,47 @@ RESIDENCY_PRIORITY :: enum i32 {
 IDevice1_UUID_STRING :: "77acce80-638e-4e65-8895-c1f23386863e"
 IDevice1_UUID := &IID{0x77acce80, 0x638e, 0x4e65, {0x88, 0x95, 0xc1, 0xf2, 0x33, 0x86, 0x86, 0x3e}}
 IDevice1 :: struct #raw_union {
-	#subtype id3d12device: IDevice,
+	#subtype id3d12device:      IDevice,
 	using id3d12device1_vtable: ^IDevice1_VTable,
 }
 IDevice1_VTable :: struct {
-	using id3d12device_vtable: IDevice_VTable,
-	CreatePipelineLibrary:             proc "system" (this: ^IDevice1, pLibraryBlob: rawptr, BlobLength: SIZE_T, riid: ^IID, ppPipelineLibrary: ^rawptr) -> HRESULT,
-	SetEventOnMultipleFenceCompletion: proc "system" (this: ^IDevice1, ppFences: [^]^IFence, pFenceValues: [^]u64, NumFences: u32, Flags: MULTIPLE_FENCE_WAIT_FLAGS, hEvent: HANDLE) -> HRESULT,
-	SetResidencyPriority:              proc "system" (this: ^IDevice1, NumObjects: u32, ppObjects: [^]^IPageable, pPriorities: [^]RESIDENCY_PRIORITY) -> HRESULT,
+	using id3d12device_vtable:         IDevice_VTable,
+	CreatePipelineLibrary:             proc "system" (
+		this: ^IDevice1,
+		pLibraryBlob: rawptr,
+		BlobLength: SIZE_T,
+		riid: ^IID,
+		ppPipelineLibrary: ^rawptr,
+	) -> HRESULT,
+	SetEventOnMultipleFenceCompletion: proc "system" (
+		this: ^IDevice1,
+		ppFences: [^]^IFence,
+		pFenceValues: [^]u64,
+		NumFences: u32,
+		Flags: MULTIPLE_FENCE_WAIT_FLAGS,
+		hEvent: HANDLE,
+	) -> HRESULT,
+	SetResidencyPriority:              proc "system" (
+		this: ^IDevice1,
+		NumObjects: u32,
+		ppObjects: [^]^IPageable,
+		pPriorities: [^]RESIDENCY_PRIORITY,
+	) -> HRESULT,
 }
 
 
 IDevice2_UUID_STRING :: "30baa41e-b15b-475c-a0bb-1af5c5b64328"
 IDevice2_UUID := &IID{0x30baa41e, 0xb15b, 0x475c, {0xa0, 0xbb, 0x1a, 0xf5, 0xc5, 0xb6, 0x43, 0x28}}
 IDevice2 :: struct #raw_union {
-	#subtype id3d12device1: IDevice1,
+	#subtype id3d12device1:     IDevice1,
 	using id3d12device2_vtable: ^IDevice2_VTable,
 }
 IDevice2_VTable :: struct {
 	using id3d12device1_vtable: IDevice1_VTable,
-	CreatePipelineState: proc "system" (this: ^IDevice2, pDesc: ^PIPELINE_STATE_STREAM_DESC, riid: ^IID, ppPipelineState: ^rawptr) -> HRESULT,
+	CreatePipelineState:        proc "system" (this: ^IDevice2, pDesc: ^PIPELINE_STATE_STREAM_DESC, riid: ^IID, ppPipelineState: ^rawptr) -> HRESULT,
 }
 
-RESIDENCY_FLAGS :: distinct bit_set[RESIDENCY_FLAG; u32]
+RESIDENCY_FLAGS :: distinct bit_set[RESIDENCY_FLAG;u32]
 RESIDENCY_FLAG :: enum u32 {
 	DENY_OVERBUDGET = 0,
 }
@@ -2901,27 +3242,31 @@ RESIDENCY_FLAG :: enum u32 {
 IDevice3_UUID_STRING :: "81dadc15-2bad-4392-93c5-101345c4aa98"
 IDevice3_UUID := &IID{0x81dadc15, 0x2bad, 0x4392, {0x93, 0xc5, 0x10, 0x13, 0x45, 0xc4, 0xaa, 0x98}}
 IDevice3 :: struct #raw_union {
-	#subtype id3d12device2: IDevice2,
+	#subtype id3d12device2:     IDevice2,
 	using id3d12device3_vtable: ^IDevice3_VTable,
 }
 IDevice3_VTable :: struct {
-	using id3d12device2_vtable: IDevice2_VTable,
+	using id3d12device2_vtable:      IDevice2_VTable,
 	OpenExistingHeapFromAddress:     proc "system" (this: ^IDevice3, pAddress: rawptr, riid: ^IID, ppvHeap: ^rawptr) -> HRESULT,
 	OpenExistingHeapFromFileMapping: proc "system" (this: ^IDevice3, hFileMapping: HANDLE, riid: ^IID, ppvHeap: ^rawptr) -> HRESULT,
-	EnqueueMakeResident:             proc "system" (this: ^IDevice3, Flags: RESIDENCY_FLAGS, NumObjects: u32, ppObjects: [^]^IPageable, pFenceToSignal: ^IFence, FenceValueToSignal: u64) -> HRESULT,
+	EnqueueMakeResident:             proc "system" (
+		this: ^IDevice3,
+		Flags: RESIDENCY_FLAGS,
+		NumObjects: u32,
+		ppObjects: [^]^IPageable,
+		pFenceToSignal: ^IFence,
+		FenceValueToSignal: u64,
+	) -> HRESULT,
 }
 
-COMMAND_LIST_FLAGS :: distinct bit_set[COMMAND_LIST_FLAG; u32]
-COMMAND_LIST_FLAG :: enum u32 {
-}
+COMMAND_LIST_FLAGS :: distinct bit_set[COMMAND_LIST_FLAG;u32]
+COMMAND_LIST_FLAG :: enum u32 {}
 
-COMMAND_POOL_FLAGS :: distinct bit_set[COMMAND_POOL_FLAG; u32]
-COMMAND_POOL_FLAG :: enum u32 {
-}
+COMMAND_POOL_FLAGS :: distinct bit_set[COMMAND_POOL_FLAG;u32]
+COMMAND_POOL_FLAG :: enum u32 {}
 
-COMMAND_RECORDER_FLAGS :: distinct bit_set[COMMAND_RECORDER_FLAG; u32]
-COMMAND_RECORDER_FLAG :: enum u32 {
-}
+COMMAND_RECORDER_FLAGS :: distinct bit_set[COMMAND_RECORDER_FLAG;u32]
+COMMAND_RECORDER_FLAG :: enum u32 {}
 
 PROTECTED_SESSION_STATUS :: enum i32 {
 	OK      = 0,
@@ -2932,16 +3277,16 @@ PROTECTED_SESSION_STATUS :: enum i32 {
 IProtectedSession_UUID_STRING :: "A1533D18-0AC1-4084-85B9-89A96116806B"
 IProtectedSession_UUID := &IID{0xA1533D18, 0x0AC1, 0x4084, {0x85, 0xB9, 0x89, 0xA9, 0x61, 0x16, 0x80, 0x6B}}
 IProtectedSession :: struct #raw_union {
-	#subtype id3d12devicechild: IDeviceChild,
+	#subtype id3d12devicechild:          IDeviceChild,
 	using id3d12protectedsession_vtable: ^IProtectedSession_VTable,
 }
 IProtectedSession_VTable :: struct {
 	using id3d12devicechild_vtable: IDeviceChild_VTable,
-	GetStatusFence:   proc "system" (this: ^IProtectedSession, riid: ^IID, ppFence: ^rawptr) -> HRESULT,
-	GetSessionStatus: proc "system" (this: ^IProtectedSession) -> PROTECTED_SESSION_STATUS,
+	GetStatusFence:                 proc "system" (this: ^IProtectedSession, riid: ^IID, ppFence: ^rawptr) -> HRESULT,
+	GetSessionStatus:               proc "system" (this: ^IProtectedSession) -> PROTECTED_SESSION_STATUS,
 }
 
-PROTECTED_RESOURCE_SESSION_SUPPORT_FLAGS :: distinct bit_set[PROTECTED_RESOURCE_SESSION_SUPPORT_FLAG; u32]
+PROTECTED_RESOURCE_SESSION_SUPPORT_FLAGS :: distinct bit_set[PROTECTED_RESOURCE_SESSION_SUPPORT_FLAG;u32]
 PROTECTED_RESOURCE_SESSION_SUPPORT_FLAG :: enum u32 {
 	SUPPORTED = 0,
 }
@@ -2951,9 +3296,8 @@ FEATURE_DATA_PROTECTED_RESOURCE_SESSION_SUPPORT :: struct {
 	Support:   PROTECTED_RESOURCE_SESSION_SUPPORT_FLAGS,
 }
 
-PROTECTED_RESOURCE_SESSION_FLAGS :: distinct bit_set[PROTECTED_RESOURCE_SESSION_FLAG; u32]
-PROTECTED_RESOURCE_SESSION_FLAG :: enum u32 {
-}
+PROTECTED_RESOURCE_SESSION_FLAGS :: distinct bit_set[PROTECTED_RESOURCE_SESSION_FLAG;u32]
+PROTECTED_RESOURCE_SESSION_FLAG :: enum u32 {}
 
 PROTECTED_RESOURCE_SESSION_DESC :: struct {
 	NodeMask: u32,
@@ -2964,29 +3308,70 @@ PROTECTED_RESOURCE_SESSION_DESC :: struct {
 IProtectedResourceSession_UUID_STRING :: "6CD696F4-F289-40CC-8091-5A6C0A099C3D"
 IProtectedResourceSession_UUID := &IID{0x6CD696F4, 0xF289, 0x40CC, {0x80, 0x91, 0x5A, 0x6C, 0x0A, 0x09, 0x9C, 0x3D}}
 IProtectedResourceSession :: struct #raw_union {
-	#subtype id3d12protectedsession: IProtectedSession,
+	#subtype id3d12protectedsession:             IProtectedSession,
 	using id3d12protectedresourcesession_vtable: ^IProtectedResourceSession_VTable,
 }
 IProtectedResourceSession_VTable :: struct {
 	using id3d12protectedsession_vtable: IProtectedSession_VTable,
-	GetDesc: proc "system" (this: ^IProtectedResourceSession, pRetVal: ^PROTECTED_RESOURCE_SESSION_DESC) -> ^PROTECTED_RESOURCE_SESSION_DESC,
+	GetDesc:                             proc "system" (
+		this: ^IProtectedResourceSession,
+		pRetVal: ^PROTECTED_RESOURCE_SESSION_DESC,
+	) -> ^PROTECTED_RESOURCE_SESSION_DESC,
 }
 
 
 IDevice4_UUID_STRING :: "e865df17-a9ee-46f9-a463-3098315aa2e5"
 IDevice4_UUID := &IID{0xe865df17, 0xa9ee, 0x46f9, {0xa4, 0x63, 0x30, 0x98, 0x31, 0x5a, 0xa2, 0xe5}}
 IDevice4 :: struct #raw_union {
-	#subtype id3d12device3: IDevice3,
+	#subtype id3d12device3:     IDevice3,
 	using id3d12device4_vtable: ^IDevice4_VTable,
 }
 IDevice4_VTable :: struct {
-	using id3d12device3_vtable: IDevice3_VTable,
-	CreateCommandList1:             proc "system" (this: ^IDevice4, nodeMask: u32, type: COMMAND_LIST_TYPE, flags: COMMAND_LIST_FLAGS, riid: ^IID, ppCommandList: ^rawptr) -> HRESULT,
+	using id3d12device3_vtable:     IDevice3_VTable,
+	CreateCommandList1:             proc "system" (
+		this: ^IDevice4,
+		nodeMask: u32,
+		type: COMMAND_LIST_TYPE,
+		flags: COMMAND_LIST_FLAGS,
+		riid: ^IID,
+		ppCommandList: ^rawptr,
+	) -> HRESULT,
 	CreateProtectedResourceSession: proc "system" (this: ^IDevice4, pDesc: ^PROTECTED_RESOURCE_SESSION_DESC, riid: ^IID, ppSession: ^rawptr) -> HRESULT,
-	CreateCommittedResource1:       proc "system" (this: ^IDevice4, pHeapProperties: ^HEAP_PROPERTIES, HeapFlags: HEAP_FLAGS, pDesc: ^RESOURCE_DESC, InitialResourceState: RESOURCE_STATES, pOptimizedClearValue: ^CLEAR_VALUE, pProtectedSession: ^IProtectedResourceSession, riidResource: ^IID, ppvResource: ^rawptr) -> HRESULT,
-	CreateHeap1:                    proc "system" (this: ^IDevice4, pDesc: ^HEAP_DESC, pProtectedSession: ^IProtectedResourceSession, riid: ^IID, ppvHeap: ^rawptr) -> HRESULT,
-	CreateReservedResource1:        proc "system" (this: ^IDevice4, pDesc: ^RESOURCE_DESC, InitialState: RESOURCE_STATES, pOptimizedClearValue: ^CLEAR_VALUE, pProtectedSession: ^IProtectedResourceSession, riid: ^IID, ppvResource: ^rawptr) -> HRESULT,
-	GetResourceAllocationInfo1:     proc "system" (this: ^IDevice4, RetVal: ^RESOURCE_ALLOCATION_INFO, visibleMask: u32, numResourceDescs: u32, pResourceDescs: [^]RESOURCE_DESC, pResourceAllocationInfo1: ^RESOURCE_ALLOCATION_INFO1),
+	CreateCommittedResource1:       proc "system" (
+		this: ^IDevice4,
+		pHeapProperties: ^HEAP_PROPERTIES,
+		HeapFlags: HEAP_FLAGS,
+		pDesc: ^RESOURCE_DESC,
+		InitialResourceState: RESOURCE_STATES,
+		pOptimizedClearValue: ^CLEAR_VALUE,
+		pProtectedSession: ^IProtectedResourceSession,
+		riidResource: ^IID,
+		ppvResource: ^rawptr,
+	) -> HRESULT,
+	CreateHeap1:                    proc "system" (
+		this: ^IDevice4,
+		pDesc: ^HEAP_DESC,
+		pProtectedSession: ^IProtectedResourceSession,
+		riid: ^IID,
+		ppvHeap: ^rawptr,
+	) -> HRESULT,
+	CreateReservedResource1:        proc "system" (
+		this: ^IDevice4,
+		pDesc: ^RESOURCE_DESC,
+		InitialState: RESOURCE_STATES,
+		pOptimizedClearValue: ^CLEAR_VALUE,
+		pProtectedSession: ^IProtectedResourceSession,
+		riid: ^IID,
+		ppvResource: ^rawptr,
+	) -> HRESULT,
+	GetResourceAllocationInfo1:     proc "system" (
+		this: ^IDevice4,
+		RetVal: ^RESOURCE_ALLOCATION_INFO,
+		visibleMask: u32,
+		numResourceDescs: u32,
+		pResourceDescs: [^]RESOURCE_DESC,
+		pResourceAllocationInfo1: ^RESOURCE_ALLOCATION_INFO1,
+	),
 }
 
 LIFETIME_STATE :: enum i32 {
@@ -2998,26 +3383,32 @@ LIFETIME_STATE :: enum i32 {
 ILifetimeOwner_UUID_STRING :: "e667af9f-cd56-4f46-83ce-032e595d70a8"
 ILifetimeOwner_UUID := &IID{0xe667af9f, 0xcd56, 0x4f46, {0x83, 0xce, 0x03, 0x2e, 0x59, 0x5d, 0x70, 0xa8}}
 ILifetimeOwner :: struct #raw_union {
-	#subtype iunknown: IUnknown,
+	#subtype iunknown:                IUnknown,
 	using id3d12lifetimeowner_vtable: ^ILifetimeOwner_VTable,
 }
 ILifetimeOwner_VTable :: struct {
 	using iunknown_vtable: IUnknown_VTable,
-	LifetimeStateUpdated: proc "system" (this: ^ILifetimeOwner, NewState: LIFETIME_STATE),
+	LifetimeStateUpdated:  proc "system" (this: ^ILifetimeOwner, NewState: LIFETIME_STATE),
 }
 
 
 ISwapChainAssistant_UUID_STRING :: "f1df64b6-57fd-49cd-8807-c0eb88b45c8f"
 ISwapChainAssistant_UUID := &IID{0xf1df64b6, 0x57fd, 0x49cd, {0x88, 0x07, 0xc0, 0xeb, 0x88, 0xb4, 0x5c, 0x8f}}
 ISwapChainAssistant :: struct #raw_union {
-	#subtype iunknown: IUnknown,
+	#subtype iunknown:                     IUnknown,
 	using id3d12swapchainassistant_vtable: ^ISwapChainAssistant_VTable,
 }
 ISwapChainAssistant_VTable :: struct {
-	using iunknown_vtable: IUnknown_VTable,
+	using iunknown_vtable:             IUnknown_VTable,
 	GetLUID:                           proc "system" (this: ^ISwapChainAssistant) -> LUID,
 	GetSwapChainObject:                proc "system" (this: ^ISwapChainAssistant, riid: ^IID, ppv: ^rawptr) -> HRESULT,
-	GetCurrentResourceAndCommandQueue: proc "system" (this: ^ISwapChainAssistant, riidResource: ^IID, ppvResource: ^rawptr, riidQueue: ^IID, ppvQueue: ^rawptr) -> HRESULT,
+	GetCurrentResourceAndCommandQueue: proc "system" (
+		this: ^ISwapChainAssistant,
+		riidResource: ^IID,
+		ppvResource: ^rawptr,
+		riidQueue: ^IID,
+		ppvQueue: ^rawptr,
+	) -> HRESULT,
 	InsertImplicitSync:                proc "system" (this: ^ISwapChainAssistant) -> HRESULT,
 }
 
@@ -3025,12 +3416,12 @@ ISwapChainAssistant_VTable :: struct {
 ILifetimeTracker_UUID_STRING :: "3fd03d36-4eb1-424a-a582-494ecb8ba813"
 ILifetimeTracker_UUID := &IID{0x3fd03d36, 0x4eb1, 0x424a, {0xa5, 0x82, 0x49, 0x4e, 0xcb, 0x8b, 0xa8, 0x13}}
 ILifetimeTracker :: struct #raw_union {
-	#subtype id3d12devicechild: IDeviceChild,
+	#subtype id3d12devicechild:         IDeviceChild,
 	using id3d12lifetimetracker_vtable: ^ILifetimeTracker_VTable,
 }
 ILifetimeTracker_VTable :: struct {
 	using id3d12devicechild_vtable: IDeviceChild_VTable,
-	DestroyOwnedObject: proc "system" (this: ^ILifetimeTracker, pObject: ^IDeviceChild) -> HRESULT,
+	DestroyOwnedObject:             proc "system" (this: ^ILifetimeTracker, pObject: ^IDeviceChild) -> HRESULT,
 }
 
 META_COMMAND_PARAMETER_TYPE :: enum i32 {
@@ -3041,7 +3432,7 @@ META_COMMAND_PARAMETER_TYPE :: enum i32 {
 	GPU_DESCRIPTOR_HANDLE_HEAP_TYPE_CBV_SRV_UAV = 4,
 }
 
-META_COMMAND_PARAMETER_FLAGS :: distinct bit_set[META_COMMAND_PARAMETER_FLAG; u32]
+META_COMMAND_PARAMETER_FLAGS :: distinct bit_set[META_COMMAND_PARAMETER_FLAG;u32]
 META_COMMAND_PARAMETER_FLAG :: enum u32 {
 	INPUT  = 0,
 	OUTPUT = 1,
@@ -3100,15 +3491,15 @@ IStateObject :: struct #raw_union {
 IStateObjectProperties_UUID_STRING :: "de5fa827-9bf9-4f26-89ff-d7f56fde3860"
 IStateObjectProperties_IID := &IID{0xde5fa827, 0x9bf9, 0x4f26, {0x89, 0xff, 0xd7, 0xf5, 0x6f, 0xde, 0x38, 0x60}}
 IStateObjectProperties :: struct #raw_union {
-	#subtype iunknown: IUnknown,
+	#subtype iunknown:                        IUnknown,
 	using id3d12stateobjectproperties_vtable: ^IStateObjectProperties_VTable,
 }
 IStateObjectProperties_VTable :: struct {
 	using iunknown_vtable: IUnknown_VTable,
-	GetShaderIdentifier:  proc "system" (this: ^IStateObjectProperties, pExportName: LPCWSTR) -> rawptr,
-	GetShaderStackSize:   proc "system" (this: ^IStateObjectProperties, pExportName: LPCWSTR) -> u64,
-	GetPipelineStackSize: proc "system" (this: ^IStateObjectProperties) -> u64,
-	SetPipelineStackSize: proc "system" (this: ^IStateObjectProperties, PipelineStackSizeInBytes: u64),
+	GetShaderIdentifier:   proc "system" (this: ^IStateObjectProperties, pExportName: LPCWSTR) -> rawptr,
+	GetShaderStackSize:    proc "system" (this: ^IStateObjectProperties, pExportName: LPCWSTR) -> u64,
+	GetPipelineStackSize:  proc "system" (this: ^IStateObjectProperties) -> u64,
+	SetPipelineStackSize:  proc "system" (this: ^IStateObjectProperties, PipelineStackSizeInBytes: u64),
 }
 
 STATE_SUBOBJECT_TYPE :: enum i32 {
@@ -3132,7 +3523,7 @@ STATE_SUBOBJECT :: struct {
 	pDesc: rawptr,
 }
 
-STATE_OBJECT_FLAGS :: distinct bit_set[STATE_OBJECT_FLAG; u32]
+STATE_OBJECT_FLAGS :: distinct bit_set[STATE_OBJECT_FLAG;u32]
 STATE_OBJECT_FLAG :: enum u32 {
 	ALLOW_LOCAL_DEPENDENCIES_ON_EXTERNAL_DEFINITIONS = 0,
 	ALLOW_EXTERNAL_DEPENDENCIES_ON_LOCAL_DEFINITIONS = 1,
@@ -3155,9 +3546,8 @@ NODE_MASK :: struct {
 	NodeMask: u32,
 }
 
-EXPORT_FLAGS :: distinct bit_set[EXPORT_FLAG; u32]
-EXPORT_FLAG :: enum u32 {
-}
+EXPORT_FLAGS :: distinct bit_set[EXPORT_FLAG;u32]
+EXPORT_FLAG :: enum u32 {}
 
 EXPORT_DESC :: struct {
 	Name:           LPCWSTR,
@@ -3211,7 +3601,7 @@ RAYTRACING_PIPELINE_CONFIG :: struct {
 	MaxTraceRecursionDepth: u32,
 }
 
-RAYTRACING_PIPELINE_FLAGS :: distinct bit_set[RAYTRACING_PIPELINE_FLAG; u32]
+RAYTRACING_PIPELINE_FLAGS :: distinct bit_set[RAYTRACING_PIPELINE_FLAG;u32]
 RAYTRACING_PIPELINE_FLAG :: enum u32 {
 	SKIP_TRIANGLES             = 8,
 	SKIP_PROCEDURAL_PRIMITIVES = 9,
@@ -3233,7 +3623,7 @@ STATE_OBJECT_DESC :: struct {
 	pSubobjects:   ^STATE_SUBOBJECT,
 }
 
-RAYTRACING_GEOMETRY_FLAGS :: distinct bit_set[RAYTRACING_GEOMETRY_FLAG; u32]
+RAYTRACING_GEOMETRY_FLAGS :: distinct bit_set[RAYTRACING_GEOMETRY_FLAG;u32]
 RAYTRACING_GEOMETRY_FLAG :: enum u32 {
 	OPAQUE                         = 0,
 	NO_DUPLICATE_ANYHIT_INVOCATION = 1,
@@ -3244,7 +3634,7 @@ RAYTRACING_GEOMETRY_TYPE :: enum i32 {
 	PROCEDURAL_PRIMITIVE_AABBS = 1,
 }
 
-RAYTRACING_INSTANCE_FLAGS :: distinct bit_set[RAYTRACING_INSTANCE_FLAG; u32]
+RAYTRACING_INSTANCE_FLAGS :: distinct bit_set[RAYTRACING_INSTANCE_FLAG;u32]
 RAYTRACING_INSTANCE_FLAG :: enum u32 {
 	TRIANGLE_CULL_DISABLE           = 0,
 	TRIANGLE_FRONT_COUNTERCLOCKWISE = 1,
@@ -3292,7 +3682,7 @@ RAYTRACING_GEOMETRY_AABBS_DESC :: struct {
 	AABBs:     GPU_VIRTUAL_ADDRESS_AND_STRIDE,
 }
 
-RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS :: distinct bit_set[RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG; u32]
+RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS :: distinct bit_set[RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG;u32]
 RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG :: enum u32 {
 	ALLOW_UPDATE      = 0,
 	ALLOW_COMPACTION  = 1,
@@ -3387,8 +3777,8 @@ RAYTRACING_INSTANCE_DESC :: struct {
 }
 
 RAYTRACING_GEOMETRY_DESC :: struct {
-	Type:  RAYTRACING_GEOMETRY_TYPE,
-	Flags: RAYTRACING_GEOMETRY_FLAGS,
+	Type:    RAYTRACING_GEOMETRY_TYPE,
+	Flags:   RAYTRACING_GEOMETRY_FLAGS,
 	using _: struct #raw_union {
 		Triangles: RAYTRACING_GEOMETRY_TRIANGLES_DESC,
 		AABBs:     RAYTRACING_GEOMETRY_AABBS_DESC,
@@ -3400,7 +3790,7 @@ BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS :: struct {
 	Flags:       RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS,
 	NumDescs:    u32,
 	DescsLayout: ELEMENTS_LAYOUT,
-	using _: struct #raw_union {
+	using _:     struct #raw_union {
 		InstanceDescs:   GPU_VIRTUAL_ADDRESS,
 		pGeometryDescs:  ^RAYTRACING_GEOMETRY_DESC,
 		ppGeometryDescs: [^]^RAYTRACING_GEOMETRY_DESC,
@@ -3420,7 +3810,7 @@ RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO :: struct {
 	UpdateScratchDataSizeInBytes: u64,
 }
 
-RAY_FLAGS :: distinct bit_set[RAY_FLAG; u32]
+RAY_FLAGS :: distinct bit_set[RAY_FLAG;u32]
 RAY_FLAG :: enum u32 {
 	FORCE_OPAQUE                    = 0,
 	FORCE_NON_OPAQUE                = 1,
@@ -3443,19 +3833,42 @@ HIT_KIND :: enum i32 {
 IDevice5_UUID_STRING :: "8b4f173b-2fea-4b80-8f58-4307191ab95d"
 IDevice5_UUID := &IID{0x8b4f173b, 0x2fea, 0x4b80, {0x8f, 0x58, 0x43, 0x07, 0x19, 0x1a, 0xb9, 0x5d}}
 IDevice5 :: struct #raw_union {
-	#subtype id3d12device4: IDevice4,
+	#subtype id3d12device4:     IDevice4,
 	using id3d12device5_vtable: ^IDevice5_VTable,
 }
 IDevice5_VTable :: struct {
-	using id3d12device4_vtable: IDevice4_VTable,
+	using id3d12device4_vtable:                     IDevice4_VTable,
 	CreateLifetimeTracker:                          proc "system" (this: ^IDevice5, pOwner: ^ILifetimeOwner, riid: ^IID, ppvTracker: ^rawptr) -> HRESULT,
 	RemoveDevice:                                   proc "system" (this: ^IDevice5),
 	EnumerateMetaCommands:                          proc "system" (this: ^IDevice5, pNumMetaCommands: ^u32, pDescs: [^]META_COMMAND_DESC) -> HRESULT,
-	EnumerateMetaCommandParameters:                 proc "system" (this: ^IDevice5, CommandId: ^GUID, Stage: META_COMMAND_PARAMETER_STAGE, pTotalStructureSizeInBytes: ^u32, pParameterCount: ^u32, pParameterDescs: [^]META_COMMAND_PARAMETER_DESC) -> HRESULT,
-	CreateMetaCommand:                              proc "system" (this: ^IDevice5, CommandId: ^GUID, NodeMask: u32, pCreationParametersData: rawptr, CreationParametersDataSizeInBytes: SIZE_T, riid: ^IID, ppMetaCommand: ^rawptr) -> HRESULT,
+	EnumerateMetaCommandParameters:                 proc "system" (
+		this: ^IDevice5,
+		CommandId: ^GUID,
+		Stage: META_COMMAND_PARAMETER_STAGE,
+		pTotalStructureSizeInBytes: ^u32,
+		pParameterCount: ^u32,
+		pParameterDescs: [^]META_COMMAND_PARAMETER_DESC,
+	) -> HRESULT,
+	CreateMetaCommand:                              proc "system" (
+		this: ^IDevice5,
+		CommandId: ^GUID,
+		NodeMask: u32,
+		pCreationParametersData: rawptr,
+		CreationParametersDataSizeInBytes: SIZE_T,
+		riid: ^IID,
+		ppMetaCommand: ^rawptr,
+	) -> HRESULT,
 	CreateStateObject:                              proc "system" (this: ^IDevice5, pDesc: ^STATE_OBJECT_DESC, riid: ^IID, ppStateObject: ^rawptr) -> HRESULT,
-	GetRaytracingAccelerationStructurePrebuildInfo: proc "system" (this: ^IDevice5, pDesc: ^BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS, pInfo: ^RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO),
-	CheckDriverMatchingIdentifier:                  proc "system" (this: ^IDevice5, SerializedDataType: SERIALIZED_DATA_TYPE, pIdentifierToCheck: ^SERIALIZED_DATA_DRIVER_MATCHING_IDENTIFIER) -> DRIVER_MATCHING_IDENTIFIER_STATUS,
+	GetRaytracingAccelerationStructurePrebuildInfo: proc "system" (
+		this: ^IDevice5,
+		pDesc: ^BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS,
+		pInfo: ^RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO,
+	),
+	CheckDriverMatchingIdentifier:                  proc "system" (
+		this: ^IDevice5,
+		SerializedDataType: SERIALIZED_DATA_TYPE,
+		pIdentifierToCheck: ^SERIALIZED_DATA_DRIVER_MATCHING_IDENTIFIER,
+	) -> DRIVER_MATCHING_IDENTIFIER_STATUS,
 }
 
 AUTO_BREADCRUMB_OP :: enum i32 {
@@ -3546,7 +3959,7 @@ DRED_VERSION :: enum i32 {
 	_1_3 = 4,
 }
 
-DRED_FLAGS :: distinct bit_set[DRED_FLAG; u32]
+DRED_FLAGS :: distinct bit_set[DRED_FLAG;u32]
 DRED_FLAG :: enum u32 {
 	FORCE_ENABLE            = 0,
 	DISABLE_AUTOBREADCRUMBS = 1,
@@ -3630,9 +4043,8 @@ DRED_PAGE_FAULT_OUTPUT1 :: struct {
 	pHeadRecentFreedAllocationNode: ^DRED_ALLOCATION_NODE1,
 }
 
-DRED_PAGE_FAULT_FLAGS :: distinct bit_set[DRED_PAGE_FAULT_FLAG; u32]
-DRED_PAGE_FAULT_FLAG :: enum u32 {
-}
+DRED_PAGE_FAULT_FLAGS :: distinct bit_set[DRED_PAGE_FAULT_FLAG;u32]
+DRED_PAGE_FAULT_FLAG :: enum u32 {}
 
 DRED_DEVICE_STATE :: enum i32 {
 	UNKNOWN   = 0,
@@ -3681,11 +4093,11 @@ VERSIONED_DEVICE_REMOVED_EXTENDED_DATA :: struct {
 IDeviceRemovedExtendedDataSettings_UUID_STRING :: "82BC481C-6B9B-4030-AEDB-7EE3D1DF1E63"
 IDeviceRemovedExtendedDataSettings_UUID := &IID{0x82BC481C, 0x6B9B, 0x4030, {0xAE, 0xDB, 0x7E, 0xE3, 0xD1, 0xDF, 0x1E, 0x63}}
 IDeviceRemovedExtendedDataSettings :: struct #raw_union {
-	#subtype iunknown: IUnknown,
+	#subtype iunknown:                                    IUnknown,
 	using id3d12deviceremovedextendeddatasettings_vtable: ^IDeviceRemovedExtendedDataSettings_VTable,
 }
 IDeviceRemovedExtendedDataSettings_VTable :: struct {
-	using iunknown_vtable: IUnknown_VTable,
+	using iunknown_vtable:        IUnknown_VTable,
 	SetAutoBreadcrumbsEnablement: proc "system" (this: ^IDeviceRemovedExtendedDataSettings, Enablement: DRED_ENABLEMENT),
 	SetPageFaultEnablement:       proc "system" (this: ^IDeviceRemovedExtendedDataSettings, Enablement: DRED_ENABLEMENT),
 	SetWatsonDumpEnablement:      proc "system" (this: ^IDeviceRemovedExtendedDataSettings, Enablement: DRED_ENABLEMENT),
@@ -3695,23 +4107,23 @@ IDeviceRemovedExtendedDataSettings_VTable :: struct {
 IDeviceRemovedExtendedDataSettings1_UUID_STRING :: "DBD5AE51-3317-4F0A-ADF9-1D7CEDCAAE0B"
 IDeviceRemovedExtendedDataSettings1_UUID := &IID{0xDBD5AE51, 0x3317, 0x4F0A, {0xAD, 0xF9, 0x1D, 0x7C, 0xED, 0xCA, 0xAE, 0x0B}}
 IDeviceRemovedExtendedDataSettings1 :: struct #raw_union {
-	#subtype id3d12deviceremovedextendeddatasettings: IDeviceRemovedExtendedDataSettings,
+	#subtype id3d12deviceremovedextendeddatasettings:      IDeviceRemovedExtendedDataSettings,
 	using id3d12deviceremovedextendeddatasettings1_vtable: ^IDeviceRemovedExtendedDataSettings1_VTable,
 }
 IDeviceRemovedExtendedDataSettings1_VTable :: struct {
 	using id3d12deviceremovedextendeddatasettings_vtable: IDeviceRemovedExtendedDataSettings_VTable,
-	SetBreadcrumbContextEnablement: proc "system" (this: ^IDeviceRemovedExtendedDataSettings1, Enablement: DRED_ENABLEMENT),
+	SetBreadcrumbContextEnablement:                       proc "system" (this: ^IDeviceRemovedExtendedDataSettings1, Enablement: DRED_ENABLEMENT),
 }
 
 
 IDeviceRemovedExtendedData_UUID_STRING :: "98931D33-5AE8-4791-AA3C-1A73A2934E71"
 IDeviceRemovedExtendedData_UUID := &IID{0x98931D33, 0x5AE8, 0x4791, {0xAA, 0x3C, 0x1A, 0x73, 0xA2, 0x93, 0x4E, 0x71}}
 IDeviceRemovedExtendedData :: struct #raw_union {
-	#subtype iunknown: IUnknown,
+	#subtype iunknown:                            IUnknown,
 	using id3d12deviceremovedextendeddata_vtable: ^IDeviceRemovedExtendedData_VTable,
 }
 IDeviceRemovedExtendedData_VTable :: struct {
-	using iunknown_vtable: IUnknown_VTable,
+	using iunknown_vtable:        IUnknown_VTable,
 	GetAutoBreadcrumbsOutput:     proc "system" (this: ^IDeviceRemovedExtendedData, pOutput: ^DRED_AUTO_BREADCRUMBS_OUTPUT) -> HRESULT,
 	GetPageFaultAllocationOutput: proc "system" (this: ^IDeviceRemovedExtendedData, pOutput: ^DRED_PAGE_FAULT_OUTPUT) -> HRESULT,
 }
@@ -3720,25 +4132,25 @@ IDeviceRemovedExtendedData_VTable :: struct {
 IDeviceRemovedExtendedData1_UUID_STRING :: "9727A022-CF1D-4DDA-9EBA-EFFA653FC506"
 IDeviceRemovedExtendedData1_UUID := &IID{0x9727A022, 0xCF1D, 0x4DDA, {0x9E, 0xBA, 0xEF, 0xFA, 0x65, 0x3F, 0xC5, 0x06}}
 IDeviceRemovedExtendedData1 :: struct #raw_union {
-	#subtype id3d12deviceremovedextendeddata: IDeviceRemovedExtendedData,
+	#subtype id3d12deviceremovedextendeddata:      IDeviceRemovedExtendedData,
 	using id3d12deviceremovedextendeddata1_vtable: ^IDeviceRemovedExtendedData1_VTable,
 }
 IDeviceRemovedExtendedData1_VTable :: struct {
 	using id3d12deviceremovedextendeddata_vtable: IDeviceRemovedExtendedData_VTable,
-	GetAutoBreadcrumbsOutput1:     proc "system" (this: ^IDeviceRemovedExtendedData1, pOutput: ^DRED_AUTO_BREADCRUMBS_OUTPUT1) -> HRESULT,
-	GetPageFaultAllocationOutput1: proc "system" (this: ^IDeviceRemovedExtendedData1, pOutput: ^DRED_PAGE_FAULT_OUTPUT1) -> HRESULT,
+	GetAutoBreadcrumbsOutput1:                    proc "system" (this: ^IDeviceRemovedExtendedData1, pOutput: ^DRED_AUTO_BREADCRUMBS_OUTPUT1) -> HRESULT,
+	GetPageFaultAllocationOutput1:                proc "system" (this: ^IDeviceRemovedExtendedData1, pOutput: ^DRED_PAGE_FAULT_OUTPUT1) -> HRESULT,
 }
 
 IDeviceRemovedExtendedData2_UUID_STRING :: "67FC5816-E4CA-4915-BF18-42541272DA54"
 IDeviceRemovedExtendedData2_UUID := &IID{0x67FC5816, 0xE4CA, 0x4915, {0xBF, 0x18, 0x42, 0x54, 0x12, 0x72, 0xDA, 0x54}}
 IDeviceRemovedExtendedData2 :: struct #raw_union {
-	#subtype id3d12deviceremovedextendeddata1: IDeviceRemovedExtendedData1,
+	#subtype id3d12deviceremovedextendeddata1:     IDeviceRemovedExtendedData1,
 	using id3d12deviceremovedextendeddata2_vtable: ^IDeviceRemovedExtendedData2_VTable,
 }
 IDeviceRemovedExtendedData2_VTable :: struct {
 	using id3d12deviceremovedextendeddata1_vtable: IDeviceRemovedExtendedData1_VTable,
-	GetPageFaultAllocationOutput2: proc "system" (this: ^IDeviceRemovedExtendedData2, pOutput: ^DRED_PAGE_FAULT_OUTPUT2) -> HRESULT,
-	GetDeviceState:                proc "system" (this: ^IDeviceRemovedExtendedData2) -> DRED_DEVICE_STATE,
+	GetPageFaultAllocationOutput2:                 proc "system" (this: ^IDeviceRemovedExtendedData2, pOutput: ^DRED_PAGE_FAULT_OUTPUT2) -> HRESULT,
+	GetDeviceState:                                proc "system" (this: ^IDeviceRemovedExtendedData2) -> DRED_DEVICE_STATE,
 }
 
 BACKGROUND_PROCESSING_MODE :: enum i32 {
@@ -3759,12 +4171,18 @@ MEASUREMENTS_ACTION :: enum i32 {
 IDevice6_UUID_STRING :: "c70b221b-40e4-4a17-89af-025a0727a6dc"
 IDevice6_UUID := &IID{0xc70b221b, 0x40e4, 0x4a17, {0x89, 0xaf, 0x02, 0x5a, 0x07, 0x27, 0xa6, 0xdc}}
 IDevice6 :: struct #raw_union {
-	#subtype id3d12device5: IDevice5,
+	#subtype id3d12device5:     IDevice5,
 	using id3d12device6_vtable: ^IDevice6_VTable,
 }
 IDevice6_VTable :: struct {
-	using id3d12device5_vtable: IDevice5_VTable,
-	SetBackgroundProcessingMode: proc "system" (this: ^IDevice6, Mode: BACKGROUND_PROCESSING_MODE, MeasurementsAction: MEASUREMENTS_ACTION, hEventToSignalUponCompletion: HANDLE, pbFurtherMeasurementsDesired: ^BOOL) -> HRESULT,
+	using id3d12device5_vtable:  IDevice5_VTable,
+	SetBackgroundProcessingMode: proc "system" (
+		this: ^IDevice6,
+		Mode: BACKGROUND_PROCESSING_MODE,
+		MeasurementsAction: MEASUREMENTS_ACTION,
+		hEventToSignalUponCompletion: HANDLE,
+		pbFurtherMeasurementsDesired: ^BOOL,
+	) -> HRESULT,
 }
 
 FEATURE_DATA_PROTECTED_RESOURCE_SESSION_TYPE_COUNT :: struct {
@@ -3788,24 +4206,33 @@ PROTECTED_RESOURCE_SESSION_DESC1 :: struct {
 IProtectedResourceSession1_UUID_STRING :: "D6F12DD6-76FB-406E-8961-4296EEFC0409"
 IProtectedResourceSession1_UUID := &IID{0xD6F12DD6, 0x76FB, 0x406E, {0x89, 0x61, 0x42, 0x96, 0xEE, 0xFC, 0x04, 0x09}}
 IProtectedResourceSession1 :: struct #raw_union {
-	#subtype id3d12protectedresourcesession: IProtectedResourceSession,
+	#subtype id3d12protectedresourcesession:      IProtectedResourceSession,
 	using id3d12protectedresourcesession1_vtable: ^IProtectedResourceSession1_VTable,
 }
 IProtectedResourceSession1_VTable :: struct {
 	using id3d12protectedresourcesession_vtable: IProtectedResourceSession_VTable,
-	GetDesc1: proc "system" (this: ^IProtectedResourceSession1, pRetVal: ^PROTECTED_RESOURCE_SESSION_DESC1) -> ^PROTECTED_RESOURCE_SESSION_DESC1,
+	GetDesc1:                                    proc "system" (
+		this: ^IProtectedResourceSession1,
+		pRetVal: ^PROTECTED_RESOURCE_SESSION_DESC1,
+	) -> ^PROTECTED_RESOURCE_SESSION_DESC1,
 }
 
 
 IDevice7_UUID_STRING :: "5c014b53-68a1-4b9b-8bd1-dd6046b9358b"
 IDevice7_UUID := &IID{0x5c014b53, 0x68a1, 0x4b9b, {0x8b, 0xd1, 0xdd, 0x60, 0x46, 0xb9, 0x35, 0x8b}}
 IDevice7 :: struct #raw_union {
-	#subtype id3d12device6: IDevice6,
+	#subtype id3d12device6:     IDevice6,
 	using id3d12device7_vtable: ^IDevice7_VTable,
 }
 IDevice7_VTable :: struct {
-	using id3d12device6_vtable: IDevice6_VTable,
-	AddToStateObject: proc "system" (this: ^IDevice7, pAddition: ^STATE_OBJECT_DESC, pStateObjectToGrowFrom: ^IStateObject, riid: ^IID, ppNewStateObject: ^rawptr) -> HRESULT,
+	using id3d12device6_vtable:      IDevice6_VTable,
+	AddToStateObject:                proc "system" (
+		this: ^IDevice7,
+		pAddition: ^STATE_OBJECT_DESC,
+		pStateObjectToGrowFrom: ^IStateObject,
+		riid: ^IID,
+		ppNewStateObject: ^rawptr,
+	) -> HRESULT,
 	CreateProtectedResourceSession1: proc "system" (this: ^IDevice7, pDesc: ^PROTECTED_RESOURCE_SESSION_DESC1, riid: ^IID, ppSession: ^rawptr) -> HRESULT,
 }
 
@@ -3813,23 +4240,64 @@ IDevice7_VTable :: struct {
 IDevice8_UUID_STRING :: "9218E6BB-F944-4F7E-A75C-B1B2C7B701F3"
 IDevice8_UUID := &IID{0x9218E6BB, 0xF944, 0x4F7E, {0xA7, 0x5C, 0xB1, 0xB2, 0xC7, 0xB7, 0x01, 0xF3}}
 IDevice8 :: struct #raw_union {
-	#subtype id3d12device7: IDevice7,
+	#subtype id3d12device7:     IDevice7,
 	using id3d12device8_vtable: ^IDevice8_VTable,
 }
 IDevice8_VTable :: struct {
-	using id3d12device7_vtable: IDevice7_VTable,
-	GetResourceAllocationInfo2:               proc "system" (this: ^IDevice8, RetVal: ^RESOURCE_ALLOCATION_INFO, visibleMask: u32, numResourceDescs: u32, pResourceDescs: [^]RESOURCE_DESC1, pResourceAllocationInfo1: ^RESOURCE_ALLOCATION_INFO1),
-	CreateCommittedResource2:                 proc "system" (this: ^IDevice8, pHeapProperties: ^HEAP_PROPERTIES, HeapFlags: HEAP_FLAGS, pDesc: ^RESOURCE_DESC1, InitialResourceState: RESOURCE_STATES, pOptimizedClearValue: ^CLEAR_VALUE, pProtectedSession: ^IProtectedResourceSession, riidResource: ^IID, ppvResource: ^rawptr) -> HRESULT,
-	CreatePlacedResource1:                    proc "system" (this: ^IDevice8, pHeap: ^IHeap, HeapOffset: u64, pDesc: ^RESOURCE_DESC1, InitialState: RESOURCE_STATES, pOptimizedClearValue: ^CLEAR_VALUE, riid: ^IID, ppvResource: ^rawptr) -> HRESULT,
-	CreateSamplerFeedbackUnorderedAccessView: proc "system" (this: ^IDevice8, pTargetedResource: ^IResource, pFeedbackResource: ^IResource, DestDescriptor: CPU_DESCRIPTOR_HANDLE),
-	GetCopyableFootprints1:                   proc "system" (this: ^IDevice8, pResourceDesc: ^RESOURCE_DESC1, FirstSubresource: u32, NumSubresources: u32, BaseOffset: u64, pLayouts: [^]PLACED_SUBRESOURCE_FOOTPRINT, pNumRows: ^u32, pRowSizeInBytes: ^u64, pTotalBytes: ^u64),
+	using id3d12device7_vtable:               IDevice7_VTable,
+	GetResourceAllocationInfo2:               proc "system" (
+		this: ^IDevice8,
+		RetVal: ^RESOURCE_ALLOCATION_INFO,
+		visibleMask: u32,
+		numResourceDescs: u32,
+		pResourceDescs: [^]RESOURCE_DESC1,
+		pResourceAllocationInfo1: ^RESOURCE_ALLOCATION_INFO1,
+	),
+	CreateCommittedResource2:                 proc "system" (
+		this: ^IDevice8,
+		pHeapProperties: ^HEAP_PROPERTIES,
+		HeapFlags: HEAP_FLAGS,
+		pDesc: ^RESOURCE_DESC1,
+		InitialResourceState: RESOURCE_STATES,
+		pOptimizedClearValue: ^CLEAR_VALUE,
+		pProtectedSession: ^IProtectedResourceSession,
+		riidResource: ^IID,
+		ppvResource: ^rawptr,
+	) -> HRESULT,
+	CreatePlacedResource1:                    proc "system" (
+		this: ^IDevice8,
+		pHeap: ^IHeap,
+		HeapOffset: u64,
+		pDesc: ^RESOURCE_DESC1,
+		InitialState: RESOURCE_STATES,
+		pOptimizedClearValue: ^CLEAR_VALUE,
+		riid: ^IID,
+		ppvResource: ^rawptr,
+	) -> HRESULT,
+	CreateSamplerFeedbackUnorderedAccessView: proc "system" (
+		this: ^IDevice8,
+		pTargetedResource: ^IResource,
+		pFeedbackResource: ^IResource,
+		DestDescriptor: CPU_DESCRIPTOR_HANDLE,
+	),
+	GetCopyableFootprints1:                   proc "system" (
+		this: ^IDevice8,
+		pResourceDesc: ^RESOURCE_DESC1,
+		FirstSubresource: u32,
+		NumSubresources: u32,
+		BaseOffset: u64,
+		pLayouts: [^]PLACED_SUBRESOURCE_FOOTPRINT,
+		pNumRows: ^u32,
+		pRowSizeInBytes: ^u64,
+		pTotalBytes: ^u64,
+	),
 }
 
 
 IResource1_UUID_STRING :: "9D5E227A-4430-4161-88B3-3ECA6BB16E19"
 IResource1_UUID := &IID{0x9D5E227A, 0x4430, 0x4161, {0x88, 0xB3, 0x3E, 0xCA, 0x6B, 0xB1, 0x6E, 0x19}}
 IResource1 :: struct #raw_union {
-	#subtype id3d12resource: IResource,
+	#subtype id3d12resource:      IResource,
 	using id3d12resource1_vtable: ^IResource1_VTable,
 }
 IResource1_VTable :: struct {
@@ -3841,23 +4309,23 @@ IResource1_VTable :: struct {
 IResource2_UUID_STRING :: "BE36EC3B-EA85-4AEB-A45A-E9D76404A495"
 IResource2_UUID := &IID{0xBE36EC3B, 0xEA85, 0x4AEB, {0xA4, 0x5A, 0xE9, 0xD7, 0x64, 0x04, 0xA4, 0x95}}
 IResource2 :: struct #raw_union {
-	#subtype id3d12resource1: IResource1,
+	#subtype id3d12resource1:     IResource1,
 	using id3d12resource2_vtable: ^IResource2_VTable,
 }
 IResource2_VTable :: struct {
 	using id3d12resource1_vtable: IResource1_VTable,
-	GetDesc1: proc "system" (this: ^IResource2, pRetVal: ^RESOURCE_DESC1) -> ^RESOURCE_DESC1,
+	GetDesc1:                     proc "system" (this: ^IResource2, pRetVal: ^RESOURCE_DESC1) -> ^RESOURCE_DESC1,
 }
 
 
 IHeap1_UUID_STRING :: "572F7389-2168-49E3-9693-D6DF5871BF6D"
 IHeap1_UUID := &IID{0x572F7389, 0x2168, 0x49E3, {0x96, 0x93, 0xD6, 0xDF, 0x58, 0x71, 0xBF, 0x6D}}
 IHeap1 :: struct #raw_union {
-	#subtype id3d12heap: IHeap,
+	#subtype id3d12heap:      IHeap,
 	using id3d12heap1_vtable: ^IHeap1_VTable,
 }
 IHeap1_VTable :: struct {
-	using id3d12heap_vtable: IHeap_VTable,
+	using id3d12heap_vtable:     IHeap_VTable,
 	GetProtectedResourceSession: proc "system" (this: ^IHeap1, riid: ^IID, ppProtectedSession: ^rawptr) -> HRESULT,
 }
 
@@ -3865,12 +4333,12 @@ IHeap1_VTable :: struct {
 IGraphicsCommandList3_UUID_STRING :: "6FDA83A7-B84C-4E38-9AC8-C7BD22016B3D"
 IGraphicsCommandList3_UUID := &IID{0x6FDA83A7, 0xB84C, 0x4E38, {0x9A, 0xC8, 0xC7, 0xBD, 0x22, 0x01, 0x6B, 0x3D}}
 IGraphicsCommandList3 :: struct #raw_union {
-	#subtype id3d12graphicscommandlist2: IGraphicsCommandList2,
+	#subtype id3d12graphicscommandlist2:     IGraphicsCommandList2,
 	using id3d12graphicscommandlist3_vtable: ^IGraphicsCommandList3_VTable,
 }
 IGraphicsCommandList3_VTable :: struct {
 	using id3d12graphicscommandlist2_vtable: IGraphicsCommandList2_VTable,
-	SetProtectedResourceSession: proc "system" (this: ^IGraphicsCommandList3, pProtectedResourceSession: ^IProtectedResourceSession),
+	SetProtectedResourceSession:             proc "system" (this: ^IGraphicsCommandList3, pProtectedResourceSession: ^IProtectedResourceSession),
 }
 
 RENDER_PASS_BEGINNING_ACCESS_TYPE :: enum i32 {
@@ -3885,7 +4353,7 @@ RENDER_PASS_BEGINNING_ACCESS_CLEAR_PARAMETERS :: struct {
 }
 
 RENDER_PASS_BEGINNING_ACCESS :: struct {
-	Type: RENDER_PASS_BEGINNING_ACCESS_TYPE,
+	Type:    RENDER_PASS_BEGINNING_ACCESS_TYPE,
 	using _: struct #raw_union {
 		Clear: RENDER_PASS_BEGINNING_ACCESS_CLEAR_PARAMETERS,
 	},
@@ -3917,7 +4385,7 @@ RENDER_PASS_ENDING_ACCESS_RESOLVE_PARAMETERS :: struct {
 }
 
 RENDER_PASS_ENDING_ACCESS :: struct {
-	Type: RENDER_PASS_ENDING_ACCESS_TYPE,
+	Type:    RENDER_PASS_ENDING_ACCESS_TYPE,
 	using _: struct #raw_union {
 		Resolve: RENDER_PASS_ENDING_ACCESS_RESOLVE_PARAMETERS,
 	},
@@ -3937,7 +4405,7 @@ RENDER_PASS_DEPTH_STENCIL_DESC :: struct {
 	StencilEndingAccess:    RENDER_PASS_ENDING_ACCESS,
 }
 
-RENDER_PASS_FLAGS :: distinct bit_set[RENDER_PASS_FLAG; u32]
+RENDER_PASS_FLAGS :: distinct bit_set[RENDER_PASS_FLAG;u32]
 RENDER_PASS_FLAG :: enum u32 {
 	ALLOW_UAV_WRITES = 0,
 	SUSPENDING_PASS  = 1,
@@ -3948,11 +4416,11 @@ RENDER_PASS_FLAG :: enum u32 {
 IMetaCommand_UUID_STRING :: "DBB84C27-36CE-4FC9-B801-F048C46AC570"
 IMetaCommand_UUID := &IID{0xDBB84C27, 0x36CE, 0x4FC9, {0xB8, 0x01, 0xF0, 0x48, 0xC4, 0x6A, 0xC5, 0x70}}
 IMetaCommand :: struct #raw_union {
-	#subtype id3d12pageable: IPageable,
+	#subtype id3d12pageable:        IPageable,
 	using id3d12metacommand_vtable: ^IMetaCommand_VTable,
 }
 IMetaCommand_VTable :: struct {
-	using id3d12devicechild_vtable: IDeviceChild_VTable,
+	using id3d12devicechild_vtable:   IDeviceChild_VTable,
 	GetRequiredParameterResourceSize: proc "system" (this: ^IMetaCommand, Stage: META_COMMAND_PARAMETER_STAGE, ParameterIndex: u32) -> u64,
 }
 
@@ -3970,18 +4438,49 @@ DISPATCH_RAYS_DESC :: struct {
 IGraphicsCommandList4_UUID_STRING :: "8754318e-d3a9-4541-98cf-645b50dc4874"
 IGraphicsCommandList4_UUID := &IID{0x8754318e, 0xd3a9, 0x4541, {0x98, 0xcf, 0x64, 0x5b, 0x50, 0xdc, 0x48, 0x74}}
 IGraphicsCommandList4 :: struct #raw_union {
-	#subtype id3d12graphicscommandlist3: IGraphicsCommandList3,
+	#subtype id3d12graphicscommandlist3:     IGraphicsCommandList3,
 	using id3d12graphicscommandlist4_vtable: ^IGraphicsCommandList4_VTable,
 }
 IGraphicsCommandList4_VTable :: struct {
-	using id3d12graphicscommandlist3_vtable: IGraphicsCommandList3_VTable,
-	BeginRenderPass:                                  proc "system" (this: ^IGraphicsCommandList4, NumRenderTargets: u32, pRenderTargets: [^]RENDER_PASS_RENDER_TARGET_DESC, pDepthStencil: ^RENDER_PASS_DEPTH_STENCIL_DESC, Flags: RENDER_PASS_FLAGS),
+	using id3d12graphicscommandlist3_vtable:          IGraphicsCommandList3_VTable,
+	BeginRenderPass:                                  proc "system" (
+		this: ^IGraphicsCommandList4,
+		NumRenderTargets: u32,
+		pRenderTargets: [^]RENDER_PASS_RENDER_TARGET_DESC,
+		pDepthStencil: ^RENDER_PASS_DEPTH_STENCIL_DESC,
+		Flags: RENDER_PASS_FLAGS,
+	),
 	EndRenderPass:                                    proc "system" (this: ^IGraphicsCommandList4),
-	InitializeMetaCommand:                            proc "system" (this: ^IGraphicsCommandList4, pMetaCommand: ^IMetaCommand, pInitializationParametersData: rawptr, InitializationParametersDataSizeInBytes: SIZE_T),
-	ExecuteMetaCommand:                               proc "system" (this: ^IGraphicsCommandList4, pMetaCommand: ^IMetaCommand, pExecutionParametersData: rawptr, ExecutionParametersDataSizeInBytes: SIZE_T),
-	BuildRaytracingAccelerationStructure:             proc "system" (this: ^IGraphicsCommandList4, pDesc: ^BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC, NumPostbuildInfoDescs: u32, pPostbuildInfoDescs: [^]RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_DESC),
-	EmitRaytracingAccelerationStructurePostbuildInfo: proc "system" (this: ^IGraphicsCommandList4, pDesc: ^RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_DESC, NumSourceAccelerationStructures: u32, pSourceAccelerationStructureData: ^GPU_VIRTUAL_ADDRESS),
-	CopyRaytracingAccelerationStructure:              proc "system" (this: ^IGraphicsCommandList4, DestAccelerationStructureData: GPU_VIRTUAL_ADDRESS, SourceAccelerationStructureData: GPU_VIRTUAL_ADDRESS, Mode: RAYTRACING_ACCELERATION_STRUCTURE_COPY_MODE),
+	InitializeMetaCommand:                            proc "system" (
+		this: ^IGraphicsCommandList4,
+		pMetaCommand: ^IMetaCommand,
+		pInitializationParametersData: rawptr,
+		InitializationParametersDataSizeInBytes: SIZE_T,
+	),
+	ExecuteMetaCommand:                               proc "system" (
+		this: ^IGraphicsCommandList4,
+		pMetaCommand: ^IMetaCommand,
+		pExecutionParametersData: rawptr,
+		ExecutionParametersDataSizeInBytes: SIZE_T,
+	),
+	BuildRaytracingAccelerationStructure:             proc "system" (
+		this: ^IGraphicsCommandList4,
+		pDesc: ^BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC,
+		NumPostbuildInfoDescs: u32,
+		pPostbuildInfoDescs: [^]RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_DESC,
+	),
+	EmitRaytracingAccelerationStructurePostbuildInfo: proc "system" (
+		this: ^IGraphicsCommandList4,
+		pDesc: ^RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_DESC,
+		NumSourceAccelerationStructures: u32,
+		pSourceAccelerationStructureData: ^GPU_VIRTUAL_ADDRESS,
+	),
+	CopyRaytracingAccelerationStructure:              proc "system" (
+		this: ^IGraphicsCommandList4,
+		DestAccelerationStructureData: GPU_VIRTUAL_ADDRESS,
+		SourceAccelerationStructureData: GPU_VIRTUAL_ADDRESS,
+		Mode: RAYTRACING_ACCELERATION_STRUCTURE_COPY_MODE,
+	),
 	SetPipelineState1:                                proc "system" (this: ^IGraphicsCommandList4, pStateObject: ^IStateObject),
 	DispatchRays:                                     proc "system" (this: ^IGraphicsCommandList4, pDesc: ^DISPATCH_RAYS_DESC),
 }
@@ -3992,7 +4491,7 @@ SHADER_CACHE_MODE :: enum i32 {
 	DISK   = 1,
 }
 
-SHADER_CACHE_FLAGS :: distinct bit_set[SHADER_CACHE_FLAG; u32]
+SHADER_CACHE_FLAGS :: distinct bit_set[SHADER_CACHE_FLAG;u32]
 SHADER_CACHE_FLAG :: enum u32 {
 	DRIVER_VERSIONED = 0,
 	USE_WORKING_DIR  = 1,
@@ -4011,19 +4510,19 @@ SHADER_CACHE_SESSION_DESC :: struct {
 IShaderCacheSession_UUID_STRING :: "28E2495D-0F64-4AE4-A6EC-129255DC49A8"
 IShaderCacheSession_UUID := &IID{0x28E2495D, 0x0F64, 0x4AE4, {0xA6, 0xEC, 0x12, 0x92, 0x55, 0xDC, 0x49, 0xA8}}
 IShaderCacheSession :: struct #raw_union {
-	#subtype idevicechild: IDeviceChild,
+	#subtype idevicechild:                 IDeviceChild,
 	using id3d12shadercachesession_vtable: ^IShaderCacheSession_VTable,
 }
 IShaderCacheSession_VTable :: struct {
 	using idevicechild_vtable: IDeviceChild_VTable,
-	FindValue:          proc "system" (this: ^IShaderCacheSession, pKey: rawptr, KeySize: u32, pValue: rawptr, pValueSize: ^u32) -> HRESULT,
-	StoreValue:         proc "system" (this: ^IShaderCacheSession, pKey: rawptr, KeySize: u32, pValue: rawptr, ValueSize: u32) -> HRESULT,
-	SetDeleteOnDestroy: proc "system" (this: ^IShaderCacheSession),
-	GetDesc:            proc "system" (this: ^IShaderCacheSession, pRetValue: ^SHADER_CACHE_SESSION_DESC) -> ^SHADER_CACHE_SESSION_DESC,
+	FindValue:                 proc "system" (this: ^IShaderCacheSession, pKey: rawptr, KeySize: u32, pValue: rawptr, pValueSize: ^u32) -> HRESULT,
+	StoreValue:                proc "system" (this: ^IShaderCacheSession, pKey: rawptr, KeySize: u32, pValue: rawptr, ValueSize: u32) -> HRESULT,
+	SetDeleteOnDestroy:        proc "system" (this: ^IShaderCacheSession),
+	GetDesc:                   proc "system" (this: ^IShaderCacheSession, pRetValue: ^SHADER_CACHE_SESSION_DESC) -> ^SHADER_CACHE_SESSION_DESC,
 }
 
 
-SHADER_CACHE_KIND_FLAGS :: distinct bit_set[SHADER_CACHE_KIND_FLAG; u32]
+SHADER_CACHE_KIND_FLAGS :: distinct bit_set[SHADER_CACHE_KIND_FLAG;u32]
 SHADER_CACHE_KIND_FLAG :: enum u32 {
 	IMPLICIT_D3D_CACHE_FOR_DRIVER = 0,
 	IMPLICIT_D3D_CONVERSIONS      = 1,
@@ -4031,7 +4530,7 @@ SHADER_CACHE_KIND_FLAG :: enum u32 {
 	APPLICATION_MANAGED           = 3,
 }
 
-SHADER_CACHE_CONTROL_FLAGS :: distinct bit_set[SHADER_CACHE_CONTROL_FLAG; u32]
+SHADER_CACHE_CONTROL_FLAGS :: distinct bit_set[SHADER_CACHE_CONTROL_FLAG;u32]
 SHADER_CACHE_CONTROL_FLAG :: enum u32 {
 	DISABLE = 0,
 	ENABLE  = 1,
@@ -4041,39 +4540,72 @@ SHADER_CACHE_CONTROL_FLAG :: enum u32 {
 IDevice9_UUID_STRING :: "4C80E962-F032-4F60-BC9E-EBC2CFA1D83C"
 IDevice9_UUID := &IID{0x4C80E962, 0xF032, 0x4F60, {0xBC, 0x9E, 0xEB, 0xC2, 0xCF, 0xA1, 0xD8, 0x3C}}
 IDevice9 :: struct #raw_union {
-	#subtype id3d12device8: IDevice8,
+	#subtype id3d12device8:     IDevice8,
 	using id3d12device9_vtable: ^IDevice9_VTable,
 }
 IDevice9_VTable :: struct {
 	using id3d12device8_vtable: IDevice8_VTable,
-	CreateShaderCacheSession: proc "system" (this: ^IDevice9, pDesc: ^SHADER_CACHE_SESSION_DESC , riid: ^IID, ppvSession: ^rawptr) -> HRESULT,
-	ShaderCacheControl:       proc "system" (this: ^IDevice9, Kinds: SHADER_CACHE_KIND_FLAGS, Control: SHADER_CACHE_CONTROL_FLAGS) -> HRESULT,
-	CreateCommandQueue1:      proc "system" (this: ^IDevice9, pDesc: ^COMMAND_QUEUE_DESC, CreatorID: ^IID, riid: ^IID, ppCommandQueue: ^rawptr) -> HRESULT,
+	CreateShaderCacheSession:   proc "system" (this: ^IDevice9, pDesc: ^SHADER_CACHE_SESSION_DESC, riid: ^IID, ppvSession: ^rawptr) -> HRESULT,
+	ShaderCacheControl:         proc "system" (this: ^IDevice9, Kinds: SHADER_CACHE_KIND_FLAGS, Control: SHADER_CACHE_CONTROL_FLAGS) -> HRESULT,
+	CreateCommandQueue1:        proc "system" (this: ^IDevice9, pDesc: ^COMMAND_QUEUE_DESC, CreatorID: ^IID, riid: ^IID, ppCommandQueue: ^rawptr) -> HRESULT,
 }
 
 IDevice10_UUID_STRING :: "517F8718-AA66-49F9-B02B-A7AB89C06031"
 IDevice10_UUID := &IID{0x517F8718, 0xAA66, 0x49F9, {0xB0, 0x2B, 0xA7, 0xAB, 0x89, 0xC0, 0x60, 0x31}}
 IDevice10 :: struct #raw_union {
-	#subtype id3d12device9: IDevice9,
+	#subtype id3d12device9:      IDevice9,
 	using id3d12device10_vtable: ^IDevice10_VTable,
 }
 IDevice10_VTable :: struct {
 	using id3d12device9_vtable: IDevice9_VTable,
-	CreateCommittedResource3: proc "system" (this: ^IDevice10, pHeapProperties: ^HEAP_PROPERTIES, HeapFlags: HEAP_FLAGS, pDesc: ^RESOURCE_DESC1, InitialLayout: BARRIER_LAYOUT, pOptimizedClearValue: ^CLEAR_VALUE, pProtectedSession: ^IProtectedResourceSession, NumCastableFormats: u32, pCastableFormats: [^]dxgi.FORMAT, riidResource: ^IID, ppvResource: ^rawptr) -> HRESULT,
-	CreatePlacedResource2:    proc "system" (this: ^IDevice10, pHeap: ^IHeap, HeapOffset: u64, pDesc: ^RESOURCE_DESC1, InitialLayout: BARRIER_LAYOUT, pOptimizedClearValue: ^CLEAR_VALUE, NumCastableFormats: u32, pCastableFormats: [^]dxgi.FORMAT, riid: ^IID, ppvResource: ^rawptr) -> HRESULT,
-	CreateReservedResource2:  proc "system" (this: ^IDevice10, pDesc: ^RESOURCE_DESC, InitialLayout: BARRIER_LAYOUT, pOptimizedClearValue: ^CLEAR_VALUE, pProtectedSession: ^IProtectedResourceSession, NumCastableFormats: u32, pCastableFormats: [^]dxgi.FORMAT , riid: ^IID, ppvResource: ^rawptr) -> HRESULT,
+	CreateCommittedResource3:   proc "system" (
+		this: ^IDevice10,
+		pHeapProperties: ^HEAP_PROPERTIES,
+		HeapFlags: HEAP_FLAGS,
+		pDesc: ^RESOURCE_DESC1,
+		InitialLayout: BARRIER_LAYOUT,
+		pOptimizedClearValue: ^CLEAR_VALUE,
+		pProtectedSession: ^IProtectedResourceSession,
+		NumCastableFormats: u32,
+		pCastableFormats: [^]dxgi.FORMAT,
+		riidResource: ^IID,
+		ppvResource: ^rawptr,
+	) -> HRESULT,
+	CreatePlacedResource2:      proc "system" (
+		this: ^IDevice10,
+		pHeap: ^IHeap,
+		HeapOffset: u64,
+		pDesc: ^RESOURCE_DESC1,
+		InitialLayout: BARRIER_LAYOUT,
+		pOptimizedClearValue: ^CLEAR_VALUE,
+		NumCastableFormats: u32,
+		pCastableFormats: [^]dxgi.FORMAT,
+		riid: ^IID,
+		ppvResource: ^rawptr,
+	) -> HRESULT,
+	CreateReservedResource2:    proc "system" (
+		this: ^IDevice10,
+		pDesc: ^RESOURCE_DESC,
+		InitialLayout: BARRIER_LAYOUT,
+		pOptimizedClearValue: ^CLEAR_VALUE,
+		pProtectedSession: ^IProtectedResourceSession,
+		NumCastableFormats: u32,
+		pCastableFormats: [^]dxgi.FORMAT,
+		riid: ^IID,
+		ppvResource: ^rawptr,
+	) -> HRESULT,
 }
 
 
 ITools_UUID_STRING :: "7071e1f0-e84b-4b33-974f-12fa49de65c5"
 ITools_UUID := &IID{0x7071e1f0, 0xe84b, 0x4b33, {0x97, 0x4f, 0x12, 0xfa, 0x49, 0xde, 0x65, 0xc5}}
 ITools :: struct #raw_union {
-	#subtype iunknown: IUnknown,
+	#subtype iunknown:        IUnknown,
 	using id3d12tools_vtable: ^ITools_VTable,
 }
 ITools_VTable :: struct {
-	using iunknown_vtable: IUnknown_VTable,
-	EnableShaderInstrumentation: proc "system" (this: ^ITools, bEnable: BOOL),
+	using iunknown_vtable:        IUnknown_VTable,
+	EnableShaderInstrumentation:  proc "system" (this: ^ITools, bEnable: BOOL),
 	ShaderInstrumentationEnabled: proc "system" (this: ^ITools) -> BOOL,
 }
 
@@ -4093,15 +4625,15 @@ MEMCPY_DEST :: struct {
 IDebug_UUID_STRING :: "344488b7-6846-474b-b989-f027448245e0"
 IDebug_UUID := &IID{0x344488b7, 0x6846, 0x474b, {0xb9, 0x89, 0xf0, 0x27, 0x44, 0x82, 0x45, 0xe0}}
 IDebug :: struct #raw_union {
-	#subtype iunknown: IUnknown,
+	#subtype iunknown:        IUnknown,
 	using id3d12debug_vtable: ^IDebug_VTable,
 }
 IDebug_VTable :: struct {
 	using iunknown_vtable: IUnknown_VTable,
-	EnableDebugLayer: proc "system" (this: ^IDebug),
+	EnableDebugLayer:      proc "system" (this: ^IDebug),
 }
 
-GPU_BASED_VALIDATION_FLAGS :: distinct bit_set[GPU_BASED_VALIDATION_FLAG; u32]
+GPU_BASED_VALIDATION_FLAGS :: distinct bit_set[GPU_BASED_VALIDATION_FLAG;u32]
 GPU_BASED_VALIDATION_FLAG :: enum u32 {
 	DISABLE_STATE_TRACKING = 0,
 }
@@ -4110,11 +4642,11 @@ GPU_BASED_VALIDATION_FLAG :: enum u32 {
 IDebug1_UUID_STRING :: "affaa4ca-63fe-4d8e-b8ad-159000af4304"
 IDebug1_UUID := &IID{0xaffaa4ca, 0x63fe, 0x4d8e, {0xb8, 0xad, 0x15, 0x90, 0x00, 0xaf, 0x43, 0x04}}
 IDebug1 :: struct #raw_union {
-	#subtype iunknown: IUnknown,
+	#subtype iunknown:         IUnknown,
 	using id3d12debug1_vtable: ^IDebug1_VTable,
 }
 IDebug1_VTable :: struct {
-	using iunknown_vtable: IUnknown_VTable,
+	using iunknown_vtable:                       IUnknown_VTable,
 	EnableDebugLayer:                            proc "system" (this: ^IDebug1),
 	SetEnableGPUBasedValidation:                 proc "system" (this: ^IDebug1, Enable: BOOL),
 	SetEnableSynchronizedCommandQueueValidation: proc "system" (this: ^IDebug1, Enable: BOOL),
@@ -4123,11 +4655,11 @@ IDebug1_VTable :: struct {
 
 IDebug2_UUID :: "93a665c4-a3b2-4e5d-b692-a26ae14e3374"
 IDebug2 :: struct #raw_union {
-	#subtype iunknown: IUnknown,
+	#subtype iunknown:         IUnknown,
 	using id3d12debug2_vtable: ^IDebug2_VTable,
 }
 IDebug2_VTable :: struct {
-	using iunknown_vtable: IUnknown_VTable,
+	using iunknown_vtable:      IUnknown_VTable,
 	SetGPUBasedValidationFlags: proc "system" (this: ^IDebug2, Flags: GPU_BASED_VALIDATION_FLAGS),
 }
 
@@ -4135,11 +4667,11 @@ IDebug2_VTable :: struct {
 IDebug3_UUID_STRING :: "5cf4e58f-f671-4ff1-a542-3686e3d153d1"
 IDebug3_UUID := &IID{0x5cf4e58f, 0xf671, 0x4ff1, {0xa5, 0x42, 0x36, 0x86, 0xe3, 0xd1, 0x53, 0xd1}}
 IDebug3 :: struct #raw_union {
-	#subtype id3d12debug: IDebug,
+	#subtype id3d12debug:      IDebug,
 	using id3d12debug3_vtable: ^IDebug3_VTable,
 }
 IDebug3_VTable :: struct {
-	using id3d12debug_vtable: IDebug_VTable,
+	using id3d12debug_vtable:                    IDebug_VTable,
 	SetEnableGPUBasedValidation:                 proc "system" (this: ^IDebug3, Enable: BOOL),
 	SetEnableSynchronizedCommandQueueValidation: proc "system" (this: ^IDebug3, Enable: BOOL),
 	SetGPUBasedValidationFlags:                  proc "system" (this: ^IDebug3, Flags: GPU_BASED_VALIDATION_FLAGS),
@@ -4149,27 +4681,27 @@ IDebug3_VTable :: struct {
 IDebug4_UUID_STRING :: "014B816E-9EC5-4A2F-A845-FFBE441CE13A"
 IDebug4_UUID := &IID{0x014B816E, 0x9EC5, 0x4A2F, {0xA8, 0x45, 0xFF, 0xBE, 0x44, 0x1C, 0xE1, 0x3A}}
 IDebug4 :: struct #raw_union {
-	#subtype id3d12debug3: IDebug3,
+	#subtype id3d12debug3:     IDebug3,
 	using id3d12debug4_vtable: ^IDebug4_VTable,
 }
 IDebug4_VTable :: struct {
 	using id3d12debug3_vtable: IDebug3_VTable,
-	DisableDebugLayer: proc "system" (this: ^IDebug4),
+	DisableDebugLayer:         proc "system" (this: ^IDebug4),
 }
 
 
 IDebug5_UUID_STRING :: "548D6B12-09FA-40E0-9069-5DCD589A52C9"
 IDebug5_UUID := &IID{0x548D6B12, 0x09FA, 0x40E0, {0x90, 0x69, 0x5D, 0xCD, 0x58, 0x9A, 0x52, 0xC9}}
 IDebug5 :: struct #raw_union {
-	#subtype id3d12debug4: IDebug4,
+	#subtype id3d12debug4:     IDebug4,
 	using id3d12debug5_vtable: ^IDebug5_VTable,
 }
 IDebug5_VTable :: struct {
 	using id3d12debug4_vtable: IDebug4_VTable,
-	SetEnableAutoName: proc "system" (this: ^IDebug5, Enable: BOOL),
+	SetEnableAutoName:         proc "system" (this: ^IDebug5, Enable: BOOL),
 }
 
-RLDO_FLAGS :: distinct bit_set[RLDO_FLAG; u32]
+RLDO_FLAGS :: distinct bit_set[RLDO_FLAG;u32]
 RLDO_FLAG :: enum u32 {
 	SUMMARY         = 0,
 	DETAIL          = 1,
@@ -4182,7 +4714,7 @@ DEBUG_DEVICE_PARAMETER_TYPE :: enum i32 {
 	GPU_SLOWDOWN_PERFORMANCE_FACTOR = 2,
 }
 
-DEBUG_FEATURE :: distinct bit_set[DEBUG_FEATURE_FLAG; u32]
+DEBUG_FEATURE :: distinct bit_set[DEBUG_FEATURE_FLAG;u32]
 DEBUG_FEATURE_FLAG :: enum i32 {
 	ALLOW_BEHAVIOR_CHANGING_DEBUG_AIDS     = 0,
 	CONSERVATIVE_RESOURCE_STATE_TRACKING   = 1,
@@ -4191,20 +4723,20 @@ DEBUG_FEATURE_FLAG :: enum i32 {
 }
 
 GPU_BASED_VALIDATION_SHADER_PATCH_MODE :: enum i32 {
-	NONE                                              = 0,
-	STATE_TRACKING_ONLY                               = 1,
-	UNGUARDED_VALIDATION                              = 2,
-	GUARDED_VALIDATION                                = 3,
+	NONE                                        = 0,
+	STATE_TRACKING_ONLY                         = 1,
+	UNGUARDED_VALIDATION                        = 2,
+	GUARDED_VALIDATION                          = 3,
 	NUM_GPU_BASED_VALIDATION_SHADER_PATCH_MODES = 4,
 }
 
-GPU_BASED_VALIDATION_PIPELINE_STATE_CREATE_FLAGS :: distinct bit_set[GPU_BASED_VALIDATION_PIPELINE_STATE_CREATE_FLAG; u32]
+GPU_BASED_VALIDATION_PIPELINE_STATE_CREATE_FLAGS :: distinct bit_set[GPU_BASED_VALIDATION_PIPELINE_STATE_CREATE_FLAG;u32]
 GPU_BASED_VALIDATION_PIPELINE_STATE_CREATE_FLAG :: enum u32 {
 	FRONT_LOAD_CREATE_TRACKING_ONLY_SHADERS        = 0,
 	FRONT_LOAD_CREATE_UNGUARDED_VALIDATION_SHADERS = 1,
 	FRONT_LOAD_CREATE_GUARDED_VALIDATION_SHADERS   = 2,
 }
-GPU_BASED_VALIDATION_PIPELINE_STATE_CREATE_FLAG_VALID_MASK :: GPU_BASED_VALIDATION_PIPELINE_STATE_CREATE_FLAGS{
+GPU_BASED_VALIDATION_PIPELINE_STATE_CREATE_FLAG_VALID_MASK :: GPU_BASED_VALIDATION_PIPELINE_STATE_CREATE_FLAGS {
 	.FRONT_LOAD_CREATE_TRACKING_ONLY_SHADERS,
 	.FRONT_LOAD_CREATE_UNGUARDED_VALIDATION_SHADERS,
 	.FRONT_LOAD_CREATE_GUARDED_VALIDATION_SHADERS,
@@ -4224,11 +4756,11 @@ DEBUG_DEVICE_GPU_SLOWDOWN_PERFORMANCE_FACTOR :: struct {
 IDebugDevice1_UUID_STRING :: "a9b71770-d099-4a65-a698-3dee10020f88"
 IDebugDevice1_UUID := &IID{0xa9b71770, 0xd099, 0x4a65, {0xa6, 0x98, 0x3d, 0xee, 0x10, 0x02, 0x0f, 0x88}}
 IDebugDevice1 :: struct #raw_union {
-	#subtype iunknown: IUnknown,
+	#subtype iunknown:               IUnknown,
 	using id3d12debugdevice1_vtable: ^IDebugDevice1_VTable,
 }
 IDebugDevice1_VTable :: struct {
-	using iunknown_vtable: IUnknown_VTable,
+	using iunknown_vtable:   IUnknown_VTable,
 	SetDebugParameter:       proc "system" (this: ^IDebugDevice1, Type: DEBUG_DEVICE_PARAMETER_TYPE, pData: rawptr, DataSize: u32) -> HRESULT,
 	GetDebugParameter:       proc "system" (this: ^IDebugDevice1, Type: DEBUG_DEVICE_PARAMETER_TYPE, pData: rawptr, DataSize: u32) -> HRESULT,
 	ReportLiveDeviceObjects: proc "system" (this: ^IDebugDevice1, Flags: RLDO_FLAGS) -> HRESULT,
@@ -4238,11 +4770,11 @@ IDebugDevice1_VTable :: struct {
 IDebugDevice_UUID_STRING :: "3febd6dd-4973-4787-8194-e45f9e28923e"
 IDebugDevice_UUID := &IID{0x3febd6dd, 0x4973, 0x4787, {0x81, 0x94, 0xe4, 0x5f, 0x9e, 0x28, 0x92, 0x3e}}
 IDebugDevice :: struct #raw_union {
-	#subtype iunknown: IUnknown,
+	#subtype iunknown:              IUnknown,
 	using id3d12debugdevice_vtable: ^IDebugDevice_VTable,
 }
 IDebugDevice_VTable :: struct {
-	using iunknown_vtable: IUnknown_VTable,
+	using iunknown_vtable:   IUnknown_VTable,
 	SetFeatureMask:          proc "system" (this: ^IDebugDevice, Mask: DEBUG_FEATURE) -> HRESULT,
 	GetFeatureMask:          proc "system" (this: ^IDebugDevice) -> DEBUG_FEATURE,
 	ReportLiveDeviceObjects: proc "system" (this: ^IDebugDevice, Flags: RLDO_FLAGS) -> HRESULT,
@@ -4252,25 +4784,25 @@ IDebugDevice_VTable :: struct {
 IDebugDevice2_UUID_STRING :: "60eccbc1-378d-4df1-894c-f8ac5ce4d7dd"
 IDebugDevice2_UUID := &IID{0x60eccbc1, 0x378d, 0x4df1, {0x89, 0x4c, 0xf8, 0xac, 0x5c, 0xe4, 0xd7, 0xdd}}
 IDebugDevice2 :: struct #raw_union {
-	#subtype id3d12debugdevice: IDebugDevice,
+	#subtype id3d12debugdevice:      IDebugDevice,
 	using id3d12debugdevice2_vtable: ^IDebugDevice2_VTable,
 }
 IDebugDevice2_VTable :: struct {
 	using id3d12debugdevice_vtable: IDebugDevice_VTable,
-	SetDebugParameter: proc "system" (this: ^IDebugDevice2, Type: DEBUG_DEVICE_PARAMETER_TYPE, pData: rawptr, DataSize: u32) -> HRESULT,
-	GetDebugParameter: proc "system" (this: ^IDebugDevice2, Type: DEBUG_DEVICE_PARAMETER_TYPE, pData: rawptr, DataSize: u32) -> HRESULT,
+	SetDebugParameter:              proc "system" (this: ^IDebugDevice2, Type: DEBUG_DEVICE_PARAMETER_TYPE, pData: rawptr, DataSize: u32) -> HRESULT,
+	GetDebugParameter:              proc "system" (this: ^IDebugDevice2, Type: DEBUG_DEVICE_PARAMETER_TYPE, pData: rawptr, DataSize: u32) -> HRESULT,
 }
 
 
 IDebugCommandQueue_UUID_STRING :: "09e0bf36-54ac-484f-8847-4baeeab6053a"
 IDebugCommandQueue_UUID := &IID{0x09e0bf36, 0x54ac, 0x484f, {0x88, 0x47, 0x4b, 0xae, 0xea, 0xb6, 0x05, 0x3a}}
 IDebugCommandQueue :: struct #raw_union {
-	#subtype iunknown: IUnknown,
+	#subtype iunknown:                    IUnknown,
 	using id3d12debugcommandqueue_vtable: ^IDebugCommandQueue_VTable,
 }
 IDebugCommandQueue_VTable :: struct {
 	using iunknown_vtable: IUnknown_VTable,
-	AssertResourceState: proc "system" (this: ^IDebugCommandQueue, pResource: ^IResource, Subresource: u32, State: u32) -> BOOL,
+	AssertResourceState:   proc "system" (this: ^IDebugCommandQueue, pResource: ^IResource, Subresource: u32, State: u32) -> BOOL,
 }
 
 DEBUG_COMMAND_LIST_PARAMETER_TYPE :: enum i32 {
@@ -4285,56 +4817,66 @@ DEBUG_COMMAND_LIST_GPU_BASED_VALIDATION_SETTINGS :: struct {
 IDebugCommandList1_UUID_STRING :: "102ca951-311b-4b01-b11f-ecb83e061b37"
 IDebugCommandList1_UUID := &IID{0x102ca951, 0x311b, 0x4b01, {0xb1, 0x1f, 0xec, 0xb8, 0x3e, 0x06, 0x1b, 0x37}}
 IDebugCommandList1 :: struct #raw_union {
-	#subtype iunknown: IUnknown,
+	#subtype iunknown:                    IUnknown,
 	using id3d12debugcommandlist1_vtable: ^IDebugCommandList1_VTable,
 }
 IDebugCommandList1_VTable :: struct {
 	using iunknown_vtable: IUnknown_VTable,
-	AssertResourceState: proc "system" (this: ^IDebugCommandList1, pResource: ^IResource, Subresource: u32, State: u32) -> BOOL,
-	SetDebugParameter:   proc "system" (this: ^IDebugCommandList1, Type: DEBUG_COMMAND_LIST_PARAMETER_TYPE, pData: rawptr, DataSize: u32) -> HRESULT,
-	GetDebugParameter:   proc "system" (this: ^IDebugCommandList1, Type: DEBUG_COMMAND_LIST_PARAMETER_TYPE, pData: rawptr, DataSize: u32) -> HRESULT,
+	AssertResourceState:   proc "system" (this: ^IDebugCommandList1, pResource: ^IResource, Subresource: u32, State: u32) -> BOOL,
+	SetDebugParameter:     proc "system" (this: ^IDebugCommandList1, Type: DEBUG_COMMAND_LIST_PARAMETER_TYPE, pData: rawptr, DataSize: u32) -> HRESULT,
+	GetDebugParameter:     proc "system" (this: ^IDebugCommandList1, Type: DEBUG_COMMAND_LIST_PARAMETER_TYPE, pData: rawptr, DataSize: u32) -> HRESULT,
 }
 
 
 IDebugCommandList_UUID_STRING :: "09e0bf36-54ac-484f-8847-4baeeab6053f"
 IDebugCommandList_UUID := &IID{0x09e0bf36, 0x54ac, 0x484f, {0x88, 0x47, 0x4b, 0xae, 0xea, 0xb6, 0x05, 0x3f}}
 IDebugCommandList :: struct #raw_union {
-	#subtype iunknown: IUnknown,
+	#subtype iunknown:                   IUnknown,
 	using id3d12debugcommandlist_vtable: ^IDebugCommandList_VTable,
 }
 IDebugCommandList_VTable :: struct {
 	using iunknown_vtable: IUnknown_VTable,
-	AssertResourceState: proc "system" (this: ^IDebugCommandList, pResource: ^IResource, Subresource: u32, State: u32) -> BOOL,
-	SetFeatureMask: proc "system" (this: ^IDebugCommandList, Mask: DEBUG_FEATURE) -> HRESULT,
-	GetFeatureMask: proc "system" (this: ^IDebugCommandList) -> DEBUG_FEATURE,
+	AssertResourceState:   proc "system" (this: ^IDebugCommandList, pResource: ^IResource, Subresource: u32, State: u32) -> BOOL,
+	SetFeatureMask:        proc "system" (this: ^IDebugCommandList, Mask: DEBUG_FEATURE) -> HRESULT,
+	GetFeatureMask:        proc "system" (this: ^IDebugCommandList) -> DEBUG_FEATURE,
 }
 
 
 IDebugCommandList2_UUID_STRING :: "aeb575cf-4e06-48be-ba3b-c450fc96652e"
 IDebugCommandList2_UUID := &IID{0xaeb575cf, 0x4e06, 0x48be, {0xba, 0x3b, 0xc4, 0x50, 0xfc, 0x96, 0x65, 0x2e}}
 IDebugCommandList2 :: struct #raw_union {
-	#subtype id3d12debugcommandlist: IDebugCommandList,
+	#subtype id3d12debugcommandlist:      IDebugCommandList,
 	using id3d12debugcommandlist2_vtable: ^IDebugCommandList2_VTable,
 }
 IDebugCommandList2_VTable :: struct {
 	using id3d12debugcommandlist_vtable: IDebugCommandList_VTable,
-	SetDebugParameter: proc "system" (this: ^IDebugCommandList2, Type: DEBUG_COMMAND_LIST_PARAMETER_TYPE, pData: rawptr, DataSize: u32) -> HRESULT,
-	GetDebugParameter: proc "system" (this: ^IDebugCommandList2, Type: DEBUG_COMMAND_LIST_PARAMETER_TYPE, pData: rawptr, DataSize: u32) -> HRESULT,
+	SetDebugParameter:                   proc "system" (
+		this: ^IDebugCommandList2,
+		Type: DEBUG_COMMAND_LIST_PARAMETER_TYPE,
+		pData: rawptr,
+		DataSize: u32,
+	) -> HRESULT,
+	GetDebugParameter:                   proc "system" (
+		this: ^IDebugCommandList2,
+		Type: DEBUG_COMMAND_LIST_PARAMETER_TYPE,
+		pData: rawptr,
+		DataSize: u32,
+	) -> HRESULT,
 }
 
 
 ISharingContract_UUID_STRING :: "0adf7d52-929c-4e61-addb-ffed30de66ef"
 ISharingContract_UUID := &IID{0x0adf7d52, 0x929c, 0x4e61, {0xad, 0xdb, 0xff, 0xed, 0x30, 0xde, 0x66, 0xef}}
 ISharingContract :: struct #raw_union {
-	#subtype iunknown: IUnknown,
+	#subtype iunknown:                  IUnknown,
 	using id3d12sharingcontract_vtable: ^ISharingContract_VTable,
 }
 ISharingContract_VTable :: struct {
 	using iunknown_vtable: IUnknown_VTable,
-	Present:             proc "system" (this: ^ISharingContract, pResource: ^IResource, Subresource: u32, window: HWND),
-	SharedFenceSignal:   proc "system" (this: ^ISharingContract, pFence: ^IFence, FenceValue: u64),
-	BeginCapturableWork: proc "system" (this: ^ISharingContract, guid: ^GUID),
-	EndCapturableWork:   proc "system" (this: ^ISharingContract, guid: ^GUID),
+	Present:               proc "system" (this: ^ISharingContract, pResource: ^IResource, Subresource: u32, window: HWND),
+	SharedFenceSignal:     proc "system" (this: ^ISharingContract, pFence: ^IFence, FenceValue: u64),
+	BeginCapturableWork:   proc "system" (this: ^ISharingContract, guid: ^GUID),
+	EndCapturableWork:     proc "system" (this: ^ISharingContract, guid: ^GUID),
 }
 
 MESSAGE_CATEGORY :: enum i32 {
@@ -5203,7 +5745,7 @@ MESSAGE_ID :: enum i32 {
 	CREATE_ROOT_SIGNATURE_UNBOUNDED_STATIC_DESCRIPTORS                                            = 1277,
 	CREATEAMPLIFICATIONSHADER_INVALIDSHADERBYTECODE                                               = 1278,
 	CREATEAMPLIFICATIONSHADER_OUTOFMEMORY                                                         = 1279,
-	MESSAGES_END                                                                            = 1280,
+	MESSAGES_END                                                                                  = 1280,
 }
 
 MESSAGE :: struct {
@@ -5232,14 +5774,19 @@ INFO_QUEUE_FILTER :: struct {
 IInfoQueue_UUID_STRING :: "0742a90b-c387-483f-b946-30a7e4e61458"
 IInfoQueue_UUID := &IID{0x0742a90b, 0xc387, 0x483f, {0xb9, 0x46, 0x30, 0xa7, 0xe4, 0xe6, 0x14, 0x58}}
 IInfoQueue :: struct #raw_union {
-	#subtype iunknown: IUnknown,
+	#subtype iunknown:            IUnknown,
 	using id3d12infoqueue_vtable: ^IInfoQueue_VTable,
 }
 IInfoQueue_VTable :: struct {
-	using iunknown_vtable: IUnknown_VTable,
+	using iunknown_vtable:                        IUnknown_VTable,
 	SetMessageCountLimit:                         proc "system" (this: ^IInfoQueue, MessageCountLimit: u64) -> HRESULT,
 	ClearStoredMessages:                          proc "system" (this: ^IInfoQueue),
-	GetMessageA:                                  proc "system" (this: ^IInfoQueue, MessageIndex: u64, pMessage: ^MESSAGE, pMessageByteLength: ^SIZE_T) -> HRESULT,
+	GetMessageA:                                  proc "system" (
+		this: ^IInfoQueue,
+		MessageIndex: u64,
+		pMessage: ^MESSAGE,
+		pMessageByteLength: ^SIZE_T,
+	) -> HRESULT,
 	GetNumMessagesAllowedByStorageFilter:         proc "system" (this: ^IInfoQueue) -> u64,
 	GetNumMessagesDeniedByStorageFilter:          proc "system" (this: ^IInfoQueue) -> u64,
 	GetNumStoredMessages:                         proc "system" (this: ^IInfoQueue) -> u64,
@@ -5262,7 +5809,13 @@ IInfoQueue_VTable :: struct {
 	PushRetrievalFilter:                          proc "system" (this: ^IInfoQueue, pFilter: ^INFO_QUEUE_FILTER) -> HRESULT,
 	PopRetrievalFilter:                           proc "system" (this: ^IInfoQueue),
 	GetRetrievalFilterStackSize:                  proc "system" (this: ^IInfoQueue) -> u32,
-	AddMessage:                                   proc "system" (this: ^IInfoQueue, Category: MESSAGE_CATEGORY, Severity: MESSAGE_SEVERITY, ID: MESSAGE_ID, pDescription: LPCSTR) -> HRESULT,
+	AddMessage:                                   proc "system" (
+		this: ^IInfoQueue,
+		Category: MESSAGE_CATEGORY,
+		Severity: MESSAGE_SEVERITY,
+		ID: MESSAGE_ID,
+		pDescription: LPCSTR,
+	) -> HRESULT,
 	AddApplicationMessage:                        proc "system" (this: ^IInfoQueue, Severity: MESSAGE_SEVERITY, pDescription: LPCSTR) -> HRESULT,
 	SetBreakOnCategory:                           proc "system" (this: ^IInfoQueue, Category: MESSAGE_CATEGORY, bEnable: BOOL) -> HRESULT,
 	SetBreakOnSeverity:                           proc "system" (this: ^IInfoQueue, Severity: MESSAGE_SEVERITY, bEnable: BOOL) -> HRESULT,
@@ -5274,7 +5827,7 @@ IInfoQueue_VTable :: struct {
 	GetMuteDebugOutput:                           proc "system" (this: ^IInfoQueue) -> BOOL,
 }
 
-MESSAGE_CALLBACK_FLAGS :: distinct bit_set[MESSAGE_CALLBACK_FLAG; u32]
+MESSAGE_CALLBACK_FLAGS :: distinct bit_set[MESSAGE_CALLBACK_FLAG;u32]
 MESSAGE_CALLBACK_FLAG :: enum {
 	IGNORE_FILTERS = 0,
 }
@@ -5284,25 +5837,31 @@ PFN_MESSAGE_CALLBACK :: #type proc "c" (Category: MESSAGE_CATEGORY, Severity: ME
 IInfoQueue1_UUID_STRING :: "2852dd88-b484-4c0c-b6b1-67168500e600"
 IInfoQueue1_UUID := &IID{0x2852dd88, 0xb484, 0x4c0c, {0xb6, 0xb1, 0x67, 0x16, 0x85, 0x00, 0xe6, 0x00}}
 IInfoQueue1 :: struct #raw_union {
-	#subtype iinfo_queue: IInfoQueue,
+	#subtype iinfo_queue:         IInfoQueue,
 	using idxgiinfoqueue1_vtable: ^IInfoQueue1_VTable,
 }
 IInfoQueue1_VTable :: struct {
 	using idxgiinfoqueue_vtable: IInfoQueue_VTable,
-	RegisterMessageCallback: proc "system" (this: ^IInfoQueue1, CallbackFunc: PFN_MESSAGE_CALLBACK, CallbackFilterFlags: MESSAGE_CALLBACK_FLAGS, pContext: rawptr, pCallbackCookie: ^u32) -> HRESULT,
-	UnregisterMessageCallback: proc "system" (this: ^IInfoQueue1, pCallbackCookie: u32) -> HRESULT,
+	RegisterMessageCallback:     proc "system" (
+		this: ^IInfoQueue1,
+		CallbackFunc: PFN_MESSAGE_CALLBACK,
+		CallbackFilterFlags: MESSAGE_CALLBACK_FLAGS,
+		pContext: rawptr,
+		pCallbackCookie: ^u32,
+	) -> HRESULT,
+	UnregisterMessageCallback:   proc "system" (this: ^IInfoQueue1, pCallbackCookie: u32) -> HRESULT,
 }
 
 
 ISDKConfiguration_UUID_STRING :: "E9EB5314-33AA-42B2-A718-D77F58B1F1C7"
 ISDKConfiguration_UUID := &IID{0xE9EB5314, 0x33AA, 0x42B2, {0xA7, 0x18, 0xD7, 0x7F, 0x58, 0xB1, 0xF1, 0xC7}}
 ISDKConfiguration :: struct #raw_union {
-	#subtype iunknown: IUnknown,
+	#subtype iunknown:                   IUnknown,
 	using id3d12sdkconfiguration_vtable: ^ISDKConfiguration_VTable,
 }
 ISDKConfiguration_VTable :: struct {
 	using iunknown_vtable: IUnknown_VTable,
-	SetSDKVersion: proc "system" (this: ^ISDKConfiguration, SDKVersion: u32, SDKPath: LPCSTR) -> HRESULT,
+	SetSDKVersion:         proc "system" (this: ^ISDKConfiguration, SDKVersion: u32, SDKPath: LPCSTR) -> HRESULT,
 }
 
 
@@ -5337,13 +5896,13 @@ SHADING_RATE_COMBINER :: enum i32 {
 IGraphicsCommandList5_UUID_STRING :: "55050859-4024-474c-87f5-6472eaee44ea"
 IGraphicsCommandList5_UUID := &IID{0x55050859, 0x4024, 0x474c, {0x87, 0xf5, 0x64, 0x72, 0xea, 0xee, 0x44, 0xea}}
 IGraphicsCommandList5 :: struct #raw_union {
-	#subtype id3d12graphicscommandlist4: IGraphicsCommandList4,
+	#subtype id3d12graphicscommandlist4:     IGraphicsCommandList4,
 	using id3d12graphicscommandlist5_vtable: ^IGraphicsCommandList5_VTable,
 }
 IGraphicsCommandList5_VTable :: struct {
 	using id3d12graphicscommandlist4_vtable: IGraphicsCommandList4_VTable,
-	RSSetShadingRate:      proc "system" (this: ^IGraphicsCommandList5, baseShadingRate: SHADING_RATE, combiners: ^SHADING_RATE_COMBINER),
-	RSSetShadingRateImage: proc "system" (this: ^IGraphicsCommandList5, shadingRateImage: ^IResource),
+	RSSetShadingRate:                        proc "system" (this: ^IGraphicsCommandList5, baseShadingRate: SHADING_RATE, combiners: ^SHADING_RATE_COMBINER),
+	RSSetShadingRateImage:                   proc "system" (this: ^IGraphicsCommandList5, shadingRateImage: ^IResource),
 }
 
 DISPATCH_MESH_ARGUMENTS :: struct {
@@ -5356,12 +5915,17 @@ DISPATCH_MESH_ARGUMENTS :: struct {
 IGraphicsCommandList6_UUID_STRING :: "c3827890-e548-4cfa-96cf-5689a9370f80"
 IGraphicsCommandList6_UUID := &IID{0xc3827890, 0xe548, 0x4cfa, {0x96, 0xcf, 0x56, 0x89, 0xa9, 0x37, 0x0f, 0x80}}
 IGraphicsCommandList6 :: struct #raw_union {
-	#subtype id3d12graphicscommandlist5: IGraphicsCommandList5,
+	#subtype id3d12graphicscommandlist5:     IGraphicsCommandList5,
 	using id3d12graphicscommandlist6_vtable: ^IGraphicsCommandList6_VTable,
 }
 IGraphicsCommandList6_VTable :: struct {
 	using id3d12graphicscommandlist5_vtable: IGraphicsCommandList5_VTable,
-	DispatchMesh: proc "system" (this: ^IGraphicsCommandList6, ThreadGroupCountX: u32, ThreadGroupCountY: u32, ThreadGroupCountZ: u32),
+	DispatchMesh:                            proc "system" (
+		this: ^IGraphicsCommandList6,
+		ThreadGroupCountX: u32,
+		ThreadGroupCountY: u32,
+		ThreadGroupCountZ: u32,
+	),
 }
 
 
@@ -5427,7 +5991,7 @@ BARRIER_SYNC_FLAG :: enum u32 {
 	SPLIT                                                 = 31, // 0x80000000
 }
 
-BARRIER_SYNC_FLAGS :: bit_set[BARRIER_SYNC_FLAG; u32]
+BARRIER_SYNC_FLAGS :: bit_set[BARRIER_SYNC_FLAG;u32]
 
 BARRIER_ACCESS_FLAG :: enum u32 {
 	VERTEX_BUFFER                           = 0, // 0x1
@@ -5457,7 +6021,7 @@ BARRIER_ACCESS_FLAG :: enum u32 {
 	NO_ACCESS                               = 31, // 0x80000000
 }
 
-BARRIER_ACCESS_FLAGS :: bit_set[BARRIER_ACCESS_FLAG; u32]
+BARRIER_ACCESS_FLAGS :: bit_set[BARRIER_ACCESS_FLAG;u32]
 
 BARRIER_TYPE :: enum i32 {
 	GLOBAL,
@@ -5495,7 +6059,7 @@ TEXTURE_BARRIER :: struct {
 	LayoutAfter:  BARRIER_LAYOUT,
 	pResource:    ^IResource,
 	Subresources: BARRIER_SUBRESOURCE_RANGE,
-	Flags: TEXTURE_BARRIER_FLAGS,
+	Flags:        TEXTURE_BARRIER_FLAGS,
 }
 
 BUFFER_BARRIER :: struct {
@@ -5511,10 +6075,10 @@ BUFFER_BARRIER :: struct {
 BARRIER_GROUP :: struct {
 	Type:        BARRIER_TYPE,
 	NumBarriers: u32,
-	using _: struct #raw_union {
-		pGlobalBarriers:  [^]GLOBAL_BARRIER  `raw_union_tag:"Type=GLOBAL"`,
+	using _:     struct #raw_union {
+		pGlobalBarriers:  [^]GLOBAL_BARRIER `raw_union_tag:"Type=GLOBAL"`,
 		pTextureBarriers: [^]TEXTURE_BARRIER `raw_union_tag:"Type=TEXTURE"`,
-		pBufferBarriers:  [^]BUFFER_BARRIER  `raw_union_tag:"Type=BARRIER"`,
+		pBufferBarriers:  [^]BUFFER_BARRIER `raw_union_tag:"Type=BARRIER"`,
 	},
 }
 
@@ -5522,12 +6086,12 @@ BARRIER_GROUP :: struct {
 IGraphicsCommandList7_UUID_STRING :: "dd171223-8b61-4769-90e3-160ccde4e2c1"
 IGraphicsCommandList7_UUID := &IID{0xdd171223, 0x8b61, 0x4769, {0x90, 0xe3, 0x16, 0x0c, 0xcd, 0xe4, 0xe2, 0xc1}}
 IGraphicsCommandList7 :: struct #raw_union {
-	#subtype id3d12graphicscommandlist6: IGraphicsCommandList6,
+	#subtype id3d12graphicscommandlist6:     IGraphicsCommandList6,
 	using id3d12graphicscommandlist7_vtable: ^IGraphicsCommandList7_VTable,
 }
 IGraphicsCommandList7_VTable :: struct {
 	using id3d12graphicscommandlist6_vtable: IGraphicsCommandList6_VTable,
-	Barrier: proc "system" (this: ^IGraphicsCommandList7, NumBarrierGroups: u32, pBarrierGroups: [^]BARRIER_GROUP),
+	Barrier:                                 proc "system" (this: ^IGraphicsCommandList7, NumBarrierGroups: u32, pBarrierGroups: [^]BARRIER_GROUP),
 }
 
 
@@ -5535,23 +6099,18 @@ SHADER_VERSION_TYPE :: enum u32 {
 	PIXEL_SHADER          = 0,
 	VERTEX_SHADER         = 1,
 	GEOMETRY_SHADER       = 2,
-
 	HULL_SHADER           = 3,
 	DOMAIN_SHADER         = 4,
 	COMPUTE_SHADER        = 5,
-
 	LIBRARY               = 6,
-
 	RAY_GENERATION_SHADER = 7,
 	INTERSECTION_SHADER   = 8,
 	ANY_HIT_SHADER        = 9,
 	CLOSEST_HIT_SHADER    = 10,
 	MISS_SHADER           = 11,
 	CALLABLE_SHADER       = 12,
-
 	MESH_SHADER           = 13,
 	AMPLIFICATION_SHADER  = 14,
-
 	RESERVED0             = 0xFFF0,
 }
 
@@ -5574,9 +6133,7 @@ SIGNATURE_PARAMETER_DESC :: struct {
 	SystemValueType: NAME,
 	ComponentType:   REGISTER_COMPONENT_TYPE,
 	Mask:            u8,
-
 	ReadWriteMask:   u8,
-
 	Stream:          u32,
 	MinPrecision:    MIN_PRECISION,
 }
@@ -5616,12 +6173,10 @@ SHADER_DESC :: struct {
 	Version:                     u32,
 	Creator:                     LPCSTR,
 	Flags:                       u32,
-
 	ConstantBuffers:             u32,
 	BoundResources:              u32,
 	InputParameters:             u32,
 	OutputParameters:            u32,
-
 	InstructionCount:            u32,
 	TempRegisterCount:           u32,
 	TempArrayCount:              u32,
@@ -5650,7 +6205,6 @@ SHADER_DESC :: struct {
 	HSOutputPrimitive:           TESSELLATOR_OUTPUT_PRIMITIVE,
 	HSPartitioning:              TESSELLATOR_PARTITIONING,
 	TessellatorDomain:           TESSELLATOR_DOMAIN,
-
 	cBarrierInstructions:        u32,
 	cInterlockedInstructions:    u32,
 	cTextureStoreInstructions:   u32,
@@ -5661,7 +6215,6 @@ SHADER_INPUT_BIND_DESC :: struct {
 	Type:       SHADER_INPUT_TYPE,
 	BindPoint:  u32,
 	BindCount:  u32,
-
 	uFlags:     u32,
 	ReturnType: RESOURCE_RETURN_TYPE,
 	Dimension:  SRV_DIMENSION,
@@ -5670,7 +6223,7 @@ SHADER_INPUT_BIND_DESC :: struct {
 	uID:        u32,
 }
 
-SHADER_REQUIRES_FLAGS :: distinct bit_set[SHADER_REQUIRES; u64]
+SHADER_REQUIRES_FLAGS :: distinct bit_set[SHADER_REQUIRES;u64]
 SHADER_REQUIRES :: enum u64 {
 	DOUBLES                                                        = 0,
 	EARLY_DEPTH_STENCIL                                            = 1,
@@ -5713,10 +6266,8 @@ FUNCTION_DESC :: struct {
 	Version:                     u32,
 	Creator:                     LPCSTR,
 	Flags:                       u32,
-
 	ConstantBuffers:             u32,
 	BoundResources:              u32,
-
 	InstructionCount:            u32,
 	TempRegisterCount:           u32,
 	TempArrayCount:              u32,
@@ -5740,7 +6291,6 @@ FUNCTION_DESC :: struct {
 	BitwiseInstructionCount:     u32,
 	MinFeatureLevel:             FEATURE_LEVEL,
 	RequiredFeatureFlags:        u64,
-
 	Name:                        LPCSTR,
 	FunctionParameterCount:      i32,
 	HasReturn:                   BOOL,
@@ -5757,7 +6307,6 @@ PARAMETER_DESC :: struct {
 	Columns:           u32,
 	InterpolationMode: INTERPOLATION_MODE,
 	Flags:             PARAMETER_FLAGS,
-
 	FirstInRegister:   u32,
 	FirstInComponent:  u32,
 	FirstOutRegister:  u32,
@@ -5809,11 +6358,11 @@ IShaderReflectionConstantBuffer_VTable :: struct {
 IShaderReflection_UUID_STRING :: "5A58797D-A72C-478D-8BA2-EFC6B0EFE88E"
 IShaderReflection_UUID := &IID{0x5A58797D, 0xA72C, 0x478D, {0x8B, 0xA2, 0xEF, 0xC6, 0xB0, 0xEF, 0xE8, 0x8E}}
 IShaderReflection :: struct #raw_union {
-	#subtype iunknown: IUnknown,
+	#subtype iunknown:                   IUnknown,
 	using id3d12shaderreflection_vtable: ^IShaderReflection_VTable,
 }
 IShaderReflection_VTable :: struct {
-	using iunknown_vtable: IUnknown_VTable,
+	using iunknown_vtable:         IUnknown_VTable,
 	GetDesc:                       proc "system" (this: ^IShaderReflection, pDesc: ^SHADER_DESC) -> HRESULT,
 	GetConstantBufferByIndex:      proc "system" (this: ^IShaderReflection, Index: u32) -> ^IShaderReflectionConstantBuffer,
 	GetConstantBufferByName:       proc "system" (this: ^IShaderReflection, Name: LPCSTR) -> ^IShaderReflectionConstantBuffer,
@@ -5838,13 +6387,13 @@ IShaderReflection_VTable :: struct {
 ILibraryReflection_UUID_STRING :: "8E349D19-54DB-4A56-9DC9-119D87BDB804"
 ILibraryReflection_UUID := &IID{0x8E349D19, 0x54DB, 0x4A56, {0x9D, 0xC9, 0x11, 0x9D, 0x87, 0xBD, 0xB8, 0x04}}
 ILibraryReflection :: struct #raw_union {
-	#subtype iunknown: IUnknown,
+	#subtype iunknown:                    IUnknown,
 	using id3d12libraryreflection_vtable: ^ILibraryReflection_VTable,
 }
 ILibraryReflection_VTable :: struct {
 	using iunknown_vtable: IUnknown_VTable,
-	GetDesc:            proc "system" (this: ^ILibraryReflection, pDesc: ^LIBRARY_DESC) -> HRESULT,
-	GetFunctionByIndex: proc "system" (this: ^ILibraryReflection, FunctionIndex: i32) -> ^IFunctionReflection,
+	GetDesc:               proc "system" (this: ^ILibraryReflection, pDesc: ^LIBRARY_DESC) -> HRESULT,
+	GetFunctionByIndex:    proc "system" (this: ^ILibraryReflection, FunctionIndex: i32) -> ^IFunctionReflection,
 }
 
 IFunctionReflection_UUID_STRING :: "1108795C-2772-4BA9-B2A8-D464DC7E2799"

@@ -10,23 +10,31 @@ ENABLE_VALIDATION :: false
 BOX3D_SHARED :: #config(BOX3D_SHARED, false)
 
 @(private)
-LIB_PATH :: (
-	     "lib/box3d_wasm.o"           when ODIN_ARCH == .wasm32 || ODIN_ARCH == .wasm64p32
-	else "lib/linux-amd64/libbox3d.a" when ODIN_OS == .Linux && ODIN_ARCH == .amd64 && !BOX3D_SHARED
-	else "lib/linux-arm64/libbox3d.a" when ODIN_OS == .Linux && ODIN_ARCH == .arm64 && !BOX3D_SHARED
-	else "lib/darwin/libbox3d.a"      when ODIN_OS == .Darwin && (ODIN_ARCH == .amd64 || ODIN_ARCH == .arm64) && !BOX3D_SHARED
-	else "lib/box3ddll.lib"           when ODIN_OS == .Windows && BOX3D_SHARED
-	else "lib/box3d.lib"              when ODIN_OS == .Windows
-	else ""
-)
+LIB_PATH ::
+	("lib/box3d_wasm.o" when ODIN_ARCH == .wasm32 ||
+		ODIN_ARCH == .wasm64p32 else "lib/linux-amd64/libbox3d.a" when ODIN_OS == .Linux &&
+		ODIN_ARCH == .amd64 &&
+		!BOX3D_SHARED else "lib/linux-arm64/libbox3d.a" when ODIN_OS == .Linux &&
+		ODIN_ARCH == .arm64 &&
+		!BOX3D_SHARED else "lib/darwin/libbox3d.a" when ODIN_OS == .Darwin &&
+		(ODIN_ARCH == .amd64 || ODIN_ARCH == .arm64) &&
+		!BOX3D_SHARED else "lib/box3ddll.lib" when ODIN_OS == .Windows &&
+		BOX3D_SHARED else "lib/box3d.lib" when ODIN_OS ==
+		.Windows else "")
 
 when LIB_PATH != "" {
 	when !#exists(LIB_PATH) {
-		#panic("Could not find the compiled Box3D library at \"" + LIB_PATH + "\", it can be compiled by running `\"" + ODIN_ROOT + "vendor/box3d/src/build.sh\"`")
+		#panic(
+			"Could not find the compiled Box3D library at \"" +
+			LIB_PATH +
+			"\", it can be compiled by running `\"" +
+			ODIN_ROOT +
+			"vendor/box3d/src/build.sh\"`",
+		)
 	}
 
 	@(export)
-	foreign import lib { LIB_PATH }
+	foreign import lib {LIB_PATH}
 } else {
 	@(export)
 	foreign import lib "system:box3d"
@@ -53,7 +61,7 @@ LogFcn :: proc "c" (message: rawptr)
 
 BREAKPOINT :: intrinsics.debug_trap
 
-@(link_prefix="b3", default_calling_convention="c", require_results)
+@(link_prefix = "b3", default_calling_convention = "c", require_results)
 foreign lib {
 	// This allows the user to override the allocation functions. These should be
 	//	set during application startup.
@@ -77,10 +85,10 @@ foreign lib {
 // See https://semver.org/
 Version :: struct {
 	// Significant changes
-	major: c.int,
+	major:    c.int,
 
 	// Incremental changes
-	minor: c.int,
+	minor:    c.int,
 
 	// Bug fixes
 	revision: c.int,
@@ -88,7 +96,7 @@ Version :: struct {
 
 HASH_INIT :: 5381
 
-@(link_prefix="b3", default_calling_convention="c", require_results)
+@(link_prefix = "b3", default_calling_convention = "c", require_results)
 foreign lib {
 	// Get the current version of Box3D
 	GetVersion :: proc() -> Version ---
@@ -120,7 +128,7 @@ foreign lib {
 }
 
 
-@(disabled=ODIN_DISABLE_ASSERT)
+@(disabled = ODIN_DISABLE_ASSERT)
 ASSERT :: proc "c" (condition: bool, message := #caller_expression(condition), loc := #caller_location) {
 	if !condition {
 		@(cold)
@@ -131,11 +139,10 @@ ASSERT :: proc "c" (condition: bool, message := #caller_expression(condition), l
 	}
 }
 
-@(disabled=!ENABLE_VALIDATION)
+@(disabled = !ENABLE_VALIDATION)
 VALIDATE :: proc "c" (condition: bool, message := #caller_expression(condition), loc := #caller_location) {
 	ASSERT(condition, message, loc)
 }
-
 
 
 /**
@@ -149,21 +156,21 @@ VALIDATE :: proc "c" (condition: bool, message := #caller_expression(condition),
  * @{
  */
 
- // Opaque recording handle. Create with CreateRecording, destroy with DestroyRecording.
-Recording :: struct{}
+// Opaque recording handle. Create with CreateRecording, destroy with DestroyRecording.
+Recording :: struct {}
 
 
 // Opaque incremental replay player with a keyframe ring for O(interval) backward seek.
-RecPlayer :: struct{}
+RecPlayer :: struct {}
 
 // Summary of a recording, read once at open so a viewer can frame and label it.
 RecPlayerInfo :: struct {
 	frameCount:   c.int, // total recorded steps
 	workerCount:  c.int, // worker count requested for the replay world
-	timeStep:     f32,   // dt of the recorded steps
+	timeStep:     f32, // dt of the recorded steps
 	subStepCount: c.int, // recorded sub-steps
-	lengthScale:  f32,   // length units per meter in effect when recorded
-	bounds:       AABB,  // accumulated world bounds over the recording, zero-extent if unavailable
+	lengthScale:  f32, // length units per meter in effect when recorded
+	bounds:       AABB, // accumulated world bounds over the recording, zero-extent if unavailable
 }
 
 // The kind of a recorded spatial query, matching the public query and cast functions.
@@ -181,12 +188,12 @@ RecQueryType :: enum c.int {
 RecQueryInfo :: struct {
 	type:        RecQueryType,
 	filter:      QueryFilter,
-	aabb:        AABB,    // world-space bounds of the query, swept for casts
-	origin:      Pos,     // query origin (zero for overlap AABB)
-	translation: Vec3,    // ray and cast translation
-	hitCount:    c.int,   // number of recorded results
-	key:         u64,     // identity key, the hash of (id, name), 0 if untagged
-	id:          u64,     // query id, 0 if none
+	aabb:        AABB, // world-space bounds of the query, swept for casts
+	origin:      Pos, // query origin (zero for overlap AABB)
+	translation: Vec3, // ray and cast translation
+	hitCount:    c.int, // number of recorded results
+	key:         u64, // identity key, the hash of (id, name), 0 if untagged
+	id:          u64, // query id, 0 if none
 	name:        cstring, // query label, NULL if none
 }
 
@@ -199,7 +206,7 @@ RecQueryHit :: struct {
 }
 
 
-@(link_prefix="b3", default_calling_convention="c", require_results)
+@(link_prefix = "b3", default_calling_convention = "c", require_results)
 foreign lib {
 	// Create a world for rigid body simulation. A world contains bodies, shapes, and constraints. You may create
 	// up to 128 worlds. Each world is completely independent and may be simulated in parallel.
@@ -427,7 +434,7 @@ foreign lib {
 	// Create a recording buffer with an optional initial byte capacity.
 	// Pass 0 to use the default (64 KiB). The buffer grows on demand.
 	// @return a new recording, owned by the caller
-	 CreateRecording :: proc(byteCapacity: c.int) -> Recording ---
+	CreateRecording :: proc(byteCapacity: c.int) -> Recording ---
 
 	// Destroy a recording and free its buffer.
 	// @param recording may be NULL
@@ -462,7 +469,7 @@ foreign lib {
 	// Load a recording from a file. Returns NULL on failure (file not found, wrong magic).
 	// The caller owns the returned recording and must destroy it with DestroyRecording.
 	// @param path file path to read
-	 LoadRecordingFromFile :: proc(path: cstring) -> Recording ---
+	LoadRecordingFromFile :: proc(path: cstring) -> Recording ---
 
 	// Replay a recording from memory and verify it reproduces the same world-state hashes.
 	// Stands up a fresh world, restores the seed snapshot, replays every op, and checks each embedded
@@ -1138,7 +1145,7 @@ foreign lib {
 	// @param lift the lift coefficient, the force that is perpendicular to the relative velocity
 	// @param maxSpeed the maximum relative speed. Speed cap is necessary for stability. Typically 10m/s or less.
 	// @param wake should this wake the body
-	Shape_ApplyWind :: proc(shapeId: ShapeId, wind: Vec3 , drag, lift: f32, maxSpeed: f32, wake: bool) ---
+	Shape_ApplyWind :: proc(shapeId: ShapeId, wind: Vec3, drag, lift: f32, maxSpeed: f32, wake: bool) ---
 
 	/** @} */ // shape
 

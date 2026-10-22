@@ -7,13 +7,17 @@ package darwin_AppKit
 import "base:intrinsics"
 import "base:runtime"
 import "core:strings"
-import NS   "core:sys/darwin/Foundation"
+import NS "core:sys/darwin/Foundation"
 import ObjC "core:sys/darwin/ObjectiveC"
 
-@(private) _UINTEGER_ENCODING :: "Q"
-@(private) _POINT_ENCODING    :: "{CGPoint=dd}"
-@(private) _SIZE_ENCODING     :: "{CGSize=dd}"
-@(private) _RECT_ENCODING     :: "{CGRect=" + _POINT_ENCODING + _SIZE_ENCODING + "}"
+@(private)
+_UINTEGER_ENCODING :: "Q"
+@(private)
+_POINT_ENCODING :: "{CGPoint=dd}"
+@(private)
+_SIZE_ENCODING :: "{CGSize=dd}"
+@(private)
+_RECT_ENCODING :: "{CGRect=" + _POINT_ENCODING + _SIZE_ENCODING + "}"
 
 ApplicationDelegateTemplate :: struct {
 	// Launching Applications
@@ -47,7 +51,11 @@ ApplicationDelegateTemplate :: struct {
 	applicationDidChangeScreenParameters:                        proc(notification: ^Notification),
 	// Continuing User Activities
 	applicationWillContinueUserActivityWithType:                 proc(application: ^Application, userActivityType: ^String) -> bool,
-	applicationContinueUserActivityRestorationHandler:           proc(application: ^Application, userActivity: ^UserActivity, restorationHandler: ^NS.Block) -> bool,
+	applicationContinueUserActivityRestorationHandler:           proc(
+		application: ^Application,
+		userActivity: ^UserActivity,
+		restorationHandler: ^NS.Block,
+	) -> bool,
 	applicationDidFailToContinueUserActivityWithTypeError:       proc(application: ^Application, userActivityType: ^String, error: ^Error),
 	applicationDidUpdateUserActivity:                            proc(application: ^Application, userActivity: ^UserActivity),
 	// Handling Push Notifications
@@ -70,7 +78,12 @@ ApplicationDelegateTemplate :: struct {
 	applicationOpenUntitledFile:                                 proc(sender: ^Application) -> bool,
 	// Printing
 	applicationPrintFile:                                        proc(sender: ^Application, filename: ^String) -> bool,
-	applicationPrintFilesWithSettingsShowPrintPanels:            proc(application: ^Application, fileNames: ^Array, printSettings: ^Dictionary, showPrintPanels: bool) -> ApplicationPrintReply,
+	applicationPrintFilesWithSettingsShowPrintPanels:            proc(
+		application: ^Application,
+		fileNames: ^Array,
+		printSettings: ^Dictionary,
+		showPrintPanels: bool,
+	) -> ApplicationPrintReply,
 	// Restoring Application State
 	applicationSupportsSecureRestorableState:                    proc(app: ^Application) -> bool,
 	applicationProtectedDataDidBecomeAvailable:                  proc(notification: ^Notification),
@@ -85,12 +98,20 @@ ApplicationDelegateTemplate :: struct {
 
 @(private)
 _ApplicationDelegateInternal :: struct {
-	using _: ApplicationDelegateTemplate,
+	using _:  ApplicationDelegateTemplate,
 	_context: runtime.Context,
 }
 
-application_delegate_register_and_alloc :: proc(template: ApplicationDelegateTemplate, class_name: string, delegate_context: Maybe(runtime.Context)) -> ^ApplicationDelegate {
-	class := ObjC.objc_allocateClassPair(intrinsics.objc_find_class("NSObject"), strings.clone_to_cstring(class_name, context.temp_allocator), 0); if class == nil {
+application_delegate_register_and_alloc :: proc(
+	template: ApplicationDelegateTemplate,
+	class_name: string,
+	delegate_context: Maybe(runtime.Context),
+) -> ^ApplicationDelegate {
+	class := ObjC.objc_allocateClassPair(
+		intrinsics.objc_find_class("NSObject"),
+		strings.clone_to_cstring(class_name, context.temp_allocator),
+		0,
+	); if class == nil {
 		// Class already registered
 		return nil
 	}
@@ -148,7 +169,12 @@ application_delegate_register_and_alloc :: proc(template: ApplicationDelegateTem
 			context = del._context
 			return del.applicationShouldTerminate(sender)
 		}
-		ObjC.class_addMethod(class, intrinsics.objc_find_selector("applicationShouldTerminate:"), auto_cast applicationShouldTerminate, _UINTEGER_ENCODING+"@:@")
+		ObjC.class_addMethod(
+			class,
+			intrinsics.objc_find_selector("applicationShouldTerminate:"),
+			auto_cast applicationShouldTerminate,
+			_UINTEGER_ENCODING + "@:@",
+		)
 	}
 	if template.applicationShouldTerminateAfterLastWindowClosed != nil {
 		applicationShouldTerminateAfterLastWindowClosed :: proc "c" (self: id, cmd: SEL, sender: ^Application) -> bool {
@@ -156,7 +182,12 @@ application_delegate_register_and_alloc :: proc(template: ApplicationDelegateTem
 			context = del._context
 			return del.applicationShouldTerminateAfterLastWindowClosed(sender)
 		}
-		ObjC.class_addMethod(class, intrinsics.objc_find_selector("applicationShouldTerminateAfterLastWindowClosed:"), auto_cast applicationShouldTerminateAfterLastWindowClosed, "B@:@")
+		ObjC.class_addMethod(
+			class,
+			intrinsics.objc_find_selector("applicationShouldTerminateAfterLastWindowClosed:"),
+			auto_cast applicationShouldTerminateAfterLastWindowClosed,
+			"B@:@",
+		)
 	}
 	if template.applicationWillTerminate != nil {
 		applicationWillTerminate :: proc "c" (self: id, cmd: SEL, notification: ^Notification) {
@@ -220,7 +251,12 @@ application_delegate_register_and_alloc :: proc(template: ApplicationDelegateTem
 			context = del._context
 			return del.applicationShouldHandleReopenHasVisibleWindows(sender, flag)
 		}
-		ObjC.class_addMethod(class, intrinsics.objc_find_selector("applicationShouldHandleReopen:hasVisibleWindows:"), auto_cast applicationShouldHandleReopenHasVisibleWindows, "B@:@B")
+		ObjC.class_addMethod(
+			class,
+			intrinsics.objc_find_selector("applicationShouldHandleReopen:hasVisibleWindows:"),
+			auto_cast applicationShouldHandleReopenHasVisibleWindows,
+			"B@:@B",
+		)
 	}
 	if template.applicationDockMenu != nil {
 		applicationDockMenu :: proc "c" (self: id, cmd: SEL, sender: ^Application) -> ^Menu {
@@ -236,7 +272,12 @@ application_delegate_register_and_alloc :: proc(template: ApplicationDelegateTem
 			context = del._context
 			return del.applicationShouldAutomaticallyLocalizeKeyEquivalents(application)
 		}
-		ObjC.class_addMethod(class, intrinsics.objc_find_selector("applicationShouldAutomaticallyLocalizeKeyEquivalents:"), auto_cast applicationShouldAutomaticallyLocalizeKeyEquivalents, "B@:@")
+		ObjC.class_addMethod(
+			class,
+			intrinsics.objc_find_selector("applicationShouldAutomaticallyLocalizeKeyEquivalents:"),
+			auto_cast applicationShouldAutomaticallyLocalizeKeyEquivalents,
+			"B@:@",
+		)
 	}
 	if template.applicationWillPresentError != nil {
 		applicationWillPresentError :: proc "c" (self: id, cmd: SEL, application: ^Application, error: ^Error) -> ^Error {
@@ -252,7 +293,12 @@ application_delegate_register_and_alloc :: proc(template: ApplicationDelegateTem
 			context = del._context
 			del.applicationDidChangeScreenParameters(notification)
 		}
-		ObjC.class_addMethod(class, intrinsics.objc_find_selector("applicationDidChangeScreenParameters:"), auto_cast applicationDidChangeScreenParameters, "v@:@")
+		ObjC.class_addMethod(
+			class,
+			intrinsics.objc_find_selector("applicationDidChangeScreenParameters:"),
+			auto_cast applicationDidChangeScreenParameters,
+			"v@:@",
+		)
 	}
 	if template.applicationWillContinueUserActivityWithType != nil {
 		applicationWillContinueUserActivityWithType :: proc "c" (self: id, cmd: SEL, application: ^Application, userActivityType: ^String) -> bool {
@@ -260,23 +306,50 @@ application_delegate_register_and_alloc :: proc(template: ApplicationDelegateTem
 			context = del._context
 			return del.applicationWillContinueUserActivityWithType(application, userActivityType)
 		}
-		ObjC.class_addMethod(class, intrinsics.objc_find_selector("application:willContinueUserActivityWithType:"), auto_cast applicationWillContinueUserActivityWithType, "B@:@@")
+		ObjC.class_addMethod(
+			class,
+			intrinsics.objc_find_selector("application:willContinueUserActivityWithType:"),
+			auto_cast applicationWillContinueUserActivityWithType,
+			"B@:@@",
+		)
 	}
 	if template.applicationContinueUserActivityRestorationHandler != nil {
-		applicationContinueUserActivityRestorationHandler :: proc "c" (self: id, cmd: SEL, application: ^Application, userActivity: ^UserActivity, restorationHandler: ^NS.Block) -> bool {
+		applicationContinueUserActivityRestorationHandler :: proc "c" (
+			self: id,
+			cmd: SEL,
+			application: ^Application,
+			userActivity: ^UserActivity,
+			restorationHandler: ^NS.Block,
+		) -> bool {
 			del := cast(^_ApplicationDelegateInternal)ObjC.object_getIndexedIvars(self)
 			context = del._context
 			return del.applicationContinueUserActivityRestorationHandler(application, userActivity, restorationHandler)
 		}
-		ObjC.class_addMethod(class, intrinsics.objc_find_selector("application:continueUserActivity:restorationHandler:"), auto_cast applicationContinueUserActivityRestorationHandler, "B@:@@?")
+		ObjC.class_addMethod(
+			class,
+			intrinsics.objc_find_selector("application:continueUserActivity:restorationHandler:"),
+			auto_cast applicationContinueUserActivityRestorationHandler,
+			"B@:@@?",
+		)
 	}
 	if template.applicationDidFailToContinueUserActivityWithTypeError != nil {
-		applicationDidFailToContinueUserActivityWithTypeError :: proc "c" (self: id, cmd: SEL, application: ^Application, userActivityType: ^String, error: ^Error) {
+		applicationDidFailToContinueUserActivityWithTypeError :: proc "c" (
+			self: id,
+			cmd: SEL,
+			application: ^Application,
+			userActivityType: ^String,
+			error: ^Error,
+		) {
 			del := cast(^_ApplicationDelegateInternal)ObjC.object_getIndexedIvars(self)
 			context = del._context
 			del.applicationDidFailToContinueUserActivityWithTypeError(application, userActivityType, error)
 		}
-		ObjC.class_addMethod(class, intrinsics.objc_find_selector("application:didFailToContinueUserActivityWithType:error:"), auto_cast applicationDidFailToContinueUserActivityWithTypeError, "v@:@@@")
+		ObjC.class_addMethod(
+			class,
+			intrinsics.objc_find_selector("application:didFailToContinueUserActivityWithType:error:"),
+			auto_cast applicationDidFailToContinueUserActivityWithTypeError,
+			"v@:@@@",
+		)
 	}
 	if template.applicationDidUpdateUserActivity != nil {
 		applicationDidUpdateUserActivity :: proc "c" (self: id, cmd: SEL, application: ^Application, userActivity: ^UserActivity) {
@@ -292,7 +365,12 @@ application_delegate_register_and_alloc :: proc(template: ApplicationDelegateTem
 			context = del._context
 			del.applicationDidRegisterForRemoteNotificationsWithDeviceToken(application, deviceToken)
 		}
-		ObjC.class_addMethod(class, intrinsics.objc_find_selector("application:didRegisterForRemoteNotificationsWithDeviceToken:"), auto_cast applicationDidRegisterForRemoteNotificationsWithDeviceToken, "v@:@@")
+		ObjC.class_addMethod(
+			class,
+			intrinsics.objc_find_selector("application:didRegisterForRemoteNotificationsWithDeviceToken:"),
+			auto_cast applicationDidRegisterForRemoteNotificationsWithDeviceToken,
+			"v@:@@",
+		)
 	}
 	if template.applicationDidFailToRegisterForRemoteNotificationsWithError != nil {
 		applicationDidFailToRegisterForRemoteNotificationsWithError :: proc "c" (self: id, cmd: SEL, application: ^Application, error: ^Error) {
@@ -300,7 +378,12 @@ application_delegate_register_and_alloc :: proc(template: ApplicationDelegateTem
 			context = del._context
 			del.applicationDidFailToRegisterForRemoteNotificationsWithError(application, error)
 		}
-		ObjC.class_addMethod(class, intrinsics.objc_find_selector("application:didFailToRegisterForRemoteNotificationsWithError:"), auto_cast applicationDidFailToRegisterForRemoteNotificationsWithError, "v@:@@")
+		ObjC.class_addMethod(
+			class,
+			intrinsics.objc_find_selector("application:didFailToRegisterForRemoteNotificationsWithError:"),
+			auto_cast applicationDidFailToRegisterForRemoteNotificationsWithError,
+			"v@:@@",
+		)
 	}
 	if template.applicationDidReceiveRemoteNotification != nil {
 		applicationDidReceiveRemoteNotification :: proc "c" (self: id, cmd: SEL, application: ^Application, userInfo: ^Dictionary) {
@@ -308,7 +391,12 @@ application_delegate_register_and_alloc :: proc(template: ApplicationDelegateTem
 			context = del._context
 			del.applicationDidReceiveRemoteNotification(application, userInfo)
 		}
-		ObjC.class_addMethod(class, intrinsics.objc_find_selector("application:didReceiveRemoteNotification:"), auto_cast applicationDidReceiveRemoteNotification, "v@:@@")
+		ObjC.class_addMethod(
+			class,
+			intrinsics.objc_find_selector("application:didReceiveRemoteNotification:"),
+			auto_cast applicationDidReceiveRemoteNotification,
+			"v@:@@",
+		)
 	}
 	// if template.applicationUserDidAcceptCloudKitShareWithMetadata != nil {
 	// 	applicationUserDidAcceptCloudKitShareWithMetadata :: proc "c" (self: id, cmd: SEL, application: ^Application, metadata: ^CKShareMetadata) {
@@ -391,12 +479,24 @@ application_delegate_register_and_alloc :: proc(template: ApplicationDelegateTem
 		ObjC.class_addMethod(class, intrinsics.objc_find_selector("application:printFile:"), auto_cast applicationPrintFile, "B@:@@")
 	}
 	if template.applicationPrintFilesWithSettingsShowPrintPanels != nil {
-		applicationPrintFilesWithSettingsShowPrintPanels :: proc "c" (self: id, cmd: SEL, application: ^Application, fileNames: ^Array, printSettings: ^Dictionary, showPrintPanels: bool) -> ApplicationPrintReply {
+		applicationPrintFilesWithSettingsShowPrintPanels :: proc "c" (
+			self: id,
+			cmd: SEL,
+			application: ^Application,
+			fileNames: ^Array,
+			printSettings: ^Dictionary,
+			showPrintPanels: bool,
+		) -> ApplicationPrintReply {
 			del := cast(^_ApplicationDelegateInternal)ObjC.object_getIndexedIvars(self)
 			context = del._context
 			return del.applicationPrintFilesWithSettingsShowPrintPanels(application, fileNames, printSettings, showPrintPanels)
 		}
-		ObjC.class_addMethod(class, intrinsics.objc_find_selector("application:printFiles:withSettings:showPrintPanels:"), auto_cast applicationPrintFilesWithSettingsShowPrintPanels, _UINTEGER_ENCODING+"@:@@@B")
+		ObjC.class_addMethod(
+			class,
+			intrinsics.objc_find_selector("application:printFiles:withSettings:showPrintPanels:"),
+			auto_cast applicationPrintFilesWithSettingsShowPrintPanels,
+			_UINTEGER_ENCODING + "@:@@@B",
+		)
 	}
 	if template.applicationSupportsSecureRestorableState != nil {
 		applicationSupportsSecureRestorableState :: proc "c" (self: id, cmd: SEL, app: ^Application) -> bool {
@@ -404,7 +504,12 @@ application_delegate_register_and_alloc :: proc(template: ApplicationDelegateTem
 			context = del._context
 			return del.applicationSupportsSecureRestorableState(app)
 		}
-		ObjC.class_addMethod(class, intrinsics.objc_find_selector("applicationSupportsSecureRestorableState:"), auto_cast applicationSupportsSecureRestorableState, "B@:@")
+		ObjC.class_addMethod(
+			class,
+			intrinsics.objc_find_selector("applicationSupportsSecureRestorableState:"),
+			auto_cast applicationSupportsSecureRestorableState,
+			"B@:@",
+		)
 	}
 	if template.applicationProtectedDataDidBecomeAvailable != nil {
 		applicationProtectedDataDidBecomeAvailable :: proc "c" (self: id, cmd: SEL, notification: ^Notification) {
@@ -412,7 +517,12 @@ application_delegate_register_and_alloc :: proc(template: ApplicationDelegateTem
 			context = del._context
 			del.applicationProtectedDataDidBecomeAvailable(notification)
 		}
-		ObjC.class_addMethod(class, intrinsics.objc_find_selector("applicationProtectedDataDidBecomeAvailable:"), auto_cast applicationProtectedDataDidBecomeAvailable, "v@:@")
+		ObjC.class_addMethod(
+			class,
+			intrinsics.objc_find_selector("applicationProtectedDataDidBecomeAvailable:"),
+			auto_cast applicationProtectedDataDidBecomeAvailable,
+			"v@:@",
+		)
 	}
 	if template.applicationProtectedDataWillBecomeUnavailable != nil {
 		applicationProtectedDataWillBecomeUnavailable :: proc "c" (self: id, cmd: SEL, notification: ^Notification) {
@@ -420,7 +530,12 @@ application_delegate_register_and_alloc :: proc(template: ApplicationDelegateTem
 			context = del._context
 			del.applicationProtectedDataWillBecomeUnavailable(notification)
 		}
-		ObjC.class_addMethod(class, intrinsics.objc_find_selector("applicationProtectedDataWillBecomeUnavailable:"), auto_cast applicationProtectedDataWillBecomeUnavailable, "v@:@")
+		ObjC.class_addMethod(
+			class,
+			intrinsics.objc_find_selector("applicationProtectedDataWillBecomeUnavailable:"),
+			auto_cast applicationProtectedDataWillBecomeUnavailable,
+			"v@:@",
+		)
 	}
 	if template.applicationWillEncodeRestorableState != nil {
 		applicationWillEncodeRestorableState :: proc "c" (self: id, cmd: SEL, app: ^Application, coder: ^Coder) {
@@ -428,7 +543,12 @@ application_delegate_register_and_alloc :: proc(template: ApplicationDelegateTem
 			context = del._context
 			del.applicationWillEncodeRestorableState(app, coder)
 		}
-		ObjC.class_addMethod(class, intrinsics.objc_find_selector("application:willEncodeRestorableState:"), auto_cast applicationWillEncodeRestorableState, "v@:@@")
+		ObjC.class_addMethod(
+			class,
+			intrinsics.objc_find_selector("application:willEncodeRestorableState:"),
+			auto_cast applicationWillEncodeRestorableState,
+			"v@:@@",
+		)
 	}
 	if template.applicationDidDecodeRestorableState != nil {
 		applicationDidDecodeRestorableState :: proc "c" (self: id, cmd: SEL, app: ^Application, coder: ^Coder) {
@@ -436,7 +556,12 @@ application_delegate_register_and_alloc :: proc(template: ApplicationDelegateTem
 			context = del._context
 			del.applicationDidDecodeRestorableState(app, coder)
 		}
-		ObjC.class_addMethod(class, intrinsics.objc_find_selector("application:didDecodeRestorableState:"), auto_cast applicationDidDecodeRestorableState, "v@:@@")
+		ObjC.class_addMethod(
+			class,
+			intrinsics.objc_find_selector("application:didDecodeRestorableState:"),
+			auto_cast applicationDidDecodeRestorableState,
+			"v@:@@",
+		)
 	}
 	if template.applicationDidChangeOcclusionState != nil {
 		applicationDidChangeOcclusionState :: proc "c" (self: id, cmd: SEL, notification: ^Notification) {
@@ -461,10 +586,7 @@ application_delegate_register_and_alloc :: proc(template: ApplicationDelegateTem
 	ObjC.objc_registerClassPair(class)
 	del := ObjC.class_createInstance(class, size_of(_ApplicationDelegateInternal))
 	del_internal := cast(^_ApplicationDelegateInternal)ObjC.object_getIndexedIvars(del)
-	del_internal^ = {
-		template,
-		delegate_context.(runtime.Context) or_else runtime.default_context(),
-	}
+	del_internal^ = {template, delegate_context.(runtime.Context) or_else runtime.default_context()}
 	return cast(^ApplicationDelegate)del
 }
 
@@ -487,7 +609,10 @@ WindowDelegateTemplate :: struct {
 	windowShouldZoomToFrame:                                             proc(window: ^Window, newFrame: Rect) -> bool,
 	// Managing Full-Screen Presentation
 	windowWillUseFullScreenContentSize:                                  proc(window: ^Window, proposedSize: Size) -> Size,
-	windowWillUseFullScreenPresentationOptions:                          proc(window: ^Window, proposedOptions: ApplicationPresentationOptions) -> ApplicationPresentationOptions,
+	windowWillUseFullScreenPresentationOptions:                          proc(
+		window: ^Window,
+		proposedOptions: ApplicationPresentationOptions,
+	) -> ApplicationPresentationOptions,
 	windowWillEnterFullScreen:                                           proc(notification: ^Notification),
 	windowDidEnterFullScreen:                                            proc(notification: ^Notification),
 	windowWillExitFullScreen:                                            proc(notification: ^Notification),
@@ -519,13 +644,18 @@ WindowDelegateTemplate :: struct {
 	// Managing Field Editors
 	windowWillReturnFieldEditorToObject:                                 proc(sender: ^Window, client: id) -> id,
 	// Updating Windows
-	windowDidUpdate:                                                     proc (notification: ^Notification),
+	windowDidUpdate:                                                     proc(notification: ^Notification),
 	// Exposing Windows
-	windowDidExpose:                                                     proc (notification: ^Notification),
+	windowDidExpose:                                                     proc(notification: ^Notification),
 	// Managing Occlusion State
 	windowDidChangeOcclusionState:                                       proc(notification: ^Notification),
 	// Dragging Windows
-	windowShouldDragDocumentWithEventFromWithPasteboard:                 proc(window: ^Window, event: ^Event, dragImageLocation: NS.Point, pasteboard: ^Pasteboard) -> bool,
+	windowShouldDragDocumentWithEventFromWithPasteboard:                 proc(
+		window: ^Window,
+		event: ^Event,
+		dragImageLocation: NS.Point,
+		pasteboard: ^Pasteboard,
+	) -> bool,
 	// Getting the Undo Manager
 	windowWillReturnUndoManager:                                         proc(window: ^Window) -> ^UndoManager,
 	// Managing Titles
@@ -543,12 +673,16 @@ WindowDelegateTemplate :: struct {
 
 @(private)
 _WindowDelegateInternal :: struct {
-	using _: WindowDelegateTemplate,
+	using _:  WindowDelegateTemplate,
 	_context: runtime.Context,
 }
 
 window_delegate_register_and_alloc :: proc(template: WindowDelegateTemplate, class_name: string, delegate_context: Maybe(runtime.Context)) -> ^WindowDelegate {
-	class := ObjC.objc_allocateClassPair(intrinsics.objc_find_class("NSObject"), strings.clone_to_cstring(class_name, context.temp_allocator), 0); if class == nil {
+	class := ObjC.objc_allocateClassPair(
+		intrinsics.objc_find_class("NSObject"),
+		strings.clone_to_cstring(class_name, context.temp_allocator),
+		0,
+	); if class == nil {
 		// Class already registered
 		return nil
 	}
@@ -558,7 +692,12 @@ window_delegate_register_and_alloc :: proc(template: WindowDelegateTemplate, cla
 			context = del._context
 			return del.windowWillPositionSheetUsingRect(window, sheet, rect)
 		}
-		ObjC.class_addMethod(class, intrinsics.objc_find_selector("window:willPositionSheet:usingRect:"), auto_cast windowWillPositionSheetUsingRect, _RECT_ENCODING+"@:@@"+_RECT_ENCODING)
+		ObjC.class_addMethod(
+			class,
+			intrinsics.objc_find_selector("window:willPositionSheet:usingRect:"),
+			auto_cast windowWillPositionSheetUsingRect,
+			_RECT_ENCODING + "@:@@" + _RECT_ENCODING,
+		)
 	}
 	if template.windowWillBeginSheet != nil {
 		windowWillBeginSheet :: proc "c" (self: id, cmd: SEL, notification: ^Notification) {
@@ -582,7 +721,12 @@ window_delegate_register_and_alloc :: proc(template: WindowDelegateTemplate, cla
 			context = del._context
 			return del.windowWillResizeToSize(sender, frameSize)
 		}
-		ObjC.class_addMethod(class, intrinsics.objc_find_selector("windowWillResize:toSize:"), auto_cast windowWillResizeToSize, _SIZE_ENCODING+"@:@"+_SIZE_ENCODING)
+		ObjC.class_addMethod(
+			class,
+			intrinsics.objc_find_selector("windowWillResize:toSize:"),
+			auto_cast windowWillResizeToSize,
+			_SIZE_ENCODING + "@:@" + _SIZE_ENCODING,
+		)
 	}
 	if template.windowDidResize != nil {
 		windowDidResize :: proc "c" (self: id, cmd: SEL, notification: ^Notification) {
@@ -638,7 +782,12 @@ window_delegate_register_and_alloc :: proc(template: WindowDelegateTemplate, cla
 			context = del._context
 			return del.windowWillUseStandardFrameDefaultFrame(window, newFrame)
 		}
-		ObjC.class_addMethod(class, intrinsics.objc_find_selector("windowWillUseStandardFrame:defaultFrame:"), auto_cast windowWillUseStandardFrameDefaultFrame, _RECT_ENCODING+"@:@"+_RECT_ENCODING)
+		ObjC.class_addMethod(
+			class,
+			intrinsics.objc_find_selector("windowWillUseStandardFrame:defaultFrame:"),
+			auto_cast windowWillUseStandardFrameDefaultFrame,
+			_RECT_ENCODING + "@:@" + _RECT_ENCODING,
+		)
 	}
 	if template.windowShouldZoomToFrame != nil {
 		windowShouldZoomToFrame :: proc "c" (self: id, cmd: SEL, window: ^Window, newFrame: Rect) -> bool {
@@ -646,7 +795,7 @@ window_delegate_register_and_alloc :: proc(template: WindowDelegateTemplate, cla
 			context = del._context
 			return del.windowShouldZoomToFrame(window, newFrame)
 		}
-		ObjC.class_addMethod(class, intrinsics.objc_find_selector("windowShouldZoom:toFrame:"), auto_cast windowShouldZoomToFrame, "B@:@"+_RECT_ENCODING)
+		ObjC.class_addMethod(class, intrinsics.objc_find_selector("windowShouldZoom:toFrame:"), auto_cast windowShouldZoomToFrame, "B@:@" + _RECT_ENCODING)
 	}
 	if template.windowWillUseFullScreenContentSize != nil {
 		windowWillUseFullScreenContentSize :: proc "c" (self: id, cmd: SEL, window: ^Window, proposedSize: Size) -> Size {
@@ -654,15 +803,30 @@ window_delegate_register_and_alloc :: proc(template: WindowDelegateTemplate, cla
 			context = del._context
 			return del.windowWillUseFullScreenContentSize(window, proposedSize)
 		}
-		ObjC.class_addMethod(class, intrinsics.objc_find_selector("window:willUseFullScreenContentSize:"), auto_cast windowWillUseFullScreenContentSize, _SIZE_ENCODING+"@:@"+_SIZE_ENCODING)
+		ObjC.class_addMethod(
+			class,
+			intrinsics.objc_find_selector("window:willUseFullScreenContentSize:"),
+			auto_cast windowWillUseFullScreenContentSize,
+			_SIZE_ENCODING + "@:@" + _SIZE_ENCODING,
+		)
 	}
 	if template.windowWillUseFullScreenPresentationOptions != nil {
-		windowWillUseFullScreenPresentationOptions :: proc(self: id, cmd: SEL, window: ^Window, proposedOptions: ApplicationPresentationOptions) -> ApplicationPresentationOptions {
+		windowWillUseFullScreenPresentationOptions :: proc(
+			self: id,
+			cmd: SEL,
+			window: ^Window,
+			proposedOptions: ApplicationPresentationOptions,
+		) -> ApplicationPresentationOptions {
 			del := cast(^_WindowDelegateInternal)ObjC.object_getIndexedIvars(self)
 			context = del._context
 			return del.windowWillUseFullScreenPresentationOptions(window, proposedOptions)
 		}
-		ObjC.class_addMethod(class, intrinsics.objc_find_selector("window:willUseFullScreenPresentationOptions:"), auto_cast windowWillUseFullScreenPresentationOptions, _UINTEGER_ENCODING+"@:@"+_UINTEGER_ENCODING)
+		ObjC.class_addMethod(
+			class,
+			intrinsics.objc_find_selector("window:willUseFullScreenPresentationOptions:"),
+			auto_cast windowWillUseFullScreenPresentationOptions,
+			_UINTEGER_ENCODING + "@:@" + _UINTEGER_ENCODING,
+		)
 	}
 	if template.windowWillEnterFullScreen != nil {
 		windowWillEnterFullScreen :: proc "c" (self: id, cmd: SEL, notification: ^Notification) {
@@ -702,7 +866,12 @@ window_delegate_register_and_alloc :: proc(template: WindowDelegateTemplate, cla
 			context = del._context
 			return del.customWindowsToEnterFullScreenForWindow(window)
 		}
-		ObjC.class_addMethod(class, intrinsics.objc_find_selector("customWindowsToEnterFullScreenForWindow:"), auto_cast customWindowsToEnterFullScreenForWindow, "@@:@")
+		ObjC.class_addMethod(
+			class,
+			intrinsics.objc_find_selector("customWindowsToEnterFullScreenForWindow:"),
+			auto_cast customWindowsToEnterFullScreenForWindow,
+			"@@:@",
+		)
 	}
 	if template.customWindowsToEnterFullScreenForWindowOnScreen != nil {
 		customWindowsToEnterFullScreenForWindowOnScreen :: proc(self: id, cmd: SEL, window: ^Window, screen: ^Screen) -> ^Array {
@@ -710,7 +879,12 @@ window_delegate_register_and_alloc :: proc(template: WindowDelegateTemplate, cla
 			context = del._context
 			return del.customWindowsToEnterFullScreenForWindowOnScreen(window, screen)
 		}
-		ObjC.class_addMethod(class, intrinsics.objc_find_selector("customWindowsToEnterFullScreenForWindow:onScreen:"), auto_cast customWindowsToEnterFullScreenForWindowOnScreen, "@@:@@")
+		ObjC.class_addMethod(
+			class,
+			intrinsics.objc_find_selector("customWindowsToEnterFullScreenForWindow:onScreen:"),
+			auto_cast customWindowsToEnterFullScreenForWindowOnScreen,
+			"@@:@@",
+		)
 	}
 	if template.windowStartCustomAnimationToEnterFullScreenWithDuration != nil {
 		windowStartCustomAnimationToEnterFullScreenWithDuration :: proc "c" (self: id, cmd: SEL, window: ^Window, duration: TimeInterval) {
@@ -718,7 +892,12 @@ window_delegate_register_and_alloc :: proc(template: WindowDelegateTemplate, cla
 			context = del._context
 			del.windowStartCustomAnimationToEnterFullScreenWithDuration(window, duration)
 		}
-		ObjC.class_addMethod(class, intrinsics.objc_find_selector("window:startCustomAnimationToEnterFullScreenWithDuration:"), auto_cast windowStartCustomAnimationToEnterFullScreenWithDuration, "v@:@@")
+		ObjC.class_addMethod(
+			class,
+			intrinsics.objc_find_selector("window:startCustomAnimationToEnterFullScreenWithDuration:"),
+			auto_cast windowStartCustomAnimationToEnterFullScreenWithDuration,
+			"v@:@@",
+		)
 	}
 	if template.windowStartCustomAnimationToEnterFullScreenOnScreenWithDuration != nil {
 		windowStartCustomAnimationToEnterFullScreenOnScreenWithDuration :: proc(self: id, cmd: SEL, window: ^Window, screen: ^Screen, duration: TimeInterval) {
@@ -726,7 +905,12 @@ window_delegate_register_and_alloc :: proc(template: WindowDelegateTemplate, cla
 			context = del._context
 			del.windowStartCustomAnimationToEnterFullScreenOnScreenWithDuration(window, screen, duration)
 		}
-		ObjC.class_addMethod(class, intrinsics.objc_find_selector("window:startCustomAnimationToEnterFullScreenOnScreen:withDuration:"), auto_cast windowStartCustomAnimationToEnterFullScreenOnScreenWithDuration, "v@:@@d")
+		ObjC.class_addMethod(
+			class,
+			intrinsics.objc_find_selector("window:startCustomAnimationToEnterFullScreenOnScreen:withDuration:"),
+			auto_cast windowStartCustomAnimationToEnterFullScreenOnScreenWithDuration,
+			"v@:@@d",
+		)
 	}
 	if template.windowDidFailToEnterFullScreen != nil {
 		windowDidFailToEnterFullScreen :: proc "c" (self: id, cmd: SEL, window: ^Window) {
@@ -742,7 +926,12 @@ window_delegate_register_and_alloc :: proc(template: WindowDelegateTemplate, cla
 			context = del._context
 			return del.customWindowsToExitFullScreenForWindow(window)
 		}
-		ObjC.class_addMethod(class, intrinsics.objc_find_selector("customWindowsToExitFullScreenForWindow:"), auto_cast customWindowsToExitFullScreenForWindow, "@@:@")
+		ObjC.class_addMethod(
+			class,
+			intrinsics.objc_find_selector("customWindowsToExitFullScreenForWindow:"),
+			auto_cast customWindowsToExitFullScreenForWindow,
+			"@@:@",
+		)
 	}
 	if template.windowStartCustomAnimationToExitFullScreenWithDuration != nil {
 		windowStartCustomAnimationToExitFullScreenWithDuration :: proc "c" (self: id, cmd: SEL, window: ^Window, duration: TimeInterval) {
@@ -750,7 +939,12 @@ window_delegate_register_and_alloc :: proc(template: WindowDelegateTemplate, cla
 			context = del._context
 			del.windowStartCustomAnimationToExitFullScreenWithDuration(window, duration)
 		}
-		ObjC.class_addMethod(class, intrinsics.objc_find_selector("window:startCustomAnimationToExitFullScreenWithDuration:"), auto_cast windowStartCustomAnimationToExitFullScreenWithDuration, "v@:@d")
+		ObjC.class_addMethod(
+			class,
+			intrinsics.objc_find_selector("window:startCustomAnimationToExitFullScreenWithDuration:"),
+			auto_cast windowStartCustomAnimationToExitFullScreenWithDuration,
+			"v@:@d",
+		)
 	}
 	if template.windowDidFailToExitFullScreen != nil {
 		windowDidFailToExitFullScreen :: proc "c" (self: id, cmd: SEL, window: ^Window) {
@@ -801,7 +995,7 @@ window_delegate_register_and_alloc :: proc(template: WindowDelegateTemplate, cla
 		ObjC.class_addMethod(class, intrinsics.objc_find_selector("windowDidChangeBackingProperties:"), auto_cast windowDidChangeBackingProperties, "v@:@")
 	}
 	if template.windowShouldClose != nil {
-		windowShouldClose :: proc "c" (self:id, cmd: SEL, sender: ^Window) -> bool {
+		windowShouldClose :: proc "c" (self: id, cmd: SEL, sender: ^Window) -> bool {
 			del := cast(^_WindowDelegateInternal)ObjC.object_getIndexedIvars(self)
 			context = del._context
 			return del.windowShouldClose(sender)
@@ -809,7 +1003,7 @@ window_delegate_register_and_alloc :: proc(template: WindowDelegateTemplate, cla
 		ObjC.class_addMethod(class, intrinsics.objc_find_selector("windowShouldClose:"), auto_cast windowShouldClose, "B@:@")
 	}
 	if template.windowWillClose != nil {
-		windowWillClose :: proc "c" (self:id, cmd: SEL, notification: ^Notification) {
+		windowWillClose :: proc "c" (self: id, cmd: SEL, notification: ^Notification) {
 			del := cast(^_WindowDelegateInternal)ObjC.object_getIndexedIvars(self)
 			context = del._context
 			del.windowWillClose(notification)
@@ -849,12 +1043,17 @@ window_delegate_register_and_alloc :: proc(template: WindowDelegateTemplate, cla
 		ObjC.class_addMethod(class, intrinsics.objc_find_selector("windowDidResignMain:"), auto_cast windowDidResignMain, "v@:@")
 	}
 	if template.windowWillReturnFieldEditorToObject != nil {
-		windowWillReturnFieldEditorToObject :: proc "c" (self:id, cmd: SEL, sender: ^Window, client: id) -> id {
+		windowWillReturnFieldEditorToObject :: proc "c" (self: id, cmd: SEL, sender: ^Window, client: id) -> id {
 			del := cast(^_WindowDelegateInternal)ObjC.object_getIndexedIvars(self)
 			context = del._context
 			return del.windowWillReturnFieldEditorToObject(sender, client)
 		}
-		ObjC.class_addMethod(class, intrinsics.objc_find_selector("windowWillReturnFieldEditor:toObject:"), auto_cast windowWillReturnFieldEditorToObject, "@@:@@")
+		ObjC.class_addMethod(
+			class,
+			intrinsics.objc_find_selector("windowWillReturnFieldEditor:toObject:"),
+			auto_cast windowWillReturnFieldEditorToObject,
+			"@@:@@",
+		)
 	}
 	if template.windowDidUpdate != nil {
 		windowDidUpdate :: proc "c" (self: id, cmd: SEL, notification: ^Notification) {
@@ -881,12 +1080,24 @@ window_delegate_register_and_alloc :: proc(template: WindowDelegateTemplate, cla
 		ObjC.class_addMethod(class, intrinsics.objc_find_selector("windowDidChangeOcclusionState:"), auto_cast windowDidChangeOcclusionState, "v@:@")
 	}
 	if template.windowShouldDragDocumentWithEventFromWithPasteboard != nil {
-		windowShouldDragDocumentWithEventFromWithPasteboard :: proc "c" (self: id, cmd: SEL, window: ^Window, event: ^Event, dragImageLocation: NS.Point, pasteboard: ^Pasteboard) -> bool {
+		windowShouldDragDocumentWithEventFromWithPasteboard :: proc "c" (
+			self: id,
+			cmd: SEL,
+			window: ^Window,
+			event: ^Event,
+			dragImageLocation: NS.Point,
+			pasteboard: ^Pasteboard,
+		) -> bool {
 			del := cast(^_WindowDelegateInternal)ObjC.object_getIndexedIvars(self)
 			context = del._context
 			return del.windowShouldDragDocumentWithEventFromWithPasteboard(window, event, dragImageLocation, pasteboard)
 		}
-		ObjC.class_addMethod(class, intrinsics.objc_find_selector("window:shouldDragDocumentWithEvent:from:withPasteboard:"), auto_cast windowShouldDragDocumentWithEventFromWithPasteboard, "B@:@@"+_POINT_ENCODING+"@")
+		ObjC.class_addMethod(
+			class,
+			intrinsics.objc_find_selector("window:shouldDragDocumentWithEvent:from:withPasteboard:"),
+			auto_cast windowShouldDragDocumentWithEventFromWithPasteboard,
+			"B@:@@" + _POINT_ENCODING + "@",
+		)
 	}
 	if template.windowWillReturnUndoManager != nil {
 		windowWillReturnUndoManager :: proc "c" (self: id, cmd: SEL, window: ^Window) -> ^UndoManager {
@@ -921,12 +1132,23 @@ window_delegate_register_and_alloc :: proc(template: WindowDelegateTemplate, cla
 		ObjC.class_addMethod(class, intrinsics.objc_find_selector("window:didDecodeRestorableState:"), auto_cast windowDidEncodeRestorableState, "v@:@@")
 	}
 	if template.windowWillResizeForVersionBrowserWithMaxPreferredSizeMaxAllowedSize != nil {
-		windowWillResizeForVersionBrowserWithMaxPreferredSizeMaxAllowedSize :: proc "c" (self: id, cmd: SEL, window: ^Window, maxPreferredFrameSize: Size, maxAllowedFrameSize: Size) -> Size {
+		windowWillResizeForVersionBrowserWithMaxPreferredSizeMaxAllowedSize :: proc "c" (
+			self: id,
+			cmd: SEL,
+			window: ^Window,
+			maxPreferredFrameSize: Size,
+			maxAllowedFrameSize: Size,
+		) -> Size {
 			del := cast(^_WindowDelegateInternal)ObjC.object_getIndexedIvars(self)
 			context = del._context
 			return del.windowWillResizeForVersionBrowserWithMaxPreferredSizeMaxAllowedSize(window, maxPreferredFrameSize, maxPreferredFrameSize)
 		}
-		ObjC.class_addMethod(class, intrinsics.objc_find_selector("window:willResizeForVersionBrowserWithMaxPreferredSize:maxAllowedSize:"), auto_cast windowWillResizeForVersionBrowserWithMaxPreferredSizeMaxAllowedSize, _SIZE_ENCODING+"@:@"+_SIZE_ENCODING+_SIZE_ENCODING)
+		ObjC.class_addMethod(
+			class,
+			intrinsics.objc_find_selector("window:willResizeForVersionBrowserWithMaxPreferredSize:maxAllowedSize:"),
+			auto_cast windowWillResizeForVersionBrowserWithMaxPreferredSizeMaxAllowedSize,
+			_SIZE_ENCODING + "@:@" + _SIZE_ENCODING + _SIZE_ENCODING,
+		)
 	}
 	if template.windowWillEnterVersionBrowser != nil {
 		windowWillEnterVersionBrowser :: proc "c" (self: id, cmd: SEL, notification: ^Notification) {
@@ -967,10 +1189,7 @@ window_delegate_register_and_alloc :: proc(template: WindowDelegateTemplate, cla
 	ObjC.objc_registerClassPair(class)
 	del := ObjC.class_createInstance(class, size_of(_WindowDelegateInternal))
 	del_internal := cast(^_WindowDelegateInternal)ObjC.object_getIndexedIvars(del)
-	del_internal^ = {
-		template,
-		delegate_context.(runtime.Context) or_else runtime.default_context(),
-	}
+	del_internal^ = {template, delegate_context.(runtime.Context) or_else runtime.default_context()}
 
 	return cast(^WindowDelegate)del
 }

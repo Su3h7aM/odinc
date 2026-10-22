@@ -2,61 +2,61 @@
 #+build darwin:ios
 package darwin_UIKit
 
-import NS "core:sys/darwin/Foundation"
 import "base:intrinsics"
+import NS "core:sys/darwin/Foundation"
 
-@(objc_class="UIDropProposal", objc_superclass=NS.Object)
+@(objc_class = "UIDropProposal", objc_superclass = NS.Object)
 DropProposal :: struct {
 	using _: NS.Object,
 	using _: NS.Copying,
 }
 
-@(default_calling_convention="c")
+@(default_calling_convention = "c")
 foreign lib {
-	@(objc_type=DropProposal, objc_selector="initWithDropOperation:", objc_name="initWithDropOperation")
+	@(objc_type = DropProposal, objc_selector = "initWithDropOperation:", objc_name = "initWithDropOperation")
 	DropProposal_initWithDropOperation :: proc(self: ^DropProposal, operation: DropOperation) -> instancetype ---
 
-	@(objc_type=DropProposal, objc_selector="init", objc_name="init")
+	@(objc_type = DropProposal, objc_selector = "init", objc_name = "init")
 	DropProposal_init :: proc(self: ^DropProposal) -> instancetype ---
 
-	@(objc_type=DropProposal, objc_selector="new", objc_name="new", objc_is_class_method=true)
+	@(objc_type = DropProposal, objc_selector = "new", objc_name = "new", objc_is_class_method = true)
 	DropProposal_new :: proc() -> ^DropProposal ---
 
-	@(objc_type=DropProposal, objc_selector="operation", objc_name="operation")
+	@(objc_type = DropProposal, objc_selector = "operation", objc_name = "operation")
 	DropProposal_operation :: proc(self: ^DropProposal) -> DropOperation ---
 
-	@(objc_type=DropProposal, objc_selector="isPrecise", objc_name="isPrecise")
+	@(objc_type = DropProposal, objc_selector = "isPrecise", objc_name = "isPrecise")
 	DropProposal_isPrecise :: proc(self: ^DropProposal) -> bool ---
 
-	@(objc_type=DropProposal, objc_selector="setPrecise:", objc_name="setPrecise")
+	@(objc_type = DropProposal, objc_selector = "setPrecise:", objc_name = "setPrecise")
 	DropProposal_setPrecise :: proc(self: ^DropProposal, precise: bool) ---
 
-	@(objc_type=DropProposal, objc_selector="prefersFullSizePreview", objc_name="prefersFullSizePreview")
+	@(objc_type = DropProposal, objc_selector = "prefersFullSizePreview", objc_name = "prefersFullSizePreview")
 	DropProposal_prefersFullSizePreview :: proc(self: ^DropProposal) -> bool ---
 
-	@(objc_type=DropProposal, objc_selector="setPrefersFullSizePreview:", objc_name="setPrefersFullSizePreview")
+	@(objc_type = DropProposal, objc_selector = "setPrefersFullSizePreview:", objc_name = "setPrefersFullSizePreview")
 	DropProposal_setPrefersFullSizePreview :: proc(self: ^DropProposal, prefersFullSizePreview: bool) ---
 }
 
 
-@(objc_class="UIDropSession")
+@(objc_class = "UIDropSession")
 DropSession :: struct {
 	using _: intrinsics.objc_object,
 	using _: DragDropSession,
 	using _: NS.ProgressReporting,
 }
 
-@(default_calling_convention="c")
+@(default_calling_convention = "c")
 foreign lib {
-	@(objc_type=DropSession, objc_selector="loadObjectsOfClass:completion:", objc_name="loadObjectsOfClass")
-	DropSession_loadObjectsOfClass :: proc(self: ^DropSession, aClass: ^Class, completion: ^Objc_Block(proc "c" ( objects: ^NS.Array ))) -> ^NS.Progress ---
+	@(objc_type = DropSession, objc_selector = "loadObjectsOfClass:completion:", objc_name = "loadObjectsOfClass")
+	DropSession_loadObjectsOfClass :: proc(self: ^DropSession, aClass: ^Class, completion: ^Objc_Block(proc "c" (objects: ^NS.Array))) -> ^NS.Progress ---
 
-	@(objc_type=DropSession, objc_selector="localDragSession", objc_name="localDragSession")
+	@(objc_type = DropSession, objc_selector = "localDragSession", objc_name = "localDragSession")
 	DropSession_localDragSession :: proc(self: ^DropSession) -> ^DragSession ---
 
-	@(objc_type=DropSession, objc_selector="progressIndicatorStyle", objc_name="progressIndicatorStyle")
+	@(objc_type = DropSession, objc_selector = "progressIndicatorStyle", objc_name = "progressIndicatorStyle")
 	DropSession_progressIndicatorStyle :: proc(self: ^DropSession) -> DropSessionProgressIndicatorStyle ---
 
-	@(objc_type=DropSession, objc_selector="setProgressIndicatorStyle:", objc_name="setProgressIndicatorStyle")
+	@(objc_type = DropSession, objc_selector = "setProgressIndicatorStyle:", objc_name = "setProgressIndicatorStyle")
 	DropSession_setProgressIndicatorStyle :: proc(self: ^DropSession, progressIndicatorStyle: DropSessionProgressIndicatorStyle) ---
 }
