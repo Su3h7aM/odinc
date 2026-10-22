@@ -588,6 +588,8 @@ emit_function_atoms :: proc(
 			}
 			return slot.err, index
 		}
+	}
+	for slot, index in slots {
 		atoms[index] = slot.atom
 	}
 	return nil, -1
