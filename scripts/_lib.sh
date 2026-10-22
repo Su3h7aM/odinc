@@ -30,3 +30,10 @@ owned_sources() {
 die() { printf 'error: %s\n' "$*" >&2; exit 1; }
 
 step() { printf '\n==> %s\n' "$*"; }
+
+# Serializes binary-producing tasks: they share build/ outputs. Waits for the holder; the lock lives until the process exits.
+acquire_binary_lock() {
+	mkdir -p "$PROJECT_ROOT/build"
+	exec 9>"$PROJECT_ROOT/build/.lock"
+	flock -x 9
+}

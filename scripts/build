@@ -3,6 +3,7 @@
 #MISE alias="b"
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
+acquire_binary_lock
 
 binary="$PROJECT_ROOT/build/odinc"
 mkdir -p "$PROJECT_ROOT/build"

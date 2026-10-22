@@ -2,6 +2,7 @@
 #MISE description="Build odinc2 and odinc3 with odinc, then build and run the demo with odinc2"
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
+acquire_binary_lock
 
 binary="$PROJECT_ROOT/build/odinc"
 [[ -x "$binary" ]] || die "build/odinc is missing; run mise run build first"
