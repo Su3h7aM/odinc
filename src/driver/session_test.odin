@@ -9,7 +9,7 @@ import "oc:lower"
 run_section :: proc(t: ^testing.T, section: string) -> (result: ir.Interp_Result, ok: bool) {
 	odin_root, _ := filepath.join({#directory, "..", ".."}, context.temp_allocator)
 	main_path, _ := filepath.join({#directory, "testdata", section, "main.odin"}, context.temp_allocator)
-	session, err := check_program(odin_root, main_path, context.allocator)
+	session, err := check_program(odin_root, main_path, context.allocator, false)
 	defer session_destroy(session)
 	if !testing.expectf(t, err == .None, "%v", err) { return }
 

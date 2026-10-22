@@ -75,7 +75,7 @@ mise run check [package]  # check one package, or all of them
 mise run test  [package]  # run the package's tests
 ```
 
-`odinc <file-or-dir> --out=<executable>` compiles an Odin main to a static executable; `odinc <file> --histogram` prints the IR histogram instead.
+`odinc build <file-or-directory> --output <executable>` compiles an Odin main to a static executable. `odinc check <file-or-directory>` parses and type-checks without generating code or an output file; `--no-entry-point` permits a package without `main`. Collections and definitions use `--collection/-c` and `--define/-d`.
 
 ## Design history
 

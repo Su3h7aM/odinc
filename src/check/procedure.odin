@@ -530,6 +530,7 @@ expression_procedure_termination :: proc(checker: ^Expression_Checker, view: Vie
 // Official check_proc_decl: the entry point of the main package cannot use a custom calling convention.
 @(private = "file")
 expression_main_convention :: proc(checker: ^Expression_Checker, view: View_Id, id: Entity_Id, body: Node_Ref) -> Resolve_Error {
+	if checker.no_entry_point { return nil }
 	scopes := checker.type_checker.resolver.scopes
 	entity := entity_get(scopes, id)
 	procedure := entity.data.(Procedure_Data)

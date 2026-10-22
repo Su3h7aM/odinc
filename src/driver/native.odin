@@ -93,7 +93,7 @@ build_file :: proc(
 ) {
 	file_error: File_Error
 	defer file_error_destroy(&file_error, allocator)
-	session, driver_err := check_program(odin_root, main_path, allocator, user_collections, defines, level, &file_error)
+	session, driver_err := check_program(odin_root, main_path, allocator, false, user_collections, defines, level, &file_error)
 	defer if session != nil { session_destroy(session) }
 	if driver_err == .Check_Failed || driver_err == .Unsupported_Import || driver_err == .Parse_Failed || driver_err == .Import_Cycle {
 		write_diagnostics(session, log)

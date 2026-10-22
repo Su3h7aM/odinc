@@ -15,7 +15,7 @@ logical_compound_assignment_short_circuits_once :: proc(t: ^testing.T) {
 logical_map_assignment_evaluates_key_per_access :: proc(t: ^testing.T) {
 	odin_root, _ := filepath.join({#directory, "..", ".."}, context.temp_allocator)
 	main_path, _ := filepath.join({#directory, "testdata", "logical_map_assignment", "main.odin"}, context.temp_allocator)
-	session, err := check_program(odin_root, main_path, context.allocator)
+	session, err := check_program(odin_root, main_path, context.allocator, false)
 	defer session_destroy(session)
 	if !testing.expect_value(t, err, Driver_Error.None) { return }
 	module: ir.Module

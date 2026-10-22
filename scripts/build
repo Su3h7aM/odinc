@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#MISE description="Build odinc, optionally compile an Odin main file (mise run build -- <file> --out=<path>)"
+#MISE description="Build odinc, optionally compile an Odin main file (mise run build -- build <file> --output=<path>)"
 #MISE alias="b"
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"

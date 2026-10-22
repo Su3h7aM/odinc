@@ -1,8 +1,6 @@
 package driver
 
 import "base:runtime"
-import "core:fmt"
-import "core:io"
 import "core:os"
 import "core:path/filepath"
 import "core:slice"
@@ -81,6 +79,7 @@ Session :: struct {
 	program_files:       [dynamic]check.File,
 	program:             check.Checked_Program,
 	main_scope:          check.Scope_Id,
+	no_entry_point:      bool,
 	test_options:        ^Test_Options,
 	test_entry:          check.Entity_Id,
 	test_entry_file:     check.File_Id,
@@ -93,6 +92,7 @@ Session :: struct {
 check_program :: proc(
 	odin_root, main_path: string,
 	allocator: runtime.Allocator,
+	no_entry_point: bool,
 	user_collections: []Collection = nil,
 	defines: map[string]string = nil,
 	level: types.X86_Level = .V1,
@@ -101,10 +101,10 @@ check_program :: proc(
 	session: ^Session,
 	err: Driver_Error,
 ) {
-	session, err = check_program_profile(odin_root, main_path, allocator, user_collections, defines, false, level, file_error)
+	session, err = check_program_profile(odin_root, main_path, allocator, no_entry_point, user_collections, defines, false, level, file_error)
 	if session == nil || !session_uses_external_library(session) { return session, err }
 	session_destroy(session)
-	return check_program_profile(odin_root, main_path, allocator, user_collections, defines, true, level, file_error)
+	return check_program_profile(odin_root, main_path, allocator, no_entry_point, user_collections, defines, true, level, file_error)
 }
 
 // Owned profile first (no libc); a used external library makes check_program recheck with the managed profile.
@@ -112,6 +112,7 @@ check_program :: proc(
 check_program_profile :: proc(
 	odin_root, main_path: string,
 	allocator: runtime.Allocator,
+	no_entry_point: bool,
 	user_collections: []Collection,
 	defines: map[string]string,
 	managed_libc: bool,
@@ -126,6 +127,7 @@ check_program_profile :: proc(
 	session = allocated
 	session.allocator = allocator
 	session.defines = defines
+	session.no_entry_point = no_entry_point
 	session.managed_libc = managed_libc
 	err = check_session(session, odin_root, main_path, user_collections, level, file_error)
 	if err != nil && err != .Check_Failed && err != .Unsupported_Import && err != .Parse_Failed && err != .Import_Cycle {
@@ -147,98 +149,6 @@ session_uses_external_library :: proc(session: ^Session) -> bool {
 		}
 	}
 	return false
-}
-
-// Loads a user program like check_program does, then resolves and checks every declaration of every loaded
-// package without stopping at the first error, then lists checker diagnostics and unsupported imports, most
-// frequent first, with up to five distinct source lines for each.
-program_histogram :: proc(
-	odin_root, main_path: string,
-	allocator: runtime.Allocator,
-	writer: io.Writer,
-	user_collections: []Collection = nil,
-	level: types.X86_Level = .V1,
-	file_error: ^File_Error = nil,
-) -> Driver_Error {
-	session, allocation_error := new(Session, allocator)
-	if allocation_error != nil { return .Allocation_Failed }
-	session.allocator = allocator
-	defer session_destroy(session)
-	err := program_histogram_collect(session, odin_root, main_path, user_collections, level, file_error)
-	print_error := histogram_print(session, writer)
-	if err != .None { return err }
-	return print_error
-}
-
-@(private = "file")
-program_histogram_collect :: proc(
-	session: ^Session,
-	odin_root, main_path: string,
-	user_collections: []Collection,
-	level: types.X86_Level = .V1,
-	file_error: ^File_Error = nil,
-) -> Driver_Error {
-	main_package, _, main_key, load_error := load_main_package(session, odin_root, main_path, user_collections, level, file_error)
-	if load_error == .Parse_Failed {
-		if error := push(&session.load_failures, main_key); error != .None { return error }
-	}
-	if load_error != .None { return load_error }
-	if check_error := bind_imports(session, file_error); check_error != .None { return check_error }
-	if check_error := session_init_checkers(session); check_error != .None { return check_error }
-	_ = bind_whens(session)
-	for declaration in session.collection.declarations {
-		if check.entity_get(&session.scopes, declaration.entity).package_id != main_package { continue }
-		_, _ = check.resolve_entity(&session.resolver, declaration.entity)
-	}
-	return .None
-}
-
-@(private = "file")
-histogram_print :: proc(session: ^Session, writer: io.Writer) -> Driver_Error {
-	entries: [dynamic]Histogram_Entry
-	defer delete(entries)
-	for item in session.unsupported_imports {
-		if error := histogram_count(&entries, fmt.tprintf("import %s", item.path), histogram_location(session, item.source)); error != .None {
-			return error
-		}
-	}
-	for path in session.load_failures {
-		if error := histogram_count(&entries, "load parse", path); error != .None { return error }
-	}
-	for diagnostic in session.collection.diagnostics {
-		if error := histogram_source(&entries, session, "collect", diagnostic.kind, diagnostic.source); error != .None { return error }
-	}
-	for diagnostic in session.resolver.diagnostics {
-		if error := histogram_source(&entries, session, "resolve", diagnostic.kind, diagnostic.source); error != .None { return error }
-	}
-	for diagnostic in session.type_checker.diagnostics {
-		if error := histogram_source(&entries, session, "type", diagnostic.kind, diagnostic.source); error != .None { return error }
-	}
-	for diagnostic in session.checker.diagnostics {
-		reason := diagnostic.reason
-		if diagnostic.kind == .Conversion && reason == "" { reason = fmt.tprint(diagnostic.conversion) }
-		if error := histogram_source(&entries, session, "expr", diagnostic.kind, diagnostic.source, reason); error != .None { return error }
-	}
-	slice.sort_by(entries[:], histogram_before)
-	total := 0
-	for entry in entries { total += entry.count }
-	for entry in entries {
-		fmt.wprintf(writer, "%d %s\n", entry.count, entry.key)
-		for sample_index in 0 ..< entry.sample_count {
-			fmt.wprintf(writer, "  %s\n", entry.samples[sample_index])
-		}
-	}
-	fmt.wprintf(writer, "total %d\n", total)
-	return .None
-}
-
-@(private = "file")
-histogram_location :: proc(session: ^Session, source: check.Source_Span) -> string {
-	if int(source.file) >= len(session.files) { return "" }
-	file := session.files[source.file]
-	if file == nil { return "" }
-	line, column := syntax.line_col(file.lines, source.start)
-	return fmt.tprintf("%s:%d:%d", file.display_path, line, column)
 }
 
 session_destroy :: proc(session: ^Session) {
@@ -275,84 +185,6 @@ session_destroy :: proc(session: ^Session) {
 	delete(session.import_edges)
 	delete(session.program_files)
 	free(session, allocator)
-}
-
-Histogram_Entry :: struct {
-	key:          string,
-	count:        int,
-	samples:      [5]string,
-	sample_count: int,
-}
-
-@(private = "file")
-histogram_before :: proc(a, b: Histogram_Entry) -> bool {
-	return a.count > b.count || (a.count == b.count && a.key < b.key)
-}
-
-@(private = "file")
-histogram_count :: proc(entries: ^[dynamic]Histogram_Entry, key, sample: string) -> Driver_Error {
-	for &entry in entries^ {
-		if entry.key == key {
-			entry.count += 1
-			if entry.sample_count == len(entry.samples) { return .None }
-			site := sample
-			if separator := strings.last_index(sample, ":"); separator >= 0 { site = sample[:separator] }
-			for previous in entry.samples[:entry.sample_count] {
-				previous_site := previous
-				if separator := strings.last_index(previous, ":"); separator >= 0 { previous_site = previous[:separator] }
-				if previous_site == site { return .None }
-			}
-			entry.samples[entry.sample_count] = sample
-			entry.sample_count += 1
-			return .None
-		}
-	}
-	entry := Histogram_Entry {
-		key          = key,
-		count        = 1,
-		sample_count = 1,
-	}
-	entry.samples[0] = sample
-	return push(entries, entry)
-}
-
-@(private = "file")
-histogram_source :: proc(
-	entries: ^[dynamic]Histogram_Entry,
-	session: ^Session,
-	stage: string,
-	kind: any,
-	source: check.Source_Span,
-	reason: string = "",
-) -> Driver_Error {
-	file := session.files[source.file]
-	line, column := syntax.line_col(file.lines, source.start)
-	name := fmt.tprintf("%v", kind)
-	key := fmt.tprintf("%s %s", stage, name)
-	switch name {
-	case "Unsupported", "Unsupported_Type_Expression":
-		key = fmt.tprintf("%s %s", key, span_node_kind(file.ast, source))
-	case "Undeclared_Name", "Undeclared_Type":
-		key = fmt.tprintf("%s %s", key, string(file.source[source.start:source.end]))
-	}
-	if reason != "" {
-		if name != "Unsupported" && name != "Unsupported_Type_Expression" {
-			key = fmt.tprintf("%s %s", key, span_node_kind(file.ast, source))
-		}
-		key = fmt.tprintf("%s %s", key, reason)
-	}
-	return histogram_count(entries, key, fmt.tprintf("%s:%d:%d", file.display_path, line, column))
-}
-
-// The outermost node with the exact span is the last one, since children are created before their parents.
-@(private = "file")
-span_node_kind :: proc(ast: ^syntax.Ast, source: check.Source_Span) -> string {
-	found := -1
-	for node, index in ast.nodes {
-		if node.start == source.start && node.end == source.end { found = index }
-	}
-	if found < 0 { return "no_node" }
-	return fmt.tprint(ast.nodes[found].kind)
 }
 
 // Prepares the session, loads base:runtime and the main package, and returns the package, its scope and its
@@ -407,7 +239,10 @@ check_session :: proc(
 	level: types.X86_Level = .V1,
 	file_error: ^File_Error = nil,
 ) -> Driver_Error {
-	main_package, main_scope, _, load_error := load_main_package(session, odin_root, main_path, user_collections, level, file_error)
+	main_package, main_scope, main_key, load_error := load_main_package(session, odin_root, main_path, user_collections, level, file_error)
+	if load_error == .Parse_Failed {
+		if error := push(&session.load_failures, main_key); error != .None { return error }
+	}
 	if load_error != .None { return load_error }
 	session.main_scope = main_scope
 	if error := bind_imports(session, file_error); error != .None { return error }
@@ -465,6 +300,7 @@ session_prepare :: proc(session: ^Session, odin_root: string, user_collections: 
 	session.build.target_features = types.x86_features_list(types.x86_level_features(level), allocator)
 	session.build.defines = session.defines
 	session.build.no_crt = !session.managed_libc
+	session.build.no_entry_point = session.no_entry_point
 	if session.test_options != nil {
 		session.build.test = true
 		session.build.defines = session.test_options.defines
@@ -533,6 +369,7 @@ session_init_checkers :: proc(session: ^Session) -> Driver_Error {
 	session.checker.packages = session.packages[:]
 	session.checker.target_features = session.build.target_features
 	session.checker.microarch = session.build.microarch
+	session.checker.no_entry_point = session.build.no_entry_point
 	session.checker.defines = session.build.defines
 	return .None
 }

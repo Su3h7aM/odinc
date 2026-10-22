@@ -7,7 +7,7 @@ import "core:testing"
 directory_root_uses_package_file_selection :: proc(t: ^testing.T) {
 	root, _ := filepath.join({#directory, "..", ".."}, context.temp_allocator)
 	directory, _ := filepath.join({#directory, "testdata", "root_directory"}, context.temp_allocator)
-	session, error := check_program(root, directory, context.allocator)
+	session, error := check_program(root, directory, context.allocator, false)
 	defer session_destroy(session)
 	testing.expect_value(t, error, Driver_Error.None)
 	for test_mode in ([]bool{false, true}) {
@@ -47,7 +47,7 @@ user_collections_load_and_reject_invalid_definitions :: proc(t: ^testing.T) {
 	working_directory, _ := filepath.abs(".", context.temp_allocator)
 	relative_libraries, _ := filepath.rel(working_directory, libraries, context.temp_allocator)
 	collections := []Collection{{"nabla", relative_libraries}, {"other", libraries}}
-	session, error := check_program(root, directory, context.allocator, collections)
+	session, error := check_program(root, directory, context.allocator, false, collections)
 	defer session_destroy(session)
 	testing.expect_value(t, error, Driver_Error.None)
 	table: Collection_Table

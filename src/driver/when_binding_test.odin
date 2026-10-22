@@ -37,7 +37,7 @@ package_directives_check_only_selected_when_arms :: proc(t: ^testing.T) {
 	for example in examples {
 		source := strings.concatenate({"package main\n", example.source, "\nmain :: proc() {}\n"}, context.temp_allocator)
 		if !testing.expect(t, os.write_entire_file(main_path, transmute([]byte)source) == nil) { return }
-		session, err := check_program(odin_root, main_path, context.allocator)
+		session, err := check_program(odin_root, main_path, context.allocator, false)
 		defer session_destroy(session)
 		expected := Driver_Error.None
 		if example.rejected { expected = .Check_Failed }
@@ -56,7 +56,7 @@ package_directives_check_only_selected_when_arms :: proc(t: ^testing.T) {
 when_condition_resolves_from_later_sibling_when :: proc(t: ^testing.T) {
 	odin_root, _ := filepath.join({#directory, "..", ".."}, context.temp_allocator)
 	main_path, _ := filepath.join({#directory, "testdata", "when_retry", "main.odin"}, context.temp_allocator)
-	session, err := check_program(odin_root, main_path, context.allocator)
+	session, err := check_program(odin_root, main_path, context.allocator, false)
 	defer session_destroy(session)
 	testing.expect_value(t, err, Driver_Error.None)
 }
@@ -65,7 +65,7 @@ when_condition_resolves_from_later_sibling_when :: proc(t: ^testing.T) {
 when_condition_never_declared_reports_check_failure :: proc(t: ^testing.T) {
 	odin_root, _ := filepath.join({#directory, "..", ".."}, context.temp_allocator)
 	main_path, _ := filepath.join({#directory, "testdata", "when_unresolved", "main.odin"}, context.temp_allocator)
-	session, err := check_program(odin_root, main_path, context.allocator)
+	session, err := check_program(odin_root, main_path, context.allocator, false)
 	defer session_destroy(session)
 	testing.expect_value(t, err, Driver_Error.Check_Failed)
 }
@@ -74,7 +74,7 @@ when_condition_never_declared_reports_check_failure :: proc(t: ^testing.T) {
 when_condition_evaluates_exists_directive_relative_to_file :: proc(t: ^testing.T) {
 	odin_root, _ := filepath.join({#directory, "..", ".."}, context.temp_allocator)
 	main_path, _ := filepath.join({#directory, "testdata", "exists_directive", "main.odin"}, context.temp_allocator)
-	session, err := check_program(odin_root, main_path, context.allocator)
+	session, err := check_program(odin_root, main_path, context.allocator, false)
 	defer session_destroy(session)
 	testing.expect_value(t, err, Driver_Error.None)
 	testing.expect(t, !session.unresolved_when.set)
@@ -84,7 +84,7 @@ when_condition_evaluates_exists_directive_relative_to_file :: proc(t: ^testing.T
 core_thread_no_crt_constant_is_bound :: proc(t: ^testing.T) {
 	odin_root, _ := filepath.join({#directory, "..", ".."}, context.temp_allocator)
 	main_path, _ := filepath.join({#directory, "testdata", "core_thread_probe", "main.odin"}, context.temp_allocator)
-	session, _ := check_program(odin_root, main_path, context.allocator)
+	session, _ := check_program(odin_root, main_path, context.allocator, false)
 	defer session_destroy(session)
 	found := false
 	for package_value in session.packages {

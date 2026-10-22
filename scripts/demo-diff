@@ -296,7 +296,7 @@ main() {
 	fi
 
 	step "odinc build $name"
-	if ! (ODIN_ROOT="$PROJECT_ROOT" "$work/odinc" "$fixture" --out="$work/ours_bin/prog" --collection=oc="$PROJECT_ROOT/src" >"$work/ours.build.out" 2>"$work/ours.build.err"); then
+	if ! (ODIN_ROOT="$PROJECT_ROOT" "$work/odinc" build "$fixture" --output="$work/ours_bin/prog" --collection=oc="$PROJECT_ROOT/src" >"$work/ours.build.out" 2>"$work/ours.build.err"); then
 		printf 'FAIL %s: odinc rejected the fixture (%s diagnostics):\n' "$name" "$(wc -l <"$work/ours.build.err")"
 		sort "$work/ours.build.err" | uniq -c | sort -rn
 		printf -- '--- first 20 diagnostics ---\n'

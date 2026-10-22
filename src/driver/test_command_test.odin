@@ -1,38 +1,71 @@
 package driver
 
+import "core:os"
 import "core:path/filepath"
 import "core:strings"
 import "core:testing"
 
 @(test)
-test_command_arguments_and_invalid_signature :: proc(t: ^testing.T) {
-	command, argument_error := parse_test_arguments(
-		[]string {
-			"testdata",
-			"--file",
-			"--all-packages",
-			"--define=COUNT=3",
-			"--collection=custom=somewhere",
-			"--out=tests",
-			"--opt",
-			"speed",
-			"--vet",
-			"--strict-style",
-			"--thread-count=4",
-		},
-	)
+test_command_flag_syntax :: proc(t: ^testing.T) {
+	for arguments in ([][]string{{"testdata", "--all-packages", "--output", "tests", "--define=COUNT=3", "--collection", "custom=somewhere", "--keep-executable"}, {"--all-packages", "--output=tests", "--define", "COUNT=3", "--collection=custom=somewhere", "--keep-executable", "testdata"}, {"testdata", "-k", "--all-packages", "-o", "tests", "-d", "COUNT=3", "-c", "custom=somewhere"}}) {
+		command, error := parse_command_arguments("test", arguments)
+		defer delete(command.options.defines)
+		defer delete(command.collections)
+		testing.expect_value(t, error, "")
+		testing.expect(t, command.keep_executable && command.options.all_packages)
+		testing.expect_value(t, command.path, "testdata")
+		testing.expect_value(t, command.output, "tests")
+		testing.expect_value(t, command.options.defines["COUNT"], "3")
+		testing.expect(t, len(command.collections) == 1 && command.collections[0] == Collection{"custom", "somewhere"})
+	}
+	command, error := parse_command_arguments("run", []string{"testdata", "--", "a", "--output=b"})
 	defer delete(command.options.defines)
 	defer delete(command.collections)
-	testing.expect_value(t, argument_error, "")
-	testing.expect(t, command.options.all_packages && command.options.optimization_mode == .Speed)
-	testing.expect_value(t, command.options.thread_count, 4)
-	testing.expect_value(t, command.options.defines["COUNT"], "3")
-	testing.expect(t, len(command.collections) == 1 && command.collections[0] == Collection{"custom", "somewhere"})
-	testing.expect(t, command.path == "testdata" && command.output == "tests")
-	sanitized, sanitize_error := parse_test_arguments([]string{"testdata", "--sanitize=address"})
-	defer delete(sanitized.options.defines)
-	defer delete(sanitized.collections)
-	testing.expect_value(t, sanitize_error, "odinc test: sanitizers are not supported")
+	testing.expect_value(t, error, "")
+	testing.expect(t, command.run && len(command.run_arguments) == 2 && command.run_arguments[0] == "a" && command.run_arguments[1] == "--output=b")
+	build, build_error := parse_command_arguments("build", []string{"testdata", "--build-mode=test"})
+	defer delete(build.options.defines)
+	defer delete(build.collections)
+	testing.expect_value(t, build_error, "")
+	testing.expect(t, build.test_mode && !build.run)
+}
+
+@(test)
+test_command_bad_flags :: proc(t: ^testing.T) {
+	for row in ([]struct {
+			arguments: []string,
+			message:   string,
+		}{{{"testdata", "--unknown"}, "Unable to find any flag named `unknown`."}, {{"testdata", "--output"}, "Expected a value for `output` but none was given."}}) {
+		command, error := parse_command_arguments("test", row.arguments)
+		delete(command.options.defines)
+		delete(command.collections)
+		testing.expect_value(t, error, row.message)
+	}
+}
+
+@(test)
+test_command_default_output :: proc(t: ^testing.T) {
+	cwd, cwd_error := os.get_working_directory(context.allocator)
+	defer delete(cwd)
+	testing.expect(t, cwd_error == nil)
+	output, error := default_output_path(".")
+	defer delete(output)
+	testing.expect_value(t, error, "")
+	expected := filepath.base(cwd)
+	if os.is_dir(expected) { expected = strings.concatenate({expected, ".bin"}, context.temp_allocator) or_else "" }
+	testing.expect_value(t, output, expected)
+	file_output, file_error := default_output_path("examples/demo/demo.odin")
+	defer delete(file_output)
+	testing.expect_value(t, file_error, "")
+	testing.expect_value(t, file_output, "demo")
+	collision_output, collision_error := default_output_path("src")
+	defer delete(collision_output)
+	testing.expect_value(t, collision_error, "")
+	testing.expect_value(t, collision_output, "src.bin")
+}
+
+@(test)
+test_command_invalid_signature :: proc(t: ^testing.T) {
 	root, _ := filepath.join({#directory, "..", ".."}, context.temp_allocator)
 	directory, _ := filepath.join({#directory, "testdata", "odinc_test_invalid"}, context.temp_allocator)
 	log := strings.builder_make()
@@ -49,52 +82,45 @@ test_command_arguments_and_invalid_signature :: proc(t: ^testing.T) {
 		strings.to_string(log),
 	)
 }
-
 @(test)
-test_command_rejects_bad_arguments :: proc(t: ^testing.T) {
-	Rejected :: struct {
-		arguments: []string,
-		error:     string,
+test_command_input_kind :: proc(t: ^testing.T) {
+	for path in ([]string{#directory, #file}) {
+		command := Command_Arguments {
+			path = path,
+		}
+		testing.expect_value(t, validate_command_input(&command, ""), "")
 	}
-	rejected := [?]Rejected {
-		{[]string{"testdata", "--unknown"}, "odinc test: unsupported option"},
-		{[]string{"testdata", "--out"}, "odinc test: --out expects a path"},
-		{[]string{"testdata", "--out="}, "odinc test: --out expects a path"},
-		{[]string{"testdata", "--collection=nowhere"}, "odinc test: expected --collection=name=path"},
-		{[]string{"testdata", "--thread-count=0"}, "odinc test: expected --thread-count=N with a positive integer"},
-		{[]string{"one", "two"}, "odinc test: expected one file or directory"},
-		{[]string{"testdata", "--histogram"}, "odinc test: unsupported option"},
+	invalid, _ := filepath.join({#directory, "testdata", "config_define", "flags"}, context.temp_allocator)
+	command := Command_Arguments {
+		path = invalid,
 	}
-	for row in rejected {
-		command, argument_error := parse_test_arguments(row.arguments)
-		delete(command.options.defines)
-		delete(command.collections)
-		testing.expect_value(t, argument_error, row.error)
+	testing.expect(t, strings.contains(validate_command_input(&command, ""), "regular .odin file"))
+	command.path = "/__odinc_missing_input__/main.odin"
+	testing.expect(t, strings.contains(validate_command_input(&command, ""), "could not be found or accessed"))
+	for name in ([]string{"file", "vet", "strict-style", "vet-tabs"}) {
+		arguments := []string{#directory, strings.concatenate({"--", name}, context.temp_allocator) or_else ""}
+		parsed, error := parse_command_arguments("build", arguments)
+		delete(parsed.options.defines)
+		delete(parsed.collections)
+		testing.expect(t, strings.contains(error, "Unable to find any flag named"))
 	}
 }
-
 @(test)
-test_command_microarch_level :: proc(t: ^testing.T) {
-	command, argument_error := parse_test_arguments([]string{"testdata", "--mcpu=x86_64_v3"})
-	defer delete(command.options.defines)
-	defer delete(command.collections)
-	testing.expect_value(t, argument_error, "")
-	testing.expect(t, command.options.microarch == .V3)
-	spaced, spaced_error := parse_test_arguments([]string{"testdata", "--mcpu", "x86_64_v2"})
-	defer delete(spaced.options.defines)
-	defer delete(spaced.collections)
-	testing.expect_value(t, spaced_error, "")
-	testing.expect(t, spaced.options.microarch == .V2)
-	defaulted, default_error := parse_test_arguments([]string{"testdata"})
-	defer delete(defaulted.options.defines)
-	defer delete(defaulted.collections)
-	testing.expect_value(t, default_error, "")
-	testing.expect(t, defaulted.options.microarch == .V1)
-	rejected := [?]string{"--mcpu=x86_64", "--mcpu=", "--mcpu"}
-	for flag in rejected {
-		invalid, invalid_error := parse_test_arguments([]string{"testdata", flag})
-		delete(invalid.options.defines)
-		delete(invalid.collections)
-		testing.expect_value(t, invalid_error, "odinc test: --mcpu expects one of: x86_64_v1, x86_64_v2, x86_64_v3, x86_64_v4")
+test_check_command_flags :: proc(t: ^testing.T) {
+	for arguments in ([][]string{{"source.odin", "--no-entry-point", "--collection", "custom=somewhere", "--define=COUNT=3"}, {"--no-entry-point", "-c", "custom=somewhere", "-d", "COUNT=3", "source.odin"}}) {
+		command, error := parse_command_arguments("check", arguments)
+		defer delete(command.options.defines)
+		defer delete(command.collections)
+		testing.expect_value(t, error, "")
+		testing.expect(t, command.check_only && command.no_entry_point && !command.run && !command.test_mode)
+		testing.expect_value(t, command.path, "source.odin")
+		testing.expect_value(t, command.options.defines["COUNT"], "3")
+		testing.expect(t, len(command.collections) == 1 && command.collections[0] == Collection{"custom", "somewhere"})
+	}
+	for argument in ([]string{"--output=ignored", "--keep-executable", "--build-mode=test", "--histogram", "-C", "-D"}) {
+		command, error := parse_command_arguments("check", []string{"source.odin", argument})
+		delete(command.options.defines)
+		delete(command.collections)
+		testing.expect(t, error != "")
 	}
 }

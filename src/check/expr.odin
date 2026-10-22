@@ -53,6 +53,7 @@ Expression_Checker :: struct {
 	config:               Conversion_Config,
 	target_features:      []string,
 	microarch:            types.X86_Level,
+	no_entry_point:       bool,
 	defines:              map[string]string,
 	default_integer:      types.Type_Id,
 	boolean:              types.Type_Id,

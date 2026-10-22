@@ -43,7 +43,7 @@ constant_index_requires_a_constant_position :: proc(t: ^testing.T) {
 	}
 	for test in cases {
 		if !testing.expect_value(t, os.write_entire_file(main_path, transmute([]byte)test.source), nil) { return }
-		session, err := check_program(odin_root, main_path, context.allocator)
+		session, err := check_program(odin_root, main_path, context.allocator, false)
 		defer session_destroy(session)
 		expected := Driver_Error.Check_Failed if test.rejected else Driver_Error.None
 		if !testing.expectf(t, err == expected, "%s: %v", test.source, err) { continue }

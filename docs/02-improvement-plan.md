@@ -130,7 +130,6 @@ These need a design note before code, because they touch many call sites.
 - One place type in `lower`. Today an address comes from `lower_address`, `lower_operand_address`, `lower_index_address`, `lower_array_address`, bit-field places and swizzle destinations, each with its own load and store handling. Tilde's `cgAddr` with `addr_load` and `addr_store` is the model: one `Place` union and two procedures. Investigate first how many call sites change (M to L).
 - One multi-result representation in `lower`. Multi-result calls are handled by `Spread_Results`, `Spread_Cache`, `lower_multi_declaration` and the multiple-assignment path separately. Tilde's `Multi` value kind is the model (M).
 - One ABI packing path shared by calls, returns and the entry glue (M).
-- `program_histogram_collect` discards the error from `bind_whens` with `_ =`. Return it (S).
 
 ## 6. Optimization
 
@@ -213,7 +212,7 @@ Rules for any new IR work:
 
 Each is a read-only or measurement task for an agent; the result goes into this document or a `docs/research` report.
 
-1. Phase profile. Time and peak memory per stage (parse, check, lower, ir, sched, regalloc, amd64, link) for `hello_fmt`, Nabla and `odinc` itself. Explain the 717 ms on `hello_fmt`. Use `perf` or the existing `--histogram`; record node counts and intern hit rates. This is the baseline for every stage in section 6.
+1. Phase profile. Time and peak memory per stage (parse, check, lower, ir, sched, regalloc, amd64, link) for `hello_fmt`, Nabla and `odinc` itself. Explain the 717 ms on `hello_fmt`. Use `perf`; record node counts and intern hit rates. This is the baseline for every stage in section 6.
 2. Run-time profile of the three benchmark kernels: how much of the gap to `-o:speed` is bounds checks, address arithmetic, spills, calls and missing hoisting. Reorder section 6 by the answer.
 3. Panic parity beyond bounds: compare stderr and exit status with the official compiler for slice expressions, type assertions, division by zero, `assert`, `panic` and `unreachable`.
 4. Count and list the place and multi-result code paths in `lower` (section 5.3) before designing the merge.
