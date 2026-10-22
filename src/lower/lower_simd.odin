@@ -22,6 +22,7 @@ lower_simd_builtin :: proc(
 	#partial switch kind {
 	case .Unaligned_Load,
 	     .Simd_Extract,
+	     .Simd_Extract_Msbs,
 	     .Simd_Replace,
 	     .Simd_Indices,
 	     .Simd_Select,
@@ -68,6 +69,9 @@ lower_simd_operation :: proc(
 	if !ok { return 0 }
 	function := state.job.function
 	#partial switch kind {
+	case .Simd_Extract_Msbs:
+		if len(plan.arguments) != 1 { return lower_fail(state, node, .Builtin) }
+		return lower_simd_extract_msbs(state, node, info.type, operand_type(state, plan.arguments[0]), values[0])
 	case .Unaligned_Load:
 		if len(plan.arguments) != 1 || function.nodes.type[values[0]] != .Ptr { return lower_fail(state, node, .Builtin) }
 		if scalar_type(state, info.type) != .None { return lower_load(state, values[0], info.type) }
@@ -117,6 +121,62 @@ lower_simd_operation :: proc(
 		return lower_simd_reduce(state, node, kind, operand_type(state, plan.arguments[0]), values[0])
 	}
 	return lower_fail(state, node, .Builtin)
+}
+
+@(private)
+lower_simd_extract_msbs :: proc(state: ^Procedure_State, node: syntax.Node_Index, result_type, vector_type: types.Type_Id, address: ir.Node_Id) -> ir.Node_Id {
+	vector := lower_type(state, vector_type)
+	result := lower_type(state, result_type)
+	if vector.kind != .Simd_Vector ||
+	   vector.count < 1 ||
+	   vector.count > 128 ||
+	   result.kind != .Bit_Set ||
+	   result.lower_bound != 0 ||
+	   result.upper_bound != vector.count - 1 {
+		return lower_fail(state, node, .Builtin)
+	}
+	element := lower_type(state, vector.elem)
+	layout := state.job.layouts[vector.elem]
+	if element.kind != .Integer && element.kind != .Bool || layout.error != .None {
+		return lower_fail(state, node, .Builtin)
+	}
+	word_type: ir.Value_Type
+	switch layout.size {
+	case 1:
+		word_type = .I8
+	case 2:
+		word_type = .I16
+	case 4:
+		word_type = .I32
+	case 8, 16:
+		word_type = .I64
+	case:
+		return lower_fail(state, node, .Builtin)
+	}
+	function := state.job.function
+	zero := ir.const_int(function, .I64, 0)
+	words := Wide_Words {
+		low  = zero,
+		high = zero,
+	}
+	for lane in 0 ..< vector.count {
+		lane_address := ir.ptr_offset(function, address, lane * layout.size)
+		if layout.size == 16 { lane_address = ir.ptr_offset(function, lane_address, 8) }
+		value := lower_load_word(state, lane_address, word_type)
+		bit := ir.binary(function, .Shr, value, ir.const_int(function, .I64, min(layout.size, 8) * 8 - 1))
+		if word_type != .I64 { bit = ir.convert(function, .Zext, bit, .I64) }
+		bit = ir.binary(function, .Shl, bit, ir.const_int(function, .I64, lane % 64))
+		if lane < 64 {
+			words.low = ir.binary(function, .Or, words.low, bit)
+		} else {
+			words.high = ir.binary(function, .Or, words.high, bit)
+		}
+	}
+	if is_wide_integer(state, result_type) { return wide_store(state, words) }
+	scalar := scalar_type(state, result_type)
+	if scalar == .None { return lower_fail(state, node, .Builtin) }
+	if scalar == .I64 { return words.low }
+	return ir.convert(function, .Trunc, words.low, scalar)
 }
 
 @(private)

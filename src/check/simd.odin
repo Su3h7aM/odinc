@@ -49,7 +49,7 @@ simd_array_type :: proc(
 
 simd_builtin_kind :: proc(kind: Builtin_Kind) -> bool {
 	#partial switch kind {
-	case .Simd_Extract, .Simd_Replace, .Simd_Indices, .Simd_Select, .Simd_Shuffle:
+	case .Simd_Extract, .Simd_Replace, .Simd_Indices, .Simd_Select, .Simd_Shuffle, .Simd_Extract_Msbs:
 		return true
 	case .Simd_Lanes_Eq, .Simd_Lanes_Ne, .Simd_Lanes_Lt, .Simd_Lanes_Le, .Simd_Lanes_Gt, .Simd_Lanes_Ge:
 		return true
@@ -124,6 +124,31 @@ expression_simd_call :: proc(
 	mode := Addressing_Mode.Value
 	operands: []Operand
 	#partial switch kind {
+	case .Simd_Extract_Msbs:
+		if len(arguments) != 1 { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
+		value := check_expression(checker, view, scope, arguments[0]) or_return
+		if value.state == .Invalid { return expression_poison(scope), nil }
+		vector, is_vector := simd_vector(store, value.type)
+		if !is_vector || !expression_value(value) || vector.count < 1 || vector.count > 128 {
+			return expression_failure(checker, view, scope, arguments[0], .Invalid_Operand)
+		}
+		element_kind := simd_element_kind(store, vector.elem)
+		if element_kind != .Integer && element_kind != .Bool {
+			return expression_failure(checker, view, scope, arguments[0], .Invalid_Operand)
+		}
+		result = types.intern(
+			store,
+			types.Type {
+				kind = .Bit_Set,
+				elem = checker.default_integer,
+				lower_bound = 0,
+				upper_bound = vector.count - 1,
+				enum_lower_bound = 0,
+				enum_upper_bound = i128(vector.count - 1),
+			},
+		)
+		operands = make([]Operand, 1, allocator) or_return
+		operands[0] = Operand(Expression_Ref{view, arguments[0]})
 	case .Simd_Ceil, .Simd_Floor, .Simd_Trunc, .Simd_Nearest, .Simd_Approx_Recip, .Simd_Approx_Recip_Sqrt, .Simd_Abs, .Simd_Neg:
 		if len(arguments) != 1 { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
 		value := check_expression(checker, view, scope, arguments[0]) or_return
