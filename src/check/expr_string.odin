@@ -21,8 +21,7 @@ expression_string_literal :: proc(
 	value, decoded, decode_error := literal_string_value(text, context.temp_allocator)
 	if decode_error != nil { return {}, decode_error }
 	if !decoded { return expression_failure(checker, view, scope, node, .Invalid_Literal) }
-	string_type := types.intern(checker.type_checker.store, types.Type{kind = .String})
-	literal_type := string_type
+	literal_type := types.TYPE_UNTYPED_STRING
 	if hint != 0 {
 		kind := types.get(checker.type_checker.store, types.resolve_named(checker.type_checker.store, hint)).kind
 		if kind == .String || kind == .String16 || kind == .CString || kind == .CString16 { literal_type = hint }

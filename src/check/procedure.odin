@@ -1540,7 +1540,7 @@ expression_local_declaration :: proc(
 			variable_types[index] = checker.default_integer
 		case .Untyped_Bool:
 			variable_types[index] = checker.boolean
-		case .Untyped_Float, .Untyped_Rune, .Untyped_Complex, .Untyped_Quaternion:
+		case .Untyped_Float, .Untyped_Rune, .Untyped_Complex, .Untyped_Quaternion, .Untyped_String:
 			variable_types[index] = types.default_type_of_untyped(checker.type_checker.store, value.type)
 		case:
 			variable_types[index] = value.type

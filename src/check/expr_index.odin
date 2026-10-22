@@ -24,6 +24,10 @@ expression_index :: proc(
 	if base.state == .Invalid { return expression_poison(scope), nil }
 	if base.type == types.TYPE_NONE { return expression_missing_operand_type(checker, view, scope, access.expr, base.mode) }
 	store := checker.type_checker.store
+	if base.type == types.TYPE_UNTYPED_STRING {
+		base = check_expression(checker, view, scope, access.expr, types.default_type_of_untyped(store, base.type)) or_return
+		if base.state == .Invalid { return expression_poison(scope), nil }
+	}
 	base_descriptor := types.get(store, types.resolve_named(store, base.type))
 	is_pointer := base_descriptor.kind == .Pointer
 	map_type := base.type if !is_pointer else base_descriptor.elem
@@ -125,6 +129,10 @@ expression_slice :: proc(
 	if base.state == .Invalid { return expression_poison(scope), nil }
 	if base.type == types.TYPE_NONE { return expression_missing_operand_type(checker, view, scope, access.expr, base.mode) }
 	store := checker.type_checker.store
+	if base.type == types.TYPE_UNTYPED_STRING {
+		base = check_expression(checker, view, scope, access.expr, types.default_type_of_untyped(store, base.type)) or_return
+		if base.state == .Invalid { return expression_poison(scope), nil }
+	}
 	base_descriptor := types.get(store, types.resolve_named(store, base.type))
 	has_pointer_base := base_descriptor.kind == .Pointer
 	if has_pointer_base {

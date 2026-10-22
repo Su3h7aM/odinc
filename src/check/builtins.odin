@@ -756,6 +756,10 @@ expression_raw_data :: proc(
 		return expression_failure(checker, view, scope, arguments[0], .Invalid_Operand)
 	}
 	store := checker.type_checker.store
+	if operand.type == types.TYPE_UNTYPED_STRING {
+		operand = check_expression(checker, view, scope, arguments[0], types.default_type_of_untyped(store, operand.type)) or_return
+		if operand.state == .Invalid { return expression_poison(scope), nil }
+	}
 	descriptor := types.get(store, types.resolve_named(store, operand.type))
 	element: types.Type_Id
 	#partial switch descriptor.kind {
@@ -1154,7 +1158,7 @@ expression_length :: proc(
 			return expression_poison(scope), nil
 		}
 		return Expression_Info{type = types.TYPE_UNTYPED_INTEGER, constant = constant, mode = .Constant, scope = scope, state = .Checked}, nil
-	case .Slice, .Dynamic_Array, .Map, .String, .String16, .CString, .CString16:
+	case .Slice, .Dynamic_Array, .Map, .String, .String16, .CString, .CString16, .Untyped_String:
 		if kind == .Len && operand.mode == .Constant && operand.constant != 0 {
 			length, known := constant_string_length(checker, operand.constant)
 			if known {

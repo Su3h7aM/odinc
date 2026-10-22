@@ -15,7 +15,7 @@ program_histogram_reports_checker_errors :: proc(t: ^testing.T) {
 	testing.expectf(t, err == .None, "%v", err)
 	output := strings.to_string(builder)
 	testing.expectf(t, strings.contains(output, "1 expr Undeclared_Name missing_name\n"), "%s", output)
-	testing.expectf(t, strings.contains(output, "1 expr Conversion Basic_Lit Not_Assignable\n"), "%s", output)
+	testing.expectf(t, strings.contains(output, "1 expr Invalid_Operator\n"), "%s", output)
 	testing.expectf(t, strings.contains(output, "1 import missing:package\n"), "%s", output)
 	testing.expectf(t, strings.contains(output, "total "), "%s", output)
 }

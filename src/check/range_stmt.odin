@@ -326,6 +326,10 @@ expression_range_container :: proc(
 		return expression_range_enum(checker, view, file_id, scope, range_scope, node, parts, container.type)
 	}
 	store := checker.type_checker.store
+	if container.type == types.TYPE_UNTYPED_STRING {
+		container = check_expression(checker, view, range_scope, parts.expr, types.default_type_of_untyped(store, container.type)) or_return
+		if container.state == .Invalid { return nil }
+	}
 	container_type := types.resolve_named(store, container.type)
 	type := types.get(store, container_type)
 	if type.kind == .Pointer {
