@@ -48,6 +48,13 @@ Signature :: struct {
 	results:  []Result,
 }
 
+Linkage :: enum u8 {
+	Internal,
+	Strong,
+	Weak,
+	Link_Once,
+}
+
 Symbol_Space :: enum u8 {
 	None,
 	Function,
@@ -69,6 +76,7 @@ Data_Reloc :: struct {
 
 Global :: struct {
 	name:    string,
+	linkage: Linkage,
 	size:    u32,
 	align:   u32,
 	mutable: bool,

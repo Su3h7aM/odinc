@@ -211,6 +211,7 @@ build_image :: proc(module: ^ir.Module, entry_name: string, log: io.Writer, allo
 	}
 
 	symbols := make([]link.Symbol, symbol_count, scratch_allocator) or_return
+	comdats := make([dynamic]link.Comdat, 0, 0, scratch_allocator) or_return
 	startup_atom := blob_base + blob_count
 	atoms := make([dynamic]link.Atom, startup_atom + 2, startup_atom + 2, scratch_allocator) or_return
 	defer {
@@ -222,14 +223,26 @@ build_image :: proc(module: ^ir.Module, entry_name: string, log: io.Writer, allo
 	}
 	for function, index in module.functions {
 		symbols[1 + index] = link.Symbol {
-			name = function.name,
-			atom = u32(1 + index),
+			name    = function.name,
+			atom    = u32(1 + index),
+			binding = symbol_binding(function.linkage),
+		}
+		if function.linkage == .Link_Once {
+			group_atoms := make([]u32, 1, scratch_allocator) or_return
+			group_atoms[0] = u32(1 + index)
+			append(&comdats, link.Comdat{signature = function.name, atoms = group_atoms}) or_return
 		}
 	}
 	for global, index in module.globals {
 		symbols[global_base + index] = link.Symbol {
-			name = global.name,
-			atom = u32(global_base + index),
+			name    = global.name,
+			atom    = u32(global_base + index),
+			binding = symbol_binding(global.linkage),
+		}
+		if global.linkage == .Link_Once {
+			group_atoms := make([]u32, 1, scratch_allocator) or_return
+			group_atoms[0] = u32(global_base + index)
+			append(&comdats, link.Comdat{signature = global.name, atoms = group_atoms}) or_return
 		}
 		relocs := make([]link.Relocation, len(global.relocs), scratch_allocator) or_return
 		for reloc, reloc_index in global.relocs {
@@ -354,10 +367,23 @@ build_image :: proc(module: ^ir.Module, entry_name: string, log: io.Writer, allo
 	if entry_err != nil { return nil, Entry_Emit_Failed{entry_err} }
 	atoms[0] = entry_atom
 
-	inputs := []link.Input{{atoms = atoms[:], symbols = symbols}}
+	inputs := []link.Input{{atoms = atoms[:], symbols = symbols, comdats = comdats[:]}}
 	linked, link_err := link.link(inputs, "_start", allocator)
 	if link_err != nil { return nil, Link_Failed{link_err} }
 	return linked, nil
+}
+
+@(private = "file")
+symbol_binding :: proc(linkage: ir.Linkage) -> link.Binding {
+	switch linkage {
+	case .Internal:
+		return .Local
+	case .Strong:
+		return .Global
+	case .Weak, .Link_Once:
+		return .Weak
+	}
+	unreachable()
 }
 
 @(private = "file")

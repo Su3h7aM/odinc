@@ -61,6 +61,7 @@ Node :: struct {
 Function :: struct {
 	id:         Function_Id,
 	name:       string,
+	linkage:    Linkage,
 	signature:  Signature_Id,
 	nodes:      #soa[dynamic]Node,
 	edges:      [dynamic]Node_Id,

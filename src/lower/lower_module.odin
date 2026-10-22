@@ -26,6 +26,7 @@ declare_symbols :: proc(
 		case .Procedure:
 			function_index := u32(len(module.functions))
 			function := ir.function_make(allocator, ir.Function_Id(function_index), symbol.name, 0) or_return
+			function.linkage = lower_symbol_linkage(symbol.linkage)
 			if _, append_error := append(&module.functions, function); append_error != nil {
 				ir.function_destroy(function)
 				return nil, append_error
@@ -35,7 +36,13 @@ declare_symbols :: proc(
 			symbols[index + 1] = {.Global, u32(len(module.globals))}
 			append(
 				&module.globals,
-				ir.Global{name = strings.clone(symbol.name, module_allocator) or_return, align = symbol.alignment, mutable = true, tls = symbol.thread_local},
+				ir.Global {
+					name = strings.clone(symbol.name, module_allocator) or_return,
+					linkage = lower_symbol_linkage(symbol.linkage),
+					align = symbol.alignment,
+					mutable = true,
+					tls = symbol.thread_local,
+				},
 			) or_return
 		case .Extern:
 			symbols[index + 1] = {.Extern, u32(len(module.externs))}
@@ -107,4 +114,19 @@ fill_globals :: proc(
 		}
 	}
 	return nil
+}
+
+@(private = "file")
+lower_symbol_linkage :: proc(linkage: check.Linkage) -> ir.Linkage {
+	switch linkage {
+	case .Internal:
+		return .Internal
+	case .Strong:
+		return .Strong
+	case .Weak:
+		return .Weak
+	case .Link_Once:
+		return .Link_Once
+	}
+	unreachable()
 }
