@@ -411,10 +411,10 @@ expression_simd_call :: proc(
 		operands[0] = Operand(Expression_Ref{view, arguments[0]})
 		operands[1] = Operand(Expression_Ref{view, arguments[1]})
 		for argument, index in arguments[2:] {
-			position := check_expression(checker, view, scope, argument, checker.default_integer) or_return
+			position := check_expression(checker, view, scope, argument) or_return
 			if position.state == .Invalid { return expression_poison(scope), nil }
 			position_kind := types.get(store, types.resolve_named(store, position.type)).kind
-			if position.mode != .Constant || position_kind != .Integer {
+			if position.mode != .Constant || !conversion_integer(position_kind) {
 				return expression_failure(checker, view, scope, argument, .Invalid_Operand)
 			}
 			integer := constant_pool_get(checker.constants, position.constant).value.(big.Int)
