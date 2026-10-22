@@ -49,6 +49,7 @@ lower_program :: proc(
 		delete(errors, allocator)
 		errors = nil
 	}
+	module.microarch = program.microarch
 	scratch: virtual.Arena
 	virtual.arena_init_growing(&scratch) or_return
 	defer virtual.arena_destroy(&scratch)
@@ -85,6 +86,7 @@ lower_program :: proc(
 			errors          = make([dynamic]Lower_Error, virtual.arena_allocator(&module.functions[symbol.index].arena)) or_return,
 			extern_names    = make([dynamic]string, virtual.arena_allocator(&module.functions[symbol.index].arena)) or_return,
 		}
+		job.function.target_features = procedure.target_features
 		prepare_procedure(job, scratch_allocator) or_return
 	}
 	for &job in jobs {

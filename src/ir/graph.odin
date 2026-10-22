@@ -2,6 +2,7 @@ package ir
 
 import "base:runtime"
 import "core:mem/virtual"
+import "oc:types"
 
 Memory_Order :: enum u8 {
 	Plain,
@@ -59,23 +60,25 @@ Node :: struct {
 
 // Never copy or move a `Function`: its arrays hold the address of `arena`. Use `function_make`.
 Function :: struct {
-	id:           Function_Id,
-	name:         string,
-	linkage:      Linkage,
-	signature:    Signature_Id,
-	nodes:        #soa[dynamic]Node,
-	edges:        [dynamic]Node_Id,
-	tables:       [dynamic][]i64,
-	signatures:   [dynamic]Signature,
-	blobs:        [dynamic]Data_Blob,
-	intern_table: []Node_Id,
-	intern_mask:  u32,
-	intern_count: u32,
-	start:        Node_Id,
-	stop:         Node_Id,
-	arena:        virtual.Arena,
-	allocator:    runtime.Allocator,
-	error:        runtime.Allocator_Error,
+	id:              Function_Id,
+	name:            string,
+	linkage:         Linkage,
+	// Extra features beyond the module baseline, copied from the checked procedure; empty for synthetic functions.
+	target_features: types.X86_Features,
+	signature:       Signature_Id,
+	nodes:           #soa[dynamic]Node,
+	edges:           [dynamic]Node_Id,
+	tables:          [dynamic][]i64,
+	signatures:      [dynamic]Signature,
+	blobs:           [dynamic]Data_Blob,
+	intern_table:    []Node_Id,
+	intern_mask:     u32,
+	intern_count:    u32,
+	start:           Node_Id,
+	stop:            Node_Id,
+	arena:           virtual.Arena,
+	allocator:       runtime.Allocator,
+	error:           runtime.Allocator_Error,
 }
 
 Use :: struct {

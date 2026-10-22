@@ -180,6 +180,7 @@ expression_checker_publish :: proc(checker: ^Expression_Checker, program: ^Check
 	program.type_data = checker.type_checker.store
 	program.packages = checker.packages
 	program.builtin_kinds = checker.builtin_kinds[:]
+	program.microarch = checker.microarch
 }
 
 @(require_results)

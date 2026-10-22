@@ -40,6 +40,48 @@ empty_procedure_verifies :: proc(t: ^testing.T) {
 }
 
 @(test)
+checked_target_features_copied_to_ir :: proc(t: ^testing.T) {
+	store := types.init()
+	defer types.destroy(&store)
+	signature := types.intern(&store, types.Type{kind = .Procedure, convention = .Contextless})
+	ast: syntax.Ast
+	syntax.ast_init(&ast, context.allocator)
+	defer syntax.ast_destroy(&ast)
+	first_body := syntax.ast_add_node(&ast, .Block_Stmt, 0, 2, syntax.Block_Stmt{})
+	second_body := syntax.ast_add_node(&ast, .Block_Stmt, 2, 4, syntax.Block_Stmt{})
+	program := check.Checked_Program {
+		type_data      = &store,
+		files          = {{}, {ast = &ast}},
+		symbol_table   = {
+			{},
+			{entity = 1, kind = .Procedure, name = "plain", type = signature},
+			{entity = 2, kind = .Procedure, name = "enabled", type = signature},
+		},
+		entities       = {
+			{},
+			{name = "plain", kind = .Procedure, state = .Resolved, type = signature},
+			{name = "enabled", kind = .Procedure, state = .Resolved, type = signature},
+		},
+		entity_symbols = {0, 1, 2},
+		procedure_list = {
+			{entity = 1, symbol = 1, signature = signature, convention = .Contextless, body = {1, first_body}, microarch = .V2},
+			{entity = 2, symbol = 2, signature = signature, convention = .Contextless, body = {1, second_body}, target_features = {.Avx2}, microarch = .V2},
+		},
+		microarch      = .V2,
+	}
+	module: ir.Module
+	errors, err := lower_program(&program, &module, context.allocator, worker_count = 2)
+	defer delete(errors)
+	if !testing.expect_value(t, err, nil) { return }
+	defer ir.module_destroy(&module)
+	testing.expect_value(t, len(errors), 0)
+	if !testing.expect_value(t, len(module.functions), 2) { return }
+	testing.expect(t, module.functions[0].target_features == {})
+	testing.expect(t, module.functions[1].target_features == types.X86_Features{.Avx2})
+	testing.expect_value(t, module.microarch, types.X86_Level.V2)
+}
+
+@(test)
 local_uninitialized_declaration_skips_zero_initialization :: proc(t: ^testing.T) {
 	store := types.init()
 	defer types.destroy(&store)

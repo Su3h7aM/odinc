@@ -1103,6 +1103,8 @@ Checked_Program :: struct {
 	global_initialization: []Entity_Id,
 	type_data:             ^types.Store,
 	runtime:               Runtime_Requirements,
+	// Global baseline level the universe was bound with; lowered functions add their own enable sets to it.
+	microarch:             types.X86_Level,
 }
 
 // The returned row is a copy; its referenced plans and constants remain borrowed.

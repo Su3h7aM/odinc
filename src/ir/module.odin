@@ -6,6 +6,7 @@ import "core:mem"
 import "core:mem/virtual"
 import "core:slice"
 import "core:strings"
+import "oc:types"
 
 Calling_Convention :: enum u8 {
 	Odin,
@@ -100,6 +101,8 @@ Module :: struct {
 	functions: [dynamic]^Function,
 	globals:   [dynamic]Global,
 	externs:   [dynamic]Extern,
+	// Global baseline level, copied from the checked program; selectors union it with each function's own set.
+	microarch: types.X86_Level,
 	arena:     virtual.Arena,
 }
 
