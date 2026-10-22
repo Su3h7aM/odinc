@@ -318,6 +318,15 @@ expression_call_argument :: proc(
 	conversion := expression_conversion_plan(checker, value.plan)
 	if conversion != 0 {
 		retained := checker.plans[conversion].(Conversion_Plan)
+		if _, is_constant := retained.source.(Const_Id); !is_constant {
+			program: Checked_Program
+			expression_checker_publish(checker, &program)
+			expression := expression_info(&program, view, value_node)
+			if conversion == expression.plan { conversion = 0 }
+		}
+	}
+	if conversion != 0 {
+		retained := checker.plans[conversion].(Conversion_Plan)
 		// A constant conversion already names its constant as the source. Rebinding it to the
 		// argument node would box the hint-converted row type instead of the constant's own type.
 		if constant, is_constant := retained.source.(Const_Id); is_constant {
