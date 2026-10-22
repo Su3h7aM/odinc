@@ -6,7 +6,7 @@ import "oc:elf"
 
 /*
 	Defined dynamic symbols of one shared library. `needed` is the
-	`DT_NEEDED` string, the caller-supplied name when it is not empty.
+	`DT_NEEDED` string for a library without `DT_SONAME`; the soname wins.
 */
 Shared_Library :: struct {
 	needed:    string,
@@ -70,10 +70,12 @@ shared_library_read :: proc(data: []byte, needed: string, allocator: mem.Allocat
 			}
 		}
 	}
-	if len(needed) > 0 {
+	if len(soname) > 0 {
+		library.needed = strings.clone(soname, allocator) or_return
+	} else if len(needed) > 0 {
 		library.needed = strings.clone(needed, allocator) or_return
 	} else {
-		library.needed = strings.clone(soname, allocator) or_return
+		return {}, Malformed_File{detail = "shared object has no DT_SONAME and no library name"}
 	}
 
 	for section in sections {

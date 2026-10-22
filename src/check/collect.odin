@@ -2,7 +2,9 @@ package check
 
 import "base:runtime"
 import "core:mem"
+import "core:path/filepath"
 import "core:strconv"
+import "core:strings"
 import "oc:syntax"
 
 Collection_Diagnostic_Kind :: enum u8 {
@@ -15,6 +17,7 @@ Collection_Diagnostic_Kind :: enum u8 {
 	Using_At_File,
 	Using_Constant,
 	Invalid_Foreign_Entity,
+	Invalid_Foreign_Library,
 	Missing_Initializer,
 	Invalid_Name,
 	Arity,
@@ -82,6 +85,16 @@ collection_init :: proc(collection: ^Collection, scopes: ^Scope_Store, allocator
 
 collection_destroy :: proc(collection: ^Collection) {
 	if collection == nil { return }
+	if collection.scopes != nil {
+		for entity in collection.scopes.entities {
+			library, is_library := entity.data.(Library_Data)
+			if !is_library { continue }
+			for path in library.paths {
+				delete(path.name, collection.allocator)
+			}
+			delete(library.paths, collection.allocator)
+		}
+	}
 	delete(collection.declarations)
 	delete(collection.pending)
 	delete(collection.diagnostics)
@@ -159,6 +172,58 @@ collect_foreign_block :: proc(collection: ^Collection, file: ^File, pending_inde
 	return nil
 }
 
+// `system:name` names a system library; any other path is relative to the importing file unless absolute.
+@(private = "file")
+collect_library_data :: proc(
+	collection: ^Collection,
+	file: ^File,
+	id: File_Id,
+	fullpaths: syntax.Node_Range,
+) -> (
+	data: Library_Data,
+	err: runtime.Allocator_Error,
+) {
+	paths := make([dynamic]Library_Path, collection.allocator) or_return
+	for node in syntax.node_list(file.ast, fullpaths) {
+		valid := file.ast.nodes[node].kind == .Basic_Lit
+		if valid {
+			kind := syntax.node_payload(file.ast, node, syntax.Basic_Lit).kind
+			valid = kind == .String || kind == .Raw_String
+		}
+		text: string
+		allocated: bool
+		if valid {
+			text, allocated, valid = strconv.unquote_string(collection_node_text(file, node), collection.allocator)
+		}
+		library := Library_Path {
+			name = text,
+		}
+		if valid {
+			if colon := strings.index_byte(text, ':'); colon >= 0 {
+				library = Library_Path {
+					system = text[:colon] == "system",
+					name   = text[colon + 1:],
+				}
+				valid = library.system
+			}
+			valid = valid && len(library.name) > 0
+		}
+		if !valid {
+			if allocated { delete(text, collection.allocator) }
+			collection_report(collection, file, id, node, .Invalid_Foreign_Library) or_return
+			continue
+		}
+		if library.system || filepath.is_abs(library.name) {
+			library.name = strings.clone(library.name, collection.allocator) or_return
+		} else {
+			library.name = filepath.join({filepath.dir(file.path), library.name}, collection.allocator) or_return
+		}
+		if allocated { delete(text, collection.allocator) }
+		append(&paths, library) or_return
+	}
+	return Library_Data{paths = paths[:]}, nil
+}
+
 // C3 supplies the resolved package name, or the decoded library name, after loading/evaluation.
 // Supplied name bytes must outlive the scope store. Eager library bindings are not recreated.
 @(require_results)
@@ -187,7 +252,8 @@ collect_import_name :: proc(collection: ^Collection, file: ^File, pending_index:
 		import_decl := syntax.node_payload(file.ast, declaration, syntax.Foreign_Import_Decl)
 		identifier = import_decl.name
 		kind = .Library_Name
-		data = Library_Data{}
+		library := collect_library_data(collection, file, pending.declaration.file, import_decl.fullpaths) or_return
+		data = library
 		if collection_has_attribute(file.ast, file.source, import_decl.attributes, "export") {
 			destination = scope_get(collection.scopes, file.scope).parent
 			flags += {.Export}
@@ -243,6 +309,7 @@ collect_declarations :: proc(
 			} else {
 				flags: Entity_Flags
 				destination := file.scope
+				library := collect_library_data(collection, file, id, decl.fullpaths) or_return
 				if collection_has_attribute(file.ast, file.source, decl.attributes, "export") {
 					destination = scope_get(collection.scopes, file.scope).parent
 					flags += {.Export}
@@ -256,7 +323,7 @@ collect_declarations :: proc(
 					collection_node_text(file, decl.name),
 					.Library_Name,
 					flags,
-					Library_Data{},
+					library,
 					order,
 					destination,
 					0,
@@ -408,6 +475,10 @@ collect_value_declaration :: proc(
 			value,
 			foreign_block,
 		) or_return
+		if foreign_block != 0 {
+			library_ident := syntax.node_payload(file.ast, foreign_block, syntax.Foreign_Block_Decl).foreign_library
+			entity_get(collection.scopes, entity).foreign_library = collection_node_text(file, library_ident)
+		}
 		if collection.builtin_scope != 0 &&
 		   file.package_id == collection.runtime_package &&
 		   collection_has_attribute(file.ast, file.source, decl.attributes, "builtin") {

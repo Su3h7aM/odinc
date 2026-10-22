@@ -1,13 +1,54 @@
 package link
 
 import "core:mem"
+import "oc:elf"
+
+File_Kind :: enum u8 {
+	Unknown,
+	Relocatable,
+	Archive,
+	Shared,
+}
+
+// Classified by content, never by name: `libfoo.so.1` is a shared object like `libfoo.so`.
+classify_file :: proc(data: []byte) -> File_Kind {
+	if len(data) >= 8 && string(data[:8]) == "!<arch>\n" { return .Archive }
+	header, ok := read_pod(data, 0, elf.File_Header)
+	if !ok || string(header.ident[:4]) != elf.ELF_MAGIC || header.e_machine != .EM_X86_64 { return .Unknown }
+	#partial switch header.e_type {
+	case .ET_REL:
+		return .Relocatable
+	case .ET_DYN:
+		return .Shared
+	}
+	return .Unknown
+}
 
 /*
 	Links relocatable objects, lazily extracted archive members, and shared
-	libraries. `needed` of a shared file is the `DT_NEEDED` string; an empty
-	name uses the object's `DT_SONAME`. The image is owned by the caller.
+	libraries. `needed` of a shared file is the `DT_NEEDED` string, the
+	library's `DT_SONAME` when it has one. The image is owned by the caller.
 */
 link_files :: proc(
+	objects: [][]byte,
+	archives: [][]byte,
+	shared: []Shared_Library,
+	entry: string,
+	allocator: mem.Allocator,
+) -> (
+	image: []byte,
+	err: Link_Error,
+) {
+	return link_inputs(nil, objects, archives, shared, entry, allocator)
+}
+
+/*
+	Like `link_files`, with `initial` inputs that the caller keeps owning and
+	that come before the objects. Archive members are extracted only for
+	symbols that remain undefined.
+*/
+link_inputs :: proc(
+	initial: []Input,
 	objects: [][]byte,
 	archives: [][]byte,
 	shared: []Shared_Library,
@@ -39,12 +80,14 @@ link_files :: proc(
 		}
 	}
 
-	inputs := make([dynamic]Input, allocator) or_return
+	inputs := make([dynamic]Input, 0, len(initial) + len(objects), allocator) or_return
+	defer delete(inputs)
+	append(&inputs, ..initial) or_return
+	owned_start := len(inputs)
 	defer {
-		for &input in inputs {
+		for &input in inputs[owned_start:] {
 			input_destroy(&input, allocator)
 		}
-		delete(inputs)
 	}
 	for file in objects {
 		append(&inputs, read_object(file, allocator) or_return)

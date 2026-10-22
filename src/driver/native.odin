@@ -63,6 +63,7 @@ Build_Error :: union {
 	Entry_Emit_Failed,
 	Stub_Emit_Failed,
 	Link_Failed,
+	Foreign_Library_Failed,
 }
 
 // Slots in the BSS atom that `_start` fills: argc, argv and envp.
@@ -113,9 +114,15 @@ build_file :: proc(
 	}
 	entry_name, entry_error := strings.clone(main_symbol_name(session), virtual.arena_allocator(&module.arena))
 	if entry_error != nil { return nil, entry_error }
+	foreign_files, foreign_err := load_foreign_files(&session.program, allocator)
+	if foreign_err != nil {
+		write_build_error(log, foreign_err)
+		return nil, foreign_err
+	}
+	defer foreign_files_destroy(&foreign_files)
 	session_destroy(session)
 	session = nil
-	return build_image(&module, entry_name, log, allocator, thread_count)
+	return build_image(&module, entry_name, log, allocator, thread_count, foreign_files)
 }
 
 // The symbol of the main package's `main` procedure; empty when the program has none.
@@ -132,6 +139,8 @@ write_build_error :: proc(log: io.Writer, err: Build_Error, error_context := Bui
 		fmt.wprintfln(log, "build failed: %v", value)
 	case Missing_Main:
 		fmt.wprintfln(log, "build failed: no main procedure")
+	case Foreign_Library_Failed:
+		fmt.wprintfln(log, "build failed: foreign library %s %s", value.path, value.reason)
 	case Select_Failed:
 		fmt.wprintfln(log, "%s: instruction selection failed: %v", error_context.function_name, value.err)
 	case Allocate_Failed:
@@ -159,6 +168,7 @@ build_image :: proc(
 	log: io.Writer,
 	allocator: runtime.Allocator,
 	thread_count: int,
+	foreign_files: Foreign_Files,
 ) -> (
 	image: []byte,
 	err: Build_Error,
@@ -406,7 +416,7 @@ build_image :: proc(
 	atoms[0] = entry_atom
 
 	inputs := []link.Input{{atoms = atoms[:], symbols = symbols, comdats = comdats[:]}}
-	linked, link_err := link.link(inputs, "_start", allocator)
+	linked, link_err := link.link_inputs(inputs, foreign_files.objects[:], foreign_files.archives[:], foreign_files.shared[:], "_start", allocator)
 	if link_err != nil {
 		error_context.link_error = link_err
 		error_context.has_link_error = true

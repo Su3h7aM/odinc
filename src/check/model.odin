@@ -566,9 +566,13 @@ Procedure_Group_Data :: struct {
 Import_Data :: struct {
 	package_id: Package_Id,
 }
+Library_Path :: struct {
+	system: bool,
+	name:   string,
+}
 Library_Data :: struct {
-	collection: string,
-	paths:      []string,
+	paths: []Library_Path,
+	used:  bool,
 }
 Label_Data :: struct {
 	target: Node_Ref,
@@ -619,20 +623,21 @@ Entity_Data :: union {
 	Builtin_Id,
 }
 Entity :: struct {
-	name:         string,
-	kind:         Entity_Kind,
-	flags:        Entity_Flags,
-	scope:        Scope_Id,
-	package_id:   Package_Id,
-	declaration:  Node_Ref,
-	order:        Source_Order,
-	state:        Resolution_State,
-	type:         types.Type_Id,
-	constant:     Const_Id,
-	attributes:   []Attribute,
-	dependencies: []Dependency,
-	alias:        Entity_Id,
-	data:         Entity_Data,
+	name:            string,
+	kind:            Entity_Kind,
+	flags:           Entity_Flags,
+	scope:           Scope_Id,
+	package_id:      Package_Id,
+	declaration:     Node_Ref,
+	order:           Source_Order,
+	state:           Resolution_State,
+	type:            types.Type_Id,
+	constant:        Const_Id,
+	attributes:      []Attribute,
+	dependencies:    []Dependency,
+	alias:           Entity_Id,
+	data:            Entity_Data,
+	foreign_library: string,
 }
 
 Typed_Nodes :: struct {

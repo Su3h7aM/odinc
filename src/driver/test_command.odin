@@ -68,7 +68,13 @@ build_tests :: proc(
 		return nil, Lower_Failed{len(errors)}
 	}
 	entry := session.program.entity_symbols[session.test_entry]
-	return build_image(&module, session.program.symbol_table[entry].name, log, allocator, worker_count)
+	foreign_files, foreign_err := load_foreign_files(&session.program, allocator)
+	if foreign_err != nil {
+		fmt.wprintfln(log, "build failed: %v", foreign_err)
+		return nil, foreign_err
+	}
+	defer foreign_files_destroy(&foreign_files)
+	return build_image(&module, session.program.symbol_table[entry].name, log, allocator, worker_count, foreign_files)
 }
 
 @(private)
