@@ -7,7 +7,9 @@ select_address :: proc(selector: ^Selector, node: ir.Node_Id) -> (address: Memor
 	input := selector.input
 	#partial switch input.nodes.kind[node] {
 	case .Stack_Slot:
-		return Memory_Ref{base = Frame_Object{.Slot, selector.slots[node]}}, nil
+		if input.nodes.data[node].slot.align <= MAX_FRAME_ALIGNMENT {
+			return Memory_Ref{base = Frame_Object{.Slot, selector.slots[node]}}, nil
+		}
 	case .Symbol_Addr:
 		return Memory_Ref{base = Symbol_Target{symbol = input.nodes.data[node].symbol}}, nil
 	case .Ptr_Offset:
@@ -45,7 +47,16 @@ select_memory :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Status {
 	#partial switch kind {
 	case .Stack_Slot:
 		slot := input.nodes.data[node].slot
-		if slot.align == 0 || slot.align > 16 || slot.align & (slot.align - 1) != 0 { return select_failure(selector, .Unsupported_Alignment) }
+		if slot.align == 0 || slot.align & (slot.align - 1) != 0 { return select_failure(selector, .Unsupported_Alignment) }
+		if slot.align > MAX_FRAME_ALIGNMENT {
+			padding := slot.align - 1
+			padded_size := u64(slot.size) + u64(padding)
+			if padded_size > u64(max(i32)) { return select_failure(selector, .Unsupported_Alignment) }
+			selector.slots[node] = add_frame_slot(output, u32(padded_size), MAX_FRAME_ALIGNMENT) or_return
+			rounded := new_vreg(output, .Int) or_return
+			emit(output, selector.block, .LEA, 8, rounded, Memory_Ref{base = Frame_Object{.Slot, selector.slots[node]}, displacement = i32(padding)}) or_return
+			return emit(output, selector.block, .AND, 8, destination, rounded, Immediate(-i64(slot.align)))
+		}
 		selector.slots[node] = add_frame_slot(output, slot.size, slot.align) or_return
 		return emit(output, selector.block, .LEA, 8, destination, Memory_Ref{base = Frame_Object{.Slot, selector.slots[node]}})
 	case .Stack_Alloc:
