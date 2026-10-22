@@ -109,7 +109,7 @@ parse_stmt_list :: proc(p: ^Parser) -> Node_Range {
 		if p.ast.nodes[stmt].kind == .Empty_Stmt {
 			continue
 		}
-		append(&stmts, stmt)
+		push(p, &stmts, stmt)
 		if p.ast.nodes[stmt].kind == .Expr_Stmt {
 			expr := node_payload(p.ast, stmt, Expr_Stmt).expr
 			if p.ast.nodes[expr].kind == .Proc_Lit {
@@ -421,7 +421,7 @@ parse_switch_stmt :: proc(p: ^Parser) -> Node_Index {
 		clauses := make([dynamic]Node_Index, 0, 4, p.allocator)
 		defer delete(clauses)
 		for p.curr.kind == .Case {
-			append(&clauses, parse_case_clause(p, is_type_switch))
+			push(p, &clauses, parse_case_clause(p, is_type_switch))
 		}
 		close := expect_token(p, .Close_Brace)
 		body = add_node(p, .Block_Stmt, open.start, close.end, Block_Stmt{open = open.start, stmts = ast_add_list(p.ast, clauses[:]), close = close.start})
@@ -467,7 +467,7 @@ parse_unrolled_for_loop :: proc(p: ^Parser, tag: Token) -> Node_Index {
 					value := parse_value(p)
 					arg = add_node(p, .Field_Value, p.ast.nodes[arg].start, p.prev.end, Field_Value{field = arg, sep = eq.start, value = value})
 				}
-				append(&args, arg)
+				push(p, &args, arg)
 				if !allow_token(p, .Comma) {
 					break
 				}
@@ -672,7 +672,7 @@ parse_return_stmt :: proc(p: ^Parser) -> Node_Index {
 	results := make([dynamic]Node_Index, 0, 2, p.allocator)
 	defer delete(results)
 	for p.curr.kind != .Semicolon && p.curr.kind != .Close_Brace && p.curr.kind != .EOF {
-		append(&results, parse_expr(p, false))
+		push(p, &results, parse_expr(p, false))
 		if p.curr.kind != .Comma {
 			break
 		}

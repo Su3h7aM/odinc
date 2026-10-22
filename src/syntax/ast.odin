@@ -10,6 +10,7 @@
 package syntax
 
 import "core:fmt"
+import "core:mem"
 import "core:reflect"
 import "core:strings"
 
@@ -37,9 +38,11 @@ Node :: struct {
 }
 
 Ast :: struct {
-	nodes: [dynamic]Node,
-	extra: [dynamic]Node_Index,
-	root:  Node_Index,
+	nodes:            [dynamic]Node,
+	extra:            [dynamic]Node_Index,
+	root:             Node_Index,
+	// Set by a failed append; `parse_file` turns it into a Parse_Error so the parse fails.
+	allocation_error: mem.Allocator_Error,
 }
 
 ast_init :: proc(ast: ^Ast, allocator := context.allocator) {
@@ -55,7 +58,10 @@ ast_destroy :: proc(ast: ^Ast) {
 }
 
 ast_add_node :: proc(ast: ^Ast, kind: Node_Kind, start, end: u32, payload: Node_Payload) -> Node_Index {
-	append(&ast.nodes, Node{kind = kind, start = start, end = end, payload = payload})
+	if _, err := append(&ast.nodes, Node{kind = kind, start = start, end = end, payload = payload}); err != nil {
+		ast.allocation_error = err
+		return 0
+	}
 	return Node_Index(len(ast.nodes) - 1)
 }
 
@@ -64,7 +70,10 @@ ast_add_list :: proc(ast: ^Ast, children: []Node_Index) -> Node_Range {
 		first = u32(len(ast.extra)),
 		count = u32(len(children)),
 	}
-	append(&ast.extra, ..children)
+	if _, err := append(&ast.extra, ..children); err != nil {
+		ast.allocation_error = err
+		return {}
+	}
 	return range
 }
 

@@ -11,7 +11,7 @@ parse_expr_list :: proc(p: ^Parser, lhs: bool) -> Node_Range {
 	list := make([dynamic]Node_Index, 0, 4, p.allocator)
 	defer delete(list)
 	for {
-		append(&list, parse_expr(p, lhs))
+		push(p, &list, parse_expr(p, lhs))
 		if !allow_token(p, .Comma) {
 			break
 		}
@@ -252,7 +252,7 @@ parse_elem_list :: proc(p: ^Parser) -> Node_Range {
 			value := parse_value(p)
 			elem = add_node(p, .Field_Value, start_of(p, elem), p.prev.end, Field_Value{field = elem, sep = eq.start, value = value})
 		}
-		append(&elems, elem)
+		push(p, &elems, elem)
 		if !allow_token(p, .Comma) {
 			break
 		}
@@ -333,7 +333,7 @@ parse_call_expr :: proc(p: ^Parser, operand: Node_Index) -> Node_Index {
 		} else if seen_ellipsis {
 			report(p, .Positional_After_Ellipsis, p.ast.nodes[arg].start)
 		}
-		append(&args, arg)
+		push(p, &args, arg)
 
 		if ellipsis.kind != .Invalid {
 			seen_ellipsis = true

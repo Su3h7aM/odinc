@@ -18,7 +18,7 @@ parse_asm_template :: proc(p: ^Parser) -> Node_Index {
 		instruction_nodes := make([dynamic]Node_Index, 0, 8, p.allocator)
 		defer delete(instruction_nodes)
 		for p.curr.kind != .Close_Brace && p.curr.kind != .EOF {
-			append_present_node(&instruction_nodes, parse_asm_instruction(p))
+			append_present_node(p, &instruction_nodes, parse_asm_instruction(p))
 		}
 		expect_closing_token(p, .Close_Brace)
 		instructions = ast_add_list(p.ast, instruction_nodes[:])
@@ -43,9 +43,9 @@ parse_asm_spec_list :: proc(p: ^Parser) -> (specs, clobbers: Node_Range) {
 	for p.curr.kind != .Close_Bracket && p.curr.kind != .EOF {
 		#partial switch p.curr.kind {
 		case .Ident:
-			append(&spec_nodes, parse_asm_spec(p))
+			push(p, &spec_nodes, parse_asm_spec(p))
 		case .Directive:
-			append_present_node(&clobber_nodes, parse_asm_clobber(p))
+			append_present_node(p, &clobber_nodes, parse_asm_clobber(p))
 		case:
 			report(p, .Invalid_Asm_Specification, p.curr.start)
 			advance_token(p)
@@ -111,7 +111,7 @@ parse_asm_spec :: proc(p: ^Parser) -> Node_Index {
 			report(p, .Expected_Token, directive.end, .Ident)
 			continue
 		}
-		append(&directive_nodes, add_node(p, .Basic_Directive, directive.start, directive.end, Basic_Directive{}))
+		push(p, &directive_nodes, add_node(p, .Basic_Directive, directive.start, directive.end, Basic_Directive{}))
 	}
 
 	return add_node(
@@ -139,9 +139,9 @@ parse_asm_label :: proc(p: ^Parser) -> Node_Index {
 	return add_node(p, .Asm_Label, period.start, p.prev.end, Asm_Label{name = name})
 }
 
-append_present_node :: proc(operands: ^[dynamic]Node_Index, operand: Node_Index) {
+append_present_node :: proc(p: ^Parser, operands: ^[dynamic]Node_Index, operand: Node_Index) {
 	if operand != 0 {
-		append(operands, operand)
+		push(p, operands, operand)
 	}
 }
 
@@ -270,14 +270,14 @@ parse_asm_register_group :: proc(p: ^Parser) -> Node_Index {
 	first := parse_asm_operand(p, false)
 	if p.curr.kind == .Range_Half || p.curr.kind == .Range_Full {
 		range_token = advance_token(p).kind
-		append_present_node(&registers, first)
-		append_present_node(&registers, parse_asm_operand(p, false))
+		append_present_node(p, &registers, first)
+		append_present_node(p, &registers, parse_asm_operand(p, false))
 		allow_token(p, .Comma)
 	} else {
-		append_present_node(&registers, first)
+		append_present_node(p, &registers, first)
 		allow_token(p, .Comma)
 		for p.curr.kind != .Close_Brace && p.curr.kind != .EOF {
-			append_present_node(&registers, parse_asm_operand(p, false))
+			append_present_node(p, &registers, parse_asm_operand(p, false))
 			if !allow_token(p, .Comma) {
 				break
 			}
@@ -302,7 +302,7 @@ parse_asm_operands :: proc(p: ^Parser) -> Node_Range {
 	operands := make([dynamic]Node_Index, 0, 4, p.allocator)
 	defer delete(operands)
 	for p.curr.kind != .Semicolon && p.curr.kind != .Close_Brace && p.curr.kind != .EOF {
-		append_present_node(&operands, parse_asm_operand(p, true))
+		append_present_node(p, &operands, parse_asm_operand(p, true))
 		if !allow_token(p, .Comma) {
 			break
 		}

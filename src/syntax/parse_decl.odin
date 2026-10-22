@@ -71,7 +71,7 @@ parse_attribute :: proc(p: ^Parser, at_tok: Token) -> Node_Index {
 	if p.curr.kind == .Ident {
 		open = p.curr.start
 		close = p.curr.start
-		append(&elems, parse_ident(p))
+		push(p, &elems, parse_ident(p))
 	} else {
 		open = expect_token(p, .Open_Paren).start
 		p.expr_level += 1
@@ -82,7 +82,7 @@ parse_attribute :: proc(p: ^Parser, at_tok: Token) -> Node_Index {
 				value := parse_value(p)
 				elem = add_node(p, .Field_Value, p.ast.nodes[elem].start, p.prev.end, Field_Value{field = elem, sep = eq.start, value = value})
 			}
-			append(&elems, elem)
+			push(p, &elems, elem)
 			if !allow_token(p, .Comma) {
 				break
 			}
@@ -130,8 +130,10 @@ append_attribute :: proc(p: ^Parser, attributes: Node_Range, attribute: Node_Ind
 	old := node_list(p.ast, attributes)
 	list := make([dynamic]Node_Index, 0, len(old) + 1, p.allocator)
 	defer delete(list)
-	append(&list, ..old)
-	append(&list, attribute)
+	for node in old {
+		push(p, &list, node)
+	}
+	push(p, &list, attribute)
 	return ast_add_list(p.ast, list[:])
 }
 
@@ -166,7 +168,7 @@ parse_foreign_block :: proc(p: ^Parser, tok: Token) -> Node_Index {
 	for p.curr.kind != .Close_Brace && p.curr.kind != .EOF {
 		decl := parse_foreign_block_decl(p)
 		if decl != 0 {
-			append(&decls, decl)
+			push(p, &decls, decl)
 		}
 	}
 	close := expect_token(p, .Close_Brace)
@@ -195,7 +197,7 @@ parse_foreign_decl :: proc(p: ^Parser) -> Node_Index {
 		defer delete(paths)
 		if allow_token(p, .Open_Brace) {
 			for p.curr.kind != .Close_Brace && p.curr.kind != .EOF {
-				append(&paths, parse_expr(p, false))
+				push(p, &paths, parse_expr(p, false))
 				if !allow_token(p, .Comma) {
 					break
 				}
@@ -203,7 +205,7 @@ parse_foreign_decl :: proc(p: ^Parser) -> Node_Index {
 			expect_token(p, .Close_Brace)
 		} else {
 			path := expect_token(p, .String)
-			append(&paths, add_node(p, .Basic_Lit, path.start, path.end, Basic_Lit{kind = .String}))
+			push(p, &paths, add_node(p, .Basic_Lit, path.start, path.end, Basic_Lit{kind = .String}))
 		}
 		if len(paths) == 0 {
 			report(p, .Invalid_Foreign_Declaration, import_tok.start)

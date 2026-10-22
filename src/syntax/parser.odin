@@ -57,6 +57,7 @@ Parse_Error_Kind :: enum u8 {
 	// Expected_Space_After_Feature is a tag starting with #+feature but with no
 	// space after it, e.g. #+featurex.
 	Expected_Space_After_Feature,
+	Out_Of_Memory,
 }
 
 // Parse_Error is a syntax error at a byte offset; `expected` is set for Expected_Token.
@@ -101,6 +102,12 @@ parser_destroy :: proc(p: ^Parser) {
 
 report :: proc(p: ^Parser, kind: Parse_Error_Kind, offset: u32, expected := Token_Kind.Invalid) {
 	append(&p.errors, Parse_Error{kind = kind, offset = offset, expected = expected})
+}
+
+push :: proc(p: ^Parser, list: ^$L/[dynamic]$E, value: E) {
+	if _, err := append(list, value); err != nil {
+		report(p, .Out_Of_Memory, p.curr.start)
+	}
 }
 
 advance_token :: proc(p: ^Parser) -> Token {
@@ -316,7 +323,7 @@ parse_file :: proc(p: ^Parser) -> Node_Index {
 			continue
 		}
 		advance_token(p)
-		append(&tags, add_node(p, .File_Tag, start, p.prev.end, File_Tag{}))
+		push(p, &tags, add_node(p, .File_Tag, start, p.prev.end, File_Tag{}))
 		if text := token_text(p.tokenizer.source, p.prev); strings.has_prefix(text, "#+feature") {
 			validate_feature_tag(p, start, text)
 		}
@@ -333,7 +340,7 @@ parse_file :: proc(p: ^Parser) -> Node_Index {
 	for p.curr.kind != .EOF {
 		decl := parse_stmt(p)
 		if p.ast.nodes[decl].kind != .Empty_Stmt {
-			append(&decls, decl)
+			push(p, &decls, decl)
 		}
 	}
 
@@ -345,6 +352,9 @@ parse_file :: proc(p: ^Parser) -> Node_Index {
 		File{tags = ast_add_list(p.ast, tags[:]), package_decl = package_decl, decls = ast_add_list(p.ast, decls[:])},
 	)
 	p.ast.root = file
+	if p.ast.allocation_error != nil {
+		report(p, .Out_Of_Memory, 0)
+	}
 	return file
 }
 

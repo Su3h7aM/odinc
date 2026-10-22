@@ -164,9 +164,9 @@ parse_ident_list :: proc(p: ^Parser, allow_poly_names: bool) -> Node_Range {
 			if is_blank_ident(p, ident) {
 				report(p, .Blank_Poly_Name, p.ast.nodes[ident].start)
 			}
-			append(&names, add_node(p, .Poly_Type, tok.start, p.prev.end, Poly_Type{dollar = tok.start, type = ident}))
+			push(p, &names, add_node(p, .Poly_Type, tok.start, p.prev.end, Poly_Type{dollar = tok.start, type = ident}))
 		} else {
-			append(&names, parse_ident(p))
+			push(p, &names, parse_ident(p))
 		}
 		if p.curr.kind != .Comma {
 			break
@@ -192,7 +192,7 @@ convert_to_ident_list :: proc(p: ^Parser, entries: []Field_Prefix_Entry, allow_p
 			report(p, .Expected_Token, start, .Ident)
 			name = add_node(p, .Ident, start, start, Ident{})
 		}
-		append(&names, name)
+		push(p, &names, name)
 	}
 	return ast_add_list(p.ast, names[:])
 }
@@ -276,7 +276,7 @@ handle_field :: proc(p: ^Parser, seen_ellipsis: ^bool, fields: ^[dynamic]Node_In
 	}
 
 	ok := expect_field_separator(p)
-	append(fields, add_field(p, start, names, type, default_value, tag, flags))
+	push(p, fields, add_field(p, start, names, type, default_value, tag, flags))
 	return ok
 }
 
@@ -302,7 +302,7 @@ parse_field_list :: proc(p: ^Parser, closing: Token_Kind, allowed_flags: Field_F
 		} else if seen_ellipsis {
 			report(p, .Invalid_Field, p.ast.nodes[param].start)
 		}
-		append(&entries, Field_Prefix_Entry{expr = param, flags = prefix_flags})
+		push(p, &entries, Field_Prefix_Entry{expr = param, flags = prefix_flags})
 		if !allow_token(p, .Comma) {
 			break
 		}
@@ -314,7 +314,7 @@ parse_field_list :: proc(p: ^Parser, closing: Token_Kind, allowed_flags: Field_F
 			name := add_node(p, .Ident, type_start, type_start, Ident{})
 			names := ast_add_list(p.ast, []Node_Index{name})
 			flags := check_field_flag_prefixes(p, len(entries), allowed_flags, entry.flags)
-			append(&fields, add_field(p, type_start, names, entry.expr, 0, 0, flags))
+			push(p, &fields, add_field(p, type_start, names, entry.expr, 0, 0, flags))
 		}
 	} else {
 		names := convert_to_ident_list(p, entries[:], allow_poly_names)
@@ -337,7 +337,7 @@ parse_field_list :: proc(p: ^Parser, closing: Token_Kind, allowed_flags: Field_F
 				}
 				seen_ellipsis = true
 				ok = expect_field_separator(p)
-				append(&fields, add_field(p, ellipsis_start, {}, type, 0, 0, check_field_flag_prefixes(p, 0, allowed_flags, set_flags)))
+				push(p, &fields, add_field(p, ellipsis_start, {}, type, 0, 0, check_field_flag_prefixes(p, 0, allowed_flags, set_flags)))
 				continue
 			}
 			names = parse_ident_list(p, allow_poly_names)
@@ -521,7 +521,7 @@ parse_proc_group :: proc(p: ^Parser, group_tok: Token) -> Node_Index {
 			cond := parse_expr(p, false)
 			elem = add_node(p, .Binary_Expr, p.ast.nodes[elem].start, p.prev.end, Binary_Expr{left = elem, op = where_tok, right = cond})
 		}
-		append(&args, elem)
+		push(p, &args, elem)
 		if !allow_token(p, .Comma) {
 			break
 		}
@@ -799,7 +799,7 @@ parse_union_type :: proc(p: ^Parser) -> Node_Index {
 	for p.curr.kind != .Close_Brace && p.curr.kind != .EOF {
 		variant := parse_type(p)
 		if p.ast.nodes[variant].kind != .Bad_Expr {
-			append(&variants, variant)
+			push(p, &variants, variant)
 		}
 		if !allow_token(p, .Comma) {
 			break
@@ -899,7 +899,7 @@ parse_bit_field_type :: proc(p: ^Parser) -> Node_Index {
 			advance_token(p)
 		}
 		more := allow_token(p, .Comma)
-		append(&fields, add_node(p, .Bit_Field_Field, p.ast.nodes[name].start, p.prev.end, Bit_Field_Field{name = name, type = type, bit_size = bit_size}))
+		push(p, &fields, add_node(p, .Bit_Field_Field, p.ast.nodes[name].start, p.prev.end, Bit_Field_Field{name = name, type = type, bit_size = bit_size}))
 		if !more {
 			break
 		}
