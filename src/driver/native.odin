@@ -199,31 +199,11 @@ build_image :: proc(
 	image: []byte,
 	err: Build_Error,
 ) {
-	main_index := -1
-	for function, index in module.functions {
-		if function.name == entry_name { main_index = index }
+	roots, roots_err := find_module_roots(module, entry_name)
+	if roots_err != nil {
+		write_build_error(log, roots_err)
+		return nil, roots_err
 	}
-	if main_index < 0 {
-		write_build_error(log, Missing_Main{})
-		return nil, Missing_Main{}
-	}
-	init_index := -1
-	for function, index in module.functions {
-		if function.name == lower.GLOBAL_INITIALIZER_NAME { init_index = index }
-	}
-	fini_index := -1
-	for function, index in module.functions {
-		if function.name == lower.PROGRAM_FINALIZER_NAME { fini_index = index }
-	}
-	context_index := -1
-	args_index := -1
-	for global, index in module.globals {
-		if global.name == lower.DEFAULT_CONTEXT_NAME { context_index = index }
-		if global.name == "runtime.args__" { args_index = index }
-	}
-	assert(context_index >= 0, "lowering declares the default context global")
-	assert(args_index >= 0, "lowering declares the runtime args global")
-
 	scratch: virtual.Arena
 	if arena_err := virtual.arena_init_growing(&scratch); arena_err != nil {
 		fmt.wprintfln(log, "image build: scratch arena allocation failed: %v", arena_err)
@@ -235,55 +215,141 @@ build_image :: proc(
 	defer if err != nil { write_build_error(log, err, error_context) }
 	scratch_allocator := virtual.arena_allocator(&scratch)
 
-	function_count := len(module.functions)
-	global_count := len(module.globals)
-	blob_count := 0
-	for function in module.functions {
-		blob_count += len(function.blobs)
+	layout := assign_symbol_indices(module, scratch_allocator) or_return
+	table: Native_Symbol_Table
+	table.symbols = make([]link.Symbol, layout.symbol_count, scratch_allocator) or_return
+	table.comdats = make([dynamic]link.Comdat, 0, 0, scratch_allocator) or_return
+	startup_atom := layout.blob_base + layout.blob_count
+	table.atoms = make([dynamic]link.Atom, startup_atom + 2, startup_atom + 2, scratch_allocator) or_return
+	defer {
+		for &atom in table.atoms[1:1 + layout.function_count] { amd64.atom_destroy(&atom, allocator) }
 	}
-	extern_count := len(module.externs)
-	global_base := 1 + function_count
-	blob_base := global_base + global_count
-	extern_base := blob_base + blob_count
-	startup_base := extern_base + extern_count
-	symbol_count := startup_base + STARTUP_SLOT_COUNT + 1
+	build_symbol_table(module, layout, &table, &error_context, scratch_allocator) or_return
+	build_startup_atoms(layout, &table, scratch_allocator) or_return
 
-	function_symbols := make([]u32, function_count, scratch_allocator) or_return
-	global_symbols := make([]u32, global_count, scratch_allocator) or_return
-	blob_symbols := make([]u32, blob_count, scratch_allocator) or_return
-	extern_symbols := make([]u32, extern_count, scratch_allocator) or_return
-	for index in 0 ..< function_count { function_symbols[index] = u32(1 + index) }
-	for index in 0 ..< global_count { global_symbols[index] = u32(global_base + index) }
-	for index in 0 ..< blob_count { blob_symbols[index] = u32(blob_base + index) }
-	for index in 0 ..< extern_count { extern_symbols[index] = u32(extern_base + index) }
+	// The guarded allocator's mutex lives in this scope: it outlives the link and the atom cleanup below.
+	locked: mem.Mutex_Allocator
+	mem.mutex_allocator_init(&locked, allocator)
+	guarded := mem.mutex_allocator(&locked)
+	build_function_atoms(module, layout, &table, &error_context, guarded, thread_count, scratch_allocator) or_return
+	table.atoms[0] = build_entry_atom(module, roots, layout, scratch_allocator) or_return
 
-	module_indices: amd64.Symbol_Indices
-	module_indices[.Function] = function_symbols
-	module_indices[.Global] = global_symbols
-	module_indices[.Extern] = extern_symbols
-	function_indices := make([]amd64.Symbol_Indices, function_count, scratch_allocator) or_return
+	inputs := []link.Input{{atoms = table.atoms[:], symbols = table.symbols, comdats = table.comdats[:]}}
+	linked, link_err := link.link_inputs(inputs, foreign_files.objects[:], foreign_files.archives[:], foreign_files.shared[:], "_start", allocator)
+	if link_err != nil {
+		error_context.link_error = link_err
+		error_context.has_link_error = true
+		return nil, Link_Failed{}
+	}
+	return linked, nil
+}
+
+@(private = "file")
+Module_Roots :: struct {
+	main_index, init_index, fini_index, context_index, args_index: int,
+}
+
+@(private = "file")
+Symbol_Layout :: struct {
+	function_count, global_count, blob_count, extern_count:          int,
+	global_base, blob_base, extern_base, startup_base, symbol_count: int,
+	function_symbols, global_symbols, blob_symbols, extern_symbols:  []u32,
+	module_indices:                                                  amd64.Symbol_Indices,
+	function_indices:                                                []amd64.Symbol_Indices,
+}
+
+@(private = "file")
+Native_Symbol_Table :: struct {
+	symbols: []link.Symbol,
+	comdats: [dynamic]link.Comdat,
+	atoms:   [dynamic]link.Atom,
+}
+
+@(private = "file")
+find_module_roots :: proc(module: ^ir.Module, entry_name: string) -> (roots: Module_Roots, err: Build_Error) {
+	roots.main_index = -1
+	for function, index in module.functions {
+		if function.name == entry_name { roots.main_index = index }
+	}
+	if roots.main_index < 0 {
+		return roots, Missing_Main{}
+	}
+	roots.init_index = -1
+	for function, index in module.functions {
+		if function.name == lower.GLOBAL_INITIALIZER_NAME { roots.init_index = index }
+	}
+	roots.fini_index = -1
+	for function, index in module.functions {
+		if function.name == lower.PROGRAM_FINALIZER_NAME { roots.fini_index = index }
+	}
+	roots.context_index = -1
+	roots.args_index = -1
+	for global, index in module.globals {
+		if global.name == lower.DEFAULT_CONTEXT_NAME { roots.context_index = index }
+		if global.name == "runtime.args__" { roots.args_index = index }
+	}
+	assert(roots.context_index >= 0, "lowering declares the default context global")
+	assert(roots.args_index >= 0, "lowering declares the runtime args global")
+
+	return
+}
+
+@(private = "file")
+assign_symbol_indices :: proc(module: ^ir.Module, scratch_allocator: runtime.Allocator) -> (layout: Symbol_Layout, err: runtime.Allocator_Error) {
+	layout.function_count = len(module.functions)
+	layout.global_count = len(module.globals)
+	layout.blob_count = 0
+	for function in module.functions {
+		layout.blob_count += len(function.blobs)
+	}
+	layout.extern_count = len(module.externs)
+	layout.global_base = 1 + layout.function_count
+	layout.blob_base = layout.global_base + layout.global_count
+	layout.extern_base = layout.blob_base + layout.blob_count
+	layout.startup_base = layout.extern_base + layout.extern_count
+	layout.symbol_count = layout.startup_base + STARTUP_SLOT_COUNT + 1
+
+	layout.function_symbols = make([]u32, layout.function_count, scratch_allocator) or_return
+	layout.global_symbols = make([]u32, layout.global_count, scratch_allocator) or_return
+	layout.blob_symbols = make([]u32, layout.blob_count, scratch_allocator) or_return
+	layout.extern_symbols = make([]u32, layout.extern_count, scratch_allocator) or_return
+	for index in 0 ..< layout.function_count { layout.function_symbols[index] = u32(1 + index) }
+	for index in 0 ..< layout.global_count { layout.global_symbols[index] = u32(layout.global_base + index) }
+	for index in 0 ..< layout.blob_count { layout.blob_symbols[index] = u32(layout.blob_base + index) }
+	for index in 0 ..< layout.extern_count { layout.extern_symbols[index] = u32(layout.extern_base + index) }
+
+	layout.module_indices[.Function] = layout.function_symbols
+	layout.module_indices[.Global] = layout.global_symbols
+	layout.module_indices[.Extern] = layout.extern_symbols
+	layout.function_indices = make([]amd64.Symbol_Indices, layout.function_count, scratch_allocator) or_return
 	blob_offset := 0
 	for function, index in module.functions {
-		function_indices[index] = module_indices
-		function_indices[index][.Local_Blob] = blob_symbols[blob_offset:blob_offset + len(function.blobs)]
+		layout.function_indices[index] = layout.module_indices
+		layout.function_indices[index][.Local_Blob] = layout.blob_symbols[blob_offset:blob_offset + len(function.blobs)]
 		blob_offset += len(function.blobs)
 	}
 
-	symbols := make([]link.Symbol, symbol_count, scratch_allocator) or_return
-	comdats := make([dynamic]link.Comdat, 0, 0, scratch_allocator) or_return
-	startup_atom := blob_base + blob_count
-	atoms := make([dynamic]link.Atom, startup_atom + 2, startup_atom + 2, scratch_allocator) or_return
-	defer {
-		for &atom in atoms[1:1 + function_count] { amd64.atom_destroy(&atom, allocator) }
-	}
-	symbols[0] = link.Symbol {
+	return
+}
+
+@(private = "file")
+build_symbol_table :: proc(
+	module: ^ir.Module,
+	layout: Symbol_Layout,
+	table: ^Native_Symbol_Table,
+	error_context: ^Build_Error_Context,
+	scratch_allocator: runtime.Allocator,
+) -> (
+	err: Build_Error,
+) {
+	table.symbols[0] = link.Symbol {
 		name = "_start",
 		atom = 0,
 	}
 	for function, index in module.functions {
 		// The name is cloned: the function's arena is destroyed once its atom is emitted.
 		name := strings.clone(function.name, scratch_allocator) or_return
-		symbols[1 + index] = link.Symbol {
+		table.symbols[1 + index] = link.Symbol {
 			name    = name,
 			atom    = u32(1 + index),
 			binding = symbol_binding(function.linkage),
@@ -291,30 +357,30 @@ build_image :: proc(
 		if function.linkage == .Link_Once {
 			group_atoms := make([]u32, 1, scratch_allocator) or_return
 			group_atoms[0] = u32(1 + index)
-			append(&comdats, link.Comdat{signature = name, atoms = group_atoms}) or_return
+			append(&table.comdats, link.Comdat{signature = name, atoms = group_atoms}) or_return
 		}
 	}
 	for global, index in module.globals {
-		symbols[global_base + index] = link.Symbol {
+		table.symbols[layout.global_base + index] = link.Symbol {
 			name    = global.name,
-			atom    = u32(global_base + index),
+			atom    = u32(layout.global_base + index),
 			binding = symbol_binding(global.linkage),
 		}
 		if global.linkage == .Link_Once {
 			group_atoms := make([]u32, 1, scratch_allocator) or_return
-			group_atoms[0] = u32(global_base + index)
-			append(&comdats, link.Comdat{signature = global.name, atoms = group_atoms}) or_return
+			group_atoms[0] = u32(layout.global_base + index)
+			append(&table.comdats, link.Comdat{signature = global.name, atoms = group_atoms}) or_return
 		}
-		atoms[global_base + index] = global_atom(global, module_indices, scratch_allocator) or_return
+		table.atoms[layout.global_base + index] = global_atom(global, layout.module_indices, scratch_allocator) or_return
 	}
 	blob_index := 0
 	for function, function_index in module.functions {
 		for blob in function.blobs {
-			symbols[blob_base + blob_index] = link.Symbol {
+			table.symbols[layout.blob_base + blob_index] = link.Symbol {
 				name = fmt.aprintf("blob.%d.%d", function_index, blob_index, allocator = scratch_allocator),
-				atom = u32(blob_base + blob_index),
+				atom = u32(layout.blob_base + blob_index),
 			}
-			atoms[blob_base + blob_index] = blob_atom(blob, function_indices[function_index], scratch_allocator) or_return
+			table.atoms[layout.blob_base + blob_index] = blob_atom(blob, layout.function_indices[function_index], scratch_allocator) or_return
 			blob_index += 1
 		}
 	}
@@ -323,30 +389,36 @@ build_image :: proc(
 		stub, emitted, stub_err := emit_thread_stub(extern.name, scratch_allocator)
 		if stub_err != nil {
 			error_context.stub_name = extern.name
-			return nil, Stub_Emit_Failed{stub_err}
+			return Stub_Emit_Failed{stub_err}
 		}
 		if emitted {
-			append(&atoms, stub) or_return
-			atom = u32(len(atoms) - 1)
+			append(&table.atoms, stub) or_return
+			atom = u32(len(table.atoms) - 1)
 		}
-		symbols[extern_base + index] = link.Symbol {
+		table.symbols[layout.extern_base + index] = link.Symbol {
 			name = extern.name,
 			atom = atom,
 		}
 	}
+	return
+}
+
+@(private = "file")
+build_startup_atoms :: proc(layout: Symbol_Layout, table: ^Native_Symbol_Table, scratch_allocator: runtime.Allocator) -> (err: runtime.Allocator_Error) {
+	startup_atom := layout.blob_base + layout.blob_count
 	for name, slot in STARTUP_SLOT_NAMES {
-		symbols[startup_base + slot] = link.Symbol {
+		table.symbols[layout.startup_base + slot] = link.Symbol {
 			name   = name,
 			atom   = u32(startup_atom),
 			offset = u64(8 * slot),
 		}
 	}
-	thread_pointer_symbol := u32(startup_base + STARTUP_SLOT_COUNT)
-	symbols[thread_pointer_symbol] = link.Symbol {
+	thread_pointer_symbol := u32(layout.startup_base + STARTUP_SLOT_COUNT)
+	table.symbols[thread_pointer_symbol] = link.Symbol {
 		name = "runtime.thread_pointer",
 		atom = u32(startup_atom + 1),
 	}
-	atoms[startup_atom] = link.Atom {
+	table.atoms[startup_atom] = link.Atom {
 		section = .Bss,
 		align   = 8,
 		size    = 8 * STARTUP_SLOT_COUNT,
@@ -358,7 +430,7 @@ build_image :: proc(
 		kind   = .R_X86_64_64,
 		addend = 0,
 	}
-	atoms[startup_atom + 1] = link.Atom {
+	table.atoms[startup_atom + 1] = link.Atom {
 		section = .Tcb,
 		align   = 8,
 		bytes   = make([]byte, TCB_SIZE, scratch_allocator) or_return,
@@ -366,57 +438,73 @@ build_image :: proc(
 		relocs  = thread_pointer_relocs,
 	}
 
-	// The guarded allocator's mutex lives in this scope: it outlives the link and the atom cleanup below.
-	locked: mem.Mutex_Allocator
-	mem.mutex_allocator_init(&locked, allocator)
-	guarded := mem.mutex_allocator(&locked)
+	return
+}
+
+@(private = "file")
+build_function_atoms :: proc(
+	module: ^ir.Module,
+	layout: Symbol_Layout,
+	table: ^Native_Symbol_Table,
+	error_context: ^Build_Error_Context,
+	guarded: runtime.Allocator,
+	thread_count: int,
+	scratch_allocator: runtime.Allocator,
+) -> (
+	err: Build_Error,
+) {
 	if emit_err, failed_function := emit_function_atoms(
 		module.functions[:],
-		function_indices,
-		atoms[1:1 + function_count],
+		layout.function_indices,
+		table.atoms[1:1 + layout.function_count],
 		guarded,
 		thread_count,
 		scratch_allocator,
 		module.microarch,
 	); emit_err != nil {
 		if failed_function >= 0 { error_context.function_name = module.functions[failed_function].name }
-		return nil, emit_err
+		return emit_err
 	}
+	return
+}
+
+@(private = "file")
+build_entry_atom :: proc(
+	module: ^ir.Module,
+	roots: Module_Roots,
+	layout: Symbol_Layout,
+	scratch_allocator: runtime.Allocator,
+) -> (
+	atom: link.Atom,
+	err: Build_Error,
+) {
+	thread_pointer_symbol := u32(layout.startup_base + STARTUP_SLOT_COUNT)
 	init_symbol: Maybe(u32)
-	if init_index >= 0 { init_symbol = function_symbols[init_index] }
+	if roots.init_index >= 0 { init_symbol = layout.function_symbols[roots.init_index] }
 	fini_symbol: Maybe(u32)
-	if fini_index >= 0 { fini_symbol = function_symbols[fini_index] }
+	if roots.fini_index >= 0 { fini_symbol = layout.function_symbols[roots.fini_index] }
 	tls_header_symbol: Maybe(u32)
 	for global, index in module.globals {
-		if global.name == "_odin_linux_tls_header" { tls_header_symbol = global_symbols[index] }
+		if global.name == "_odin_linux_tls_header" { tls_header_symbol = layout.global_symbols[index] }
 	}
 	entry_atom, entry_err := amd64.emit_linux_entry(
 		amd64.Linux_Entry_Symbols {
-			main = function_symbols[main_index],
+			main = layout.function_symbols[roots.main_index],
 			init = init_symbol,
 			fini = fini_symbol,
-			default_context = global_symbols[context_index],
-			args = global_symbols[args_index],
-			argc = u32(startup_base),
-			argv = u32(startup_base + 1),
-			envp = u32(startup_base + 2),
+			default_context = layout.global_symbols[roots.context_index],
+			args = layout.global_symbols[roots.args_index],
+			argc = u32(layout.startup_base),
+			argv = u32(layout.startup_base + 1),
+			envp = u32(layout.startup_base + 2),
 			thread_pointer = thread_pointer_symbol,
 			tls_header = tls_header_symbol,
 		},
 		module.microarch,
 		scratch_allocator,
 	)
-	if entry_err != nil { return nil, Entry_Emit_Failed{entry_err} }
-	atoms[0] = entry_atom
-
-	inputs := []link.Input{{atoms = atoms[:], symbols = symbols, comdats = comdats[:]}}
-	linked, link_err := link.link_inputs(inputs, foreign_files.objects[:], foreign_files.archives[:], foreign_files.shared[:], "_start", allocator)
-	if link_err != nil {
-		error_context.link_error = link_err
-		error_context.has_link_error = true
-		return nil, Link_Failed{}
-	}
-	return linked, nil
+	if entry_err != nil { return {}, Entry_Emit_Failed{entry_err} }
+	return entry_atom, nil
 }
 
 @(private = "file")
