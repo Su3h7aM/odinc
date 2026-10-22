@@ -110,6 +110,11 @@ lower_call_results :: proc(state: ^Procedure_State, node: syntax.Node_Index, inf
 	if plan.context_plan != 0 { lower_fail(state, node, .Context); return }
 	declaration, valid := call_declaration(state, node, plan)
 	if !valid { return }
+	c_vararg := declaration.signature.variadic
+	if c_vararg {
+		declaration, valid = c_vararg_call_declaration(state, node, info, declaration)
+		if !valid { return }
+	}
 	signature := declaration.signature
 	context_count := 0
 	if signature.cc == .Odin {
@@ -117,8 +122,12 @@ lower_call_results :: proc(state: ^Procedure_State, node: syntax.Node_Index, inf
 	} else if signature.cc != .Contextless && signature.cc != .C {
 		lower_fail(state, node, .Call); return
 	}
-	if signature.variadic { lower_fail(state, node, .Call); return }
 	descriptor := lower_type(state, declaration.type)
+	if c_vararg {
+		extended, extended_valid := c_vararg_call_descriptor(state, node, descriptor, plan.arguments)
+		if !extended_valid { return }
+		descriptor = extended
+	}
 	result_count := len(plan.results)
 	split_count := max(result_count - 1, 0)
 	if len(descriptor.results) != result_count ||
@@ -128,6 +137,7 @@ lower_call_results :: proc(state: ^Procedure_State, node: syntax.Node_Index, inf
 		if result != descriptor.results[index] { lower_fail(state, node, .Result); return }
 	}
 	count := len(declaration.parameters)
+	if c_vararg { count = len(plan.arguments) }
 	split_base := len(signature.params) - context_count - split_count
 	if len(plan.arguments) != count || len(declaration.abi_params) != len(signature.params) || split_base < count {
 		lower_fail(state, node, .Call_Argument); return
@@ -176,7 +186,7 @@ lower_call_results :: proc(state: ^Procedure_State, node: syntax.Node_Index, inf
 		   argument.tuple_element == 0 &&
 		   !call_operand_valid(state, argument.value) { lower_fail(state, node, .Call_Argument); return }
 		position := index
-		if plan.entity != 0 {
+		if plan.entity != 0 && !(c_vararg && argument.parameter == 0) {
 			position = -1
 			for parameter, source in declaration.parameters {
 				if parameter == argument.parameter { position = source; break }
@@ -266,7 +276,12 @@ lower_call_results :: proc(state: ^Procedure_State, node: syntax.Node_Index, inf
 	for argument in arguments {
 		if argument == 0 { lower_fail(state, node, .Call_Argument); return }
 	}
-	id := call_signature(state, declaration)
+	id: ir.Signature_Id
+	if c_vararg {
+		id = ir.add_signature(function, declaration.signature)
+	} else {
+		id = call_signature(state, declaration)
+	}
 	if function.error != nil { return }
 	call := ir.call(function, state.builder.control, ir.variable_get(state.builder, ir.MEMORY_VARIABLE), callee, id, arguments)
 	memory := ir.add_node(function, .Proj, .Memory, {call}, {index = 0})

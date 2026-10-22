@@ -29,9 +29,11 @@ expression_call :: proc(
 	allowed, context_error := expression_require_call_context(checker, view, scope, node, descriptor.convention)
 	if context_error != nil { return {}, context_error }
 	if !allowed { return expression_poison(scope), nil }
-	if descriptor.c_vararg || descriptor.variadic && descriptor.convention != .Odin && descriptor.convention != .Contextless && descriptor.convention != .C {
+	if descriptor.c_vararg && descriptor.convention != .C ||
+	   descriptor.variadic && !descriptor.c_vararg && descriptor.convention != .Odin && descriptor.convention != .Contextless && descriptor.convention != .C {
 		return expression_unsupported(checker, view, scope, node, "Call_Variadic_Convention")
 	}
+	if descriptor.c_vararg && spread { return expression_unsupported(checker, view, scope, node, "Call_Variadic_Spread") }
 	file := checker.type_checker.files[file_id]
 	positional_count := call_positional_count(file, arguments)
 	variadic_index := procedure.variadic_index
@@ -54,12 +56,15 @@ expression_call :: proc(
 	if expansions != nil && spread {
 		return expression_unsupported(checker, view, scope, node, "Call_Tuple_Variadic_Spread")
 	}
+	if expansions != nil && descriptor.c_vararg {
+		return expression_unsupported(checker, view, scope, node, "Call_Tuple_C_Variadic")
+	}
 	if !descriptor.variadic && expanded_count > parameter_count {
 		return expression_unsupported(checker, view, scope, node, "Call_Arguments")
 	}
-	packed := descriptor.variadic && !spread
+	packed := descriptor.variadic && !spread && !descriptor.c_vararg
 	fixed_count := parameter_count
-	if packed || spread { fixed_count = parameter_count if spread else variadic_index }
+	if packed || spread || descriptor.c_vararg { fixed_count = parameter_count if spread else variadic_index }
 	allocator := mem.dynamic_arena_allocator(&checker.arena)
 	names := make([]string, parameter_count, allocator) or_return
 	for parameter, index in procedure.parameters {
@@ -69,14 +74,23 @@ expression_call :: proc(
 	if reason := call_bind_arguments(file, arguments, names, fixed_count, slots, expansions); reason != "" {
 		return expression_unsupported(checker, view, scope, node, reason)
 	}
+	if descriptor.c_vararg && slots[variadic_index].value != 0 {
+		return expression_unsupported(checker, view, scope, node, "Call_Variadic_Named")
+	}
 	if packed && slots[variadic_index].value != 0 {
 		if positional_count > fixed_count {
 			return expression_unsupported(checker, view, scope, node, "Call_Variadic_Named")
 		}
 		packed = false
 	}
-	call_arguments := make([]Call_Argument, parameter_count, allocator) or_return
-	for index in 0 ..< parameter_count {
+	arity := parameter_count
+	slot_count := parameter_count
+	if descriptor.c_vararg {
+		arity = max(fixed_count, positional_count)
+		slot_count = fixed_count
+	}
+	call_arguments := make([]Call_Argument, arity, allocator) or_return
+	for index in 0 ..< slot_count {
 		if slots[index].value != 0 {
 			argument, valid := expression_call_slot_argument(
 				checker,
@@ -106,6 +120,13 @@ expression_call :: proc(
 		) or_return
 		if !valid { return expression_poison(scope), nil }
 		call_arguments[index] = argument
+	}
+	if descriptor.c_vararg {
+		for position in fixed_count ..< positional_count {
+			argument, valid := expression_c_vararg_argument(checker, view, scope, arguments[position], u32(position)) or_return
+			if !valid { return expression_poison(scope), nil }
+			call_arguments[position] = argument
+		}
 	}
 	if packed {
 		pack_start := min(positional_count, fixed_count)

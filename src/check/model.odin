@@ -775,6 +775,7 @@ Call_Argument :: struct {
 	tuple_element:           int,
 	variadic_tuple_elements: []int,
 	receiver:                Receiver_Form,
+	promoted_type:           types.Type_Id,
 }
 // The object that owns a `->` call's field, passed as the first argument: by value, or by its address.
 Receiver_Form :: enum u8 {

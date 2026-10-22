@@ -1,8 +1,10 @@
 package lower
 
 import "base:runtime"
+import "core:mem/virtual"
 import "oc:check"
 import "oc:ir"
+import "oc:syntax"
 import "oc:types"
 
 @(private)
@@ -32,6 +34,7 @@ Planned_Abi :: struct {
 Abi_Plans :: struct {
 	procedures:    []Planned_Abi, // by procedure type id, without by-pointer parameters
 	foreign_plans: []Planned_Abi, // by entity id, for bodyless foreign procedures
+	call_sites:    []Planned_Abi, // by Plan_Id, for direct calls of C variadic procedures
 }
 
 @(private)
@@ -50,19 +53,46 @@ prepare_abi_plans :: proc(program: ^check.Checked_Program, allocator: runtime.Al
 			continue
 		}
 		if procedure.signature == types.TYPE_NONE { continue }
-		by_pointer := make([]bool, len(procedure.parameters), allocator) or_return
-		valid := true
-		for parameter, position in procedure.parameters {
-			if int(parameter) <= 0 || int(parameter) >= len(program.entities) {
-				valid = false
-				break
-			}
-			by_pointer[position] = .By_Pointer in program.entities[parameter].flags
-		}
+		by_pointer, valid, by_error := procedure_by_pointer(program, procedure, allocator)
+		if by_error != nil { return plans, by_error }
 		if !valid || types.get(store, types.resolve_named(store, procedure.signature)).kind != .Procedure { continue }
 		plans.foreign_plans[index] = plan_signature(store, procedure.signature, by_pointer, allocator) or_return
 	}
+	plans.call_sites = make([]Planned_Abi, len(program.plan_table), allocator) or_return
+	for entry, plan_id in program.plan_table {
+		call, is_call := entry.(check.Call_Plan)
+		if !is_call || call.entity == 0 || int(call.entity) >= len(program.entities) { continue }
+		procedure, is_procedure := program.entities[call.entity].data.(check.Procedure_Data)
+		if !is_procedure || procedure.signature == types.TYPE_NONE { continue }
+		if !types.get(store, types.resolve_named(store, procedure.signature)).c_vararg { continue }
+		fixed_count := len(procedure.parameters) - 1
+		if fixed_count < 0 || len(call.arguments) < fixed_count { continue }
+		tail := make([]types.Type_Id, len(call.arguments) - fixed_count, allocator) or_return
+		for argument, offset in call.arguments[fixed_count:] { tail[offset] = argument.promoted_type }
+		by_pointer, valid, by_error := procedure_by_pointer(program, procedure, allocator)
+		if by_error != nil { return plans, by_error }
+		if !valid { continue }
+		plans.call_sites[plan_id] = plan_call_site(store, procedure.signature, by_pointer, tail, allocator) or_return
+	}
 	return plans, nil
+}
+
+@(private)
+procedure_by_pointer :: proc(
+	program: ^check.Checked_Program,
+	procedure: check.Procedure_Data,
+	allocator: runtime.Allocator,
+) -> (
+	by_pointer: []bool,
+	valid: bool,
+	err: runtime.Allocator_Error,
+) {
+	by_pointer = make([]bool, len(procedure.parameters), allocator) or_return
+	for parameter, position in procedure.parameters {
+		if int(parameter) <= 0 || int(parameter) >= len(program.entities) { return by_pointer, false, nil }
+		by_pointer[position] = .By_Pointer in program.entities[parameter].flags
+	}
+	return by_pointer, true, nil
 }
 
 @(private)
@@ -75,7 +105,27 @@ plan_signature :: proc(
 	planned: Planned_Abi,
 	err: runtime.Allocator_Error,
 ) {
+	if types.get(store, types.resolve_named(store, procedure)).c_vararg {
+		return plan_call_site(store, procedure, by_pointer, nil, allocator)
+	}
 	plan, plan_error := types.plan_abi(store, procedure, by_pointer, allocator = allocator)
+	if plan_error == .Out_Of_Memory { return {}, .Out_Of_Memory }
+	return Planned_Abi{plan, plan_error == .None}, nil
+}
+
+// A C variadic procedure's own ABI has its fixed parameters only; its tail belongs to each call site.
+@(private)
+plan_call_site :: proc(
+	store: ^types.Store,
+	procedure: types.Type_Id,
+	by_pointer: []bool,
+	tail: []types.Type_Id,
+	allocator: runtime.Allocator,
+) -> (
+	planned: Planned_Abi,
+	err: runtime.Allocator_Error,
+) {
+	plan, plan_error := types.plan_call_abi(store, procedure, by_pointer, tail, allocator = allocator)
 	if plan_error == .Out_Of_Memory { return {}, .Out_Of_Memory }
 	return Planned_Abi{plan, plan_error == .None}, nil
 }
@@ -136,4 +186,74 @@ call_scalar_type :: proc(type: ir.Value_Type) -> bool {
 		return true
 	}
 	return false
+}
+
+@(private)
+c_vararg_call_declaration :: proc(
+	state: ^Procedure_State,
+	node: syntax.Node_Index,
+	info: check.Expression_Info,
+	declaration: Procedure_Declaration,
+) -> (
+	Procedure_Declaration,
+	bool,
+) {
+	if int(info.plan) >= len(state.job.abi_plans.call_sites) {
+		lower_fail(state, node, .Call)
+		return {}, false
+	}
+	planned := state.job.abi_plans.call_sites[info.plan]
+	if !planned.valid {
+		lower_fail(state, node, .Call)
+		return {}, false
+	}
+	allocator := virtual.arena_allocator(&state.job.function.arena)
+	signature, signature_error := abi_signature(planned.plan, allocator)
+	if signature_error != nil {
+		state.job.function.error = signature_error
+		return {}, false
+	}
+	return Procedure_Declaration {
+			type = declaration.type,
+			parameters = declaration.parameters[:len(declaration.parameters) - 1],
+			abi_params = planned.plan.params,
+			signature = signature,
+			symbol = declaration.symbol,
+		},
+		true
+}
+
+// The call's own descriptor: the fixed parameter types, then each tail argument's promoted type.
+@(private)
+c_vararg_call_descriptor :: proc(
+	state: ^Procedure_State,
+	node: syntax.Node_Index,
+	descriptor: ^types.Type,
+	arguments: []check.Call_Argument,
+) -> (
+	^types.Type,
+	bool,
+) {
+	fixed_count := len(descriptor.params) - 1
+	allocator := virtual.arena_allocator(&state.job.function.arena)
+	params, params_error := make([]types.Type_Id, len(arguments), allocator)
+	if params_error != nil {
+		state.job.function.error = params_error
+		return nil, false
+	}
+	for argument, index in arguments {
+		params[index] = descriptor.params[index] if index < fixed_count else argument.promoted_type
+		if params[index] == 0 {
+			lower_fail(state, node, .Call_Argument)
+			return nil, false
+		}
+	}
+	extended, extended_error := new(types.Type, allocator)
+	if extended_error != nil {
+		state.job.function.error = extended_error
+		return nil, false
+	}
+	extended^ = descriptor^
+	extended.params = params
+	return extended, true
 }

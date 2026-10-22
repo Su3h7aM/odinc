@@ -1,5 +1,7 @@
 package types
 
+import "base:runtime"
+
 Abi_Convention :: enum u8 {
 	Odin,
 	Contextless,
@@ -123,6 +125,38 @@ plan_abi :: proc(
 	plan: Abi_Plan,
 	err: Plan_Error,
 ) {
+	return plan_procedure(store, procedure, nil, by_pointer, false, config, allocator)
+}
+
+// plan_call_abi plans one call of a C variadic procedure: its fixed parameters, then one ABI argument per tail value,
+// each already promoted. The trailing `..` parameter has no ABI slot. The plan is allocated with allocator.
+plan_call_abi :: proc(
+	store: ^Store,
+	procedure: Type_Id,
+	by_pointer: []bool,
+	tail: []Type_Id,
+	config := DEFAULT_LAYOUT,
+	allocator := context.allocator,
+) -> (
+	plan: Abi_Plan,
+	err: Plan_Error,
+) {
+	return plan_procedure(store, procedure, tail, by_pointer, true, config, allocator)
+}
+
+@(private = "file")
+plan_procedure :: proc(
+	store: ^Store,
+	procedure: Type_Id,
+	tail: []Type_Id,
+	by_pointer: []bool,
+	drop_variadic: bool,
+	config: Layout_Config,
+	allocator: runtime.Allocator,
+) -> (
+	plan: Abi_Plan,
+	err: Plan_Error,
+) {
 	proc_type := get(store, resolve_named(store, procedure))
 	assert(proc_type.kind == .Procedure)
 	convention: Abi_Convention
@@ -159,9 +193,15 @@ plan_abi :: proc(
 	if err != .None { return {}, err }
 
 	registers := Registers{INTEGER_ARGUMENT_REGISTERS, SSE_ARGUMENT_REGISTERS}
-	for param_id, index in proc_type.params {
+	fixed_count := len(proc_type.params)
+	if drop_variadic && proc_type.c_vararg { fixed_count -= 1 }
+	for param_id, index in proc_type.params[:fixed_count] {
 		by_ptr := index < len(by_pointer) && by_pointer[index]
 		err = plan_argument(store, param_id, index, by_ptr, convention, config, &registers, &params)
+		if err != .None { return {}, err }
+	}
+	for tail_type, offset in tail {
+		err = plan_argument(store, tail_type, fixed_count + offset, false, .C, config, &registers, &params)
 		if err != .None { return {}, err }
 	}
 	if split_results {
