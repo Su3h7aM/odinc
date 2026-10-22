@@ -185,6 +185,16 @@ lower_union_injection :: proc(
 	descriptor := types.get(store, union_id)
 	function := state.job.function
 	union_slot := ir.stack_slot(function, state.entry_control, u32(max(layout.size, 1)), u32(layout.alignment))
+	end: ir.Jump_Target_Id
+	if descriptor.union_form == .Shared_Nil {
+		lower_zero_memory(state, union_slot, layout.size)
+		is_nil := lower_value_is_nil(state, source_id, value)
+		end = ir.jump_target_make(state.builder)
+		branch := ir.branch_if(state.builder, is_nil)
+		ir.enter_arm(state.builder, branch, 0)
+		ir.jump_to(state.builder, end)
+		ir.enter_arm(state.builder, branch, 1)
+	}
 	lower_store(state, union_slot, value, source_id)
 	if state.failed || state.job.function.error != nil { return 0 }
 	if descriptor.union_form == .Maybe_Pointer { return union_slot }
@@ -194,6 +204,10 @@ lower_union_injection :: proc(
 		if descriptor.union_form != .No_Nil { tag += 1 }
 		tag_address := ir.ptr_offset(function, union_slot, layout.variant_block_size)
 		lower_store_word(state, tag_address, ir.const_int(function, tag_value_type(layout.tag_size), tag))
+		if descriptor.union_form == .Shared_Nil {
+			ir.jump_to(state.builder, end)
+			ir.seal_target(state.builder, end)
+		}
 		return union_slot
 	}
 	return lower_fail(state, node, .Conversion)
