@@ -87,18 +87,27 @@ lower_intrinsic :: proc(
 	     .Atomic_Nand,
 	     .Atomic_Or,
 	     .Atomic_Xor,
-	     .Atomic_Exchange,
 	     .Atomic_Add_Explicit,
 	     .Atomic_Sub_Explicit,
 	     .Atomic_And_Explicit,
 	     .Atomic_Nand_Explicit,
 	     .Atomic_Or_Explicit,
-	     .Atomic_Xor_Explicit,
-	     .Atomic_Exchange_Explicit:
+	     .Atomic_Xor_Explicit:
 		if function.nodes.type[values[0]] != .Ptr || !is_integer_value(function, values[1]) || function.nodes.type[values[1]] != type {
 			return lower_fail(state, node, .Builtin)
 		}
 		return lower_read_modify_write(state, rmw_operation(kind), values[0], values[1], type, order)
+	case .Atomic_Exchange, .Atomic_Exchange_Explicit:
+		if function.nodes.type[values[0]] != .Ptr || !is_atomic_type(type) || function.nodes.type[values[1]] != type {
+			return lower_fail(state, node, .Builtin)
+		}
+		if type == .Bool {
+			width, width_ok := atomic_bool_access_type(state, info.type)
+			if !width_ok { return lower_fail(state, node, .Builtin) }
+			exchanged := lower_read_modify_write(state, .Xchg, values[0], ir.convert(function, .Zext, values[1], width), width, order)
+			return ir.convert(function, .Trunc, exchanged, .Bool)
+		}
+		return lower_read_modify_write(state, .Xchg, values[0], values[1], type, order)
 	case .Atomic_Thread_Fence, .Atomic_Signal_Fence:
 		memory := ir.add_node(
 			function,
@@ -110,14 +119,16 @@ lower_intrinsic :: proc(
 		ir.variable_set(state.builder, ir.MEMORY_VARIABLE, memory)
 		return 0
 	case .Mem_Copy, .Mem_Copy_Non_Overlapping:
-		if function.nodes.type[values[0]] != .Ptr || function.nodes.type[values[1]] != .Ptr || function.nodes.type[values[2]] != .I64 {
+		if function.nodes.type[values[0]] != .Ptr || function.nodes.type[values[1]] != .Ptr || !is_integer_value(function, values[2]) {
 			return lower_fail(state, node, .Builtin)
 		}
-		return lower_memory_effect(state, .Mem_Copy, values[0], values[1], values[2])
+		count := widen_int_count(state, values[2], operand_type(state, plan.arguments[2]))
+		return lower_memory_effect(state, .Mem_Copy, values[0], values[1], count)
 	case .Mem_Zero:
-		if function.nodes.type[values[0]] != .Ptr || function.nodes.type[values[1]] != .I64 { return lower_fail(state, node, .Builtin) }
+		if function.nodes.type[values[0]] != .Ptr || !is_integer_value(function, values[1]) { return lower_fail(state, node, .Builtin) }
 		zero := ir.const_int(function, .I8, 0)
-		return lower_memory_effect(state, .Mem_Set, values[0], zero, values[1])
+		count := widen_int_count(state, values[1], operand_type(state, plan.arguments[1]))
+		return lower_memory_effect(state, .Mem_Set, values[0], zero, count)
 	case .Sqrt:
 		if is_float16(state, info.type) {
 			return float16_from_f32(function, ir.unary(function, .FSqrt, float16_widen(function, values[0])))
@@ -449,6 +460,14 @@ lower_compare_exchange :: proc(
 	old = ir.add_node(function, .Proj, type, {exchange}, {index = 1})
 	succeeded = ir.add_node(function, .Proj, .Bool, {exchange}, {index = 2})
 	return
+}
+
+// Widens an integer count to the `int` size a memory intrinsic takes, extending by the count's signedness.
+@(private)
+widen_int_count :: proc(state: ^Procedure_State, count: ir.Node_Id, count_type: types.Type_Id) -> ir.Node_Id {
+	function := state.job.function
+	if function.nodes.type[count] == .I64 { return count }
+	return ir.convert(function, .Sext if signed_type(state, count_type) else .Zext, count, .I64)
 }
 
 @(private)

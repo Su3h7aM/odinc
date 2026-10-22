@@ -12,14 +12,20 @@ lower_memory_misc :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan
 	function := state.job.function
 	memory := ir.variable_get(state.builder, ir.MEMORY_VARIABLE)
 	if kind == .Mem_Zero_Volatile {
-		if len(plan.arguments) != 2 || function.nodes.type[values[0]] != .Ptr || function.nodes.type[values[1]] != .I64 {
+		if len(plan.arguments) != 2 || function.nodes.type[values[0]] != .Ptr || !is_integer_value(function, values[1]) {
 			return lower_fail(state, node, .Builtin), true
 		}
 		memory = ir.add_node(
 			function,
 			.Mem_Set,
 			.Memory,
-			{state.builder.control, memory, values[0], ir.const_int(function, .I8, 0), values[1]},
+			{
+				state.builder.control,
+				memory,
+				values[0],
+				ir.const_int(function, .I8, 0),
+				widen_int_count(state, values[1], operand_type(state, plan.arguments[1])),
+			},
 			{access = {order = .Volatile}},
 		)
 	} else {

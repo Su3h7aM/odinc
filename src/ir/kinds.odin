@@ -356,7 +356,7 @@ KIND_TABLE :: [Node_Kind]Kind_Info {
 		class = .Pinned,
 		min_inputs = 4,
 		max_inputs = 4,
-		slots = {CONTROL, MEMORY, PTR, INTS, {}},
+		slots = {CONTROL, MEMORY, PTR, INTS + PTR, {}},
 		result = TUPLE,
 		tuple = .Open,
 		members = {.Memory, .None},
