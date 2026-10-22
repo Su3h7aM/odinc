@@ -1,5 +1,6 @@
 package elf
 
+import "base:runtime"
 import "core:mem"
 import "core:slice"
 
@@ -82,6 +83,239 @@ Executable_Builder :: struct {
 	interpreter_size:    u64,
 	dynamic_vaddr:       u64,
 	dynamic_size:        u64,
+	symbols:             [dynamic]Executable_Symbol,
+}
+
+/*
+	A `.symtab` entry for `executable_write`.  `name` is borrowed and must
+	outlive the write.  `value` is an address, `size` the byte size or zero.
+*/
+Executable_Symbol :: struct {
+	name:    string,
+	binding: STB,
+	kind:    STT,
+	value:   u64,
+	size:    u64,
+}
+
+/*
+	Records a symbol.  Any symbol makes `executable_write` emit a section
+	per loaded segment plus `.symtab`, `.strtab` and `.shstrtab`.
+*/
+executable_add_symbol :: proc(builder: ^Executable_Builder, name: string, binding: STB, kind: STT, value: u64, size: u64) -> runtime.Allocator_Error {
+	if builder.symbols == nil {
+		builder.symbols = make([dynamic]Executable_Symbol, 0, builder.allocator) or_return
+	}
+	append(&builder.symbols, Executable_Symbol{name = name, binding = binding, kind = kind, value = value, size = size}) or_return
+	return nil
+}
+
+segment_memory_size :: proc "contextless" (segment: Executable_Segment) -> u64 {
+	if segment.memsz == 0 {
+		return u64(len(segment.data))
+	}
+	return segment.memsz
+}
+
+Symbol_Tail :: struct {
+	bytes:                [dynamic]u8,
+	section_table_offset: u64,
+	section_count:        u16,
+	shstrndx:             u16,
+}
+
+/*
+	Lays out `.symtab`, `.strtab`, `.shstrtab` and the section table from
+	file offset `start`.  Symbols outside every loaded segment are dropped.
+*/
+executable_build_symbol_tail :: proc(
+	builder: ^Executable_Builder,
+	file_offsets: []u64,
+	start: u64,
+	allocator: mem.Allocator,
+) -> (
+	tail: Symbol_Tail,
+	err: runtime.Allocator_Error,
+) {
+	if len(builder.symbols) == 0 {
+		return
+	}
+
+	shstrtab, strtab: String_Table
+	string_table_init(&shstrtab, allocator)
+	string_table_init(&strtab, allocator)
+	defer string_table_destroy(&shstrtab, allocator)
+	defer string_table_destroy(&strtab, allocator)
+
+	section_headers := make([dynamic]Section_Header, 1, allocator) or_return
+	defer free_dynamic(section_headers)
+	section_of_segment := make([]u16, len(builder.segments), allocator) or_return
+	defer delete(section_of_segment, allocator)
+	bss_section_of_segment := make([]u16, len(builder.segments), allocator) or_return
+	defer delete(bss_section_of_segment, allocator)
+	for segment, index in builder.segments {
+		if segment.tls {
+			continue
+		}
+		flags := Section_Flags{.SHF_ALLOC}
+		name := ".rodata"
+		if .PF_W in segment.flags {
+			flags += {.SHF_WRITE}
+			name = ".data"
+		}
+		if .PF_X in segment.flags {
+			flags += {.SHF_EXECINSTR}
+			name = ".text"
+		}
+		filesz := u64(len(segment.data))
+		memsz := segment_memory_size(segment)
+		if filesz > 0 {
+			section_of_segment[index] = u16(len(section_headers))
+			name_offset := intern_string(&shstrtab, name) or_return
+			append(
+				&section_headers,
+				Section_Header {
+					sh_name = u32le(u32(name_offset)),
+					sh_type = .SHT_PROGBITS,
+					sh_flags = u64le(section_flags_mask(flags)),
+					sh_addr = u64le(segment.vaddr),
+					sh_offset = u64le(file_offsets[index]),
+					sh_size = u64le(filesz),
+					sh_addralign = u64le(max(segment.alignment, 1)),
+				},
+			) or_return
+		}
+		if memsz > filesz {
+			bss_section_of_segment[index] = u16(len(section_headers))
+			bss_name_offset := intern_string(&shstrtab, ".bss") or_return
+			append(
+				&section_headers,
+				Section_Header {
+					sh_name = u32le(u32(bss_name_offset)),
+					sh_type = .SHT_NOBITS,
+					sh_flags = u64le(section_flags_mask(flags)),
+					sh_addr = u64le(segment.vaddr + filesz),
+					sh_offset = u64le(file_offsets[index] + filesz),
+					sh_size = u64le(memsz - filesz),
+					sh_addralign = u64le(max(segment.alignment, 1)),
+				},
+			) or_return
+		}
+	}
+
+	entries := make([dynamic]Symbol_Entry, 1, allocator) or_return
+	defer free_dynamic(entries)
+	first_global: u32
+	for pass in 0 ..< 2 {
+		for symbol in builder.symbols {
+			if (symbol.binding == .STB_LOCAL) != (pass == 0) {
+				continue
+			}
+			section: u16
+			for segment, index in builder.segments {
+				if segment.tls {
+					continue
+				}
+				if symbol.value >= segment.vaddr {
+					relative := symbol.value - segment.vaddr
+					if relative < u64(len(segment.data)) {
+						section = section_of_segment[index]
+						break
+					}
+					if relative < segment_memory_size(segment) {
+						section = bss_section_of_segment[index]
+						break
+					}
+				}
+			}
+			if section == 0 {
+				continue
+			}
+			name_offset := intern_string(&strtab, symbol.name) or_return
+			append(
+				&entries,
+				Symbol_Entry {
+					st_name = u32le(u32(name_offset)),
+					st_info = u8(symbol.binding) << 4 | u8(symbol.kind),
+					st_shndx = u16le(section),
+					st_value = u64le(symbol.value),
+					st_size = u64le(symbol.size),
+				},
+			) or_return
+		}
+		if pass == 0 {
+			first_global = u32(len(entries))
+		}
+	}
+
+	symtab_name := intern_string(&shstrtab, ".symtab") or_return
+	strtab_name := intern_string(&shstrtab, ".strtab") or_return
+	shstrtab_name := intern_string(&shstrtab, ".shstrtab") or_return
+
+	symtab_offset := (start + 7) &~ 7
+	symtab_size := u64(len(entries)) * SYMBOL_ENTRY_SIZE
+	strtab_offset := symtab_offset + symtab_size
+	shstrtab_offset := strtab_offset + u64(len(strtab.storage))
+	section_table_offset := (shstrtab_offset + u64(len(shstrtab.storage)) + 7) &~ 7
+
+	symtab_index := u32(len(section_headers))
+	append(
+		&section_headers,
+		Section_Header {
+			sh_name = u32le(u32(symtab_name)),
+			sh_type = .SHT_SYMTAB,
+			sh_offset = u64le(symtab_offset),
+			sh_size = u64le(symtab_size),
+			sh_link = u32le(symtab_index + 1),
+			sh_info = u32le(first_global),
+			sh_addralign = u64le(8),
+			sh_entsize = u64le(SYMBOL_ENTRY_SIZE),
+		},
+		Section_Header {
+			sh_name = u32le(u32(strtab_name)),
+			sh_type = .SHT_STRTAB,
+			sh_offset = u64le(strtab_offset),
+			sh_size = u64le(len(strtab.storage)),
+			sh_addralign = u64le(1),
+		},
+		Section_Header {
+			sh_name = u32le(u32(shstrtab_name)),
+			sh_type = .SHT_STRTAB,
+			sh_offset = u64le(shstrtab_offset),
+			sh_size = u64le(len(shstrtab.storage)),
+			sh_addralign = u64le(1),
+		},
+	) or_return
+
+	tail.bytes = make([dynamic]u8, section_table_offset + u64(len(section_headers)) * SECTION_HEADER_SIZE - start, allocator) or_return
+	for entry, position in entries {
+		blit(tail.bytes[:], int(symtab_offset - start) + position * SYMBOL_ENTRY_SIZE, entry)
+	}
+	copy(tail.bytes[strtab_offset - start:], strtab.storage[:])
+	copy(tail.bytes[shstrtab_offset - start:], shstrtab.storage[:])
+	for header, position in section_headers {
+		blit(tail.bytes[:], int(section_table_offset - start) + position * SECTION_HEADER_SIZE, header)
+	}
+	tail.section_table_offset = section_table_offset
+	tail.section_count = u16(len(section_headers))
+	tail.shstrndx = u16(len(section_headers) - 1)
+	return
+}
+
+intern_string :: proc(table: ^String_Table, name: string) -> (offset: u64, err: runtime.Allocator_Error) {
+	if len(name) == 0 {
+		return 0, nil
+	}
+	for entry in table.entries {
+		if entry.name == name {
+			return entry.offset, nil
+		}
+	}
+	offset = u64(len(table.storage))
+	append(&table.storage, name) or_return
+	append(&table.storage, u8(0)) or_return
+	append(&table.entries, String_Table_Entry{offset = offset, name = name}) or_return
+	return offset, nil
 }
 
 /*
@@ -101,6 +335,7 @@ executable_builder_destroy :: proc(builder: ^Executable_Builder) {
 		free_dynamic(seg.data)
 	}
 	free_dynamic(builder.segments)
+	free_dynamic(builder.symbols)
 }
 
 /*
@@ -238,6 +473,8 @@ executable_write :: proc(builder: ^Executable_Builder, allocator := context.allo
 		program_header_count += 1
 	}
 	cursor: u64 = FILE_HEADER_SIZE + PROGRAM_HEADER_SIZE * u64(program_header_count)
+	file_offsets := make([]u64, len(builder.segments), allocator)
+	defer delete(file_offsets, allocator)
 	for sorted_position in order {
 		segment := builder.segments[sorted_position]
 
@@ -251,6 +488,7 @@ executable_write :: proc(builder: ^Executable_Builder, allocator := context.allo
 		}
 
 		file_offset := align_congruent(cursor, segment.vaddr, alignment)
+		file_offsets[sorted_position] = file_offset
 		append(
 			&segment_headers,
 			Program_Header {
@@ -342,12 +580,15 @@ executable_write :: proc(builder: ^Executable_Builder, allocator := context.allo
 		Program_Header{p_type = u32le(PT_GNU_STACK), p_flags = u32le(program_flags_mask(Program_Flags{.PF_W, .PF_R})), p_align = u64le(16)},
 	)
 
-	total_size := cursor
+	symbol_tail := executable_build_symbol_tail(builder, file_offsets, cursor, allocator) or_return
+	defer free_dynamic(symbol_tail.bytes)
+	total_size := cursor + u64(len(symbol_tail.bytes))
 	data, alloc_err := mem.alloc_bytes(int(total_size), allocator = allocator)
 	if alloc_err != nil {
 		return nil, Error(alloc_err)
 	}
 	object = data
+	copy(object[int(cursor):], symbol_tail.bytes[:])
 
 	header_position := FILE_HEADER_SIZE
 	for header in segment_headers {
@@ -379,6 +620,10 @@ executable_write :: proc(builder: ^Executable_Builder, allocator := context.allo
 			e_ehsize = u16le(FILE_HEADER_SIZE),
 			e_phentsize = u16le(PROGRAM_HEADER_SIZE),
 			e_phnum = u16le(len(segment_headers)),
+			e_shoff = u64le(symbol_tail.section_table_offset),
+			e_shentsize = u16le(SECTION_HEADER_SIZE),
+			e_shnum = u16le(symbol_tail.section_count),
+			e_shstrndx = u16le(symbol_tail.shstrndx),
 		},
 	)
 

@@ -1,6 +1,7 @@
 package link
 
 import "core:mem"
+import "core:strings"
 import "oc:elf"
 
 PAGE_SIZE :: u64(0x1000)
@@ -78,6 +79,11 @@ Duplicate_Symbol :: struct {
 Undefined_Symbol :: struct {
 	name: string,
 }
+// Every unresolved relocation target, each name once, in input order. The slice and each name are allocated with the
+// link allocator; free them with undefined_symbols_destroy.
+Undefined_Symbols :: struct {
+	names: []string,
+}
 Missing_Entry :: struct {
 	name: string,
 }
@@ -110,6 +116,7 @@ Malformed_File :: struct {
 Link_Error :: union {
 	Duplicate_Symbol,
 	Undefined_Symbol,
+	Undefined_Symbols,
 	Missing_Entry,
 	Relocation_Out_Of_Atom,
 	Unsupported_Relocation,
@@ -205,6 +212,10 @@ link_with :: proc(inputs: []Input, needed: []string, provided: map[string]bool, 
 		}
 	}
 
+	undefined, collect_err := collect_undefined_symbols(inputs, symbols, allocator)
+	if collect_err != nil { return nil, collect_err }
+	if len(undefined.names) > 0 { return nil, undefined }
+	undefined_symbols_destroy(undefined, allocator)
 	apply_relocations(inputs, atom_addresses, symbols, load_bytes, layout, &fixups) or_return
 	fill_dynamic(atom_addresses, symbols, load_bytes, layout, fixups, needed)
 
@@ -231,6 +242,7 @@ link_with :: proc(inputs: []Input, needed: []string, provided: map[string]bool, 
 	elf.executable_set_entry(&builder, entry_symbol.address)
 	elf.executable_load_headers(&builder, BASE)
 	configure_dynamic_program(&builder, layout, fixups, needed)
+	add_symbol_table(&builder, inputs, atom_addresses, choices) or_return
 
 	object, write_err := elf.executable_write(&builder, allocator)
 	if write_err != nil { return nil, write_err }
@@ -244,25 +256,20 @@ place_atoms :: proc(inputs: []Input, addresses: [][]u64, text_tail: u64 = 0, rod
 	if text_tail > 0 {
 		layout.text_tail = align_up(layout.text_end, 16)
 		layout.text_end = layout.text_tail + text_tail
+	} else {
+		layout.text_tail = layout.text_end
 	}
 	layout.rodata_start = align_up(layout.text_end, PAGE_SIZE)
 	layout.rodata_end = place_section(inputs, addresses, .Rodata, layout.rodata_start)
 	if rodata_tail > 0 {
 		layout.rodata_tail = align_up(layout.rodata_end, 8)
 		layout.rodata_end = layout.rodata_tail + rodata_tail
+	} else {
+		layout.rodata_tail = layout.rodata_end
 	}
 	layout.rw_start = align_up(layout.rodata_end, PAGE_SIZE)
 	layout.tdata_end = place_section(inputs, addresses, .Tdata, layout.rw_start)
 	layout.tbss_end = place_section(inputs, addresses, .Tbss, layout.tdata_end)
-	layout.thread_pointer = align_up(layout.tbss_end, TCB_ALIGN)
-	tcb_end := place_section(inputs, addresses, .Tcb, layout.tbss_end)
-	data_placed := place_section(inputs, addresses, .Data, tcb_end)
-	layout.data_end = data_placed
-	if data_tail > 0 {
-		layout.data_tail = align_up(data_placed, 8)
-		layout.data_end = layout.data_tail + data_tail
-	}
-	layout.bss_end = place_section(inputs, addresses, .Bss, layout.data_end)
 	layout.tls_size = layout.tbss_end - layout.rw_start
 	layout.tls_align = 1
 	for input in inputs {
@@ -272,6 +279,17 @@ place_atoms :: proc(inputs: []Input, addresses: [][]u64, text_tail: u64 = 0, rod
 			}
 		}
 	}
+	layout.thread_pointer = layout.rw_start + align_up(layout.tls_size, max(layout.tls_align, TCB_ALIGN))
+	tcb_end := place_section(inputs, addresses, .Tcb, layout.thread_pointer)
+	data_placed := place_section(inputs, addresses, .Data, tcb_end)
+	layout.data_end = data_placed
+	if data_tail > 0 {
+		layout.data_tail = align_up(data_placed, 8)
+		layout.data_end = layout.data_tail + data_tail
+	} else {
+		layout.data_tail = data_placed
+	}
+	layout.bss_end = place_section(inputs, addresses, .Bss, layout.data_end)
 	return
 }
 
@@ -436,6 +454,49 @@ add_load_segment :: proc(builder: ^elf.Executable_Builder, vaddr: u64, data: []b
 	_, err := elf.executable_add_segment(builder, vaddr, data, memsz, flags, PAGE_SIZE)
 	if err != nil { return err }
 	return nil
+}
+
+undefined_symbols_destroy :: proc(undefined: Undefined_Symbols, allocator: mem.Allocator) {
+	for name in undefined.names {
+		delete(name, allocator)
+	}
+	delete(undefined.names, allocator)
+}
+
+// Collects every relocation target that resolved to nothing, so one link reports all missing symbols.
+collect_undefined_symbols :: proc(
+	inputs: []Input,
+	symbols: [][]Resolved_Symbol,
+	allocator: mem.Allocator,
+) -> (
+	undefined: Undefined_Symbols,
+	err: mem.Allocator_Error,
+) {
+	names := make([dynamic]string, allocator) or_return
+	seen := make(map[string]bool, allocator = allocator)
+	defer delete(seen)
+	for input, input_index in inputs {
+		for atom in input.atoms {
+			if atom.discarded { continue }
+			for reloc in atom.relocs {
+				if symbols[input_index][reloc.symbol].defined { continue }
+				name := input.symbols[reloc.symbol].name
+				if name in seen { continue }
+				seen[name] = true
+				cloned, clone_err := strings.clone(name, allocator)
+				if clone_err != nil {
+					undefined_symbols_destroy({names = names[:]}, allocator)
+					return {}, clone_err
+				}
+				if _, append_err := append(&names, cloned); append_err != nil {
+					delete(cloned, allocator)
+					undefined_symbols_destroy({names = names[:]}, allocator)
+					return {}, append_err
+				}
+			}
+		}
+	}
+	return Undefined_Symbols{names = names[:]}, nil
 }
 
 apply_relocations :: proc(

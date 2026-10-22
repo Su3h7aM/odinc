@@ -213,8 +213,8 @@ assign_fixup_addresses :: proc(fixups: ^Fixups, layout: Layout, needed: []string
 	_, got_count := dynamic_counts(fixups^)
 	cursor += u64(got_count) * 8
 	plt_count, _ := dynamic_counts(fixups^)
+	fixups.gotplt_base = cursor
 	if plt_count > 0 {
-		fixups.gotplt_base = cursor
 		cursor += u64(3 + plt_count) * 8
 	}
 	if len(needed) > 0 || len(fixups.dyns) > 0 {

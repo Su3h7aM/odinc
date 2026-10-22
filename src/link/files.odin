@@ -69,14 +69,14 @@ link_inputs :: proc(
 		parsed_archives[index] = archive_read(file, allocator) or_return
 	}
 
-	needed := make([]string, len(shared), allocator) or_return
-	defer delete(needed, allocator)
 	provided := make(map[string]bool, allocator = allocator)
 	defer delete(provided)
+	owner := make(map[string]int, allocator = allocator)
+	defer delete(owner)
 	for library, index in shared {
-		needed[index] = library.needed
 		for name in library.symbols {
 			provided[name] = true
+			if name not_in owner { owner[name] = index }
 		}
 	}
 
@@ -127,5 +127,18 @@ link_inputs :: proc(
 		}
 	}
 
-	return link_with(inputs[:], needed, provided, entry, allocator)
+	used := make([]bool, len(shared), allocator) or_return
+	defer delete(used, allocator)
+	for input in inputs {
+		for symbol in input.symbols {
+			if symbol.binding == .Local || len(symbol.name) == 0 || symbol.name in defined { continue }
+			if index, is_provided := owner[symbol.name]; is_provided { used[index] = true }
+		}
+	}
+	needed := make([dynamic]string, 0, len(shared), allocator) or_return
+	defer delete(needed)
+	for library, index in shared {
+		if !library.as_needed || used[index] { append(&needed, library.needed) or_return }
+	}
+	return link_with(inputs[:], needed[:], provided, entry, allocator)
 }

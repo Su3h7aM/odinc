@@ -12,6 +12,8 @@ Shared_Library :: struct {
 	needed:    string,
 	symbols:   map[string]bool,
 	allocator: mem.Allocator,
+	// Linked only when a symbol it defines is referenced, like `ld --as-needed`.
+	as_needed: bool,
 }
 
 /*
