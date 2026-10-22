@@ -197,6 +197,9 @@ lower_value :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> ir.Node
 	if state.ast.nodes[node].kind == .Ternary_If_Expr { return lower_ternary_if(state, node) }
 	info := lower_info(state, node)
 	if info.constant != 0 { return lower_constant(state, info.constant, info.type) }
+	if state.ast.nodes[node].kind == .Selector_Expr && info.entity != 0 && state.job.program.entities[info.entity].kind == .Procedure {
+		return lower_entity_value(state, info.entity)
+	}
 	if state.ast.nodes[node].kind == .Paren_Expr { return lower_value(state, state.ast.nodes[node].payload.(syntax.Paren_Expr).expr) }
 	if info.plan != 0 {
 		plan := check.plan(state.job.program, info.plan)
