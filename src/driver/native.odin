@@ -23,18 +23,15 @@ Lower_Failed :: struct {
 Missing_Main :: struct {}
 
 Select_Failed :: struct {
-	function: string,
-	err:      amd64.Select_Error,
+	err: amd64.Select_Error,
 }
 
 Allocate_Failed :: struct {
-	function: string,
-	err:      regalloc.Error,
+	err: regalloc.Error,
 }
 
 Emit_Failed :: struct {
-	function: string,
-	err:      amd64.Emit_Error,
+	err: amd64.Emit_Error,
 }
 
 Entry_Emit_Failed :: struct {
@@ -42,12 +39,17 @@ Entry_Emit_Failed :: struct {
 }
 
 Stub_Emit_Failed :: struct {
-	name: string,
-	err:  amd64.Emit_Error,
+	err: amd64.Emit_Error,
 }
 
-Link_Failed :: struct {
-	err: link.Link_Error,
+Link_Failed :: struct {}
+
+@(private = "file")
+Build_Error_Context :: struct {
+	function_name:  string,
+	stub_name:      string,
+	link_error:     link.Link_Error,
+	has_link_error: bool,
 }
 
 Build_Error :: union {
@@ -123,26 +125,29 @@ main_symbol_name :: proc(session: ^Session) -> string {
 	return session.program.symbol_table[session.program.entity_symbols[entity]].name
 }
 
-// Writes the failure while the module and the image's scratch names are still alive: the error's strings point into them.
 @(private = "file")
-write_build_error :: proc(log: io.Writer, err: Build_Error) {
+write_build_error :: proc(log: io.Writer, err: Build_Error, error_context := Build_Error_Context{}) {
 	switch value in err {
 	case Driver_Error, runtime.Allocator_Error, Lower_Failed:
 		fmt.wprintfln(log, "build failed: %v", value)
 	case Missing_Main:
 		fmt.wprintfln(log, "build failed: no main procedure")
 	case Select_Failed:
-		fmt.wprintfln(log, "%s: instruction selection failed: %v", value.function, value.err)
+		fmt.wprintfln(log, "%s: instruction selection failed: %v", error_context.function_name, value.err)
 	case Allocate_Failed:
-		fmt.wprintfln(log, "%s: register allocation failed: %v", value.function, value.err)
+		fmt.wprintfln(log, "%s: register allocation failed: %v", error_context.function_name, value.err)
 	case Emit_Failed:
-		fmt.wprintfln(log, "%s: machine code emission failed: %v", value.function, value.err)
+		fmt.wprintfln(log, "%s: machine code emission failed: %v", error_context.function_name, value.err)
 	case Entry_Emit_Failed:
 		fmt.wprintfln(log, "entry code emission failed: %v", value.err)
 	case Stub_Emit_Failed:
-		fmt.wprintfln(log, "thread stub %s emission failed: %v", value.name, value.err)
+		fmt.wprintfln(log, "thread stub %s emission failed: %v", error_context.stub_name, value.err)
 	case Link_Failed:
-		fmt.wprintfln(log, "link failed: %v", value.err)
+		if error_context.has_link_error {
+			fmt.wprintfln(log, "link failed: %v", error_context.link_error)
+		} else {
+			fmt.wprintfln(log, "link failed")
+		}
 	}
 }
 
@@ -189,7 +194,8 @@ build_image :: proc(
 		return nil, arena_err
 	}
 	defer virtual.arena_destroy(&scratch)
-	defer if err != nil { write_build_error(log, err) }
+	error_context: Build_Error_Context
+	defer if err != nil { write_build_error(log, err, error_context) }
 	scratch_allocator := virtual.arena_allocator(&scratch)
 
 	function_count := len(module.functions)
@@ -313,10 +319,9 @@ build_image :: proc(
 	for extern, index in module.externs {
 		atom := link.ATOM_UNDEFINED
 		stub, emitted, stub_err := emit_thread_stub(extern.name, scratch_allocator)
-		// The name is cloned for the error: it must not reference the module.
 		if stub_err != nil {
-			name := strings.clone(extern.name, scratch_allocator) or_return
-			return nil, Stub_Emit_Failed{name, stub_err}
+			error_context.stub_name = extern.name
+			return nil, Stub_Emit_Failed{stub_err}
 		}
 		if emitted {
 			append(&atoms, stub) or_return
@@ -363,8 +368,15 @@ build_image :: proc(
 	locked: mem.Mutex_Allocator
 	mem.mutex_allocator_init(&locked, allocator)
 	guarded := mem.mutex_allocator(&locked)
-	if emit_err := emit_function_atoms(module.functions[:], function_indices, atoms[1:1 + function_count], guarded, thread_count, scratch_allocator);
-	   emit_err != nil {
+	if emit_err, failed_function := emit_function_atoms(
+		module.functions[:],
+		function_indices,
+		atoms[1:1 + function_count],
+		guarded,
+		thread_count,
+		scratch_allocator,
+	); emit_err != nil {
+		if failed_function >= 0 { error_context.function_name = module.functions[failed_function].name }
 		return nil, emit_err
 	}
 	init_symbol: Maybe(u32)
@@ -395,7 +407,11 @@ build_image :: proc(
 
 	inputs := []link.Input{{atoms = atoms[:], symbols = symbols, comdats = comdats[:]}}
 	linked, link_err := link.link(inputs, "_start", allocator)
-	if link_err != nil { return nil, Link_Failed{link_err} }
+	if link_err != nil {
+		error_context.link_error = link_err
+		error_context.has_link_error = true
+		return nil, Link_Failed{}
+	}
 	return linked, nil
 }
 
@@ -457,16 +473,16 @@ native_function :: proc(function: ^ir.Function, indices: amd64.Symbol_Indices, a
 
 	machine: amd64.Machine_Function
 	select_err := amd64.select_function(&machine, function, &schedule, plan)
-	if select_err.kind != .None { return {}, Select_Failed{function.name, select_err} }
+	if select_err.kind != .None { return {}, Select_Failed{select_err} }
 	defer amd64.machine_function_destroy(&machine)
 
 	program, program_err := amd64.build_program(&machine, scratch)
 	if program_err != nil { return {}, program_err }
 	result, allocate_err := regalloc.allocate(&program, scratch)
-	if allocate_err.kind != .None { return {}, Allocate_Failed{function.name, allocate_err} }
+	if allocate_err.kind != .None { return {}, Allocate_Failed{allocate_err} }
 
 	emitted, emit_err := amd64.emit_function(&machine, &result, indices, allocator)
-	if emit_err != nil { return {}, Emit_Failed{function.name, emit_err} }
+	if emit_err != nil { return {}, Emit_Failed{emit_err} }
 	return emitted, nil
 }
 
@@ -523,12 +539,15 @@ emit_function_atoms :: proc(
 	allocator: runtime.Allocator,
 	thread_count: int,
 	scratch: runtime.Allocator,
-) -> Build_Error {
+) -> (
+	err: Build_Error,
+	failed_function: int,
+) {
 	assert(len(functions) == len(indices) && len(functions) == len(atoms))
 	slots, slots_err := make([]Emit_Slot, len(functions), scratch)
-	if slots_err != nil { return slots_err }
+	if slots_err != nil { return slots_err, -1 }
 	jobs, jobs_err := make([]Emit_Task, len(functions), scratch)
-	if jobs_err != nil { return jobs_err }
+	if jobs_err != nil { return jobs_err, -1 }
 	for function, index in functions {
 		jobs[index] = Emit_Task {
 			function  = function,
@@ -557,11 +576,11 @@ emit_function_atoms :: proc(
 			for &cleanup in slots {
 				if cleanup.err == nil { amd64.atom_destroy(&cleanup.atom, allocator) }
 			}
-			return slot.err
+			return slot.err, index
 		}
 		atoms[index] = slot.atom
 	}
-	return nil
+	return nil, -1
 }
 
 // The inverse of amd64's `select_signature`: the IR signature holds every field the selector reads.
