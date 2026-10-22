@@ -698,16 +698,14 @@ load_package :: proc(
 	slice.sort_by(infos, proc(a, b: os.File_Info) -> bool { return a.name < b.name })
 	loaded := 0
 	for info in infos {
-		if info.type == .Directory ||
-		   !strings.has_suffix(info.name, ".odin") ||
-		   (session.test_options == nil && strings.has_suffix(info.name, "_test.odin")) { continue }
+		if info.type == .Directory || !strings.has_suffix(info.name, ".odin") { continue }
 		source, source_error := os.read_entire_file_from_path(info.fullpath, session.allocator)
 		if source_error != nil {
 			record_file_error(file_error, "cannot read", info.fullpath, source_error, session.allocator)
 			return .Read_Failed
 		}
 		hardcoded := session.packages[package_id].kind == .Intrinsics
-		if !hardcoded && target_source_excluded(info.name, string(source)) {
+		if !hardcoded && target_source_excluded(info.name, string(source), session.test_options != nil) {
 			delete(source, session.allocator)
 			continue
 		}

@@ -1,2 +1,2 @@
 package main
-main :: proc() { value := helper(); _ = value }
+main :: proc() { value := helper() + test_filename_value(); _ = value }

@@ -10,6 +10,33 @@ directory_root_uses_package_file_selection :: proc(t: ^testing.T) {
 	session, error := check_program(root, directory, context.allocator)
 	defer session_destroy(session)
 	testing.expect_value(t, error, Driver_Error.None)
+	for test_mode in ([]bool{false, true}) {
+		options: Test_Options
+		loaded, allocation_error := new(Session, context.allocator)
+		if !testing.expect(t, allocation_error == nil) { return }
+		loaded.allocator = context.allocator
+		if test_mode { loaded.test_options = &options }
+		defer session_destroy(loaded)
+		package_id, _, _, load_error := load_main_package(loaded, root, directory, nil)
+		if !testing.expect_value(t, load_error, Driver_Error.None) { continue }
+		file_count := 0
+		for file in loaded.files {
+			if file == nil || file.package_id != package_id { continue }
+			file_count += 1
+			name := filepath.base(file.path)
+			testing.expectf(
+				t,
+				name == "main.odin" ||
+				name == "helper_linux_amd64.odin" ||
+				name == "ignored_test.odin" ||
+				(test_mode && (name == "tagged.odin" || name == "tagged_test.odin")),
+				"unexpected file %s in test mode %v",
+				name,
+				test_mode,
+			)
+		}
+		testing.expect_value(t, file_count, test_mode ? 5 : 3)
+	}
 }
 
 @(test)

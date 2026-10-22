@@ -17,8 +17,8 @@ OS_NAMES := []string{"windows", "darwin", "linux", "freebsd", "openbsd", "netbsd
 @(private = "file")
 ARCH_NAMES := []string{"amd64", "i386", "arm32", "arm64", "wasm32", "wasm64p32", "riscv64"}
 
-target_source_excluded :: proc(file_name, source: string) -> bool {
-	return target_name_excluded(file_name) || target_build_lines_excluded(source)
+target_source_excluded :: proc(file_name, source: string, test_mode := false) -> bool {
+	return target_name_excluded(file_name) || target_build_lines_excluded(source, test_mode)
 }
 
 @(private = "file")
@@ -46,11 +46,12 @@ target_name_excluded :: proc(file_name: string) -> bool {
 }
 
 @(private = "file")
-target_build_lines_excluded :: proc(source: string) -> bool {
+target_build_lines_excluded :: proc(source: string, test_mode: bool) -> bool {
 	rest := source
 	for line in strings.split_lines_iterator(&rest) {
 		text := strings.trim_space(line)
 		if strings.has_prefix(text, "package ") { break }
+		if strings.has_prefix(text, "#+") && !test_mode && strings.has_prefix(strings.trim_space(text[2:]), "test") { return true }
 		if strings.has_prefix(text, "#+build ") && build_line_excluded(text[len("#+build"):]) { return true }
 	}
 	return false

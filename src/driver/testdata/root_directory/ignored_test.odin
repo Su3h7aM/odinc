@@ -1,2 +1,2 @@
 package main
-helper :: proc() -> int { return not_selected }
+test_filename_value :: proc() -> int { return 7 }
