@@ -15,7 +15,7 @@ Every task is judged against these. A change that breaks one needs an owner deci
 5. Self-describing code. Names say what a thing is or does. A reader understands a procedure from its name, its parameters and its body. Comments stay rare (`AGENTS.md`).
 6. Data-oriented. Nodes and AST nodes are `distinct u32` handles into flat arrays, `#soa` where fields are read separately, arenas per lifetime, no pointer graphs. Measure memory and time before and after a change that claims to help either.
 7. Sea of Nodes is the IR. Use its properties instead of working around them: hash-consing makes equal pure values the same node, the memory chain makes equal memory states the same node, and the scheduler places floating nodes. An optimization that needs a CFG walk over statement lists is a sign it is in the wrong place.
-8. Maintainability is the bar. On 2026-10-09 Bill closed PR #7850, a 140-commit non-LLVM fast backend with good benchmark numbers, with one line: "No. This is not maintainable." (https://github.com/odin-lang/Odin/pull/7850). Speed and coverage did not outweigh the cost of reading and changing the code. We hold ourselves to the same bar.
+8. Maintainability is the bar. On 2026-10-09 Bill closed PR #7850, a 140-commit non-LLVM fast backend, with one line: "No. This is not maintainable." (https://github.com/odin-lang/Odin/pull/7850). This was not a rejection of a native backend. Bill's stated goal is a fast native backend of his own (`docs/research/01`, 2026-03 and 2026-10 statements). The PR would have put a second backend beside LLVM in the official compiler, with fallback between the two, and keeping both was not worth the cost to his project at this time. Our compiler has one backend and no LLVM, so that cost does not apply to us, but the lesson about code that is expensive to read and change does.
 
 ## 2. Where we are
 
@@ -72,13 +72,13 @@ This is the scope Bill accepts today: redundancy only, by equality, no range rea
 
 ### PR #7850, the rejected fast backend
 
-bbodi's `-backend:fast` (closed 2026-10-09, copy in `refs/compilers_linkers/odin-pr7850-fast-backend`) was a port of the `lb_*` builders to a new IR, with per-procedure fallback to LLVM through `setjmp`/`longjmp`, shadow modules that log and replay changes for parallel determinism, and 85 IR ops. It reported debug builds 2 to 10 times faster. Bill rejected it as unmaintainable. Facts from it that are still useful to us:
+bbodi's `-backend:fast` (closed 2026-10-09, copy in `refs/compilers_linkers/odin-pr7850-fast-backend`) was a port of the `lb_*` builders to a new IR, with per-procedure fallback to LLVM through `setjmp`/`longjmp`, shadow modules that log and replay changes for parallel determinism, and 85 IR ops. It reported debug builds 2 to 10 times faster. Bill closed it because maintaining it beside the LLVM backend would cost his project more than it gave, not because he opposes a native backend. Facts from it that are still useful to us:
 
 - Three lowering peepholes gave 1.5 to 2.8 times fewer cycles on loop kernels: keep a result used only by the next instruction in a register, fold small constants into immediates, and fuse a compare whose only use is the next branch.
 - The in-range path of a bounds check falls through; the failing path is a cold block that calls the runtime handler.
 - CI compared output bytes at 1 and 10 threads to catch nondeterminism.
 
-The lesson for us is about shape, not features: a port of another backend's builders plus fallback and replay machinery is what "not maintainable" looks like.
+The lesson for us is about shape: a second code path that mirrors another backend, plus fallback and replay machinery to keep the two in step, is expensive to maintain. We have one backend; keep it that way.
 
 ## 4. Correctness first
 
@@ -203,7 +203,7 @@ Rules for any new IR work:
 - Moving a check, or treating build policy flags as optimizer input.
 - Removing `SDiv`, `UDiv`, `SRem`, `URem` or loads because the result is unused. They can trap and are pinned.
 - Equality saturation or a rule DSL before a plain Odin rule file has proved too small.
-- Porting another backend's builders, or fallback paths that hand work to a second backend. PR #7850 is the example.
+- Porting another backend's builders line by line, or adding fallback paths that hand work to a second code generator.
 - Rewriting the IR to a CFG because V8 did. Our language has none of the deoptimization pressure that drove their decision.
 - New abstractions before the second use. A helper is introduced when two call sites need it, not before.
 
