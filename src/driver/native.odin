@@ -291,24 +291,7 @@ build_image :: proc(
 			group_atoms[0] = u32(global_base + index)
 			append(&comdats, link.Comdat{signature = global.name, atoms = group_atoms}) or_return
 		}
-		relocs := make([]link.Relocation, len(global.relocs), scratch_allocator) or_return
-		for reloc, reloc_index in global.relocs {
-			relocs[reloc_index] = link.Relocation {
-				offset = reloc.offset,
-				symbol = symbol_of(module_indices, reloc.target),
-				kind   = .R_X86_64_64,
-				addend = reloc.addend,
-			}
-		}
-		bytes := global.bytes
-		section := global_section(global)
-		atoms[global_base + index] = link.Atom {
-			section = section,
-			align   = global.align,
-			bytes   = bytes,
-			size    = u64(global.size),
-			relocs  = relocs,
-		}
+		atoms[global_base + index] = global_atom(global, module_indices, scratch_allocator) or_return
 	}
 	blob_index := 0
 	for function, function_index in module.functions {
@@ -317,25 +300,7 @@ build_image :: proc(
 				name = fmt.aprintf("blob.%d.%d", function_index, blob_index, allocator = scratch_allocator),
 				atom = u32(blob_base + blob_index),
 			}
-			relocs := make([]link.Relocation, len(blob.relocs), scratch_allocator) or_return
-			for reloc, reloc_index in blob.relocs {
-				relocs[reloc_index] = link.Relocation {
-					offset = reloc.offset,
-					symbol = symbol_of(function_indices[function_index], reloc.target),
-					kind   = .R_X86_64_64,
-					addend = reloc.addend,
-				}
-			}
-			// The bytes are copied: the function's arena is destroyed once its atom is emitted.
-			bytes := make([]byte, len(blob.bytes), scratch_allocator) or_return
-			copy(bytes, blob.bytes)
-			atoms[blob_base + blob_index] = link.Atom {
-				section = .Rodata,
-				align   = blob.align,
-				bytes   = bytes,
-				size    = u64(len(blob.bytes)),
-				relocs  = relocs,
-			}
+			atoms[blob_base + blob_index] = blob_atom(blob, function_indices[function_index], scratch_allocator) or_return
 			blob_index += 1
 		}
 	}
@@ -480,6 +445,57 @@ global_section :: proc(global: ir.Global) -> link.Section_Kind {
 	if global.tls { return .Tdata if len(global.bytes) > 0 else .Tbss }
 	if len(global.bytes) == 0 { return .Bss }
 	return .Data if global.mutable else .Rodata
+}
+
+@(private = "file")
+relocations_of :: proc(
+	data_relocs: []ir.Data_Reloc,
+	indices: amd64.Symbol_Indices,
+	allocator: runtime.Allocator,
+) -> (
+	link_relocations: []link.Relocation,
+	err: runtime.Allocator_Error,
+) {
+	link_relocations = make([]link.Relocation, len(data_relocs), allocator) or_return
+	for reloc, index in data_relocs {
+		link_relocations[index] = link.Relocation {
+			offset = reloc.offset,
+			symbol = symbol_of(indices, reloc.target),
+			kind   = .R_X86_64_64,
+			addend = reloc.addend,
+		}
+	}
+	return
+}
+
+// The global's bytes stay borrowed from the module; only the relocations are copied.
+@(private = "file")
+global_atom :: proc(global: ir.Global, indices: amd64.Symbol_Indices, allocator: runtime.Allocator) -> (atom: link.Atom, err: runtime.Allocator_Error) {
+	relocs := relocations_of(global.relocs, indices, allocator) or_return
+	atom = link.Atom {
+		section = global_section(global),
+		align   = global.align,
+		bytes   = global.bytes,
+		size    = u64(global.size),
+		relocs  = relocs,
+	}
+	return
+}
+
+// The bytes are copied: the function's arena is destroyed once its atom is emitted.
+@(private = "file")
+blob_atom :: proc(blob: ir.Data_Blob, indices: amd64.Symbol_Indices, allocator: runtime.Allocator) -> (atom: link.Atom, err: runtime.Allocator_Error) {
+	relocs := relocations_of(blob.relocs, indices, allocator) or_return
+	bytes := make([]byte, len(blob.bytes), allocator) or_return
+	copy(bytes, blob.bytes)
+	atom = link.Atom {
+		section = .Rodata,
+		align   = blob.align,
+		bytes   = bytes,
+		size    = u64(len(blob.bytes)),
+		relocs  = relocs,
+	}
+	return
 }
 
 @(private = "file", thread_local)
