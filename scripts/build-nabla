@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+#MISE description="Build the Nabla project with odinc"
+set -euo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
+
+nabla_root="${NABLA_ROOT:-/home/su3h7am/Projects/nabla}"
+[[ -d "$nabla_root" ]] || die "Nabla root does not exist: $nabla_root"
+binary="$PROJECT_ROOT/build/odinc"
+[[ -x "$binary" ]] || die "odinc is missing; run mise run build first"
+step "build Nabla"
+ODIN_ROOT="$PROJECT_ROOT" "$binary" "$nabla_root/" "-collection:nabla=$nabla_root" -out:"$PROJECT_ROOT/build/nabla"
