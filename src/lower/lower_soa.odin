@@ -205,20 +205,6 @@ lower_soa_whole_scatter :: proc(state: ^Procedure_State, node: syntax.Node_Index
 	}
 }
 
-// A whole element scatters field by field; a field stores like any lvalue.
-@(private)
-lower_soa_store :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: check.Soa_Plan, value: ir.Node_Id) {
-	if plan.field != nil {
-		address := lower_soa_field_address(state, node, plan)
-		if state.failed || state.job.function.error != nil { return }
-		lower_store(state, address, value, lower_info(state, node).type)
-		return
-	}
-	address, index := lower_soa_whole_address(state, node, plan)
-	if state.failed || state.job.function.error != nil { return }
-	lower_soa_whole_scatter(state, node, plan, address, index, value)
-}
-
 // One address per swizzle lane: the spread column of the named component at
 // the element index. The element index keeps the plan bounds check; the lanes
 // themselves were proven in range by the checker.

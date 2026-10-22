@@ -370,10 +370,6 @@ lower_numeric_builtin :: proc(
 	signed := signed_type(state, operand_type(state, plan.arguments[0]))
 	less_kind := ir.Node_Kind.FLt if floating else (ir.Node_Kind.SLt if signed else ir.Node_Kind.ULt)
 	#partial switch kind {
-	case .Min:
-		return pick_ordered(function, less_kind, values[0], values[1], true)
-	case .Max:
-		return pick_ordered(function, less_kind, values[0], values[1], false)
 	case .Clamp:
 		upper := pick_ordered(function, less_kind, values[0], values[1], false)
 		return pick_ordered(function, less_kind, upper, values[2], true)
@@ -385,9 +381,9 @@ lower_numeric_builtin :: proc(
 			mask := ir.const_int(function, integer_type, 0x7fff_ffff if type == .F32 else 0x7fff_ffff_ffff_ffff)
 			return ir.convert(function, .Bitcast, ir.binary(function, .And, bits, mask), type)
 		}
-		zero := ir.const_float(function, type, 0) if floating else ir.const_int(function, type, 0)
+		zero := ir.const_int(function, type, 0)
 		negative := ir.compare(function, less_kind, values[0], zero)
-		flipped := ir.unary(function, .FNeg, values[0]) if floating else ir.binary(function, .Sub, zero, values[0])
+		flipped := ir.binary(function, .Sub, zero, values[0])
 		return ir.select(function, negative, flipped, values[0])
 	case:
 		return lower_fail(state, node, .Builtin)

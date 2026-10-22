@@ -139,20 +139,7 @@ bind_local :: proc(state: ^Procedure_State, entity: check.Entity_Id, value: ir.N
 	}
 	if value != 0 { lower_store(state, address, value, type); return }
 	if !initialize { return }
-	function := state.job.function
-	memory := ir.add_node(
-		function,
-		.Mem_Set,
-		.Memory,
-		{
-			state.builder.control,
-			ir.variable_get(state.builder, ir.MEMORY_VARIABLE),
-			address,
-			ir.const_int(function, .I8, 0),
-			ir.const_int(function, .I64, layout.size),
-		},
-	)
-	ir.variable_set(state.builder, ir.MEMORY_VARIABLE, memory)
+	lower_zero_memory(state, address, layout.size)
 }
 
 @(private)

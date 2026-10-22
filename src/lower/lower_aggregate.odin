@@ -68,19 +68,7 @@ lower_aggregate_struct_into :: proc(
 	store := check.type_store(state.job.program)
 	owner := types.resolve_named(store, plan.type)
 	function := state.job.function
-	memory := ir.add_node(
-		function,
-		.Mem_Set,
-		.Memory,
-		{
-			state.builder.control,
-			ir.variable_get(state.builder, ir.MEMORY_VARIABLE),
-			address,
-			ir.const_int(function, .I8, 0),
-			ir.const_int(function, .I64, size),
-		},
-	)
-	ir.variable_set(state.builder, ir.MEMORY_VARIABLE, memory)
+	lower_zero_memory(state, address, size)
 	for value, position in plan.values {
 		index := int(plan.field_indices[position])
 		descriptor := types.get(store, owner)
