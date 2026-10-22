@@ -80,16 +80,21 @@ lower_constant :: proc(state: ^Procedure_State, id: check.Const_Id, target: type
 		if error != .None { return lower_constant_error(state, error) }
 		return ir.const_int(function, scalar, i64(bits))
 	case check.Float_Value:
+		return lower_float_constant(state, value, type, scalar)
+	case big.Rat:
+		// An untyped rational is rounded once, directly to the target float precision.
+		width: u8 = 64
 		if is_float16(state, type) {
-			bits, bits_ok := lower_float_bits(value, .F16)
-			if !bits_ok { return lower_fail(state, state.job.procedure.body.node, .Constant) }
-			return ir.const_int(function, .I16, i64(bits))
-		}
-		bits, bits_ok := lower_float_bits(value, scalar)
-		if !bits_ok {
+			width = 16
+		} else if scalar == .F32 {
+			width = 32
+		} else if scalar != .F64 {
 			return lower_fail(state, state.job.procedure.body.node, .Constant)
 		}
-		return ir.const_float(function, scalar, bits)
+		rational := value
+		rounded, _, conversion_error := check.numeric_rational_to_f64(&rational, width)
+		if conversion_error { return lower_fail(state, state.job.procedure.body.node, .Constant) }
+		return lower_float_constant(state, check.Float_Value{bits = transmute(u64)rounded, width = 64}, type, scalar)
 	case check.Pointer_Value:
 		return ir.const_int(function, .Ptr, i64(value))
 	case check.Nil_Value:
@@ -151,6 +156,19 @@ lower_constant_aggregate :: proc(state: ^Procedure_State, type: types.Type_Id, a
 	layout := state.job.layouts[type]
 	if layout.error != .None || layout.size > i64(max(u32)) { return lower_fail(state, node, .Expression) }
 	return lower_aggregate_struct_into(state, node, plan, aggregate_storage(state, layout), layout.size)
+}
+
+@(private)
+lower_float_constant :: proc(state: ^Procedure_State, value: check.Float_Value, type: types.Type_Id, scalar: ir.Value_Type) -> ir.Node_Id {
+	function := state.job.function
+	if is_float16(state, type) {
+		bits, bits_ok := lower_float_bits(value, .F16)
+		if !bits_ok { return lower_fail(state, state.job.procedure.body.node, .Constant) }
+		return ir.const_int(function, .I16, i64(bits))
+	}
+	bits, bits_ok := lower_float_bits(value, scalar)
+	if !bits_ok { return lower_fail(state, state.job.procedure.body.node, .Constant) }
+	return ir.const_float(function, scalar, bits)
 }
 
 // Typed f32 values are stored with f64 bits. Narrow them when the target scalar is f32.
