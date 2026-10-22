@@ -678,7 +678,20 @@ expression_default_argument :: proc(
 	info := check_expression(checker, view, scope, node, type) or_return
 	if info.state == .Invalid { return Default_Argument{kind = .Invalid}, nil }
 	if info.constant != 0 { return Default_Argument{kind = .Constant, value = Operand(info.constant)}, nil }
-	if expression_conversion_plan(checker, info.plan) != 0 {
+	if conversion := expression_conversion_plan(checker, info.plan); conversion != 0 {
+		retained := checker.plans[conversion].(Conversion_Plan)
+		store := checker.type_checker.store
+		if types.get(store, types.resolve_named(store, type)).kind == .Procedure {
+			if source, is_expression := retained.source.(Expression_Ref); is_expression {
+				original := check_expression(checker, source.view, scope, source.node) or_return
+				if original.entity != 0 {
+					entity := entity_get(checker.type_checker.resolver.scopes, original.entity)
+					if (entity.kind == .Procedure || entity.kind == .Variable) && .Parameter not_in entity.flags {
+						return Default_Argument{kind = .Value, value = retained.source, conversion = conversion}, nil
+					}
+				}
+			}
+		}
 		expression_unsupported(checker, view, scope, node, "Default_Conversion") or_return
 		return Default_Argument{kind = .Invalid}, nil
 	}

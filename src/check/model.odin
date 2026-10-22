@@ -588,6 +588,7 @@ Default_Kind :: enum u8 {
 Default_Argument :: struct {
 	kind:             Default_Kind,
 	value:            Operand,
+	conversion:       Plan_Id,
 	source_parameter: string,
 }
 Procedure_Data :: struct {

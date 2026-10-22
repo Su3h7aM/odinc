@@ -190,6 +190,7 @@ expression_call_default_argument :: proc(
 		return {}, false, nil
 	case .Constant, .Value:
 		argument.value = default_argument.value
+		argument.conversion = default_argument.conversion
 	case .Caller_Location:
 		argument.value = Operand(Expression_Ref{view, node})
 		argument.caller_location = true
