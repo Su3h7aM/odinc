@@ -3,6 +3,24 @@ package check
 import "oc:syntax"
 import "oc:types"
 
+@(private = "package")
+expression_result_types :: proc(checker: ^Expression_Checker, info: Expression_Info, allow_comma_ok: bool, pair: ^[2]types.Type_Id) -> []types.Type_Id {
+	if value, is_pair := comma_ok_value_type(checker, info, allow_comma_ok); is_pair {
+		pair^ = {value, checker.boolean}
+		return pair[:]
+	}
+	if info.plan == 0 || info.mode == .Optional_Ok && !allow_comma_ok { return nil }
+	#partial switch plan in checker.plans[info.plan] {
+	case Call_Plan:
+		return plan.results
+	case Builtin_Plan:
+		return plan.results
+	case Propagation_Plan:
+		return plan.results
+	}
+	return nil
+}
+
 // A call to a procedure tagged #optional_ok or #optional_allocator_error yields its first result alone in a
 // single-value context. The plan keeps every result, so tuple contexts still read the full list.
 @(private = "package")

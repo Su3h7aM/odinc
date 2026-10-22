@@ -2,31 +2,39 @@ package check
 
 import "core:mem"
 import "oc:syntax"
+import "oc:types"
 
-// `return f()` returns each result of a call that yields as many values as the procedure. Each result converts to
-// its result type as an assignment does. handled is false when the value is not such a call.
+// Each projected result converts to its declared return type as an assignment does.
 @(private = "package")
 expression_returned_call :: proc(
 	checker: ^Expression_Checker,
 	view: View_Id,
 	scope: Scope_Id,
 	node: syntax.Node_Index,
-	source: syntax.Node_Index,
+	source_node: syntax.Node_Index,
 ) -> (
 	handled: bool,
 	err: Resolve_Error,
 ) {
 	file := checker.type_checker.files[checker.views[view].file]
-	if file.ast.nodes[source].kind != .Call_Expr { return false, nil }
-	info := check_expression(checker, view, scope, source) or_return
+	source := type_unparen(file, source_node)
+	hint: types.Type_Id
+	if file.ast.nodes[source].kind == .Type_Assertion {
+		assertion := syntax.node_payload(file.ast, source, syntax.Type_Assertion)
+		if assertion.type == 0 ||
+		   file.ast.nodes[assertion.type].kind == .Unary_Expr && syntax.node_payload(file.ast, assertion.type, syntax.Unary_Expr).op.kind == .Question {
+			hint = checker.results[0]
+		}
+	}
+	info := check_expression(checker, view, scope, source, hint) or_return
 	if info.state == .Invalid { return true, nil }
-	if info.plan == 0 { return false, nil }
-	call, is_call := checker.plans[info.plan].(Call_Plan)
-	if !is_call || len(call.results) != len(checker.results) { return false, nil }
+	pair: [2]types.Type_Id
+	results := expression_result_types(checker, info, len(checker.results) == 2, &pair)
+	if len(results) != len(checker.results) { return false, nil }
 	allocator := mem.dynamic_arena_allocator(&checker.arena)
-	operands := make([]Operand, len(call.results), allocator) or_return
-	conversions := make([]Plan_Id, len(call.results), allocator) or_return
-	for result, index in call.results {
+	operands := make([]Operand, len(results), allocator) or_return
+	conversions := make([]Plan_Id, len(results), allocator) or_return
+	for result, index in results {
 		operand := Operand(Projection{Expression_Ref{view, source}, u32(index)})
 		converted := expression_conversion(
 			checker,
@@ -39,6 +47,9 @@ expression_returned_call :: proc(
 			.Assignment,
 		) or_return
 		if converted.state == .Invalid { return true, nil }
+		retained := checker.plans[converted.plan].(Conversion_Plan)
+		retained.source_type = result
+		checker.plans[converted.plan] = Plan(retained)
 		operands[index] = operand
 		conversions[index] = converted.plan
 	}

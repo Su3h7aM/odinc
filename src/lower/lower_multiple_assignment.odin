@@ -21,6 +21,7 @@ lower_assignment_results :: proc(
 	plan := check.plan(state.job.program, info.plan)
 	if plan == nil || projection.index != 0 { lower_fail(state, node, .Local); return first }
 	results: []types.Type_Id
+	pair: [2]types.Type_Id
 	#partial switch variant in plan^ {
 	case check.Call_Plan:
 		results = variant.results
@@ -39,28 +40,19 @@ lower_assignment_results :: proc(
 		if !lower_or_return_values(state, projection.expression.node, variant, values[first:first + len(results)]) { return first }
 	case check.Type_Assertion_Plan:
 		if first + 2 > len(values) || !variant.comma_ok { lower_fail(state, node, .Local); return first }
-		if len(assignment.conversions) != 0 && (assignment.conversions[first] != 0 || assignment.conversions[first + 1] != 0) {
-			lower_fail(state, node, .Conversion)
-			return first
-		}
 		values[first], values[first + 1] = lower_type_assertion(state, projection.expression.node, variant)
-		return first + 2
+		pair[0] = variant.target_type
+		results = pair[:]
 	case check.Map_Index_Plan:
 		if first + 2 > len(values) || !variant.comma_ok { lower_fail(state, node, .Local); return first }
-		if len(assignment.conversions) != 0 && (assignment.conversions[first] != 0 || assignment.conversions[first + 1] != 0) {
-			lower_fail(state, node, .Conversion)
-			return first
-		}
 		values[first], values[first + 1] = lower_map_index(state, projection.expression.node, variant)
-		return first + 2
+		pair[0] = info.type
+		results = pair[:]
 	case check.Address_Plan:
 		if first + 2 > len(values) || !variant.comma_ok { lower_fail(state, node, .Local); return first }
-		if len(assignment.conversions) != 0 && (assignment.conversions[first] != 0 || assignment.conversions[first + 1] != 0) {
-			lower_fail(state, node, .Conversion)
-			return first
-		}
 		values[first], values[first + 1] = lower_optional_address(state, projection.expression.node)
-		return first + 2
+		pair[0] = info.type
+		results = pair[:]
 	case:
 		lower_fail(state, node, .Local)
 		return first
@@ -73,7 +65,10 @@ lower_assignment_results :: proc(
 		if conversion == nil { lower_fail(state, node, .Conversion); return first }
 		converted, found := conversion^.(check.Conversion_Plan)
 		if !found { lower_fail(state, node, .Conversion); return first }
-		values[position] = lower_conversion_value(state, converted, node, result, values[position])
+		source_type := result
+		if source_type == 0 { source_type = converted.source_type }
+		if source_type == 0 { lower_fail(state, node, .Conversion); return first }
+		values[position] = lower_conversion_value(state, converted, node, source_type, values[position])
 	}
 	return first + len(results)
 }

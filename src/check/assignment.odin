@@ -67,6 +67,9 @@ expression_multiple_assignment :: proc(
 						.Assignment,
 					) or_return
 					if converted.state == .Invalid { return nil }
+					retained := checker.plans[converted.plan].(Conversion_Plan)
+					retained.source_type = result_type
+					checker.plans[converted.plan] = Plan(retained)
 					append(&conversions, converted.plan) or_return
 				} else {
 					append(&conversions, Plan_Id(0)) or_return
