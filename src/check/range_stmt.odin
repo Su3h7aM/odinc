@@ -290,8 +290,8 @@ range_declare_map_names :: proc(
 		range_declare(checker, view, file, range_scope, ident, key, true) or_return
 	}
 	if len(parts.names) == 2 {
-		ident, _ := range_name(file, parts.names[1])
-		range_declare(checker, view, file, range_scope, ident, value, true) or_return
+		ident, by_reference := range_name(file, parts.names[1])
+		range_declare(checker, view, file, range_scope, ident, value, !by_reference) or_return
 	}
 	return true, nil
 }
