@@ -417,7 +417,7 @@ check_expression :: proc(
 					argument = syntax.node_payload(file.ast, argument, syntax.Field_Value).value
 				}
 				operand_hint := types.TYPE_NONE
-				if file.ast.nodes[argument].kind == .Implicit_Selector_Expr || file.ast.nodes[argument].kind == .Comp_Lit {
+				if expression_needs_operand_hint(file, argument) {
 					operand_hint = callee.type
 				}
 				operand := check_expression(checker, view, scope, argument, operand_hint) or_return
