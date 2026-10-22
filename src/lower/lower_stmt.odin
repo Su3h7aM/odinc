@@ -155,7 +155,9 @@ lower_scalar_return :: proc(state: ^Procedure_State, node: syntax.Node_Index, va
 	if len(signature.results) != 1 { lower_fail(state, node, .Result); return }
 	result_type := signature.results[0].type
 	result := value
-	if state.job.function.nodes.type[result] == .Bool && result_type == .I8 { result = ir.convert(state.job.function, .Zext, result, .I8) }
+	if state.job.function.nodes.type[result] == .Bool &&
+	   result_type >= .I8 &&
+	   result_type <= .I64 { result = ir.convert(state.job.function, .Zext, result, result_type) }
 	if state.job.function.nodes.type[result] != result_type { lower_fail(state, node, .Result); return }
 	run_deferred(state, 0)
 	if state.failed || state.job.function.error != nil || state.builder.control == 0 { return }

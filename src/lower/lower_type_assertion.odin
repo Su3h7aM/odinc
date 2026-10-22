@@ -118,6 +118,10 @@ lower_optional_address :: proc(state: ^Procedure_State, node: syntax.Node_Index)
 	info := lower_info(state, operand)
 	plan := check.plan(state.job.program, info.plan)
 	if plan == nil { lower_fail(state, node, .Expression); return }
+	if map_index, is_map := plan^.(check.Map_Index_Plan); is_map {
+		address, ok, _ = lower_map_entry(state, operand, map_index)
+		return
+	}
 	assertion, is_assertion := plan^.(check.Type_Assertion_Plan)
 	if !is_assertion { lower_fail(state, node, .Expression); return }
 	assertion.comma_ok = true

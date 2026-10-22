@@ -1,5 +1,6 @@
 package lower
 
+import "core:mem/virtual"
 import "oc:check"
 import "oc:ir"
 import "oc:syntax"
@@ -178,6 +179,12 @@ lower_entity_value :: proc(state: ^Procedure_State, entity: check.Entity_Id) -> 
 	if state.job.program.entities[entity].kind == .Type_Name {
 		return lower_runtime_typeid(state, state.job.procedure.body.node, state.job.program.entities[entity].type)
 	}
+	if state.job.program.entities[entity].kind == .Procedure && .Foreign in state.job.program.entities[entity].flags {
+		allocator := virtual.arena_allocator(&state.job.function.arena)
+		extern_ref, valid := extern_symbol(state, foreign_link_name(state.job.program, entity, allocator))
+		if !valid { return 0 }
+		return ir.symbol_addr(state.job.function, extern_ref)
+	}
 	return lower_fail(state, state.job.procedure.body.node, .Local)
 }
 
@@ -323,14 +330,35 @@ lower_value :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> ir.Node
 }
 
 @(private)
+bool_storage_type :: proc(state: ^Procedure_State, type: types.Type_Id) -> ir.Value_Type {
+	switch state.job.layouts[type].size {
+	case 1:
+		return .I8
+	case 2:
+		return .I16
+	case 4:
+		return .I32
+	case 8:
+		return .I64
+	}
+	return .None
+}
+
+@(private)
+bool_from_storage :: proc(function: ^ir.Function, value: ir.Node_Id) -> ir.Node_Id {
+	return ir.compare(function, .Ne, value, ir.const_int(function, function.nodes.type[value], 0))
+}
+
+@(private)
 lower_load :: proc(state: ^Procedure_State, address: ir.Node_Id, type: types.Type_Id) -> ir.Node_Id {
 	if state.failed || state.job.function.error != nil { return 0 }
 	scalar := scalar_type(state, type)
 	if scalar == .None { return address }
 	if scalar == .Bool {
 		function := state.job.function
-		byte := ir.load(function, state.builder.control, ir.variable_get(state.builder, ir.MEMORY_VARIABLE), address, .I8, 0)
-		return ir.convert(function, .Trunc, byte, .Bool)
+		storage := bool_storage_type(state, type)
+		stored := ir.load(function, state.builder.control, ir.variable_get(state.builder, ir.MEMORY_VARIABLE), address, storage, 0)
+		return bool_from_storage(function, stored)
 	}
 	value := ir.load(state.job.function, state.builder.control, ir.variable_get(state.builder, ir.MEMORY_VARIABLE), address, scalar, 0)
 	return lower_endian_value(state, value, type)
@@ -364,6 +392,9 @@ lower_address :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> ir.No
 			return lower_value(state, node)
 		case check.Type_Assertion_Plan:
 			return lower_type_assertion_address(state, node, value)
+		case check.Map_Index_Plan:
+			found_pointer, _, _ := lower_map_entry(state, node, value)
+			return found_pointer
 		case:
 			return lower_fail(state, node, .Place)
 		}
@@ -442,7 +473,7 @@ lower_store :: proc(state: ^Procedure_State, address, value: ir.Node_Id, type: t
 	memory := ir.variable_get(state.builder, ir.MEMORY_VARIABLE)
 	if scalar_type(state, type) != .None {
 		stored_value := lower_endian_value(state, value, type)
-		if function.nodes.type[stored_value] == .Bool { stored_value = ir.convert(function, .Zext, stored_value, .I8) }
+		if function.nodes.type[stored_value] == .Bool { stored_value = ir.convert(function, .Zext, stored_value, bool_storage_type(state, type)) }
 		memory = ir.store(function, state.builder.control, memory, address, stored_value, 0)
 	} else {
 		size := ir.const_int(function, .I64, state.job.layouts[type].size)

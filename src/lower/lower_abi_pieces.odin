@@ -125,7 +125,7 @@ bind_parameter :: proc(state: ^Procedure_State, parameters: []types.Abi_Param, v
 	value := values[0]
 	#partial switch lower_type(state, type).kind {
 	case .Bool:
-		value = ir.convert(job.function, .Trunc, value, .Bool)
+		value = bool_from_storage(job.function, value)
 	case .Integer, .Enum, .Bit_Field, .Bit_Set, .Rune, .Float, .Raw_Pointer, .Pointer, .Multi_Pointer, .CString, .CString16, .Procedure, .Type_Id:
 	case:
 		report_procedure_error(job, .Unsupported, .Parameter)

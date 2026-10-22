@@ -171,6 +171,14 @@ lower_procedure :: proc(job: ^Procedure_Job) -> (err: runtime.Allocator_Error) {
 		if !bind_parameter(&state, job.parameters[index:index + span], entry.params[index:index + span]) { return job.allocation_error }
 		index += span
 	}
+	for entity in procedure.parameters {
+		if state.locals[entity].kind != .None { continue }
+		if job.layouts[job.program.entities[entity].type].size != 0 {
+			report_procedure_error(job, .Unsupported, .Parameter)
+			return job.allocation_error
+		}
+		bind_local(&state, entity, 0, false)
+	}
 	for entity in procedure.results { bind_local(&state, entity, 0, true) }
 	if state.failed { return job.allocation_error }
 	if function.error != nil { return function.error }

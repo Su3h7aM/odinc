@@ -12,13 +12,14 @@ Map_Operands :: struct {
 }
 
 @(private)
-lower_map_index :: proc(
+lower_map_entry :: proc(
 	state: ^Procedure_State,
 	node: syntax.Node_Index,
 	plan: check.Map_Index_Plan,
 	operands: ^Map_Operands = nil,
 ) -> (
-	value, ok: ir.Node_Id,
+	found_pointer, ok: ir.Node_Id,
+	value_type: types.Type_Id,
 ) {
 	map_expression, is_expression := plan.map_value.(check.Expression_Ref)
 	if !is_expression { lower_fail(state, node, .Expression); return }
@@ -54,11 +55,26 @@ lower_map_index :: proc(
 		break
 	}
 	if key_hash == 0 || state.failed || state.job.function.error != nil { return }
-	found_pointer := lower_map_runtime_call(state, node, "__dynamic_map_get", []ir.Node_Id{map_value, map_info_value, key_hash, key_address})
+	found_pointer = lower_map_runtime_call(state, node, "__dynamic_map_get", []ir.Node_Id{map_value, map_info_value, key_hash, key_address})
 	if state.failed || state.job.function.error != nil { return }
 	function := state.job.function
 	ok = ir.compare(function, .Ne, found_pointer, ir.const_int(function, .Ptr, 0))
-	value_type := map_descriptor.elem
+	return found_pointer, ok, map_descriptor.elem
+}
+
+@(private)
+lower_map_index :: proc(
+	state: ^Procedure_State,
+	node: syntax.Node_Index,
+	plan: check.Map_Index_Plan,
+	operands: ^Map_Operands = nil,
+) -> (
+	value, ok: ir.Node_Id,
+) {
+	found_pointer, found, value_type := lower_map_entry(state, node, plan, operands)
+	if state.failed || state.job.function.error != nil { return }
+	ok = found
+	function := state.job.function
 	if scalar := scalar_type(state, value_type); scalar != .None {
 		zero := ir.const_int(function, scalar, 0)
 		if scalar == .F32 || scalar == .F64 { zero = ir.const_float(function, scalar, 0) }

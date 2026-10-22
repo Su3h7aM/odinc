@@ -33,11 +33,15 @@ lower_assignment_results :: proc(
 		lower_intrinsic_tuple(state, projection.expression.node, variant, state.job.program.builtin_kinds[variant.builtin], values[first:first + len(results)])
 	case check.Propagation_Plan:
 		results = variant.results
-		if state.ast.nodes[projection.expression.node].kind != .Or_Return_Expr || first + len(results) > len(values) {
+		if first + len(results) > len(values) { lower_fail(state, node, .Local); return first }
+		if state.ast.nodes[projection.expression.node].kind == .Or_Return_Expr {
+			if !lower_or_return_values(state, projection.expression.node, variant, values[first:first + len(results)]) { return first }
+		} else if state.ast.nodes[projection.expression.node].kind == .Or_Branch_Expr {
+			if !lower_or_branch_values(state, projection.expression.node, variant, values[first:first + len(results)]) { return first }
+		} else {
 			lower_fail(state, node, .Local)
 			return first
 		}
-		if !lower_or_return_values(state, projection.expression.node, variant, values[first:first + len(results)]) { return first }
 	case check.Type_Assertion_Plan:
 		if first + 2 > len(values) || !variant.comma_ok { lower_fail(state, node, .Local); return first }
 		values[first], values[first + 1] = lower_type_assertion(state, projection.expression.node, variant)
