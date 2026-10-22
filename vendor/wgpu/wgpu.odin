@@ -1651,9 +1651,7 @@ foreign libwgpu {
 	// Methods of Buffer
 	BufferDestroy :: proc(buffer: Buffer) ---
 	@(link_name = "wgpuBufferGetConstMappedRange")
-	RawBufferGetConstMappedRange :: proc(buffer: Buffer,
-		offset: uint,
-		size: uint,) -> rawptr ---
+	RawBufferGetConstMappedRange :: proc(buffer: Buffer, offset: uint, size: uint) -> rawptr ---
 	@(link_name = "wgpuBufferGetMappedRange")
 	RawBufferGetMappedRange :: proc(buffer: Buffer, offset: uint, size: uint) -> rawptr ---
 	BufferGetMapState :: proc(buffer: Buffer) -> BufferMapState ---
@@ -2063,7 +2061,7 @@ DeviceGetFeatures :: proc "c" (device: Device) -> (features: SupportedFeatures) 
 }
 
 BufferWithDataDescriptor :: struct {
-	 /* NULLABLE */
+	/* NULLABLE */
 	label: StringView,
 	usage: BufferUsageFlags,
 }

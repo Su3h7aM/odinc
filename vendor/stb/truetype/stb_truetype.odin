@@ -67,7 +67,7 @@ foreign stbtt {
 		pixels: [^]byte,
 		pw, ph: c.int, // bitmap to be filled in
 		first_char, num_chars: c.int, // characters to bake
-		chardata: [^]bakedchar, ) -> c.int ---// you allocate this, it's num_chars long
+		chardata: [^]bakedchar,) -> c.int --- // you allocate this, it's num_chars long
 
 	// Call GetBakedQuad with char_index = 'character - first_char', and it
 	// creates the quad you need to draw and advances the current position.
@@ -83,7 +83,7 @@ foreign stbtt {
 		char_index: c.int, // character to display
 		xpos, ypos: ^f32, // pointers to current position in screen pixel space
 		q: ^aligned_quad, // output: quad to draw
-		opengl_fillrule: b32, ) ---// true if opengl fill rule; false if DX9 or earlier
+		opengl_fillrule: b32,) --- // true if opengl fill rule; false if DX9 or earlier
 
 	// Query the font vertical metrics without having to create a font first.
 	GetScaledFontVMetrics :: proc(fontdata: [^]byte, index: c.int, size: f32, ascent, descent, lineGap: ^f32) ---
@@ -462,7 +462,7 @@ foreign stbtt {
 		shift_x, shift_y: f32, // translation applied to input vertices
 		x_off, y_off: c.int, // another translation applied to input
 		invert: b32, // if non-zero, vertically flip shape
-		userdata: rawptr, ) ---// context for to STBTT_MALLOC
+		userdata: rawptr,) --- // context for to STBTT_MALLOC
 
 }
 

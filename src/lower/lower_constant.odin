@@ -189,23 +189,27 @@ lower_float_bits :: proc(value: check.Float_Value, scalar: ir.Value_Type) -> (bi
 lower_string :: proc(state: ^Procedure_State, text: string, count: i64 = -1, alignment: u32 = 1) -> ir.Node_Id {
 	length := i64(len(text)) if count < 0 else count
 	function := state.job.function
-	allocator := virtual.arena_allocator(&function.arena)
-	bytes, bytes_error := make([]byte, len(text), allocator)
-	if bytes_error != nil {
-		function.error = bytes_error
-		return 0
-	}
-	copy(bytes, text)
-	blob := ir.Symbol_Ref {
-		space = .Local_Blob,
-		index = u32(len(function.blobs)),
-	}
-	if _, append_error := append(&function.blobs, ir.Data_Blob{bytes = bytes, align = alignment}); append_error != nil {
-		function.error = append_error
-		return 0
+	address := ir.const_int(function, .I64, 0)
+	if length != 0 {
+		allocator := virtual.arena_allocator(&function.arena)
+		bytes, bytes_error := make([]byte, len(text), allocator)
+		if bytes_error != nil {
+			function.error = bytes_error
+			return 0
+		}
+		copy(bytes, text)
+		blob := ir.Symbol_Ref {
+			space = .Local_Blob,
+			index = u32(len(function.blobs)),
+		}
+		if _, append_error := append(&function.blobs, ir.Data_Blob{bytes = bytes, align = alignment}); append_error != nil {
+			function.error = append_error
+			return 0
+		}
+		address = ir.symbol_addr(function, blob)
 	}
 	slot := ir.stack_slot(function, state.entry_control, 16, 8)
-	lower_store_word(state, slot, ir.symbol_addr(function, blob))
+	lower_store_word(state, slot, address)
 	lower_store_word(state, ir.ptr_offset(function, slot, 8), ir.const_int(function, .I64, length))
 	return slot
 }
@@ -241,7 +245,10 @@ lower_string16_data :: proc(state: ^Procedure_State, text: string, is_cstring: b
 	bytes, bytes_error := make([]byte, byte_length, allocator)
 	if bytes_error != nil { function.error = bytes_error; return 0 }
 	mem.copy(raw_data(bytes), raw_data(units), byte_length)
-	address := lower_string_blob(state, bytes)
+	address := ir.const_int(function, .I64, 0)
+	if length != 0 || is_cstring {
+		address = lower_string_blob(state, bytes)
+	}
 	if is_cstring { return address }
 	slot := ir.stack_slot(function, state.entry_control, 16, 8)
 	lower_store_word(state, slot, address)

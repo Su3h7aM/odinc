@@ -950,7 +950,7 @@ context_type :: struct {
 	},
 	using _:                 struct #raw_union {
 		win32:   (struct {
-				 /*HMODULE*/
+				/*HMODULE*/
 				hOle32DLL:           handle,
 				CoInitialize:        proc "system" (),
 				CoInitializeEx:      proc "system" (),
@@ -1059,7 +1059,7 @@ device :: struct {
 	},
 	using _:                   struct #raw_union {
 		wasapi:      (struct {
-				 /*IAudioClient**/
+				/*IAudioClient**/
 				pAudioClientPlayback:             rawptr,
 				/*IAudioClient**/
 				pAudioClientCapture:              rawptr,
@@ -1104,7 +1104,7 @@ device :: struct {
 				rerouteLock:                      mutex,
 			} when SUPPORT_WASAPI else struct{}),
 		dsound:      (struct {
-				 /*LPDIRECTSOUND*/
+				/*LPDIRECTSOUND*/
 				pPlayback:              rawptr,
 				/*LPDIRECTSOUNDBUFFER*/
 				pPlaybackPrimaryBuffer: rawptr,
@@ -1116,7 +1116,7 @@ device :: struct {
 				pCaptureBuffer:         rawptr,
 			} when SUPPORT_DSOUND else struct{}),
 		winmm:       (struct {
-				 /*HWAVEOUT*/
+				/*HWAVEOUT*/
 				hDevicePlayback:              handle,
 				/*HWAVEIN*/
 				hDeviceCapture:               handle,
@@ -1138,7 +1138,7 @@ device :: struct {
 				_pHeapData:                   [^]u8, /* Used internally and is used for the heap allocated data for the intermediary buffer and the WAVEHDR structures. */
 			} when SUPPORT_WINMM else struct{}),
 		alsa:        (struct {
-				 /*snd_pcm_t**/
+				/*snd_pcm_t**/
 				pPCMPlayback:                rawptr,
 				/*snd_pcm_t**/
 				pPCMCapture:                 rawptr,
@@ -1154,7 +1154,7 @@ device :: struct {
 				isUsingMMapCapture:          b8,
 			} when SUPPORT_ALSA else struct{}),
 		pulse:       (struct {
-				 /*pa_mainloop**/
+				/*pa_mainloop**/
 				pMainLoop:       rawptr,
 				/*pa_context**/
 				pPulseContext:   rawptr,
@@ -1164,7 +1164,7 @@ device :: struct {
 				pStreamCapture:  rawptr,
 			} when SUPPORT_PULSEAUDIO else struct{}),
 		jack:        (struct {
-				 /*jack_client_t**/
+				/*jack_client_t**/
 				pClient:                     rawptr,
 				/*jack_port_t**/
 				pPortsPlayback:              [^]rawptr,
@@ -1209,7 +1209,7 @@ device :: struct {
 				fdCapture:  c.int,
 			} when SUPPORT_OSS else struct{}),
 		aaudio:      (struct {
-				 /*AAudioStream**/
+				/*AAudioStream**/
 				pStreamPlayback:         rawptr,
 				/*AAudioStream**/
 				pStreamCapture:          rawptr,
@@ -1222,7 +1222,7 @@ device :: struct {
 				noAutoStartAfterReroute: b32,
 			} when SUPPORT_AAUDIO else struct{}),
 		opensl:      (struct {
-				 /*SLObjectItf*/
+				/*SLObjectItf*/
 				pOutputMixObj:              rawptr,
 				/*SLOutputMixItf*/
 				pOutputMix:                 rawptr,

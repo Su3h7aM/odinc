@@ -1010,7 +1010,7 @@ unicode_bidirectional_class :: enum u8 {
 }
 
 line_break_class :: enum u8 {
-	 /*  0 */
+	/*  0 */
 	Onea,
 	/*  1 */
 	Oea,

@@ -162,14 +162,14 @@ PixelFormatEnum :: enum u32 {
 	ARGB32       = ARGB8888 when ODIN_ENDIAN == .Big else BGRA8888,
 	BGRA32       = BGRA8888 when ODIN_ENDIAN == .Big else ARGB8888,
 	ABGR32       = ABGR8888 when ODIN_ENDIAN == .Big else RGBA8888,
-	YV12         = /**< Planar mode: Y + V + U  (3 planes) */'Y' << 0 | 'V' << 8 | '1' << 16 | '2' << 24,
-	IYUV         = /**< Planar mode: Y + U + V  (3 planes) */'I' << 0 | 'Y' << 8 | 'U' << 16 | 'V' << 24,
-	YUY2         = /**< Packed mode: Y0+U0+Y1+V0 (1 plane) */'Y' << 0 | 'U' << 8 | 'Y' << 16 | '2' << 24,
-	UYVY         = /**< Packed mode: U0+Y0+V0+Y1 (1 plane) */'U' << 0 | 'Y' << 8 | 'V' << 16 | 'Y' << 24,
-	YVYU         = /**< Packed mode: Y0+V0+Y1+U0 (1 plane) */'Y' << 0 | 'V' << 8 | 'Y' << 16 | 'U' << 24,
-	NV12         = /**< Planar mode: Y + U/V interleaved  (2 planes) */'N' << 0 | 'V' << 8 | '1' << 16 | '2' << 24,
-	NV21         = /**< Planar mode: Y + V/U interleaved  (2 planes) */'N' << 0 | 'V' << 8 | '2' << 16 | '1' << 24,
-	EXTERNAL_OES = /**< Android video texture format */'O' << 0 | 'E' << 8 | 'S' << 16 | ' ' << 24,
+	YV12         =  /**< Planar mode: Y + V + U  (3 planes) */'Y' << 0 | 'V' << 8 | '1' << 16 | '2' << 24,
+	IYUV         =  /**< Planar mode: Y + U + V  (3 planes) */'I' << 0 | 'Y' << 8 | 'U' << 16 | 'V' << 24,
+	YUY2         =  /**< Packed mode: Y0+U0+Y1+V0 (1 plane) */'Y' << 0 | 'U' << 8 | 'Y' << 16 | '2' << 24,
+	UYVY         =  /**< Packed mode: U0+Y0+V0+Y1 (1 plane) */'U' << 0 | 'Y' << 8 | 'V' << 16 | 'Y' << 24,
+	YVYU         =  /**< Packed mode: Y0+V0+Y1+U0 (1 plane) */'Y' << 0 | 'V' << 8 | 'Y' << 16 | 'U' << 24,
+	NV12         =  /**< Planar mode: Y + U/V interleaved  (2 planes) */'N' << 0 | 'V' << 8 | '1' << 16 | '2' << 24,
+	NV21         =  /**< Planar mode: Y + V/U interleaved  (2 planes) */'N' << 0 | 'V' << 8 | '2' << 16 | '1' << 24,
+	EXTERNAL_OES =  /**< Android video texture format */'O' << 0 | 'E' << 8 | 'S' << 16 | ' ' << 24,
 }
 
 

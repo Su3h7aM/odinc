@@ -2,7 +2,6 @@ package lower
 
 import "base:runtime"
 import "core:mem/virtual"
-import "core:strconv"
 import "core:strings"
 import "oc:check"
 import "oc:ir"
@@ -53,7 +52,7 @@ extern_declaration :: proc(state: ^Procedure_State, node: syntax.Node_Index, pla
 		state.job.function.error = signature_error
 		return {}, false
 	}
-	link_name := foreign_link_name(program, plan.entity, allocator)
+	link_name := foreign_link_name(program, plan.entity)
 	symbol, symbol_valid := extern_symbol(state, link_name)
 	if !symbol_valid { return {}, false }
 	return Procedure_Declaration {
@@ -66,42 +65,10 @@ extern_declaration :: proc(state: ^Procedure_State, node: syntax.Node_Index, pla
 		true
 }
 
-// The checker's symbol name for a foreign procedure: its link name attribute,
-// else its bare name. The name is cloned for the module extern below.
+// A foreign procedure's symbol name, set at collection from its link attributes.
 @(private)
-foreign_link_name :: proc(program: ^check.Checked_Program, entity: check.Entity_Id, allocator := context.allocator) -> string {
-	declaration := program.entities[entity].declaration
-	if declaration.node == 0 || int(declaration.file) <= 0 || int(declaration.file) >= len(program.files) {
-		return program.entities[entity].name
-	}
-	file := program.files[declaration.file]
-	if file.ast == nil || int(declaration.node) <= 0 || int(declaration.node) >= len(file.ast.nodes) {
-		return program.entities[entity].name
-	}
-	if file.ast.nodes[declaration.node].kind != .Value_Decl {
-		return program.entities[entity].name
-	}
-	decl := syntax.node_payload(file.ast, declaration.node, syntax.Value_Decl)
-	for attribute in syntax.node_list(file.ast, decl.attributes) {
-		for element in syntax.node_list(file.ast, syntax.node_payload(file.ast, attribute, syntax.Attribute).elems) {
-			identifier := element
-			value: syntax.Node_Index
-			if file.ast.nodes[element].kind == .Field_Value {
-				field := syntax.node_payload(file.ast, element, syntax.Field_Value)
-				identifier, value = field.field, field.value
-			}
-			span := file.ast.nodes[identifier]
-			if string(file.source[span.start:span.end]) != "link_name" { continue }
-			if value == 0 || file.ast.nodes[value].kind != .Basic_Lit { return program.entities[entity].name }
-			kind := syntax.node_payload(file.ast, value, syntax.Basic_Lit).kind
-			if kind != .String && kind != .Raw_String { return program.entities[entity].name }
-			literal := file.ast.nodes[value]
-			if text, _, ok := strconv.unquote_string(string(file.source[literal.start:literal.end]), allocator); ok {
-				return text
-			}
-			return program.entities[entity].name
-		}
-	}
+foreign_link_name :: proc(program: ^check.Checked_Program, entity: check.Entity_Id) -> string {
+	if linked := program.entities[entity].link_name; linked != "" { return linked }
 	return program.entities[entity].name
 }
 

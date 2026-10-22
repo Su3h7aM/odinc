@@ -17,9 +17,14 @@ global_string_image :: proc(
 	out_relocs: []ir.Data_Reloc,
 	err: runtime.Allocator_Error,
 ) {
-	index := global_string_blob(module, text) or_return
 	bytes = make([]byte, 16, allocator) or_return
 	write_scalar(bytes, 8, u64(len(text)), 8)
+	if len(text) == 0 {
+		out_relocs = make([]ir.Data_Reloc, len(relocs), allocator) or_return
+		copy(out_relocs, relocs)
+		return bytes, out_relocs, nil
+	}
+	index := global_string_blob(module, text) or_return
 	out_relocs = make([]ir.Data_Reloc, len(relocs) + 1, allocator) or_return
 	copy(out_relocs, relocs)
 	out_relocs[len(relocs)] = {

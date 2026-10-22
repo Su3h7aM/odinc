@@ -160,7 +160,7 @@ foreign lib {
 		datablock_length_in_bytes: c.int,
 		channels: ^c.int, // place to write number of float * buffers
 		output: ^[^]^f32, // place to write float ** array of float * buffers
-		samples: ^c.int, ) -> c.int ---// place to write number of output samples
+		samples: ^c.int,) -> c.int --- // place to write number of output samples
 
 	// inform stb_vorbis that your next datablock will not be contiguous with
 	// previous ones (e.g. you've seeked in the data); future attempts to decode

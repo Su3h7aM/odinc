@@ -25,7 +25,9 @@ global_load_image :: proc(
 		size, alignment, error := types.layout(store, descriptor.elem)
 		assert(error == .None && size > 0)
 		write_scalar(bytes, 8, u64(i64(len(text)) / size), 8)
-		module.globals[out_relocs[len(out_relocs) - 1].target.index].align = u32(alignment)
+		if len(text) != 0 {
+			module.globals[out_relocs[len(out_relocs) - 1].target.index].align = u32(alignment)
+		}
 	}
 	return bytes, out_relocs, nil
 }

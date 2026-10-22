@@ -117,7 +117,7 @@ HrtfApoInit :: struct {
 //!     Returns E_NOTIMPL on unsupported platforms.
 @(default_calling_convention = "system")
 foreign hrtf {
-	CreateHrtfApo :: proc(#by_ptr init: HrtfApoInit,//! Pointer to an HrtfApoInit struct. Specifies parameters for XAPO interface initialization.
+	CreateHrtfApo :: proc(#by_ptr init: HrtfApoInit, //! Pointer to an HrtfApoInit struct. Specifies parameters for XAPO interface initialization.
 		//! Returns the new instance of the XAPO interface.
 		xApo: ^^IXAPO,) -> HRESULT ---
 }

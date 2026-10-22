@@ -133,16 +133,19 @@ aggregate_constant_image :: proc(
 			element_descriptor := types.get(store, types.resolve_named(store, element_type))
 			element_kind := element_descriptor.kind
 			if element_kind == .String || element_kind == .Slice {
-				blob, blob_error := global_string_blob(module, text)
-				if blob_error != nil { return false, blob_error }
 				count := i64(len(text))
+				alignment: u32 = 1
 				if element_kind == .Slice {
-					element_size, alignment, error := types.layout(store, element_descriptor.elem)
+					element_size, element_alignment, error := types.layout(store, element_descriptor.elem)
 					if error != .None || element_size <= 0 { return false, nil }
 					count /= element_size
-					module.globals[blob].align = u32(alignment)
+					alignment = u32(element_alignment)
 				}
 				write_scalar(bytes, start + 8, u64(count), 8)
+				if len(text) == 0 { continue }
+				blob, blob_error := global_string_blob(module, text)
+				if blob_error != nil { return false, blob_error }
+				module.globals[blob].align = alignment
 				append(relocations, ir.Data_Reloc{offset = u32(start), target = ir.Symbol_Ref{space = .Global, index = blob}}) or_return
 			} else if element_kind == .CString {
 				blob, blob_error := global_cstring_blob(module, text)

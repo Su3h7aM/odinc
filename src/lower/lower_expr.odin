@@ -1,6 +1,5 @@
 package lower
 
-import "core:mem/virtual"
 import "oc:check"
 import "oc:ir"
 import "oc:syntax"
@@ -180,8 +179,7 @@ lower_entity_value :: proc(state: ^Procedure_State, entity: check.Entity_Id) -> 
 		return lower_runtime_typeid(state, state.job.procedure.body.node, state.job.program.entities[entity].type)
 	}
 	if state.job.program.entities[entity].kind == .Procedure && .Foreign in state.job.program.entities[entity].flags {
-		allocator := virtual.arena_allocator(&state.job.function.arena)
-		extern_ref, valid := extern_symbol(state, foreign_link_name(state.job.program, entity, allocator))
+		extern_ref, valid := extern_symbol(state, foreign_link_name(state.job.program, entity))
 		if !valid { return 0 }
 		return ir.symbol_addr(state.job.function, extern_ref)
 	}
