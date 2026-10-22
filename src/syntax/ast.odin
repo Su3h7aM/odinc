@@ -58,11 +58,24 @@ ast_destroy :: proc(ast: ^Ast) {
 }
 
 ast_add_node :: proc(ast: ^Ast, kind: Node_Kind, start, end: u32, payload: Node_Payload) -> Node_Index {
-	if _, err := append(&ast.nodes, Node{kind = kind, start = start, end = end, payload = payload}); err != nil {
+	index := len(ast.nodes)
+	if index == cap(ast.nodes) {
+		if err := non_zero_reserve(&ast.nodes, 2 * cap(ast.nodes) + 8); err != nil {
+			ast.allocation_error = err
+			return 0
+		}
+	}
+	if err := non_zero_resize(&ast.nodes, index + 1); err != nil {
 		ast.allocation_error = err
 		return 0
 	}
-	return Node_Index(len(ast.nodes) - 1)
+	node := &ast.nodes[index]
+	node.kind = kind
+	node.flags = {}
+	node.start = start
+	node.end = end
+	node.payload = payload
+	return Node_Index(index)
 }
 
 ast_add_list :: proc(ast: ^Ast, children: []Node_Index) -> Node_Range {

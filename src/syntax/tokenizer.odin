@@ -103,7 +103,7 @@ advance_rune :: proc(tokenizer: ^Tokenizer) {
 			tokenizer.current_line += 1
 		}
 		tokenizer.current_offset = tokenizer.next_offset
-		next_rune, width := utf8.decode_rune_in_bytes(tokenizer.source[tokenizer.next_offset:])
+		next_rune, width := decode_source_rune(tokenizer.source[tokenizer.next_offset:])
 		tokenizer.next_offset += u32(width)
 		tokenizer.current_rune = next_rune
 
@@ -125,6 +125,14 @@ advance_rune :: proc(tokenizer: ^Tokenizer) {
 }
 
 @(private)
+decode_source_rune :: #force_inline proc(source: []byte) -> (rune, int) {
+	if source[0] < utf8.RUNE_SELF {
+		return rune(source[0]), 1
+	}
+	return utf8.decode_rune_in_bytes(source)
+}
+
+@(private)
 peek_byte :: proc(tokenizer: ^Tokenizer, ahead: u32 = 0) -> byte {
 	index := tokenizer.next_offset + ahead
 	if index < u32(len(tokenizer.source)) {
@@ -140,7 +148,7 @@ peek_rune :: proc(tokenizer: ^Tokenizer, ahead: u32 = 0) -> rune {
 		if index >= u32(len(tokenizer.source)) {
 			return utf8.RUNE_EOF
 		}
-		_, width := utf8.decode_rune_in_bytes(tokenizer.source[index:])
+		_, width := decode_source_rune(tokenizer.source[index:])
 		if width == 0 {
 			return utf8.RUNE_EOF
 		}
@@ -149,7 +157,7 @@ peek_rune :: proc(tokenizer: ^Tokenizer, ahead: u32 = 0) -> rune {
 	if index >= u32(len(tokenizer.source)) {
 		return utf8.RUNE_EOF
 	}
-	next_rune, _ := utf8.decode_rune_in_bytes(tokenizer.source[index:])
+	next_rune, _ := decode_source_rune(tokenizer.source[index:])
 	return next_rune
 }
 
@@ -177,26 +185,17 @@ skip_whitespace :: proc(tokenizer: ^Tokenizer) {
 }
 
 @(private)
-is_letter :: proc(character: rune) -> bool {
+is_letter :: #force_inline proc(character: rune) -> bool {
 	if character < utf8.RUNE_SELF {
-		switch character {
-		case '_':
-			return true
-		case 'A' ..= 'Z', 'a' ..= 'z':
-			return true
-		}
-		return false
+		return character == '_' || ('A' <= character && character <= 'Z') || ('a' <= character && character <= 'z')
 	}
 	return unicode.is_letter(character)
 }
 
 @(private)
-is_digit :: proc(character: rune) -> bool {
-	if '0' <= character && character <= '9' {
-		return true
-	}
+is_digit :: #force_inline proc(character: rune) -> bool {
 	if character < utf8.RUNE_SELF {
-		return false
+		return '0' <= character && character <= '9'
 	}
 	return unicode.is_digit(character)
 }
@@ -565,89 +564,112 @@ scan_identifier :: proc(tokenizer: ^Tokenizer) -> Token_Kind {
 
 @(private)
 keyword_kind :: proc(name: []byte) -> (Token_Kind, bool) {
-	// `fallthrough` is the longest keyword at 11 bytes.
-	if len(name) < 2 || len(name) > 11 {
-		return .Ident, false
-	}
-	switch string(name) {
-	case "import":
-		return .Import, true
-	case "foreign":
-		return .Foreign, true
-	case "package":
-		return .Package, true
-	case "typeid":
-		return .Typeid, true
-	case "when":
-		return .When, true
-	case "where":
-		return .Where, true
-	case "if":
-		return .If, true
-	case "else":
-		return .Else, true
-	case "for":
-		return .For, true
-	case "switch":
-		return .Switch, true
-	case "in":
-		return .In, true
-	case "not_in":
-		return .Not_In, true
-	case "do":
-		return .Do, true
-	case "case":
-		return .Case, true
-	case "break":
-		return .Break, true
-	case "continue":
-		return .Continue, true
-	case "fallthrough":
-		return .Fallthrough, true
-	case "defer":
-		return .Defer, true
-	case "return":
-		return .Return, true
-	case "proc":
-		return .Proc, true
-	case "struct":
-		return .Struct, true
-	case "union":
-		return .Union, true
-	case "enum":
-		return .Enum, true
-	case "bit_set":
-		return .Bit_Set, true
-	case "bit_field":
-		return .Bit_Field, true
-	case "map":
-		return .Map, true
-	case "dynamic":
-		return .Dynamic, true
-	case "auto_cast":
-		return .Auto_Cast, true
-	case "cast":
-		return .Cast, true
-	case "transmute":
-		return .Transmute, true
-	case "distinct":
-		return .Distinct, true
-	case "using":
-		return .Using, true
-	case "context":
-		return .Context, true
-	case "or_else":
-		return .Or_Else, true
-	case "or_return":
-		return .Or_Return, true
-	case "or_break":
-		return .Or_Break, true
-	case "or_continue":
-		return .Or_Continue, true
-	case "asm":
-		return .Asm, true
-	case "matrix":
-		return .Matrix, true
+	switch len(name) {
+	case 2:
+		switch string(name) {
+		case "if":
+			return .If, true
+		case "in":
+			return .In, true
+		case "do":
+			return .Do, true
+		}
+	case 3:
+		switch string(name) {
+		case "for":
+			return .For, true
+		case "map":
+			return .Map, true
+		case "asm":
+			return .Asm, true
+		}
+	case 4:
+		switch string(name) {
+		case "when":
+			return .When, true
+		case "else":
+			return .Else, true
+		case "case":
+			return .Case, true
+		case "proc":
+			return .Proc, true
+		case "enum":
+			return .Enum, true
+		case "cast":
+			return .Cast, true
+		}
+	case 5:
+		switch string(name) {
+		case "where":
+			return .Where, true
+		case "break":
+			return .Break, true
+		case "defer":
+			return .Defer, true
+		case "union":
+			return .Union, true
+		case "using":
+			return .Using, true
+		}
+	case 6:
+		switch string(name) {
+		case "import":
+			return .Import, true
+		case "typeid":
+			return .Typeid, true
+		case "switch":
+			return .Switch, true
+		case "not_in":
+			return .Not_In, true
+		case "return":
+			return .Return, true
+		case "struct":
+			return .Struct, true
+		case "matrix":
+			return .Matrix, true
+		}
+	case 7:
+		switch string(name) {
+		case "foreign":
+			return .Foreign, true
+		case "package":
+			return .Package, true
+		case "bit_set":
+			return .Bit_Set, true
+		case "dynamic":
+			return .Dynamic, true
+		case "context":
+			return .Context, true
+		case "or_else":
+			return .Or_Else, true
+		}
+	case 8:
+		switch string(name) {
+		case "continue":
+			return .Continue, true
+		case "distinct":
+			return .Distinct, true
+		case "or_break":
+			return .Or_Break, true
+		}
+	case 9:
+		switch string(name) {
+		case "bit_field":
+			return .Bit_Field, true
+		case "auto_cast":
+			return .Auto_Cast, true
+		case "transmute":
+			return .Transmute, true
+		case "or_return":
+			return .Or_Return, true
+		}
+	case 11:
+		switch string(name) {
+		case "fallthrough":
+			return .Fallthrough, true
+		case "or_continue":
+			return .Or_Continue, true
+		}
 	}
 	return .Ident, false
 }
