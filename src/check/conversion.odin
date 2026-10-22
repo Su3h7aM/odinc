@@ -258,6 +258,13 @@ check_conversion :: proc(
 	if !allowed {
 		return {}, .Not_Assignable if kind == .Assignment else .Not_Castable, nil
 	}
+	if types.are_identical(store, info.type, target) {
+		if info.mode == .Constant {
+			result.info.mode = .Constant
+			result.info.constant = info.constant
+		}
+		return result, .None, nil
+	}
 	if kind == .Assignment && info.mode != .Constant && array_broadcast_allowed(dst, info.type) {
 		result.plan.kind = .Broadcast
 		return result, .None, nil
