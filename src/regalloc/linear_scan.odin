@@ -50,16 +50,18 @@ Fixed_Requirement :: struct {
 }
 
 Scan :: struct {
-	program:      ^Program,
-	live:         ^Liveness,
-	location:     []Location,
-	occupancy:    [Register_Class][REGISTER_LIMIT][dynamic]Occupied,
-	edges:        [dynamic]Reuse_Edge,
-	edge_head:    []int,
-	hint:         []u32,
-	fixed:        []Fixed_Requirement,
-	reuse_locked: []bool,
-	slot_count:   u32,
+	program:        ^Program,
+	live:           ^Liveness,
+	location:       []Location,
+	occupancy:      [Register_Class][REGISTER_LIMIT][dynamic]Occupied,
+	edges:          [dynamic]Reuse_Edge,
+	edge_head:      []int,
+	hint:           []u32,
+	fixed:          []Fixed_Requirement,
+	reuse_locked:   []bool,
+	conflict_seen:  []u32,
+	conflict_stamp: u32,
+	slot_count:     u32,
 }
 
 // allocate gives every live vreg of `program` a register or a spill slot.
@@ -83,8 +85,10 @@ allocate :: proc(program: ^Program, allocator := context.allocator) -> (result: 
 	scan.hint, _ = make([]u32, vreg_count, allocator)
 	scan.fixed, _ = make([]Fixed_Requirement, vreg_count, allocator)
 	scan.reuse_locked, _ = make([]bool, vreg_count, allocator)
+	scan.conflict_seen, _ = make([]u32, vreg_count, allocator)
 	defer scan_destroy(&scan, allocator)
-	if vreg_count > 0 && (scan.location == nil || scan.edge_head == nil || scan.hint == nil || scan.fixed == nil || scan.reuse_locked == nil) {
+	if vreg_count > 0 &&
+	   (scan.location == nil || scan.edge_head == nil || scan.hint == nil || scan.fixed == nil || scan.reuse_locked == nil || scan.conflict_seen == nil) {
 		delete(scan.location, allocator)
 		return {}, Error{kind = .Out_Of_Memory}
 	}
@@ -108,11 +112,10 @@ allocate :: proc(program: ^Program, allocator := context.allocator) -> (result: 
 			}
 		}
 	}
-	slice.sort_by_with_data(order[:], proc(a, b: Vreg, data: rawptr) -> bool {
-			intervals := (^[]Interval)(data)^
-			first_a, first_b := interval_first(&intervals[a]), interval_first(&intervals[b])
-			return first_a < first_b || (first_a == first_b && a < b)
-		}, &live.intervals)
+	if err = sort_live_order(&live, order[:], allocator); err.kind != .None {
+		delete(scan.location, allocator)
+		return {}, err
+	}
 
 	for fixed_pass in ([2]bool{true, false}) {
 		for vreg in order {
@@ -160,6 +163,58 @@ scan_destroy :: proc(scan: ^Scan, allocator := context.allocator) {
 	delete(scan.hint, allocator)
 	delete(scan.fixed, allocator)
 	delete(scan.reuse_locked, allocator)
+	delete(scan.conflict_seen, allocator)
+}
+
+ORDER_RADIX_BITS :: 16
+ORDER_RADIX_BUCKETS :: 1 << ORDER_RADIX_BITS
+
+// sort_live_order sorts `order` by first position, breaking ties by vreg,
+// with a stable radix pass over the combined key. The key fits the order the
+// scan needs, so no comparator runs.
+sort_live_order :: proc(live: ^Liveness, order: []Vreg, allocator := context.allocator) -> Error {
+	if len(order) < 2 {
+		return {}
+	}
+	items := make([]u64, len(order), allocator)
+	scratch := make([]u64, len(order), allocator)
+	counts := make([]u32, ORDER_RADIX_BUCKETS, allocator)
+	if items == nil || scratch == nil || counts == nil {
+		delete(items, allocator)
+		delete(scratch, allocator)
+		delete(counts, allocator)
+		return Error{kind = .Out_Of_Memory}
+	}
+	defer delete(items, allocator)
+	defer delete(scratch, allocator)
+	defer delete(counts, allocator)
+	for vreg, index in order {
+		items[index] = u64(interval_first(&live.intervals[vreg])) << 32 | u64(vreg)
+	}
+	source, destination := items, scratch
+	for pass in 0 ..< 4 {
+		shift := uint(pass * ORDER_RADIX_BITS)
+		slice.fill(counts, 0)
+		for item in source {
+			counts[(item >> shift) & (ORDER_RADIX_BUCKETS - 1)] += 1
+		}
+		next := u32(0)
+		for &count in counts {
+			base := next
+			next += count
+			count = base
+		}
+		for item in source {
+			bucket := (item >> shift) & (ORDER_RADIX_BUCKETS - 1)
+			destination[counts[bucket]] = item
+			counts[bucket] += 1
+		}
+		source, destination = destination, source
+	}
+	for item, index in source {
+		order[index] = Vreg(item & 0xffff_ffff)
+	}
+	return {}
 }
 
 // scan_prepare collects fixed requirements, coalescing hints and reuse edges.
@@ -365,35 +420,59 @@ needs_extra :: proc(scan: ^Scan, edge: ^Reuse_Edge, register: Register) -> bool 
 }
 
 // has_conflict reports whether `vreg` overlaps something already in
-// `register`; with `owners` it also collects every distinct overlapped vreg.
+// `register`; with `owners` it also collects every distinct overlapped vreg,
+// in table order. The occupancy table is sorted and overlap-free, so each
+// range resumes its search where the previous one stopped, and a stamp per
+// vreg replaces the linear membership test.
 has_conflict :: proc(scan: ^Scan, vreg: Vreg, register: Register, owners: ^[dynamic]Vreg) -> (bool, Error) {
 	interval := &scan.live.intervals[vreg]
 	occupied := scan.occupancy[interval.class][register][:]
-	found := false
-	check :: proc(occupied: []Occupied, first, last: Pos, vreg: Vreg, owners: ^[dynamic]Vreg) -> (bool, Error) {
-		found := false
-		for index := first_ending_at_or_after(occupied, first); index < len(occupied) && occupied[index].first <= last; index += 1 {
+	if owners != nil {
+		scan.conflict_stamp += 1
+		if scan.conflict_stamp == 0 {
+			slice.fill(scan.conflict_seen, 0)
+			scan.conflict_stamp = 1
+		}
+	}
+	check :: proc(
+		scan: ^Scan,
+		occupied: []Occupied,
+		first, last: Pos,
+		vreg: Vreg,
+		owners: ^[dynamic]Vreg,
+		start: int,
+	) -> (
+		next: int,
+		found: bool,
+		err: Error,
+	) {
+		next = first_ending_at_or_after(occupied, first, start)
+		for index := next; index < len(occupied) && occupied[index].first <= last; index += 1 {
 			owner := occupied[index].owner
 			if owner == vreg {
 				continue
 			}
 			if owners == nil {
-				return true, {}
+				return next, true, {}
 			}
 			found = true
-			if !slice.contains(owners[:], owner) {
+			if scan.conflict_seen[owner] != scan.conflict_stamp {
+				scan.conflict_seen[owner] = scan.conflict_stamp
 				if _, append_err := append(owners, owner); append_err != nil {
-					return false, Error{kind = .Out_Of_Memory, vreg = vreg}
+					return next, false, Error{kind = .Out_Of_Memory, vreg = vreg}
 				}
 			}
 		}
-		return found, {}
+		return next, found, {}
 	}
+	found := false
+	start := 0
 	for range in interval.ranges {
-		overlaps, err := check(occupied, range.first, range.last, vreg, owners)
+		next, overlaps, err := check(scan, occupied, range.first, range.last, vreg, owners, start)
 		if err.kind != .None {
 			return false, err
 		}
+		start = next
 		if overlaps {
 			if owners == nil {
 				return true, {}
@@ -406,7 +485,7 @@ has_conflict :: proc(scan: ^Scan, vreg: Vreg, register: Register, owners: ^[dyna
 		if !needs_extra(scan, edge, register) {
 			continue
 		}
-		overlaps, err := check(occupied, edge.early, edge.early, vreg, owners)
+		_, overlaps, err := check(scan, occupied, edge.early, edge.early, vreg, owners, 0)
 		if err.kind != .None {
 			return false, err
 		}
@@ -420,8 +499,8 @@ has_conflict :: proc(scan: ^Scan, vreg: Vreg, register: Register, owners: ^[dyna
 	return found, {}
 }
 
-first_ending_at_or_after :: proc "contextless" (occupied: []Occupied, pos: Pos) -> int {
-	low, high := 0, len(occupied)
+first_ending_at_or_after :: proc "contextless" (occupied: []Occupied, pos: Pos, from := 0) -> int {
+	low, high := from, len(occupied)
 	for low < high {
 		middle := (low + high) / 2
 		if occupied[middle].last < pos {
@@ -434,6 +513,14 @@ first_ending_at_or_after :: proc "contextless" (occupied: []Occupied, pos: Pos) 
 }
 
 insert_occupied :: proc(table: ^[dynamic]Occupied, entry: Occupied) -> Error {
+	// Ranges arrive in ascending scan order and never overlap the table, so a
+	// range always extends it; only a reuse-input extra point can land inside.
+	if n := len(table); n == 0 || entry.first > table[n - 1].last {
+		if _, err := append(table, entry); err != nil {
+			return Error{kind = .Out_Of_Memory}
+		}
+		return {}
+	}
 	if len(table) == cap(table) {
 		if reserve(table, max(2 * cap(table), 16)) != nil {
 			return Error{kind = .Out_Of_Memory}

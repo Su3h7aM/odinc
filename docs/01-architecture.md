@@ -26,6 +26,8 @@ syntax → check → lower → ir → sched → regalloc → amd64 → elf → l
 
 `types` is a library under `check`, `lower`, `amd64` and `driver`: canonical type descriptors, layout (size, align, offsets) and System V ABI classification. `core:mem/virtual` arenas back the stages that need them.
 
+The target baseline is x86-64-v2: CMPXCHG16B, LAHF/SAHF, POPCNT, SSE3, SSE4.1, SSE4.2 and SSSE3 are assumed present and used unconditionally, so the selector emits no fallback for them.
+
 ## Rules
 
 - Deterministic output: the same input produces a byte-identical image, so no timestamps and no pointer-order dependence.

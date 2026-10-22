@@ -13,6 +13,8 @@
 package regalloc
 
 import "base:intrinsics"
+import "base:runtime"
+import "core:mem/virtual"
 import "core:slice"
 
 Pos :: distinct u32
@@ -164,23 +166,209 @@ bits_row :: proc "contextless" (storage: []u64, words, row: int) -> []u64 {
 	return storage[row * words:(row + 1) * words]
 }
 
-live_out_of_block :: proc(program: ^Program, live_in: []u64, words, block_index: int, out, edge: []u64) {
-	for &word in out {
-		word = 0
-	}
-	block := &program.blocks[block_index]
-	for successor, successor_index in block.successors {
-		copy(edge, bits_row(live_in, words, int(successor)))
-		if successor_index < len(block.edge_moves) {
-			for move in block.edge_moves[successor_index] {
-				bits_remove(edge, int(move.destination))
+// Dataflow solves the live sets over the global vregs: those read before any
+// definition in some block, or read by an edge move. Every other vreg is local
+// to its block and never enters a live set, so it needs no bit.
+Dataflow :: struct {
+	program:           ^Program,
+	words:             int,
+	// global_index is the bit of each vreg, -1 for a block-local vreg.
+	global_index:      []i32,
+	// global_vregs is the vreg of each bit, in ascending vreg order.
+	global_vregs:      []Vreg,
+	// gen, kill and live_in hold one row of `words` bits per block; out and
+	// edge are scratch rows for the live-out set of one block.
+	gen:               []u64,
+	kill:              []u64,
+	live_in:           []u64,
+	out:               []u64,
+	edge:              []u64,
+	// predecessors of block b are predecessor_list[predecessor_start[b]:predecessor_start[b + 1]].
+	predecessor_start: []u32,
+	predecessor_list:  []u32,
+	// queue holds the blocks whose live-in may be stale; queued marks them.
+	queue:             []u32,
+	queued:            []bool,
+}
+
+dataflow_make :: proc(program: ^Program, allocator: runtime.Allocator) -> (flow: Dataflow, err: runtime.Allocator_Error) {
+	vreg_count := len(program.classes)
+	block_count := len(program.blocks)
+	flow.program = program
+
+	is_global := make([]bool, vreg_count, allocator) or_return
+	defined_in := make([]u32, vreg_count, allocator) or_return
+	for block, block_index in program.blocks {
+		marker := u32(block_index + 1)
+		for instruction in block.instructions {
+			for operand in instruction.operands {
+				if operand.role != .Def && defined_in[operand.vreg] != marker {
+					is_global[operand.vreg] = true
+				}
 			}
-			for move in block.edge_moves[successor_index] {
-				bits_add(edge, int(move.source))
+			for operand in instruction.operands {
+				if operand.role != .Use {
+					defined_in[operand.vreg] = marker
+				}
 			}
 		}
-		for word, word_index in edge {
-			out[word_index] |= word
+		for moves in block.edge_moves {
+			for move in moves {
+				is_global[move.source] = true
+			}
+		}
+	}
+
+	flow.global_index = make([]i32, vreg_count, allocator) or_return
+	flow.global_vregs = make([]Vreg, vreg_count, allocator) or_return
+	global_count := 0
+	for is_global_vreg, vreg in is_global {
+		if is_global_vreg {
+			flow.global_index[vreg] = i32(global_count)
+			flow.global_vregs[global_count] = Vreg(vreg)
+			global_count += 1
+		} else {
+			flow.global_index[vreg] = -1
+		}
+	}
+	flow.global_vregs = flow.global_vregs[:global_count]
+	words := (global_count + BITS_PER_WORD - 1) / BITS_PER_WORD
+	flow.words = words
+
+	storage := make([]u64, (3 * block_count + 2) * words, allocator) or_return
+	flow.gen = storage[0:block_count * words]
+	flow.kill = storage[block_count * words:2 * block_count * words]
+	flow.live_in = storage[2 * block_count * words:3 * block_count * words]
+	flow.out = storage[3 * block_count * words:(3 * block_count + 1) * words]
+	flow.edge = storage[(3 * block_count + 1) * words:]
+
+	for block, block_index in program.blocks {
+		block_gen := bits_row(flow.gen, words, block_index)
+		block_kill := bits_row(flow.kill, words, block_index)
+		for index := len(block.instructions) - 1; index >= 0; index -= 1 {
+			for operand in block.instructions[index].operands {
+				if operand.role != .Use {
+					bits_add_vreg(flow.global_index, block_kill, operand.vreg)
+					bits_remove_vreg(flow.global_index, block_gen, operand.vreg)
+				}
+			}
+			for operand in block.instructions[index].operands {
+				if operand.role != .Def {
+					bits_add_vreg(flow.global_index, block_gen, operand.vreg)
+				}
+			}
+		}
+	}
+
+	flow.predecessor_start = make([]u32, block_count + 1, allocator) or_return
+	for block in program.blocks {
+		for successor in block.successors {
+			flow.predecessor_start[successor + 1] += 1
+		}
+	}
+	for block_index in 0 ..< block_count {
+		flow.predecessor_start[block_index + 1] += flow.predecessor_start[block_index]
+	}
+	flow.predecessor_list = make([]u32, flow.predecessor_start[block_count], allocator) or_return
+	fill := make([]u32, block_count, allocator) or_return
+	copy(fill, flow.predecessor_start[:block_count])
+	for block, block_index in program.blocks {
+		for successor in block.successors {
+			flow.predecessor_list[fill[successor]] = u32(block_index)
+			fill[successor] += 1
+		}
+	}
+
+	flow.queue = make([]u32, block_count, allocator) or_return
+	flow.queued = make([]bool, block_count, allocator) or_return
+	return
+}
+
+bits_add_vreg :: proc "contextless" (global_index: []i32, bits: []u64, vreg: Vreg) {
+	if index := global_index[vreg]; index >= 0 {
+		bits_add(bits, int(index))
+	}
+}
+
+bits_remove_vreg :: proc "contextless" (global_index: []i32, bits: []u64, vreg: Vreg) {
+	if index := global_index[vreg]; index >= 0 {
+		bits_remove(bits, int(index))
+	}
+}
+
+// live_out_of_block fills flow.out with the union over the successors of the
+// successor's live-in, minus the edge's destinations, plus its sources.
+live_out_of_block :: proc(flow: ^Dataflow, block_index: int) {
+	for &word in flow.out {
+		word = 0
+	}
+	block := &flow.program.blocks[block_index]
+	for successor, successor_index in block.successors {
+		successor_in := bits_row(flow.live_in, flow.words, int(successor))
+		moves: []Move
+		if successor_index < len(block.edge_moves) {
+			moves = block.edge_moves[successor_index]
+		}
+		if len(moves) == 0 {
+			for word, word_index in successor_in {
+				flow.out[word_index] |= word
+			}
+			continue
+		}
+		copy(flow.edge, successor_in)
+		for move in moves {
+			bits_remove_vreg(flow.global_index, flow.edge, move.destination)
+		}
+		for move in moves {
+			bits_add_vreg(flow.global_index, flow.edge, move.source)
+		}
+		for word, word_index in flow.edge {
+			flow.out[word_index] |= word
+		}
+	}
+}
+
+// update_live_in recomputes one block's live-in and reports whether it grew.
+update_live_in :: proc(flow: ^Dataflow, block: int) -> (changed: bool) {
+	gen := bits_row(flow.gen, flow.words, block)
+	kill := bits_row(flow.kill, flow.words, block)
+	live_in := bits_row(flow.live_in, flow.words, block)
+	for word_index in 0 ..< flow.words {
+		grown := gen[word_index] | (flow.out[word_index] &~ kill[word_index])
+		if grown != live_in[word_index] {
+			live_in[word_index] = grown
+			changed = true
+		}
+	}
+	return
+}
+
+// solve_live_in runs the backward dataflow to its fixed point. Blocks are
+// seeded so that the last block is taken first, which is the postorder of a
+// function laid out entry first; a block re-enters the queue only when one of
+// its successors changed its live-in.
+solve_live_in :: proc(flow: ^Dataflow) {
+	block_count := len(flow.program.blocks)
+	top := block_count
+	for block in 0 ..< block_count {
+		flow.queue[block] = u32(block)
+		flow.queued[block] = true
+	}
+	for top > 0 {
+		top -= 1
+		block := int(flow.queue[top])
+		flow.queued[block] = false
+		live_out_of_block(flow, block)
+		if !update_live_in(flow, block) {
+			continue
+		}
+		predecessors := flow.predecessor_list[flow.predecessor_start[block]:flow.predecessor_start[block + 1]]
+		for predecessor in predecessors {
+			if !flow.queued[predecessor] {
+				flow.queued[predecessor] = true
+				flow.queue[top] = predecessor
+				top += 1
+			}
 		}
 	}
 }
@@ -194,15 +382,20 @@ liveness :: proc(live: ^Liveness, program: ^Program, allocator := context.alloca
 	context.allocator = allocator
 	vreg_count := len(program.classes)
 	block_count := len(program.blocks)
-	words := (vreg_count + BITS_PER_WORD - 1) / BITS_PER_WORD
+
+	scratch: virtual.Arena
+	if virtual.arena_init_growing(&scratch) != nil {
+		return Error{kind = .Out_Of_Memory}
+	}
+	defer virtual.arena_destroy(&scratch)
+	scratch_allocator := virtual.arena_allocator(&scratch)
 
 	intervals, intervals_err := make([]Interval, vreg_count, allocator)
 	starts, starts_err := make([]Pos, block_count, allocator)
-	storage, storage_err := make([]u64, (3 * block_count + 2) * words, allocator)
 	live.intervals = intervals
 	live.starts = starts
-	defer delete(storage, allocator)
-	if intervals_err != nil || starts_err != nil || storage_err != nil {
+	flow, flow_err := dataflow_make(program, scratch_allocator)
+	if intervals_err != nil || starts_err != nil || flow_err != nil {
 		liveness_destroy(live, allocator)
 		return Error{kind = .Out_Of_Memory}
 	}
@@ -219,54 +412,14 @@ liveness :: proc(live: ^Liveness, program: ^Program, allocator := context.alloca
 		position += Pos(POSITIONS_PER_INSTRUCTION * (len(block.instructions) + 1))
 	}
 
-	gen := storage[0:block_count * words]
-	kill := storage[block_count * words:2 * block_count * words]
-	live_in := storage[2 * block_count * words:3 * block_count * words]
-	out := storage[3 * block_count * words:(3 * block_count + 1) * words]
-	edge := storage[(3 * block_count + 1) * words:]
-
-	for block_index in 0 ..< block_count {
-		block_gen := bits_row(gen, words, block_index)
-		block_kill := bits_row(kill, words, block_index)
-		instructions := program.blocks[block_index].instructions
-		for index := len(instructions) - 1; index >= 0; index -= 1 {
-			for operand in instructions[index].operands {
-				if operand.role != .Use {
-					bits_add(block_kill, int(operand.vreg))
-					bits_remove(block_gen, int(operand.vreg))
-				}
-			}
-			for operand in instructions[index].operands {
-				if operand.role != .Def {
-					bits_add(block_gen, int(operand.vreg))
-				}
-			}
-		}
-	}
-
-	for changed := true; changed; {
-		changed = false
-		for block_index := block_count - 1; block_index >= 0; block_index -= 1 {
-			live_out_of_block(program, live_in, words, block_index, out, edge)
-			block_in := bits_row(live_in, words, block_index)
-			block_gen := bits_row(gen, words, block_index)
-			block_kill := bits_row(kill, words, block_index)
-			for word_index in 0 ..< words {
-				grown := block_gen[word_index] | (out[word_index] &~ block_kill[word_index])
-				if grown != block_in[word_index] {
-					block_in[word_index] = grown
-					changed = true
-				}
-			}
-		}
-	}
+	solve_live_in(&flow)
 
 	if block_count > 0 {
-		for word, word_index in bits_row(live_in, words, 0) {
+		for word, word_index in bits_row(flow.live_in, flow.words, 0) {
 			if word != 0 {
-				vreg := word_index * BITS_PER_WORD + int(intrinsics.count_trailing_zeros(word))
+				index := word_index * BITS_PER_WORD + int(intrinsics.count_trailing_zeros(word))
 				liveness_destroy(live, allocator)
-				return Error{kind = .Used_Before_Defined, vreg = Vreg(vreg)}
+				return Error{kind = .Used_Before_Defined, vreg = flow.global_vregs[index]}
 			}
 		}
 	}
@@ -277,11 +430,11 @@ liveness :: proc(live: ^Liveness, program: ^Program, allocator := context.alloca
 		last := block_last_pos(program, starts, block_index)
 		weight := loop_weight(block.depth)
 
-		live_out_of_block(program, live_in, words, block_index, out, edge)
-		for word, word_index in out {
+		live_out_of_block(&flow, block_index)
+		for word, word_index in flow.out {
 			for bits := word; bits != 0; bits &= bits - 1 {
-				vreg := Vreg(word_index * BITS_PER_WORD + int(intrinsics.count_trailing_zeros(bits)))
-				add_use(live, vreg, first, last)
+				global := word_index * BITS_PER_WORD + int(intrinsics.count_trailing_zeros(bits))
+				add_use(live, flow.global_vregs[global], first, last)
 			}
 		}
 
