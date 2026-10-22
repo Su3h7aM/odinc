@@ -95,14 +95,15 @@ check_program :: proc(
 	allocator: runtime.Allocator,
 	user_collections: []Collection = nil,
 	defines: map[string]string = nil,
+	level: types.X86_Level = .V1,
 ) -> (
 	session: ^Session,
 	err: Driver_Error,
 ) {
-	session, err = check_program_profile(odin_root, main_path, allocator, user_collections, defines, false)
+	session, err = check_program_profile(odin_root, main_path, allocator, user_collections, defines, false, level)
 	if session == nil || !session_uses_external_library(session) { return session, err }
 	session_destroy(session)
-	return check_program_profile(odin_root, main_path, allocator, user_collections, defines, true)
+	return check_program_profile(odin_root, main_path, allocator, user_collections, defines, true, level)
 }
 
 // Owned profile first (no libc); a used external library makes check_program recheck with the managed profile.
@@ -113,6 +114,7 @@ check_program_profile :: proc(
 	user_collections: []Collection,
 	defines: map[string]string,
 	managed_libc: bool,
+	level: types.X86_Level = .V1,
 ) -> (
 	session: ^Session,
 	err: Driver_Error,
@@ -123,7 +125,7 @@ check_program_profile :: proc(
 	session.allocator = allocator
 	session.defines = defines
 	session.managed_libc = managed_libc
-	err = check_session(session, odin_root, main_path, user_collections)
+	err = check_session(session, odin_root, main_path, user_collections, level)
 	if err != nil && err != .Check_Failed && err != .Unsupported_Import && err != .Parse_Failed && err != .Import_Cycle {
 		session_destroy(session)
 		session = nil
@@ -153,20 +155,26 @@ program_histogram :: proc(
 	allocator: runtime.Allocator,
 	writer: io.Writer,
 	user_collections: []Collection = nil,
+	level: types.X86_Level = .V1,
 ) -> Driver_Error {
 	session, allocation_error := new(Session, allocator)
 	if allocation_error != nil { return .Allocation_Failed }
 	session.allocator = allocator
 	defer session_destroy(session)
-	err := program_histogram_collect(session, odin_root, main_path, user_collections)
+	err := program_histogram_collect(session, odin_root, main_path, user_collections, level)
 	print_error := histogram_print(session, writer)
 	if err != .None { return err }
 	return print_error
 }
 
 @(private = "file")
-program_histogram_collect :: proc(session: ^Session, odin_root, main_path: string, user_collections: []Collection) -> Driver_Error {
-	main_package, _, main_key, load_error := load_main_package(session, odin_root, main_path, user_collections)
+program_histogram_collect :: proc(
+	session: ^Session,
+	odin_root, main_path: string,
+	user_collections: []Collection,
+	level: types.X86_Level = .V1,
+) -> Driver_Error {
+	main_package, _, main_key, load_error := load_main_package(session, odin_root, main_path, user_collections, level)
 	if load_error == .Parse_Failed {
 		if error := push(&session.load_failures, main_key); error != .None { return error }
 	}
@@ -252,6 +260,7 @@ session_destroy :: proc(session: ^Session) {
 	}
 	for source in session.sources { delete(source, allocator) }
 	for text in session.owned_strings { delete(text, allocator) }
+	delete(session.build.target_features, allocator)
 	delete(session.packages)
 	delete(session.files)
 	delete(session.asts)
@@ -349,13 +358,14 @@ load_main_package :: proc(
 	session: ^Session,
 	odin_root, main_path: string,
 	user_collections: []Collection,
+	level: types.X86_Level = .V1,
 ) -> (
 	package_id: check.Package_Id,
 	package_scope: check.Scope_Id,
 	main_key: string,
 	err: Driver_Error,
 ) {
-	if error := session_prepare(session, odin_root, user_collections); error != .None { return 0, 0, "", error }
+	if error := session_prepare(session, odin_root, user_collections, level); error != .None { return 0, 0, "", error }
 	if _, runtime_error := load_runtime(session); runtime_error != .None { return 0, 0, "", runtime_error }
 	absolute_key, absolute_error := filepath.abs(main_path, session.allocator)
 	if absolute_error != nil { return 0, 0, "", .Read_Failed }
@@ -379,8 +389,8 @@ load_main_package :: proc(
 }
 
 @(private = "package")
-check_session :: proc(session: ^Session, odin_root, main_path: string, user_collections: []Collection) -> Driver_Error {
-	main_package, main_scope, _, load_error := load_main_package(session, odin_root, main_path, user_collections)
+check_session :: proc(session: ^Session, odin_root, main_path: string, user_collections: []Collection, level: types.X86_Level = .V1) -> Driver_Error {
+	main_package, main_scope, _, load_error := load_main_package(session, odin_root, main_path, user_collections, level)
 	if load_error != .None { return load_error }
 	session.main_scope = main_scope
 	if error := bind_imports(session); error != .None { return error }
@@ -429,11 +439,13 @@ check_session :: proc(session: ^Session, odin_root, main_path: string, user_coll
 }
 
 @(private = "file")
-session_prepare :: proc(session: ^Session, odin_root: string, user_collections: []Collection = nil) -> Driver_Error {
+session_prepare :: proc(session: ^Session, odin_root: string, user_collections: []Collection = nil, level: types.X86_Level = .V1) -> Driver_Error {
 	allocator := session.allocator
 	session.store = types.init()
 	session.stage = .Store
 	session.build = check.DEFAULT_BUILD_CONFIGURATION
+	session.build.microarch = level
+	session.build.target_features = types.x86_features_list(types.x86_level_features(level), allocator)
 	session.build.defines = session.defines
 	session.build.no_crt = !session.managed_libc
 	if session.test_options != nil {

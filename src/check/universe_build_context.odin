@@ -92,44 +92,17 @@ Build_Configuration :: struct {
 	bedrock:                    bool,
 	defines:                    map[string]string,
 	target_features:            []string,
+	microarch:                  types.X86_Level,
 }
 
 @(rodata)
 DEFAULT_BUILD_CONFIGURATION := Build_Configuration {
-	os              = .Linux,
-	arch            = .amd64,
-	endian          = .Little,
-	no_crt          = true,
-	// Upstream llvm_backend.cpp defaults Linux amd64 to x86-64-v2.
-	target_features = {
-		"64bit",
-		"64bit-mode",
-		"cmov",
-		"crc32",
-		"cx16",
-		"cx8",
-		"false-deps-popcnt",
-		"fast-15bytenop",
-		"fast-scalar-fsqrt",
-		"fast-shld-rotate",
-		"fxsr",
-		"idivq-to-divl",
-		"macrofusion",
-		"mmx",
-		"nopl",
-		"popcnt",
-		"sahf",
-		"slow-3ops-lea",
-		"slow-unaligned-mem-32",
-		"sse",
-		"sse2",
-		"sse3",
-		"sse4.1",
-		"sse4.2",
-		"ssse3",
-		"vzeroupper",
-		"x87",
-	},
+	os        = .Linux,
+	arch      = .amd64,
+	endian    = .Little,
+	no_crt    = true,
+	// The declared baseline; the driver fills target_features from the level. V1 is the zero value.
+	microarch = .V1,
 }
 
 // Names from official build_settings.cpp `target_os_names`, `target_arch_names` and `target_endian_names`.
@@ -177,6 +150,7 @@ bind_universe_build_context :: proc(checker: ^Type_Checker, universe: Scope_Id, 
 		{"ODIN_OS_STRING", target_os_names[configuration.os]},
 		{"ODIN_ARCH_STRING", target_arch_names[configuration.arch]},
 		{"ODIN_ENDIAN_STRING", target_endian_names[configuration.endian]},
+		{"ODIN_MICROARCH_STRING", types.x86_level_spelling(configuration.microarch)},
 		{"ODIN_ROOT", configuration.root},
 	}
 	for text in texts {

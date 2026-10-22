@@ -15,6 +15,7 @@ Test_Options :: struct {
 	defines:           map[string]string,
 	optimization_mode: check.Optimization_Mode,
 	thread_count:      int,
+	microarch:         types.X86_Level,
 }
 
 build_tests :: proc(
@@ -33,7 +34,7 @@ build_tests :: proc(
 	test_options := options
 	session.test_options = &test_options
 	defer session_destroy(session)
-	if error := check_session(session, odin_root, path, collections); error != .None {
+	if error := check_session(session, odin_root, path, collections, options.microarch); error != .None {
 		if session.invalid_test != 0 {
 			write_test_signature_error(session, log)
 		} else {

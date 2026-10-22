@@ -17,7 +17,7 @@ check_procedure_source :: proc(
 	type_diagnostic_count := -1,
 	package_name := "",
 	defines: map[string]string = nil,
-	target_features: []string = nil,
+	microarch: types.X86_Level = .V1,
 ) -> (
 	procedure: Procedure_Data,
 	ok: bool,
@@ -83,7 +83,8 @@ check_procedure_source :: proc(
 	defer expression_checker_destroy(&checker)
 	checker.packages = []Package{{}, {kind = package_kind, name = package_name, scope = package_scope}}
 	checker.defines = defines
-	checker.target_features = target_features
+	checker.target_features = types.x86_features_list(types.x86_level_features(microarch), context.allocator)
+	defer delete(checker.target_features, context.allocator)
 	for name in intrinsic_names {
 		builtin, failure := expression_builtin_id(&checker, intrinsic_builtin_kind(name))
 		id, creation := entity_create(&scopes, Entity{name = name, kind = .Builtin, scope = universe, state = .Resolved, data = builtin})

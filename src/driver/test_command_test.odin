@@ -72,3 +72,29 @@ test_command_rejects_bad_arguments :: proc(t: ^testing.T) {
 		testing.expect_value(t, argument_error, row.error)
 	}
 }
+
+@(test)
+test_command_microarch_level :: proc(t: ^testing.T) {
+	command, argument_error := parse_test_arguments([]string{"testdata", "--mcpu=x86_64_v3"})
+	defer delete(command.options.defines)
+	defer delete(command.collections)
+	testing.expect_value(t, argument_error, "")
+	testing.expect(t, command.options.microarch == .V3)
+	spaced, spaced_error := parse_test_arguments([]string{"testdata", "--mcpu", "x86_64_v2"})
+	defer delete(spaced.options.defines)
+	defer delete(spaced.collections)
+	testing.expect_value(t, spaced_error, "")
+	testing.expect(t, spaced.options.microarch == .V2)
+	defaulted, default_error := parse_test_arguments([]string{"testdata"})
+	defer delete(defaulted.options.defines)
+	defer delete(defaulted.collections)
+	testing.expect_value(t, default_error, "")
+	testing.expect(t, defaulted.options.microarch == .V1)
+	rejected := [?]string{"--mcpu=x86_64", "--mcpu=", "--mcpu"}
+	for flag in rejected {
+		invalid, invalid_error := parse_test_arguments([]string{"testdata", flag})
+		delete(invalid.options.defines)
+		delete(invalid.collections)
+		testing.expect_value(t, invalid_error, "odinc test: --mcpu expects one of: x86_64_v1, x86_64_v2, x86_64_v3, x86_64_v4")
+	}
+}

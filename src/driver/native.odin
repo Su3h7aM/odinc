@@ -86,11 +86,12 @@ build_file :: proc(
 	thread_count: int,
 	user_collections: []Collection = nil,
 	defines: map[string]string = nil,
+	level: types.X86_Level = .V1,
 ) -> (
 	image: []byte,
 	err: Build_Error,
 ) {
-	session, driver_err := check_program(odin_root, main_path, allocator, user_collections, defines)
+	session, driver_err := check_program(odin_root, main_path, allocator, user_collections, defines, level)
 	defer if session != nil { session_destroy(session) }
 	if driver_err == .Check_Failed || driver_err == .Unsupported_Import || driver_err == .Parse_Failed || driver_err == .Import_Cycle {
 		write_diagnostics(session, log)

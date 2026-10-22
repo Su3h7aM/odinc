@@ -2,6 +2,7 @@ package driver
 
 import "core:fmt"
 import "core:strconv"
+import "oc:types"
 
 Test_Command :: struct {
 	path, output: string,
@@ -55,6 +56,11 @@ parse_test_arguments :: proc(args: []string, allocator := context.allocator) -> 
 			count, parsed := strconv.parse_int(value)
 			if !ok || !parsed || count < 1 { return command, "odinc test: expected --thread-count=N with a positive integer" }
 			command.options.thread_count = count
+		case "mcpu":
+			value, ok := take_flag_value(args, &index, flag)
+			level, valid := types.parse_x86_level(value)
+			if !ok || !valid { return command, "odinc test: --mcpu expects one of: x86_64_v1, x86_64_v2, x86_64_v3, x86_64_v4" }
+			command.options.microarch = level
 		case:
 			return command, "odinc test: unsupported option"
 		}
