@@ -83,8 +83,14 @@ lower_type_assertion :: proc(state: ^Procedure_State, node: syntax.Node_Index, p
 // address is usable directly; `any` payloads live behind the data word.
 @(private)
 lower_type_assertion_address :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: check.Type_Assertion_Plan) -> ir.Node_Id {
+	address, _ := lower_type_assertion_pointer(state, node, plan)
+	return address
+}
+
+@(private)
+lower_type_assertion_pointer :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: check.Type_Assertion_Plan) -> (address, ok: ir.Node_Id) {
 	source_value := lower_operand(state, plan.source)
-	if state.failed || state.job.function.error != nil { return 0 }
+	if state.failed || state.job.function.error != nil { return }
 	store := check.type_store(state.job.program)
 	source_type := types.resolve_named(store, plan.source_type)
 	source_descriptor := types.get(store, source_type)
@@ -94,10 +100,26 @@ lower_type_assertion_address :: proc(state: ^Procedure_State, node: syntax.Node_
 		source_descriptor = types.get(store, source_type)
 	}
 	subject, subject_ok := lower_type_switch_subject(state, node, source_type, source_value)
-	if !subject_ok { return 0 }
-	ok := lower_type_switch_test(state, node, subject, plan.target_type)
-	if state.failed || state.job.function.error != nil { return 0 }
+	if !subject_ok { return }
+	ok = lower_type_switch_test(state, node, subject, plan.target_type)
+	if state.failed || state.job.function.error != nil { return }
 	if !plan.comma_ok { lower_check(state, ok) }
-	if source_descriptor.kind == .Any { return lower_load_word(state, source_value, .Ptr) }
-	return subject.address
+	address = subject.address
+	if source_descriptor.kind == .Any { address = lower_load_word(state, source_value, .Ptr) }
+	if plan.comma_ok { address = ir.select(state.job.function, ok, address, ir.const_int(state.job.function, .Ptr, 0)) }
+	return
+}
+
+@(private)
+lower_optional_address :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> (address, ok: ir.Node_Id) {
+	address_node := node
+	for state.ast.nodes[address_node].kind == .Paren_Expr { address_node = state.ast.nodes[address_node].payload.(syntax.Paren_Expr).expr }
+	operand := state.ast.nodes[address_node].payload.(syntax.Unary_Expr).expr
+	info := lower_info(state, operand)
+	plan := check.plan(state.job.program, info.plan)
+	if plan == nil { lower_fail(state, node, .Expression); return }
+	assertion, is_assertion := plan^.(check.Type_Assertion_Plan)
+	if !is_assertion { lower_fail(state, node, .Expression); return }
+	assertion.comma_ok = true
+	return lower_type_assertion_pointer(state, operand, assertion)
 }

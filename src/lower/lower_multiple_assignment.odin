@@ -53,6 +53,14 @@ lower_assignment_results :: proc(
 		}
 		values[first], values[first + 1] = lower_map_index(state, projection.expression.node, variant)
 		return first + 2
+	case check.Address_Plan:
+		if first + 2 > len(values) || !variant.comma_ok { lower_fail(state, node, .Local); return first }
+		if len(assignment.conversions) != 0 && (assignment.conversions[first] != 0 || assignment.conversions[first + 1] != 0) {
+			lower_fail(state, node, .Conversion)
+			return first
+		}
+		values[first], values[first + 1] = lower_optional_address(state, projection.expression.node)
+		return first + 2
 	case:
 		lower_fail(state, node, .Local)
 		return first

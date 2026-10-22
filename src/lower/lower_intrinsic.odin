@@ -119,6 +119,9 @@ lower_intrinsic :: proc(
 		zero := ir.const_int(function, .I8, 0)
 		return lower_memory_effect(state, .Mem_Set, values[0], zero, values[1])
 	case .Sqrt:
+		if is_float16(state, info.type) {
+			return float16_from_f32(function, ir.unary(function, .FSqrt, float16_widen(function, values[0])))
+		}
 		if !is_float_type(type) || type != function.nodes.type[values[0]] { return lower_fail(state, node, .Builtin) }
 		return ir.unary(function, .FSqrt, values[0])
 	case .Hadamard_Product:

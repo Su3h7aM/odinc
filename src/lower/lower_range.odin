@@ -173,7 +173,7 @@ lower_range_parts :: proc(state: ^Procedure_State, node: syntax.Node_Index, part
 		lower_range_bit_set(state, node, parts)
 		return
 	}
-	if kind := lower_type(state, info.type).kind; kind == .String || kind == .String16 {
+	if kind := container.kind; kind == .String || kind == .String16 {
 		lower_range_string(state, node, parts, kind)
 		return
 	}

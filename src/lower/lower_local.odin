@@ -223,6 +223,9 @@ lower_multi_declaration :: proc(state: ^Procedure_State, node: syntax.Node_Index
 		asserted, ok := lower_type_assertion(state, value, variant)
 		results[0] = asserted
 		results[1] = ok
+	case check.Address_Plan:
+		if len(names) != 2 || !variant.comma_ok { lower_fail(state, node, .Local); return }
+		results[0], results[1] = lower_optional_address(state, value)
 	case check.Map_Index_Plan:
 		if len(names) != 2 || !variant.comma_ok { lower_fail(state, node, .Local); return }
 		indexed, ok := lower_map_index(state, value, variant)
