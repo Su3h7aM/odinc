@@ -105,7 +105,17 @@ expression_group_call :: proc(
 			}
 		}
 		if !group_argument_is_deferred(file, group_argument.value) {
-			group_argument.info = check_expression(checker, view, scope, group_argument.value) or_return
+			if expression_argument_needs_hint(file, group_argument.value) {
+				mark := expression_speculation_begin(checker)
+				checked, check_error := check_expression(checker, view, scope, group_argument.value)
+				expression_speculation_end(checker, mark)
+				if check_error != nil { return {}, check_error }
+				group_argument.info = checked
+				group_argument.info.plan = 0
+				if checked.state == .Invalid { group_argument.info = check_expression(checker, view, scope, group_argument.value) or_return }
+			} else {
+				group_argument.info = check_expression(checker, view, scope, group_argument.value) or_return
+			}
 			if group_argument.info.state == .Invalid { return expression_poison(scope), nil }
 		}
 		if file.ast.nodes[argument].kind == .Field_Value {
@@ -607,7 +617,9 @@ group_argument_match :: proc(
 	matches: bool,
 	err: Resolve_Error,
 ) {
-	if !group_argument_is_deferred(file, argument) { return group_argument_score(checker, view, argument, info, target, any_integer) }
+	if !group_argument_is_deferred(file, argument) && !expression_argument_needs_hint(file, argument) {
+		return group_argument_score(checker, view, argument, info, target, any_integer)
+	}
 	mark := expression_speculation_begin(checker)
 	defer expression_speculation_end(checker, mark)
 	deferred := check_expression(checker, view, scope, argument, target) or_return

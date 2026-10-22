@@ -166,14 +166,17 @@ expression_generic_call :: proc(
 				continue
 			}
 			argument_hint: types.Type_Id
-			argument_kind := caller.ast.nodes[argument_node].kind
-			if (argument_kind == .Implicit_Selector_Expr || argument_kind == .Comp_Lit) && !poly_pattern_has_poly(file, field.type) {
-				if field.type != 0 {
+			hint_pattern := field.type
+			if hint_pattern != 0 && file.ast.nodes[hint_pattern].kind == .Ellipsis && !spread {
+				hint_pattern = syntax.node_payload(file.ast, hint_pattern, syntax.Ellipsis).expr
+			}
+			if expression_argument_needs_hint(caller, argument_node) && !poly_pattern_has_poly(file, hint_pattern) {
+				if hint_pattern != 0 {
 					// A pattern can mention names bound by other parameters. Resolve the
 					// hint speculatively; an unresolved dependent pattern is not a hint.
 					bound_hint_scope := poly_bound_scope(&match) or_return
 					mark := expression_speculation_begin(checker)
-					hint_type, hint_error := type_expression(checker.type_checker, declaration.type.file, bound_hint_scope, field.type, true)
+					hint_type, hint_error := type_expression(checker.type_checker, declaration.type.file, bound_hint_scope, hint_pattern, true)
 					expression_speculation_end(checker, mark)
 					if hint_error == nil && hint_type != types.TYPE_POISON { argument_hint = hint_type }
 				} else {

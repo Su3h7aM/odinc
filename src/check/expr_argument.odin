@@ -3,6 +3,19 @@ package check
 import "oc:syntax"
 import "oc:types"
 
+@(private = "package")
+expression_argument_needs_hint :: proc(file: ^File, node: syntax.Node_Index) -> bool {
+	unwrapped := type_unparen(file, node)
+	#partial switch file.ast.nodes[unwrapped].kind {
+	case .Implicit_Selector_Expr, .Comp_Lit, .Ternary_When_Expr, .Ternary_If_Expr, .Auto_Cast:
+		return true
+	case .Unary_Expr:
+		unary := syntax.node_payload(file.ast, unwrapped, syntax.Unary_Expr)
+		return unary.op.kind == .And && file.ast.nodes[type_unparen(file, unary.expr)].kind == .Comp_Lit
+	}
+	return false
+}
+
 // A runtime argument converts to its parameter type through its own conversion plan, which the call retains; the
 // argument keeps its unconverted type. Constants and expressions that need the parameter type to be checked take it as a hint.
 // An `#any_int` parameter also accepts a typed integer or enum argument by cast, as official check_expr.cpp:7487-7493.
@@ -19,9 +32,8 @@ expression_argument :: proc(
 	err: Resolve_Error,
 ) {
 	file := checker.type_checker.files[checker.views[view].file]
+	if expression_argument_needs_hint(file, node) { return check_expression(checker, view, scope, node, target) }
 	#partial switch file.ast.nodes[node].kind {
-	case .Implicit_Selector_Expr, .Comp_Lit, .Ternary_When_Expr, .Ternary_If_Expr, .Auto_Cast:
-		return check_expression(checker, view, scope, node, target)
 	case .Call_Expr:
 		if is_type_of_call(file, node) { break }
 		if definition := record_call_definition(checker.type_checker, checker.views[view].file, file, scope, node) or_return; definition != 0 { break }
@@ -30,11 +42,6 @@ expression_argument :: proc(
 			builtin := entity_get(checker.type_checker.resolver.scopes, callee.entity).data.(Builtin_Id)
 			kind := checker.builtin_kinds[builtin]
 			if kind == .Len || kind == .Cap { return check_expression(checker, view, scope, node, target) }
-		}
-	case .Unary_Expr:
-		unary := syntax.node_payload(file.ast, node, syntax.Unary_Expr)
-		if unary.op.kind == .And && file.ast.nodes[type_unparen(file, unary.expr)].kind == .Comp_Lit {
-			return check_expression(checker, view, scope, node, target)
 		}
 	}
 	info = check_expression(checker, view, scope, node) or_return
