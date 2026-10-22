@@ -164,6 +164,7 @@ DEFAULT_LAYOUT :: Layout_Config{8, 8, 16, 512}
 // (Odin/src/types.cpp:1061-1068). Type_Id stays the handle.
 Store :: struct {
 	types:               [dynamic]^Type,
+	index:               map[u64][dynamic]Type_Id,
 	allocator:           runtime.Allocator,
 	last_procedure_info: Procedure_Info_Id,
 }
@@ -200,6 +201,8 @@ reserve_slots :: proc(store: ^Store) {
 destroy :: proc(store: ^Store) {
 	for descriptor in store.types { destroy_names(descriptor, store.allocator); _ = free(descriptor, store.allocator) }
 	delete(store.types)
+	for _, bucket in store.index { delete(bucket) }
+	delete(store.index)
 	store^ = Store{}
 }
 
@@ -209,10 +212,13 @@ append_type :: proc(store: ^Store, descriptor: Type) -> Type_Id {
 	allocated^ = descriptor
 	clone_names(allocated, store.allocator)
 	append(&store.types, allocated)
-	return Type_Id(len(store.types) - 1)
+	id := Type_Id(len(store.types) - 1)
+	index_insert(store, id)
+	return id
 }
 
 pop_type :: proc(store: ^Store) {
+	index_remove(store, Type_Id(len(store.types) - 1))
 	descriptor := pop(&store.types)
 	destroy_names(descriptor, store.allocator)
 	_ = free(descriptor, store.allocator)
@@ -222,10 +228,110 @@ pop_type :: proc(store: ^Store) {
 intern :: proc(store: ^Store, descriptor: Type) -> Type_Id {
 	assert(descriptor.kind != .Invalid)
 	reserve_slots(store)
-	for i in 0 ..< len(store.types) {
-		if descriptors_equal(store.types[i]^, descriptor) { return Type_Id(i) }
-	}
+	if id, found := lookup(store, descriptor); found { return id }
 	return append_type(store, descriptor)
+}
+
+@(private)
+lookup :: proc(store: ^Store, descriptor: Type) -> (id: Type_Id, found: bool) {
+	bucket, present := store.index[descriptor_hash(descriptor)]
+	if !present { return TYPE_NONE, false }
+	for candidate in bucket {
+		if descriptors_equal(store.types[candidate]^, descriptor) { return candidate, true }
+	}
+	return TYPE_NONE, false
+}
+
+@(private)
+index_insert :: proc(store: ^Store, id: Type_Id) {
+	key := descriptor_hash(store.types[id]^)
+	bucket := store.index[key]
+	append(&bucket, id)
+	store.index[key] = bucket
+}
+
+@(private)
+index_remove :: proc(store: ^Store, id: Type_Id) {
+	key := descriptor_hash(store.types[id]^)
+	bucket, present := store.index[key]
+	if !present { return }
+	for candidate, position in bucket {
+		if candidate == id {
+			ordered_remove(&bucket, position)
+			break
+		}
+	}
+	if len(bucket) == 0 {
+		delete(bucket)
+		delete_key(&store.index, key)
+	} else {
+		store.index[key] = bucket
+	}
+}
+
+// descriptor_hash covers exactly the fields descriptors_equal compares, with
+// FNV-1a mixing like core:hash.fnv64a.
+@(private)
+descriptor_hash :: proc(descriptor: Type) -> u64 {
+	hash := u64(14695981039346656037)
+	hash = mix_hash(hash, u64(descriptor.kind))
+	hash = mix_hash(hash, u64(descriptor.procedure_info))
+	hash = mix_string(hash, descriptor.name)
+	hash = mix_hash(hash, u64(descriptor.elem))
+	hash = mix_hash(hash, u64(descriptor.index))
+	hash = mix_hash(hash, u64(descriptor.count))
+	hash = mix_hash(hash, u64(descriptor.lower_bound))
+	hash = mix_hash(hash, u64(descriptor.upper_bound))
+	hash = mix_hash(hash, u64(descriptor.enum_lower_bound) ~ u64(descriptor.enum_lower_bound >> 64))
+	hash = mix_hash(hash, u64(descriptor.enum_upper_bound) ~ u64(descriptor.enum_upper_bound >> 64))
+	hash = mix_hash(hash, u64(descriptor.backing))
+	hash = mix_hash(hash, u64(descriptor.endianness))
+	hash = mix_bool(hash, descriptor.signed)
+	hash = mix_bool(hash, descriptor.variadic)
+	hash = mix_bool(hash, descriptor.c_vararg)
+	hash = mix_bool(hash, descriptor.optional_result)
+	hash = mix_bool(hash, descriptor.diverging)
+	hash = mix_hash(hash, u64(descriptor.convention))
+	hash = mix_hash(hash, u64(descriptor.union_form))
+	hash = mix_hash(hash, u64(descriptor.soa))
+	hash = mix_hash(hash, u64(descriptor.soa_elem))
+	hash = mix_hash(hash, u64(descriptor.custom_align))
+	hash = mix_hash(hash, u64(descriptor.min_field_align))
+	hash = mix_hash(hash, u64(descriptor.max_field_align))
+	hash = mix_bool(hash, descriptor.row_major)
+	hash = mix_bool(hash, descriptor.packed)
+	hash = mix_bool(hash, descriptor.raw_union)
+	hash = mix_bool(hash, descriptor.is_nominal)
+	hash = mix_bool(hash, descriptor.is_complete)
+	for field in descriptor.fields {
+		hash = mix_string(hash, field.name)
+		hash = mix_hash(hash, u64(field.type))
+		hash = mix_string(hash, field.tag)
+	}
+	for size in descriptor.bit_sizes { hash = mix_hash(hash, u64(size)) }
+	for variant in descriptor.variants { hash = mix_hash(hash, u64(variant)) }
+	for param in descriptor.params { hash = mix_hash(hash, u64(param)) }
+	for result in descriptor.results { hash = mix_hash(hash, u64(result)) }
+	for name in descriptor.param_names { hash = mix_string(hash, name) }
+	for name in descriptor.result_names { hash = mix_string(hash, name) }
+	return hash
+}
+
+@(private)
+mix_hash :: proc(hash, value: u64) -> u64 {
+	return (hash ~ value) * 1099511628211
+}
+
+@(private)
+mix_string :: proc(hash: u64, text: string) -> u64 {
+	accumulator := hash
+	for i in 0 ..< len(text) { accumulator = (accumulator ~ u64(text[i])) * 1099511628211 }
+	return accumulator
+}
+
+@(private)
+mix_bool :: proc(hash: u64, value: bool) -> u64 {
+	return mix_hash(hash, 1 if value else 0)
 }
 
 // sized_integer interns the basic integer of `count` bytes under its official name, so it equals the builtin.
@@ -317,9 +423,26 @@ complete_nominal :: proc(store: ^Store, id: Type_Id, descriptor: Type) {
 	completed.is_nominal = true
 	completed.is_complete = true
 	completed.layout_state = .Unlaid_Out
+	index_remove(store, id)
 	clone_names(&completed, store.allocator)
 	destroy_names(reserved, store.allocator)
 	reserved^ = completed
+	index_insert(store, id)
+}
+
+// complete_alias fills a reserved nominal slot with a non-nominal descriptor without changing its id.
+complete_alias :: proc(store: ^Store, id: Type_Id, descriptor: Type) {
+	reserved := get(store, id)
+	assert(reserved.is_nominal && !reserved.is_complete)
+	assert(reserved.kind == descriptor.kind)
+	completed := descriptor
+	completed.is_nominal = false
+	completed.layout_state = .Unlaid_Out
+	index_remove(store, id)
+	clone_names(&completed, store.allocator)
+	destroy_names(reserved, store.allocator)
+	reserved^ = completed
+	index_insert(store, id)
 }
 
 descriptors_equal :: proc(a, b: Type) -> bool {
@@ -616,10 +739,7 @@ any_field_type :: proc(store: ^Store, index: int) -> (id: Type_Id, found: bool) 
 		kind = .Type_Id,
 	}
 	if index == 0 { descriptor.kind = .Raw_Pointer }
-	for stored, position in store.types {
-		if descriptors_equal(stored^, descriptor) { return Type_Id(position), true }
-	}
-	return TYPE_NONE, false
+	return lookup(store, descriptor)
 }
 
 // The type of field index of id; `any` keeps no stored fields, so its two come from any_field_type.

@@ -143,6 +143,23 @@ declared_parameter_names :: proc(file: ^File, params: syntax.Field_List, allocat
 	return list[:], nil
 }
 
+// The default of parameter `index`. A parameter past the procedure's defaults, or a procedure without procedure info, has none.
+@(private = "package")
+default_argument_at :: proc(defaults: []Default_Argument, index: int) -> Default_Argument {
+	if index < len(defaults) { return defaults[index] }
+	return {}
+}
+
+// Whether a call may leave a parameter with this default out and still fill it.
+@(private = "package")
+default_argument_usable :: proc(argument: Default_Argument) -> bool {
+	#partial switch argument.kind {
+	case .Constant, .Value, .Caller_Location, .Caller_Expression:
+		return true
+	}
+	return false
+}
+
 @(private = "package")
 expression_call_default_argument :: proc(
 	checker: ^Expression_Checker,
@@ -165,17 +182,24 @@ expression_call_default_argument :: proc(
 		parameter        = parameter,
 		evaluation_order = order,
 	}
-	switch {
-	case default_argument.caller_location:
+	switch default_argument.kind {
+	case .Absent:
+		expression_unsupported(checker, view, scope, node, "Call_Missing_Argument") or_return
+		return {}, false, nil
+	case .Invalid:
+		return {}, false, nil
+	case .Constant, .Value:
+		argument.value = default_argument.value
+	case .Caller_Location:
 		argument.value = Operand(Expression_Ref{view, node})
 		argument.caller_location = true
-	case default_argument.caller_expression:
-		text := expression_text(file, node)
-		if default_argument.caller_expression_target != "" {
+	case .Caller_Expression:
+		text := expression_to_string(file, node)
+		if default_argument.source_parameter != "" {
 			text = ""
 			for name, target in names {
-				if name != default_argument.caller_expression_target { continue }
-				if slots[target].value != 0 { text = expression_text(file, slots[target].value) }
+				if name != default_argument.source_parameter { continue }
+				if slots[target].value != 0 { text = expression_to_string(file, slots[target].value) }
 				break
 			}
 		}
@@ -186,11 +210,6 @@ expression_call_default_argument :: proc(
 			return {}, false, nil
 		}
 		argument.value = Operand(constant)
-	case default_argument.value != nil:
-		argument.value = default_argument.value
-	case:
-		expression_unsupported(checker, view, scope, node, "Call_Default_Value") or_return
-		return {}, false, nil
 	}
 	return argument, true, nil
 }

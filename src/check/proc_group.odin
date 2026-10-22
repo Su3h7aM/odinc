@@ -228,9 +228,7 @@ group_member_score :: proc(
 	}
 	for index in 0 ..< fixed_count {
 		if filled[index] { continue }
-		if index >= len(procedure.defaults) { return 0, false, nil }
-		default_argument := procedure.defaults[index]
-		if default_argument.value == nil && !default_argument.caller_location && !default_argument.caller_expression { return 0, false, nil }
+		if !default_argument_usable(default_argument_at(procedure.defaults, index)) { return 0, false, nil }
 		// A filled default contributes no argument score. This mirrors check_call_arguments_internal, where a
 		// dummy's bonus and re-score discount net to -1: exact arity breaks ties without outweighing quality.
 		score -= 1

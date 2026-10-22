@@ -287,13 +287,13 @@ expression_generic_call :: proc(
 		if is_runtime[index] { append(&runtime_arguments, argument) or_return }
 	}
 	scopes := checker.type_checker.resolver.scopes
-	for entity, id in scopes.entities {
-		procedure, is_procedure := entity.data.(Procedure_Data)
-		if !is_procedure ||
-		   procedure.definition != definition ||
+	key := instance_index_key(checker.type_checker.store, definition, bindings.types[:], bindings.constants[:])
+	for id in instance_index_candidates(&checker.type_checker.resolver.instances, key) {
+		procedure := &entity_get(scopes, id).data.(Procedure_Data)
+		if procedure.definition != definition ||
 		   !same_type_arguments(checker.type_checker.store, procedure.poly_arguments, bindings.types[:]) ||
 		   !same_elements(procedure.poly_constants, bindings.constants[:]) { continue }
-		return expression_instance_call(checker, view, file_id, scope, node, Entity_Id(id), runtime_arguments[:], spread)
+		return expression_instance_call(checker, view, file_id, scope, node, id, runtime_arguments[:], spread)
 	}
 	return expression_new_instance(
 		checker,
@@ -643,6 +643,8 @@ expression_new_instance :: proc(
 		},
 	)
 	if create_error != nil { return {}, binding_resolve_error(create_error) }
+	instance_key := instance_index_key(checker.type_checker.store, definition, poly_types, poly_constants)
+	instance_index_insert(&resolver.instances, resolver.allocator, instance_key, instance) or_return
 	procedure := &entity_get(scopes, instance).data.(Procedure_Data)
 	procedure.instance = Instance_Id(instance)
 	outer_instantiating := checker.type_checker.instantiating

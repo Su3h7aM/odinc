@@ -93,7 +93,6 @@ expression_call :: proc(
 			continue
 		}
 		if packed && index == variadic_index { continue }
-		if index >= len(procedure.defaults) { return expression_unsupported(checker, view, scope, node, "Call_Default_Missing") }
 		argument, valid := expression_call_default_argument(
 			checker,
 			view,
@@ -101,7 +100,7 @@ expression_call :: proc(
 			node,
 			names,
 			slots,
-			procedure.defaults[index],
+			default_argument_at(procedure.defaults, index),
 			procedure.parameters[index],
 			u32(len(arguments) + index),
 		) or_return

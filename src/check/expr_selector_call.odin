@@ -82,6 +82,8 @@ expression_selector_call :: proc(
 	}
 	metadata, metadata_error := expression_procedure_info(checker, descriptor.procedure_info)
 	assert(metadata_error == .None)
+	defaults: []Default_Argument
+	if metadata != nil { defaults = metadata.defaults }
 	call_arguments := make([]Call_Argument, len(descriptor.params), allocator) or_return
 	call_arguments[0] = first
 	for slot, slot_index in slots {
@@ -103,7 +105,6 @@ expression_selector_call :: proc(
 				no_broadcast,
 			) or_return
 		} else {
-			if metadata == nil { return expression_unsupported(checker, view, scope, node, "Call_Default_Missing") }
 			argument, valid = expression_call_default_argument(
 				checker,
 				view,
@@ -111,7 +112,7 @@ expression_selector_call :: proc(
 				node,
 				parameter_names,
 				slots,
-				metadata.defaults[index],
+				default_argument_at(defaults, index),
 				0,
 				u32(len(arguments) + slot_index),
 			) or_return

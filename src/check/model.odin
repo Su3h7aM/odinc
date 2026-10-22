@@ -490,6 +490,7 @@ File :: struct {
 	package_id:         Package_Id,
 	path, display_path: string,
 	source:             []byte,
+	lines:              syntax.Line_Table,
 	ast:                ^syntax.Ast,
 	scope:              Scope_Id,
 	policy:             File_Policy,
@@ -573,11 +574,21 @@ Label_Data :: struct {
 	target: Node_Ref,
 	scope:  Scope_Id,
 }
+// Absent: no default. Invalid: a default rejected where it was declared, which already reports the error.
+// Value: an expression re-evaluated at each call in the declaring view.
+Default_Kind :: enum u8 {
+	Absent,
+	Invalid,
+	Constant,
+	Value,
+	Caller_Location,
+	Caller_Expression,
+}
+// For Caller_Expression, an empty source_parameter captures the call's own expression text.
 Default_Argument :: struct {
-	value:                    Operand,
-	caller_location:          bool,
-	caller_expression:        bool,
-	caller_expression_target: string,
+	kind:             Default_Kind,
+	value:            Operand,
+	source_parameter: string,
 }
 Procedure_Data :: struct {
 	source_name:         string,

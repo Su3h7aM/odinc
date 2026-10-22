@@ -39,9 +39,7 @@ expression_procedure_info_build :: proc(
 		scope     = scope,
 		view      = view,
 	}
-	for entry in checker.procedure_infos {
-		if entry.origin == origin { return entry.id, nil }
-	}
+	if existing, found := checker.procedure_info_index[origin]; found { return existing, nil }
 	allocator := mem.dynamic_arena_allocator(&checker.arena)
 	info := Procedure_Info {
 		defaults        = make([]Default_Argument, len(parameters), allocator) or_return,
@@ -81,9 +79,7 @@ expression_procedure_info_intern :: proc(
 	err: runtime.Allocator_Error,
 ) {
 	assert(origin.signature.file != 0 && origin.signature.node != 0)
-	for entry in checker.procedure_infos {
-		if entry.origin == origin { return entry.id, nil }
-	}
+	if existing, found := checker.procedure_info_index[origin]; found { return existing, nil }
 	allocator := mem.dynamic_arena_allocator(&checker.arena)
 	owned := new(Procedure_Info, allocator) or_return
 	owned.defaults = make([]Default_Argument, len(info.defaults), allocator) or_return
@@ -92,14 +88,19 @@ expression_procedure_info_intern :: proc(
 	copy(owned.parameter_flags, info.parameter_flags)
 	id = types.issue_procedure_info_id(checker.type_checker.store)
 	append(&checker.procedure_infos, Procedure_Info_Entry{id, origin, owned}) or_return
+	checker.procedure_info_index[origin] = id
 	return id, nil
 }
 
 @(require_results)
 expression_procedure_info :: proc(checker: ^Expression_Checker, id: types.Procedure_Info_Id) -> (info: ^Procedure_Info, err: Procedure_Info_Error) {
 	if id == 0 { return nil, .None }
-	for entry in checker.procedure_infos {
-		if entry.id == id { return entry.info, .None }
+	// Entries are appended in issue order, so the id indexes the table directly.
+	if len(checker.procedure_infos) != 0 && id >= checker.procedure_infos[0].id {
+		index := int(id - checker.procedure_infos[0].id)
+		if index < len(checker.procedure_infos) && checker.procedure_infos[index].id == id {
+			return checker.procedure_infos[index].info, .None
+		}
 	}
 	return nil, .Invalid_Id
 }

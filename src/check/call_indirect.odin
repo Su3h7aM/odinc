@@ -51,6 +51,8 @@ expression_indirect_call :: proc(
 	}
 	metadata, metadata_error := expression_procedure_info(checker, descriptor.procedure_info)
 	assert(metadata_error == .None)
+	defaults: []Default_Argument
+	if metadata != nil { defaults = metadata.defaults }
 	call_arguments := make([]Call_Argument, len(slots), allocator) or_return
 	for slot, index in slots {
 		argument: Call_Argument
@@ -70,7 +72,6 @@ expression_indirect_call :: proc(
 				no_broadcast,
 			) or_return
 		} else {
-			if metadata == nil { return expression_unsupported(checker, view, scope, node, "Call_Default_Missing") }
 			argument, valid = expression_call_default_argument(
 				checker,
 				view,
@@ -78,7 +79,7 @@ expression_indirect_call :: proc(
 				node,
 				descriptor.param_names,
 				slots,
-				metadata.defaults[index],
+				default_argument_at(defaults, index),
 				0,
 				u32(len(arguments) + index),
 			) or_return

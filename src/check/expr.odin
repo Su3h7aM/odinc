@@ -4,6 +4,7 @@ import "base:runtime"
 import "core:fmt"
 import "core:math/big"
 import "core:mem"
+import "core:mem/virtual"
 import "oc:syntax"
 import "oc:types"
 
@@ -40,40 +41,48 @@ Expression_Diagnostic :: struct {
 
 // Owns typed rows, plans and diagnostics. Files, resolver, type checker and constant pool are borrowed.
 // Views and plans reserve index zero. Destroy after all consumers of the borrowed Checked_Program.
+View_Key :: struct {
+	file:     File_Id,
+	instance: Instance_Id,
+}
+
 Expression_Checker :: struct {
-	type_checker:      ^Type_Checker,
-	constants:         ^Constant_Pool,
-	config:            Conversion_Config,
-	target_features:   []string,
-	defines:           map[string]string,
-	default_integer:   types.Type_Id,
-	boolean:           types.Type_Id,
-	unchecked_depth:   int,
-	allocator:         mem.Allocator,
-	arena:             mem.Dynamic_Arena,
-	views:             [dynamic]Typed_View,
-	plans:             [dynamic]Plan,
-	packages:          []Package,
-	builtin_kinds:     [dynamic]Builtin_Kind,
-	type_info_roots:   [dynamic]types.Type_Id,
-	symbols:           [dynamic]Symbol,
-	entity_symbols:    [dynamic]Symbol_Id,
-	procedures:        [dynamic]Checked_Procedure,
-	globals:           [dynamic]Global,
-	diagnostics:       [dynamic]Expression_Diagnostic,
-	results:           []types.Type_Id,
-	named_results:     []Entity_Id,
-	control:           [dynamic]Control_Frame,
-	defers:            [dynamic]Defer_Registration,
-	defer_depth:       int,
-	active_instance:   Instance_Id,
-	procedure_infos:   [dynamic]Procedure_Info_Entry,
-	invalid_rows:      [dynamic]Invalid_Row,
-	stored_rows:       [dynamic]Expression_Ref,
-	speculation_depth: int,
+	type_checker:         ^Type_Checker,
+	constants:            ^Constant_Pool,
+	config:               Conversion_Config,
+	target_features:      []string,
+	defines:              map[string]string,
+	default_integer:      types.Type_Id,
+	boolean:              types.Type_Id,
+	unchecked_depth:      int,
+	allocator:            mem.Allocator,
+	arena:                mem.Dynamic_Arena,
+	view_arena:           virtual.Arena,
+	views:                [dynamic]Typed_View,
+	plans:                [dynamic]Plan,
+	packages:             []Package,
+	builtin_kinds:        [dynamic]Builtin_Kind,
+	type_info_roots:      [dynamic]types.Type_Id,
+	symbols:              [dynamic]Symbol,
+	entity_symbols:       [dynamic]Symbol_Id,
+	procedures:           [dynamic]Checked_Procedure,
+	globals:              [dynamic]Global,
+	diagnostics:          [dynamic]Expression_Diagnostic,
+	results:              []types.Type_Id,
+	named_results:        []Entity_Id,
+	control:              [dynamic]Control_Frame,
+	defers:               [dynamic]Defer_Registration,
+	defer_depth:          int,
+	active_instance:      Instance_Id,
+	procedure_infos:      [dynamic]Procedure_Info_Entry,
+	procedure_info_index: map[Procedure_Info_Origin]types.Procedure_Info_Id,
+	view_lookup:          map[View_Key]View_Id,
+	invalid_rows:         [dynamic]Invalid_Row,
+	stored_rows:          [dynamic]Expression_Ref,
+	speculation_depth:    int,
 	// #soa range value variables: each use mints a fresh Soa_Plan from the
 	// stored descriptor, so rollback of the plan table cannot strand an id.
-	soa_loop_vars:     map[Entity_Id]Soa_Plan,
+	soa_loop_vars:        map[Entity_Id]Soa_Plan,
 }
 
 Invalid_Row :: struct {
@@ -116,8 +125,11 @@ expression_checker_init :: proc(
 	checker.type_info_roots.allocator = allocator
 	checker.globals.allocator = allocator
 	checker.procedure_infos.allocator = allocator
+	checker.procedure_info_index.allocator = allocator
+	checker.view_lookup.allocator = allocator
 	checker.soa_loop_vars.allocator = allocator
 	defer if err != nil { expression_checker_destroy(checker) }
+	virtual.arena_init_growing(&checker.view_arena) or_return
 	append(&checker.views, Typed_View{}) or_return
 	append(&checker.plans, Plan{}) or_return
 	append(&checker.builtin_kinds, Builtin_Kind.None, .Len, .Cap, .Size_Of, .Align_Of, .Min, .Max, .Abs, .Clamp) or_return
@@ -148,8 +160,11 @@ expression_checker_destroy :: proc(checker: ^Expression_Checker) {
 	delete(checker.invalid_rows)
 	delete(checker.stored_rows)
 	delete(checker.procedure_infos)
+	delete(checker.procedure_info_index)
+	delete(checker.view_lookup)
 	delete(checker.soa_loop_vars)
 	mem.dynamic_arena_destroy(&checker.arena)
+	virtual.arena_destroy(&checker.view_arena)
 	checker^ = {}
 }
 
@@ -169,12 +184,12 @@ expression_checker_publish :: proc(checker: ^Expression_Checker, program: ^Check
 expression_file_view :: proc(checker: ^Expression_Checker, file: File_Id) -> (view: View_Id, err: runtime.Allocator_Error) {
 	instance := checker.active_instance
 	if checker.type_checker.record_instance != 0 { instance = checker.type_checker.record_instance }
-	for typed, index in checker.views {
-		if typed.file == file && typed.instance == instance && file != 0 { return View_Id(index), nil }
+	if file != 0 {
+		if found, ok := checker.view_lookup[View_Key{file = file, instance = instance}]; ok { return found, nil }
 	}
 	assert(file != 0 && int(file) < len(checker.type_checker.files))
 	count := len(checker.type_checker.files[file].ast.nodes)
-	allocator := mem.dynamic_arena_allocator(&checker.arena)
+	allocator := virtual.arena_allocator(&checker.view_arena)
 	typed := Typed_View {
 		file     = file,
 		instance = instance,
@@ -188,6 +203,7 @@ expression_file_view :: proc(checker: ^Expression_Checker, file: File_Id) -> (vi
 	typed.nodes.states = make([]Node_State, count, allocator) or_return
 	view = View_Id(len(checker.views))
 	append(&checker.views, typed) or_return
+	checker.view_lookup[View_Key{file = file, instance = instance}] = view
 	return view, nil
 }
 
@@ -206,7 +222,8 @@ check_expression :: proc(
 	file_id := checker.views[view].file
 	file := checker.type_checker.files[file_id]
 	assert(node != 0 && int(node) < len(file.ast.nodes))
-	program: Checked_Program
+	// publish overwrites every field read below, so skip zeroing this wide record.
+	program: Checked_Program = ---
 	expression_checker_publish(checker, &program)
 	info = expression_info(&program, view, node)
 	if info.state == .Unseen {

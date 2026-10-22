@@ -42,7 +42,7 @@ scope_store_init :: proc(store: ^Scope_Store, allocator: mem.Allocator) -> (err:
 
 scope_store_destroy :: proc(store: ^Scope_Store) {
 	if store == nil { return }
-	for scope in store.scopes { delete(scope.lookup) }
+	for &scope in store.scopes { delete(scope.lookup) }
 	for declarations in store.scope_declarations { delete(declarations) }
 	delete(store.scope_declarations)
 	delete(store.scopes)
@@ -125,29 +125,34 @@ scope_insert_with_name :: proc(store: ^Scope_Store, scope: Scope_Id, name: strin
 	if destination == nil { return 0, Scope_Error.Invalid_Scope }
 	if entity_get(store, entity) == nil { return 0, Scope_Error.Invalid_Entity }
 	if name == "" || name == "_" { return 0, nil }
-	previous = scope_lookup_current(store, scope, name)
-	if previous == 0 {
-		parent := scope_get(store, destination.parent)
-		if parent != nil && parent.kind == .Procedure {
-			candidate := scope_lookup_current(store, destination.parent, name)
-			if declaration := entity_get(store, candidate); declaration != nil {
-				if .Result in declaration.flags { previous = candidate }
-				if .Parameter in declaration.flags {
-					for binding in parent.using_bindings {
-						if binding.entity == candidate { previous = candidate; break }
-					}
+	// One probe finds an existing binding or reserves the slot; the
+	// procedure-parent shadow check only runs for a reserved slot.
+	_, slot, inserted, insert_err := map_entry(&destination.lookup, name)
+	if insert_err != nil { return 0, insert_err }
+	if !inserted {
+		previous = slot^
+		if previous == entity { previous = 0 }
+		return previous, nil
+	}
+	if parent := scope_get(store, destination.parent); parent != nil && parent.kind == .Procedure {
+		candidate := scope_lookup_current(store, destination.parent, name)
+		if declaration := entity_get(store, candidate); declaration != nil {
+			if .Result in declaration.flags { previous = candidate }
+			if .Parameter in declaration.flags {
+				for &binding in parent.using_bindings {
+					if binding.entity == candidate { previous = candidate; break }
 				}
 			}
 		}
 	}
-	if previous != 0 {
-		if previous == entity { previous = 0 }
-		return previous, nil
+	if previous == 0 {
+		slot^ = entity
+		return 0, nil
 	}
-	_, value, _, insert_err := map_entry(&destination.lookup, name)
-	if insert_err != nil { return 0, insert_err }
-	value^ = entity
-	return 0, nil
+	// Conflict: withdraw the reserved slot so the map is unchanged.
+	delete_key(&destination.lookup, name)
+	if previous == entity { previous = 0 }
+	return previous, nil
 }
 
 scope_lookup_current :: proc(store: ^Scope_Store, scope: Scope_Id, name: string) -> Entity_Id {
@@ -163,8 +168,9 @@ scope_lookup :: proc(store: ^Scope_Store, scope: Scope_Id, name: string) -> (ent
 	crossed_procedure := false
 	current_scope := scope
 	for current := scope_get(store, current_scope); current != nil; current = scope_get(store, current_scope) {
-		candidate := current.lookup[name]
-		if declaration := entity_get(store, candidate); declaration != nil {
+		candidate, found := current.lookup[name]
+		declaration := entity_get(store, candidate) if found else nil
+		if declaration != nil {
 			visible := true
 			if crossed_procedure {
 				if declaration.kind == .Label { visible = false }

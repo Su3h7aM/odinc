@@ -51,6 +51,7 @@ Resolver :: struct {
 	pending_bodies:    [dynamic]Entity_Id,
 	body_pause_depth:  int,
 	poisoned:          [dynamic]Entity_Id,
+	instances:         Instance_Index,
 }
 
 resolver_init :: proc(resolver: ^Resolver, scopes: ^Scope_Store, callback: Declaration_Resolver, user_data: rawptr, allocator: mem.Allocator) {
@@ -80,6 +81,7 @@ resolver_destroy :: proc(resolver: ^Resolver) {
 	delete(resolver.diagnostics)
 	delete(resolver.pending_bodies)
 	delete(resolver.poisoned)
+	instance_index_destroy(&resolver.instances)
 	resolver^ = {}
 }
 

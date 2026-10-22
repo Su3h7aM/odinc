@@ -657,47 +657,72 @@ expression_default_argument :: proc(
 	if file.ast.nodes[node].kind == .Basic_Directive {
 		switch expression_text(file, node) {
 		case "#caller_location":
-			return Default_Argument{caller_location = true}, nil
+			return Default_Argument{kind = .Caller_Location}, nil
 		case "#caller_expression":
-			return Default_Argument{caller_expression = true}, nil
+			return Default_Argument{kind = .Caller_Expression}, nil
 		}
 		expression_unsupported(checker, view, scope, node, "Default_Directive") or_return
-		return {}, nil
+		return Default_Argument{kind = .Invalid}, nil
 	}
 	if file.ast.nodes[node].kind == .Call_Expr {
 		call := syntax.node_payload(file.ast, node, syntax.Call_Expr)
 		if file.ast.nodes[call.expr].kind == .Basic_Directive && expression_text(file, call.expr) == "#caller_expression" {
 			targets := syntax.node_list(file.ast, call.args)
 			if len(targets) == 1 && file.ast.nodes[targets[0]].kind == .Ident {
-				return Default_Argument{caller_expression = true, caller_expression_target = expression_text(file, targets[0])}, nil
+				return Default_Argument{kind = .Caller_Expression, source_parameter = expression_text(file, targets[0])}, nil
 			}
 			expression_unsupported(checker, view, scope, node, "Caller_Expression_Arguments") or_return
-			return {}, nil
+			return Default_Argument{kind = .Invalid}, nil
 		}
 	}
 	info := check_expression(checker, view, scope, node, type) or_return
-	if info.state == .Invalid { return {}, nil }
-	if info.constant != 0 { return Default_Argument{value = Operand(info.constant)}, nil }
+	if info.state == .Invalid { return Default_Argument{kind = .Invalid}, nil }
+	if info.constant != 0 { return Default_Argument{kind = .Constant, value = Operand(info.constant)}, nil }
 	if expression_conversion_plan(checker, info.plan) != 0 {
 		expression_unsupported(checker, view, scope, node, "Default_Conversion") or_return
-		return {}, nil
+		return Default_Argument{kind = .Invalid}, nil
 	}
-	// Official handle_parameter_value: a non-constant default is only a bare reference to
-	// another entity or the context, re-evaluated at each call. Anything else computed must be
-	// a constant; parameters cannot be named here at all.
-	if info.entity != 0 || info.mode == .Context || default_argument_is_context_reference(file, node) {
-		return Default_Argument{value = Operand(Expression_Ref{view, node})}, nil
+	// Official handle_parameter_value: a non-constant default is a bare reference to another entity or the
+	// context, or a compound literal of constants, re-evaluated at each call. Anything else must be a constant.
+	if info.entity != 0 ||
+	   info.mode == .Context ||
+	   default_argument_is_context_reference(file, node) ||
+	   default_compound_is_constant(checker, view, file, node) {
+		return Default_Argument{kind = .Value, value = Operand(Expression_Ref{view, node})}, nil
 	}
 	// `typeid_of` never folds to a constant here, although official treats it as one. The
 	// value is identical at every call, so re-evaluating it per call preserves behavior until
 	// lowering materializes typeid values directly.
 	if info.plan != 0 {
 		if _, is_typeid := checker.plans[info.plan].(Typeid_Plan); is_typeid {
-			return Default_Argument{value = Operand(Expression_Ref{view, node})}, nil
+			return Default_Argument{kind = .Value, value = Operand(Expression_Ref{view, node})}, nil
 		}
 	}
 	expression_unsupported(checker, view, scope, node, "Default_Constant") or_return
-	return {}, nil
+	return Default_Argument{kind = .Invalid}, nil
+}
+
+// Official check_expr makes a compound literal constant when each of its elements is one, so an empty literal always is.
+@(private = "file")
+default_compound_is_constant :: proc(checker: ^Expression_Checker, view: View_Id, file: ^File, node: syntax.Node_Index) -> bool {
+	literal := type_unparen(file, node)
+	if file.ast.nodes[literal].kind != .Comp_Lit { return false }
+	for element in syntax.node_list(file.ast, syntax.node_payload(file.ast, literal, syntax.Comp_Lit).elems) {
+		value := element
+		if file.ast.nodes[element].kind == .Field_Value {
+			value = syntax.node_payload(file.ast, element, syntax.Field_Value).value
+		}
+		if !default_element_is_constant(checker, view, file, value) { return false }
+	}
+	return true
+}
+
+@(private = "file")
+default_element_is_constant :: proc(checker: ^Expression_Checker, view: View_Id, file: ^File, node: syntax.Node_Index) -> bool {
+	rows := checker.views[view].nodes
+	first := checker.views[view].first_node
+	if node >= first && int(node - first) < len(rows.constants) && rows.constants[node - first] != 0 { return true }
+	return default_compound_is_constant(checker, view, file, node)
 }
 
 // Official check_proc_type: a generic definition checks each default with the parameters bound
@@ -790,7 +815,7 @@ expression_generic_default_validation :: proc(
 			}
 		}
 		argument := expression_default_argument(checker, view, placeholder_scope, field.default_value, hint) or_return
-		if argument.value == nil && !argument.caller_location && !argument.caller_expression { valid = false }
+		if argument.kind == .Invalid { valid = false }
 	}
 	return valid, nil
 }

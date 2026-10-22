@@ -302,11 +302,8 @@ type_declaration :: proc(checker: ^Type_Checker, id: Entity_Id) -> (handled, val
 		type := publish_nominal(checker, id, .Procedure, name) or_return
 		base := procedure_type(checker, file_id, file, scope, definition) or_return
 		descriptor := types.get(checker.store, base)^
-		descriptor.name = name
-		types.complete_nominal(checker.store, type, descriptor)
-		types.get(checker.store, type).is_nominal = false
-		types.get(checker.store, type).is_complete = types.get(checker.store, base).is_complete
-		types.get(checker.store, type).name = ""
+		descriptor.name = ""
+		types.complete_alias(checker.store, type, descriptor)
 		return true, base != types.TYPE_POISON, nil
 	}
 	type := type_expression(checker, file_id, scope, definition, true) or_return

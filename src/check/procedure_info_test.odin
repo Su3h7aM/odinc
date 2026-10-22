@@ -21,7 +21,7 @@ procedure_info_origin_and_checker_ownership :: proc(t: ^testing.T) {
 		scope     = 3,
 		view      = 4,
 	}
-	defaults := []Default_Argument{{value = Operand(Const_Id(7))}}
+	defaults := []Default_Argument{{kind = .Constant, value = Operand(Const_Id(7))}}
 	flags := []Entity_Flags{{.Any_Integer}}
 	id, err := expression_procedure_info_intern(&first, origin, {defaults, flags})
 	if !testing.expect(t, err == nil && id != 0) { return }
@@ -31,7 +31,7 @@ procedure_info_origin_and_checker_ownership :: proc(t: ^testing.T) {
 	testing.expect(t, again_error == nil && again == id)
 	info, lookup_error := expression_procedure_info(&first, id)
 	if !testing.expect(t, lookup_error == .None && info != nil) { return }
-	testing.expect(t, info.defaults[0].value == Operand(Const_Id(7)) && .Any_Integer in info.parameter_flags[0])
+	testing.expect(t, info.defaults[0].kind == .Constant && info.defaults[0].value == Operand(Const_Id(7)) && .Any_Integer in info.parameter_flags[0])
 	for changed in ([]Procedure_Info_Origin{{signature = {1, 2}, scope = 5, view = 4}, {signature = {1, 2}, scope = 3, view = 6}, {signature = {1, 8}, scope = 3, view = 4}}) {
 		other, other_error := expression_procedure_info_intern(&first, changed, {})
 		testing.expect(t, other_error == nil && other != id)
@@ -59,7 +59,7 @@ target :: proc(value: int) -> int { return value }
 main :: proc() { callback := target; callback() }
 `,
 			.Unsupported,
-			"Call_Default_Value",
+			"Call_Missing_Argument",
 		},
 		{
 			`package sample
