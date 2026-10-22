@@ -70,6 +70,10 @@ Build_Error :: union {
 @(private = "file")
 STARTUP_SLOT_COUNT :: 3
 
+// The Linux thread control block: the self pointer at 0 and the stack guard at 0x28, as base/runtime/tls_linux_no_crt_amd64.asm lays it out.
+@(private = "file")
+TCB_SIZE :: 48
+
 @(private = "file")
 STARTUP_SLOT_NAMES := [STARTUP_SLOT_COUNT]string{"runtime.argc", "runtime.argv", "runtime.envp"}
 
@@ -369,8 +373,8 @@ build_image :: proc(
 	atoms[startup_atom + 1] = link.Atom {
 		section = .Tcb,
 		align   = 8,
-		bytes   = make([]byte, 8, scratch_allocator) or_return,
-		size    = 8,
+		bytes   = make([]byte, TCB_SIZE, scratch_allocator) or_return,
+		size    = TCB_SIZE,
 		relocs  = thread_pointer_relocs,
 	}
 
@@ -454,6 +458,9 @@ emit_thread_stub :: proc(name: string, allocator: runtime.Allocator) -> (atom: l
 		return atom, err == nil, err
 	case "_odin_linux_tls_layout":
 		atom, err = amd64.emit_linux_tls_layout(allocator)
+		return atom, err == nil, err
+	case "_odin_linux_rt_sigreturn":
+		atom, err = amd64.emit_linux_rt_sigreturn(allocator)
 		return atom, err == nil, err
 	}
 	return {}, false, nil

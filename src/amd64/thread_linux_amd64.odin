@@ -100,6 +100,17 @@ encode_branch_atom :: proc(
 	return atom, nil
 }
 
+// Emits `_odin_linux_rt_sigreturn`: the signal restorer of core/sys/linux/sigreturn_amd64.asm. Runs with the signal
+// frame at the top of the stack, so it touches nothing but rax before the syscall (15, rt_sigreturn).
+emit_linux_rt_sigreturn :: proc(allocator: runtime.Allocator) -> (atom: link.Atom, err: Emit_Error) {
+	instructions := make([dynamic]x86.Instruction, 0, 3, allocator) or_return
+	defer delete(instructions)
+	append(&instructions, x86.inst_mov_r32_imm32(.EAX, 15)) or_return
+	append(&instructions, x86.inst_syscall_none()) or_return
+	append(&instructions, x86.inst_ud2_none()) or_return
+	return encode_branch_atom(instructions[:], nil, nil, allocator)
+}
+
 // Emits `_odin_linux_clone`: create a child running fn(arg) on the supplied
 // stack. The child cannot use the parent's return frame, so the raw clone
 // syscall (56) runs with the callback and argument pushed on the child stack;

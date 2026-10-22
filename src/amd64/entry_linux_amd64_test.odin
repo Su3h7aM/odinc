@@ -30,8 +30,10 @@ linux_entry_encodes_relocations_and_preserves_call_stack_alignment :: proc(t: ^t
 			call_count += 1
 		case .SYSCALL:
 			syscall_count += 1
-		case .PUSH, .POP, .ADD, .SUB:
+		case .PUSH, .POP:
 			stack_change_count += 1
+		case .ADD, .SUB:
+			if instruction.ops[0].kind == .REGISTER && instruction.ops[0].reg == x86.RSP { stack_change_count += 1 }
 		}
 	}
 	testing.expect_value(t, call_count, 3)

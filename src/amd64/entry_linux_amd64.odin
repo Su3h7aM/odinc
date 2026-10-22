@@ -60,14 +60,17 @@ emit_linux_entry :: proc(symbols: Linux_Entry_Symbols, allocator: runtime.Alloca
 	append(&instructions, x86.inst_mov_r64_m64(.RCX, x86.mem64(x86.mem_base_only(x86.RSP)))) or_return
 	append(&instructions, x86.inst_lea_r64_m(.RAX, x86.mem_base_index_disp(x86.RSP, x86.RCX, 8, 16))) or_return
 	append(&instructions, x86.inst_mov_m64_r64(x86.mem64(x86.mem_rip_label(2)), .RAX)) or_return
-	if header, ok := symbols.tls_header.?; ok {
-		labels[10].symbol = header
-		emit_tls_header_scan(&instructions, &branches, &targets) or_return
-	}
+	skip_thread_pointer := reserve_branch(&targets) or_return
+	header, has_header := symbols.tls_header.?
+	if has_header { labels[10].symbol = header }
+	emit_auxv_scan(&instructions, &branches, &targets, has_header) or_return
+	append(&instructions, x86.inst_test_r64_r64(.R11, .R11)) or_return
+	emit_branch(&instructions, &branches, .JNZ, skip_thread_pointer) or_return
 	append(&instructions, x86.inst_lea_r64_m(.RSI, x86.mem_rip_label(5))) or_return
 	append(&instructions, x86.inst_mov_r32_imm32(.EDI, 0x1002)) or_return
 	append(&instructions, x86.inst_mov_r32_imm32(.EAX, 158)) or_return
 	append(&instructions, x86.inst_syscall_none()) or_return
+	bind_branch(&targets, skip_thread_pointer, instructions[:])
 	if init, ok := symbols.init.?; ok {
 		labels[6].symbol = init
 		append(&instructions, x86.inst_rel(.CALL, 6, 4)) or_return
@@ -129,17 +132,22 @@ emit_linux_entry :: proc(symbols: Linux_Entry_Symbols, allocator: runtime.Alloca
 	return atom, nil
 }
 
-// Records the PT_TLS program header address in the header global (label 10).
-// Walks the auxiliary vector past envp for AT_PHDR (3), AT_PHENT (4) and
-// AT_PHNUM (5), then scans the table for the first PT_TLS entry (7). Any
-// missing or inconsistent table leaves the BSS zero, which the runtime reads
-// as "no static TLS". Only rax, rcx, rdx and r8-r10 are touched; rsp is kept.
+// Walks the auxiliary vector past envp, leaving AT_BASE (7) in r11: non-zero only when an interpreter loaded the image.
+// With a header global, also records the PT_TLS program header address there (label 10), from AT_PHDR (3), AT_PHENT (4)
+// and AT_PHNUM (5). Missing or inconsistent tables leave the global zero, the runtime's "no static TLS".
+// Touches rax, rcx, rdx, r8-r11; rsp is kept.
 @(private = "file")
-emit_tls_header_scan :: proc(instructions: ^[dynamic]x86.Instruction, branches: ^[dynamic]Pending_Branch, targets: ^[dynamic]int) -> Emit_Error {
+emit_auxv_scan :: proc(
+	instructions: ^[dynamic]x86.Instruction,
+	branches: ^[dynamic]Pending_Branch,
+	targets: ^[dynamic]int,
+	records_tls_header: bool,
+) -> Emit_Error {
 	scan_env := reserve_branch(targets) or_return
 	next_auxv_entry := reserve_branch(targets) or_return
 	past_phdr := reserve_branch(targets) or_return
 	past_phent := reserve_branch(targets) or_return
+	past_base := reserve_branch(targets) or_return
 	auxv_entry := reserve_branch(targets) or_return
 	headers_done := reserve_branch(targets) or_return
 	next_header := reserve_branch(targets) or_return
@@ -147,6 +155,7 @@ emit_tls_header_scan :: proc(instructions: ^[dynamic]x86.Instruction, branches: 
 	store_header := reserve_branch(targets) or_return
 	scan_done := reserve_branch(targets) or_return
 
+	append(instructions, x86.inst_xor_r32_r32(.R11D, .R11D)) or_return
 	bind_branch(targets, scan_env, instructions[:])
 	append(instructions, x86.inst_cmp_m64_imm32(x86.mem64(x86.mem_base_only(x86.RAX)), 0)) or_return
 	append(instructions, x86.inst_lea_r64_m(.RAX, x86.mem_base_disp(x86.RAX, 8))) or_return
@@ -167,6 +176,10 @@ emit_tls_header_scan :: proc(instructions: ^[dynamic]x86.Instruction, branches: 
 	emit_branch(instructions, branches, .JNE, past_phent) or_return
 	append(instructions, x86.inst_mov_r64_m64(.R9, x86.mem64(x86.mem_base_disp(x86.RAX, 8)))) or_return
 	bind_branch(targets, past_phent, instructions[:])
+	append(instructions, x86.inst_cmp_r64_imm32(.RDX, 7)) or_return
+	emit_branch(instructions, branches, .JNE, past_base) or_return
+	append(instructions, x86.inst_mov_r64_m64(.R11, x86.mem64(x86.mem_base_disp(x86.RAX, 8)))) or_return
+	bind_branch(targets, past_base, instructions[:])
 	append(instructions, x86.inst_cmp_r64_imm32(.RDX, 5)) or_return
 	emit_branch(instructions, branches, .JNE, next_auxv_entry) or_return
 	append(instructions, x86.inst_mov_r64_m64(.R10, x86.mem64(x86.mem_base_disp(x86.RAX, 8)))) or_return
@@ -193,7 +206,9 @@ emit_tls_header_scan :: proc(instructions: ^[dynamic]x86.Instruction, branches: 
 	append(instructions, x86.inst_dec_r64(.R10)) or_return
 	emit_branch(instructions, branches, .JMP, next_header) or_return
 	bind_branch(targets, store_header, instructions[:])
-	append(instructions, x86.inst_mov_m64_r64(x86.mem64(x86.mem_rip_label(10)), .RCX)) or_return
+	if records_tls_header {
+		append(instructions, x86.inst_mov_m64_r64(x86.mem64(x86.mem_rip_label(10)), .RCX)) or_return
+	}
 	bind_branch(targets, scan_done, instructions[:])
 	return nil
 }
