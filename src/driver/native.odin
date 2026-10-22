@@ -3,8 +3,10 @@ package driver
 import "base:runtime"
 import "core:fmt"
 import "core:io"
+import "core:mem"
 import "core:mem/virtual"
 import "core:strings"
+import "core:thread"
 import "oc:amd64"
 import "oc:check"
 import "oc:ir"
@@ -74,6 +76,7 @@ build_file :: proc(
 	odin_root, main_path: string,
 	log: io.Writer,
 	allocator: runtime.Allocator,
+	thread_count: int,
 	user_collections: []Collection = nil,
 	defines: map[string]string = nil,
 ) -> (
@@ -81,7 +84,7 @@ build_file :: proc(
 	err: Build_Error,
 ) {
 	session, driver_err := check_program(odin_root, main_path, allocator, user_collections, defines)
-	defer session_destroy(session)
+	defer if session != nil { session_destroy(session) }
 	if driver_err == .Check_Failed || driver_err == .Unsupported_Import || driver_err == .Parse_Failed || driver_err == .Import_Cycle {
 		write_diagnostics(session, log)
 		fmt.wprintfln(log, "check stage failed: %v", driver_err)
@@ -95,7 +98,7 @@ build_file :: proc(
 	}
 
 	module: ir.Module
-	lower_errors, lower_err := lower.lower_program(&session.program, &module, allocator)
+	lower_errors, lower_err := lower.lower_program(&session.program, &module, allocator, worker_count = thread_count)
 	defer delete(lower_errors, allocator)
 	if lower_err != nil {
 		write_build_error(log, lower_err)
@@ -106,7 +109,11 @@ build_file :: proc(
 		write_lower_errors(session, log, lower_errors)
 		return nil, Lower_Failed{len(lower_errors)}
 	}
-	return build_image(&module, main_symbol_name(session), log, allocator)
+	entry_name, entry_error := strings.clone(main_symbol_name(session), virtual.arena_allocator(&module.arena))
+	if entry_error != nil { return nil, entry_error }
+	session_destroy(session)
+	session = nil
+	return build_image(&module, entry_name, log, allocator, thread_count)
 }
 
 // The symbol of the main package's `main` procedure; empty when the program has none.
@@ -141,7 +148,16 @@ write_build_error :: proc(log: io.Writer, err: Build_Error) {
 
 // Symbols are laid out as: `_start`, functions, globals, local blobs of every function, startup slots, externs.
 // Atoms follow the same order, so the index of every defined symbol is also its atom index.
-build_image :: proc(module: ^ir.Module, entry_name: string, log: io.Writer, allocator: runtime.Allocator) -> (image: []byte, err: Build_Error) {
+build_image :: proc(
+	module: ^ir.Module,
+	entry_name: string,
+	log: io.Writer,
+	allocator: runtime.Allocator,
+	thread_count: int,
+) -> (
+	image: []byte,
+	err: Build_Error,
+) {
 	main_index := -1
 	for function, index in module.functions {
 		if function.name == entry_name { main_index = index }
@@ -222,15 +238,17 @@ build_image :: proc(module: ^ir.Module, entry_name: string, log: io.Writer, allo
 		atom = 0,
 	}
 	for function, index in module.functions {
+		// The name is cloned: the function's arena is destroyed once its atom is emitted.
+		name := strings.clone(function.name, scratch_allocator) or_return
 		symbols[1 + index] = link.Symbol {
-			name    = function.name,
+			name    = name,
 			atom    = u32(1 + index),
 			binding = symbol_binding(function.linkage),
 		}
 		if function.linkage == .Link_Once {
 			group_atoms := make([]u32, 1, scratch_allocator) or_return
 			group_atoms[0] = u32(1 + index)
-			append(&comdats, link.Comdat{signature = function.name, atoms = group_atoms}) or_return
+			append(&comdats, link.Comdat{signature = name, atoms = group_atoms}) or_return
 		}
 	}
 	for global, index in module.globals {
@@ -279,10 +297,13 @@ build_image :: proc(module: ^ir.Module, entry_name: string, log: io.Writer, allo
 					addend = reloc.addend,
 				}
 			}
+			// The bytes are copied: the function's arena is destroyed once its atom is emitted.
+			bytes := make([]byte, len(blob.bytes), scratch_allocator) or_return
+			copy(bytes, blob.bytes)
 			atoms[blob_base + blob_index] = link.Atom {
 				section = .Rodata,
 				align   = blob.align,
-				bytes   = blob.bytes,
+				bytes   = bytes,
 				size    = u64(len(blob.bytes)),
 				relocs  = relocs,
 			}
@@ -338,8 +359,13 @@ build_image :: proc(module: ^ir.Module, entry_name: string, log: io.Writer, allo
 		relocs  = thread_pointer_relocs,
 	}
 
-	for function, index in module.functions {
-		atoms[1 + index] = native_function(function, function_indices[index], allocator) or_return
+	// The guarded allocator's mutex lives in this scope: it outlives the link and the atom cleanup below.
+	locked: mem.Mutex_Allocator
+	mem.mutex_allocator_init(&locked, allocator)
+	guarded := mem.mutex_allocator(&locked)
+	if emit_err := emit_function_atoms(module.functions[:], function_indices, atoms[1:1 + function_count], guarded, thread_count, scratch_allocator);
+	   emit_err != nil {
+		return nil, emit_err
 	}
 	init_symbol: Maybe(u32)
 	if init_index >= 0 { init_symbol = function_symbols[init_index] }
@@ -442,6 +468,100 @@ native_function :: proc(function: ^ir.Function, indices: amd64.Symbol_Indices, a
 	emitted, emit_err := amd64.emit_function(&machine, &result, indices, allocator)
 	if emit_err != nil { return {}, Emit_Failed{function.name, emit_err} }
 	return emitted, nil
+}
+
+@(private = "file")
+Emit_Slot :: struct {
+	atom: link.Atom,
+	err:  Build_Error,
+}
+
+@(private = "file")
+Emit_Task :: struct {
+	function:  ^ir.Function,
+	indices:   amd64.Symbol_Indices,
+	allocator: runtime.Allocator,
+	slot:      ^Emit_Slot,
+}
+
+@(private = "file")
+run_emit_task :: proc(job: ^Emit_Task) {
+	if native_scratch.curr_block == nil {
+		if init_err := virtual.arena_init_growing(&native_scratch); init_err != nil {
+			job.slot.err = init_err
+			return
+		}
+	}
+	previous := context.allocator
+	context.allocator = virtual.arena_allocator(&native_scratch)
+	atom, err := native_function(job.function, job.indices, job.allocator)
+	context.allocator = previous
+	if err == nil {
+		virtual.arena_destroy(&job.function.arena)
+	}
+	job.slot.atom = atom
+	job.slot.err = err
+}
+
+@(private = "file")
+emit_task_run :: proc(task: thread.Task) {
+	run_emit_task(cast(^Emit_Task)task.data)
+}
+
+@(private = "file")
+emit_thread_fini :: proc(worker: ^thread.Thread, data: rawptr) {
+	if native_scratch.curr_block != nil {
+		virtual.arena_destroy(&native_scratch)
+	}
+}
+
+@(private = "file")
+emit_function_atoms :: proc(
+	functions: []^ir.Function,
+	indices: []amd64.Symbol_Indices,
+	atoms: []link.Atom,
+	allocator: runtime.Allocator,
+	thread_count: int,
+	scratch: runtime.Allocator,
+) -> Build_Error {
+	assert(len(functions) == len(indices) && len(functions) == len(atoms))
+	slots, slots_err := make([]Emit_Slot, len(functions), scratch)
+	if slots_err != nil { return slots_err }
+	jobs, jobs_err := make([]Emit_Task, len(functions), scratch)
+	if jobs_err != nil { return jobs_err }
+	for function, index in functions {
+		jobs[index] = Emit_Task {
+			function  = function,
+			indices   = indices[index],
+			allocator = allocator,
+			slot      = &slots[index],
+		}
+	}
+	if thread_count <= 1 {
+		for &job in jobs { run_emit_task(&job) }
+	} else {
+		pool: thread.Pool
+		thread.pool_init(&pool, scratch, min(thread_count, len(functions)), nil, nil, emit_thread_fini, nil)
+		for _, index in jobs {
+			thread.pool_add_task(&pool, allocator, emit_task_run, &jobs[index])
+		}
+		thread.pool_start(&pool)
+		thread.pool_finish(&pool)
+		thread.pool_destroy(&pool)
+	}
+	if native_scratch.curr_block != nil {
+		virtual.arena_destroy(&native_scratch)
+	}
+	for slot, index in slots {
+		if slot.err != nil {
+			for &cleanup in slots {
+				if cleanup.err == nil { amd64.atom_destroy(&cleanup.atom, allocator) }
+			}
+			return slot.err
+		}
+		atoms[index] = slot.atom
+	}
+	return nil
 }
 
 // The inverse of amd64's `select_signature`: the IR signature holds every field the selector reads.

@@ -451,100 +451,125 @@ apply_relocations :: proc(
 			if atom.discarded {
 				continue
 			}
-			for reloc in atom.relocs {
-				field_size: int
-				#partial switch reloc.kind {
-				case .R_X86_64_64:
-					field_size = 8
-				case .R_X86_64_TPOFF64:
-					field_size = 8
-				case .R_X86_64_PC32, .R_X86_64_PLT32, .R_X86_64_32, .R_X86_64_32S, .R_X86_64_TPOFF32:
-					field_size = 4
-				case .R_X86_64_GOTPCREL, .R_X86_64_GOTPCRELX, .R_X86_64_REX_GOTPCRELX:
-					field_size = 4
-				case:
+			apply_atom_relocations(
+				input,
+				input_index,
+				atom_index,
+				atom,
+				symbols[input_index],
+				atom_addresses[input_index][atom_index],
+				load_bytes,
+				layout,
+				fixups,
+			) or_return
+		}
+	}
+	return nil
+}
+
+apply_atom_relocations :: proc(
+	input: Input,
+	input_index: int,
+	atom_index: int,
+	atom: Atom,
+	symbols: []Resolved_Symbol,
+	atom_address: u64,
+	load_bytes: []byte,
+	layout: Layout,
+	fixups: ^Fixups,
+) -> Link_Error {
+	for reloc in atom.relocs {
+		field_size: int
+		#partial switch reloc.kind {
+		case .R_X86_64_64:
+			field_size = 8
+		case .R_X86_64_TPOFF64:
+			field_size = 8
+		case .R_X86_64_PC32, .R_X86_64_PLT32, .R_X86_64_32, .R_X86_64_32S, .R_X86_64_TPOFF32:
+			field_size = 4
+		case .R_X86_64_GOTPCREL, .R_X86_64_GOTPCRELX, .R_X86_64_REX_GOTPCRELX:
+			field_size = 4
+		case:
+			return Unsupported_Relocation{kind = reloc.kind}
+		}
+		if u64(reloc.offset) + u64(field_size) > u64(len(atom.bytes)) {
+			return Relocation_Out_Of_Atom{input = u32(input_index), symbol = reloc.symbol, atom = u32(atom_index), offset = reloc.offset}
+		}
+		target_symbol := symbols[reloc.symbol]
+		if !target_symbol.defined {
+			return Undefined_Symbol{name = input.symbols[reloc.symbol].name}
+		}
+
+		target := i64(target_symbol.address) + reloc.addend
+		place := i64(atom_address) + i64(reloc.offset)
+		value := target
+		if target_symbol.is_dynamic {
+			name := input.symbols[reloc.symbol].name
+			#partial switch reloc.kind {
+			case .R_X86_64_PC32, .R_X86_64_PLT32:
+				address, found := plt_address(fixups^, name)
+				if !found {
+					return Undefined_Symbol{name = name}
+				}
+				value = i64(address) + reloc.addend - place
+			case .R_X86_64_GOTPCREL, .R_X86_64_GOTPCRELX, .R_X86_64_REX_GOTPCRELX:
+				address, found := dyn_got_address(fixups^, name)
+				if !found {
+					return Undefined_Symbol{name = name}
+				}
+				value = i64(address) + reloc.addend - place
+			case .R_X86_64_64:
+				value = reloc.addend
+			case:
+				return Unsupported_Relocation{kind = reloc.kind}
+			}
+		} else {
+			#partial switch reloc.kind {
+			case .R_X86_64_PC32, .R_X86_64_PLT32:
+				value = target - place
+			case .R_X86_64_GOTPCREL:
+				key := Got_Key {
+					input  = u32(input_index),
+					symbol = reloc.symbol,
+				}
+				index, found := fixups.local_got[key]
+				if !found {
 					return Unsupported_Relocation{kind = reloc.kind}
 				}
-				if u64(reloc.offset) + u64(field_size) > u64(len(atom.bytes)) {
-					return Relocation_Out_Of_Atom{input = u32(input_index), symbol = reloc.symbol, atom = u32(atom_index), offset = reloc.offset}
-				}
-				target_symbol := symbols[input_index][reloc.symbol]
-				if !target_symbol.defined {
-					return Undefined_Symbol{name = input.symbols[reloc.symbol].name}
-				}
-
-				target := i64(target_symbol.address) + reloc.addend
-				place := i64(atom_addresses[input_index][atom_index]) + i64(reloc.offset)
-				value := target
-				if target_symbol.is_dynamic {
-					name := input.symbols[reloc.symbol].name
-					#partial switch reloc.kind {
-					case .R_X86_64_PC32, .R_X86_64_PLT32:
-						address, found := plt_address(fixups^, name)
-						if !found {
-							return Undefined_Symbol{name = name}
-						}
-						value = i64(address) + reloc.addend - place
-					case .R_X86_64_GOTPCREL, .R_X86_64_GOTPCRELX, .R_X86_64_REX_GOTPCRELX:
-						address, found := dyn_got_address(fixups^, name)
-						if !found {
-							return Undefined_Symbol{name = name}
-						}
-						value = i64(address) + reloc.addend - place
-					case .R_X86_64_64:
-						value = reloc.addend
-					case:
+				value = i64(fixups.local_base) + i64(index) * 8 + reloc.addend - place
+			case .R_X86_64_GOTPCRELX, .R_X86_64_REX_GOTPCRELX:
+				field_index := int(place - i64(layout.text_start))
+				if apply_relax(load_bytes, field_index, reloc.kind) {
+					value = target - place
+				} else {
+					key := Got_Key {
+						input  = u32(input_index),
+						symbol = reloc.symbol,
+					}
+					index, found := fixups.local_got[key]
+					if !found {
 						return Unsupported_Relocation{kind = reloc.kind}
 					}
-				} else {
-					#partial switch reloc.kind {
-					case .R_X86_64_PC32, .R_X86_64_PLT32:
-						value = target - place
-					case .R_X86_64_GOTPCREL:
-						key := Got_Key {
-							input  = u32(input_index),
-							symbol = reloc.symbol,
-						}
-						index, found := fixups.local_got[key]
-						if !found {
-							return Unsupported_Relocation{kind = reloc.kind}
-						}
-						value = i64(fixups.local_base) + i64(index) * 8 + reloc.addend - place
-					case .R_X86_64_GOTPCRELX, .R_X86_64_REX_GOTPCRELX:
-						field_index := int(place - i64(layout.text_start))
-						if apply_relax(load_bytes, field_index, reloc.kind) {
-							value = target - place
-						} else {
-							key := Got_Key {
-								input  = u32(input_index),
-								symbol = reloc.symbol,
-							}
-							index, found := fixups.local_got[key]
-							if !found {
-								return Unsupported_Relocation{kind = reloc.kind}
-							}
-							value = i64(fixups.local_base) + i64(index) * 8 + reloc.addend - place
-						}
-					case .R_X86_64_TPOFF32:
-						if target_symbol.section != .Tdata && target_symbol.section != .Tbss {
-							return Relocation_Not_Thread_Local{input = u32(input_index), symbol = reloc.symbol, atom = u32(atom_index), offset = reloc.offset}
-						}
-						value = target - i64(layout.thread_pointer)
-					case .R_X86_64_TPOFF64:
-						if target_symbol.section != .Tdata && target_symbol.section != .Tbss {
-							return Relocation_Not_Thread_Local{input = u32(input_index), symbol = reloc.symbol, atom = u32(atom_index), offset = reloc.offset}
-						}
-						value = target - i64(layout.thread_pointer)
-					}
+					value = i64(fixups.local_base) + i64(index) * 8 + reloc.addend - place
 				}
-				if !fits_field(reloc.kind, value) {
-					return Relocation_Overflow{input = u32(input_index), symbol = reloc.symbol, atom = u32(atom_index), offset = reloc.offset, value = value}
+			case .R_X86_64_TPOFF32:
+				if target_symbol.section != .Tdata && target_symbol.section != .Tbss {
+					return Relocation_Not_Thread_Local{input = u32(input_index), symbol = reloc.symbol, atom = u32(atom_index), offset = reloc.offset}
 				}
-
-				field_start := place - i64(layout.text_start)
-				store_little_endian(load_bytes[field_start:field_start + i64(field_size)], u64(value))
+				value = target - i64(layout.thread_pointer)
+			case .R_X86_64_TPOFF64:
+				if target_symbol.section != .Tdata && target_symbol.section != .Tbss {
+					return Relocation_Not_Thread_Local{input = u32(input_index), symbol = reloc.symbol, atom = u32(atom_index), offset = reloc.offset}
+				}
+				value = target - i64(layout.thread_pointer)
 			}
 		}
+		if !fits_field(reloc.kind, value) {
+			return Relocation_Overflow{input = u32(input_index), symbol = reloc.symbol, atom = u32(atom_index), offset = reloc.offset, value = value}
+		}
+
+		field_start := place - i64(layout.text_start)
+		store_little_endian(load_bytes[field_start:field_start + i64(field_size)], u64(value))
 	}
 	return nil
 }

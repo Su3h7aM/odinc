@@ -15,7 +15,7 @@ thread_start_runs_three_threads_to_completion :: proc(t: ^testing.T) {
 	main_path, _ := filepath.join({#directory, "testdata", "thread_start", "main.odin"}, context.temp_allocator)
 	build_log: strings.Builder
 	defer strings.builder_destroy(&build_log)
-	image, err := build_file(odin_root, main_path, strings.to_writer(&build_log), context.allocator)
+	image, err := build_file(odin_root, main_path, strings.to_writer(&build_log), context.allocator, 1)
 	if !testing.expectf(t, err == nil, "thread fixture must build: %v", strings.to_string(build_log)) { return }
 	defer delete(image)
 	directory, directory_err := os.make_directory_temp("", "driver-thread-*", context.temp_allocator)

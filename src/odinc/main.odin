@@ -2,6 +2,7 @@ package main
 
 import "core:fmt"
 import "core:os"
+import "core:strconv"
 import "core:strings"
 import "oc:driver"
 
@@ -12,6 +13,7 @@ main :: proc() {
 		os.exit(test_command(os.args[2:]))
 	}
 	file, out: string
+	thread_count := max(os.get_processor_core_count(), 1)
 	collections: [dynamic]driver.Collection
 	defer delete(collections)
 	defines := make(map[string]string)
@@ -35,6 +37,13 @@ main :: proc() {
 				fmt.eprintln(driver.define_argument_error_message(arg))
 				os.exit(1)
 			}
+		} else if strings.has_prefix(arg, "-thread-count:") {
+			count, parsed := strconv.parse_int(arg[len("-thread-count:"):])
+			if !parsed || count < 1 {
+				fmt.eprintln("expected -thread-count:<positive integer>")
+				os.exit(2)
+			}
+			thread_count = count
 		} else {
 			file = arg
 		}
@@ -60,7 +69,7 @@ main :: proc() {
 		os.exit(2)
 	}
 
-	image, err := driver.build_file(odin_root, file, os.to_writer(os.stderr), context.allocator, collections[:], defines)
+	image, err := driver.build_file(odin_root, file, os.to_writer(os.stderr), context.allocator, thread_count, collections[:], defines)
 	if err != nil {
 		fmt.eprintln("build failed")
 		os.exit(1)

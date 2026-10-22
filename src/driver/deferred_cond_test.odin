@@ -11,7 +11,7 @@ deferred_calls_in_control_scopes :: proc(t: ^testing.T) {
 	main_path, _ := filepath.join({#directory, "testdata", "deferred_cond", "main.odin"}, context.temp_allocator)
 	build_log: strings.Builder
 	defer strings.builder_destroy(&build_log)
-	image, err := build_file(odin_root, main_path, strings.to_writer(&build_log), context.allocator)
+	image, err := build_file(odin_root, main_path, strings.to_writer(&build_log), context.allocator, 1)
 	if !testing.expectf(t, err == nil, "deferred condition fixture must build: %v", strings.to_string(build_log)) { return }
 	defer delete(image)
 

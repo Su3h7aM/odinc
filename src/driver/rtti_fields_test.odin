@@ -11,7 +11,7 @@ rtti_fields_and_soa_formatting :: proc(t: ^testing.T) {
 	main_path, _ := filepath.join({#directory, "testdata", "rtti_fields", "main.odin"}, context.temp_allocator)
 	build_log: strings.Builder
 	defer strings.builder_destroy(&build_log)
-	image, err := build_file(odin_root, main_path, strings.to_writer(&build_log), context.allocator)
+	image, err := build_file(odin_root, main_path, strings.to_writer(&build_log), context.allocator, 1)
 	if !testing.expectf(t, err == nil, "%v\n%s", err, strings.to_string(build_log)) { return }
 	defer delete(image)
 	directory := native_section_test_directory(t)

@@ -4,6 +4,7 @@ import "core:fmt"
 import "core:io"
 import "oc:check"
 import "oc:lower"
+import "oc:syntax"
 
 // Writes one line per checker diagnostic as `path:line:column: kind`, followed by the reason when one is recorded.
 write_diagnostics :: proc(session: ^Session, writer: io.Writer) {
@@ -25,13 +26,13 @@ write_diagnostics :: proc(session: ^Session, writer: io.Writer) {
 	}
 	if span, found := session.cyclic_import.?; found {
 		file := session.files[span.file]
-		line, column := line_column(file.source, span.start)
+		line, column := syntax.line_col(file.lines, span.start)
 		fmt.wprintfln(writer, "%s:%d:%d: import cycle", file.display_path, line, column)
 	}
 	for item in session.unsupported_imports {
 		file := session.files[item.source.file]
 		if session.packages[file.package_id].kind == .Runtime { continue }
-		line, column := line_column(file.source, item.source.start)
+		line, column := syntax.line_col(file.lines, item.source.start)
 		fmt.wprintfln(writer, "%s:%d:%d: unsupported import %q", file.display_path, line, column, item.path)
 	}
 	for diagnostic in session.collection.diagnostics {
@@ -69,7 +70,7 @@ write_lower_errors :: proc(session: ^Session, writer: io.Writer, errors: []lower
 			continue
 		}
 		file := session.files[source.file]
-		line, column := line_column(file.source, source.start)
+		line, column := syntax.line_col(file.lines, source.start)
 		if error.code == .Verification && error.verify_code != .None {
 			fmt.wprintfln(writer, "%s:%d:%d: lower %v %v %v", file.display_path, line, column, error.code, error.feature, error.verify_code)
 			continue
@@ -81,22 +82,10 @@ write_lower_errors :: proc(session: ^Session, writer: io.Writer, errors: []lower
 @(private = "file")
 write_diagnostic :: proc(session: ^Session, writer: io.Writer, kind: any, reason: string, source: check.Source_Span) {
 	file := session.files[source.file]
-	line, column := line_column(file.source, source.start)
+	line, column := syntax.line_col(file.lines, source.start)
 	if reason == "" {
 		fmt.wprintfln(writer, "%s:%d:%d: %v", file.display_path, line, column, kind)
 		return
 	}
 	fmt.wprintfln(writer, "%s:%d:%d: %v %s", file.display_path, line, column, kind, reason)
-}
-
-line_column :: proc(source: []byte, offset: u32) -> (line, column: int) {
-	line = 1
-	line_start := 0
-	for index in 0 ..< min(int(offset), len(source)) {
-		if source[index] == '\n' {
-			line += 1
-			line_start = index + 1
-		}
-	}
-	return line, int(offset) - line_start + 1
 }

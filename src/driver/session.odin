@@ -207,7 +207,7 @@ histogram_location :: proc(session: ^Session, source: check.Source_Span) -> stri
 	if int(source.file) >= len(session.files) { return "" }
 	file := session.files[source.file]
 	if file == nil { return "" }
-	line, column := line_column(file.source, source.start)
+	line, column := syntax.line_col(file.lines, source.start)
 	return fmt.tprintf("%s:%d:%d", file.display_path, line, column)
 }
 
@@ -227,7 +227,10 @@ session_destroy :: proc(session: ^Session) {
 		free(ast, allocator)
 	}
 	for file in session.files {
-		if file != nil { free(file, allocator) }
+		if file != nil {
+			syntax.destroy_line_table(&file.lines)
+			free(file, allocator)
+		}
 	}
 	for source in session.sources { delete(source, allocator) }
 	for text in session.owned_strings { delete(text, allocator) }
@@ -292,7 +295,7 @@ histogram_source :: proc(
 	reason: string = "",
 ) -> Driver_Error {
 	file := session.files[source.file]
-	line, column := line_column(file.source, source.start)
+	line, column := syntax.line_col(file.lines, source.start)
 	name := fmt.tprintf("%v", kind)
 	key := fmt.tprintf("%s %s", stage, name)
 	switch name {
@@ -532,14 +535,14 @@ diagnostic_rollback :: proc(session: ^Session, mark: Diagnostic_Mark) {
 Unresolved_When :: struct {
 	set:          bool,
 	display_path: string,
-	line, column: int,
+	line, column: u32,
 	reason:       check.Resolve_Error,
 }
 
 @(private = "file")
 record_unresolved_when :: proc(session: ^Session, pending: check.Pending_Declaration, reason: check.Resolve_Error) {
 	file := session.files[pending.declaration.file]
-	line, column := line_column(file.source, file.ast.nodes[pending.declaration.node].start)
+	line, column := syntax.line_col(file.lines, file.ast.nodes[pending.declaration.node].start)
 	session.unresolved_when = Unresolved_When {
 		set          = true,
 		display_path = file.display_path,
@@ -747,33 +750,67 @@ load_source :: proc(
 	check.File_Id,
 	Driver_Error,
 ) {
-	allocator := session.allocator
 	if error := push(&session.sources, source); error != .None { return 0, error }
-	ast, ast_error := new(syntax.Ast, allocator)
-	if ast_error != nil { return 0, .Allocation_Failed }
-	if error := push(&session.asts, ast); error != .None { return 0, error }
-	syntax.ast_init(ast, allocator)
+	ast, has_errors, parse_error := parse_source(source, session.allocator)
+	if ast != nil {
+		if error := push(&session.asts, ast); error != .None { return 0, error }
+	}
+	if parse_error != .None { return 0, parse_error }
+	hardcoded := session.packages[package_id].kind == .Intrinsics
+	if !hardcoded && has_errors { return 0, .Parse_Failed }
+	return add_file(session, path, source, ast, package_id, package_scope)
+}
+
+// Parses source into a new ast that refers to source, so the caller keeps source alive.
+@(private = "file")
+parse_source :: proc(source: []byte, allocator: runtime.Allocator) -> (ast: ^syntax.Ast, has_errors: bool, err: Driver_Error) {
+	allocated, allocation_error := new(syntax.Ast, allocator)
+	if allocation_error != nil { return nil, false, .Allocation_Failed }
+	syntax.ast_init(allocated, allocator)
 	parser: syntax.Parser
-	syntax.parser_init(&parser, ast, source, allocator)
+	syntax.parser_init(&parser, allocated, source, allocator)
 	defer syntax.parser_destroy(&parser)
 	syntax.parse_file(&parser)
-	hardcoded := session.packages[package_id].kind == .Intrinsics
-	if !hardcoded && len(parser.errors) + len(parser.lex_errors) != 0 { return 0, .Parse_Failed }
+	return allocated, len(parser.errors) + len(parser.lex_errors) != 0, .None
+}
+
+@(private = "file")
+add_file :: proc(
+	session: ^Session,
+	path: string,
+	source: []byte,
+	ast: ^syntax.Ast,
+	package_id: check.Package_Id,
+	package_scope: check.Scope_Id,
+) -> (
+	check.File_Id,
+	Driver_Error,
+) {
 	file_scope, scope_error := check.scope_create(&session.scopes, package_scope, .File)
 	if scope_error != nil { return 0, .Allocation_Failed }
 	file_path, path_error := own(session, path)
 	if path_error != .None { return 0, path_error }
-	file, file_error := new(check.File, allocator)
+	file, file_error := new(check.File, session.allocator)
 	if file_error != nil { return 0, .Allocation_Failed }
+	lines, lines_error := syntax.make_line_table(source, session.allocator)
+	if lines_error != nil {
+		free(file, session.allocator)
+		return 0, .Allocation_Failed
+	}
 	file^ = check.File {
 		package_id   = package_id,
 		path         = file_path,
 		display_path = file_path,
 		source       = source,
+		lines        = lines,
 		ast          = ast,
 		scope        = file_scope,
 	}
-	if error := push(&session.files, file); error != .None { return 0, error }
+	if error := push(&session.files, file); error != .None {
+		syntax.destroy_line_table(&file.lines)
+		free(file, session.allocator)
+		return 0, error
+	}
 	return check.File_Id(len(session.files) - 1), .None
 }
 

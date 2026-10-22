@@ -7,12 +7,24 @@ import "core:testing"
 @(test)
 test_command_arguments_and_invalid_signature :: proc(t: ^testing.T) {
 	command, argument_error := parse_test_arguments(
-		[]string{"testdata", "-file", "-all-packages", "-define:COUNT=3", "-collection:custom=somewhere", "-out:tests", "-o:speed", "-vet", "-strict-style"},
+		[]string {
+			"testdata",
+			"-file",
+			"-all-packages",
+			"-define:COUNT=3",
+			"-collection:custom=somewhere",
+			"-out:tests",
+			"-o:speed",
+			"-vet",
+			"-strict-style",
+			"-thread-count:4",
+		},
 	)
 	defer delete(command.options.defines)
 	defer delete(command.collections)
 	testing.expect_value(t, argument_error, "")
 	testing.expect(t, command.options.all_packages && command.options.optimization_mode == .Speed)
+	testing.expect_value(t, command.options.thread_count, 4)
 	testing.expect_value(t, command.options.defines["COUNT"], "3")
 	testing.expect(t, len(command.collections) == 1 && command.collections[0] == Collection{"custom", "somewhere"})
 	testing.expect(t, command.path == "testdata" && command.output == "tests")

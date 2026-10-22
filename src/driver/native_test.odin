@@ -137,7 +137,7 @@ check_native_section :: proc(t: ^testing.T, odin_root, directory: string, sectio
 	main_path, _ := filepath.join({#directory, "testdata", section, "main.odin"}, context.temp_allocator)
 	build_log: strings.Builder
 	defer strings.builder_destroy(&build_log)
-	image, err := build_file(odin_root, main_path, strings.to_writer(&build_log), context.allocator)
+	image, err := build_file(odin_root, main_path, strings.to_writer(&build_log), context.allocator, 1)
 	if !testing.expectf(t, err == nil, "%s: %v\n%s", section, err, strings.to_string(build_log)) { return }
 	defer delete(image)
 	path, _ := filepath.join({directory, section}, context.temp_allocator)
@@ -247,7 +247,7 @@ native_sections_group_8 :: proc(t: ^testing.T) {
 native_startup_initializes_auxv_across_arguments_and_environment :: proc(t: ^testing.T) {
 	odin_root, _ := filepath.join({#directory, "..", ".."}, context.temp_allocator)
 	main_path, _ := filepath.join({#directory, "testdata", "startup_args", "main.odin"}, context.temp_allocator)
-	image, err := build_file(odin_root, main_path, {}, context.allocator)
+	image, err := build_file(odin_root, main_path, {}, context.allocator, 1)
 	if !testing.expectf(t, err == nil, "startup fixture must build: %v", err) { return }
 	defer delete(image)
 	directory, directory_err := os.make_directory_temp("", "driver-startup-*", context.temp_allocator)

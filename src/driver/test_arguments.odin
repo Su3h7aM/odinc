@@ -1,5 +1,6 @@
 package driver
 
+import "core:strconv"
 import "core:strings"
 
 Test_Command :: struct {
@@ -31,6 +32,10 @@ parse_test_arguments :: proc(args: []string, allocator := context.allocator) -> 
 		case strings.has_prefix(argument, "-out:"):
 			command.output = argument[len("-out:"):]
 			if command.output == "" { return command, "odinc test: output path is empty" }
+		case strings.has_prefix(argument, "-thread-count:"):
+			count, parsed := strconv.parse_int(argument[len("-thread-count:"):])
+			if !parsed || count < 1 { return command, "odinc test: expected -thread-count:<positive integer>" }
+			command.options.thread_count = count
 		case strings.has_prefix(argument, "-"):
 			return command, "odinc test: unsupported option"
 		case:

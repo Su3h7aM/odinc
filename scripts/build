@@ -7,6 +7,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 binary="$PROJECT_ROOT/build/odinc"
 mkdir -p "$PROJECT_ROOT/build"
 step "build odinc"
-"$ODIN" build "$PROJECT_ROOT/src/odinc" -vet -strict-style -vet-tabs -disallow-do -warnings-as-errors "$COLLECTION" -out:"$binary" || die "build failed: odinc"
+flags=(-vet -strict-style -vet-tabs -disallow-do -warnings-as-errors -o:speed "$COLLECTION")
+"$ODIN" build "$PROJECT_ROOT/src/odinc" "${flags[@]}" -out:"$binary" || die "build failed: odinc"
 if (($# == 0)); then exit 0; fi
 "$binary" "$@"

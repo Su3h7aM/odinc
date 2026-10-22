@@ -14,6 +14,7 @@ Test_Options :: struct {
 	all_packages:      bool,
 	defines:           map[string]string,
 	optimization_mode: check.Optimization_Mode,
+	thread_count:      int,
 }
 
 build_tests :: proc(
@@ -47,7 +48,8 @@ build_tests :: proc(
 		return nil, error
 	}
 	module: ir.Module
-	errors, lower_error := lower.lower_program(&session.program, &module, allocator)
+	worker_count := max(options.thread_count, 1)
+	errors, lower_error := lower.lower_program(&session.program, &module, allocator, worker_count = worker_count)
 	defer delete(errors, allocator)
 	if lower_error != nil { return nil, lower_error }
 	defer ir.module_destroy(&module)
@@ -66,7 +68,7 @@ build_tests :: proc(
 		return nil, Lower_Failed{len(errors)}
 	}
 	entry := session.program.entity_symbols[session.test_entry]
-	return build_image(&module, session.program.symbol_table[entry].name, log, allocator)
+	return build_image(&module, session.program.symbol_table[entry].name, log, allocator, worker_count)
 }
 
 @(private)
@@ -198,6 +200,6 @@ write_test_signature_error :: proc(session: ^Session, writer: io.Writer) {
 		got = strings.trim_space(string(file.source[span.start:span.end]))
 		break
 	}
-	line, column := line_column(file.source, position)
+	line, column := syntax.line_col(file.lines, position)
 	fmt.wprintfln(writer, "%s(%d:%d) Error: Testing procedures must have a signature type of proc(^testing.T), got %s", file.display_path, line, column, got)
 }
