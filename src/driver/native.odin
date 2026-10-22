@@ -390,6 +390,7 @@ build_image :: proc(
 			thread_pointer = thread_pointer_symbol,
 			tls_header = tls_header_symbol,
 		},
+		module.microarch,
 		scratch_allocator,
 	)
 	if entry_err != nil { return nil, Entry_Emit_Failed{entry_err} }

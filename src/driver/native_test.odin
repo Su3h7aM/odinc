@@ -273,6 +273,7 @@ startup_initializes_runtime_args_header_before_global_initializer :: proc(t: ^te
 	init_symbol := Maybe(u32)(2)
 	atom, err := amd64.emit_linux_entry(
 		amd64.Linux_Entry_Symbols{main = 1, init = init_symbol, default_context = 3, args = 4, argc = 5, argv = 6, envp = 7, thread_pointer = 8},
+		.V1,
 		context.allocator,
 	)
 	if !testing.expect_value(t, err, nil) { return }

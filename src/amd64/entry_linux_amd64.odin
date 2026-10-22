@@ -4,6 +4,7 @@ import "base:runtime"
 import x86 "core:rexcode/isa/x86"
 import "oc:elf"
 import "oc:link"
+import "oc:types"
 
 Linux_Entry_Symbols :: struct {
 	main:            u32,
@@ -29,7 +30,109 @@ Entry_Relocation_Target :: struct {
 }
 
 // Emits the Linux x86-64 process entry atom. All referenced symbols are supplied by the caller.
-emit_linux_entry :: proc(symbols: Linux_Entry_Symbols, allocator: runtime.Allocator) -> (atom: link.Atom, err: Emit_Error) {
+@(private = "file")
+Microarch_Check_Kind :: enum {
+	Cpuid,
+	Xcr0,
+}
+
+@(private = "file")
+Microarch_Check :: struct {
+	level:   types.X86_Level,
+	kind:    Microarch_Check_Kind,
+	leaf:    u32,
+	subleaf: u32,
+	reg:     x86.GPR32,
+	mask:    u32,
+}
+
+@(private = "file")
+MICROARCH_CHECKS := [?]Microarch_Check {
+	{.V2, .Cpuid, 1, 0, .ECX, (1 << 0) | (1 << 9) | (1 << 13) | (1 << 19) | (1 << 20) | (1 << 23)},
+	{.V2, .Cpuid, 0x80000001, 0, .ECX, (1 << 0)},
+	{.V3, .Cpuid, 1, 0, .ECX, (1 << 12) | (1 << 22) | (1 << 26) | (1 << 27) | (1 << 28) | (1 << 29)},
+	{.V3, .Cpuid, 7, 0, .EBX, (1 << 3) | (1 << 5) | (1 << 8)},
+	{.V3, .Cpuid, 0x80000001, 0, .ECX, (1 << 5)},
+	{.V3, .Xcr0, 0, 0, .EAX, 0x6},
+	{.V4, .Cpuid, 7, 0, .EBX, (1 << 16) | (1 << 17) | (1 << 28) | (1 << 30) | (1 << 31)},
+	{.V4, .Xcr0, 0, 0, .EAX, 0xE6},
+}
+
+@(private = "file")
+MICROARCH_GUARD_MESSAGES := [types.X86_Level]string {
+	.V1 = "",
+	.V2 = "odinc: this program requires x86_64_v2; the CPU lacks it\n",
+	.V3 = "odinc: this program requires x86_64_v3; the CPU lacks it\n",
+	.V4 = "odinc: this program requires x86_64_v4; the CPU lacks it\n",
+}
+
+// Guards `_start` with a CPU capability check. At the default level nothing is
+// emitted. Otherwise every required CPUID bit up to the target level is tested
+// and XCR0 is checked where the level needs extended state; a missing feature
+// reports the required level on stderr and exits 1. Only RAX/RCX are clobbered:
+// RDX (rtld_fini) and RBX ride in R8/R9, free at process entry.
+emit_microarch_guard :: proc(
+	instructions: ^[dynamic]x86.Instruction,
+	branches: ^[dynamic]Pending_Branch,
+	targets: ^[dynamic]int,
+	microarch: types.X86_Level,
+) -> runtime.Allocator_Error {
+	if microarch == .V1 { return nil }
+	fail := reserve_branch(targets) or_return
+	proceed := reserve_branch(targets) or_return
+
+	append(instructions, x86.inst_mov_r64_r64(.R8, .RDX)) or_return
+	append(instructions, x86.inst_mov_r64_r64(.R9, .RBX)) or_return
+	for check in MICROARCH_CHECKS {
+		if int(check.level) > int(microarch) { continue }
+		if check.kind == .Xcr0 {
+			append(instructions, x86.inst_xor_r32_r32(.ECX, .ECX)) or_return
+			append(instructions, x86.inst_xgetbv_none()) or_return
+			append(instructions, x86.inst_and_r32_imm32(.EAX, i32(check.mask))) or_return
+			append(instructions, x86.inst_cmp_r32_imm32(.EAX, i32(check.mask))) or_return
+			emit_branch(instructions, branches, .JNE, fail) or_return
+		} else {
+			append(instructions, x86.inst_mov_r32_imm32(.EAX, i32(check.leaf))) or_return
+			append(instructions, x86.inst_xor_r32_r32(.ECX, .ECX)) or_return
+			if check.subleaf != 0 {
+				append(instructions, x86.inst_mov_r32_imm32(.ECX, i32(check.subleaf))) or_return
+			}
+			append(instructions, x86.inst_cpuid_none()) or_return
+			append(instructions, x86.inst_test_r32_imm32(check.reg, i32(check.mask))) or_return
+			emit_branch(instructions, branches, .JZ, fail) or_return
+		}
+	}
+	append(instructions, x86.inst_mov_r64_r64(.RDX, .R8)) or_return
+	append(instructions, x86.inst_mov_r64_r64(.RBX, .R9)) or_return
+	emit_branch(instructions, branches, .JMP, proceed) or_return
+
+	bind_branch(targets, fail, instructions[:])
+	message := MICROARCH_GUARD_MESSAGES[microarch]
+	reserve := (len(message) + 15) / 16 * 16
+	append(instructions, x86.inst_sub_r64_imm32(.RSP, i32(reserve))) or_return
+	chunks := (len(message) + 7) / 8
+	for chunk in 0 ..< chunks {
+		value: u64
+		for index in 0 ..< 8 {
+			source := chunk * 8 + index
+			if source < len(message) { value |= u64(message[source]) << u64(index * 8) }
+		}
+		append(instructions, x86.inst_movabs_r64_imm64(.RAX, i64(value))) or_return
+		append(instructions, x86.inst_mov_m64_r64(x86.mem64(x86.mem_base_disp(x86.RSP, i32(chunk * 8))), .RAX)) or_return
+	}
+	append(instructions, x86.inst_mov_r32_imm32(.EAX, 1)) or_return
+	append(instructions, x86.inst_mov_r32_imm32(.EDI, 2)) or_return
+	append(instructions, x86.inst_mov_r64_r64(.RSI, .RSP)) or_return
+	append(instructions, x86.inst_mov_r32_imm32(.EDX, i32(len(message)))) or_return
+	append(instructions, x86.inst_syscall_none()) or_return
+	append(instructions, x86.inst_mov_r32_imm32(.EAX, 231)) or_return
+	append(instructions, x86.inst_mov_r32_imm32(.EDI, 1)) or_return
+	append(instructions, x86.inst_syscall_none()) or_return
+
+	bind_branch(targets, proceed, instructions[:])
+	return nil
+}
+emit_linux_entry :: proc(symbols: Linux_Entry_Symbols, microarch: types.X86_Level, allocator: runtime.Allocator) -> (atom: link.Atom, err: Emit_Error) {
 	labels := [?]Entry_Relocation_Target {
 		{symbols.argc, .R_X86_64_PC32, -4},
 		{symbols.argv, .R_X86_64_PC32, -4},
@@ -50,6 +153,7 @@ emit_linux_entry :: proc(symbols: Linux_Entry_Symbols, allocator: runtime.Alloca
 	targets := make([dynamic]int, 0, 16, allocator) or_return
 	defer delete(targets)
 
+	emit_microarch_guard(&instructions, &branches, &targets, microarch) or_return
 	append(&instructions, x86.inst_mov_r64_m64(.RAX, x86.mem64(x86.mem_base_only(x86.RSP)))) or_return
 	append(&instructions, x86.inst_mov_m64_r64(x86.mem64(x86.mem_rip_label(0)), .RAX)) or_return
 	append(&instructions, x86.inst_lea_r64_m(.RAX, x86.mem_base_disp(x86.RSP, 8))) or_return
