@@ -67,6 +67,17 @@ lower_binary :: proc(
 		simd_operator = .Simd_Bit_Xor
 	case .And_Not:
 		simd_operator = .Simd_Bit_And_Not
+	case .Add:
+		simd_operator = .Simd_Add
+	case .Sub:
+		simd_operator = .Simd_Sub
+	case .Mul:
+		simd_operator = .Simd_Mul
+	case .Quo:
+		if lower_type(state, lower_info(state, node).type).kind == .Simd_Vector {
+			elem, _ := simd_shape(state, lower_info(state, node).type)
+			if scalar_type(state, elem) == .F32 || scalar_type(state, elem) == .F64 { simd_operator = .Simd_Div }
+		}
 	}
 	if simd_operator != .None {
 		operand_type := lower_info(state, node).type
@@ -94,7 +105,7 @@ lower_binary :: proc(
 	if is_nil_comparison(state, expression) { return lower_nil_comparison(state, expression, left, right) }
 	if (expression.op.kind == .Cmp_Eq || expression.op.kind == .Not_Eq) &&
 	   (lower_union_type(state, expression.left) != types.TYPE_NONE || lower_union_type(state, expression.right) != types.TYPE_NONE) {
-		return lower_union_comparison(state, node, expression, left, right)
+		return lower_union_comparison(state, node, expression, conversions.type, left, right)
 	}
 	if (expression.op.kind == .Cmp_Eq || expression.op.kind == .Not_Eq) {
 		if struct_type := lower_struct_compare_type(state, expression.left, expression.right); struct_type != types.TYPE_NONE {
@@ -705,6 +716,7 @@ lower_array_generated_equal :: proc(
 @(private)
 lower_union_type :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> types.Type_Id {
 	info := lower_info(state, node)
+	if info.mode == .Type { return types.TYPE_NONE }
 	store := check.type_store(state.job.program)
 	resolved := types.resolve_named(store, info.type)
 	if types.get(store, resolved).kind != .Union { return types.TYPE_NONE }
@@ -742,9 +754,16 @@ lower_nil_operand :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> b
 }
 
 @(private)
-lower_union_comparison :: proc(state: ^Procedure_State, node: syntax.Node_Index, expression: syntax.Binary_Expr, left, right: ir.Node_Id) -> ir.Node_Id {
+lower_union_comparison :: proc(
+	state: ^Procedure_State,
+	node: syntax.Node_Index,
+	expression: syntax.Binary_Expr,
+	compared_type: types.Type_Id,
+	left, right: ir.Node_Id,
+) -> ir.Node_Id {
 	if state.failed { return 0 }
-	union_type := lower_union_type(state, expression.left)
+	union_type := compared_type
+	if union_type == types.TYPE_NONE { union_type = lower_union_type(state, expression.left) }
 	if union_type == types.TYPE_NONE { union_type = lower_union_type(state, expression.right) }
 	if lower_nil_operand(state, expression.left) {
 		return lower_union_nil_comparison(state, union_type, expression.op.kind, right)
@@ -752,7 +771,8 @@ lower_union_comparison :: proc(state: ^Procedure_State, node: syntax.Node_Index,
 	if lower_nil_operand(state, expression.right) {
 		return lower_union_nil_comparison(state, union_type, expression.op.kind, left)
 	}
-	if lower_union_type(state, expression.left) != union_type || lower_union_type(state, expression.right) != union_type {
+	if compared_type == types.TYPE_NONE &&
+	   (lower_union_type(state, expression.left) != union_type || lower_union_type(state, expression.right) != union_type) {
 		return lower_fail(state, node, .Operator)
 	}
 	return lower_union_equality(state, node, expression, union_type, left, right)
@@ -788,6 +808,20 @@ lower_union_equality :: proc(
 	left, right: ir.Node_Id,
 ) -> ir.Node_Id {
 	return lower_array_generated_equal(state, node, expression.op.kind, union_type, left, right)
+}
+
+// One `case` value of a switch on a union tag: `nil` tests the tag, any other value compares as a union equality.
+lower_union_case_condition :: proc(
+	state: ^Procedure_State,
+	node: syntax.Node_Index,
+	union_type: types.Type_Id,
+	tag: ir.Node_Id,
+	value_node: syntax.Node_Index,
+) -> ir.Node_Id {
+	if lower_nil_operand(state, value_node) { return lower_union_nil_comparison(state, union_type, .Cmp_Eq, tag) }
+	value := lower_value(state, value_node)
+	if state.failed { return 0 }
+	return lower_array_generated_equal(state, node, .Cmp_Eq, union_type, tag, value)
 }
 
 @(private)

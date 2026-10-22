@@ -4,6 +4,7 @@ import "core:mem/virtual"
 import "oc:check"
 import "oc:ir"
 import "oc:syntax"
+import "oc:types"
 
 // Each case value is tested in turn and jumps to its clause body; the clauses fall through to the end, not to each other.
 @(private)
@@ -14,6 +15,7 @@ lower_switch :: proc(state: ^Procedure_State, node: syntax.Node_Index, statement
 	if state.failed || state.job.function.error != nil || state.builder.control == 0 { return }
 	tag: ir.Node_Id
 	wide_tag := false
+	union_type := types.TYPE_NONE
 	tag_signed := false
 	string_switch, is_string_switch := lower_string_switch_plan(state, node)
 	if statement.cond != 0 {
@@ -26,6 +28,8 @@ lower_switch :: proc(state: ^Procedure_State, node: syntax.Node_Index, statement
 			if state.failed || state.job.function.error != nil { return }
 		} else if is_wide_integer(state, tag_info.type) {
 			wide_tag = true
+		} else if lower_union_type(state, statement.cond) != types.TYPE_NONE {
+			union_type = lower_union_type(state, statement.cond)
 		} else if scalar_type(state, tag_info.type) == .None {
 			lower_fail(state, node, .Switch)
 			return
@@ -55,13 +59,15 @@ lower_switch :: proc(state: ^Procedure_State, node: syntax.Node_Index, statement
 			} else if tag != 0 && is_range_case(state, value_node) {
 				range_case = true
 				condition = lower_switch_range(state, state.ast.nodes[value_node].payload.(syntax.Binary_Expr), tag, wide_tag, tag_signed)
+			} else if union_type != types.TYPE_NONE {
+				condition = lower_union_case_condition(state, node, union_type, tag, value_node)
 			} else {
 				condition = lower_value(state, value_node)
 			}
 			if state.failed || state.job.function.error != nil { return }
 			if !range_case && wide_tag {
 				condition = wide_equal(state.job.function, wide_load(state, tag), wide_load(state, condition))
-			} else if !range_case && tag != 0 && !is_string_switch {
+			} else if !range_case && tag != 0 && !is_string_switch && union_type == types.TYPE_NONE {
 				tag_type := state.job.function.nodes.type[tag]
 				kind := ir.Node_Kind.FEq if tag_type == .F32 || tag_type == .F64 else ir.Node_Kind.Eq
 				condition = ir.compare(state.job.function, kind, tag, condition)

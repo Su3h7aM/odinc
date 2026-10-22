@@ -34,6 +34,11 @@ expression_switch :: proc(checker: ^Expression_Checker, view: View_Id, file_id: 
 		tag_error: Resolve_Error
 		tag_entity, comparison_name, tag_error = expression_switch_tag(checker, switch_scope, tag_type)
 		if tag_error != nil { return tag_error }
+		if types.get(checker.type_checker.store, types.resolve_named(checker.type_checker.store, tag_type)).kind == .Union {
+			append(&checker.plans, Plan(Comparison_Plan{type = types.resolve_named(checker.type_checker.store, tag_type)})) or_return
+			_, helper_error := expression_resolve_map_helpers(checker)
+			if helper_error != nil { return helper_error }
+		}
 	}
 	comparisons := make([dynamic]Plan_Id, mem.dynamic_arena_allocator(&checker.arena)) or_return
 	append(&checker.control, Control_Frame{node = node, label = expression_label(file, statement.label), is_switch = true}) or_return

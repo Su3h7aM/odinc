@@ -487,6 +487,8 @@ expression_binary :: proc(
 					right.type,
 					.Assignment,
 				) or_return
+				binary_conversion = Plan_Id(len(checker.plans))
+				append(&checker.plans, Plan(Binary_Conversion_Plan{type = right.type, left = left.plan})) or_return
 			} else if operand_assignable(checker, view, binary.right, right, left.type) {
 				right = expression_conversion(
 					checker,
@@ -498,6 +500,8 @@ expression_binary :: proc(
 					left.type,
 					.Assignment,
 				) or_return
+				binary_conversion = Plan_Id(len(checker.plans))
+				append(&checker.plans, Plan(Binary_Conversion_Plan{type = left.type, right = right.plan})) or_return
 			} else if (integer || float_pair || pointer_pair || enum_pair) &&
 			   (expression_is_auto_cast(file, binary.left) || expression_is_auto_cast(file, binary.right)) {
 				original_left, original_right := left, right
