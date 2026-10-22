@@ -5,13 +5,15 @@ import "core:thread"
 import "core:time"
 
 @(thread_local)
-worker_value: int = 37
+worker_value: int
 
 @(thread_local)
 worker_zero: int
 
 worker :: proc(t: ^thread.Thread) {
-	assert(worker_value == 37 && worker_zero == 0)
+	assert(worker_value == 0 && worker_zero == 0)
+	worker_value = 37
+	assert(worker_value == 37)
 	worker_value = t.user_index
 	worker_zero = t.user_index + 1
 	for i in 1 ..= 3 {

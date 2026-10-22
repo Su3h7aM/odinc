@@ -157,3 +157,54 @@ main :: proc "contextless" () {
 	_, ok := check_procedure_source(t, source, .Invalid_Operator, "", 1)
 	testing.expect(t, ok)
 }
+@(test)
+thread_local_initializers_are_rejected :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(`package sample
+@(thread_local) value: int = 7
+main :: proc() {}
+`)
+	_, ok := check_procedure_source(t, source, .Unsupported, "A thread local variable declaration cannot have initialization values", diagnostic_count = 1)
+	testing.expect(t, ok)
+}
+
+@(test)
+startup_procedures_require_contextless_unless_file_opts_in :: proc(t: ^testing.T) {
+	for entry in ([2]struct {
+			source, reason: string,
+		}{{`package sample
+@(init) startup :: proc() {}
+main :: proc() {}
+`, `@(init) procedures must be declared as "contextless"`}, {`package sample
+@(fini) startup :: proc() {}
+main :: proc() {}
+`, `@(fini) procedures must be declared as "contextless"`}}) {
+		_, rejected := check_procedure_source(t, transmute([]byte)entry.source, .Unsupported, entry.reason, diagnostic_count = 1)
+		testing.expect(t, rejected)
+	}
+	_, accepted := check_procedure_source(
+		t,
+		transmute([]byte)string(`#+feature global-context
+package sample
+@(init) startup :: proc() {}
+@(fini) finish :: proc() {}
+main :: proc() {}
+`),
+		diagnostic_count = 0,
+	)
+	testing.expect(t, accepted)
+}
+
+@(test)
+global_initializers_require_contextless_unless_file_opts_in :: proc(t: ^testing.T) {
+	SOURCE :: "package sample\nseed :: proc() -> int { return 7 }\nvalue := seed()\nmain :: proc() {}\n"
+	_, rejected := check_procedure_source(
+		t,
+		transmute([]byte)string(SOURCE),
+		.Undefined_Context,
+		"Procedures requiring a 'context' cannot be called at the global scope",
+		diagnostic_count = 1,
+	)
+	testing.expect(t, rejected)
+	_, accepted := check_procedure_source(t, transmute([]byte)string("#+feature global-context\n" + SOURCE), diagnostic_count = 0)
+	testing.expect(t, accepted)
+}

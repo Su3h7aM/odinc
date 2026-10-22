@@ -20,7 +20,7 @@ defaulted :: proc "contextless" (value: $T, extra := 2) -> int { return 3 }
 with_bool :: proc "contextless" (value: $T, extra: bool) -> int { return 4 }
 pick_defaulted :: proc{defaulted, with_bool}
 fixed :: proc "contextless" (value: int) -> int { return value }
-repeated :: proc (value: int, rest: ..int) -> int { return value }
+repeated :: proc "contextless" (value: int, rest: ..int) -> int { return value }
 pick_variadic :: proc{fixed, repeated}
 variadic_choice := pick_variadic(1, 2, 3)
 integer_choice := pick(3)

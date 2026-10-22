@@ -6,12 +6,12 @@ import "base:intrinsics"
 ready: int
 
 @(init)
-mark_ready :: proc() {
+mark_ready :: proc "contextless" () {
 	ready = 5
 }
 
 @(fini)
-finish :: proc() {
+finish :: proc "contextless" () {
 	intrinsics.syscall(60, uintptr(ready))
 }
 

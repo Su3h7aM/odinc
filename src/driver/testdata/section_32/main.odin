@@ -6,7 +6,7 @@ later: int = early + 1
 early: int = seed_value()
 counter: int = 0
 
-seed_value :: proc() -> int {
+seed_value :: proc "contextless" () -> int {
 	return 41
 }
 

@@ -190,6 +190,16 @@ expression_declaration :: proc(resolver: ^Resolver, id: Entity_Id, user_data: ra
 		expression_unsupported(checker, view, entity.scope, declaration.identifier.node, "Declaration_Kind") or_return
 		return false, nil
 	}
+	if entity.kind == .Variable && entity.data.(Variable_Data).storage == .Thread_Local && declaration.value.node != 0 {
+		expression_unsupported(
+			checker,
+			view,
+			entity.scope,
+			declaration.identifier.node,
+			"A thread local variable declaration cannot have initialization values",
+		) or_return
+		return false, nil
+	}
 	outer_instance := checker.active_instance
 	if !scope_inside_body(resolver.scopes, entity.scope) { checker.active_instance = 0 }
 	defer checker.active_instance = outer_instance

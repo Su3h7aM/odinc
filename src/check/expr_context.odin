@@ -44,15 +44,27 @@ expression_require_call_context :: proc(
 	err: Resolve_Error,
 ) {
 	// Official check_call: an odin-convention callee receives the caller's implicit context.
-	if convention != .Odin || context_defined(checker, scope) { return true, nil }
-	_, failure_error := expression_failure(
-		checker,
-		view,
-		scope,
-		node,
-		.Undefined_Context,
-		"'context' has not been defined within this scope, but is required for this procedure call",
-	)
+	if convention != .Odin { return true, nil }
+	resolver := checker.type_checker.resolver
+	global_initializer := false
+	if !scope_inside_body(resolver.scopes, scope) && len(resolver.stack) > 0 {
+		entity := entity_get(resolver.scopes, resolver.stack[len(resolver.stack) - 1])
+		if variable, ok := entity.data.(Variable_Data); ok && entity.kind == .Variable && variable.initializer.node != 0 {
+			file := checker.type_checker.files[variable.initializer.file]
+			if variable.initializer.file == checker.views[view].file {
+				initializer := file.ast.nodes[variable.initializer.node]
+				call := file.ast.nodes[node]
+				global_initializer = call.start >= initializer.start && call.end <= initializer.end
+				for feature in file.policy.features { if feature == "global-context" { global_initializer = false } }
+			}
+		}
+	}
+	if !global_initializer && context_defined(checker, scope) { return true, nil }
+	reason := "'context' has not been defined within this scope, but is required for this procedure call"
+	if !scope_inside_body(checker.type_checker.resolver.scopes, scope) {
+		reason = "Procedures requiring a 'context' cannot be called at the global scope"
+	}
+	_, failure_error := expression_failure(checker, view, scope, node, .Undefined_Context, reason)
 	if failure_error != nil { return false, failure_error }
 	return false, nil
 }

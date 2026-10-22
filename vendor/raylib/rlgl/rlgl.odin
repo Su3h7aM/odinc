@@ -124,11 +124,9 @@ when ODIN_OS == .Windows {
 	foreign import lib {"../windows/raylibdll.lib" when RAYLIB_SHARED else "../windows/raylib.lib", "system:Winmm.lib", "system:Gdi32.lib", "system:User32.lib", "system:Shell32.lib"}
 } else when ODIN_OS == .Linux {
 	when ODIN_ARCH == .arm64 {
-		foreign import lib {// Note(bumbread): I'm not sure why in `linux/` folder there are
-		"../linux-arm64/libraylib.so.600" when RAYLIB_SHARED else "../linux-arm64/libraylib.a", "system:dl", "system:pthread", "system:X11"} // multiple copies of raylib.so, but since these bindings are for // particular version of the library, I better specify it. Ideally, // though, it's best specified in terms of major (.so.4)
+		foreign import lib {"../linux-arm64/libraylib.so.600" when RAYLIB_SHARED else "../linux-arm64/libraylib.a", "system:dl", "system:pthread", "system:X11"} // Note(bumbread): I'm not sure why in `linux/` folder there are // multiple copies of raylib.so, but since these bindings are for // particular version of the library, I better specify it. Ideally, // though, it's best specified in terms of major (.so.4)
 	} else {
-		foreign import lib {// Note(bumbread): I'm not sure why in `linux/` folder there are
-		"../linux/libraylib.so.600" when RAYLIB_SHARED else "../linux/libraylib.a", "system:dl", "system:pthread", "system:X11"} // multiple copies of raylib.so, but since these bindings are for // particular version of the library, I better specify it. Ideally, // though, it's best specified in terms of major (.so.4)
+		foreign import lib {"../linux/libraylib.so.600" when RAYLIB_SHARED else "../linux/libraylib.a", "system:dl", "system:pthread", "system:X11"} // Note(bumbread): I'm not sure why in `linux/` folder there are // multiple copies of raylib.so, but since these bindings are for // particular version of the library, I better specify it. Ideally, // though, it's best specified in terms of major (.so.4)
 	}
 } else when ODIN_OS == .Darwin {
 	foreign import lib {"../macos/libraylib.600.dylib" when RAYLIB_SHARED else "../macos/libraylib.a", "system:Cocoa.framework", "system:OpenGL.framework", "system:IOKit.framework"}

@@ -424,6 +424,24 @@ expression_procedure_declaration :: proc(
 	procedure.convention = descriptor.convention
 	procedure.variadic_index = procedure_variadic_index(checker.type_checker.files[declaration.type.file], declaration.type.node)
 	entity.type = signature
+	_, is_init := declaration_attribute(checker, entity^, "init") or_return
+	_, is_fini := declaration_attribute(checker, entity^, "fini") or_return
+	if is_init || is_fini {
+		attribute := "init" if is_init else "fini"
+		file := checker.type_checker.files[declaration.identifier.file]
+		global_context := false
+		for feature in file.policy.features { global_context ||= feature == "global-context" }
+		if !global_context && descriptor.convention != .Contextless {
+			expression_unsupported(
+				checker,
+				view,
+				scope,
+				declaration.identifier.node,
+				fmt.aprintf("@(%s) procedures must be declared as \"contextless\"", attribute, allocator = mem.dynamic_arena_allocator(&checker.arena)),
+			) or_return
+			return false, nil
+		}
+	}
 	if entity.data.(Procedure_Data).body.node == 0 {
 		return expression_bodyless_signature_bindings(checker, resolver, id, declaration.type)
 	}
@@ -1122,6 +1140,10 @@ expression_local_declaration :: proc(
 	declaration := syntax.node_payload(file.ast, node, syntax.Value_Decl)
 	names := syntax.node_list(file.ast, declaration.names)
 	values := syntax.node_list(file.ast, declaration.values)
+	if len(values) != 0 && collection_has_attribute(file.ast, file.source, declaration.attributes, "thread_local") {
+		expression_unsupported(checker, view, scope, node, "A thread local variable declaration cannot have initialization values") or_return
+		return nil
+	}
 	multi := len(values) == 1 && len(names) > 1
 	deferred_element, deferred_name, attributes_ok := expression_local_attributes(checker, view, file_id, scope, node) or_return
 	if !attributes_ok { return nil }

@@ -18,7 +18,7 @@ pending_body_drained_under_speculation_keeps_operands :: proc(t: ^testing.T) {
 		t,
 		`package sample
 ordinary :: proc(p: ^int) -> bool { return p == nil }
-identity :: proc(x: $T) -> T { return x }
+identity :: proc "contextless" (x: $T) -> T { return x }
 candidate := identity(ordinary)
 `,
 		check_drained_operands_after_speculation,

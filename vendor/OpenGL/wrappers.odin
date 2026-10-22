@@ -622,9 +622,7 @@ when !GL_DEBUG {
 			length,
 			uniformName,
 		)}
-	GetUniformBlockIndex :: proc "c" (program: u32, uniformBlockName: cstring) -> u32 { ret := impl_GetUniformBlockIndex(program, uniformBlockName); return(
-			ret \
-		) }
+	GetUniformBlockIndex :: proc "c" (program: u32, uniformBlockName: cstring) -> u32 {ret := impl_GetUniformBlockIndex(program, uniformBlockName); return ret}
 	GetActiveUniformBlockiv :: proc "c" (program: u32, uniformBlockIndex: u32, pname: u32, params: [^]i32) {impl_GetActiveUniformBlockiv(
 			program,
 			uniformBlockIndex,
@@ -931,14 +929,7 @@ when !GL_DEBUG {
 	ProgramUniform4fv :: proc "c" (program: u32, location: i32, count: i32, value: [^]f32) { impl_ProgramUniform4fv(program, location, count, value) }
 	ProgramUniform4d :: proc "c" (program: u32, location: i32, v0: f64, v1: f64, v2: f64, v3: f64) { impl_ProgramUniform4d(program, location, v0, v1, v2, v3) }
 	ProgramUniform4dv :: proc "c" (program: u32, location: i32, count: i32, value: [^]f64) { impl_ProgramUniform4dv(program, location, count, value) }
-	ProgramUniform4ui :: proc "c" (program: u32, location: i32, v0: u32, v1: u32, v2: u32, v3: u32) { impl_ProgramUniform4ui(
-			program,
-			location,
-			v0,
-			v1,
-			v2,
-			v3,
-		) }
+	ProgramUniform4ui :: proc "c" (program: u32, location: i32, v0: u32, v1: u32, v2: u32, v3: u32) {impl_ProgramUniform4ui(program, location, v0, v1, v2, v3)}
 	ProgramUniform4uiv :: proc "c" (program: u32, location: i32, count: i32, value: [^]u32) { impl_ProgramUniform4uiv(program, location, count, value) }
 	ProgramUniformMatrix2fv :: proc "c" (program: u32, location: i32, count: i32, transpose: bool, value: [^]f32) {impl_ProgramUniformMatrix2fv(
 			program,
@@ -1230,11 +1221,7 @@ when !GL_DEBUG {
 	InvalidateTexImage :: proc "c" (texture: u32, level: i32) { impl_InvalidateTexImage(texture, level) }
 	InvalidateBufferSubData :: proc "c" (buffer: u32, offset: int, length: int) { impl_InvalidateBufferSubData(buffer, offset, length) }
 	InvalidateBufferData :: proc "c" (buffer: u32) { impl_InvalidateBufferData(buffer) }
-	InvalidateFramebuffer :: proc "c" (target: u32, numAttachments: i32, attachments: [^]u32) { impl_InvalidateFramebuffer(
-			target,
-			numAttachments,
-			attachments,
-		) }
+	InvalidateFramebuffer :: proc "c" (target: u32, numAttachments: i32, attachments: [^]u32) {impl_InvalidateFramebuffer(target, numAttachments, attachments)}
 	InvalidateSubFramebuffer :: proc "c" (
 		target: u32,
 		numAttachments: i32,
@@ -2739,13 +2726,7 @@ when !GL_DEBUG {
 		debug_helper(loc, 0, shader, count, string, length)}
 	UseProgram :: proc "c" (program: u32, loc := #caller_location) { impl_UseProgram(program); debug_helper(loc, 0, program) }
 	Uniform1f :: proc "c" (location: i32, v0: f32, loc := #caller_location) { impl_Uniform1f(location, v0); debug_helper(loc, 0, location, v0) }
-	Uniform2f :: proc "c" (location: i32, v0: f32, v1: f32, loc := #caller_location) { impl_Uniform2f(location, v0, v1); debug_helper(
-			loc,
-			0,
-			location,
-			v0,
-			v1,
-		) }
+	Uniform2f :: proc "c" (location: i32, v0: f32, v1: f32, loc := #caller_location) {impl_Uniform2f(location, v0, v1); debug_helper(loc, 0, location, v0, v1)}
 	Uniform3f :: proc "c" (location: i32, v0: f32, v1: f32, v2: f32, loc := #caller_location) {impl_Uniform3f(location, v0, v1, v2); debug_helper(
 			loc,
 			0,
@@ -2757,13 +2738,7 @@ when !GL_DEBUG {
 	Uniform4f :: proc "c" (location: i32, v0: f32, v1: f32, v2: f32, v3: f32, loc := #caller_location) {impl_Uniform4f(location, v0, v1, v2, v3)
 		debug_helper(loc, 0, location, v0, v1, v2, v3)}
 	Uniform1i :: proc "c" (location: i32, v0: i32, loc := #caller_location) { impl_Uniform1i(location, v0); debug_helper(loc, 0, location, v0) }
-	Uniform2i :: proc "c" (location: i32, v0: i32, v1: i32, loc := #caller_location) { impl_Uniform2i(location, v0, v1); debug_helper(
-			loc,
-			0,
-			location,
-			v0,
-			v1,
-		) }
+	Uniform2i :: proc "c" (location: i32, v0: i32, v1: i32, loc := #caller_location) {impl_Uniform2i(location, v0, v1); debug_helper(loc, 0, location, v0, v1)}
 	Uniform3i :: proc "c" (location: i32, v0: i32, v1: i32, v2: i32, loc := #caller_location) {impl_Uniform3i(location, v0, v1, v2); debug_helper(
 			loc,
 			0,
@@ -3112,13 +3087,7 @@ when !GL_DEBUG {
 			w,
 		)}
 	VertexAttribI1ui :: proc "c" (index: u32, x: u32, loc := #caller_location) { impl_VertexAttribI1ui(index, x); debug_helper(loc, 0, index, x) }
-	VertexAttribI2ui :: proc "c" (index: u32, x: u32, y: u32, loc := #caller_location) { impl_VertexAttribI2ui(index, x, y); debug_helper(
-			loc,
-			0,
-			index,
-			x,
-			y,
-		) }
+	VertexAttribI2ui :: proc "c" (index: u32, x: u32, y: u32, loc := #caller_location) {impl_VertexAttribI2ui(index, x, y); debug_helper(loc, 0, index, x, y)}
 	VertexAttribI3ui :: proc "c" (index: u32, x: u32, y: u32, z: u32, loc := #caller_location) {impl_VertexAttribI3ui(index, x, y, z); debug_helper(
 			loc,
 			0,
@@ -3461,14 +3430,7 @@ when !GL_DEBUG {
 		uniformNames: [^]cstring,
 		uniformIndices: [^]u32,
 		loc := #caller_location,
-	) { impl_GetUniformIndices(program, uniformCount, uniformNames, uniformIndices); debug_helper(
-			loc,
-			0,
-			program,
-			uniformCount,
-			uniformNames,
-			uniformIndices,
-		) }
+	) {impl_GetUniformIndices(program, uniformCount, uniformNames, uniformIndices); debug_helper(loc, 0, program, uniformCount, uniformNames, uniformIndices)}
 	GetActiveUniformsiv :: proc "c" (
 		program: u32,
 		uniformCount: i32,
@@ -3693,12 +3655,7 @@ when !GL_DEBUG {
 			index,
 			val,
 		)}
-	SampleMaski :: proc "c" (maskNumber: u32, mask: u32, loc := #caller_location) { impl_SampleMaski(maskNumber, mask); debug_helper(
-			loc,
-			0,
-			maskNumber,
-			mask,
-		) }
+	SampleMaski :: proc "c" (maskNumber: u32, mask: u32, loc := #caller_location) {impl_SampleMaski(maskNumber, mask); debug_helper(loc, 0, maskNumber, mask)}
 
 	// VERSION_3_3
 	BindFragDataLocationIndexed :: proc "c" (
@@ -3716,12 +3673,7 @@ when !GL_DEBUG {
 			name,
 		)
 		return ret}
-	GenSamplers :: proc "c" (count: i32, samplers: [^]u32, loc := #caller_location) { impl_GenSamplers(count, samplers); debug_helper(
-			loc,
-			0,
-			count,
-			samplers,
-		) }
+	GenSamplers :: proc "c" (count: i32, samplers: [^]u32, loc := #caller_location) {impl_GenSamplers(count, samplers); debug_helper(loc, 0, count, samplers)}
 	DeleteSamplers :: proc "c" (count: i32, samplers: [^]u32, loc := #caller_location) {impl_DeleteSamplers(count, samplers); debug_helper(
 			loc,
 			0,
@@ -4098,9 +4050,7 @@ when !GL_DEBUG {
 		)}
 	DeleteTransformFeedbacks :: proc "c" (n: i32, ids: [^]u32, loc := #caller_location) { impl_DeleteTransformFeedbacks(n, ids); debug_helper(loc, 0, n, ids) }
 	GenTransformFeedbacks :: proc "c" (n: i32, ids: [^]u32, loc := #caller_location) { impl_GenTransformFeedbacks(n, ids); debug_helper(loc, 0, n, ids) }
-	IsTransformFeedback :: proc "c" (id: u32, loc := #caller_location) -> bool { ret := impl_IsTransformFeedback(id); debug_helper(loc, 1, ret, id); return(
-			ret \
-		) }
+	IsTransformFeedback :: proc "c" (id: u32, loc := #caller_location) -> bool {ret := impl_IsTransformFeedback(id); debug_helper(loc, 1, ret, id); return ret}
 	PauseTransformFeedback :: proc "c" (loc := #caller_location) { impl_PauseTransformFeedback(); debug_helper(loc, 0) }
 	ResumeTransformFeedback :: proc "c" (loc := #caller_location) { impl_ResumeTransformFeedback(); debug_helper(loc, 0) }
 	DrawTransformFeedback :: proc "c" (mode: u32, id: u32, loc := #caller_location) { impl_DrawTransformFeedback(mode, id); debug_helper(loc, 0, mode, id) }
@@ -4142,11 +4092,7 @@ when !GL_DEBUG {
 			0,
 			handle,
 		)}
-	MakeImageHandleNonResidentARB :: proc "c" (handle: u64, loc := #caller_location) { impl_MakeImageHandleNonResidentARB(handle); debug_helper(
-			loc,
-			0,
-			handle,
-		) }
+	MakeImageHandleNonResidentARB :: proc "c" (handle: u64, loc := #caller_location) {impl_MakeImageHandleNonResidentARB(handle); debug_helper(loc, 0, handle)}
 
 
 	// VERSION_4_1
@@ -4752,17 +4698,7 @@ when !GL_DEBUG {
 		access: u32,
 		format: u32,
 		loc := #caller_location,
-	) { impl_BindImageTexture(unit, texture, level, layered, layer, access, format); debug_helper(
-			loc,
-			0,
-			unit,
-			texture,
-			level,
-			layered,
-			layer,
-			access,
-			format,
-		) }
+	) {impl_BindImageTexture(unit, texture, level, layered, layer, access, format); debug_helper(loc, 0, unit, texture, level, layered, layer, access, format)}
 	MemoryBarrier :: proc "c" (barriers: u32, loc := #caller_location) { impl_MemoryBarrier(barriers); debug_helper(loc, 0, barriers) }
 	TexStorage1D :: proc "c" (target: u32, levels: i32, internalformat: u32, width: i32, loc := #caller_location) {impl_TexStorage1D(
 			target,
@@ -5013,13 +4949,7 @@ when !GL_DEBUG {
 		storageBlockIndex: u32,
 		storageBlockBinding: u32,
 		loc := #caller_location,
-	) { impl_ShaderStorageBlockBinding(program, storageBlockIndex, storageBlockBinding); debug_helper(
-			loc,
-			0,
-			program,
-			storageBlockIndex,
-			storageBlockBinding,
-		) }
+	) {impl_ShaderStorageBlockBinding(program, storageBlockIndex, storageBlockBinding); debug_helper(loc, 0, program, storageBlockIndex, storageBlockBinding)}
 	TexBufferRange :: proc "c" (target: u32, internalformat: u32, buffer: u32, offset: int, size: int, loc := #caller_location) {impl_TexBufferRange(
 			target,
 			internalformat,
@@ -5102,15 +5032,7 @@ when !GL_DEBUG {
 		normalized: bool,
 		relativeoffset: u32,
 		loc := #caller_location,
-	) { impl_VertexAttribFormat(attribindex, size, type, normalized, relativeoffset); debug_helper(
-			loc,
-			0,
-			attribindex,
-			size,
-			type,
-			normalized,
-			relativeoffset,
-		) }
+	) {impl_VertexAttribFormat(attribindex, size, type, normalized, relativeoffset); debug_helper(loc, 0, attribindex, size, type, normalized, relativeoffset)}
 	VertexAttribIFormat :: proc "c" (attribindex: u32, size: i32, type: u32, relativeoffset: u32, loc := #caller_location) {impl_VertexAttribIFormat(
 			attribindex,
 			size,
@@ -5465,15 +5387,7 @@ when !GL_DEBUG {
 		level: i32,
 		layer: i32,
 		loc := #caller_location,
-	) { impl_NamedFramebufferTextureLayer(framebuffer, attachment, texture, level, layer); debug_helper(
-			loc,
-			0,
-			framebuffer,
-			attachment,
-			texture,
-			level,
-			layer,
-		) }
+	) {impl_NamedFramebufferTextureLayer(framebuffer, attachment, texture, level, layer); debug_helper(loc, 0, framebuffer, attachment, texture, level, layer)}
 	NamedFramebufferDrawBuffer :: proc "c" (framebuffer: u32, buf: u32, loc := #caller_location) {impl_NamedFramebufferDrawBuffer(framebuffer, buf)
 		debug_helper(loc, 0, framebuffer, buf)}
 	NamedFramebufferDrawBuffers :: proc "c" (framebuffer: u32, n: i32, bufs: [^]u32, loc := #caller_location) {impl_NamedFramebufferDrawBuffers(
