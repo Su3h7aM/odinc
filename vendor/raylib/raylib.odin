@@ -105,12 +105,10 @@ when ODIN_OS == .Windows {
 } else when ODIN_OS == .Linux {
 	when ODIN_ARCH == .arm64 {
 		foreign import lib {// Note(bumbread): I'm not sure why in `linux/` folder there are
-		// multiple copies of raylib.so, but since these bindings are for
-		"linux-arm64/libraylib.so.600" when RAYLIB_SHARED else "linux-arm64/libraylib.a", "system:dl", "system:pthread", "system:X11"} // particular version of the library, I better specify it. Ideally, // though, it's best specified in terms of major (.so.4)
+		"linux-arm64/libraylib.so.600" when RAYLIB_SHARED else "linux-arm64/libraylib.a", "system:dl", "system:pthread", "system:X11"} // multiple copies of raylib.so, but since these bindings are for // particular version of the library, I better specify it. Ideally, // though, it's best specified in terms of major (.so.4)
 	} else {
 		foreign import lib {// Note(bumbread): I'm not sure why in `linux/` folder there are
-		// multiple copies of raylib.so, but since these bindings are for
-		"linux/libraylib.so.600" when RAYLIB_SHARED else "linux/libraylib.a", "system:dl", "system:pthread", "system:X11"} // particular version of the library, I better specify it. Ideally, // though, it's best specified in terms of major (.so.4)
+		"linux/libraylib.so.600" when RAYLIB_SHARED else "linux/libraylib.a", "system:dl", "system:pthread", "system:X11"} // multiple copies of raylib.so, but since these bindings are for // particular version of the library, I better specify it. Ideally, // though, it's best specified in terms of major (.so.4)
 	}
 } else when ODIN_OS == .Darwin {
 	foreign import lib {"macos/libraylib.600.dylib" when RAYLIB_SHARED else "macos/libraylib.a", "system:Cocoa.framework", "system:OpenGL.framework", "system:IOKit.framework"}

@@ -22,6 +22,7 @@ Collection_Diagnostic_Kind :: enum u8 {
 	Invalid_Name,
 	Arity,
 	Unknown_Attribute,
+	Link_Name_Conflict,
 }
 
 // Placeholder for F3. Names and source bytes are borrowed; related identifies the earlier binding.
@@ -70,6 +71,8 @@ Collection :: struct {
 	pending:         [dynamic]Pending_Declaration,
 	diagnostics:     [dynamic]Collection_Diagnostic,
 	file_features:   [dynamic][]string,
+	// Decoded link names stored in entities; borrowed attribute text is never added.
+	owned_names:     [dynamic]string,
 }
 
 collection_init :: proc(collection: ^Collection, scopes: ^Scope_Store, allocator: mem.Allocator) {
@@ -81,6 +84,7 @@ collection_init :: proc(collection: ^Collection, scopes: ^Scope_Store, allocator
 	collection.pending.allocator = allocator
 	collection.diagnostics.allocator = allocator
 	collection.file_features.allocator = allocator
+	collection.owned_names.allocator = allocator
 }
 
 collection_destroy :: proc(collection: ^Collection) {
@@ -100,6 +104,8 @@ collection_destroy :: proc(collection: ^Collection) {
 	delete(collection.diagnostics)
 	for features in collection.file_features { delete(features, collection.allocator) }
 	delete(collection.file_features)
+	for name in collection.owned_names { delete(name, collection.allocator) }
+	delete(collection.owned_names)
 	collection^ = {}
 }
 
@@ -377,6 +383,8 @@ collect_value_declaration :: proc(
 	inherited_visibility: Collection_Visibility,
 ) -> Binding_Error {
 	decl := syntax.node_payload(file.ast, node, syntax.Value_Decl)
+	block_attributes: syntax.Node_Range
+	if foreign_block != 0 { block_attributes = syntax.node_payload(file.ast, foreign_block, syntax.Foreign_Block_Decl).attributes }
 	values := syntax.node_list(file.ast, decl.values)
 	is_procedure := len(values) > 0
 	for value in values {
@@ -479,6 +487,8 @@ collect_value_declaration :: proc(
 			library_ident := syntax.node_payload(file.ast, foreign_block, syntax.Foreign_Block_Decl).foreign_library
 			entity_get(collection.scopes, entity).foreign_library = collection_node_text(file, library_ident)
 		}
+		link_name := collection_link_name(collection, file, id, name, decl.attributes, block_attributes) or_return
+		entity_get(collection.scopes, entity).link_name = link_name
 		if collection.builtin_scope != 0 &&
 		   file.package_id == collection.runtime_package &&
 		   collection_has_attribute(file.ast, file.source, decl.attributes, "builtin") {
@@ -636,6 +646,93 @@ collection_report :: proc(
 	span := file.ast.nodes[node]
 	_, err := append(&collection.diagnostics, Collection_Diagnostic{kind = kind, source = {id, span.start, span.end}})
 	return err
+}
+
+// Text of a `name = "text"` attribute: found is false when absent, and text is "" for a bare or non-string value.
+// Allocated is true only when text owns heap bytes that the caller must free or transfer.
+@(private = "file")
+collection_attribute_text :: proc(
+	collection: ^Collection,
+	file: ^File,
+	attributes: syntax.Node_Range,
+	name: string,
+) -> (
+	text: string,
+	allocated: bool,
+	found: bool,
+	err: runtime.Allocator_Error,
+) {
+	for attribute in syntax.node_list(file.ast, attributes) {
+		for element in syntax.node_list(file.ast, syntax.node_payload(file.ast, attribute, syntax.Attribute).elems) {
+			identifier := element
+			value: syntax.Node_Index
+			if file.ast.nodes[element].kind == .Field_Value {
+				field := syntax.node_payload(file.ast, element, syntax.Field_Value)
+				identifier, value = field.field, field.value
+			}
+			if collection_node_text(file, identifier) != name { continue }
+			if value == 0 || file.ast.nodes[value].kind != .Basic_Lit { return "", false, true, nil }
+			kind := syntax.node_payload(file.ast, value, syntax.Basic_Lit).kind
+			if kind != .String && kind != .Raw_String { return "", false, true, nil }
+			unquoted, was_allocated, ok := strconv.unquote_string(collection_node_text(file, value), collection.allocator)
+			if !ok { return "", false, true, nil }
+			return unquoted, was_allocated, true, nil
+		}
+	}
+	return "", false, false, nil
+}
+
+// The declaration's attribute, else the foreign block's: the block supplies the default for its procedures.
+@(private = "file")
+collection_link_part :: proc(
+	collection: ^Collection,
+	file: ^File,
+	attributes, block_attributes: syntax.Node_Range,
+	name: string,
+) -> (
+	text: string,
+	allocated: bool,
+	err: runtime.Allocator_Error,
+) {
+	found: bool
+	text, allocated, found, err = collection_attribute_text(collection, file, attributes, name)
+	if err != nil || found { return }
+	text, allocated, _, err = collection_attribute_text(collection, file, block_attributes, name)
+	return
+}
+
+// The symbol name from the link attributes, as the official handle_link_name: `link_name` replaces the name, and
+// `link_prefix` and `link_suffix` wrap the bare name. "" keeps the default name.
+@(private = "file")
+collection_link_name :: proc(
+	collection: ^Collection,
+	file: ^File,
+	id: File_Id,
+	name: syntax.Node_Index,
+	attributes, block_attributes: syntax.Node_Range,
+) -> (
+	link_name: string,
+	err: Binding_Error,
+) {
+	explicit, explicit_allocated, _ := collection_attribute_text(collection, file, attributes, "link_name") or_return
+	if explicit != "" {
+		// An inherited block prefix or suffix is dropped by a link_name; only the declaration's own conflicts.
+		own_prefix, own_prefix_allocated, _ := collection_attribute_text(collection, file, attributes, "link_prefix") or_return
+		own_suffix, own_suffix_allocated, _ := collection_attribute_text(collection, file, attributes, "link_suffix") or_return
+		defer if own_prefix_allocated { delete(own_prefix, collection.allocator) }
+		defer if own_suffix_allocated { delete(own_suffix, collection.allocator) }
+		if own_prefix != "" || own_suffix != "" { collection_report(collection, file, id, name, .Link_Name_Conflict) or_return }
+		if explicit_allocated { append(&collection.owned_names, explicit) or_return }
+		return explicit, nil
+	}
+	prefix, prefix_allocated := collection_link_part(collection, file, attributes, block_attributes, "link_prefix") or_return
+	suffix, suffix_allocated := collection_link_part(collection, file, attributes, block_attributes, "link_suffix") or_return
+	if prefix == "" && suffix == "" { return "", nil }
+	joined := strings.concatenate({prefix, collection_node_text(file, name), suffix}, collection.allocator) or_return
+	if prefix_allocated { delete(prefix, collection.allocator) }
+	if suffix_allocated { delete(suffix, collection.allocator) }
+	append(&collection.owned_names, joined) or_return
+	return joined, nil
 }
 
 @(private = "file")

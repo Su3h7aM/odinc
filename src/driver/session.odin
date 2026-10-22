@@ -63,6 +63,7 @@ Session :: struct {
 	universe:            check.Scope_Id,
 	build:               check.Build_Configuration,
 	defines:             map[string]string,
+	managed_libc:        bool,
 	collection:          check.Collection,
 	resolver:            check.Resolver,
 	type_checker:        check.Type_Checker,
@@ -98,17 +99,50 @@ check_program :: proc(
 	session: ^Session,
 	err: Driver_Error,
 ) {
+	session, err = check_program_profile(odin_root, main_path, allocator, user_collections, defines, false)
+	if session == nil || !session_uses_external_library(session) { return session, err }
+	session_destroy(session)
+	return check_program_profile(odin_root, main_path, allocator, user_collections, defines, true)
+}
+
+// Owned profile first (no libc); a used external library makes check_program recheck with the managed profile.
+@(private = "file")
+check_program_profile :: proc(
+	odin_root, main_path: string,
+	allocator: runtime.Allocator,
+	user_collections: []Collection,
+	defines: map[string]string,
+	managed_libc: bool,
+) -> (
+	session: ^Session,
+	err: Driver_Error,
+) {
 	allocated, allocation_error := new(Session, allocator)
 	if allocation_error != nil { return nil, .Allocation_Failed }
 	session = allocated
 	session.allocator = allocator
 	session.defines = defines
+	session.managed_libc = managed_libc
 	err = check_session(session, odin_root, main_path, user_collections)
 	if err != nil && err != .Check_Failed && err != .Unsupported_Import && err != .Parse_Failed && err != .Import_Cycle {
 		session_destroy(session)
 		session = nil
 	}
 	return session, err
+}
+
+// A used library outside the shipped base/ and core/ trees (system, vendor, or user file) is a real libc bridge.
+@(private = "file")
+session_uses_external_library :: proc(session: ^Session) -> bool {
+	root := session.build.root
+	for entity in session.scopes.entities {
+		library, is_library := entity.data.(check.Library_Data)
+		if !is_library || !library.used { continue }
+		for library_path in library.paths {
+			if library_is_external(library_path, root) { return true }
+		}
+	}
+	return false
 }
 
 // Loads a user program like check_program does, then resolves and checks every declaration of every loaded
@@ -398,6 +432,7 @@ session_prepare :: proc(session: ^Session, odin_root: string, user_collections: 
 	session.stage = .Store
 	session.build = check.DEFAULT_BUILD_CONFIGURATION
 	session.build.defines = session.defines
+	session.build.no_crt = !session.managed_libc
 	if session.test_options != nil {
 		session.build.test = true
 		session.build.defines = session.test_options.defines

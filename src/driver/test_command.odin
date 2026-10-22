@@ -68,7 +68,7 @@ build_tests :: proc(
 		return nil, Lower_Failed{len(errors)}
 	}
 	entry := session.program.entity_symbols[session.test_entry]
-	foreign_files, foreign_err := load_foreign_files(&session.program, allocator)
+	foreign_files, foreign_err := load_foreign_files(&session.program, session.build.root, allocator)
 	if foreign_err != nil {
 		fmt.wprintfln(log, "build failed: %v", foreign_err)
 		return nil, foreign_err
