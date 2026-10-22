@@ -39,7 +39,7 @@ config_define_values_take_the_official_kind :: proc(t: ^testing.T) {
 		procedure, ok := check_procedure_source(t, transmute([]byte)source, defines = defines)
 		delete(defines)
 		if !ok { continue }
-		testing.expectf(t, (procedure.body_state == .Complete) == row.complete, "-define:X=%s with %q: body %v", row.value, row.use, procedure.body_state)
+		testing.expectf(t, (procedure.body_state == .Complete) == row.complete, "--define=X=%s with %q: body %v", row.value, row.use, procedure.body_state)
 	}
 }
 

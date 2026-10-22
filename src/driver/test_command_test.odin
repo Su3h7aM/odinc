@@ -9,15 +9,16 @@ test_command_arguments_and_invalid_signature :: proc(t: ^testing.T) {
 	command, argument_error := parse_test_arguments(
 		[]string {
 			"testdata",
-			"-file",
-			"-all-packages",
-			"-define:COUNT=3",
-			"-collection:custom=somewhere",
-			"-out:tests",
-			"-o:speed",
-			"-vet",
-			"-strict-style",
-			"-thread-count:4",
+			"--file",
+			"--all-packages",
+			"--define=COUNT=3",
+			"--collection=custom=somewhere",
+			"--out=tests",
+			"--opt",
+			"speed",
+			"--vet",
+			"--strict-style",
+			"--thread-count=4",
 		},
 	)
 	defer delete(command.options.defines)
@@ -28,7 +29,7 @@ test_command_arguments_and_invalid_signature :: proc(t: ^testing.T) {
 	testing.expect_value(t, command.options.defines["COUNT"], "3")
 	testing.expect(t, len(command.collections) == 1 && command.collections[0] == Collection{"custom", "somewhere"})
 	testing.expect(t, command.path == "testdata" && command.output == "tests")
-	sanitized, sanitize_error := parse_test_arguments([]string{"testdata", "-sanitize:address"})
+	sanitized, sanitize_error := parse_test_arguments([]string{"testdata", "--sanitize=address"})
 	defer delete(sanitized.options.defines)
 	defer delete(sanitized.collections)
 	testing.expect_value(t, sanitize_error, "odinc test: sanitizers are not supported")
@@ -47,4 +48,27 @@ test_command_arguments_and_invalid_signature :: proc(t: ^testing.T) {
 		),
 		strings.to_string(log),
 	)
+}
+
+@(test)
+test_command_rejects_bad_arguments :: proc(t: ^testing.T) {
+	Rejected :: struct {
+		arguments: []string,
+		error:     string,
+	}
+	rejected := [?]Rejected {
+		{[]string{"testdata", "--unknown"}, "odinc test: unsupported option"},
+		{[]string{"testdata", "--out"}, "odinc test: --out expects a path"},
+		{[]string{"testdata", "--out="}, "odinc test: --out expects a path"},
+		{[]string{"testdata", "--collection=nowhere"}, "odinc test: expected --collection=name=path"},
+		{[]string{"testdata", "--thread-count=0"}, "odinc test: expected --thread-count=N with a positive integer"},
+		{[]string{"one", "two"}, "odinc test: expected one file or directory"},
+		{[]string{"testdata", "--histogram"}, "odinc test: unsupported option"},
+	}
+	for row in rejected {
+		command, argument_error := parse_test_arguments(row.arguments)
+		delete(command.options.defines)
+		delete(command.collections)
+		testing.expect_value(t, argument_error, row.error)
+	}
 }

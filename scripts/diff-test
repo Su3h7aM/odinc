@@ -47,7 +47,7 @@ for fix in "${fixtures[@]}"; do
   off_rc=0
   "$tmp/official" >"$tmp/official.run.out" 2>"$tmp/official.run.err" || off_rc=$?
 
-  if (ODIN_ROOT="$PROJECT_ROOT" "$ODINC_BIN" "$fix" -out:"$tmp/odinc" -collection:oc="$PROJECT_ROOT/src" ${flags[@]+"${flags[@]}"} >"$tmp/odinc.out" 2>"$tmp/odinc.err"); then
+  if (ODIN_ROOT="$PROJECT_ROOT" "$ODINC_BIN" "$fix" --out="$tmp/odinc" --collection=oc="$PROJECT_ROOT/src" ${flags[@]+"${flags[@]}"} >"$tmp/odinc.out" 2>"$tmp/odinc.err"); then
     :
   else
     phase=odinc-build

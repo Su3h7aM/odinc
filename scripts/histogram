@@ -15,4 +15,4 @@ if [[ -z "$input" ]]; then input="$PROJECT_ROOT/examples/demo/demo.odin"; fi
 
 mise run build >/dev/null || die "build failed: odinc"
 step "histogram $input"
-ODIN_ROOT="$PROJECT_ROOT" "$PROJECT_ROOT/build/odinc" "$input" -histogram $COLLECTION
+ODIN_ROOT="$PROJECT_ROOT" "$PROJECT_ROOT/build/odinc" "$input" --histogram $COLLECTION

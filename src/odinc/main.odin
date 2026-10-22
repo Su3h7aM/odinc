@@ -3,10 +3,9 @@ package main
 import "core:fmt"
 import "core:os"
 import "core:strconv"
-import "core:strings"
 import "oc:driver"
 
-USAGE :: "usage: odinc <file-or-dir> -histogram [-collection:<name>=<path>] | odinc <directory|main.odin> -out:<executable> [-collection:<name>=<path>]"
+USAGE :: "usage: odinc <file-or-dir> --histogram [--collection=name=path] | odinc <directory|main.odin> --out=<executable> [--collection=name=path] [--define=NAME=value] [--thread-count=N]"
 
 main :: proc() {
 	if len(os.args) > 1 && os.args[1] == "test" {
@@ -19,33 +18,69 @@ main :: proc() {
 	defines := make(map[string]string)
 	defer delete(defines)
 	histogram := false
-	for arg in os.args[1:] {
-		if arg == "-histogram" {
-			histogram = true
-		} else if strings.has_prefix(arg, "-collection:") {
-			value := arg[len("-collection:"):]
-			separator := strings.index(value, "=")
-			if separator <= 0 || separator == len(value) - 1 {
-				fmt.eprintln("expected -collection:name=path")
+	args := os.args[1:]
+	for index := 0; index < len(args); index += 1 {
+		argument := args[index]
+		if !driver.argument_is_flag(argument) {
+			if file != "" {
+				fmt.eprintln("odinc: expected one input file or directory")
 				os.exit(2)
 			}
-			append(&collections, driver.Collection{value[:separator], value[separator + 1:]})
-		} else if strings.has_prefix(arg, "-out:") {
-			out = arg[len("-out:"):]
-		} else if strings.has_prefix(arg, "-define:") {
-			if driver.parse_define_argument(&defines, arg) != .None {
-				fmt.eprintln(driver.define_argument_error_message(arg))
-				os.exit(1)
+			file = argument
+			continue
+		}
+		flag, recognized := driver.split_long_flag(argument)
+		if !recognized {
+			fmt.eprintf("odinc: unknown flag %s\n", argument)
+			os.exit(2)
+		}
+		switch flag.name {
+		case "histogram":
+			if flag.has_value {
+				fmt.eprintln("odinc: --histogram takes no value")
+				os.exit(2)
 			}
-		} else if strings.has_prefix(arg, "-thread-count:") {
-			count, parsed := strconv.parse_int(arg[len("-thread-count:"):])
-			if !parsed || count < 1 {
-				fmt.eprintln("expected -thread-count:<positive integer>")
+			histogram = true
+		case "out":
+			value, ok := driver.take_flag_value(args, &index, flag)
+			if !ok {
+				fmt.eprintln("odinc: --out expects a path")
+				os.exit(2)
+			}
+			out = value
+		case "collection":
+			value, ok := driver.take_flag_value(args, &index, flag)
+			if !ok {
+				fmt.eprintln("odinc: --collection expects name=path")
+				os.exit(2)
+			}
+			collection, valid := driver.collection_from_value(value)
+			if !valid {
+				fmt.eprintln("odinc: --collection expects name=path")
+				os.exit(2)
+			}
+			append(&collections, collection)
+		case "define":
+			value, ok := driver.take_flag_value(args, &index, flag)
+			if !ok {
+				fmt.eprintln("odinc: --define expects NAME=value")
+				os.exit(2)
+			}
+			if driver.parse_define_argument(&defines, value) != .None {
+				fmt.eprintln(driver.define_argument_error_message(value))
+				os.exit(2)
+			}
+		case "thread-count":
+			value, ok := driver.take_flag_value(args, &index, flag)
+			count, parsed := strconv.parse_int(value)
+			if !ok || !parsed || count < 1 {
+				fmt.eprintln("odinc: --thread-count expects a positive integer")
 				os.exit(2)
 			}
 			thread_count = count
-		} else {
-			file = arg
+		case:
+			fmt.eprintf("odinc: unknown flag --%s\n", flag.name)
+			os.exit(2)
 		}
 	}
 	odin_root, found := os.lookup_env("ODIN_ROOT", context.allocator)

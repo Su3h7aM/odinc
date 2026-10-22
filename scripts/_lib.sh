@@ -8,7 +8,7 @@ ODIN="${ODIN_BIN:?ODIN_BIN must name the bootstrap odin binary}"
 [[ -x "$ODIN" ]] || { printf 'error: %s is not executable\n' "$ODIN" >&2; exit 1; }
 export ODIN_ROOT="$PROJECT_ROOT"
 
-COLLECTION="-collection:oc=$PROJECT_ROOT/src"
+COLLECTION="--collection=oc=$PROJECT_ROOT/src"
 
 project_packages() {
 	local dir

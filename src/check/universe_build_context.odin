@@ -65,7 +65,7 @@ Optimization_Mode :: enum i8 {
 	Aggressive,
 }
 
-// Source of the ODIN_* universe constants. The driver fills it; `defines` is the slot for `-define:` values read by `#config`.
+// Source of the ODIN_* universe constants. The driver fills it; `defines` is the slot for `--define=` values read by `#config`.
 Build_Configuration :: struct {
 	root:                       string,
 	os:                         Target_Os,
