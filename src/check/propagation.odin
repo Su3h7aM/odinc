@@ -6,6 +6,7 @@ import "oc:types"
 
 @(private = "file")
 propagation_results :: proc(checker: ^Expression_Checker, plan_id: Plan_Id, value_type: types.Type_Id, pair: ^[2]types.Type_Id) -> []types.Type_Id {
+	if plan_id == 0 { return nil }
 	#partial switch plan in checker.plans[plan_id] {
 	case Call_Plan:
 		return plan.results
@@ -52,7 +53,9 @@ expression_or_else :: proc(
 ) {
 	ast := checker.type_checker.files[file_id].ast
 	expression := syntax.node_payload(ast, node, syntax.Or_Else_Expr)
-	operand := check_expression(checker, view, scope, expression.x, hint) or_return
+	operand_hint: types.Type_Id
+	if ast.nodes[type_unparen(checker.type_checker.files[file_id], expression.x)].kind == .Type_Assertion { operand_hint = hint }
+	operand := check_expression(checker, view, scope, expression.x, operand_hint) or_return
 	if operand.state == .Invalid { return expression_poison(scope), nil }
 	if operand.plan == 0 { return expression_unsupported(checker, view, scope, node, "Or_Else_Plan") }
 	pair: [2]types.Type_Id
@@ -80,7 +83,17 @@ expression_or_else :: proc(
 	if alloc_error != nil { return {}, alloc_error }
 	values[0] = Operand(Projection{Expression_Ref{view, expression.x}, 0})
 	plan := Plan_Id(len(checker.plans))
-	append(&checker.plans, Plan(Propagation_Plan{operand = Expression_Ref{view, expression.x}, test = test, values = values})) or_return
+	append(
+		&checker.plans,
+		Plan(
+			Propagation_Plan {
+				operand = Expression_Ref{view, expression.x},
+				test = test,
+				values = values,
+				fallback_conversion = expression_conversion_plan(checker, value.plan),
+			},
+		),
+	) or_return
 	return Expression_Info{type = payload_type, mode = .Value, scope = scope, plan = plan, state = .Checked}, nil
 }
 
@@ -104,13 +117,20 @@ expression_or_branch :: proc(
 	is_continue := expression.token.kind == .Or_Continue
 	operand := check_expression(checker, view, scope, expression.expr) or_return
 	if operand.state == .Invalid { return expression_poison(scope), nil }
-	if operand.plan == 0 { return expression_unsupported(checker, view, scope, node, "Or_Branch_Plan") }
+	store := checker.type_checker.store
+	if operand.type != 0 && types.get(store, operand.type).kind == .Untyped_Bool {
+		operand = check_expression(checker, view, scope, expression.expr, checker.boolean) or_return
+		if operand.state == .Invalid { return expression_poison(scope), nil }
+	}
 	pair: [2]types.Type_Id
 	results := propagation_results(checker, operand.plan, operand.type, &pair)
-	if len(results) < 1 {
-		return expression_unsupported(checker, view, scope, node, "Or_Branch_Results")
+	if len(results) == 0 {
+		if operand.mode != .Value && operand.mode != .Variable && operand.mode != .Constant && operand.mode != .Immutable_Value {
+			return expression_unsupported(checker, view, scope, node, "Or_Branch_Results")
+		}
+		pair[0] = operand.type
+		results = pair[:1]
 	}
-	store := checker.type_checker.store
 	status_index := len(results) - 1
 	status := results[status_index]
 	status_type := types.get(store, types.resolve_named(store, status))

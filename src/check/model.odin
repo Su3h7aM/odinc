@@ -878,12 +878,13 @@ Optional_Test :: enum u8 {
 	Nil,
 }
 Propagation_Plan :: struct {
-	operand: Operand,
-	test:    Optional_Test,
-	values:  []Operand,
-	failure: Plan_Id,
+	operand:             Operand,
+	test:                Optional_Test,
+	values:              []Operand,
+	failure:             Plan_Id,
+	fallback_conversion: Plan_Id,
 	// Payload types of an or_return with more than one value. Empty for or_else and a single payload.
-	results: []types.Type_Id,
+	results:             []types.Type_Id,
 }
 Context_Plan :: struct {
 	parent: Plan_Id,

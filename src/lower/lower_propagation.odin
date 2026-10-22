@@ -43,24 +43,40 @@ lower_or_else :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: ch
 	}
 	result_type := lower_info(state, node).type
 	scalar := scalar_type(state, result_type)
-	if scalar == .None { return lower_fail(state, node, .Expression) }
 	builder := state.builder
 	function := state.job.function
 	count := len(builder.values)
-	result := ir.variable_declare(builder, ir.undef(function, scalar))
+	result: ir.Variable
+	slot: ir.Node_Id
+	if scalar == .None {
+		layout := state.job.layouts[result_type]
+		if layout.error != .None { return lower_fail(state, node, .Expression) }
+		slot = ir.stack_slot(function, state.entry_control, u32(max(layout.size, 1)), u32(layout.align))
+	} else {
+		result = ir.variable_declare(builder, ir.undef(function, scalar))
+	}
 	end := ir.jump_target_make(builder)
 	branch := ir.branch_if(builder, condition)
 	ir.enter_arm(builder, branch, 0)
-	ir.variable_set(builder, result, values[0])
+	if scalar == .None {
+		lower_store(state, slot, values[0], result_type)
+	} else {
+		ir.variable_set(builder, result, values[0])
+	}
 	ir.jump_to(builder, end)
 	ir.enter_arm(builder, branch, 1)
 	expression := state.ast.nodes[node].payload.(syntax.Or_Else_Expr)
-	fallback := lower_value(state, expression.y)
+	fallback := lower_ternary_arm(state, expression.y, plan.fallback_conversion)
 	if state.failed || function.error != nil { return 0 }
-	ir.variable_set(builder, result, fallback)
+	if scalar == .None {
+		lower_store(state, slot, fallback, result_type)
+	} else {
+		ir.variable_set(builder, result, fallback)
+	}
 	ir.jump_to(builder, end)
 	ir.seal_target(builder, end)
-	value := ir.variable_get(builder, result)
+	value := slot
+	if scalar != .None { value = ir.variable_get(builder, result) }
 	ir.variables_truncate(builder, count)
 	return value
 }
@@ -80,37 +96,46 @@ lower_or_branch_values :: proc(state: ^Procedure_State, node: syntax.Node_Index,
 	operand, is_expression := plan.operand.(check.Expression_Ref)
 	if !is_expression || operand.view != state.view { lower_fail(state, node, .Expression); return false }
 	operand_info := lower_info(state, operand.node)
-	if operand_info.plan == 0 { lower_fail(state, node, .Expression); return false }
 	operand_plan := check.plan(state.job.program, operand_info.plan)
-	if operand_plan == nil { lower_fail(state, node, .Expression); return false }
 	call_node := operand.node
 	for state.ast.nodes[call_node].kind == .Paren_Expr {
 		call_node = state.ast.nodes[call_node].payload.(syntax.Paren_Expr).expr
 	}
-	result_count := 0
-	status_type: types.Type_Id
-	#partial switch result_plan in operand_plan^ {
-	case check.Call_Plan:
-		if len(result_plan.results) < 1 { lower_fail(state, node, .Expression); return false }
-		result_count = len(result_plan.results)
-		status_type = result_plan.results[result_count - 1]
-	case check.Type_Assertion_Plan:
-		if !result_plan.comma_ok { lower_fail(state, node, .Expression); return false }
-		result_count = 2
-	case:
-		lower_fail(state, node, .Expression)
-		return false
+	result_count := 1
+	status_type := operand_info.type
+	if operand_plan != nil {
+		#partial switch result_plan in operand_plan^ {
+		case check.Call_Plan:
+			if len(result_plan.results) < 1 { lower_fail(state, node, .Expression); return false }
+			result_count = len(result_plan.results)
+			status_type = result_plan.results[result_count - 1]
+		case check.Type_Assertion_Plan:
+			if !result_plan.comma_ok { lower_fail(state, node, .Expression); return false }
+			result_count = 2
+		case check.Map_Index_Plan:
+			if !result_plan.comma_ok { lower_fail(state, node, .Expression); return false }
+			result_count = 2
+		case:
+		}
 	}
 	status_index := result_count - 1
 	if len(values) != status_index { lower_fail(state, node, .Result); return false }
 	all_values, allocation_error := make([]ir.Node_Id, result_count, context.allocator)
 	if allocation_error != nil { state.job.function.error = allocation_error; return false }
 	defer delete(all_values, context.allocator)
-	#partial switch result_plan in operand_plan^ {
-	case check.Call_Plan:
-		lower_call_results(state, call_node, operand_info, result_plan, all_values)
-	case check.Type_Assertion_Plan:
-		all_values[0], all_values[1] = lower_type_assertion(state, call_node, result_plan)
+	if operand_plan == nil {
+		all_values[0] = lower_operand(state, plan.operand, status_type)
+	} else {
+		#partial switch result_plan in operand_plan^ {
+		case check.Call_Plan:
+			lower_call_results(state, call_node, operand_info, result_plan, all_values)
+		case check.Type_Assertion_Plan:
+			all_values[0], all_values[1] = lower_type_assertion(state, call_node, result_plan)
+		case check.Map_Index_Plan:
+			all_values[0], all_values[1] = lower_map_index(state, call_node, result_plan)
+		case:
+			all_values[0] = lower_operand(state, plan.operand, status_type)
+		}
 	}
 	if state.failed || state.job.function.error != nil { return false }
 	condition, condition_ok := lower_propagation_condition(state, plan, all_values[status_index], status_type)
