@@ -342,6 +342,11 @@ plan_result :: proc(
 		ok: bool
 		run, ok = direct_pieces(store, id, classification, size, config)
 		if !ok { return .Unsupported_Return }
+		if run.count > 2 && t.kind == .Simd_Vector {
+			sret := Abi_Param{-1, .Ptr, .Struct_Return, .None, u32(size), u16(alignment)}
+			if !push(params, sret) { return .Out_Of_Memory }
+			return .None
+		}
 	}
 	if run.count > 2 { return .Unsupported_Return }
 	ext := Abi_Extension.None
