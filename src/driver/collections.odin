@@ -92,6 +92,7 @@ resolve_collection_import :: proc(
 	import_path: string,
 	importer_directory: string,
 	allocator: runtime.Allocator,
+	file_error: ^File_Error = nil,
 ) -> (
 	path: string,
 	err: Collection_Error,
@@ -129,6 +130,7 @@ resolve_collection_import :: proc(
 	}
 	info, stat_err := os.stat(absolute, allocator)
 	if stat_err != nil {
+		record_file_error(file_error, "cannot stat", absolute, stat_err, allocator)
 		delete(absolute, allocator)
 		return "", .Missing_Directory
 	}

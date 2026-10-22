@@ -103,8 +103,16 @@ main :: proc() {
 			fmt.eprintln(USAGE)
 			os.exit(2)
 		}
-		if err := driver.program_histogram(odin_root, file, context.allocator, os.to_writer(os.stdout), collections[:], microarch); err != nil {
-			fmt.eprintfln("histogram failed: %v", err)
+		file_error: driver.File_Error
+		defer driver.file_error_destroy(&file_error, context.allocator)
+		if err := driver.program_histogram(odin_root, file, context.allocator, os.to_writer(os.stdout), collections[:], microarch, &file_error); err != nil {
+			if file_error.code != nil {
+				message := driver.describe_file_error(file_error, context.allocator)
+				defer delete(message)
+				fmt.eprintfln("histogram failed: %s", message)
+			} else {
+				fmt.eprintfln("histogram failed: %v", err)
+			}
 			os.exit(1)
 		}
 		return
@@ -122,7 +130,9 @@ main :: proc() {
 	defer delete(image)
 	permissions := os.Permissions_Read_All + os.Permissions{.Write_User, .Execute_User}
 	if write_err := os.write_entire_file(out, image, permissions); write_err != nil {
-		fmt.eprintfln("write failed: %v", write_err)
+		message := driver.describe_file_error(driver.File_Error{operation = "cannot write", path = out, code = write_err}, context.allocator)
+		fmt.eprintfln("odinc: %s", message)
+		delete(message)
 		os.exit(1)
 	}
 }

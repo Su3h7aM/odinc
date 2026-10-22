@@ -96,14 +96,15 @@ check_program :: proc(
 	user_collections: []Collection = nil,
 	defines: map[string]string = nil,
 	level: types.X86_Level = .V1,
+	file_error: ^File_Error = nil,
 ) -> (
 	session: ^Session,
 	err: Driver_Error,
 ) {
-	session, err = check_program_profile(odin_root, main_path, allocator, user_collections, defines, false, level)
+	session, err = check_program_profile(odin_root, main_path, allocator, user_collections, defines, false, level, file_error)
 	if session == nil || !session_uses_external_library(session) { return session, err }
 	session_destroy(session)
-	return check_program_profile(odin_root, main_path, allocator, user_collections, defines, true, level)
+	return check_program_profile(odin_root, main_path, allocator, user_collections, defines, true, level, file_error)
 }
 
 // Owned profile first (no libc); a used external library makes check_program recheck with the managed profile.
@@ -115,6 +116,7 @@ check_program_profile :: proc(
 	defines: map[string]string,
 	managed_libc: bool,
 	level: types.X86_Level = .V1,
+	file_error: ^File_Error = nil,
 ) -> (
 	session: ^Session,
 	err: Driver_Error,
@@ -125,7 +127,7 @@ check_program_profile :: proc(
 	session.allocator = allocator
 	session.defines = defines
 	session.managed_libc = managed_libc
-	err = check_session(session, odin_root, main_path, user_collections, level)
+	err = check_session(session, odin_root, main_path, user_collections, level, file_error)
 	if err != nil && err != .Check_Failed && err != .Unsupported_Import && err != .Parse_Failed && err != .Import_Cycle {
 		session_destroy(session)
 		session = nil
@@ -156,12 +158,13 @@ program_histogram :: proc(
 	writer: io.Writer,
 	user_collections: []Collection = nil,
 	level: types.X86_Level = .V1,
+	file_error: ^File_Error = nil,
 ) -> Driver_Error {
 	session, allocation_error := new(Session, allocator)
 	if allocation_error != nil { return .Allocation_Failed }
 	session.allocator = allocator
 	defer session_destroy(session)
-	err := program_histogram_collect(session, odin_root, main_path, user_collections, level)
+	err := program_histogram_collect(session, odin_root, main_path, user_collections, level, file_error)
 	print_error := histogram_print(session, writer)
 	if err != .None { return err }
 	return print_error
@@ -173,13 +176,14 @@ program_histogram_collect :: proc(
 	odin_root, main_path: string,
 	user_collections: []Collection,
 	level: types.X86_Level = .V1,
+	file_error: ^File_Error = nil,
 ) -> Driver_Error {
-	main_package, _, main_key, load_error := load_main_package(session, odin_root, main_path, user_collections, level)
+	main_package, _, main_key, load_error := load_main_package(session, odin_root, main_path, user_collections, level, file_error)
 	if load_error == .Parse_Failed {
 		if error := push(&session.load_failures, main_key); error != .None { return error }
 	}
 	if load_error != .None { return load_error }
-	if check_error := bind_imports(session); check_error != .None { return check_error }
+	if check_error := bind_imports(session, file_error); check_error != .None { return check_error }
 	if check_error := session_init_checkers(session); check_error != .None { return check_error }
 	_ = bind_whens(session)
 	for declaration in session.collection.declarations {
@@ -359,6 +363,7 @@ load_main_package :: proc(
 	odin_root, main_path: string,
 	user_collections: []Collection,
 	level: types.X86_Level = .V1,
+	file_error: ^File_Error = nil,
 ) -> (
 	package_id: check.Package_Id,
 	package_scope: check.Scope_Id,
@@ -366,21 +371,27 @@ load_main_package :: proc(
 	err: Driver_Error,
 ) {
 	if error := session_prepare(session, odin_root, user_collections, level); error != .None { return 0, 0, "", error }
-	if _, runtime_error := load_runtime(session); runtime_error != .None { return 0, 0, "", runtime_error }
+	if _, runtime_error := load_runtime(session, file_error); runtime_error != .None { return 0, 0, "", runtime_error }
 	absolute_key, absolute_error := filepath.abs(main_path, session.allocator)
-	if absolute_error != nil { return 0, 0, "", .Read_Failed }
+	if absolute_error != nil {
+		record_file_error(file_error, "cannot resolve", main_path, absolute_error, session.allocator)
+		return 0, 0, "", .Read_Failed
+	}
 	main_key = absolute_key
 	if key_error := push(&session.owned_strings, main_key); key_error != .None { return 0, 0, main_key, key_error }
 	main_package, main_scope, package_error := add_package(session, main_key, "main", .User)
 	if package_error != .None { return 0, 0, main_key, package_error }
 	info, stat_error := os.stat(main_key, session.allocator)
-	if stat_error != nil { return 0, 0, main_key, .Read_Failed }
+	if stat_error != nil {
+		record_file_error(file_error, "cannot stat", main_key, stat_error, session.allocator)
+		return 0, 0, main_key, .Read_Failed
+	}
 	is_directory := info.type == .Directory
 	os.file_info_delete(info, session.allocator)
 	if is_directory {
-		return main_package, main_scope, main_key, load_package(session, main_key, main_package, main_scope)
+		return main_package, main_scope, main_key, load_package(session, main_key, main_package, main_scope, file_error)
 	}
-	main_file, load_error := load_file(session, main_key, main_package, main_scope)
+	main_file, load_error := load_file(session, main_key, main_package, main_scope, file_error)
 	if load_error != .None { return main_package, main_scope, main_key, load_error }
 	if check.collect_file(&session.collection, session.files[main_file], main_file, {}) != nil {
 		return main_package, main_scope, main_key, .Check_Failed
@@ -389,11 +400,17 @@ load_main_package :: proc(
 }
 
 @(private = "package")
-check_session :: proc(session: ^Session, odin_root, main_path: string, user_collections: []Collection, level: types.X86_Level = .V1) -> Driver_Error {
-	main_package, main_scope, _, load_error := load_main_package(session, odin_root, main_path, user_collections, level)
+check_session :: proc(
+	session: ^Session,
+	odin_root, main_path: string,
+	user_collections: []Collection,
+	level: types.X86_Level = .V1,
+	file_error: ^File_Error = nil,
+) -> Driver_Error {
+	main_package, main_scope, _, load_error := load_main_package(session, odin_root, main_path, user_collections, level, file_error)
 	if load_error != .None { return load_error }
 	session.main_scope = main_scope
-	if error := bind_imports(session); error != .None { return error }
+	if error := bind_imports(session, file_error); error != .None { return error }
 	if len(session.unsupported_imports) != 0 { return .Unsupported_Import }
 	if len(session.load_failures) != 0 { return .Parse_Failed }
 	if cycle, found := find_import_cycle(session); found {
@@ -605,7 +622,7 @@ record_unresolved_when :: proc(session: ^Session, pending: check.Pending_Declara
 
 // Unresolvable imports are recorded and bound unloaded (package 0), so every one is reported in a single run.
 @(private = "file")
-bind_imports :: proc(session: ^Session) -> Driver_Error {
+bind_imports :: proc(session: ^Session, file_error: ^File_Error = nil) -> Driver_Error {
 	// Loading appends pending imports, so the count is re-read on every step.
 	for index := 0; index < len(session.collection.pending); index += 1 {
 		pending := session.collection.pending[index]
@@ -615,7 +632,7 @@ bind_imports :: proc(session: ^Session) -> Driver_Error {
 		span := importer.ast.nodes[import_decl.relpath]
 		import_path := strings.trim(string(importer.source[span.start:span.end]), "\"")
 		source := check.Source_Span{pending.declaration.file, span.start, span.end}
-		package_id, package_error := import_package(session, pending.declaration.file, import_path)
+		package_id, package_error := import_package(session, pending.declaration.file, import_path, file_error)
 		if package_error == .Allocation_Failed { return package_error }
 		if package_error != .None {
 			if error := push(&session.unsupported_imports, Unsupported_Import{path = import_path, source = source}); error != .None {
@@ -639,11 +656,11 @@ bind_imports :: proc(session: ^Session) -> Driver_Error {
 }
 
 @(private = "file")
-import_package :: proc(session: ^Session, importer_id: check.File_Id, import_path: string) -> (check.Package_Id, Driver_Error) {
+import_package :: proc(session: ^Session, importer_id: check.File_Id, import_path: string, file_error: ^File_Error = nil) -> (check.Package_Id, Driver_Error) {
 	importer := session.files[importer_id]
 	if session.packages[importer.package_id].kind == .Intrinsics { return 0, .None }
 	if import_path == "base:builtin" || import_path == "core:builtin" { return builtin_package(session) }
-	directory, resolve_error := import_directory(&session.collections, import_path, filepath.dir(importer.path), session.allocator)
+	directory, resolve_error := import_directory(&session.collections, import_path, filepath.dir(importer.path), session.allocator, file_error)
 	if resolve_error != .None { return 0, .Import_Failed }
 	if error := push(&session.owned_strings, directory); error != .None { return 0, error }
 	for package_value, id in session.packages {
@@ -653,18 +670,30 @@ import_package :: proc(session: ^Session, importer_id: check.File_Id, import_pat
 	if import_path == "base:intrinsics" || import_path == "core:intrinsics" { kind = .Intrinsics }
 	package_id, package_scope, package_error := add_package(session, directory, filepath.base(directory), kind)
 	if package_error != .None { return 0, package_error }
-	return package_id, load_package(session, directory, package_id, package_scope)
+	return package_id, load_package(session, directory, package_id, package_scope, file_error)
 }
 
 // Loads every target-selected .odin file of a directory. A file that fails to parse is recorded and skipped,
 // so all parse failures of a run are reported together.
 @(private = "file")
-load_package :: proc(session: ^Session, directory: string, package_id: check.Package_Id, package_scope: check.Scope_Id) -> Driver_Error {
+load_package :: proc(
+	session: ^Session,
+	directory: string,
+	package_id: check.Package_Id,
+	package_scope: check.Scope_Id,
+	file_error: ^File_Error = nil,
+) -> Driver_Error {
 	handle, open_error := os.open(directory)
-	if open_error != nil { return .Import_Failed }
+	if open_error != nil {
+		record_file_error(file_error, "cannot open", directory, open_error, session.allocator)
+		return .Import_Failed
+	}
 	defer os.close(handle)
 	infos, read_error := os.read_dir(handle, -1, session.allocator)
-	if read_error != nil { return .Import_Failed }
+	if read_error != nil {
+		record_file_error(file_error, "cannot read", directory, read_error, session.allocator)
+		return .Import_Failed
+	}
 	defer os.file_info_slice_delete(infos, session.allocator)
 	slice.sort_by(infos, proc(a, b: os.File_Info) -> bool { return a.name < b.name })
 	loaded := 0
@@ -673,7 +702,10 @@ load_package :: proc(session: ^Session, directory: string, package_id: check.Pac
 		   !strings.has_suffix(info.name, ".odin") ||
 		   (session.test_options == nil && strings.has_suffix(info.name, "_test.odin")) { continue }
 		source, source_error := os.read_entire_file_from_path(info.fullpath, session.allocator)
-		if source_error != nil { return .Read_Failed }
+		if source_error != nil {
+			record_file_error(file_error, "cannot read", info.fullpath, source_error, session.allocator)
+			return .Read_Failed
+		}
 		hardcoded := session.packages[package_id].kind == .Intrinsics
 		if !hardcoded && target_source_excluded(info.name, string(source)) {
 			delete(source, session.allocator)
@@ -763,15 +795,15 @@ visit_init_order :: proc(session: ^Session, visited: []bool, package_id: check.P
 
 @(private = "file")
 // base:runtime is loaded for every program: its @(builtin) declarations form the universal scope.
-load_runtime :: proc(session: ^Session) -> (check.Package_Id, Driver_Error) {
-	directory, resolve_error := resolve_collection_import(&session.collections, "base:runtime", "", session.allocator)
+load_runtime :: proc(session: ^Session, file_error: ^File_Error = nil) -> (check.Package_Id, Driver_Error) {
+	directory, resolve_error := resolve_collection_import(&session.collections, "base:runtime", "", session.allocator, file_error)
 	if resolve_error != .None { return 0, .Import_Failed }
 	if error := push(&session.owned_strings, directory); error != .None { return 0, error }
 	runtime_package, runtime_scope, package_error := add_package(session, directory, "runtime", .Runtime)
 	if package_error != .None { return 0, package_error }
 	session.collection.runtime_package = runtime_package
 	session.collection.runtime_scope = runtime_scope
-	return runtime_package, load_package(session, directory, runtime_package, runtime_scope)
+	return runtime_package, load_package(session, directory, runtime_package, runtime_scope, file_error)
 }
 
 @(private = "file")
@@ -783,9 +815,21 @@ add_package :: proc(session: ^Session, key, name: string, kind: check.Package_Ki
 }
 
 @(private = "file")
-load_file :: proc(session: ^Session, path: string, package_id: check.Package_Id, package_scope: check.Scope_Id) -> (check.File_Id, Driver_Error) {
+load_file :: proc(
+	session: ^Session,
+	path: string,
+	package_id: check.Package_Id,
+	package_scope: check.Scope_Id,
+	file_error: ^File_Error = nil,
+) -> (
+	check.File_Id,
+	Driver_Error,
+) {
 	source, read_error := os.read_entire_file_from_path(path, session.allocator)
-	if read_error != nil { return 0, .Read_Failed }
+	if read_error != nil {
+		record_file_error(file_error, "cannot read", path, read_error, session.allocator)
+		return 0, .Read_Failed
+	}
 	return load_source(session, path, source, package_id, package_scope)
 }
 

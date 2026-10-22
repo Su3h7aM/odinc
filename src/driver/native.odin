@@ -91,17 +91,24 @@ build_file :: proc(
 	image: []byte,
 	err: Build_Error,
 ) {
-	session, driver_err := check_program(odin_root, main_path, allocator, user_collections, defines, level)
+	file_error: File_Error
+	defer file_error_destroy(&file_error, allocator)
+	session, driver_err := check_program(odin_root, main_path, allocator, user_collections, defines, level, &file_error)
 	defer if session != nil { session_destroy(session) }
 	if driver_err == .Check_Failed || driver_err == .Unsupported_Import || driver_err == .Parse_Failed || driver_err == .Import_Cycle {
 		write_diagnostics(session, log)
 		fmt.wprintfln(log, "check stage failed: %v", driver_err)
 	}
 	if driver_err != .None {
-		if driver_err != .Check_Failed &&
-		   driver_err != .Unsupported_Import &&
-		   driver_err != .Parse_Failed &&
-		   driver_err != .Import_Cycle { fmt.wprintfln(log, "driver error: %v", driver_err) }
+		if driver_err != .Check_Failed && driver_err != .Unsupported_Import && driver_err != .Parse_Failed && driver_err != .Import_Cycle {
+			if file_error.code != nil {
+				message := describe_file_error(file_error, allocator)
+				defer delete(message, allocator)
+				fmt.wprintfln(log, "driver error: %s", message)
+			} else {
+				fmt.wprintfln(log, "driver error: %v", driver_err)
+			}
+		}
 		return nil, driver_err
 	}
 
@@ -145,7 +152,7 @@ destroy_link_error :: proc(link_error: link.Link_Error, allocator: runtime.Alloc
 	}
 }
 
-@(private = "file")
+@(private)
 write_build_error :: proc(log: io.Writer, err: Build_Error, error_context := Build_Error_Context{}) {
 	switch value in err {
 	case Driver_Error, runtime.Allocator_Error, Lower_Failed:
@@ -153,7 +160,13 @@ write_build_error :: proc(log: io.Writer, err: Build_Error, error_context := Bui
 	case Missing_Main:
 		fmt.wprintfln(log, "build failed: no main procedure")
 	case Foreign_Library_Failed:
-		fmt.wprintfln(log, "build failed: foreign library %s %s", value.path, value.reason)
+		if value.code != nil {
+			message := describe_file_error(File_Error{operation = "cannot read", path = value.path, code = value.code})
+			defer delete(message)
+			fmt.wprintfln(log, "build failed: %s", message)
+		} else {
+			fmt.wprintfln(log, "build failed: foreign library %s %s", value.path, value.reason)
+		}
 	case Select_Failed:
 		fmt.wprintfln(log, "%s: instruction selection failed: %v", error_context.function_name, value.err)
 	case Allocate_Failed:

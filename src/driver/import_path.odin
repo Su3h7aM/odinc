@@ -6,7 +6,15 @@ import "core:strings"
 // Maps a written import path to its package directory, as parser.cpp determine_path_from_string does for
 // Linux: core:runtime, core:intrinsics and core:builtin name base packages. A path without a collection is
 // relative to the importer's directory.
-import_directory :: proc(table: ^Collection_Table, import_path, importer_directory: string, allocator: runtime.Allocator) -> (string, Collection_Error) {
+import_directory :: proc(
+	table: ^Collection_Table,
+	import_path, importer_directory: string,
+	allocator: runtime.Allocator,
+	file_error: ^File_Error = nil,
+) -> (
+	string,
+	Collection_Error,
+) {
 	resolved_path := import_path
 	if strings.has_prefix(import_path, "core:") {
 		package_path := import_path[len("core:"):]
@@ -17,5 +25,5 @@ import_directory :: proc(table: ^Collection_Table, import_path, importer_directo
 			resolved_path = base_path
 		}
 	}
-	return resolve_collection_import(table, resolved_path, importer_directory, allocator)
+	return resolve_collection_import(table, resolved_path, importer_directory, allocator, file_error)
 }

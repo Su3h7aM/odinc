@@ -34,7 +34,9 @@ build_tests :: proc(
 	test_options := options
 	session.test_options = &test_options
 	defer session_destroy(session)
-	if error := check_session(session, odin_root, path, collections, options.microarch); error != .None {
+	file_error: File_Error
+	defer file_error_destroy(&file_error, allocator)
+	if error := check_session(session, odin_root, path, collections, options.microarch, &file_error); error != .None {
 		if session.invalid_test != 0 {
 			write_test_signature_error(session, log)
 		} else {
@@ -44,7 +46,13 @@ build_tests :: proc(
 			hidden = hide_test_entry_diagnostics(&session.checker.diagnostics, session.test_entry_file) || hidden
 			write_diagnostics(session, log)
 			if hidden { fmt.wprintfln(log, "odinc test: compiler could not check the internal test entry") }
-			fmt.wprintfln(log, "test build failed: %v", error)
+			if file_error.code != nil {
+				message := describe_file_error(file_error, allocator)
+				defer delete(message, allocator)
+				fmt.wprintfln(log, "test build failed: %s", message)
+			} else {
+				fmt.wprintfln(log, "test build failed: %v", error)
+			}
 		}
 		return nil, error
 	}
@@ -71,7 +79,7 @@ build_tests :: proc(
 	entry := session.program.entity_symbols[session.test_entry]
 	foreign_files, foreign_err := load_foreign_files(&session.program, session.build.root, allocator)
 	if foreign_err != nil {
-		fmt.wprintfln(log, "build failed: %v", foreign_err)
+		write_build_error(log, foreign_err)
 		return nil, foreign_err
 	}
 	defer foreign_files_destroy(&foreign_files)

@@ -14,6 +14,7 @@ SYSTEM_LIBRARY_DIRECTORIES := []string{"/usr/local/lib", "/usr/lib/x86_64-linux-
 Foreign_Library_Failed :: struct {
 	path:   string,
 	reason: string,
+	code:   os.Error,
 }
 
 // Owned files of the program's foreign imports. Shared libraries keep their image bytes alive, since their symbol names alias them.
@@ -127,7 +128,7 @@ load_foreign_path :: proc(
 
 	data, read_err := os.read_entire_file(file_path, allocator)
 	if read_err != nil {
-		return Foreign_Library_Failed{path = file_path, reason = "cannot be read"}
+		return Foreign_Library_Failed{path = file_path, reason = "cannot be read", code = read_err}
 	}
 	switch link.classify_file(data) {
 	case .Relocatable:

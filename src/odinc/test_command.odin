@@ -18,7 +18,9 @@ test_command :: proc(args: []string) -> int {
 	defer delete(image)
 	permissions := os.Permissions_Read_All + os.Permissions{.Write_User, .Execute_User}
 	if write_error := os.write_entire_file(command.output, image, permissions); write_error != nil {
-		fmt.eprintfln("odinc test: write failed: %v", write_error)
+		message := driver.describe_file_error(driver.File_Error{operation = "cannot write", path = command.output, code = write_error}, context.allocator)
+		defer delete(message)
+		fmt.eprintfln("odinc test: %s", message)
 		return 1
 	}
 	absolute, path_error := filepath.abs(command.output)
