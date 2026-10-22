@@ -163,6 +163,15 @@ scope_lookup_current :: proc(store: ^Scope_Store, scope: Scope_Id, name: string)
 }
 
 // Procedure boundaries hide enclosing runtime locals and labels, as scope_lookup_parent does.
+// Declarations in a procedure body resolve in the active procedure instance; package and file scopes do not.
+scope_inside_body :: proc(store: ^Scope_Store, scope: Scope_Id) -> bool {
+	for current := scope_get(store, scope); current != nil; current = scope_get(store, current.parent) {
+		if current.kind == .Procedure || current.kind == .Block { return true }
+	}
+	return false
+}
+
+// Procedure boundaries hide enclosing runtime locals and labels, as scope_lookup_parent does.
 scope_lookup :: proc(store: ^Scope_Store, scope: Scope_Id, name: string) -> (entity: Entity_Id, found_scope: Scope_Id) {
 	if name == "" || name == "_" { return }
 	crossed_procedure := false

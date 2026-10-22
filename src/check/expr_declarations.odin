@@ -191,7 +191,7 @@ expression_declaration :: proc(resolver: ^Resolver, id: Entity_Id, user_data: ra
 		return false, nil
 	}
 	outer_instance := checker.active_instance
-	checker.active_instance = 0
+	if !scope_inside_body(resolver.scopes, entity.scope) { checker.active_instance = 0 }
 	defer checker.active_instance = outer_instance
 	view = expression_file_view(checker, declaration.identifier.file) or_return
 	if entity.kind == .Constant && declaration.type.node == 0 && declaration.value.node != 0 {
