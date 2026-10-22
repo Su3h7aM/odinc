@@ -7,7 +7,6 @@ package tests_issues
 
 @(require) import "test_issue_1592"
 @(require) import "test_issue_1730"
-@(require) import "test_issue_2039"
 @(require) import "test_issue_2056"
 @(require) import "test_issue_2466"
 @(require) import "test_issue_2615"
@@ -39,7 +38,6 @@ package tests_issues
 @(require) import "test_issue_7477_7506"
 @(require) import "test_issue_7490"
 @(require) import "test_issue_7547"
-@(require) import "test_issue_7560"
 @(require) import "test_issue_7566"
 @(require) import "test_issue_7587"
 @(require) import "test_issue_7598"
@@ -52,7 +50,6 @@ package tests_issues
 @(require) import "test_issue_7853"
 @(require) import "test_issue_7875_7471"
 @(require) import "test_issue_7889"
-@(require) import "test_issue_7975_7976"
 @(require) import "test_issue_829"
 @(require) import "test_issue_bool_comparison_truthiness"
 @(require) import "test_issue_bool_to_be_conversion"

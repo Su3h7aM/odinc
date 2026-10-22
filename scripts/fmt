@@ -7,6 +7,11 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 cd "$PROJECT_ROOT"
 
+# odinfmt cannot parse these on purpose: they test rejected syntax.
+unformattable=(
+	"$PROJECT_ROOT/tests/issues/test_issue_ellipsis_type_call/test_issue_ellipsis_type_call.odin"
+)
+
 check="${usage_check:-false}"
 target="${usage_package:-}"
 for argument in "$@"; do
@@ -17,10 +22,21 @@ for argument in "$@"; do
 	esac
 done
 
-mapfile -t sources < <(owned_sources)
 if [[ -n "$target" ]]; then
-	mapfile -t sources < <(printf '%s\n' "${sources[@]}" | grep "/src/$target/")
+	mapfile -t sources < <(owned_sources | grep "/src/$target/")
+else
+	mapfile -t sources < <(find "$PROJECT_ROOT" \( -path "$PROJECT_ROOT/base" -o -path "$PROJECT_ROOT/core" -o -path "$PROJECT_ROOT/vendor" -o -path "$PROJECT_ROOT/build" -o -name '.*' \) -prune -o -name '*.odin' -print | sort)
 fi
+
+kept=()
+for file in "${sources[@]}"; do
+	skip=false
+	for excluded in "${unformattable[@]}"; do
+		[[ "$file" == "$excluded" ]] && skip=true
+	done
+	[[ "$skip" == false ]] && kept+=("$file")
+done
+sources=("${kept[@]}")
 
 if [[ "$check" == true ]]; then
 	unformatted=()

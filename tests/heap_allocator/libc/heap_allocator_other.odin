@@ -1,4 +1,4 @@
-#+build js, wasi, freestanding
+#+build js, wasi, freestanding, essence
 #+private
 package tests_heap_allocator_libc
 
