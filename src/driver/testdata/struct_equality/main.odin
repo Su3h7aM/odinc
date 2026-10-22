@@ -100,7 +100,7 @@ main :: proc() {
 	q1 := Pad{1, 2, 3}
 	q2 := Pad{1, 2, 3}
 	(^u8)(uintptr(&q2) + 1)^ = 0xff
-	if q1 == q2 {
+	if q1 != q2 {
 		code += 128
 	}
 	intrinsics.syscall(60, uintptr(code))

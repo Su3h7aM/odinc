@@ -109,6 +109,10 @@ generated_equal_value :: proc(state: ^Procedure_State, type: types.Type_Id, left
 	store := check.type_store(state.job.program)
 	resolved := types.resolve_named(store, type)
 	size, _, _ := types.layout(store, resolved)
+	if size == 0 { return ir.const_int(function, .Bool, 1) }
+	if types.is_simple_compare(store, resolved) {
+		return generated_helper_call(state, "memory_equal", []ir.Node_Id{left, right, ir.const_int(function, .I64, size)})
+	}
 	kind := types.get(store, resolved).kind
 	#partial switch kind {
 	case .String:
