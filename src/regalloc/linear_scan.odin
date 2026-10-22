@@ -102,7 +102,10 @@ allocate :: proc(program: ^Program, allocator := context.allocator) -> (result: 
 	defer delete(order)
 	for &interval in live.intervals {
 		if interval_is_live(&interval) {
-			append(&order, interval.vreg)
+			if _, append_err := append(&order, interval.vreg); append_err != nil {
+				delete(scan.location, allocator)
+				return {}, Error{kind = .Out_Of_Memory}
+			}
 		}
 	}
 	slice.sort_by_with_data(order[:], proc(a, b: Vreg, data: rawptr) -> bool {
@@ -131,7 +134,11 @@ allocate :: proc(program: ^Program, allocator := context.allocator) -> (result: 
 			}
 		}
 	}
-	moves := reuse_moves(scan.edges[:], scan.location, allocator)
+	moves, moves_err := reuse_moves(scan.edges[:], scan.location, allocator)
+	if moves_err.kind != .None {
+		delete(scan.location, allocator)
+		return {}, moves_err
+	}
 	result.inserted_moves = moves[:]
 	result.location = scan.location
 	result.spill_slot_count = scan.slot_count
@@ -203,7 +210,9 @@ scan_prepare :: proc(scan: ^Scan) -> Error {
 						next  = scan.edge_head[operand.vreg],
 					}
 					scan.edge_head[operand.vreg] = len(scan.edges)
-					append(&scan.edges, edge)
+					if _, append_err := append(&scan.edges, edge); append_err != nil {
+						return Error{kind = .Out_Of_Memory}
+					}
 					set_hint(scan, operand.vreg, input)
 				}
 			}
@@ -217,14 +226,18 @@ scan_prepare :: proc(scan: ^Scan) -> Error {
 
 // reuse_moves lists the copies the reuse-input pairs need under `location`,
 // in the order of `edges`, which is program order.
-reuse_moves :: proc(edges: []Reuse_Edge, location: []Location, allocator := context.allocator) -> [dynamic]Move_At {
+reuse_moves :: proc(edges: []Reuse_Edge, location: []Location, allocator := context.allocator) -> ([dynamic]Move_At, Error) {
 	moves := make([dynamic]Move_At, allocator)
 	for edge in edges {
 		if location[edge.def] != location[edge.input] {
-			append(&moves, Move_At{block = edge.block, before = edge.index, move = Move{source = edge.input, destination = edge.def}})
+			if _, append_err := append(&moves, Move_At{block = edge.block, before = edge.index, move = Move{source = edge.input, destination = edge.def}});
+			   append_err != nil {
+				delete(moves)
+				return nil, Error{kind = .Out_Of_Memory}
+			}
 		}
 	}
-	return moves
+	return moves, {}
 }
 
 spill_cost :: proc(scan: ^Scan, vreg: Vreg) -> u64 {
@@ -253,9 +266,12 @@ assign :: proc(scan: ^Scan, vreg: Vreg) -> Error {
 	count := preference_order(scan, vreg, allowed, &preferred)
 
 	for index in 0 ..< count {
-		if !has_conflict(scan, vreg, preferred[index], nil) {
-			place(scan, vreg, preferred[index])
-			return Error{}
+		conflicts, err := has_conflict(scan, vreg, preferred[index], nil)
+		if err.kind != .None {
+			return err
+		}
+		if !conflicts {
+			return place(scan, vreg, preferred[index])
 		}
 	}
 
@@ -265,7 +281,9 @@ assign :: proc(scan: ^Scan, vreg: Vreg) -> Error {
 	cheapest_register := -1
 	for index in 0 ..< count {
 		clear(&owners)
-		has_conflict(scan, vreg, preferred[index], &owners)
+		if _, err := has_conflict(scan, vreg, preferred[index], &owners); err.kind != .None {
+			return err
+		}
 		cost: u64
 		for owner in owners {
 			blocking := blocking_cost(scan, owner)
@@ -278,7 +296,9 @@ assign :: proc(scan: ^Scan, vreg: Vreg) -> Error {
 			cheapest_cost = cost
 			cheapest_register = int(preferred[index])
 			clear(&cheapest_owners)
-			append(&cheapest_owners, ..owners[:])
+			if _, append_err := append(&cheapest_owners, ..owners[:]); append_err != nil {
+				return Error{kind = .Out_Of_Memory, vreg = vreg}
+			}
 		}
 	}
 
@@ -294,8 +314,7 @@ assign :: proc(scan: ^Scan, vreg: Vreg) -> Error {
 		unplace(scan, owner)
 		spill(scan, owner)
 	}
-	place(scan, vreg, Register(cheapest_register))
-	return Error{}
+	return place(scan, vreg, Register(cheapest_register))
 }
 
 // preference_order lists the allowed registers best first.
@@ -347,11 +366,11 @@ needs_extra :: proc(scan: ^Scan, edge: ^Reuse_Edge, register: Register) -> bool 
 
 // has_conflict reports whether `vreg` overlaps something already in
 // `register`; with `owners` it also collects every distinct overlapped vreg.
-has_conflict :: proc(scan: ^Scan, vreg: Vreg, register: Register, owners: ^[dynamic]Vreg) -> bool {
+has_conflict :: proc(scan: ^Scan, vreg: Vreg, register: Register, owners: ^[dynamic]Vreg) -> (bool, Error) {
 	interval := &scan.live.intervals[vreg]
 	occupied := scan.occupancy[interval.class][register][:]
 	found := false
-	check :: proc(occupied: []Occupied, first, last: Pos, vreg: Vreg, owners: ^[dynamic]Vreg) -> bool {
+	check :: proc(occupied: []Occupied, first, last: Pos, vreg: Vreg, owners: ^[dynamic]Vreg) -> (bool, Error) {
 		found := false
 		for index := first_ending_at_or_after(occupied, first); index < len(occupied) && occupied[index].first <= last; index += 1 {
 			owner := occupied[index].owner
@@ -359,33 +378,46 @@ has_conflict :: proc(scan: ^Scan, vreg: Vreg, register: Register, owners: ^[dyna
 				continue
 			}
 			if owners == nil {
-				return true
+				return true, {}
 			}
 			found = true
 			if !slice.contains(owners[:], owner) {
-				append(owners, owner)
+				if _, append_err := append(owners, owner); append_err != nil {
+					return false, Error{kind = .Out_Of_Memory, vreg = vreg}
+				}
 			}
 		}
-		return found
+		return found, {}
 	}
 	for range in interval.ranges {
-		if check(occupied, range.first, range.last, vreg, owners) {
+		overlaps, err := check(occupied, range.first, range.last, vreg, owners)
+		if err.kind != .None {
+			return false, err
+		}
+		if overlaps {
 			if owners == nil {
-				return true
+				return true, {}
 			}
 			found = true
 		}
 	}
 	for edge_index := scan.edge_head[vreg]; edge_index != NO_EDGE; edge_index = scan.edges[edge_index].next {
 		edge := &scan.edges[edge_index]
-		if needs_extra(scan, edge, register) && check(occupied, edge.early, edge.early, vreg, owners) {
+		if !needs_extra(scan, edge, register) {
+			continue
+		}
+		overlaps, err := check(occupied, edge.early, edge.early, vreg, owners)
+		if err.kind != .None {
+			return false, err
+		}
+		if overlaps {
 			if owners == nil {
-				return true
+				return true, {}
 			}
 			found = true
 		}
 	}
-	return found
+	return found, {}
 }
 
 first_ending_at_or_after :: proc "contextless" (occupied: []Occupied, pos: Pos) -> int {
@@ -401,28 +433,38 @@ first_ending_at_or_after :: proc "contextless" (occupied: []Occupied, pos: Pos) 
 	return low
 }
 
-insert_occupied :: proc(table: ^[dynamic]Occupied, entry: Occupied) {
+insert_occupied :: proc(table: ^[dynamic]Occupied, entry: Occupied) -> Error {
 	if len(table) == cap(table) {
-		_ = reserve(table, max(2 * cap(table), 16))
+		if reserve(table, max(2 * cap(table), 16)) != nil {
+			return Error{kind = .Out_Of_Memory}
+		}
 	}
-	inject_at(table, first_ending_at_or_after(table[:], entry.first), entry)
+	if _, err := inject_at(table, first_ending_at_or_after(table[:], entry.first), entry); err != nil {
+		return Error{kind = .Out_Of_Memory}
+	}
+	return {}
 }
 
-place :: proc(scan: ^Scan, vreg: Vreg, register: Register) {
+place :: proc(scan: ^Scan, vreg: Vreg, register: Register) -> Error {
 	interval := &scan.live.intervals[vreg]
 	table := &scan.occupancy[interval.class][register]
 	scan.location[vreg] = register
 	for range in interval.ranges {
-		insert_occupied(table, Occupied{first = range.first, last = range.last, owner = vreg})
+		if err := insert_occupied(table, Occupied{first = range.first, last = range.last, owner = vreg}); err.kind != .None {
+			return err
+		}
 	}
 	for edge_index := scan.edge_head[vreg]; edge_index != NO_EDGE; edge_index = scan.edges[edge_index].next {
 		edge := &scan.edges[edge_index]
 		if needs_extra(scan, edge, register) {
-			insert_occupied(table, Occupied{first = edge.early, last = edge.early, owner = vreg})
+			if err := insert_occupied(table, Occupied{first = edge.early, last = edge.early, owner = vreg}); err.kind != .None {
+				return err
+			}
 		} else if input_register, ok := scan.location[edge.input].(Register); ok && input_register == register {
 			scan.reuse_locked[edge.input] = true
 		}
 	}
+	return {}
 }
 
 unplace :: proc(scan: ^Scan, vreg: Vreg) {
@@ -490,7 +532,9 @@ verify :: proc(program: ^Program, result: ^Result, allocator := context.allocato
 				return Error{kind = .Clobber_Violated, vreg = interval.vreg}
 			}
 			for range in interval.ranges {
-				append(&entries, Verify_Entry{interval.class, location, range.first, range.last, interval.vreg})
+				if _, append_err := append(&entries, Verify_Entry{interval.class, location, range.first, range.last, interval.vreg}); append_err != nil {
+					return Error{kind = .Out_Of_Memory, vreg = interval.vreg}
+				}
 			}
 		}
 	}
@@ -510,22 +554,25 @@ verify :: proc(program: ^Program, result: ^Result, allocator := context.allocato
 				case .Reuse_Input:
 					input := instruction.operands[operand.reuse].vreg
 					if input != operand.vreg {
-						append(
-							&edges,
-							Reuse_Edge {
-								def = operand.vreg,
-								input = input,
-								early = live.starts[block_index] + Pos(POSITIONS_PER_INSTRUCTION * index),
-								block = u32(block_index),
-								index = u32(index),
-							},
-						)
+						edge := Reuse_Edge {
+							def   = operand.vreg,
+							input = input,
+							early = live.starts[block_index] + Pos(POSITIONS_PER_INSTRUCTION * index),
+							block = u32(block_index),
+							index = u32(index),
+						}
+						if _, append_err := append(&edges, edge); append_err != nil {
+							return Error{kind = .Out_Of_Memory, vreg = operand.vreg}
+						}
 					}
 				}
 			}
 		}
 	}
-	expected := reuse_moves(edges[:], result.location)
+	expected, expected_err := reuse_moves(edges[:], result.location)
+	if expected_err.kind != .None {
+		return expected_err
+	}
 	defer delete(expected)
 	if !slice.equal(expected[:], result.inserted_moves) {
 		return Error{kind = .Reuse_Violated}
@@ -533,7 +580,9 @@ verify :: proc(program: ^Program, result: ^Result, allocator := context.allocato
 	for edge in edges {
 		register, is_register := result.location[edge.def].(Register)
 		if is_register && result.location[edge.input] != result.location[edge.def] && !interval_covers(&live.intervals[edge.def], edge.early) {
-			append(&entries, Verify_Entry{live.intervals[edge.def].class, register, edge.early, edge.early, edge.def})
+			if _, append_err := append(&entries, Verify_Entry{live.intervals[edge.def].class, register, edge.early, edge.early, edge.def}); append_err != nil {
+				return Error{kind = .Out_Of_Memory, vreg = edge.def}
+			}
 		}
 	}
 

@@ -52,7 +52,7 @@ Node :: struct {
 	kind:        Node_Kind,
 	type:        Value_Type,
 	flags:       Node_Flags,
-	input_count: u16,
+	input_count: u32,
 	first_input: u32,
 	data:        Node_Data,
 }
@@ -141,7 +141,7 @@ add_node :: proc(fn: ^Function, kind: Node_Kind, type: Value_Type, inputs: []Nod
 		kind        = kind,
 		type        = type,
 		flags       = flags,
-		input_count = u16(len(inputs)),
+		input_count = u32(len(inputs)),
 		first_input = u32(first_input),
 		data        = data,
 	}
@@ -188,7 +188,7 @@ set_input :: proc(fn: ^Function, id: Node_Id, slot: int, input: Node_Id) {
 // Shrinks arity in place; the dropped edges stay in the arena.
 set_input_count :: proc(fn: ^Function, id: Node_Id, count: int) {
 	assert(count <= int(fn.nodes.input_count[id]))
-	fn.nodes.input_count[id] = u16(count)
+	fn.nodes.input_count[id] = u32(count)
 }
 
 node_int_value :: proc(fn: ^Function, id: Node_Id) -> i64 {
