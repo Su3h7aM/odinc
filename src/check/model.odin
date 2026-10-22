@@ -557,8 +557,9 @@ Storage_Kind :: enum u8 {
 	Thread_Local,
 }
 Variable_Data :: struct {
-	storage:     Storage_Kind,
-	initializer: Node_Ref,
+	storage:          Storage_Kind,
+	initializer:      Node_Ref,
+	initializer_view: View_Id,
 }
 Procedure_Group_Data :: struct {
 	members: []Entity_Id,

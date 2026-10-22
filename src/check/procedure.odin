@@ -1318,6 +1318,7 @@ expression_return :: proc(checker: ^Expression_Checker, view: View_Id, file_id: 
 local_variable_data :: proc(
 	checker: ^Expression_Checker,
 	file_id: File_Id,
+	view: View_Id,
 	attributes: syntax.Node_Range,
 	values: []syntax.Node_Index,
 	name_count, index: int,
@@ -1327,7 +1328,10 @@ local_variable_data :: proc(
 	data := Variable_Data {
 		storage = .Global,
 	}
-	if len(values) == name_count { data.initializer = Node_Ref{file_id, values[index]} }
+	if len(values) == name_count {
+		data.initializer = Node_Ref{file_id, values[index]}
+		data.initializer_view = view
+	}
 	return data
 }
 
@@ -1595,7 +1599,7 @@ expression_bind_local_declaration :: proc(
 				scope = scope,
 				state = .Resolved,
 				type = variable_types[index],
-				data = local_variable_data(checker, file_id, declaration.attributes, values, len(names), index),
+				data = local_variable_data(checker, file_id, view, declaration.attributes, values, len(names), index),
 			},
 		)
 		if create_error != nil { return binding_resolve_error(create_error) }

@@ -46,7 +46,10 @@ expression_checker_publish_globals :: proc(checker: ^Expression_Checker, program
 			thread_local = thread_local,
 		}
 		if variable.initializer.node != 0 {
-			view := expression_file_view(checker, variable.initializer.file) or_return
+			view := variable.initializer_view
+			if scope := scope_get(scopes, entity.scope); scope == nil || (scope.kind != .Procedure && scope.kind != .Block) {
+				view = expression_file_view(checker, variable.initializer.file) or_return
+			}
 			info := expression_stored_info(checker, view, variable.initializer.node)
 			if info.mode == .Constant {
 				global.initializer = info.constant

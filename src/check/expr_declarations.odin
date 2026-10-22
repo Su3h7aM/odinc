@@ -190,6 +190,10 @@ expression_declaration :: proc(resolver: ^Resolver, id: Entity_Id, user_data: ra
 		expression_unsupported(checker, view, entity.scope, declaration.identifier.node, "Declaration_Kind") or_return
 		return false, nil
 	}
+	outer_instance := checker.active_instance
+	checker.active_instance = 0
+	defer checker.active_instance = outer_instance
+	view = expression_file_view(checker, declaration.identifier.file) or_return
 	if entity.kind == .Constant && declaration.type.node == 0 && declaration.value.node != 0 {
 		file := checker.type_checker.files[declaration.value.file]
 		value := type_unparen(file, declaration.value.node)
