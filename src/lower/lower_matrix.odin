@@ -351,17 +351,17 @@ lower_matrix_binary :: proc(state: ^Procedure_State, node: syntax.Node_Index, pl
 	if state.failed || function.error != nil { return 0 }
 	layout := state.job.layouts[plan.result]
 	if layout.error != .None || layout.size > i64(max(u32)) { return lower_fail(state, node, .Operator) }
-	slot := ir.stack_slot(function, state.entry_control, u32(max(layout.size, 1)), u32(layout.align))
 	if plan.op == .Cmp_Eq || plan.op == .Not_Eq {
-		return lower_matrix_compare(state, node, plan, slot, left_value, right_value, left_aggregate, right_aggregate, elem, element_size)
+		return lower_matrix_compare(state, node, plan, left_value, right_value, elem, element_size)
 	}
+	slot := ir.stack_slot(function, state.entry_control, u32(max(layout.size, 1)), u32(layout.align))
 	if plan.op == .Mul && left_aggregate && right_aggregate {
 		if left_kind == .Matrix && right_kind == .Matrix {
 			return lower_matrix_product(state, node, plan, slot, left_value, right_value, elem, element_size)
 		}
 		return lower_matrix_vector_product(state, node, plan, slot, left_value, right_value, left_kind, elem, element_size)
 	}
-	return lower_matrix_elementwise(state, node, plan, slot, left_value, right_value, left_aggregate, right_aggregate, elem, element_size)
+	return lower_matrix_elementwise(state, node, plan, slot, left_value, right_value, elem, element_size)
 }
 
 // The matrix product sums k-ascending with no FMA contraction.
@@ -459,12 +459,35 @@ lower_matrix_vector_product :: proc(
 
 // A scalar reads on the diagonal and zero elsewhere for anything but `*`, which broadcasts it.
 @(private)
+lower_matrix_read_operand :: proc(
+	state: ^Procedure_State,
+	base: ir.Node_Id,
+	shape: ^types.Type,
+	row, column, position: i64,
+	scalar, zero: ir.Node_Id,
+	elem: types.Type_Id,
+	element_size: u32,
+	broadcast: bool,
+) -> ir.Node_Id {
+	if shape != nil {
+		storage := position
+		if shape.kind == .Matrix {
+			storage = matrix_storage_index(shape^, position)
+		}
+		return lower_load(state, ir.ptr_offset(state.job.function, base, i64(storage) * i64(element_size)), elem)
+	}
+	if broadcast {
+		return scalar
+	}
+	return scalar if row == column else zero
+}
+
+@(private)
 lower_matrix_elementwise :: proc(
 	state: ^Procedure_State,
 	node: syntax.Node_Index,
 	plan: check.Matrix_Binary_Plan,
 	slot, left_value, right_value: ir.Node_Id,
-	left_aggregate, right_aggregate: bool,
 	elem: types.Type_Id,
 	element_size: u32,
 ) -> ir.Node_Id {
@@ -472,34 +495,19 @@ lower_matrix_elementwise :: proc(
 	result_shape := types.get(store, types.resolve_named(store, plan.result))
 	rows := result_shape.count
 	columns := result_shape.upper_bound
-	left_shape := lower_type(state, operand_type(state, plan.left)) if left_aggregate else nil
-	right_shape := lower_type(state, operand_type(state, plan.right)) if right_aggregate else nil
+	left_operand := lower_type(state, operand_type(state, plan.left))
+	left_shape := left_operand if left_operand.kind == .Matrix || left_operand.kind == .Array else nil
+	right_operand := lower_type(state, operand_type(state, plan.right))
+	right_shape := right_operand if right_operand.kind == .Matrix || right_operand.kind == .Array else nil
 	if state.failed { return 0 }
 	zero := lower_matrix_zero(state, elem)
 	if state.failed { return 0 }
+	broadcast := plan.op == .Mul
 	for row in 0 ..< rows {
 		for column in 0 ..< columns {
 			position := row * columns + column
-			first := left_value
-			if left_aggregate {
-				storage := position
-				if left_shape.kind == .Matrix {
-					storage = matrix_storage_index(left_shape^, position)
-				}
-				first = lower_load(state, ir.ptr_offset(state.job.function, left_value, i64(storage) * i64(element_size)), elem)
-			} else if plan.op != .Mul {
-				first = left_value if row == column else zero
-			}
-			second := right_value
-			if right_aggregate {
-				storage := position
-				if right_shape.kind == .Matrix {
-					storage = matrix_storage_index(right_shape^, position)
-				}
-				second = lower_load(state, ir.ptr_offset(state.job.function, right_value, i64(storage) * i64(element_size)), elem)
-			} else if plan.op != .Mul {
-				second = right_value if row == column else zero
-			}
+			first := lower_matrix_read_operand(state, left_value, left_shape, row, column, position, left_value, zero, elem, element_size, broadcast)
+			second := lower_matrix_read_operand(state, right_value, right_shape, row, column, position, right_value, zero, elem, element_size, broadcast)
 			value := lower_matrix_element_op(state, node, plan.op, first, second, elem)
 			if state.failed || state.job.function.error != nil { return 0 }
 			destination := matrix_storage_index(result_shape^, position)
@@ -515,16 +523,17 @@ lower_matrix_compare :: proc(
 	state: ^Procedure_State,
 	node: syntax.Node_Index,
 	plan: check.Matrix_Binary_Plan,
-	slot, left_value, right_value: ir.Node_Id,
-	left_aggregate, right_aggregate: bool,
+	left_value, right_value: ir.Node_Id,
 	elem: types.Type_Id,
 	element_size: u32,
 ) -> ir.Node_Id {
 	function := state.job.function
-	left_shape := lower_type(state, operand_type(state, plan.left)) if left_aggregate else nil
-	right_shape := lower_type(state, operand_type(state, plan.right)) if right_aggregate else nil
+	left_operand := lower_type(state, operand_type(state, plan.left))
+	left_shape := left_operand if left_operand.kind == .Matrix || left_operand.kind == .Array else nil
+	right_operand := lower_type(state, operand_type(state, plan.right))
+	right_shape := right_operand if right_operand.kind == .Matrix || right_operand.kind == .Array else nil
 	if state.failed { return 0 }
-	matrix_shape := left_shape if left_aggregate else right_shape
+	matrix_shape := left_shape if left_shape != nil else right_shape
 	count := matrix_shape.count * matrix_shape.upper_bound
 	zero := lower_matrix_zero(state, elem)
 	if state.failed { return 0 }
@@ -533,31 +542,12 @@ lower_matrix_compare :: proc(
 	for position in 0 ..< count {
 		row := position / matrix_shape.upper_bound
 		column := position % matrix_shape.upper_bound
-		first := left_value
-		if left_aggregate {
-			storage := position
-			if left_shape.kind == .Matrix {
-				storage = matrix_storage_index(left_shape^, position)
-			}
-			first = lower_load(state, ir.ptr_offset(function, left_value, i64(storage) * i64(element_size)), elem)
-		} else {
-			first = left_value if row == column else zero
-		}
-		second := right_value
-		if right_aggregate {
-			storage := position
-			if right_shape.kind == .Matrix {
-				storage = matrix_storage_index(right_shape^, position)
-			}
-			second = lower_load(state, ir.ptr_offset(function, right_value, i64(storage) * i64(element_size)), elem)
-		} else {
-			second = right_value if row == column else zero
-		}
+		first := lower_matrix_read_operand(state, left_value, left_shape, row, column, position, left_value, zero, elem, element_size, false)
+		second := lower_matrix_read_operand(state, right_value, right_shape, row, column, position, right_value, zero, elem, element_size, false)
 		compared := lower_matrix_element_compare(state, node, plan.op, first, second, elem)
 		if state.failed || function.error != nil { return 0 }
 		accumulator = ir.binary(function, combine, accumulator, compared)
 	}
-	_ = slot
 	return accumulator
 }
 
@@ -683,27 +673,19 @@ lower_matrix_cast :: proc(state: ^Procedure_State, node: syntax.Node_Index, sour
 	lower_memory_effect(state, .Mem_Set, slot, ir.const_int(function, .I8, 0), ir.const_int(function, .I64, target_layout.size))
 	if state.failed { return 0 }
 	rows, columns := target_shape.count, target_shape.upper_bound
-	if source_shape.count == rows && source_shape.upper_bound == columns {
-		for row in 0 ..< rows {
-			for column in 0 ..< columns {
-				element := lower_load(state, lower_matrix_element_address(state, value, source_shape, row, column, source_size), source_shape.elem)
-				converted := lower_matrix_cast_element(state, node, element, source_shape.elem, target_shape.elem)
-				lower_store(state, lower_matrix_element_address(state, slot, target_shape, row, column, element_size), converted, target_shape.elem)
-			}
-			if state.failed || function.error != nil { return 0 }
+	if (source_shape.count == rows && source_shape.upper_bound == columns) || rows == columns {
+		one: ir.Node_Id
+		if rows == columns && (source_shape.count != rows || source_shape.upper_bound != columns) {
+			one = lower_matrix_one(state, target_shape.elem)
+			if state.failed { return 0 }
 		}
-		return slot
-	}
-	if rows == columns {
-		one := lower_matrix_one(state, target_shape.elem)
-		if state.failed { return 0 }
 		for row in 0 ..< rows {
 			for column in 0 ..< columns {
 				if row < source_shape.count && column < source_shape.upper_bound {
 					element := lower_load(state, lower_matrix_element_address(state, value, source_shape, row, column, source_size), source_shape.elem)
 					converted := lower_matrix_cast_element(state, node, element, source_shape.elem, target_shape.elem)
 					lower_store(state, lower_matrix_element_address(state, slot, target_shape, row, column, element_size), converted, target_shape.elem)
-				} else if row == column {
+				} else if rows == columns && row == column {
 					lower_store(state, lower_matrix_element_address(state, slot, target_shape, row, column, element_size), one, target_shape.elem)
 				}
 			}
@@ -831,7 +813,7 @@ lower_matrix_hadamard :: proc(
 			right  = right_operand,
 			result = type,
 		}
-		return lower_matrix_elementwise(state, node, plan, slot, left_value, right_value, true, true, shape.elem, element_size)
+		return lower_matrix_elementwise(state, node, plan, slot, left_value, right_value, shape.elem, element_size)
 	}
 	if shape.kind != .Array { return lower_fail(state, node, .Builtin) }
 	for index in 0 ..< shape.count {
