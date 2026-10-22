@@ -57,6 +57,24 @@ lower_binary :: proc(
 		if !is_matrix { return lower_fail(state, node, .Operator) }
 		return lower_matrix_binary(state, node, plan)
 	}
+	simd_operator := check.Builtin_Kind.None
+	#partial switch expression.op.kind {
+	case .And:
+		simd_operator = .Simd_Bit_And
+	case .Or:
+		simd_operator = .Simd_Bit_Or
+	case .Xor:
+		simd_operator = .Simd_Bit_Xor
+	case .And_Not:
+		simd_operator = .Simd_Bit_And_Not
+	}
+	if simd_operator != .None {
+		operand_type := lower_info(state, node).type
+		if lower_type(state, operand_type).kind == .Simd_Vector {
+			values := [5]ir.Node_Id{left, right, 0, 0, 0}
+			return lower_simd_lanewise(state, operand_type, simd_operator, values)
+		}
+	}
 	if conversions.type != 0 && is_wide_integer(state, conversions.type) {
 		return lower_wide_operator(state, node, expression.op.kind, signed_type(state, conversions.type), false, left, right)
 	}

@@ -347,6 +347,28 @@ expression_binary :: proc(
 		simd_quotient = conversion_float(element_kind)
 		simd_arithmetic = simd_quotient || conversion_integer(element_kind)
 	}
+	simd_element_kind := types.Kind.Invalid
+	if left_base.kind == .Simd_Vector {
+		simd_element_kind = types.get(store, types.resolve_named(store, left_base.elem)).kind
+	} else if right_base.kind == .Simd_Vector {
+		simd_element_kind = types.get(store, types.resolve_named(store, right_base.elem)).kind
+	}
+	simd_integer_element := conversion_integer(simd_element_kind)
+	simd_boolean_element := conversion_boolean(simd_element_kind)
+	simd_same_type := simd_both && types.are_identical(store, left.type, right.type)
+	simd_bitwise_pair := simd_same_type && simd_integer_element
+	if operator != .And_Not { simd_bitwise_pair ||= simd_same_type && simd_boolean_element }
+	simd_bitwise_broadcast := false
+	if operator == .And || operator == .Or || operator == .Xor || operator == .And_Not {
+		bitwise_element := simd_integer_element || operator != .And_Not && simd_boolean_element
+		if bitwise_element {
+			if left_base.kind == .Simd_Vector && right_base.kind != .Simd_Vector && operand_assignable(checker, view, binary.right, right, left.type) {
+				simd_bitwise_broadcast = true
+			} else if right_base.kind == .Simd_Vector && left_base.kind != .Simd_Vector && operand_assignable(checker, view, binary.left, left, right.type) {
+				simd_bitwise_broadcast = true
+			}
+		}
+	}
 	// Official equality on two complex or two quaternion values compares them directly.
 	complex_pair := (left_base.kind == .Complex || left_base.kind == .Untyped_Complex) && (right_base.kind == .Complex || right_base.kind == .Untyped_Complex)
 	quaternion_pair :=
@@ -372,7 +394,7 @@ expression_binary :: proc(
 	case .And, .Or, .Xor, .And_Not:
 		array_bitwise := array_bitwise_integer || array_bit_set
 		if operator != .And_Not { array_bitwise ||= array_boolean }
-		valid = integer || boolean || array_bitwise || bit_set_pair
+		valid = integer || boolean || array_bitwise || bit_set_pair || simd_bitwise_pair || simd_bitwise_broadcast
 	case .Cmp_And, .Cmp_Or:
 		valid = boolean
 	case .Cmp_Eq, .Not_Eq:
@@ -412,8 +434,8 @@ expression_binary :: proc(
 		}
 		if !left_untyped && !right_untyped {
 			if !comparison {
-				// Official array programming converts the scalar to the array type and works element-wise.
-				if broadcast_pair {
+				// Official array programming converts an assignable scalar to the array or SIMD vector type.
+				if broadcast_pair || simd_bitwise_broadcast {
 					if operand_assignable(checker, view, binary.left, left, right.type) {
 						left = expression_conversion(
 							checker,
@@ -543,7 +565,9 @@ expression_binary :: proc(
 	result_type := left.type
 	if conversion_complex(right_kind) && !conversion_complex(left_kind) { result_type = right.type }
 	// Official array programming yields the array type when a scalar broadcasts into it, even an untyped one.
-	if broadcast_pair || nested_broadcast {
+	if simd_bitwise_broadcast {
+		result_type = left.type if left_base.kind == .Simd_Vector else right.type
+	} else if broadcast_pair || nested_broadcast {
 		result_type = left.type if left_base.kind == .Array else right.type
 	}
 	if left_untyped && right_untyped && (left_kind == .Untyped_Quaternion || right_kind == .Untyped_Quaternion) {
