@@ -107,6 +107,7 @@ lower_conversion_value :: proc(
 	if source == .Bool && target >= .I8 && target <= .I64 {
 		value = ir.convert(function, .Zext, value, .I8)
 		source = .I8
+		if source == target { return value }
 	}
 	source_signed := signed_type(state, source_id)
 	if source == .Ptr || target == .Ptr {

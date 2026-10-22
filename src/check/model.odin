@@ -736,6 +736,9 @@ Binary_Conversion_Plan :: struct {
 	left, right: Plan_Id,
 	type:        types.Type_Id,
 }
+Ternary_Conversion_Plan :: struct {
+	x, y: Plan_Id,
+}
 Range_Call_Plan :: struct {
 	call:            Expression_Ref,
 	value_types:     []types.Type_Id,
@@ -879,6 +882,7 @@ Context_Plan :: struct {
 }
 Plan :: union {
 	Binary_Conversion_Plan,
+	Ternary_Conversion_Plan,
 	Conversion_Plan,
 	Place_Plan,
 	Swizzle_Plan,

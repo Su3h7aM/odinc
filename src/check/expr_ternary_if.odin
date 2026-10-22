@@ -3,8 +3,6 @@ package check
 import "oc:syntax"
 import "oc:types"
 
-// `cond ? x : y` as the official check_ternary_if_expr: a boolean condition and branches of one type. Only the
-// taken branch runs; lowering selects it, so the node carries no plan.
 @(private = "package")
 expression_ternary_if :: proc(
 	checker: ^Expression_Checker,
@@ -42,5 +40,15 @@ expression_ternary_if :: proc(
 		y = check_expression(checker, view, scope, ternary.y, target) or_return
 	}
 	if !types.are_identical(store, x.type, y.type) { return expression_failure(checker, view, scope, node, .Mismatched_Types) }
-	return Expression_Info{type = x.type, mode = .Value, scope = scope, state = .Checked}, nil
+	conversions := Ternary_Conversion_Plan{}
+	program: Checked_Program
+	expression_checker_publish(checker, &program)
+	if stored := expression_info(&program, view, ternary.x); x.plan != stored.plan { conversions.x = x.plan }
+	if stored := expression_info(&program, view, ternary.y); y.plan != stored.plan { conversions.y = y.plan }
+	plan := Plan_Id(0)
+	if conversions.x != 0 || conversions.y != 0 {
+		plan = Plan_Id(len(checker.plans))
+		append(&checker.plans, Plan(conversions)) or_return
+	}
+	return Expression_Info{type = x.type, mode = .Value, scope = scope, state = .Checked, plan = plan}, nil
 }

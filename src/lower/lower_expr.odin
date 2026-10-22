@@ -194,10 +194,10 @@ lower_ternary_when_branch :: proc(state: ^Procedure_State, node: syntax.Node_Ind
 lower_value :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> ir.Node_Id {
 	if state.failed || state.job.function.error != nil { return 0 }
 	if state.ast.nodes[node].kind == .Ternary_When_Expr { return lower_value(state, lower_ternary_when_branch(state, node)) }
-	if state.ast.nodes[node].kind == .Paren_Expr { return lower_value(state, state.ast.nodes[node].payload.(syntax.Paren_Expr).expr) }
 	if state.ast.nodes[node].kind == .Ternary_If_Expr { return lower_ternary_if(state, node) }
 	info := lower_info(state, node)
 	if info.constant != 0 { return lower_constant(state, info.constant, info.type) }
+	if state.ast.nodes[node].kind == .Paren_Expr { return lower_value(state, state.ast.nodes[node].payload.(syntax.Paren_Expr).expr) }
 	if info.plan != 0 {
 		plan := check.plan(state.job.program, info.plan)
 		if plan == nil &&
