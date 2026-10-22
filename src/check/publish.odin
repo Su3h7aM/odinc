@@ -1,9 +1,8 @@
 package check
 
-import "base:runtime"
-
 // Rebuilds the symbol and procedure tables from entity states; call after the last checking phase.
-expression_checker_publish_procedures :: proc(checker: ^Expression_Checker, program: ^Checked_Program) -> runtime.Allocator_Error {
+expression_checker_publish_procedures :: proc(checker: ^Expression_Checker, program: ^Checked_Program) -> Resolve_Error {
+	expression_resolve_bounds_helpers(checker) or_return
 	expression_backfill_deferred_calls(checker)
 	scopes := checker.type_checker.resolver.scopes
 	clear(&checker.symbols)

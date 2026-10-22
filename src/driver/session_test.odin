@@ -25,9 +25,31 @@ run_section :: proc(t: ^testing.T, section: string) -> (result: ir.Interp_Result
 		if function.name == main_name { main_function = function }
 	}
 	if !testing.expect(t, main_function != nil) { return }
-	// Zeroed arguments include the implicit context pointer, which the fixtures never read.
-	arguments := make([]u64, len(main_function.signatures[main_function.signature].params), context.temp_allocator)
-	run_result, run_error := ir.interp_run(&module, main_function, arguments, 100_000, context.allocator)
+	entry, entry_error := ir.function_make(context.allocator, ir.Function_Id(len(module.functions)), "test.entry", 0)
+	if !testing.expect_value(t, entry_error, nil) { return }
+	append(&module.functions, entry)
+	entry.signature = ir.add_signature(entry, ir.Signature{.Contextless, false, nil, nil})
+	start := ir.start(entry)
+	context_address: ir.Node_Id
+	for global, index in module.globals {
+		if global.name == lower.DEFAULT_CONTEXT_NAME { context_address = ir.symbol_addr(entry, ir.Symbol_Ref{space = .Global, index = u32(index)}) }
+	}
+	memory := start.memory
+	for function, index in module.functions {
+		if function.name != "runtime.__init_context" { continue }
+		callee := ir.symbol_addr(entry, ir.Symbol_Ref{space = .Function, index = u32(index)})
+		call := ir.call(entry, start.control, memory, callee, ir.add_signature(entry, function.signatures[function.signature]), {context_address})
+		memory = ir.add_node(entry, .Proj, .Memory, {call}, {index = 0})
+	}
+	for function, index in module.functions {
+		if function != main_function { continue }
+		callee := ir.symbol_addr(entry, ir.Symbol_Ref{space = .Function, index = u32(index)})
+		call := ir.call(entry, start.control, memory, callee, ir.add_signature(entry, function.signatures[function.signature]), {context_address})
+		memory = ir.add_node(entry, .Proj, .Memory, {call}, {index = 0})
+	}
+	ir.ret(entry, start.control, memory)
+	if !testing.expect_value(t, ir.function_finish(entry), nil) { return }
+	run_result, run_error := ir.interp_run(&module, entry, nil, 100_000, context.allocator)
 	testing.expect(t, run_error == nil)
 	return run_result, run_error == nil
 }

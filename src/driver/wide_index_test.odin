@@ -10,11 +10,11 @@ wide_index_reads_low_word :: proc(t: ^testing.T) {
 	expect_exit(t, "wide_index_u128", 42)
 }
 
-// A set high word is out of bounds and traps with bounds checks on.
+// The bounds handler checks the index after conversion to int.
 @(test)
-wide_index_high_word_traps :: proc(t: ^testing.T) {
+wide_index_discards_high_word :: proc(t: ^testing.T) {
 	result, ok := run_section(t, "wide_index_u128_oob")
 	defer delete(result.output, context.allocator)
 	if !ok { return }
-	testing.expect_value(t, result.outcome, ir.Interp_Outcome.Trap)
+	testing.expect_value(t, result.outcome, ir.Interp_Outcome.Value)
 }

@@ -47,6 +47,26 @@ expression_resolve_runtime_helpers :: proc(checker: ^Expression_Checker, names: 
 }
 
 @(private = "package")
+expression_resolve_bounds_helpers :: proc(checker: ^Expression_Checker) -> Resolve_Error {
+	collection := checker.type_checker.collection
+	if collection == nil || collection.runtime_scope == 0 { return nil }
+	names := [?]string {
+		"bounds_check_error_contextless",
+		"bounds_check_error_with_context",
+		"matrix_bounds_check_error_contextless",
+		"matrix_bounds_check_error_with_context",
+		"slice_expr_error_hi_contextless",
+		"slice_expr_error_hi_with_context",
+		"slice_expr_error_lo_hi_contextless",
+		"slice_expr_error_lo_hi_with_context",
+		"multi_pointer_slice_expr_error_contextless",
+		"multi_pointer_slice_expr_error_with_context",
+	}
+	_, err := expression_resolve_runtime_helpers(checker, names[:])
+	return err
+}
+
+@(private = "package")
 expression_resolve_map_helpers :: proc(checker: ^Expression_Checker) -> (resolved: bool, err: Resolve_Error) {
 	resolved, err = expression_resolve_runtime_helpers(checker, map_runtime_helper_names[:])
 	if err != nil || !resolved { return resolved, err }
