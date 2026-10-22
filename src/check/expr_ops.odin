@@ -105,6 +105,53 @@ expression_needs_operand_hint :: proc(file: ^File, node: syntax.Node_Index) -> b
 	return false
 }
 
+Binary_Operands :: struct {
+	left, right:       Expression_Info,
+	binary_conversion: Plan_Id,
+	complete:          bool,
+}
+
+Binary_Operand_Class :: struct {
+	store:                       ^types.Store,
+	left_kind:                   types.Kind,
+	right_kind:                  types.Kind,
+	integer:                     bool,
+	boolean:                     bool,
+	enum_pair:                   bool,
+	type_id_pair:                bool,
+	string_pair:                 bool,
+	pointer_pair:                bool,
+	float_side:                  bool,
+	float_pair:                  bool,
+	union_pair:                  bool,
+	struct_pair:                 bool,
+	bit_set_pair:                bool,
+	procedure_pair:              bool,
+	operator:                    syntax.Token_Kind,
+	comparison:                  bool,
+	shift:                       bool,
+	left_base:                   ^types.Type,
+	broadcast_pair:              bool,
+	array_leaf:                  types.Type_Id,
+	nested_broadcast:            bool,
+	array_leaf_kind:             types.Kind,
+	array_numeric:               bool,
+	array_integer:               bool,
+	array_bitwise_integer:       bool,
+	array_boolean:               bool,
+	array_bit_set:               bool,
+	array_compare:               bool,
+	simd_both:                   bool,
+	simd_arithmetic:             bool,
+	simd_quotient:               bool,
+	simd_bitwise_pair:           bool,
+	simd_bitwise_broadcast:      bool,
+	complex_pair:                bool,
+	quaternion_pair:             bool,
+	complex_arithmetic:          bool,
+	left_untyped, right_untyped: bool,
+}
+
 @(private = "package")
 expression_binary :: proc(
 	checker: ^Expression_Checker,
@@ -116,31 +163,55 @@ expression_binary :: proc(
 	info: Expression_Info,
 	err: Resolve_Error,
 ) {
+	operands: Binary_Operands
+	info = expression_binary_operands(checker, view, scope, node, hint, &operands) or_return
+	if operands.complete { return info, nil }
+	classification: Binary_Operand_Class
+	classification, info = binary_operand_class(checker, view, scope, node, operands) or_return
+	if info.state != .Checked { return info, nil }
+	info = expression_binary_validate(checker, view, scope, node, operands, classification) or_return
+	if info.state != .Checked { return info, nil }
+	info = expression_binary_convert(checker, view, scope, node, hint, &operands, classification) or_return
+	if info.state != .Checked { return info, nil }
+	return expression_binary_result(checker, view, scope, node, &operands, classification)
+}
+
+@(private = "file")
+expression_binary_operands :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	scope: Scope_Id,
+	node: syntax.Node_Index,
+	hint: types.Type_Id,
+	operands: ^Binary_Operands,
+) -> (
+	info: Expression_Info,
+	err: Resolve_Error,
+) {
+	operands.complete = true
 	file := checker.type_checker.files[checker.views[view].file]
 	binary := syntax.node_payload(file.ast, node, syntax.Binary_Expr)
 	if binary.op.kind == .In || binary.op.kind == .Not_In {
 		return expression_membership(checker, view, scope, node, binary.op.kind == .Not_In)
 	}
-	left, right: Expression_Info
-	binary_conversion: Plan_Id
 	unwrapped_left := binary.left
 	for file.ast.nodes[unwrapped_left].kind == .Paren_Expr {
 		unwrapped_left = syntax.node_payload(file.ast, unwrapped_left, syntax.Paren_Expr).expr
 	}
 	if expression_needs_operand_hint(file, binary.left) && !expression_needs_operand_hint(file, binary.right) {
-		right = check_expression(checker, view, scope, binary.right) or_return
-		if right.state == .Invalid { return expression_poison(scope), nil }
-		left = check_expression(checker, view, scope, binary.left, right.type) or_return
+		operands.right = check_expression(checker, view, scope, binary.right) or_return
+		if operands.right.state == .Invalid { return expression_poison(scope), nil }
+		operands.left = check_expression(checker, view, scope, binary.left, operands.right.type) or_return
 	} else if file.ast.nodes[unwrapped_left].kind == .Ternary_If_Expr &&
 	   file.ast.nodes[binary.right].kind != .Ternary_If_Expr &&
 	   file.ast.nodes[binary.right].kind != .Implicit_Selector_Expr {
-		right = check_expression(checker, view, scope, binary.right) or_return
-		if right.state == .Invalid { return expression_poison(scope), nil }
+		operands.right = check_expression(checker, view, scope, binary.right) or_return
+		if operands.right.state == .Invalid { return expression_poison(scope), nil }
 		left_hint := types.Type_Id(0)
 		if !conversion_untyped(
-			types.get(checker.type_checker.store, conversion_base_type(checker.type_checker.store, right.type)).kind,
-		) { left_hint = right.type }
-		left = check_expression(checker, view, scope, binary.left, left_hint) or_return
+			types.get(checker.type_checker.store, conversion_base_type(checker.type_checker.store, operands.right.type)).kind,
+		) { left_hint = operands.right.type }
+		operands.left = check_expression(checker, view, scope, binary.left, left_hint) or_return
 	} else {
 		left_hint := types.Type_Id(0)
 		if expression_needs_operand_hint(file, binary.left) || expression_is_auto_cast(file, binary.left) {
@@ -149,30 +220,30 @@ expression_binary :: proc(
 		if expression_has_runtime_shift(checker, view, scope, file, binary.left) or_return { left_hint = integer_operand_hint(checker, hint) }
 		comparison := syntax.Token_Kind.B_Comparison_Begin < binary.op.kind && binary.op.kind < .B_Comparison_End
 		if left_hint == 0 && !comparison && expression_length_call(file, binary.left) { left_hint = length_integer_hint(checker, hint) }
-		left = check_expression(checker, view, scope, binary.left, left_hint) or_return
-		if left.state == .Invalid { return expression_poison(scope), nil }
+		operands.left = check_expression(checker, view, scope, binary.left, left_hint) or_return
+		if operands.left.state == .Invalid { return expression_poison(scope), nil }
 		right_hint := types.Type_Id(0)
-		left_base := types.get(checker.type_checker.store, conversion_base_type(checker.type_checker.store, left.type)).kind
+		left_base := types.get(checker.type_checker.store, conversion_base_type(checker.type_checker.store, operands.left.type)).kind
 		if file.ast.nodes[binary.right].kind == .Implicit_Selector_Expr ||
-		   left.mode != .Type && expression_string_kind(left_base) && !conversion_untyped(left_base) { right_hint = left.type }
+		   operands.left.mode != .Type && expression_string_kind(left_base) && !conversion_untyped(left_base) { right_hint = operands.left.type }
 		if expression_needs_operand_hint(file, binary.right) {
-			right_hint = left.type
+			right_hint = operands.left.type
 		}
 		if expression_is_auto_cast(file, binary.right) {
 			right_hint = hint
-			if binary.op.kind == .Cmp_Eq || binary.op.kind == .Not_Eq { right_hint = left.type }
+			if binary.op.kind == .Cmp_Eq || binary.op.kind == .Not_Eq { right_hint = operands.left.type }
 			if comparison && binary.op.kind != .Cmp_Eq && binary.op.kind != .Not_Eq { right_hint = 0 }
 		}
 		if right_hint == 0 && (expression_has_runtime_shift(checker, view, scope, file, binary.right) or_return) {
-			if left.mode != .Type && (left_base == .Integer || left_base == .Rune) {
-				right_hint = left.type
+			if operands.left.mode != .Type && (left_base == .Integer || left_base == .Rune) {
+				right_hint = operands.left.type
 			} else {
 				right_hint = integer_operand_hint(checker, hint)
 			}
 		}
 		if right_hint == 0 && expression_length_call(file, binary.right) {
-			if left.mode != .Type && length_integer_hint(checker, left.type) != 0 {
-				right_hint = left.type
+			if operands.left.mode != .Type && length_integer_hint(checker, operands.left.type) != 0 {
+				right_hint = operands.left.type
 			} else if !comparison {
 				right_hint = length_integer_hint(checker, hint)
 			}
@@ -181,38 +252,58 @@ expression_binary :: proc(
 		for file.ast.nodes[unwrapped_right].kind == .Paren_Expr {
 			unwrapped_right = syntax.node_payload(file.ast, unwrapped_right, syntax.Paren_Expr).expr
 		}
-		if file.ast.nodes[unwrapped_right].kind == .Ternary_If_Expr && !conversion_untyped(left_base) { right_hint = left.type }
-		right = check_expression(checker, view, scope, binary.right, right_hint) or_return
+		if file.ast.nodes[unwrapped_right].kind == .Ternary_If_Expr && !conversion_untyped(left_base) { right_hint = operands.left.type }
+		operands.right = check_expression(checker, view, scope, binary.right, right_hint) or_return
 	}
-	if left.state == .Invalid || right.state == .Invalid { return expression_poison(scope), nil }
+	if operands.left.state == .Invalid || operands.right.state == .Invalid { return expression_poison(scope), nil }
 	if binary.op.kind == .Cmp_Eq || binary.op.kind == .Not_Eq {
 		store := checker.type_checker.store
-		if left.mode == .Type && right.mode != .Type && types.get(store, conversion_base_type(store, right.type)).kind == .Type_Id {
-			left = expression_typeid_value(checker, scope, left.type) or_return
+		if operands.left.mode == .Type && operands.right.mode != .Type && types.get(store, conversion_base_type(store, operands.right.type)).kind == .Type_Id {
+			operands.left = expression_typeid_value(checker, scope, operands.left.type) or_return
 		}
-		if right.mode == .Type && left.mode != .Type && types.get(store, conversion_base_type(store, left.type)).kind == .Type_Id {
-			right = expression_typeid_value(checker, scope, right.type) or_return
+		if operands.right.mode == .Type && operands.left.mode != .Type && types.get(store, conversion_base_type(store, operands.left.type)).kind == .Type_Id {
+			operands.right = expression_typeid_value(checker, scope, operands.right.type) or_return
 		}
 	}
-	if left.mode == .Type && right.mode == .Type && (binary.op.kind == .Cmp_Eq || binary.op.kind == .Not_Eq) {
-		value := types.are_identical(checker.type_checker.store, left.type, right.type)
+	if operands.left.mode == .Type && operands.right.mode == .Type && (binary.op.kind == .Cmp_Eq || binary.op.kind == .Not_Eq) {
+		value := types.are_identical(checker.type_checker.store, operands.left.type, operands.right.type)
 		if binary.op.kind == .Not_Eq { value = !value }
 		constant, failure := constant_pool_intern_bool(checker.constants, value, types.TYPE_UNTYPED_BOOL)
 		if failure != nil { return {}, expression_constant_failure(checker, checker.views[view].file, node, failure) }
 		return Expression_Info{scope = scope, mode = .Constant, type = types.TYPE_UNTYPED_BOOL, constant = constant, state = .Checked}, nil
 	}
-	if !expression_value(left) || !expression_value(right) { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
-	if expression_binary_matrix_involved(checker, left, right) {
-		return expression_binary_matrix(checker, view, scope, node, binary, left, right, hint)
+	if !expression_value(operands.left) || !expression_value(operands.right) { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
+	if expression_binary_matrix_involved(checker, operands.left, operands.right) {
+		return expression_binary_matrix(checker, view, scope, node, binary, operands.left, operands.right, hint)
 	}
+	operands.complete = false
+	return Expression_Info{state = .Checked}, nil
+}
+
+@(private = "file")
+binary_operand_class :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	scope: Scope_Id,
+	node: syntax.Node_Index,
+	operands: Binary_Operands,
+) -> (
+	classification: Binary_Operand_Class,
+	info: Expression_Info,
+	err: Resolve_Error,
+) {
+	file := checker.type_checker.files[checker.views[view].file]
+	binary := syntax.node_payload(file.ast, node, syntax.Binary_Expr)
 	store := checker.type_checker.store
-	left_descriptor := types.get(store, conversion_base_type(store, left.type))^
-	right_descriptor := types.get(store, conversion_base_type(store, right.type))^
+	left_descriptor := types.get(store, conversion_base_type(store, operands.left.type))^
+	right_descriptor := types.get(store, conversion_base_type(store, operands.right.type))^
 	left_kind := left_descriptor.kind
 	right_kind := right_descriptor.kind
 	integer := conversion_integer(left_kind) && conversion_integer(right_kind)
-	integer ||= conversion_integer(left_kind) && conversion_untyped(right_kind) && operand_assignable(checker, view, binary.right, right, left.type)
-	integer ||= conversion_integer(right_kind) && conversion_untyped(left_kind) && operand_assignable(checker, view, binary.left, left, right.type)
+	integer ||=
+		conversion_integer(left_kind) && conversion_untyped(right_kind) && operand_assignable(checker, view, binary.right, operands.right, operands.left.type)
+	integer ||=
+		conversion_integer(right_kind) && conversion_untyped(left_kind) && operand_assignable(checker, view, binary.left, operands.left, operands.right.type)
 	boolean := conversion_boolean(left_kind) && conversion_boolean(right_kind)
 	enum_pair := left_kind == .Enum && right_kind == .Enum
 	type_id_pair := left_kind == .Type_Id && right_kind == .Type_Id
@@ -222,58 +313,59 @@ expression_binary :: proc(
 	float_side := conversion_float(left_kind) || conversion_float(right_kind)
 	float_pair :=
 		float_side && (conversion_float(left_kind) || conversion_integer(left_kind)) && (conversion_float(right_kind) || conversion_integer(right_kind))
-	union_pair := left_kind == .Union && right_kind == .Union && generator_supported(store, left.type) && generator_supported(store, right.type)
+	union_pair :=
+		left_kind == .Union && right_kind == .Union && generator_supported(store, operands.left.type) && generator_supported(store, operands.right.type)
 	union_pair ||=
 		left_kind == .Union &&
 		right_kind != .Union &&
 		!conversion_untyped(right_kind) &&
-		generator_supported(store, left.type) &&
-		operand_assignable(checker, view, binary.right, right, left.type)
+		generator_supported(store, operands.left.type) &&
+		operand_assignable(checker, view, binary.right, operands.right, operands.left.type)
 	union_pair ||=
 		right_kind == .Union &&
 		left_kind != .Union &&
 		!conversion_untyped(left_kind) &&
-		generator_supported(store, right.type) &&
-		operand_assignable(checker, view, binary.left, left, right.type)
+		generator_supported(store, operands.right.type) &&
+		operand_assignable(checker, view, binary.left, operands.left, operands.right.type)
 	// Official comparison converts an untyped operand into the union when it converts into a variant.
 	union_pair ||=
 		left_kind == .Union &&
 		conversion_untyped(right_kind) &&
 		right_kind != .Untyped_Nil &&
-		generator_supported(store, left.type) &&
-		operand_assignable(checker, view, binary.right, right, left.type)
+		generator_supported(store, operands.left.type) &&
+		operand_assignable(checker, view, binary.right, operands.right, operands.left.type)
 	union_pair ||=
 		right_kind == .Union &&
 		conversion_untyped(left_kind) &&
 		left_kind != .Untyped_Nil &&
-		generator_supported(store, right.type) &&
-		operand_assignable(checker, view, binary.left, left, right.type)
+		generator_supported(store, operands.right.type) &&
+		operand_assignable(checker, view, binary.left, operands.left, operands.right.type)
 	struct_pair :=
 		left_kind == .Struct &&
 		right_kind == .Struct &&
-		types.are_identical(store, left.type, right.type) &&
-		types.is_comparable(store, left.type) &&
-		generator_supported(store, left.type)
-	bit_set_pair := left_kind == .Bit_Set && right_kind == .Bit_Set && types.are_identical(store, left.type, right.type)
-	procedure_pair := left_kind == .Procedure && right_kind == .Procedure && types.are_identical(store, left.type, right.type)
+		types.are_identical(store, operands.left.type, operands.right.type) &&
+		types.is_comparable(store, operands.left.type) &&
+		generator_supported(store, operands.left.type)
+	bit_set_pair := left_kind == .Bit_Set && right_kind == .Bit_Set && types.are_identical(store, operands.left.type, operands.right.type)
+	procedure_pair := left_kind == .Procedure && right_kind == .Procedure && types.are_identical(store, operands.left.type, operands.right.type)
 	operator := binary.op.kind
 	comparison := syntax.Token_Kind.B_Comparison_Begin < operator && operator < .B_Comparison_End
 	shift := operator == .Shl || operator == .Shr
-	if shift && right.mode == .Constant {
-		value, ok := constant_pool_get(checker.constants, right.constant).value.(big.Int)
+	if shift && operands.right.mode == .Constant {
+		value, ok := constant_pool_get(checker.constants, operands.right.constant).value.(big.Int)
 		if ok {
 			negative, failure := big.is_negative(&value, allocator = checker.allocator)
 			if failure != .None {
-				expression_constant_failure(checker, checker.views[view].file, node, Constant_Error(failure)) or_return
-				return expression_poison(scope), nil
+				if constant_error := expression_constant_failure(checker, checker.views[view].file, node, Constant_Error(failure));
+				   constant_error != nil { return {}, {}, constant_error }
+				return {}, expression_poison(scope), nil
 			}
-			if negative { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
+			if negative { info, err = expression_failure(checker, view, scope, node, .Invalid_Operand); return {}, info, err }
 		}
 	}
-	valid := false
 	array_pair := false
-	left_base := types.get(checker.type_checker.store, types.resolve_named(checker.type_checker.store, left.type))
-	right_base := types.get(checker.type_checker.store, types.resolve_named(checker.type_checker.store, right.type))
+	left_base := types.get(checker.type_checker.store, types.resolve_named(checker.type_checker.store, operands.left.type))
+	right_base := types.get(checker.type_checker.store, types.resolve_named(checker.type_checker.store, operands.right.type))
 	if left_base.kind == .Array && left_base.kind == right_base.kind && left_base.elem == right_base.elem && left_base.count == right_base.count {
 		array_pair = true
 	}
@@ -287,15 +379,15 @@ expression_binary :: proc(
 	}
 	// Official array programming: a scalar combines element-wise with an array when the scalar converts to it.
 	broadcast_pair := false
-	if left_base.kind == .Array && right_base.kind != .Array && operand_assignable(checker, view, binary.right, right, left.type) {
+	if left_base.kind == .Array && right_base.kind != .Array && operand_assignable(checker, view, binary.right, operands.right, operands.left.type) {
 		broadcast_pair = true
-	} else if right_base.kind == .Array && left_base.kind != .Array && operand_assignable(checker, view, binary.left, left, right.type) {
+	} else if right_base.kind == .Array && left_base.kind != .Array && operand_assignable(checker, view, binary.left, operands.left, operands.right.type) {
 		broadcast_pair = true
 	}
 	// Official array programming gates the operator on the innermost element, like check_binary_op over
 	// core_array_type: named wrappers unwrap at every level, matrices and simd vectors do not participate.
-	array_side := left.type
-	if left_base.kind != .Array && left_base.kind != .Enumerated_Array { array_side = right.type }
+	array_side := operands.left.type
+	if left_base.kind != .Array && left_base.kind != .Enumerated_Array { array_side = operands.right.type }
 	array_leaf := types.Type_Id(0)
 	if left_base.kind == .Array || left_base.kind == .Enumerated_Array || right_base.kind == .Array || right_base.kind == .Enumerated_Array {
 		leaf := array_side
@@ -310,11 +402,11 @@ expression_binary :: proc(
 	nested_broadcast := false
 	if !array_pair && !broadcast_pair && array_leaf != 0 {
 		if left_base.kind == .Array && right_base.kind != .Array && right_base.kind != .Enumerated_Array {
-			if operand_assignable(checker, view, binary.right, right, array_leaf) {
+			if operand_assignable(checker, view, binary.right, operands.right, array_leaf) {
 				nested_broadcast = true
 			}
 		} else if right_base.kind == .Array && left_base.kind != .Array && left_base.kind != .Enumerated_Array {
-			if operand_assignable(checker, view, binary.left, left, array_leaf) {
+			if operand_assignable(checker, view, binary.left, operands.left, array_leaf) {
 				nested_broadcast = true
 			}
 		}
@@ -355,16 +447,20 @@ expression_binary :: proc(
 	}
 	simd_integer_element := conversion_integer(simd_element_kind)
 	simd_boolean_element := conversion_boolean(simd_element_kind)
-	simd_same_type := simd_both && types.are_identical(store, left.type, right.type)
+	simd_same_type := simd_both && types.are_identical(store, operands.left.type, operands.right.type)
 	simd_bitwise_pair := simd_same_type && simd_integer_element
 	if operator != .And_Not { simd_bitwise_pair ||= simd_same_type && simd_boolean_element }
 	simd_bitwise_broadcast := false
 	if operator == .And || operator == .Or || operator == .Xor || operator == .And_Not {
 		bitwise_element := simd_integer_element || operator != .And_Not && simd_boolean_element
 		if bitwise_element {
-			if left_base.kind == .Simd_Vector && right_base.kind != .Simd_Vector && operand_assignable(checker, view, binary.right, right, left.type) {
+			if left_base.kind == .Simd_Vector &&
+			   right_base.kind != .Simd_Vector &&
+			   operand_assignable(checker, view, binary.right, operands.right, operands.left.type) {
 				simd_bitwise_broadcast = true
-			} else if right_base.kind == .Simd_Vector && left_base.kind != .Simd_Vector && operand_assignable(checker, view, binary.left, left, right.type) {
+			} else if right_base.kind == .Simd_Vector &&
+			   left_base.kind != .Simd_Vector &&
+			   operand_assignable(checker, view, binary.left, operands.left, operands.right.type) {
 				simd_bitwise_broadcast = true
 			}
 		}
@@ -374,207 +470,342 @@ expression_binary :: proc(
 	quaternion_pair :=
 		(left_base.kind == .Quaternion || left_base.kind == .Untyped_Quaternion) && (right_base.kind == .Quaternion || right_base.kind == .Untyped_Quaternion)
 	complex_arithmetic := conversion_complex(left_kind) && conversion_complex(right_kind)
-	complex_arithmetic ||= conversion_complex(left_kind) && conversion_untyped(right_kind) && operand_assignable(checker, view, binary.right, right, left.type)
-	complex_arithmetic ||= conversion_complex(right_kind) && conversion_untyped(left_kind) && operand_assignable(checker, view, binary.left, left, right.type)
+	complex_arithmetic ||=
+		conversion_complex(left_kind) && conversion_untyped(right_kind) && operand_assignable(checker, view, binary.right, operands.right, operands.left.type)
+	complex_arithmetic ||=
+		conversion_complex(right_kind) && conversion_untyped(left_kind) && operand_assignable(checker, view, binary.left, operands.left, operands.right.type)
 	complex_arithmetic ||=
 		(conversion_complex(left_kind) || conversion_complex(right_kind)) &&
 		(conversion_integer(left_kind) || conversion_float(left_kind) || conversion_complex(left_kind)) &&
 		(conversion_integer(right_kind) || conversion_float(right_kind) || conversion_complex(right_kind))
-	#partial switch operator {
+	return Binary_Operand_Class {
+			store = store,
+			left_kind = left_kind,
+			right_kind = right_kind,
+			integer = integer,
+			boolean = boolean,
+			enum_pair = enum_pair,
+			type_id_pair = type_id_pair,
+			string_pair = string_pair,
+			pointer_pair = pointer_pair,
+			float_side = float_side,
+			float_pair = float_pair,
+			union_pair = union_pair,
+			struct_pair = struct_pair,
+			bit_set_pair = bit_set_pair,
+			procedure_pair = procedure_pair,
+			operator = operator,
+			comparison = comparison,
+			shift = shift,
+			left_base = left_base,
+			broadcast_pair = broadcast_pair,
+			array_leaf = array_leaf,
+			nested_broadcast = nested_broadcast,
+			array_leaf_kind = array_leaf_kind,
+			array_numeric = array_numeric,
+			array_integer = array_integer,
+			array_bitwise_integer = array_bitwise_integer,
+			array_boolean = array_boolean,
+			array_bit_set = array_bit_set,
+			array_compare = array_compare,
+			simd_both = simd_both,
+			simd_arithmetic = simd_arithmetic,
+			simd_quotient = simd_quotient,
+			simd_bitwise_pair = simd_bitwise_pair,
+			simd_bitwise_broadcast = simd_bitwise_broadcast,
+			complex_pair = complex_pair,
+			quaternion_pair = quaternion_pair,
+			complex_arithmetic = complex_arithmetic,
+			left_untyped = conversion_untyped(left_kind),
+			right_untyped = conversion_untyped(right_kind),
+		},
+		Expression_Info{state = .Checked},
+		nil
+}
+
+@(private = "file")
+expression_binary_validate :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	scope: Scope_Id,
+	node: syntax.Node_Index,
+	operands: Binary_Operands,
+	classification: Binary_Operand_Class,
+) -> (
+	info: Expression_Info,
+	err: Resolve_Error,
+) {
+	valid := false
+	#partial switch classification.operator {
 	case .Add, .Sub:
-		valid = integer || float_pair || array_numeric || array_bit_set || bit_set_pair || simd_arithmetic || complex_arithmetic
+		valid =
+			classification.integer ||
+			classification.float_pair ||
+			classification.array_numeric ||
+			classification.array_bit_set ||
+			classification.bit_set_pair ||
+			classification.simd_arithmetic ||
+			classification.complex_arithmetic
 		// Official string concatenation requires constant strings on both sides.
-		if operator == .Add && string_pair && left.mode == .Constant && right.mode == .Constant { valid = true }
+		if classification.operator == .Add &&
+		   classification.string_pair &&
+		   operands.left.mode == .Constant &&
+		   operands.right.mode == .Constant { valid = true }
 	case .Mul:
-		valid = integer || float_pair || array_numeric || simd_arithmetic || complex_arithmetic
+		valid =
+			classification.integer ||
+			classification.float_pair ||
+			classification.array_numeric ||
+			classification.simd_arithmetic ||
+			classification.complex_arithmetic
 	case .Quo:
-		valid = integer || float_pair || array_numeric || simd_quotient || complex_arithmetic
+		valid =
+			classification.integer ||
+			classification.float_pair ||
+			classification.array_numeric ||
+			classification.simd_quotient ||
+			classification.complex_arithmetic
 	case .Mod, .Mod_Mod, .Shl, .Shr:
-		valid = integer || (array_integer && (operator == .Mod || operator == .Mod_Mod))
+		valid = classification.integer || (classification.array_integer && (classification.operator == .Mod || classification.operator == .Mod_Mod))
 	case .And, .Or, .Xor, .And_Not:
-		array_bitwise := array_bitwise_integer || array_bit_set
-		if operator != .And_Not { array_bitwise ||= array_boolean }
-		valid = integer || boolean || array_bitwise || bit_set_pair || simd_bitwise_pair || simd_bitwise_broadcast
+		array_bitwise := classification.array_bitwise_integer || classification.array_bit_set
+		if classification.operator != .And_Not { array_bitwise ||= classification.array_boolean }
+		valid =
+			classification.integer ||
+			classification.boolean ||
+			array_bitwise ||
+			classification.bit_set_pair ||
+			classification.simd_bitwise_pair ||
+			classification.simd_bitwise_broadcast
 	case .Cmp_And, .Cmp_Or:
-		valid = boolean
+		valid = classification.boolean
 	case .Cmp_Eq, .Not_Eq:
 		valid =
-			integer ||
-			boolean ||
-			float_pair ||
-			enum_pair ||
-			type_id_pair ||
-			string_pair ||
-			pointer_pair ||
-			union_pair ||
-			struct_pair ||
-			array_compare ||
-			simd_both ||
-			complex_pair ||
-			complex_arithmetic ||
-			quaternion_pair ||
-			bit_set_pair ||
-			procedure_pair
+			classification.integer ||
+			classification.boolean ||
+			classification.float_pair ||
+			classification.enum_pair ||
+			classification.type_id_pair ||
+			classification.string_pair ||
+			classification.pointer_pair ||
+			classification.union_pair ||
+			classification.struct_pair ||
+			classification.array_compare ||
+			classification.simd_both ||
+			classification.complex_pair ||
+			classification.complex_arithmetic ||
+			classification.quaternion_pair ||
+			classification.bit_set_pair ||
+			classification.procedure_pair
 	case .Lt, .Gt, .Lt_Eq, .Gt_Eq:
-		valid = integer || float_pair || enum_pair || string_pair || pointer_pair || bit_set_pair
+		valid =
+			classification.integer ||
+			classification.float_pair ||
+			classification.enum_pair ||
+			classification.string_pair ||
+			classification.pointer_pair ||
+			classification.bit_set_pair
 	case .Eq:
 		valid = true
 	}
 	if !valid { return expression_failure(checker, view, scope, node, .Invalid_Operator) }
-	left_untyped, right_untyped := conversion_untyped(left_kind), conversion_untyped(right_kind)
-	if !shift && !types.are_identical(store, left.type, right.type) {
-		target := left.type
-		if left_untyped && !right_untyped { target = right.type }
-		if left_untyped && right_untyped {
-			if integer { target = types.TYPE_UNTYPED_INTEGER }
-			if left_kind == .Untyped_Rune || right_kind == .Untyped_Rune { target = types.TYPE_UNTYPED_RUNE }
-			if float_side { target = types.TYPE_UNTYPED_FLOAT }
-			if left_kind == .Untyped_Complex || right_kind == .Untyped_Complex { target = types.TYPE_UNTYPED_COMPLEX }
-			if left_kind == .Untyped_Quaternion || right_kind == .Untyped_Quaternion { target = types.TYPE_UNTYPED_QUATERNION }
+	return Expression_Info{state = .Checked}, nil
+}
+
+@(private = "file")
+expression_binary_convert :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	scope: Scope_Id,
+	node: syntax.Node_Index,
+	hint: types.Type_Id,
+	operands: ^Binary_Operands,
+	classification: Binary_Operand_Class,
+) -> (
+	info: Expression_Info,
+	err: Resolve_Error,
+) {
+	file := checker.type_checker.files[checker.views[view].file]
+	binary := syntax.node_payload(file.ast, node, syntax.Binary_Expr)
+	if !classification.shift && !types.are_identical(classification.store, operands.left.type, operands.right.type) {
+		target := operands.left.type
+		if classification.left_untyped && !classification.right_untyped { target = operands.right.type }
+		if classification.left_untyped && classification.right_untyped {
+			if classification.integer { target = types.TYPE_UNTYPED_INTEGER }
+			if classification.left_kind == .Untyped_Rune || classification.right_kind == .Untyped_Rune { target = types.TYPE_UNTYPED_RUNE }
+			if classification.float_side { target = types.TYPE_UNTYPED_FLOAT }
+			if classification.left_kind == .Untyped_Complex || classification.right_kind == .Untyped_Complex { target = types.TYPE_UNTYPED_COMPLEX }
+			if classification.left_kind == .Untyped_Quaternion || classification.right_kind == .Untyped_Quaternion { target = types.TYPE_UNTYPED_QUATERNION }
 		}
-		if !left_untyped && !right_untyped {
-			if !comparison {
+		if !classification.left_untyped && !classification.right_untyped {
+			if !classification.comparison {
 				// Official array programming converts an assignable scalar to the array or SIMD vector type.
-				if broadcast_pair || simd_bitwise_broadcast {
-					if operand_assignable(checker, view, binary.left, left, right.type) {
-						left = expression_conversion(
+				if classification.broadcast_pair || classification.simd_bitwise_broadcast {
+					if operand_assignable(checker, view, binary.left, operands.left, operands.right.type) {
+						operands.left = expression_conversion(
 							checker,
 							view,
 							scope,
 							binary.left,
-							expression_value_operand(checker, view, binary.left, left),
-							left,
-							right.type,
+							expression_value_operand(checker, view, binary.left, operands.left),
+							operands.left,
+							operands.right.type,
 							.Assignment,
 						) or_return
-					} else if operand_assignable(checker, view, binary.right, right, left.type) {
-						right = expression_conversion(
+					} else if operand_assignable(checker, view, binary.right, operands.right, operands.left.type) {
+						operands.right = expression_conversion(
 							checker,
 							view,
 							scope,
 							binary.right,
-							expression_value_operand(checker, view, binary.right, right),
-							right,
-							left.type,
+							expression_value_operand(checker, view, binary.right, operands.right),
+							operands.right,
+							operands.left.type,
 							.Assignment,
 						) or_return
 					} else {
 						return expression_failure(checker, view, scope, node, .Mismatched_Types)
 					}
 				} else {
-					if operator != .Cmp_And && operator != .Cmp_Or {
+					if classification.operator != .Cmp_And && classification.operator != .Cmp_Or {
 						return expression_failure(checker, view, scope, node, .Mismatched_Types)
 					}
-					right = expression_conversion(
+					operands.right = expression_conversion(
 						checker,
 						view,
 						scope,
 						binary.right,
-						expression_value_operand(checker, view, binary.right, right),
-						right,
-						left.type,
+						expression_value_operand(checker, view, binary.right, operands.right),
+						operands.right,
+						operands.left.type,
 						.Cast,
 					) or_return
 				}
-			} else if operand_assignable(checker, view, binary.left, left, right.type) {
-				left = expression_conversion(
+			} else if operand_assignable(checker, view, binary.left, operands.left, operands.right.type) {
+				operands.left = expression_conversion(
 					checker,
 					view,
 					scope,
 					binary.left,
-					expression_value_operand(checker, view, binary.left, left),
-					left,
-					right.type,
+					expression_value_operand(checker, view, binary.left, operands.left),
+					operands.left,
+					operands.right.type,
 					.Assignment,
 				) or_return
-				binary_conversion = Plan_Id(len(checker.plans))
-				append(&checker.plans, Plan(Binary_Conversion_Plan{type = right.type, left = left.plan})) or_return
-			} else if operand_assignable(checker, view, binary.right, right, left.type) {
-				right = expression_conversion(
+				operands.binary_conversion = Plan_Id(len(checker.plans))
+				append(&checker.plans, Plan(Binary_Conversion_Plan{type = operands.right.type, left = operands.left.plan})) or_return
+			} else if operand_assignable(checker, view, binary.right, operands.right, operands.left.type) {
+				operands.right = expression_conversion(
 					checker,
 					view,
 					scope,
 					binary.right,
-					expression_value_operand(checker, view, binary.right, right),
-					right,
-					left.type,
+					expression_value_operand(checker, view, binary.right, operands.right),
+					operands.right,
+					operands.left.type,
 					.Assignment,
 				) or_return
-				binary_conversion = Plan_Id(len(checker.plans))
-				append(&checker.plans, Plan(Binary_Conversion_Plan{type = left.type, right = right.plan})) or_return
-			} else if (integer || float_pair || pointer_pair || enum_pair) &&
+				operands.binary_conversion = Plan_Id(len(checker.plans))
+				append(&checker.plans, Plan(Binary_Conversion_Plan{type = operands.left.type, right = operands.right.plan})) or_return
+			} else if (classification.integer || classification.float_pair || classification.pointer_pair || classification.enum_pair) &&
 			   (expression_is_auto_cast(file, binary.left) || expression_is_auto_cast(file, binary.right)) {
-				original_left, original_right := left, right
-				left, right = expression_auto_cast_comparison(checker, view, scope, node, binary, left, right) or_return
-				if left.state == .Invalid || right.state == .Invalid { return expression_poison(scope), nil }
-				if left.mode != .Constant || right.mode != .Constant {
+				original_left, original_right := operands.left, operands.right
+				operands.left, operands.right = expression_auto_cast_comparison(checker, view, scope, node, binary, operands.left, operands.right) or_return
+				if operands.left.state == .Invalid || operands.right.state == .Invalid { return expression_poison(scope), nil }
+				if operands.left.mode != .Constant || operands.right.mode != .Constant {
 					conversions := Binary_Conversion_Plan {
-						type = left.type,
+						type = operands.left.type,
 					}
-					if left.type != original_left.type { conversions.left = left.plan }
-					if right.type != original_right.type { conversions.right = right.plan }
-					binary_conversion = Plan_Id(len(checker.plans))
+					if operands.left.type != original_left.type { conversions.left = operands.left.plan }
+					if operands.right.type != original_right.type { conversions.right = operands.right.plan }
+					operands.binary_conversion = Plan_Id(len(checker.plans))
 					append(&checker.plans, Plan(conversions)) or_return
 				}
 			} else {
 				return expression_failure(checker, view, scope, node, .Mismatched_Types)
 			}
 		} else {
-			if left.type != target && target != types.TYPE_UNTYPED_COMPLEX && target != types.TYPE_UNTYPED_QUATERNION {
-				left = check_expression(checker, view, scope, binary.left, target) or_return
+			if operands.left.type != target && target != types.TYPE_UNTYPED_COMPLEX && target != types.TYPE_UNTYPED_QUATERNION {
+				operands.left = check_expression(checker, view, scope, binary.left, target) or_return
 			}
-			if right.type != target && target != types.TYPE_UNTYPED_COMPLEX && target != types.TYPE_UNTYPED_QUATERNION {
-				right = check_expression(checker, view, scope, binary.right, target) or_return
+			if operands.right.type != target && target != types.TYPE_UNTYPED_COMPLEX && target != types.TYPE_UNTYPED_QUATERNION {
+				operands.right = check_expression(checker, view, scope, binary.right, target) or_return
 			}
 		}
 	}
-	if shift && left_untyped && right.mode != .Constant {
+	if classification.shift && classification.left_untyped && operands.right.mode != .Constant {
 		target := hint
 		if target == 0 { target = checker.default_integer }
-		left = check_expression(checker, view, scope, binary.left, target) or_return
+		operands.left = check_expression(checker, view, scope, binary.left, target) or_return
 	}
-	if left.state == .Invalid || right.state == .Invalid { return expression_poison(scope), nil }
-	if comparison && (union_pair || struct_pair) && (left.mode != .Constant || right.mode != .Constant) {
-		compared_type := left.type
-		if left_kind != .Union && right_kind == .Union { compared_type = right.type }
-		append(&checker.plans, Plan(Comparison_Plan{type = types.resolve_named(store, compared_type)})) or_return
+	if operands.left.state == .Invalid || operands.right.state == .Invalid { return expression_poison(scope), nil }
+	return Expression_Info{state = .Checked}, nil
+}
+
+@(private = "file")
+expression_binary_result :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	scope: Scope_Id,
+	node: syntax.Node_Index,
+	operands: ^Binary_Operands,
+	classification: Binary_Operand_Class,
+) -> (
+	info: Expression_Info,
+	err: Resolve_Error,
+) {
+	file := checker.type_checker.files[checker.views[view].file]
+	binary := syntax.node_payload(file.ast, node, syntax.Binary_Expr)
+	if classification.comparison &&
+	   (classification.union_pair || classification.struct_pair) &&
+	   (operands.left.mode != .Constant || operands.right.mode != .Constant) {
+		compared_type := operands.left.type
+		if classification.left_kind != .Union && classification.right_kind == .Union { compared_type = operands.right.type }
+		append(&checker.plans, Plan(Comparison_Plan{type = types.resolve_named(classification.store, compared_type)})) or_return
 		// The generated equality the comparison lowers through calls runtime helpers for some
 		// contents, like cstrings, so they must be resolved even when no map uses them.
 		_, helper_error := expression_resolve_map_helpers(checker)
 		if helper_error != nil { return {}, helper_error }
 	}
 	// Compared arrays of structs or unions compare through the generated equality of their element type.
-	if comparison && array_compare && (array_leaf_kind == .Struct || array_leaf_kind == .Union) && (left.mode != .Constant || right.mode != .Constant) {
-		append(&checker.plans, Plan(Comparison_Plan{type = array_leaf})) or_return
+	if classification.comparison &&
+	   classification.array_compare &&
+	   (classification.array_leaf_kind == .Struct || classification.array_leaf_kind == .Union) &&
+	   (operands.left.mode != .Constant || operands.right.mode != .Constant) {
+		append(&checker.plans, Plan(Comparison_Plan{type = classification.array_leaf})) or_return
 		_, helper_error := expression_resolve_map_helpers(checker)
 		if helper_error != nil { return {}, helper_error }
 	}
 	// A dynamic integer paired with an untyped operand needs concrete rows at both runtime uses.
-	if left.mode != .Constant || right.mode != .Constant {
-		if conversion_untyped(types.get(store, left.type).kind) {
+	if operands.left.mode != .Constant || operands.right.mode != .Constant {
+		if conversion_untyped(types.get(classification.store, operands.left.type).kind) {
 			left_target := checker.default_integer
-			if types.get(store, left.type).kind == .Untyped_Float { left_target = types.default_type_of_untyped(store, types.TYPE_UNTYPED_FLOAT) }
-			left = check_expression(checker, view, scope, binary.left, left_target) or_return
+			if types.get(classification.store, operands.left.type).kind ==
+			   .Untyped_Float { left_target = types.default_type_of_untyped(classification.store, types.TYPE_UNTYPED_FLOAT) }
+			operands.left = check_expression(checker, view, scope, binary.left, left_target) or_return
 		}
-		if conversion_untyped(types.get(store, right.type).kind) {
+		if conversion_untyped(types.get(classification.store, operands.right.type).kind) {
 			target := checker.default_integer
-			if types.get(store, right.type).kind == .Untyped_Float { target = types.default_type_of_untyped(store, types.TYPE_UNTYPED_FLOAT) }
-			if !shift { target = left.type }
-			right = check_expression(checker, view, scope, binary.right, target) or_return
+			if types.get(classification.store, operands.right.type).kind ==
+			   .Untyped_Float { target = types.default_type_of_untyped(classification.store, types.TYPE_UNTYPED_FLOAT) }
+			if !classification.shift { target = operands.left.type }
+			operands.right = check_expression(checker, view, scope, binary.right, target) or_return
 		}
 	}
-	if comparison && string_pair && (left.mode != .Constant || right.mode != .Constant) {
-		return expression_runtime_comparison(checker, view, scope, node, binary.left, binary.right, operator, left.type)
+	if classification.comparison && classification.string_pair && (operands.left.mode != .Constant || operands.right.mode != .Constant) {
+		return expression_runtime_comparison(checker, view, scope, node, binary.left, binary.right, classification.operator, operands.left.type)
 	}
-	result_type := left.type
-	if conversion_complex(right_kind) && !conversion_complex(left_kind) { result_type = right.type }
+	result_type := operands.left.type
+	if conversion_complex(classification.right_kind) && !conversion_complex(classification.left_kind) { result_type = operands.right.type }
 	// Official array programming yields the array type when a scalar broadcasts into it, even an untyped one.
-	if simd_bitwise_broadcast {
-		result_type = left.type if left_base.kind == .Simd_Vector else right.type
-	} else if broadcast_pair || nested_broadcast {
-		result_type = left.type if left_base.kind == .Array else right.type
+	if classification.simd_bitwise_broadcast {
+		result_type = operands.left.type if classification.left_base.kind == .Simd_Vector else operands.right.type
+	} else if classification.broadcast_pair || classification.nested_broadcast {
+		result_type = operands.left.type if classification.left_base.kind == .Array else operands.right.type
 	}
-	if left_untyped && right_untyped && (left_kind == .Untyped_Quaternion || right_kind == .Untyped_Quaternion) {
+	if classification.left_untyped &&
+	   classification.right_untyped &&
+	   (classification.left_kind == .Untyped_Quaternion || classification.right_kind == .Untyped_Quaternion) {
 		result_type = types.TYPE_UNTYPED_QUATERNION
 	}
 	info = Expression_Info {
@@ -582,39 +813,71 @@ expression_binary :: proc(
 		mode  = .Value,
 		state = .Checked,
 		scope = scope,
-		plan  = binary_conversion,
+		plan  = operands.binary_conversion,
 	}
-	if comparison {
+	if classification.comparison {
 		info.type = types.TYPE_UNTYPED_BOOL
-		if left.mode != .Constant || right.mode != .Constant { info.type = checker.boolean }
+		if operands.left.mode != .Constant || operands.right.mode != .Constant { info.type = checker.boolean }
 	}
-	if left.mode == .Constant && right.mode == .Constant {
+	return expression_binary_constant(checker, view, scope, node, operands, classification, info)
+}
+
+@(private = "file")
+expression_binary_constant :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	scope: Scope_Id,
+	node: syntax.Node_Index,
+	operands: ^Binary_Operands,
+	classification: Binary_Operand_Class,
+	result: Expression_Info,
+) -> (
+	info: Expression_Info,
+	err: Resolve_Error,
+) {
+	info = result
+	if operands.left.mode == .Constant && operands.right.mode == .Constant {
 		constant: Const_Id
 		failure: Constant_Error
-		if comparison {
+		if classification.comparison {
 			// N2's comparison API names equality Eq; parsed equality is Cmp_Eq.
-			comparison_operator := operator
+			comparison_operator := classification.operator
 			if comparison_operator == .Cmp_Eq { comparison_operator = .Eq }
 			// Official subset ordering compares bit patterns with masks, not integer order.
-			if (operator == .Lt || operator == .Gt || operator == .Lt_Eq || operator == .Gt_Eq) && left_kind == .Bit_Set {
-				constant, failure = expression_bit_set_ordering(checker, operator, left, right, info.type)
+			if (classification.operator == .Lt || classification.operator == .Gt || classification.operator == .Lt_Eq || classification.operator == .Gt_Eq) &&
+			   classification.left_kind == .Bit_Set {
+				constant, failure = expression_bit_set_ordering(checker, classification.operator, operands.left, operands.right, info.type)
 			} else {
-				constant, failure = constant_compare_operator(checker.constants, comparison_operator, left.constant, right.constant, info.type)
+				constant, failure = constant_compare_operator(
+					checker.constants,
+					comparison_operator,
+					operands.left.constant,
+					operands.right.constant,
+					info.type,
+				)
 			}
 		} else {
-			constant_operator := operator
-			if bit_set_pair {
-				if operator == .Add { constant_operator = .Or }
-				if operator == .Sub { constant_operator = .And_Not }
+			constant_operator := classification.operator
+			if classification.bit_set_pair {
+				if classification.operator == .Add { constant_operator = .Or }
+				if classification.operator == .Sub { constant_operator = .And_Not }
 			}
-			constant, failure = constant_binary_operator(checker.constants, constant_operator, left.constant, right.constant, info.type, .Trap, store)
+			constant, failure = constant_binary_operator(
+				checker.constants,
+				constant_operator,
+				operands.left.constant,
+				operands.right.constant,
+				info.type,
+				.Trap,
+				classification.store,
+			)
 		}
 		if failure != nil {
 			// Official check_comparison folds only constant types; other constant operands compare at runtime.
 			demoted := false
-			if comparison {
+			if classification.comparison {
 				if pool_failure, is_pool_failure := failure.(Constant_Pool_Error); is_pool_failure && pool_failure == .Invalid_Operand {
-					left.mode, right.mode = .Value, .Value
+					operands.left.mode, operands.right.mode = .Value, .Value
 					demoted = true
 				}
 			}
