@@ -439,6 +439,16 @@ wasm_memory_atomic_notify32 :: proc(ptr: ^u32, waiters: u32) -> (waiters_woken_u
 // x86 Targets (i386, amd64)
 x86_cpuid  :: proc(ax, cx: u32) -> (eax, ebx, ecx, edx: u32) ---
 x86_xgetbv :: proc(cx: u32) -> (eax, edx: u32) ---
+x86_aesenc          :: proc(a, b: #simd[16]u8) -> #simd[16]u8 ---
+x86_aesenclast      :: proc(a, b: #simd[16]u8) -> #simd[16]u8 ---
+x86_aesimc          :: proc(a: #simd[16]u8) -> #simd[16]u8 ---
+x86_aeskeygenassist :: proc(a: #simd[16]u8, #const imm8: u8) -> #simd[16]u8 ---
+x86_aesdec          :: proc(a, b: #simd[16]u8) -> #simd[16]u8 ---
+x86_aesdeclast      :: proc(a, b: #simd[16]u8) -> #simd[16]u8 ---
+x86_pclmulqdq      :: proc(a, b: #simd[16]u8, #const imm8: u8) -> #simd[16]u8 ---
+x86_sha256msg1     :: proc(a, b: #simd[16]u8) -> #simd[16]u8 ---
+x86_sha256msg2     :: proc(a, b: #simd[16]u8) -> #simd[16]u8 ---
+x86_sha256rnds2    :: proc(a, b, k: #simd[16]u8) -> #simd[16]u8 ---
 
 
 // C specific things

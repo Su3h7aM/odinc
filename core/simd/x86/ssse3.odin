@@ -19,7 +19,11 @@ _mm_abs_epi32 :: #force_inline proc "c" (a: __m128i) -> __m128i {
 }
 @(require_results, enable_target_feature="ssse3")
 _mm_shuffle_epi8 :: #force_inline proc "c" (a, b: __m128i) -> __m128i {
-	return transmute(__m128i)pshufb128(transmute(u8x16)a, transmute(u8x16)b)
+	indices := transmute(#simd[16]u8)b
+	high_bit: #simd[16]u8 = 0x80
+	shuffled := intrinsics.simd_runtime_swizzle(transmute(#simd[16]u8)a, indices)
+	keep := transmute(#simd[16]u8)intrinsics.simd_lanes_lt(indices, high_bit)
+	return transmute(__m128i)intrinsics.simd_bit_and(shuffled, keep)
 }
 @(require_results, enable_target_feature="sse2,ssse3")
 _mm_alignr_epi8 :: #force_inline proc "c" (a, b: __m128i, $IMM8: u32) -> __m128i {
@@ -107,8 +111,6 @@ _mm_sign_epi32 :: #force_inline proc "c" (a, b: __m128i) -> __m128i {
 
 @(private, default_calling_convention="none")
 foreign _ {
-	@(link_name = "llvm.x86.ssse3.pshuf.b.128")
-	pshufb128    :: proc(a, b: u8x16) -> u8x16 ---
 	@(link_name = "llvm.x86.ssse3.phadd.w.128")
 	phaddw128    :: proc(a, b: i16x8) -> i16x8 ---
 	@(link_name = "llvm.x86.ssse3.phadd.sw.128")

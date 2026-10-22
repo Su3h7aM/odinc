@@ -244,7 +244,8 @@ _mm_sll_epi32 :: #force_inline proc "c" (a, count: __m128i) -> __m128i {
 }
 @(require_results, enable_target_feature="sse2")
 _mm_slli_epi64 :: #force_inline proc "c" (a: __m128i, $IMM8: u32) -> __m128i {
-	return transmute(__m128i)pslliq(transmute(i64x2)a, IMM8)
+	count := #simd[2]u64{u64(IMM8), u64(IMM8)}
+	return transmute(__m128i)intrinsics.simd_shl(transmute(#simd[2]u64)a, count)
 }
 @(require_results, enable_target_feature="sse2")
 _mm_sll_epi64 :: #force_inline proc "c" (a, count: __m128i) -> __m128i {
@@ -290,7 +291,8 @@ _mm_srl_epi32 :: #force_inline proc "c" (a, count: __m128i) -> __m128i {
 }
 @(require_results, enable_target_feature="sse2")
 _mm_srli_epi64 :: #force_inline proc "c" (a: __m128i, $IMM8: u32) -> __m128i {
-	return transmute(__m128i)psrliq(transmute(i64x2)a, IMM8)
+	count := #simd[2]u64{u64(IMM8), u64(IMM8)}
+	return transmute(__m128i)intrinsics.simd_shr(transmute(#simd[2]u64)a, count)
 }
 @(require_results, enable_target_feature="sse2")
 _mm_srl_epi64 :: #force_inline proc "c" (a, count: __m128i) -> __m128i {
@@ -1094,8 +1096,6 @@ foreign _ {
 	psllid     :: proc(a: i32x4, #const imm8: u32) -> i32x4 ---
 	@(link_name="llvm.x86.sse2.psll.d")
 	pslld      :: proc(a: i32x4, count: i32x4) -> i32x4 ---
-	@(link_name="llvm.x86.sse2.pslli.q")
-	pslliq     :: proc(a: i64x2, #const imm8: u32) -> i64x2 ---
 	@(link_name="llvm.x86.sse2.psll.q")
 	psllq      :: proc(a: i64x2, count: i64x2) -> i64x2 ---
 	@(link_name="llvm.x86.sse2.psrai.w")
@@ -1114,8 +1114,6 @@ foreign _ {
 	psrlid     :: proc(a: i32x4, #const imm8: u32) -> i32x4 ---
 	@(link_name="llvm.x86.sse2.psrl.d")
 	psrld      :: proc(a: i32x4, count: i32x4) -> i32x4 ---
-	@(link_name="llvm.x86.sse2.psrli.q")
-	psrliq     :: proc(a: i64x2, #const imm8: u32) -> i64x2 ---
 	@(link_name="llvm.x86.sse2.psrl.q")
 	psrlq      :: proc(a: i64x2, count: i64x2) -> i64x2 ---
 	@(link_name="llvm.x86.sse2.cvtps2dq")
