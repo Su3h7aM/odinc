@@ -137,6 +137,14 @@ main_symbol_name :: proc(session: ^Session) -> string {
 }
 
 @(private = "file")
+destroy_link_error :: proc(link_error: link.Link_Error, allocator: runtime.Allocator) {
+	#partial switch value in link_error {
+	case link.Undefined_Symbols:
+		link.undefined_symbols_destroy(value, allocator)
+	}
+}
+
+@(private = "file")
 write_build_error :: proc(log: io.Writer, err: Build_Error, error_context := Build_Error_Context{}) {
 	switch value in err {
 	case Driver_Error, runtime.Allocator_Error, Lower_Failed:
@@ -209,6 +217,7 @@ build_image :: proc(
 	}
 	defer virtual.arena_destroy(&scratch)
 	error_context: Build_Error_Context
+	defer if err != nil { destroy_link_error(error_context.link_error, allocator) }
 	defer if err != nil { write_build_error(log, err, error_context) }
 	scratch_allocator := virtual.arena_allocator(&scratch)
 
