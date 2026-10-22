@@ -18,9 +18,11 @@ lower_or_else :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: ch
 		call_node = state.ast.nodes[call_node].payload.(syntax.Paren_Expr).expr
 	}
 	values: [2]ir.Node_Id
+	status_type: types.Type_Id
 	#partial switch value in operand_plan^ {
 	case check.Call_Plan:
 		if len(value.results) != 2 { return lower_fail(state, node, .Expression) }
+		status_type = value.results[1]
 		lower_call_results(state, call_node, operand_info, value, values[:])
 	case check.Type_Assertion_Plan:
 		if !value.comma_ok { return lower_fail(state, node, .Expression) }
@@ -37,9 +39,7 @@ lower_or_else :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: ch
 		if state.job.function.nodes.type[values[1]] != .Bool { return lower_fail(state, node, .Expression) }
 		condition = values[1]
 	case .Nil:
-		nil_condition, nil_ok := propagation_nil_condition(state.job.function, values[1])
-		if !nil_ok { return lower_fail(state, node, .Expression) }
-		condition = nil_condition
+		condition = lower_value_is_nil(state, status_type, values[1])
 	}
 	result_type := lower_info(state, node).type
 	scalar := scalar_type(state, result_type)
@@ -88,10 +88,12 @@ lower_or_branch_values :: proc(state: ^Procedure_State, node: syntax.Node_Index,
 		call_node = state.ast.nodes[call_node].payload.(syntax.Paren_Expr).expr
 	}
 	result_count := 0
+	status_type: types.Type_Id
 	#partial switch result_plan in operand_plan^ {
 	case check.Call_Plan:
 		if len(result_plan.results) < 1 { lower_fail(state, node, .Expression); return false }
 		result_count = len(result_plan.results)
+		status_type = result_plan.results[result_count - 1]
 	case check.Type_Assertion_Plan:
 		if !result_plan.comma_ok { lower_fail(state, node, .Expression); return false }
 		result_count = 2
@@ -111,7 +113,7 @@ lower_or_branch_values :: proc(state: ^Procedure_State, node: syntax.Node_Index,
 		all_values[0], all_values[1] = lower_type_assertion(state, call_node, result_plan)
 	}
 	if state.failed || state.job.function.error != nil { return false }
-	condition, condition_ok := or_return_condition(state.job.function, plan, all_values[status_index])
+	condition, condition_ok := lower_propagation_condition(state, plan, all_values[status_index], status_type)
 	if !condition_ok { lower_fail(state, node, .Expression); return false }
 	if plan.failure == 0 { lower_fail(state, node, .Control); return false }
 	exit_plan := check.plan(state.job.program, plan.failure)
@@ -192,7 +194,7 @@ lower_or_return_values :: proc(state: ^Procedure_State, node: syntax.Node_Index,
 		all_values[0], all_values[1] = lower_type_assertion(state, call_node, result_plan)
 	}
 	if state.failed || state.job.function.error != nil { return false }
-	condition, condition_ok := or_return_condition(state.job.function, plan, all_values[status_index])
+	condition, condition_ok := lower_propagation_condition(state, plan, all_values[status_index], status_type)
 	if !condition_ok { lower_fail(state, node, .Expression); return false }
 	if !lower_or_return_exit(state, node, plan, condition, all_values[status_index], status_type) { return false }
 	copy(values, all_values[:status_index])
@@ -210,20 +212,29 @@ lower_or_return_stored :: proc(
 ) -> ir.Node_Id {
 	status := lower_operand(state, check.Operand(operand), status_type)
 	if state.failed || state.job.function.error != nil { return 0 }
-	condition, condition_ok := or_return_condition(state.job.function, plan, status)
+	condition, condition_ok := lower_propagation_condition(state, plan, status, status_type)
 	if !condition_ok { return lower_fail(state, node, .Expression) }
 	if !lower_or_return_exit(state, node, plan, condition, status, status_type) { return 0 }
 	return 0
 }
 
 @(private)
-or_return_condition :: proc(function: ^ir.Function, plan: check.Propagation_Plan, status: ir.Node_Id) -> (condition: ir.Node_Id, ok: bool) {
+lower_propagation_condition :: proc(
+	state: ^Procedure_State,
+	plan: check.Propagation_Plan,
+	status: ir.Node_Id,
+	status_type: types.Type_Id,
+) -> (
+	condition: ir.Node_Id,
+	ok: bool,
+) {
 	switch plan.test {
 	case .Boolean_True:
-		if function.nodes.type[status] != .Bool { return 0, false }
+		if state.job.function.nodes.type[status] != .Bool { return 0, false }
 		return status, true
 	case .Nil:
-		return propagation_nil_condition(function, status)
+		condition = lower_value_is_nil(state, status_type, status)
+		return condition, !state.failed
 	}
 	return 0, false
 }
@@ -277,18 +288,6 @@ lower_or_return_exit :: proc(
 	if state.failed || function.error != nil { return false }
 	ir.seal_target(builder, end)
 	return true
-}
-
-// Official `x == nil` for a status: zero for pointers and integer-backed types (enums, bit_sets).
-@(private)
-propagation_nil_condition :: proc(function: ^ir.Function, value: ir.Node_Id) -> (condition: ir.Node_Id, ok: bool) {
-	value_type := function.nodes.type[value]
-	#partial switch value_type {
-	case .Ptr, .I8, .I16, .I32, .I64:
-	case:
-		return 0, false
-	}
-	return ir.compare(function, .Eq, value, ir.const_int(function, value_type, 0)), true
 }
 
 // A converted status (an enum into an error union) is not stored raw. Identical types and booleans whose
