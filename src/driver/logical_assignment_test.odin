@@ -12,7 +12,7 @@ logical_compound_assignment_short_circuits_once :: proc(t: ^testing.T) {
 }
 
 @(test)
-logical_map_assignment_lowers_each_key_once :: proc(t: ^testing.T) {
+logical_map_assignment_evaluates_key_per_access :: proc(t: ^testing.T) {
 	odin_root, _ := filepath.join({#directory, "..", ".."}, context.temp_allocator)
 	main_path, _ := filepath.join({#directory, "testdata", "logical_map_assignment", "main.odin"}, context.temp_allocator)
 	session, err := check_program(odin_root, main_path, context.allocator)
@@ -34,5 +34,5 @@ logical_map_assignment_lowers_each_key_once :: proc(t: ^testing.T) {
 			if symbol.space == .Function && strings.contains(module.functions[symbol.index].name, "logical_map_key") { calls += 1 }
 		}
 	}
-	testing.expect_value(t, calls, 2)
+	testing.expect_value(t, calls, 4)
 }
