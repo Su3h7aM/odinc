@@ -7,7 +7,19 @@ import "oc:syntax"
 import "oc:types"
 
 @(private)
-lower_map_index :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: check.Map_Index_Plan) -> (value, ok: ir.Node_Id) {
+Map_Operands :: struct {
+	map_value, key_address: ir.Node_Id,
+}
+
+@(private)
+lower_map_index :: proc(
+	state: ^Procedure_State,
+	node: syntax.Node_Index,
+	plan: check.Map_Index_Plan,
+	operands: ^Map_Operands = nil,
+) -> (
+	value, ok: ir.Node_Id,
+) {
 	map_expression, is_expression := plan.map_value.(check.Expression_Ref)
 	if !is_expression { lower_fail(state, node, .Expression); return }
 	map_info := lower_info(state, map_expression.node)
@@ -30,6 +42,7 @@ lower_map_index :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: 
 	key_address := ir.stack_slot(state.job.function, state.entry_control, u32(max(key_layout.size, 1)), u32(max(key_layout.align, 1)))
 	lower_store(state, key_address, key_value, map_descriptor.index)
 	if state.failed || state.job.function.error != nil { return }
+	if operands != nil { operands^ = {map_value, key_address} }
 	seed := lower_map_runtime_call(state, node, "map_seed", []ir.Node_Id{map_value})
 	map_info_value := lower_map_info_of(state, node, check.Map_Info_Plan{type = map_type})
 	key_hash := ir.Node_Id(0)
@@ -112,7 +125,7 @@ lower_zero_memory :: proc(state: ^Procedure_State, address: ir.Node_Id, size: i6
 }
 
 @(private)
-lower_map_store :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: check.Map_Index_Plan, value: ir.Node_Id) {
+lower_map_store :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: check.Map_Index_Plan, value: ir.Node_Id, operands := Map_Operands{}) {
 	map_expression, is_expression := plan.map_value.(check.Expression_Ref)
 	if !is_expression { lower_fail(state, node, .Expression); return }
 	map_info := lower_info(state, map_expression.node)
@@ -124,8 +137,10 @@ lower_map_store :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: 
 		map_descriptor = types.get(store, map_type)
 	}
 	if map_descriptor.kind != .Map { lower_fail(state, node, .Expression); return }
-	map_value := lower_operand(state, plan.map_value)
-	key_value := lower_operand(state, plan.key, map_descriptor.index)
+	map_value := operands.map_value
+	key_value: ir.Node_Id
+	if map_value == 0 { map_value = lower_operand(state, plan.map_value) }
+	if operands.key_address == 0 { key_value = lower_operand(state, plan.key, map_descriptor.index) }
 	if state.failed || state.job.function.error != nil { return }
 	function := state.job.function
 	key_layout := state.job.layouts[map_descriptor.index]
@@ -135,9 +150,12 @@ lower_map_store :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: 
 		lower_fail(state, node, .Expression)
 		return
 	}
-	key_address := ir.stack_slot(function, state.entry_control, u32(max(key_layout.size, 1)), u32(max(key_layout.align, 1)))
+	key_address := operands.key_address
+	if key_address == 0 {
+		key_address = ir.stack_slot(function, state.entry_control, u32(max(key_layout.size, 1)), u32(max(key_layout.align, 1)))
+		lower_store(state, key_address, key_value, map_descriptor.index)
+	}
 	value_address := ir.stack_slot(function, state.entry_control, u32(max(value_layout.size, 1)), u32(max(value_layout.align, 1)))
-	lower_store(state, key_address, key_value, map_descriptor.index)
 	lower_store(state, value_address, value, value_type)
 	if state.failed || function.error != nil { return }
 	seed := lower_map_runtime_call(state, node, "map_seed", []ir.Node_Id{map_value})

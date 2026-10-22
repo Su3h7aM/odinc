@@ -10,7 +10,7 @@ lower_compound_assignment :: proc(state: ^Procedure_State, node: syntax.Node_Ind
 	left := syntax.node_list(state.ast, assignment.lhs)
 	right := syntax.node_list(state.ast, assignment.rhs)
 	if len(left) != 1 || len(right) != 1 { lower_fail(state, node, .Local); return }
-	if assignment.op.kind == .Cmp_And_Eq || assignment.op.kind == .Cmp_Or_Eq { lower_fail(state, node, .Control); return }
+	if assignment.op.kind == .Cmp_And_Eq || assignment.op.kind == .Cmp_Or_Eq { lower_logical_assignment(state, node, assignment); return }
 	destination_info := lower_info(state, left[0])
 	if destination_info.mode == .Map_Index && destination_info.plan != 0 {
 		retained := check.plan(state.job.program, destination_info.plan)
@@ -68,6 +68,42 @@ lower_compound_assignment :: proc(state: ^Procedure_State, node: syntax.Node_Ind
 		ir.variable_get(state.builder, state.locals[destination.entity].variable) if destination.entity != 0 else lower_destination_read(state, destination)
 	result := lower_compound_operator(state, node, assignment.op.kind, previous, value, destination.type)
 	write_destination(state, destination, result, node)
+}
+
+@(private)
+lower_logical_assignment :: proc(state: ^Procedure_State, node: syntax.Node_Index, assignment: syntax.Assign_Stmt) {
+	left := syntax.node_list(state.ast, assignment.lhs)[0]
+	right := syntax.node_list(state.ast, assignment.rhs)[0]
+	info := lower_info(state, left)
+	destination: Assignment_Destination
+	map_index: check.Map_Index_Plan
+	map_operands: Map_Operands
+	previous: ir.Node_Id
+	if info.mode == .Map_Index {
+		if info.plan == 0 { lower_fail(state, node, .Local); return }
+		plan := check.plan(state.job.program, info.plan)
+		assert(plan != nil)
+		found: bool
+		map_index, found = plan^.(check.Map_Index_Plan)
+		if !found { lower_fail(state, node, .Local); return }
+		previous, _ = lower_map_index(state, left, map_index, &map_operands)
+	} else {
+		destination = lower_destination(state, check.Expression_Ref{state.view, left})
+		if state.failed || state.job.function.error != nil { return }
+		previous =
+			ir.variable_get(state.builder, state.locals[destination.entity].variable) if destination.entity != 0 else lower_destination_read(state, destination)
+	}
+	if state.failed || state.job.function.error != nil { return }
+	conversion: check.Plan_Id
+	if checked, ok := check.expression_info(state.job.program, state.view, node); ok && checked.plan != 0 {
+		plan := check.plan(state.job.program, checked.plan)
+		assert(plan != nil)
+		if assignment_plan, found := plan^.(check.Assignment_Plan);
+		   found && len(assignment_plan.conversions) != 0 { conversion = assignment_plan.conversions[0] }
+	}
+	value := lower_short_circuit(state, assignment.op.kind, right, previous, conversion)
+	if state.failed || state.job.function.error != nil { return }
+	if info.mode == .Map_Index { lower_map_store(state, node, map_index, value, map_operands) } else { write_destination(state, destination, value, node) }
 }
 
 @(private)

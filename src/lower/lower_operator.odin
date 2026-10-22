@@ -37,7 +37,7 @@ lower_binary :: proc(
 	if conversions.left != 0 { left = lower_declared_conversion(state, expression.left, conversions.left) } else { left = lower_value(state, expression.left) }
 	if state.failed { return 0 }
 	if expression.op.kind == .Cmp_And || expression.op.kind == .Cmp_Or {
-		return lower_short_circuit(state, node, expression, left)
+		return lower_short_circuit(state, expression.op.kind, expression.right, left)
 	}
 	right: ir.Node_Id
 	if conversions.right !=
@@ -773,17 +773,24 @@ lower_union_equality :: proc(
 }
 
 @(private)
-lower_short_circuit :: proc(state: ^Procedure_State, node: syntax.Node_Index, expression: syntax.Binary_Expr, left: ir.Node_Id) -> ir.Node_Id {
+lower_short_circuit :: proc(
+	state: ^Procedure_State,
+	operator: syntax.Token_Kind,
+	right: syntax.Node_Index,
+	left: ir.Node_Id,
+	conversion := check.Plan_Id(0),
+) -> ir.Node_Id {
 	builder := state.builder
 	count := len(builder.values)
 	result := ir.variable_declare(builder, left)
 	end := ir.jump_target_make(builder)
 	branch := ir.branch_if(builder, left)
-	short_arm := 0 if expression.op.kind == .Cmp_Or else 1
+	short_arm := 0 if operator == .Cmp_Or || operator == .Cmp_Or_Eq else 1
 	ir.enter_arm(builder, branch, short_arm)
 	ir.jump_to(builder, end)
 	ir.enter_arm(builder, branch, 1 - short_arm)
-	value := lower_value(state, expression.right)
+	value: ir.Node_Id
+	if conversion != 0 { value = lower_declared_conversion(state, right, conversion) } else { value = lower_value(state, right) }
 	if state.failed { return 0 }
 	ir.variable_set(builder, result, value)
 	ir.jump_to(builder, end)
