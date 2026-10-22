@@ -45,7 +45,15 @@ write_diagnostics :: proc(session: ^Session, writer: io.Writer) {
 		write_diagnostic(session, writer, diagnostic.kind, "", diagnostic.source)
 	}
 	for diagnostic in session.checker.diagnostics {
-		write_diagnostic(session, writer, diagnostic.kind, diagnostic.reason, diagnostic.source)
+		reason := diagnostic.reason
+		if diagnostic.kind == .Conversion && diagnostic.conversion != .None {
+			if reason == "" {
+				reason = fmt.tprint(diagnostic.conversion)
+			} else {
+				reason = fmt.tprintf("%v %s", diagnostic.conversion, reason)
+			}
+		}
+		write_diagnostic(session, writer, diagnostic.kind, reason, diagnostic.source)
 	}
 }
 
