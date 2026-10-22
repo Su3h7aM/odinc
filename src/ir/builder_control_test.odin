@@ -112,7 +112,10 @@ builder_control_nested_loops :: proc(t: ^testing.T) {
 	testing.expect_value(t, regions, 3)
 	testing.expect_value(t, phis, 3 + 3 + 2 + 2)
 
-	cfg, cfg_err := cfg_build(fn, context.allocator)
+	uses, uses_err := uses_build(fn, context.allocator)
+	testing.expect_value(t, uses_err, nil)
+	defer use_table_destroy(&uses, context.allocator)
+	cfg, cfg_err := build_control_skeleton(fn, context.allocator, uses)
 	testing.expect_value(t, cfg_err, nil)
 	defer cfg_destroy(&cfg, context.allocator)
 	testing.expect_value(t, len(cfg.loops), 2)

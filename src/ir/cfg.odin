@@ -106,15 +106,15 @@ block_of_node :: proc(cfg: Cfg, fn: ^Function, id: Node_Id) -> Block_Id {
 	return BLOCK_NONE
 }
 
-cfg_build :: proc(fn: ^Function, allocator: runtime.Allocator) -> (cfg: Cfg, err: runtime.Allocator_Error) {
+// Derives the control skeleton from the graph's control nodes: blocks in reverse post-order,
+// idoms, depths and loops. `uses` must be a table of `fn`.
+build_control_skeleton :: proc(fn: ^Function, allocator: runtime.Allocator, uses: Use_Table) -> (cfg: Cfg, err: runtime.Allocator_Error) {
 	scratch: virtual.Arena
 	virtual.arena_init_growing(&scratch) or_return
 	defer virtual.arena_destroy(&scratch)
 	temp := virtual.arena_allocator(&scratch)
 
 	node_count := len(fn.nodes)
-	uses := uses_build(fn, temp) or_return
-
 	entry := entry_head(fn, uses)
 	if entry == NODE_NONE {
 		return

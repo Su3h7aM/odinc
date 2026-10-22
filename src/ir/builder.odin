@@ -2,6 +2,8 @@ package ir
 
 import "core:mem/virtual"
 
+#assert(size_of(Node) == 24)
+
 // Builder procedures take the function and share its sticky error: after a failed allocation
 // they return `NODE_NONE`. Wrong operand kinds or types are programmer errors and assert;
 // `verify` reports them as `Verify_Error`s on graphs built any other way.
@@ -73,23 +75,23 @@ const_int :: proc(fn: ^Function, type: Value_Type, value: i64) -> Node_Id {
 	case:
 		canonical = value
 	}
-	return add_node(fn, .Const_Int, type, nil, {int_value = canonical}, {.Rematerialize})
+	return interned_node(fn, .Const_Int, type, nil, {int_value = canonical}, {.Rematerialize})
 }
 
 const_float :: proc(fn: ^Function, type: Value_Type, bits: u64) -> Node_Id {
-	return add_node(fn, .Const_Float, type, nil, {float_bits = bits}, {.Rematerialize})
+	return interned_node(fn, .Const_Float, type, nil, {float_bits = bits}, {.Rematerialize})
 }
 
 undef :: proc(fn: ^Function, type: Value_Type) -> Node_Id {
-	return add_node(fn, .Undef, type, nil, {}, {.Rematerialize})
+	return interned_node(fn, .Undef, type, nil, {}, {.Rematerialize})
 }
 
 symbol_addr :: proc(fn: ^Function, symbol: Symbol_Ref) -> Node_Id {
-	return add_node(fn, .Symbol_Addr, .Ptr, nil, {symbol = symbol}, {.Rematerialize})
+	return interned_node(fn, .Symbol_Addr, .Ptr, nil, {symbol = symbol}, {.Rematerialize})
 }
 
 tls_addr :: proc(fn: ^Function, symbol: Symbol_Ref) -> Node_Id {
-	return add_node(fn, .Tls_Addr, .Ptr, nil, {symbol = symbol}, {.Rematerialize})
+	return interned_node(fn, .Tls_Addr, .Ptr, nil, {symbol = symbol}, {.Rematerialize})
 }
 
 // `entry` is the entry head from `start`.
@@ -108,7 +110,7 @@ binary :: proc(fn: ^Function, kind: Node_Kind, a, b: Node_Id) -> Node_Id {
 	if .Commutative in kind_info[kind].flags && b < a {
 		a, b = b, a
 	}
-	return add_node(fn, kind, fn.nodes.type[a], {a, b})
+	return interned_node(fn, kind, fn.nodes.type[a], {a, b}, {}, {})
 }
 
 // `Div` and `Rem` kinds are pinned to `control`.
@@ -126,7 +128,7 @@ unary :: proc(fn: ^Function, kind: Node_Kind, a: Node_Id) -> Node_Id {
 		return NODE_NONE
 	}
 	assert(is_pure(kind) && kind_info[kind].max_inputs == 1)
-	return add_node(fn, kind, fn.nodes.type[a], {a})
+	return interned_node(fn, kind, fn.nodes.type[a], {a}, {}, {})
 }
 
 // Integer and float comparisons; `>` and `>=` are written by swapping operands.
@@ -139,7 +141,7 @@ compare :: proc(fn: ^Function, kind: Node_Kind, a, b: Node_Id) -> Node_Id {
 	if .Commutative in kind_info[kind].flags && b < a {
 		a, b = b, a
 	}
-	return add_node(fn, kind, .Bool, {a, b})
+	return interned_node(fn, kind, .Bool, {a, b}, {}, {})
 }
 
 // `Trunc`, `Zext`, `Sext`, `Bitcast` and the int/float conversions.
@@ -148,22 +150,22 @@ convert :: proc(fn: ^Function, kind: Node_Kind, a: Node_Id, type: Value_Type) ->
 		return NODE_NONE
 	}
 	assert(is_pure(kind) && kind_info[kind].max_inputs == 1)
-	return add_node(fn, kind, type, {a})
+	return interned_node(fn, kind, type, {a}, {}, {})
 }
 
 select :: proc(fn: ^Function, condition, if_true, if_false: Node_Id) -> Node_Id {
 	if fn.error != nil {
 		return NODE_NONE
 	}
-	return add_node(fn, .Select, fn.nodes.type[if_true], {condition, if_true, if_false})
+	return interned_node(fn, .Select, fn.nodes.type[if_true], {condition, if_true, if_false}, {}, {})
 }
 
 ptr_offset :: proc(fn: ^Function, base: Node_Id, offset: i64) -> Node_Id {
-	return add_node(fn, .Ptr_Offset, .Ptr, {base}, {int_value = offset})
+	return interned_node(fn, .Ptr_Offset, .Ptr, {base}, {int_value = offset}, {})
 }
 
 ptr_index :: proc(fn: ^Function, base, index: Node_Id, stride: u32) -> Node_Id {
-	return add_node(fn, .Ptr_Index, .Ptr, {base, index}, {index = stride})
+	return interned_node(fn, .Ptr_Index, .Ptr, {base, index}, {index = stride}, {})
 }
 
 load :: proc(fn: ^Function, control, memory, pointer: Node_Id, type: Value_Type, align_log2: u8) -> Node_Id {
@@ -179,6 +181,12 @@ store :: proc(fn: ^Function, control, memory, pointer, value: Node_Id, align_log
 call :: proc(fn: ^Function, control, memory, callee: Node_Id, signature: Signature_Id, args: []Node_Id) -> Node_Id {
 	if fn.error != nil {
 		return NODE_NONE
+	}
+	inputs_buf: [16]Node_Id
+	if 3 + len(args) <= len(inputs_buf) {
+		inputs_buf[0], inputs_buf[1], inputs_buf[2] = control, memory, callee
+		copy(inputs_buf[3:], args)
+		return add_node(fn, .Call, .Tuple, inputs_buf[:3 + len(args)], {index = u32(signature)})
 	}
 	inputs, err := make([]Node_Id, 3 + len(args), virtual.arena_allocator(&fn.arena))
 	if err != nil {
@@ -206,6 +214,12 @@ region :: proc(fn: ^Function, predecessors: []Node_Id) -> Node_Id {
 phi :: proc(fn: ^Function, merge: Node_Id, values: []Node_Id) -> Node_Id {
 	if fn.error != nil {
 		return NODE_NONE
+	}
+	inputs_buf: [16]Node_Id
+	if 1 + len(values) <= len(inputs_buf) {
+		inputs_buf[0] = merge
+		copy(inputs_buf[1:], values)
+		return add_node(fn, .Phi, fn.nodes.type[values[0]], inputs_buf[:1 + len(values)])
 	}
 	inputs, err := make([]Node_Id, 1 + len(values), virtual.arena_allocator(&fn.arena))
 	if err != nil {

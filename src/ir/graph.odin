@@ -59,20 +59,23 @@ Node :: struct {
 
 // Never copy or move a `Function`: its arrays hold the address of `arena`. Use `function_make`.
 Function :: struct {
-	id:         Function_Id,
-	name:       string,
-	linkage:    Linkage,
-	signature:  Signature_Id,
-	nodes:      #soa[dynamic]Node,
-	edges:      [dynamic]Node_Id,
-	tables:     [dynamic][]i64,
-	signatures: [dynamic]Signature,
-	blobs:      [dynamic]Data_Blob,
-	start:      Node_Id,
-	stop:       Node_Id,
-	arena:      virtual.Arena,
-	allocator:  runtime.Allocator,
-	error:      runtime.Allocator_Error,
+	id:           Function_Id,
+	name:         string,
+	linkage:      Linkage,
+	signature:    Signature_Id,
+	nodes:        #soa[dynamic]Node,
+	edges:        [dynamic]Node_Id,
+	tables:       [dynamic][]i64,
+	signatures:   [dynamic]Signature,
+	blobs:        [dynamic]Data_Blob,
+	intern_table: []Node_Id,
+	intern_mask:  u32,
+	intern_count: u32,
+	start:        Node_Id,
+	stop:         Node_Id,
+	arena:        virtual.Arena,
+	allocator:    runtime.Allocator,
+	error:        runtime.Allocator_Error,
 }
 
 Use :: struct {

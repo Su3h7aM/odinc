@@ -15,6 +15,8 @@ Verifier :: struct {
 	start_state: Node_Id,
 	// The memory `Phi` of each `Region` and `Loop`, by node id.
 	memory_phi:  []Node_Id,
+	// Built once for the whole verification.
+	uses:        Use_Table,
 }
 
 // Checks S1-S7 and C1-C3 of section 9. Edge rules run first; everything else is skipped while
@@ -37,8 +39,14 @@ verify :: proc(fn: ^Function, allocator: runtime.Allocator, module: ^Module = ni
 	if len(v.errors) == 0 {
 		check_anchors(&v)
 		check_nodes(&v)
-		check_projections(&v)
-		check_control(&v)
+		uses, uses_err := uses_build(fn, v.scratch)
+		if uses_err != nil {
+			v.failure = uses_err
+		} else {
+			v.uses = uses
+			check_projections(&v)
+			check_control(&v)
+		}
 	}
 	if v.failure != nil {
 		delete(v.errors)
@@ -461,11 +469,6 @@ check_projections :: proc(v: ^Verifier) {
 		}
 	}
 
-	uses, err := uses_build(fn, v.scratch)
-	if err != nil {
-		v.failure = err
-		return
-	}
 	for index in 1 ..< len(fn.nodes) {
 		id := Node_Id(index)
 		if fn.nodes.kind[id] != .If && fn.nodes.kind[id] != .Switch {
@@ -479,7 +482,7 @@ check_projections :: proc(v: ^Verifier) {
 			member_count = len(fn.tables[fn.nodes.data[id].index]) + 1
 		}
 		seen := make([]bool, member_count, v.scratch)
-		for use in uses_of(uses, id) {
+		for use in uses_of(v.uses, id) {
 			if fn.nodes.kind[use.user] != .Proj {
 				continue
 			}
@@ -516,7 +519,7 @@ check_control :: proc(v: ^Verifier) {
 		}
 	}
 
-	cfg, err := cfg_build(fn, v.scratch)
+	cfg, err := build_control_skeleton(fn, v.scratch, v.uses)
 	if err != nil {
 		v.failure = err
 		return

@@ -29,8 +29,6 @@ Verify_Code :: enum u8 {
 	Stale_Load, // M5
 	Unschedulable_Input, // D1
 	Bad_Control_Class, // D2
-	Intern_Key_Mismatch, // G1
-	Intern_Mutated, // G2
 }
 
 Verify_Error :: struct {

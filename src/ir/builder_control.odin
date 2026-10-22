@@ -301,8 +301,8 @@ loop_end :: proc(b: ^Builder, state: Loop_State) {
 }
 
 // Replaces the header by its entry head and each phi by its entry value, everywhere: in the
-// graph and in the exits recorded by pending targets. Nothing is interned yet, so no cache
-// needs a rebuild.
+// graph and in the exits recorded by pending targets. The substitution rewrites inputs of
+// interned nodes, so the table is rebuilt afterwards.
 @(private = "file")
 loop_collapse :: proc(b: ^Builder, state: Loop_State) {
 	fn := b.fn
@@ -333,6 +333,7 @@ loop_collapse :: proc(b: ^Builder, state: Loop_State) {
 		remove_node(fn, phi_node)
 	}
 	remove_node(fn, state.loop)
+	intern_rebuild(fn)
 }
 
 emit_return :: proc(b: ^Builder, results: ..Node_Id) {

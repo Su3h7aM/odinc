@@ -45,12 +45,12 @@ order :: proc(fn: ^ir.Function, allocator: runtime.Allocator) -> (schedule: Sche
 	node_count := len(fn.nodes)
 	schedule.placement = make([]ir.Block_Id, node_count, allocator) or_return
 	slice.fill(schedule.placement, ir.BLOCK_NONE)
-	schedule.cfg = ir.cfg_build(fn, allocator) or_return
+	uses := ir.uses_build(fn, temp) or_return
+	schedule.cfg = ir.build_control_skeleton(fn, allocator, uses) or_return
 	if len(schedule.cfg.heads) == 0 {
 		return
 	}
 	block_count := len(schedule.cfg.heads)
-	uses := ir.uses_build(fn, temp) or_return
 	place_floating(fn, schedule.cfg, uses, schedule.placement, temp) or_return
 
 	for index in 1 ..< node_count {
