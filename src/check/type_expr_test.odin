@@ -178,7 +178,7 @@ Loop :: ^Loop
 	expected := []struct {
 		kind: Type_Diagnostic_Kind,
 		name: string,
-	}{{.Undeclared_Type, "Missing"}, {.Duplicate_Field, "a"}, {.Recursive_Value, "Direct"}}
+	}{{.Undeclared_Type, "Missing"}, {.Duplicate_Field, "a"}, {.Recursive_Value, "Direct"}, {.Recursive_Value, "Direct"}, {.Recursive_Value, "Direct"}}
 	if testing.expect(t, len(data.checker.diagnostics) == len(expected)) {
 		for diagnostic, index in data.checker.diagnostics {
 			testing.expect(t, diagnostic.kind == expected[index].kind && diagnostic.name == expected[index].name)

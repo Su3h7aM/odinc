@@ -822,7 +822,56 @@ parse_source :: proc(session: ^Session, path: string, source: []byte, report: bo
 			}
 		}
 	}
+	if len(parser.errors) + len(parser.lex_errors) == 0 {
+		root := syntax.node_payload(allocated, allocated.root, syntax.File)
+		scope_errors, scope_error := report_file_scope_statements(session, path, source, allocated, syntax.node_list(allocated, root.decls), report)
+		if scope_error != .None { return allocated, true, scope_error }
+		return allocated, scope_errors != 0, .None
+	}
 	return allocated, len(parser.errors) + len(parser.lex_errors) != 0, .None
+}
+
+// Official parse_setup_file_decls: only declarations, `when` statements and directive calls may appear at file scope.
+@(private = "file")
+report_file_scope_statements :: proc(
+	session: ^Session,
+	path: string,
+	source: []byte,
+	ast: ^syntax.Ast,
+	statements: []syntax.Node_Index,
+	report: bool,
+) -> (
+	count: int,
+	err: Driver_Error,
+) {
+	for statement in statements {
+		#partial switch ast.nodes[statement].kind {
+		case .Expr_Stmt:
+			expression := syntax.node_payload(ast, statement, syntax.Expr_Stmt).expr
+			if ast.nodes[expression].kind == .Call_Expr && ast.nodes[syntax.node_payload(ast, expression, syntax.Call_Expr).expr].kind == .Basic_Directive {
+				continue
+			}
+			count += 1
+			if report {
+				text := "Only declarations are allowed at file scope, got expression statement"
+				if record_error := record_syntax_diagnostic(session, path, source, ast.nodes[statement].start, text);
+				   record_error != .None { return count, record_error }
+			}
+		case .When_Stmt:
+			when_stmt := syntax.node_payload(ast, statement, syntax.When_Stmt)
+			for branch in ([2]syntax.Node_Index{when_stmt.body, when_stmt.else_stmt}) {
+				if branch == 0 { continue }
+				single := [1]syntax.Node_Index{branch}
+				branch_statements := single[:]
+				if ast.nodes[branch].kind ==
+				   .Block_Stmt { branch_statements = syntax.node_list(ast, syntax.node_payload(ast, branch, syntax.Block_Stmt).stmts) }
+				nested, nested_error := report_file_scope_statements(session, path, source, ast, branch_statements, report)
+				if nested_error != .None { return count, nested_error }
+				count += nested
+			}
+		}
+	}
+	return count, .None
 }
 
 @(private = "file")

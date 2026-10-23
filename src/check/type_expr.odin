@@ -496,29 +496,95 @@ type_expression :: proc(
 	return types.TYPE_POISON, nil
 }
 
-// Reports direct-value cycles among completed nominal records. Entities with a cycle become invalid.
+// Reports direct-value cycles among completed nominal records, once per cycle as the official type path does.
+// Entities with a cycle become invalid.
 check_nominal_layouts :: proc(checker: ^Type_Checker) -> runtime.Allocator_Error {
 	scopes := checker.resolver.scopes
 	for index := checker.layouts_checked; index < len(checker.nominals); index += 1 {
 		nominal := checker.nominals[index]
+		if entity_get(scopes, nominal.entity).state == .Invalid { continue }
 		_, _, layout_err := types.layout(checker.store, nominal.type)
 		if layout_err != .Recursive_Value { continue }
-		entity := entity_get(scopes, nominal.entity)
-		_, err := append(
-			&checker.diagnostics,
-			Type_Diagnostic {
-				kind = .Recursive_Value,
-				name = entity.name,
-				source = {entity.declaration.file, entity.order.offset, entity.order.offset + u32(len(entity.name))},
-				reason = fmt.aprintf("Illegal declaration cycle of `%s`", entity.name, allocator = checker.arena_allocator),
-			},
-		)
-		if err != nil { return err }
-		entity.state = .Invalid
-		entity.type = types.TYPE_POISON
+		visited := make(map[types.Type_Id]struct{}, context.temp_allocator)
+		path := make([dynamic]types.Type_Id, context.temp_allocator)
+		if !type_value_cycle(checker.store, nominal.type, nominal.type, &visited, &path) { append(&path, nominal.type) or_return }
+		start := entity_get(scopes, nominal.entity)
+		cycle_reason := fmt.aprintf("Illegal type declaration cycle of `%s`", start.name, allocator = checker.arena_allocator)
+		cycle_report(checker, start, cycle_reason) or_return
+		for member in path {
+			entity := nominal_entity(checker, member)
+			if entity == nil { continue }
+			reason := fmt.aprintf("\t%s refers to", entity.name, allocator = checker.arena_allocator)
+			cycle_report(checker, entity, reason) or_return
+		}
+		cycle_report(checker, start, fmt.aprintf("\t%s", start.name, allocator = checker.arena_allocator)) or_return
+		for member in path {
+			if entity := nominal_entity(checker, member); entity != nil {
+				entity.state = .Invalid
+				entity.type = types.TYPE_POISON
+			}
+		}
 	}
 	checker.layouts_checked = len(checker.nominals)
 	return nil
+}
+
+@(private = "file")
+cycle_report :: proc(checker: ^Type_Checker, entity: ^Entity, reason: string) -> runtime.Allocator_Error {
+	_, err := append(
+		&checker.diagnostics,
+		Type_Diagnostic{kind = .Recursive_Value, name = entity.name, source = cycle_source(checker, entity), reason = reason},
+	)
+	return err
+}
+
+// An instance is placed at the record of its generic definition.
+@(private = "file")
+cycle_source :: proc(checker: ^Type_Checker, entity: ^Entity) -> Source_Span {
+	for instance in checker.record_instances {
+		if instance.type != entity.type { continue }
+		if definition, found := checker.generic_records[instance.definition]; found {
+			span := checker.files[definition.file].ast.nodes[definition.node]
+			return {definition.file, span.start, span.end}
+		}
+	}
+	return {entity.declaration.file, entity.order.offset, entity.order.offset + u32(len(entity.name))}
+}
+
+@(private = "file")
+nominal_entity :: proc(checker: ^Type_Checker, type: types.Type_Id) -> ^Entity {
+	for nominal in checker.nominals {
+		if nominal.type == type { return entity_get(checker.resolver.scopes, nominal.entity) }
+	}
+	return nil
+}
+
+// Finds the nominal types, in order, by which `current` holds `target` by value.
+@(private = "file")
+type_value_cycle :: proc(store: ^types.Store, current, target: types.Type_Id, visited: ^map[types.Type_Id]struct{}, path: ^[dynamic]types.Type_Id) -> bool {
+	descriptor := types.get(store, current)
+	if descriptor.is_nominal { append(path, current) }
+	visited[current] = {}
+	found := false
+	hold :: proc(store: ^types.Store, member, target: types.Type_Id, visited: ^map[types.Type_Id]struct{}, path: ^[dynamic]types.Type_Id) -> bool {
+		if member == target { return true }
+		if member in visited^ { return false }
+		return type_value_cycle(store, member, target, visited, path)
+	}
+	#partial switch descriptor.kind {
+	case .Array, .Enumerated_Array, .Fixed_Capacity_Array, .Simd_Vector, .Matrix, .Named:
+		found = hold(store, descriptor.elem, target, visited, path)
+	case .Struct, .Tuple:
+		for field in descriptor.fields {
+			if hold(store, field.type, target, visited, path) { found = true; break }
+		}
+	case .Union:
+		for variant in descriptor.variants {
+			if hold(store, variant, target, visited, path) { found = true; break }
+		}
+	}
+	if !found && descriptor.is_nominal { pop(path) }
+	return found
 }
 
 @(private = "file")
