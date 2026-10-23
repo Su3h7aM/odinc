@@ -239,7 +239,7 @@ encode :: proc(
 		reg_slot: int = -1
 		opr_slot: int = -1
 		imm_slot: int = -1
-		has_gpr16 := false   // any GPR16 operand -> 66h operand-size prefix
+		has_opsize_16 := false   // 16-bit integer operand -> 66h operand-size prefix
 		has_spl   := false   // any SPL/BPL/SIL/DIL (GPR8 hw 4-7) -> forces a REX
 		{
 			// If the caller supplied every operand -- including the ones this form
@@ -274,10 +274,12 @@ encode :: proc(
 				}
 				if uop != nil {
 					user_ops[i] = uop
+					// RM16 selects integer operand size; fixed-width M16 does not.
+					has_opsize_16 ||= op == .RM16
 					if uop.kind == .REGISTER {
 						cls := reg_class(uop.reg)
 						hw  := reg_hw(uop.reg)
-						has_gpr16 ||= cls == REG_GPR16
+						has_opsize_16 ||= cls == REG_GPR16
 						has_spl   ||= cls == REG_GPR8 && hw >= 4 && hw <= 7
 					}
 				}
@@ -302,7 +304,7 @@ encode :: proc(
 		// generic behavior.) The destination is always op0 and always a register.
 		#partial switch inst.mnemonic {
 		case .MOVSX, .MOVZX, .MOVSXD:
-			has_gpr16 = inst.operand_count > 0 &&
+			has_opsize_16 = inst.operand_count > 0 &&
 				inst.ops[0].kind == .REGISTER &&
 				reg_class(inst.ops[0].reg) == REG_GPR16
 		}
@@ -509,14 +511,14 @@ encode :: proc(
 			pos += 4
 
 		case: // Legacy encoding
-			// Operand size override (66h) -- has_gpr16 computed in the resolve pass.
+			// Operand size override (66h) -- has_opsize_16 computed in the resolve pass.
 			// opsize_16 covers operand-less 16-bit forms (CBW/CWD/MOVSW/...) that
 			// carry no GPR16 operand to key off (matters on the interpreter path,
 			// e.g. `rep movsw`; the eligible no-prefix forms take the recipe path).
 			// Fixed-ModR/M forms (ext >= 0xC0: x87 like FSTSW AX, system ops) never
 			// take an operand-size prefix, even though an implicit accumulator
 			// operand may look like a GPR16.
-			needs_66 := (has_gpr16 || enc.flags.opsize_16) && enc.flags.prefix != 1 && enc.ext < 0xC0  // PREFIX_66
+			needs_66 := (has_opsize_16 || enc.flags.opsize_16) && enc.flags.prefix != 1 && enc.ext < 0xC0  // PREFIX_66
 			if needs_66 {
 				out[pos] = 0x66
 				pos += 1
