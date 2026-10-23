@@ -65,6 +65,8 @@ Selector :: struct {
 	slots:      []u32,
 	blocks:     []u32,
 	edges:      [][]u32,
+	nodes_of:   [][]ir.Node_Id,
+	resolved:   []ir.Block_Id,
 	current:    ir.Node_Id,
 	block:      u32,
 	signature:  ir.Signature,
@@ -99,6 +101,8 @@ select_function_impl :: proc(
 		slots     = make([]u32, len(input.nodes), allocator) or_return,
 		blocks    = make([]u32, len(schedule.blocks), allocator) or_return,
 		edges     = make([][]u32, len(schedule.blocks), allocator) or_return,
+		nodes_of  = make([][]ir.Node_Id, len(schedule.blocks), allocator) or_return,
+		resolved  = make([]ir.Block_Id, len(schedule.blocks), allocator) or_return,
 	}
 	selector.features = input.target_features | types.x86_level_features(microarch)
 	if len(schedule.blocks) == 0 || int(input.signature) >= len(input.signatures) {
@@ -116,15 +120,28 @@ select_function_impl :: proc(
 		}
 	}
 	for block in schedule.blocks {
+		selector.nodes_of[block.id] = block.nodes
+	}
+	resolve_forwarders(&selector)
+	for block in schedule.blocks {
+		if selector.resolved[block.id] != block.id { continue }
 		index := add_block(output) or_return
 		selector.blocks[block.id] = index
 		output.blocks[index].depth = u8(min(block.depth, 255))
 		output.blocks[index].cold = block.cold
 	}
 	for block in schedule.blocks {
+		selector.blocks[block.id] = selector.blocks[selector.resolved[block.id]]
+	}
+	for block in schedule.blocks {
+		if selector.resolved[block.id] != block.id { continue }
 		successors := ir.block_succs(schedule.cfg, block.id)
 		selector.edges[block.id] = make([]u32, len(successors), allocator) or_return
 		for successor, edge in successors {
+			if !has_data_phis(&selector, selector.resolved[successor]) {
+				selector.edges[block.id][edge] = selector.blocks[successor]
+				continue
+			}
 			index := add_block(output) or_return
 			selector.edges[block.id][edge] = index
 			output.blocks[index].depth = u8(min(block.depth, 255))
@@ -143,6 +160,7 @@ select_function_impl :: proc(
 	}
 	selector.params = lower_start(output, 0, selector.signature, selector.assignment, allocator) or_return
 	for block in schedule.blocks {
+		if selector.resolved[block.id] != block.id { continue }
 		selector.block = selector.blocks[block.id]
 		for node in block.nodes {
 			selector.current = node
@@ -152,7 +170,9 @@ select_function_impl :: proc(
 		select_exit(&selector, block.id) or_return
 	}
 	for block in schedule.blocks {
+		if selector.resolved[block.id] != block.id { continue }
 		for successor, edge in ir.block_succs(schedule.cfg, block.id) {
+			if !has_data_phis(&selector, selector.resolved[successor]) { continue }
 			selector.block = selector.edges[block.id][edge]
 			head := schedule.cfg.heads[successor]
 			predecessors := ir.node_inputs(input, head)
@@ -160,7 +180,7 @@ select_function_impl :: proc(
 				for predecessor, predecessor_index in predecessors {
 					if schedule.cfg.block_of[predecessor] != block.id { continue }
 					moves := make([dynamic]regalloc.Move, virtual.arena_allocator(&output.arena)) or_return
-					for node in schedule.blocks[selector.blocks[successor]].nodes {
+					for node in selector.nodes_of[successor] {
 						if input.nodes.kind[node] != .Phi || input.nodes.type[node] == .Memory { continue }
 						selector.current = node
 						source := select_value(&selector, ir.node_input(input, node, predecessor_index + 1)) or_return
@@ -172,7 +192,52 @@ select_function_impl :: proc(
 			emit(output, selector.block, .JMP, 0, Block_Ref(selector.blocks[successor])) or_return
 		}
 	}
-	return nil
+	return layout_blocks(output)
+}
+
+@(private = "file")
+has_data_phis :: proc(selector: ^Selector, block: ir.Block_Id) -> bool {
+	input := selector.input
+	for node in selector.nodes_of[block] {
+		if input.nodes.kind[node] == .Phi && input.nodes.type[node] != .Memory {
+			return true
+		}
+	}
+	return false
+}
+
+// A forwarder is a non-entry block that computes nothing and jumps to a merge without phi
+// moves on either side, so its predecessors branch straight to that merge.
+@(private = "file")
+is_forwarder :: proc(selector: ^Selector, block: ir.Block_Id) -> bool {
+	input, cfg := selector.input, selector.schedule.cfg
+	if block == 0 || cfg.exits[block] != ir.NODE_NONE || input.nodes.kind[cfg.heads[block]] == .Loop {
+		return false
+	}
+	successors := ir.block_succs(cfg, block)
+	if len(successors) != 1 || has_data_phis(selector, successors[0]) {
+		return false
+	}
+	for node in selector.nodes_of[block] {
+		if input.nodes.kind[node] != .Phi || input.nodes.type[node] != .Memory {
+			return false
+		}
+	}
+	return true
+}
+
+// Sets `resolved[block]` to the first block that is not a forwarder along its jumps.
+@(private = "file")
+resolve_forwarders :: proc(selector: ^Selector) {
+	cfg := selector.schedule.cfg
+	for block in 0 ..< len(selector.resolved) {
+		target := ir.Block_Id(block)
+		for _ in 0 ..< len(selector.resolved) {
+			if !is_forwarder(selector, target) { break }
+			target = ir.block_succs(cfg, target)[0]
+		}
+		selector.resolved[block] = target
+	}
 }
 
 @(private)

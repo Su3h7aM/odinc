@@ -500,8 +500,10 @@ lower_instruction :: proc(emitter: ^Emitter, instruction: Machine_Instruction, b
 	explicit := instruction.operands[:instruction.explicit_count]
 	if len(explicit) == 1 && (info.branch || info.terminator) {
 		if target, is_block := explicit[0].(Block_Ref); is_block {
-			if instruction.mnemonic == .JMP && u32(target) == block + 1 {
-				return nil
+			if instruction.mnemonic == .JMP {
+				if u32(target) == block + 1 || fall_through_by_inverting(emitter, block, u32(target)) {
+					return nil
+				}
 			}
 			append(&emitter.branches, Branch{u32(len(emitter.instructions)), u32(target), instruction.mnemonic}) or_return
 			append(&emitter.instructions, x86.inst_rel(instruction.mnemonic, u32(target), 1)) or_return
@@ -580,6 +582,55 @@ lower_instruction :: proc(emitter: ^Emitter, instruction: Machine_Instruction, b
 		store_spill(emitter, store.class, store.number, store.slot) or_return
 	}
 	return nil
+}
+
+// When the conditional branch just emitted jumps to the next block, the unconditional jump that
+// follows it is replaced by the inverted branch to `target`, which then falls through.
+@(private = "file")
+fall_through_by_inverting :: proc(emitter: ^Emitter, block: u32, target: u32) -> bool {
+	if len(emitter.branches) == 0 {
+		return false
+	}
+	branch := &emitter.branches[len(emitter.branches) - 1]
+	inverse, invertible := inverted_condition(branch.mnemonic)
+	if !invertible || branch.block != block + 1 || int(branch.instruction) != len(emitter.instructions) - 1 {
+		return false
+	}
+	branch.mnemonic = inverse
+	branch.block = target
+	emitter.instructions[branch.instruction] = x86.inst_rel(inverse, target, 1)
+	return true
+}
+
+@(private = "file")
+inverted_condition :: proc(mnemonic: x86.Mnemonic) -> (inverse: x86.Mnemonic, ok: bool) {
+	#partial switch mnemonic {
+	case .JE:
+		return .JNE, true
+	case .JNE:
+		return .JE, true
+	case .JL:
+		return .JGE, true
+	case .JGE:
+		return .JL, true
+	case .JLE:
+		return .JG, true
+	case .JG:
+		return .JLE, true
+	case .JB:
+		return .JAE, true
+	case .JAE:
+		return .JB, true
+	case .JBE:
+		return .JA, true
+	case .JA:
+		return .JBE, true
+	case .JP:
+		return .JNP, true
+	case .JNP:
+		return .JP, true
+	}
+	return mnemonic, false
 }
 
 // The encoder's form-match cache keys an immediate by value class, and -128..127 is one class, but only
