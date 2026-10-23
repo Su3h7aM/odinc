@@ -78,7 +78,7 @@ TCB_SIZE :: 48
 @(private = "file")
 STARTUP_SLOT_NAMES := [STARTUP_SLOT_COUNT]string{"runtime.argc", "runtime.argv", "runtime.envp"}
 
-// Checks and lowers `main_path`, then builds a static Linux executable image. Checker diagnostics and lowering
+// Checks and lowers `main_path`, then builds a Linux executable image. Checker diagnostics and lowering
 // errors go to `log`. The caller frees the image with `allocator`.
 build_file :: proc(
 	odin_root, main_path: string,
@@ -89,6 +89,7 @@ build_file :: proc(
 	defines: map[string]string = nil,
 	level: types.X86_Level = .V1,
 	parse_options: syntax.Parse_Options = {},
+	interpreter: string = link.DEFAULT_INTERPRETER,
 ) -> (
 	image: []byte,
 	err: Build_Error,
@@ -136,7 +137,7 @@ build_file :: proc(
 	defer foreign_files_destroy(&foreign_files)
 	session_destroy(session)
 	session = nil
-	return build_image(&module, entry_name, log, allocator, thread_count, foreign_files)
+	return build_image(&module, entry_name, log, allocator, thread_count, foreign_files, interpreter)
 }
 
 // The symbol of the main package's `main` procedure; empty when the program has none.
@@ -197,6 +198,7 @@ build_image :: proc(
 	allocator: runtime.Allocator,
 	thread_count: int,
 	foreign_files: Foreign_Files,
+	interpreter: string = link.DEFAULT_INTERPRETER,
 ) -> (
 	image: []byte,
 	err: Build_Error,
@@ -237,7 +239,15 @@ build_image :: proc(
 	table.atoms[0] = build_entry_atom(module, roots, layout, scratch_allocator) or_return
 
 	inputs := []link.Input{{atoms = table.atoms[:], symbols = table.symbols, comdats = table.comdats[:]}}
-	linked, link_err := link.link_inputs(inputs, foreign_files.objects[:], foreign_files.archives[:], foreign_files.shared[:], "_start", allocator)
+	linked, link_err := link.link_inputs(
+		inputs,
+		foreign_files.objects[:],
+		foreign_files.archives[:],
+		foreign_files.shared[:],
+		"_start",
+		allocator,
+		interpreter,
+	)
 	if link_err != nil {
 		error_context.link_error = link_err
 		error_context.has_link_error = true

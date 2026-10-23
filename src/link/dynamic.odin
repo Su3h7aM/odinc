@@ -3,12 +3,13 @@ package link
 import "core:mem"
 import "oc:elf"
 
-// PT_INTERP of the Linux x86-64 system loader. The gABI leaves the path implementation-defined; this is the glibc loader's
-// path, so foreign libraries built against glibc get their DT_NEEDED entries loaded by it.
-INTERPRETER :: "/lib64/ld-linux-x86-64.so.2"
+// Default Linux x86-64 PT_INTERP path. The gABI leaves it implementation-defined;
+// --dynamic-linker selects the loader compatible with the foreign shared libraries.
+DEFAULT_INTERPRETER :: "/lib64/ld-linux-x86-64.so.2"
 
 Fixups :: struct {
 	allocator:    mem.Allocator,
+	interpreter:  string,
 	local_got:    map[Got_Key]int,
 	local_order:  [dynamic]Got_Key,
 	dyn_index:    map[string]int,
@@ -47,9 +48,10 @@ Absolute_Use :: struct {
 	name:   string,
 }
 
-fixups_init :: proc(allocator: mem.Allocator) -> Fixups {
+fixups_init :: proc(allocator: mem.Allocator, interpreter: string) -> Fixups {
 	return Fixups {
 		allocator = allocator,
+		interpreter = interpreter,
 		local_got = make(map[Got_Key]int, allocator = allocator),
 		local_order = make([dynamic]Got_Key, allocator),
 		dyn_index = make(map[string]int, allocator = allocator),
@@ -155,7 +157,7 @@ rodata_tail_size :: proc(fixups: Fixups, needed: []string) -> u64 {
 		names += len(name) + 1
 	}
 	plt_count, got_count := dynamic_counts(fixups)
-	rod := align_up(u64(len(INTERPRETER) + 1), 8)
+	rod := align_up(u64(len(fixups.interpreter) + 1), 8)
 	rod += u64(dyn_count) * size_of(elf.Symbol_Entry)
 	rod += u64(names)
 	rod = align_up(rod, 4)
@@ -223,7 +225,7 @@ assign_fixup_addresses :: proc(fixups: ^Fixups, layout: Layout, needed: []string
 		fixups.dynamic_base = align_up(cursor, 8)
 		rod := layout.rodata_tail
 		fixups.interp_base = rod
-		rod = align_up(rod + u64(len(INTERPRETER) + 1), 8)
+		rod = align_up(rod + u64(len(fixups.interpreter) + 1), 8)
 		fixups.dynsym_base = rod
 		rod += u64(1 + len(fixups.dyns)) * size_of(elf.Symbol_Entry)
 		fixups.dynstr_base = rod
@@ -347,7 +349,7 @@ fill_dynamic :: proc(addresses: [][]u64, symbols: [][]Resolved_Symbol, load_byte
 	if len(needed) == 0 && len(fixups.dyns) == 0 {
 		return
 	}
-	write_interp(load_bytes[int(fixups.interp_base) - base:])
+	write_interp(load_bytes[int(fixups.interp_base) - base:], fixups.interpreter)
 	write_dynsym(load_bytes[int(fixups.dynsym_base) - base:], load_bytes[int(fixups.dynstr_base) - base:], fixups, needed)
 	write_hash(load_bytes[int(fixups.hash_base) - base:], fixups)
 	write_relocations(load_bytes, layout, fixups, addresses)
@@ -389,10 +391,10 @@ write_gotplt :: proc(bytes: []byte, fixups: Fixups) {
 	store_little_endian(bytes[:8], fixups.dynamic_base)
 }
 
-write_interp :: proc(bytes: []byte) {
-	copy(bytes, INTERPRETER)
-	if len(bytes) > len(INTERPRETER) {
-		bytes[len(INTERPRETER)] = 0
+write_interp :: proc(bytes: []byte, interpreter: string) {
+	copy(bytes, interpreter)
+	if len(bytes) > len(interpreter) {
+		bytes[len(interpreter)] = 0
 	}
 }
 
@@ -539,6 +541,6 @@ configure_dynamic_program :: proc(builder: ^elf.Executable_Builder, layout: Layo
 		return
 	}
 	elf.executable_load_headers(builder, BASE)
-	elf.executable_set_interpreter(builder, fixups.interp_base, u64(len(INTERPRETER) + 1))
+	elf.executable_set_interpreter(builder, fixups.interp_base, u64(len(fixups.interpreter) + 1))
 	elf.executable_set_dynamic(builder, fixups.dynamic_base, u64(data_tail_size(fixups, needed) - (fixups.dynamic_base - layout.data_tail)))
 }

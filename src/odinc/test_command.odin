@@ -17,7 +17,7 @@ compile_command :: proc(name: string, args: []string) -> int {
 			return 0
 		}
 		fmt.printfln(
-			"usage: odinc %s <file-or-directory> [--output/-o path] [--collection/-c name=path] [--define/-d NAME=value] [--keep-executable/-k] [--disallow-do] [--vet-tabs] [--vet-style] [--strict-style] [-- arguments]",
+			"usage: odinc %s <file-or-directory> [--output/-o path] [--dynamic-linker path] [--collection/-c name=path] [--define/-d NAME=value] [--keep-executable/-k] [--disallow-do] [--vet-tabs] [--vet-style] [--strict-style] [-- arguments]",
 			name,
 		)
 		return 0
@@ -57,7 +57,15 @@ build_command_image :: proc(root: string, command: driver.Command_Arguments) -> 
 	image: []byte
 	error: driver.Build_Error
 	if command.test_mode {
-		image, error = driver.build_tests(root, command.path, os.to_writer(os.stderr), context.allocator, command.options, command.collections[:])
+		image, error = driver.build_tests(
+			root,
+			command.path,
+			os.to_writer(os.stderr),
+			context.allocator,
+			command.options,
+			command.collections[:],
+			command.dynamic_linker,
+		)
 	} else {
 		image, error = driver.build_file(
 			root,
@@ -69,6 +77,7 @@ build_command_image :: proc(root: string, command: driver.Command_Arguments) -> 
 			command.options.defines,
 			command.options.microarch,
 			command.options.parse_options,
+			command.dynamic_linker,
 		)
 	}
 	if error != nil { return 1 }

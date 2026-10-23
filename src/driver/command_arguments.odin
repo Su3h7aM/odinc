@@ -6,10 +6,12 @@ import "core:fmt"
 import "core:os"
 import "core:path/filepath"
 import "core:strings"
+import "oc:link"
 import "oc:syntax"
 import "oc:types"
 
 Command_Arguments :: struct {
+	dynamic_linker:                                                    string,
 	path, output:                                                      string,
 	options:                                                           Test_Options,
 	collections:                                                       [dynamic]Collection,
@@ -21,6 +23,7 @@ Command_Arguments :: struct {
 Command_Flags :: struct {
 	path:                      string `args:"pos=0"`,
 	output:                    string `args:"short=o"`,
+	dynamic_linker:            string,
 	collection:                [dynamic]string `args:"short=c"`,
 	define:                    [dynamic]string `args:"short=d"`,
 	keep_executable:           bool `args:"short=k"`,
@@ -85,8 +88,9 @@ parse_command_arguments :: proc(name: string, args: []string, allocator := conte
 		}
 	}
 	model := Command_Flags {
-		thread_count = max(os.get_processor_core_count(), 1),
-		mcpu         = "x86_64_v1",
+		thread_count   = max(os.get_processor_core_count(), 1),
+		mcpu           = "x86_64_v1",
+		dynamic_linker = link.DEFAULT_INTERPRETER,
 	}
 	defer delete(model.collection)
 	defer delete(model.define)
@@ -108,6 +112,7 @@ parse_command_arguments :: proc(name: string, args: []string, allocator := conte
 
 	command.path = model.path
 	command.output = model.output
+	command.dynamic_linker = model.dynamic_linker
 	command.keep_executable = model.keep_executable
 	command.options.all_packages = model.all_packages
 	command.options.thread_count = model.thread_count

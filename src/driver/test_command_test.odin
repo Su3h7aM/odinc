@@ -147,3 +147,33 @@ test_check_command_flags :: proc(t: ^testing.T) {
 		testing.expect(t, error != "")
 	}
 }
+@(test)
+dynamic_linker_command_flag :: proc(t: ^testing.T) {
+	for name in ([]string{"build", "run", "test"}) {
+		defaults, default_error := parse_command_arguments(name, []string{"source.odin"})
+		defer delete(defaults.options.defines)
+		defer delete(defaults.collections)
+		testing.expect_value(t, default_error, "")
+		testing.expect_value(t, defaults.dynamic_linker, "/lib64/ld-linux-x86-64.so.2")
+		for arguments in ([][]string{{"source.odin", "--dynamic-linker", "/lib/ld-musl-x86_64.so.1"}, {"--dynamic-linker=/lib/ld-musl-x86_64.so.1", "source.odin"}}) {
+			command, error := parse_command_arguments(name, arguments)
+			defer delete(command.options.defines)
+			defer delete(command.collections)
+			testing.expect_value(t, error, "")
+			testing.expect_value(t, command.dynamic_linker, "/lib/ld-musl-x86_64.so.1")
+			testing.expect_value(t, command.path, "source.odin")
+		}
+	}
+	for arguments in ([][]string{{"source.odin", "--dynamic-linker", "/lib/ld-musl-x86_64.so.1"}, {"source.odin", "--dynamic-linker=/lib/ld-musl-x86_64.so.1"}}) {
+		command, error := parse_command_arguments("check", arguments)
+		defer delete(command.options.defines)
+		defer delete(command.collections)
+		testing.expect(t, error != "", "check does not accept linker options")
+	}
+	for arguments in ([][]string{{"source.odin", "--dynamic-linker"}, {"source.odin", "-I", "/lib/ld-musl-x86_64.so.1"}}) {
+		command, error := parse_command_arguments("build", arguments)
+		defer delete(command.options.defines)
+		defer delete(command.collections)
+		testing.expect(t, error != "", "a loader path and the long flag spelling are required")
+	}
+}

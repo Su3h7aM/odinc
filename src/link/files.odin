@@ -35,11 +35,12 @@ link_files :: proc(
 	shared: []Shared_Library,
 	entry: string,
 	allocator: mem.Allocator,
+	interpreter: string = DEFAULT_INTERPRETER,
 ) -> (
 	image: []byte,
 	err: Link_Error,
 ) {
-	return link_inputs(nil, objects, archives, shared, entry, allocator)
+	return link_inputs(nil, objects, archives, shared, entry, allocator, interpreter)
 }
 
 /*
@@ -54,6 +55,7 @@ link_inputs :: proc(
 	shared: []Shared_Library,
 	entry: string,
 	allocator: mem.Allocator,
+	interpreter: string = DEFAULT_INTERPRETER,
 ) -> (
 	image: []byte,
 	err: Link_Error,
@@ -140,5 +142,5 @@ link_inputs :: proc(
 	for library, index in shared {
 		if !library.as_needed || used[index] { append(&needed, library.needed) or_return }
 	}
-	return link_with(inputs[:], needed[:], provided, entry, allocator)
+	return link_with(inputs[:], needed[:], provided, entry, allocator, interpreter)
 }

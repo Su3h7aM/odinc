@@ -4,6 +4,7 @@ import "core:os"
 import "core:path/filepath"
 import "core:strings"
 import "core:testing"
+import "oc:elf"
 
 write_text :: proc(path, text: string) -> bool {
 	bytes := make([]byte, len(text))
@@ -261,9 +262,33 @@ shared_library_and_got_relaxation :: proc(t: ^testing.T) {
 	dump := run_command_capture(t, directory, "readelf.txt", []string{"llvm-readelf", "-d", "-l", executable_path})
 	testing.expect(
 		t,
-		strings.contains(dump, "INTERP") && strings.contains(dump, "NEEDED") && strings.contains(dump, "JMPREL"),
+		strings.contains(dump, DEFAULT_INTERPRETER) && strings.contains(dump, "NEEDED") && strings.contains(dump, "JMPREL"),
 		"dynamic program headers must be present",
 	)
+
+	for interpreter in ([]string{"/lib/ld-musl-x86_64.so.1", "/opt/custom-runtime/lib/a-longer-dynamic-linker-path.so"}) {
+		custom_image, custom_error := link_files([][]byte{main}, {}, []Shared_Library{shared}, "_start", context.allocator, interpreter)
+		if !testing.expect(t, custom_error == nil, "custom interpreter image must link") { continue }
+		defer delete(custom_image)
+		file_header, header_ok := read_pod(custom_image, 0, elf.File_Header)
+		if !testing.expect(t, header_ok, "custom interpreter image has an ELF header") { continue }
+		found := false
+		for index in 0 ..< int(file_header.e_phnum) {
+			header, program_ok := read_pod(custom_image, int(file_header.e_phoff) + index * size_of(elf.Program_Header), elf.Program_Header)
+			if !testing.expect(t, program_ok, "program header must be readable") { break }
+			if u32(header.p_type) != elf.PT_INTERP { continue }
+			found = true
+			offset, size := int(header.p_offset), int(header.p_filesz)
+			if !testing.expect(
+				t,
+				size == len(interpreter) + 1 && offset >= 0 && offset <= len(custom_image) - size,
+				"PT_INTERP size follows the supplied path",
+			) { break }
+			testing.expect_value(t, string(custom_image[offset:offset + size - 1]), interpreter)
+			testing.expect_value(t, custom_image[offset + size - 1], byte(0))
+		}
+		testing.expect(t, found, "shared-library image has PT_INTERP")
+	}
 
 	local := clang_object(t, directory, "local", "int value = 7;\nint load_value(void) { return value; }\n", {"-O2", "-fPIC"})
 	local_start := clang_object(
@@ -275,7 +300,7 @@ shared_library_and_got_relaxation :: proc(t: ^testing.T) {
 	)
 	defer delete(local)
 	defer delete(local_start)
-	relaxed, relaxed_err := link_files([][]byte{local, local_start}, {}, {}, "_start", context.allocator)
+	relaxed, relaxed_err := link_files([][]byte{local, local_start}, {}, {}, "_start", context.allocator, "/__odinc_unused_dynamic_linker__")
 	testing.expect(t, relaxed_err == nil, "relaxed program must link")
 	defer delete(relaxed)
 	run_executable_expect_exit(t, relaxed, 7)

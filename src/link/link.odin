@@ -159,9 +159,20 @@ link :: proc(inputs: []Input, entry: string, allocator: mem.Allocator) -> (image
 /*
 	Links `inputs`. `needed` and `provided` describe shared libraries: a
 	global symbol missing from `inputs` and present in `provided` is
-	resolved by the dynamic linker.
+	resolved by the dynamic linker. `interpreter` is its PT_INTERP path,
+	used only when shared libraries are linked.
 */
-link_with :: proc(inputs: []Input, needed: []string, provided: map[string]bool, entry: string, allocator: mem.Allocator) -> (image: []byte, err: Link_Error) {
+link_with :: proc(
+	inputs: []Input,
+	needed: []string,
+	provided: map[string]bool,
+	entry: string,
+	allocator: mem.Allocator,
+	interpreter: string = DEFAULT_INTERPRETER,
+) -> (
+	image: []byte,
+	err: Link_Error,
+) {
 	atom_addresses := make([][]u64, len(inputs), allocator) or_return
 	defer {
 		for addresses in atom_addresses { delete(addresses, allocator) }
@@ -176,7 +187,7 @@ link_with :: proc(inputs: []Input, needed: []string, provided: map[string]bool, 
 	defer delete(choices)
 	choose_symbols(inputs, &choices) or_return
 
-	fixups := fixups_init(allocator)
+	fixups := fixups_init(allocator, interpreter)
 	defer fixups_destroy(&fixups)
 	plan_fixups(inputs, choices, provided, &fixups)
 	layout := place_atoms(inputs, atom_addresses, text_tail_size(fixups), rodata_tail_size(fixups, needed), data_tail_size(fixups, needed))

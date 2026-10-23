@@ -9,7 +9,7 @@ main :: proc() {
 	case "build", "run", "test", "check":
 		os.exit(compile_command(os.args[1], os.args[2:]))
 	case "--help", "-h":
-		fmt.println("usage: odinc <build|run|test|check> <file-or-directory> [--output path] [--keep-executable] [-- arguments]")
+		fmt.println("usage: odinc <build|run|test|check> <file-or-directory> [--output path] [--dynamic-linker path] [--keep-executable] [-- arguments]")
 	case:
 		fmt.eprintfln("Unknown command: '%s'", os.args[1])
 		os.exit(1)
