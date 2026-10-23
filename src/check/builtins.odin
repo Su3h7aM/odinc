@@ -694,6 +694,16 @@ expression_builtin_call :: proc(
 	if checker.builtin_kinds[builtin] == .Has_Target_Feature {
 		return expression_has_target_feature(checker, view, scope, node, arguments, call.ellipsis.kind != .Invalid)
 	}
+	if checker.builtin_kinds[builtin] == .Procedure_Of {
+		if len(arguments) != 1 || call.ellipsis.kind != .Invalid { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
+		specialized := check_expression(checker, view, scope, arguments[0]) or_return
+		if specialized.state == .Invalid { return expression_poison(scope), nil }
+		if specialized.plan == 0 { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
+		specialized_call, is_call := checker.plans[specialized.plan].(Call_Plan)
+		if !is_call || specialized_call.entity == 0 { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
+		instance := entity_get(checker.type_checker.resolver.scopes, specialized_call.entity)
+		return Expression_Info{type = instance.type, mode = .Value, entity = specialized_call.entity, scope = scope, state = .Checked}, nil
+	}
 	if checker.builtin_kinds[builtin] == .Soa_Zip {
 		return expression_soa_zip(checker, view, scope, node, builtin, arguments, call.ellipsis.kind != .Invalid, hint)
 	}

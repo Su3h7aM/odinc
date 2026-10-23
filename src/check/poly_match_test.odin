@@ -144,6 +144,13 @@ call_with :: proc "contextless" ($f: proc "contextless" (int) -> int) -> int { r
 disabled_generic :: proc "contextless" (value: $T) { undeclared_name(value) }
 matrix_dimension :: proc "contextless" (m: matrix[$N, N]$E) -> int { return N }
 pointer_of :: proc "contextless" (node: $T/^Node) -> typeid { return T }
+Alias :: distinct Node
+take_node :: proc "contextless" (value: $T/Node) -> int { return value.id }
+same_elements :: proc "contextless" (a, b: $T/[]$E) {}
+specialized :: procedure_of(double_generic(0))
+double_generic :: proc "contextless" (x: $T) -> T { return x * 2 }
+forward_value := forward_call(1)
+forward_call :: proc "contextless" (value: int) -> int { return value }
 entry :: proc "contextless" (v: #simd[4]f32, w: []int) {
 	a := lanes(v)
 	apply(gen, w)
@@ -162,9 +169,11 @@ entry :: proc "contextless" (v: #simd[4]f32, w: []int) {
 	constant_grid: [2]Pair : Pair{3, 4}
 	_, _ = cast([2][2]i64)grid, constant_grid
 	_, _, _, _ = matrix_dimension(m), m[k, k], transpose(m), pointer_of(e)
+	_, _ = take_node(Alias{}), specialized(2)
+	same_elements(w, {1})
 }
 `,
 	)
-	_, ok := check_procedure_source(t, source, .None, "", 0, procedure_name = "entry", intrinsic_names = {"transpose"})
+	_, ok := check_procedure_source(t, source, .None, "", 0, procedure_name = "entry", intrinsic_names = {"transpose", "procedure_of"})
 	testing.expect(t, ok)
 }

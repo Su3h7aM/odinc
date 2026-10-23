@@ -229,6 +229,15 @@ expression_generic_call :: proc(
 					argument_hint = default_hint
 				}
 			}
+			if argument_hint == 0 &&
+			   hint_pattern != 0 &&
+			   file.ast.nodes[hint_pattern].kind == .Poly_Type &&
+			   expression_argument_needs_hint(caller, argument_node) {
+				poly_name := expression_text(file, syntax.node_payload(file.ast, hint_pattern, syntax.Poly_Type).type)
+				for bound_name, index in match.bindings.names {
+					if bound_name == poly_name && match.bindings.constants[index] == 0 { argument_hint = match.bindings.types[index] }
+				}
+			}
 			argument := generic_call_argument(checker, view, scope, slot, expansions, argument_hint) or_return
 			if argument.state == .Invalid { return expression_poison(scope), nil }
 			if file.ast.nodes[name].kind == .Poly_Type {

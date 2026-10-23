@@ -209,10 +209,13 @@ expression_declaration :: proc(resolver: ^Resolver, id: Entity_Id, user_data: ra
 		value := type_unparen(file, declaration.value.node)
 		if file.ast.nodes[value].kind == .Ident {
 			target, _ := scope_lookup(resolver.scopes, entity.scope, expression_text(file, value))
-			if target != 0 && entity_get(resolver.scopes, target).kind == .Import_Name {
+			if target != 0 && (entity_get(resolver.scopes, target).kind == .Import_Name || entity_get(resolver.scopes, target).kind == .Library_Name) {
 				imported := entity_get(resolver.scopes, target)^
 				binding := entity_get(resolver.scopes, id)
-				binding.kind, binding.data = .Import_Name, imported.data
+				binding.kind, binding.data = imported.kind, imported.data
+				if imported.kind == .Library_Name {binding.data = Library_Data {
+						used = true,
+					}}
 				return true, nil
 			}
 		}

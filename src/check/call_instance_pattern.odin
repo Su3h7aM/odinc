@@ -146,7 +146,14 @@ poly_match_pattern :: proc(match: ^Poly_Match, pattern: syntax.Node_Index, argum
 			return poly_rebind_assignable(match, expression_text(file, poly.type), argument)
 		}
 		if poly.specialization == 0 { return true, nil }
-		return poly_match_pattern(match, poly.specialization, argument)
+		matched = poly_match_pattern(match, poly.specialization, argument) or_return
+		if matched || poly_pattern_has_poly(file, poly.specialization) { return matched, nil }
+		store := match.checker.type_checker.store
+		record := types.get(store, underlying_type(store, argument)).kind
+		if record != .Struct && record != .Union { return false, nil }
+		bound_scope := poly_bound_scope(match) or_return
+		expected := type_expression(match.checker.type_checker, match.definition_file, bound_scope, poly.specialization, true) or_return
+		return expected != types.TYPE_POISON && types.are_identical(store, underlying_type(store, expected), underlying_type(store, argument)), nil
 	case .Pointer_Type:
 		pointer := syntax.node_payload(file.ast, pattern, syntax.Pointer_Type)
 		if pointer.tag != 0 {

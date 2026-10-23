@@ -1,6 +1,7 @@
 package check
 
 import "core:mem"
+import "core:slice"
 import "oc:syntax"
 import "oc:types"
 
@@ -22,6 +23,15 @@ expression_call :: proc(
 	procedure := entity_get(scopes, callee.entity).data.(Procedure_Data)
 	if procedure.signature == types.TYPE_NONE { return expression_missing_operand_type(checker, view, scope, node, callee.mode) }
 	descriptor := types.get(checker.type_checker.store, procedure.signature)^
+	if len(procedure.parameters) != len(descriptor.params) && procedure.body_state == .Unchecked {
+		resolver := checker.type_checker.resolver
+		if pending, found := slice.linear_search(resolver.pending_bodies[:], callee.entity); found {
+			ordered_remove(&resolver.pending_bodies, pending)
+			_, body_error := resolver.check_body(resolver, callee.entity, resolver.user_data)
+			if body_error != nil { return {}, body_error }
+			procedure = entity_get(scopes, callee.entity).data.(Procedure_Data)
+		}
+	}
 	parameter_count := len(procedure.parameters)
 	if len(descriptor.params) != parameter_count {
 		return expression_unsupported(checker, view, scope, node, "Call_Signature")
