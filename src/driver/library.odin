@@ -7,9 +7,9 @@ import "core:strings"
 import "oc:check"
 import "oc:link"
 
-// Searched for `system:` libraries in this order; each name tries `lib<name>.so` in every directory before `lib<name>.a`.
+// Multiarch directories are named after the target triplet (`/usr/lib/<arch>-<os>-<abi>`, Multiarch layout), which no spec fixes.
 @(private = "file")
-SYSTEM_LIBRARY_DIRECTORIES := []string{"/usr/local/lib", "/usr/lib/x86_64-linux-gnu", "/usr/lib64", "/usr/lib", "/lib", "/lib64"}
+MULTIARCH_LIBRARY_PATTERN :: "/usr/lib/x86_64-linux-*"
 
 Foreign_Library_Failed :: struct {
 	path:   string,
@@ -247,12 +247,24 @@ linker_script_paths :: proc(data: []byte, script_path: string) -> (members: []Sc
 	return collected[:], true, nil
 }
 
-// The first `lib<name>.so` or `lib<name>.a` in SYSTEM_LIBRARY_DIRECTORIES, in the temporary allocator.
+// Searched for `system:` libraries in this order: `/usr/local/lib`, the multiarch directories, then the FHS library directories.
+@(private = "file")
+system_library_directories :: proc() -> (directories: [dynamic]string, err: runtime.Allocator_Error) {
+	directories = make([dynamic]string, context.temp_allocator) or_return
+	append(&directories, "/usr/local/lib") or_return
+	multiarch, _ := filepath.glob(MULTIARCH_LIBRARY_PATTERN, context.temp_allocator)
+	append(&directories, ..multiarch) or_return
+	append(&directories, "/usr/lib64", "/usr/lib", "/lib", "/lib64") or_return
+	return directories, nil
+}
+
+// The first `lib<name>.so` or `lib<name>.a` in system_library_directories, in the temporary allocator.
 @(private = "file")
 find_system_library :: proc(name: string) -> (path: string, found: bool, err: runtime.Allocator_Error) {
+	directories := system_library_directories() or_return
 	for suffix in ([]string{".so", ".a"}) {
 		file_name := strings.concatenate({"lib", name, suffix}, context.temp_allocator) or_return
-		for directory in SYSTEM_LIBRARY_DIRECTORIES {
+		for directory in directories {
 			candidate := filepath.join({directory, file_name}, context.temp_allocator) or_return
 			if os.is_file(candidate) { return candidate, true, nil }
 		}

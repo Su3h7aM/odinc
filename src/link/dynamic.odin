@@ -3,6 +3,8 @@ package link
 import "core:mem"
 import "oc:elf"
 
+// PT_INTERP of the Linux x86-64 system loader. The gABI leaves the path implementation-defined; this is the glibc loader's
+// path, so foreign libraries built against glibc get their DT_NEEDED entries loaded by it.
 INTERPRETER :: "/lib64/ld-linux-x86-64.so.2"
 
 Fixups :: struct {
