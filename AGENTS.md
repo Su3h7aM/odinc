@@ -79,6 +79,13 @@ Keep the number of tests to the minimum necessary. Write only tests that provide
 - Before adding a test, ask what bug it would catch that no existing test would.
 - Tests never print to stdout or stderr: no `fmt.print*`, `fmt.eprint*`, `os.write` or debug output in tests or in code that runs under `mise run test`. Printing breaks the test runner interface. Assert with `testing.expect` and `testing.expectf`; put details in the failure message. Compiler debug output is removed before reporting, not left behind.
 
+## Validation runs
+
+Validate once, at the end. Finish the whole implementation first, then run the checks and tests for the touched packages a single time. While working, use a small `/tmp` reproducer instead of a test suite.
+
+- `mise run upstream-test` is slow. Run it only when the change targets behavior the upstream suite covers, and select the stages that cover it: `mise run upstream-test <fork|odinc> [stage...]`. The fork baseline in `build/upstream-tests-fork/` is reused, not rerun.
+- The orchestrator states this rule in every task prompt.
+
 ## Workflow
 
 - Version control is Jujutsu (`jj`) only. Agents do not run `jj` or `git`; the orchestrator commits.
