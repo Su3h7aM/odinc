@@ -22,10 +22,12 @@ escape_operand :: proc(escape: ^Escape, operand: check.Operand) -> (result: Valu
 @(private = "package")
 escape_store_operand :: proc(escape: ^Escape, operand: check.Operand, value: Value_Id) -> runtime.Allocator_Error {
 	entity: check.Entity_Id
+	node: syntax.Node_Index
 	switch destination in operand {
 	case check.Entity_Id:
 		entity = destination
 	case check.Expression_Ref:
+		node = destination.node
 		file := escape.run.program.files[escape.run.program.typed_views[destination.view].file]
 		if file.ast.nodes[destination.node].kind == .Ident {
 			info := check.expression_info(escape.run.program, destination.view, destination.node)
@@ -40,7 +42,7 @@ escape_store_operand :: proc(escape: ^Escape, operand: check.Operand, value: Val
 		return nil
 	}
 	address := escape_operand_address(escape, operand) or_return
-	return escape_store_through(escape, address, value)
+	return escape_store_at(escape, node, address, value, true)
 }
 
 @(private = "package")
@@ -346,8 +348,8 @@ escape_expression :: proc(escape: ^Escape, expression: check.Expression_Ref) -> 
 		merged, _ := escape_union_values(escape, left, right) or_return
 		return merged, nil
 	}
-	if info.type == 0 { return }
 	if upstream_constant(program, expression, info) {
+		if info.type == 0 { return }
 		if escape_type(escape, info.type).kind != .Slice { return }
 		#partial switch payload in ast.nodes[expression.node].payload {
 		case syntax.Comp_Lit:
@@ -362,6 +364,13 @@ escape_expression :: proc(escape: ^Escape, expression: check.Expression_Ref) -> 
 		path := escape_path(escape, 0, {kind = .Element}) or_return
 		return escape_origin_value(escape, expression, {kind = .Temporary, object = object, path = path})
 	}
+	#partial switch payload in ast.nodes[expression.node].payload {
+	case syntax.Call_Expr:
+		return escape_invoke(escape, expression)
+	case syntax.Selector_Call_Expr:
+		return escape_invoke(escape, {expression.view, payload.call})
+	}
+	if info.type == 0 { return }
 	if escape_plain(escape, info.type) { return }
 	#partial switch payload in ast.nodes[expression.node].payload {
 	case syntax.Paren_Expr:
@@ -393,23 +402,6 @@ escape_expression :: proc(escape: ^Escape, expression: check.Expression_Ref) -> 
 		}
 		pointer := escape_elements(escape, base) or_return
 		return escape_load(escape, expression, pointer, info.type)
-	case syntax.Call_Expr:
-		arguments := syntax.node_list(ast, payload.args)
-		callee := check.expression_info(program, expression.view, payload.expr)
-		if callee.mode == .Type && len(arguments) == 1 {
-			value := escape_expression(escape, {expression.view, arguments[0]}) or_return
-			kind := escape_type(escape, info.type).kind
-			if kind == .Raw_Pointer || kind == .Integer && types.get(program.type_data, info.type).name == "uintptr" { return }
-			return escape_convert(escape, {expression.view, arguments[0]}, value, info.type)
-		}
-		if callee.entity != 0 && program.entities[callee.entity].kind == .Builtin && len(arguments) > 0 {
-			name := program.entities[callee.entity].name
-			if name == "raw_data" { return escape_elements(escape, {expression.view, arguments[0]}) }
-			if name == "ptr_offset" { return escape_expression(escape, {expression.view, arguments[0]}) }
-		}
-		return escape_value(escape, .Call_Result, expression)
-	case syntax.Selector_Call_Expr:
-		return escape_expression(escape, {expression.view, payload.call})
 	case syntax.Type_Cast:
 		kind := escape_type(escape, info.type).kind
 		if payload.token.kind == .Transmute || kind == .Raw_Pointer || kind == .Integer && types.get(program.type_data, info.type).name == "uintptr" { return }

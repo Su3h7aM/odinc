@@ -35,12 +35,6 @@ escape_has_unknown_effects :: proc(escape: ^Escape, expression: check.Expression
 	}
 	#partial switch payload in ast.nodes[expression.node].payload {
 	case syntax.Call_Expr:
-		callee := check.expression_info(program, expression.view, payload.expr)
-		if callee.mode != .Type {
-			if callee.entity == 0 || program.entities[callee.entity].kind != .Builtin { return true }
-			name := program.entities[callee.entity].name
-			if name != "raw_data" && name != "ptr_offset" { return true }
-		}
 		for argument in syntax.node_list(ast, payload.args) { if escape_has_unknown_effects(escape, {expression.view, argument}) { return true } }
 	case syntax.Selector_Call_Expr:
 		return escape_has_unknown_effects(escape, {expression.view, payload.call})

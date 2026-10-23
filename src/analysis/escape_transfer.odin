@@ -10,27 +10,8 @@ check_escape_returns :: proc(run: ^Run, options: Options) -> runtime.Allocator_E
 	if .Escape not_in run.enabled { return nil }
 	escape: Escape
 	escape_graph_init(&escape, run) or_return
-	for procedure, index in run.procedures {
-		if index == 0 { continue }
-		checked := run.program.procedure_list[procedure.checked_index]
-		file := &run.program.files[checked.body.file]
-		if .Escape not_in file.ast.analysis { continue }
-		escape.muted = !options.no_entry_point && !options.test && checked.entity == options.entry_point
-		escape.nil_deref = .Nil_Deref in file.ast.vet
-		escape.uninit_vet = .Uninitialized in file.ast.vet
-		escape_reset_control(&escape)
-		escape.procedure = Procedure_Id(index)
-		escape.view = checked.view
-		escape.variadic = 0
-		descriptor := escape_type(&escape, checked.signature)
-		if descriptor.variadic && !descriptor.c_vararg {
-			if data, ok := run.program.entities[checked.entity].data.(check.Procedure_Data); ok {
-				if data.variadic_index >= 0 && data.variadic_index < len(checked.parameters) { escape.variadic = checked.parameters[data.variadic_index] }
-			}
-		}
-		escape_statement(&escape, checked.body.node) or_return
-		escape_finish_procedure(&escape, checked.body.node) or_return
-	}
+	escape.call_graph = call_graph_build(run) or_return
+	escape_analyse_program(&escape, options) or_return
 	run.graph = escape.graph
 	return nil
 }
@@ -83,6 +64,8 @@ escape_statement :: proc(escape: ^Escape, node: syntax.Node_Index) -> runtime.Al
 			if exit, ok := check.plan(program, info.plan)^.(check.Exit_Plan); ok {
 				for operand in exit.values { if !escape_retain_known_effects(escape, operand) { return nil } }
 				results := syntax.node_list(ast, payload.results)
+				checked := program.procedure_list[escape.run.procedures[escape.procedure].checked_index]
+				note_results := len(exit.values) == len(checked.results)
 				for operand, index in exit.values {
 					expression: check.Expression_Ref
 					switch source in operand {
@@ -96,6 +79,7 @@ escape_statement :: proc(escape: ^Escape, node: syntax.Node_Index) -> runtime.Al
 					value := escape_operand(escape, operand) or_return
 					if index < len(exit.conversions) { value = escape_conversion(escape, exit.conversions[index], value, expression) or_return }
 					if expression.node != 0 { escape_report_return(escape, expression, value) or_return }
+					if note_results { escape_note_result(escape, index, value) or_return }
 				}
 			}
 		}
@@ -105,6 +89,7 @@ escape_statement :: proc(escape: ^Escape, node: syntax.Node_Index) -> runtime.Al
 		}
 		if bare { escape_named_results(escape, node) or_return }
 		escape_run_defers(escape, 0) or_return
+		escape_commit_stores(escape) or_return
 		escape.reachable = false
 	case syntax.Expr_Stmt:
 		escape_note_expression(escape, {escape.view, payload.expr}) or_return
@@ -176,7 +161,7 @@ escape_declaration :: proc(escape: ^Escape, declaration: syntax.Value_Decl, plan
 	return nil
 }
 
-@(private = "file")
+@(private = "package")
 escape_stack_origin :: proc(escape: ^Escape, value: Value_Id) -> (origin: Origin, definite, found: bool, err: runtime.Allocator_Error) {
 	for fact in escape_facts(escape, value) {
 		if fact.definite &&
@@ -236,7 +221,7 @@ escape_report_return :: proc(escape: ^Escape, expression: check.Expression_Ref, 
 		allocator = escape.run.allocator,
 	)
 	append(
-		&escape.run.diagnostics,
+		escape_report_list(escape),
 		Diagnostic{severity = .Error if definite else .Warning, source = escape_expression_span(escape, expression), reason = reason},
 	) or_return
 	return nil

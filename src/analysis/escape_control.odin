@@ -38,6 +38,7 @@ Escape_State :: struct {
 	reachable: bool,
 	memory:    [dynamic]Value_Id,
 	nils:      [dynamic]Nil_Fact,
+	outers:    [dynamic]Outer_Store,
 }
 
 Control_Target :: struct {
@@ -56,6 +57,8 @@ escape_reset_control :: proc(escape: ^Escape) {
 	clear(&escape.defers)
 	clear(&escape.targets)
 	clear(&escape.reported)
+	clear(&escape.outers)
+	clear(&escape.flows)
 	escape.fallen = {}
 	escape.fallen_live = false
 	escape.reachable = true
@@ -67,8 +70,10 @@ escape_capture :: proc(escape: ^Escape) -> (state: Escape_State, err: runtime.Al
 	state.reachable = escape.reachable
 	state.memory = make([dynamic]Value_Id, len(escape.memory), allocator) or_return
 	state.nils = make([dynamic]Nil_Fact, len(escape.nils), allocator) or_return
+	state.outers = make([dynamic]Outer_Store, len(escape.outers), allocator) or_return
 	copy(state.memory[:], escape.memory[:])
 	copy(state.nils[:], escape.nils[:])
+	copy(state.outers[:], escape.outers[:])
 	return
 }
 
@@ -79,6 +84,8 @@ escape_restore :: proc(escape: ^Escape, state: Escape_State) -> runtime.Allocato
 	for index in len(state.memory) ..< len(escape.memory) { escape.memory[index] = 0 }
 	clear(&escape.nils)
 	append(&escape.nils, ..state.nils[:]) or_return
+	clear(&escape.outers)
+	append(&escape.outers, ..state.outers[:]) or_return
 	escape.reachable = state.reachable
 	return nil
 }
@@ -142,7 +149,9 @@ escape_join_live :: proc(escape: ^Escape, state: Escape_State) -> (changed: bool
 	nils, nils_changed := escape_intersect_nils(escape.nils[:], state.nils[:], escape) or_return
 	clear(&escape.nils)
 	append(&escape.nils, ..nils[:]) or_return
+	outers_changed := escape_merge_outers(escape, &escape.outers, state.outers[:]) or_return
 	changed |= nils_changed
+	changed |= outers_changed
 	return
 }
 
@@ -157,7 +166,9 @@ escape_join_state :: proc(escape: ^Escape, state: ^Escape_State) -> (changed: bo
 	changed = escape_merge_memory(escape, &state.memory, escape.memory[:]) or_return
 	nils, nils_changed := escape_intersect_nils(state.nils[:], escape.nils[:], escape) or_return
 	state.nils = nils
+	outers_changed := escape_merge_outers(escape, &state.outers, escape.outers[:]) or_return
 	changed |= nils_changed
+	changed |= outers_changed
 	return
 }
 
@@ -238,16 +249,24 @@ escape_block :: proc(escape: ^Escape, node: syntax.Node_Index, label: syntax.Nod
 	return nil
 }
 
-@(private = "file")
+@(private = "package")
 escape_ast :: proc(escape: ^Escape) -> ^syntax.Ast {
-	return escape.run.program.files[escape.run.program.typed_views[escape.view].file].ast
+	return escape_view_ast(escape, escape.view)
 }
 
 @(private = "file")
-escape_unparen :: proc(escape: ^Escape, node: syntax.Node_Index) -> syntax.Node_Index {
-	ast := escape_ast(escape)
+escape_view_ast :: proc(escape: ^Escape, view: check.View_Id) -> ^syntax.Ast {
+	program := escape.run.program
+	if view == 0 || int(view) >= len(program.typed_views) { return nil }
+	return program.files[program.typed_views[view].file].ast
+}
+
+@(private = "package")
+escape_unparen :: proc(escape: ^Escape, node: syntax.Node_Index, view: check.View_Id = 0) -> syntax.Node_Index {
+	ast := escape_view_ast(escape, escape.view if view == 0 else view)
+	if ast == nil { return 0 }
 	current := node
-	for current != 0 && ast.nodes[current].kind == .Paren_Expr {
+	for current != 0 && int(current) < len(ast.nodes) && ast.nodes[current].kind == .Paren_Expr {
 		current = ast.nodes[current].payload.(syntax.Paren_Expr).expr
 	}
 	return current
@@ -283,10 +302,12 @@ escape_nil_forget :: proc(escape: ^Escape, entity: check.Entity_Id) {
 }
 
 @(private = "file")
-escape_ident_entity :: proc(escape: ^Escape, node: syntax.Node_Index) -> check.Entity_Id {
-	current := escape_unparen(escape, node)
-	if current == 0 || escape_ast(escape).nodes[current].kind != .Ident { return 0 }
-	info := check.expression_info(escape.run.program, escape.view, current)
+escape_ident_entity :: proc(escape: ^Escape, node: syntax.Node_Index, view: check.View_Id = 0) -> check.Entity_Id {
+	seen := escape.view if view == 0 else view
+	current := escape_unparen(escape, node, seen)
+	ast := escape_view_ast(escape, seen)
+	if ast == nil || current == 0 || int(current) >= len(ast.nodes) || ast.nodes[current].kind != .Ident { return 0 }
+	info := check.expression_info(escape.run.program, seen, current)
 	if !escape_local(escape, info.entity) { return 0 }
 	return info.entity
 }
@@ -361,30 +382,31 @@ escape_record_use :: proc(escape: ^Escape, expression: check.Expression_Ref, kin
 @(private = "package")
 escape_note_expression :: proc(escape: ^Escape, expression: check.Expression_Ref) -> runtime.Allocator_Error {
 	if expression.node == 0 { return nil }
-	ast := escape_ast(escape)
+	ast := escape_view_ast(escape, expression.view)
+	if ast == nil || int(expression.node) >= len(ast.nodes) { return nil }
 	node := expression.node
 	#partial switch payload in ast.nodes[node].payload {
 	case syntax.Paren_Expr:
 		return escape_note_expression(escape, {expression.view, payload.expr})
 	case syntax.Ident:
-		entity := escape_ident_entity(escape, node)
+		entity := escape_ident_entity(escape, node, expression.view)
 		if entity == 0 { return nil }
 		tracked := false
 		for previous in escape.uninit_entities { if previous == entity { tracked = true; break } }
 		if !tracked { return nil }
 		return escape_record_use(escape, expression, .Uninit, escape_nil_covered(escape, escape.nils[:], entity, 0, true))
 	case syntax.Deref_Expr:
-		pointer := check.Expression_Ref{expression.view, escape_unparen(escape, payload.expr)}
-		entity := escape_ident_entity(escape, pointer.node)
+		pointer := check.Expression_Ref{expression.view, escape_unparen(escape, payload.expr, expression.view)}
+		entity := escape_ident_entity(escape, pointer.node, expression.view)
 		escape_record_use(escape, pointer, .Deref, entity != 0 && escape_nil_covered(escape, escape.nils[:], entity, 0, false)) or_return
 		return escape_note_expression(escape, {expression.view, payload.expr})
 	case syntax.Call_Expr:
-		callee := check.Expression_Ref{expression.view, escape_unparen(escape, payload.expr)}
+		callee := check.Expression_Ref{expression.view, escape_unparen(escape, payload.expr, expression.view)}
 		info := check.expression_info(escape.run.program, callee.view, callee.node)
 		if info.type != 0 && (info.entity == 0 || escape.run.program.entities[info.entity].kind != .Builtin) {
 			kind := escape_type(escape, info.type).kind
 			if kind == .Procedure || kind == .Pointer || kind == .Multi_Pointer || kind == .Raw_Pointer {
-				entity := escape_ident_entity(escape, callee.node)
+				entity := escape_ident_entity(escape, callee.node, expression.view)
 				escape_record_use(escape, callee, .Call, entity != 0 && escape_nil_covered(escape, escape.nils[:], entity, 0, false)) or_return
 			}
 		}
@@ -393,8 +415,8 @@ escape_note_expression :: proc(escape: ^Escape, expression: check.Expression_Ref
 	case syntax.Selector_Expr:
 		base := check.expression_info(escape.run.program, expression.view, payload.expr)
 		if base.type != 0 && escape_type(escape, base.type).kind == .Pointer {
-			pointer := check.Expression_Ref{expression.view, escape_unparen(escape, payload.expr)}
-			entity := escape_ident_entity(escape, pointer.node)
+			pointer := check.Expression_Ref{expression.view, escape_unparen(escape, payload.expr, expression.view)}
+			entity := escape_ident_entity(escape, pointer.node, expression.view)
 			escape_record_use(escape, pointer, .Deref, entity != 0 && escape_nil_covered(escape, escape.nils[:], entity, 0, false)) or_return
 		}
 		return escape_note_expression(escape, {expression.view, payload.expr})
@@ -403,8 +425,8 @@ escape_note_expression :: proc(escape: ^Escape, expression: check.Expression_Ref
 		if base.type != 0 {
 			kind := escape_type(escape, base.type).kind
 			if kind == .Pointer || kind == .Multi_Pointer || kind == .Raw_Pointer {
-				pointer := check.Expression_Ref{expression.view, escape_unparen(escape, payload.expr)}
-				entity := escape_ident_entity(escape, pointer.node)
+				pointer := check.Expression_Ref{expression.view, escape_unparen(escape, payload.expr, expression.view)}
+				entity := escape_ident_entity(escape, pointer.node, expression.view)
 				escape_record_use(escape, pointer, .Deref, entity != 0 && escape_nil_covered(escape, escape.nils[:], entity, 0, false)) or_return
 			}
 		}
@@ -558,11 +580,12 @@ escape_named_results :: proc(escape: ^Escape, node: syntax.Node_Index) -> runtim
 	for result in checked.results {
 		escape_nil_forget(escape, result)
 	}
-	for result in checked.results {
+	for result, result_index in checked.results {
 		object := escape_object(escape, result) or_return
 		text := escape.run.program.entities[result].name
 		value := escape_project(escape, {escape.view, node}, escape.memory[object], 0, read = true) or_return
 		escape_report_return(escape, check.Expression_Ref{escape.view, node}, value, text) or_return
+		escape_note_result(escape, result_index, value) or_return
 	}
 	return nil
 }
@@ -572,13 +595,17 @@ escape_or_return :: proc(escape: ^Escape, node: syntax.Node_Index) -> runtime.Al
 	saved := escape_capture(escape) or_return
 	escape_named_results(escape, node) or_return
 	escape_run_defers(escape, 0) or_return
+	escape_commit_stores(escape) or_return
 	escape_restore(escape, saved) or_return
 	return nil
 }
 
 @(private = "package")
 escape_finish_procedure :: proc(escape: ^Escape, body: syntax.Node_Index) -> runtime.Allocator_Error {
-	if escape.reachable { escape_named_results(escape, body) or_return }
+	if escape.reachable {
+		escape_named_results(escape, body) or_return
+		escape_commit_stores(escape) or_return
+	}
 	if !escape.nil_deref && !escape.uninit_vet { return nil }
 	seen := make([]bool, len(escape.nil_uses), escape.run.allocator) or_return
 	for use, index in escape.nil_uses {
@@ -600,7 +627,7 @@ escape_finish_procedure :: proc(escape: ^Escape, body: syntax.Node_Index) -> run
 		case .Uninit:
 			reason = fmt.aprintf("Reading '%s' before anything is stored in it", text, allocator = escape.run.allocator)
 		}
-		append(&escape.run.diagnostics, Diagnostic{severity = .Error, source = escape_expression_span(escape, use.expression), reason = reason}) or_return
+		append(escape_report_list(escape), Diagnostic{severity = .Error, source = escape_expression_span(escape, use.expression), reason = reason}) or_return
 	}
 	return nil
 }

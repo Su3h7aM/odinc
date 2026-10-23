@@ -40,6 +40,37 @@ Origin_Kind :: enum u8 {
 	Outer,
 	Owned,
 }
+Flow_Kind :: enum u8 {
+	Value,
+	Load,
+}
+Flow_Target :: enum u8 {
+	Result,
+	Pointee,
+	Loaded,
+	Deep,
+	Outer,
+}
+// What of a parameter reaches a result or somewhere a caller can name, recorded at the procedure exit.
+Flow :: struct {
+	kind:         Flow_Kind,
+	param:        int,
+	param_path:   Path_Id,
+	target:       Flow_Target,
+	target_index: int,
+	target_path:  Path_Id,
+	value_path:   Path_Id,
+}
+// A store through memory that outlives the procedure, kept until the exit that follows its defers.
+Outer_Store :: struct {
+	node:       syntax.Node_Index,
+	root:       check.Entity_Id,
+	path:       Path_Id,
+	exact:      bool,
+	dest:       Origin,
+	origin:     Origin,
+	value_path: Path_Id,
+}
 Origin :: struct {
 	kind:        Origin_Kind,
 	object:      Object_Id,
@@ -109,6 +140,12 @@ Escape :: struct {
 	defers:            [dynamic]Defer_Frame,
 	targets:           [dynamic]Control_Target,
 	reported:          [dynamic]syntax.Node_Index,
+	outers:            [dynamic]Outer_Store,
+	flows:             [dynamic]Flow,
+	call_graph:        Call_Graph,
+	summaries:         [][]Flow,
+	reports:           ^[dynamic]Diagnostic,
+	applying:          [dynamic]check.Expression_Ref,
 	fallen:            Escape_State,
 	fallen_live:       bool,
 }
@@ -135,6 +172,9 @@ escape_graph_init :: proc(escape: ^Escape, run: ^Run) -> runtime.Allocator_Error
 	escape.defers = make([dynamic]Defer_Frame, 0, allocator) or_return
 	escape.targets = make([dynamic]Control_Target, 0, allocator) or_return
 	escape.reported = make([dynamic]syntax.Node_Index, 0, allocator) or_return
+	escape.outers = make([dynamic]Outer_Store, 0, allocator) or_return
+	escape.flows = make([dynamic]Flow, 0, allocator) or_return
+	escape.applying = make([dynamic]check.Expression_Ref, 0, allocator) or_return
 	append(&escape.graph.values, Value{}) or_return
 	append(&escape.graph.objects, Object{}) or_return
 	append(&escape.graph.paths, Path{}) or_return

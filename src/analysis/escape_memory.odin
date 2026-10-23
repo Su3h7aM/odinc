@@ -178,12 +178,5 @@ escape_split_store :: proc(escape: ^Escape, facts: ^[dynamic]Value_Fact, fact: V
 
 @(private = "package")
 escape_store_through :: proc(escape: ^Escape, pointer, value: Value_Id) -> runtime.Allocator_Error {
-	facts := escape_facts(escape, pointer)
-	for fact in facts {
-		#partial switch fact.origin.kind {
-		case .Local, .Temporary, .Owned:
-			escape_store_memory(escape, fact.origin.object, fact.origin.path, value, len(facts) == 1) or_return
-		}
-	}
-	return nil
+	return escape_store_at(escape, 0, pointer, value, len(escape_facts(escape, pointer)) == 1)
 }
