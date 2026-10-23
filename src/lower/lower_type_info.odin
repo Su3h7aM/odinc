@@ -53,6 +53,15 @@ Type_Info_Image :: struct {
 	base:   i64,
 }
 
+// Every product of the writer and its name and content-key maps live in the module arena, which the module frees.
+@(private)
+init_type_info_writer :: proc(writer: ^Type_Info_Writer, module: ^ir.Module) {
+	writer.module = module
+	writer.allocator = virtual.arena_allocator(&module.arena)
+	writer.names_in_use = module_symbol_names(module, writer.allocator)
+	writer.images = make(map[string]int, writer.allocator)
+}
+
 // Writes the runtime type info entries and the runtime `type_table` slice from the checked entries.
 @(private)
 fill_type_info :: proc(
@@ -75,13 +84,10 @@ fill_type_info :: proc(
 	union_offset, union_type := field_location(store, requirements.type_info_type, "variant")
 	union_layout, union_error := types.union_layout(store, union_type)
 	assert(union_error == .None, "runtime Type_Info variant layout is incomplete")
-	allocator := virtual.arena_allocator(&module.arena)
 	writer := Type_Info_Writer {
 		store           = store,
-		module          = module,
 		symbols         = symbols,
 		map_info        = requirements.map_info,
-		allocator       = allocator,
 		entries         = requirements.type_info,
 		representatives = requirements.type_info_representatives,
 		enum_members    = requirements.enum_members,
@@ -94,8 +100,7 @@ fill_type_info :: proc(
 		variant_block   = union_layout.variant_block_size,
 		tag_size        = union_layout.tag_size,
 	}
-	writer.names_in_use = module_symbol_names(module, allocator)
-	writer.images = make(map[string]int, allocator)
+	init_type_info_writer(&writer, module)
 	for entry in requirements.type_info {
 		name := generated_global_name(&writer, "entry", u64(entry.slot))
 		append(&module.globals, ir.Global{name = name, size = u32(size), align = u32(alignment), anonymous = true}) or_return

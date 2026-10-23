@@ -154,10 +154,8 @@ identical_type_info_images_share_one_global :: proc(t: ^testing.T) {
 	module: ir.Module
 	if !testing.expect_value(t, ir.module_init(&module), nil) { return }
 	defer ir.module_destroy(&module)
-	writer := Type_Info_Writer {
-		module    = &module,
-		allocator = virtual.arena_allocator(&module.arena),
-	}
+	writer: Type_Info_Writer
+	init_type_info_writer(&writer, &module)
 	bytes := []byte{1, 2, 3, 0, 0, 0, 0, 0}
 	first, first_error := add_image(&writer, Type_Info_Image{bytes = slice.clone(bytes, writer.allocator) or_else panic("fixture allocation failed")}, 8)
 	if !testing.expect_value(t, first_error, nil) { return }
@@ -170,7 +168,8 @@ identical_type_info_images_share_one_global :: proc(t: ^testing.T) {
 	)
 	if !testing.expect_value(t, alignment_error, nil) { return }
 	reloc_image := Type_Info_Image {
-		bytes = slice.clone(bytes, writer.allocator) or_else panic("fixture allocation failed"),
+		bytes  = slice.clone(bytes, writer.allocator) or_else panic("fixture allocation failed"),
+		relocs = make([dynamic]ir.Data_Reloc, writer.allocator) or_else panic("fixture allocation failed"),
 	}
 	if _, append_error := append(&reloc_image.relocs, ir.Data_Reloc{offset = 0, target = {.Global, 7}}); !testing.expect_value(t, append_error, nil) { return }
 	relocated, relocated_error := add_image(&writer, reloc_image, 8)
@@ -193,11 +192,8 @@ generated_type_info_names_avoid_function_and_external_symbols :: proc(t: ^testin
 	if !testing.expect_value(t, function_error, nil) { return }
 	if _, append_error := append(&module.functions, function); !testing.expect_value(t, append_error, nil) { return }
 	if _, append_error := append(&module.externs, ir.Extern{name = external_name}); !testing.expect_value(t, append_error, nil) { return }
-	writer := Type_Info_Writer {
-		module    = &module,
-		allocator = virtual.arena_allocator(&module.arena),
-	}
-	writer.names_in_use = module_symbol_names(&module, writer.allocator)
+	writer: Type_Info_Writer
+	init_type_info_writer(&writer, &module)
 	function_replacement := generated_global_name(&writer, "entry", 2)
 	external_replacement := generated_global_name(&writer, "entry", 3)
 	testing.expect(t, function_replacement != function_name)
