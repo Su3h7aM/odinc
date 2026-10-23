@@ -20,7 +20,7 @@ structs :: proc(t: ^testing.T) {
 
 		o_compilation, o_start_err := os.process_start(
 			{
-				command = {ODIN_ROOT + "/build/odinc", "build", #directory + "/structs", "--output=" + #directory + "/structs/odin_structs"},
+				command = {ODIN_ROOT + "/build/odinc", "build", #directory + "/structs", "--output", #directory + "/structs/odin_structs"},
 				stdout = os.stdout,
 				stderr = os.stderr,
 			},

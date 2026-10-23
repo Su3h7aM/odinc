@@ -4,7 +4,7 @@ A pure-Odin Odin compiler for Linux x86-64: no LLVM, no C toolchain, no libc. Th
 
 ## Pipeline
 
-`src/` holds one package per stage. Every package is imported as `import "oc:name"` through `--collection=oc=src`; the driver links them in this order:
+`src/` holds one package per stage. Every package is imported as `import "oc:name"` through `--collection oc=src`; the driver links them in this order:
 
 ```
 syntax → check → lower → ir → sched → regalloc → amd64 → elf → link

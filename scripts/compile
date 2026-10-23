@@ -15,4 +15,4 @@ step "build odinc"
 mise run build
 
 step "compile $input"
-ODIN_ROOT="$PROJECT_ROOT" "$PROJECT_ROOT/build/odinc" build "$input" "--output=$output"
+ODIN_ROOT="$PROJECT_ROOT" "$PROJECT_ROOT/build/odinc" build "$input" "--output" "$output"

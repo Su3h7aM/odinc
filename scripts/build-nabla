@@ -9,4 +9,4 @@ nabla_root="${NABLA_ROOT:-/home/su3h7am/Projects/nabla}"
 binary="$PROJECT_ROOT/build/odinc"
 [[ -x "$binary" ]] || die "odinc is missing; run mise run build first"
 step "build Nabla"
-ODIN_ROOT="$PROJECT_ROOT" "$binary" build "$nabla_root/" "--collection=nabla=$nabla_root" --output="$PROJECT_ROOT/build/nabla" 2>&1 | tee "$PROJECT_ROOT/build/nabla-diagnostics.txt" >&2
+ODIN_ROOT="$PROJECT_ROOT" "$binary" build "$nabla_root/" "--collection" "nabla=$nabla_root" --output "$PROJECT_ROOT/build/nabla" 2>&1 | tee "$PROJECT_ROOT/build/nabla-diagnostics.txt" >&2

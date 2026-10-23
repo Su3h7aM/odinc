@@ -77,6 +77,12 @@ parse_command_arguments :: proc(name: string, args: []string, allocator := conte
 			break
 		}
 	}
+	for argument in args {
+		if strings.has_prefix(argument, "--") && strings.contains(argument, "=") {
+			flag, _, _ := strings.partition(argument, "=")
+			return command, fmt.tprintf("use `%s value`, not `%s`", flag, argument)
+		}
+	}
 	model := Command_Flags {
 		thread_count = max(os.get_processor_core_count(), 1),
 		mcpu         = "x86_64_v1",

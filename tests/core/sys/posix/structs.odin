@@ -40,7 +40,8 @@ execute_struct_checks :: proc(t: ^testing.T) {
 				ODIN_ROOT + "/build/odinc",
 				"build",
 				#directory + "/structs/structs.odin",
-				"--output=" + #directory + "/structs/odin_structs",
+				"--output",
+				#directory + "/structs/odin_structs",
 				nil,
 			)
 			posix.exit(69)

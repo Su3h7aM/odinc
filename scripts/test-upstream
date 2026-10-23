@@ -27,7 +27,7 @@ LOG="$PROJECT_ROOT/build/test-upstream"
 mkdir -p "$LOG"
 : > "$LOG/summary.txt"
 FLAGS='--vet --vet-tabs --strict-style --vet-style --warnings-as-errors --disallow-do'
-TF='--define=ODIN_TEST_FANCY=false --define=ODIN_TEST_FAIL_ON_BAD_MEMORY=true'
+TF='--define ODIN_TEST_FANCY=false --define ODIN_TEST_FAIL_ON_BAD_MEMORY=true'
 run_stage() {
 	local name="$1"; shift
 	printf '\n==> %s\n' "$name"
@@ -40,16 +40,16 @@ for stage in "${STAGES[@]}"; do
 	case "$stage" in
 		examples) run_stage examples "\"\$ODIN\" check $PROJECT_ROOT/examples/all $FLAGS" ;;
 		examples_sdl3) run_stage examples_sdl3 "\"\$ODIN\" check $PROJECT_ROOT/examples/all/sdl3 $FLAGS --no-entry-point" ;;
-		internal) run_stage internal "cd $RUN_ROOT/tests/internal && \"\$ODIN\" test . --all-packages $FLAGS $TF --sanitize=address" ;;
-		core_normal) run_stage core_normal "cd $RUN_ROOT/tests/core && \"\$ODIN\" test normal.odin --all-packages $FLAGS $TF --sanitize=address" ;;
-		wycheproof) run_stage wycheproof "cd $RUN_ROOT/tests/core && \"\$ODIN\" test crypto/wycheproof --vet --vet-tabs --strict-style --vet-style --vet-cast --warnings-as-errors --disallow-do --define=ODIN_TEST_FANCY=false" ;;
-		noise) run_stage noise "cd $RUN_ROOT/tests/core && \"\$ODIN\" test crypto/noise --vet --vet-tabs --strict-style --vet-style --vet-cast --warnings-as-errors --disallow-do --define=ODIN_TEST_FANCY=false" ;;
-		x509_limbo) run_stage x509_limbo "cd $RUN_ROOT/tests/core && \"\$ODIN\" test crypto/x509_limbo --vet --vet-tabs --strict-style --vet-style --vet-cast --warnings-as-errors --disallow-do --define=ODIN_TEST_FANCY=false" ;;
-		vendor) run_stage vendor "mkdir -p $RUN_ROOT/vendor_build && cp $PROJECT_ROOT/vendor/lua/5.4/linux/*.so $RUN_ROOT/vendor_build/ && cd $RUN_ROOT/vendor_build && LD_LIBRARY_PATH=$RUN_ROOT/vendor_build \"\$ODIN\" test $RUN_ROOT/tests/vendor --all-packages $FLAGS $TF --sanitize=address" ;;
+		internal) run_stage internal "cd $RUN_ROOT/tests/internal && \"\$ODIN\" test . --all-packages $FLAGS $TF --sanitize address" ;;
+		core_normal) run_stage core_normal "cd $RUN_ROOT/tests/core && \"\$ODIN\" test normal.odin --all-packages $FLAGS $TF --sanitize address" ;;
+		wycheproof) run_stage wycheproof "cd $RUN_ROOT/tests/core && \"\$ODIN\" test crypto/wycheproof --vet --vet-tabs --strict-style --vet-style --vet-cast --warnings-as-errors --disallow-do --define ODIN_TEST_FANCY=false" ;;
+		noise) run_stage noise "cd $RUN_ROOT/tests/core && \"\$ODIN\" test crypto/noise --vet --vet-tabs --strict-style --vet-style --vet-cast --warnings-as-errors --disallow-do --define ODIN_TEST_FANCY=false" ;;
+		x509_limbo) run_stage x509_limbo "cd $RUN_ROOT/tests/core && \"\$ODIN\" test crypto/x509_limbo --vet --vet-tabs --strict-style --vet-style --vet-cast --warnings-as-errors --disallow-do --define ODIN_TEST_FANCY=false" ;;
+		vendor) run_stage vendor "mkdir -p $RUN_ROOT/vendor_build && cp $PROJECT_ROOT/vendor/lua/5.4/linux/*.so $RUN_ROOT/vendor_build/ && cd $RUN_ROOT/vendor_build && LD_LIBRARY_PATH=$RUN_ROOT/vendor_build \"\$ODIN\" test $RUN_ROOT/tests/vendor --all-packages $FLAGS $TF --sanitize address" ;;
 		issues) run_stage issues "cd $RUN_ROOT/tests/issues && ./run.sh" ;;
 		abi_default) run_stage abi_default "cd $RUN_ROOT/tests/abi && ABI_CFLAGS= ./run.sh" ;;
 		benchmark_check) run_stage benchmark_check "\"\$ODIN\" check $RUN_ROOT/tests/benchmark --vet --vet-tabs --strict-style --vet-style --warnings-as-errors --disallow-do --no-entry-point" ;;
-		atomic_diagnostics) run_stage atomic_diagnostics "mkdir -p $RUN_ROOT/tests/issues/build && cd $RUN_ROOT/tests/issues/build && \"\$ODIN\" check ../test_issue_atomic_access --no-entry-point --vet-atomic-access --define=ODIN_TEST_FANCY=false --vet --strict-style --ignore-unused-defineables --show-timings" ;;
+		atomic_diagnostics) run_stage atomic_diagnostics "mkdir -p $RUN_ROOT/tests/issues/build && cd $RUN_ROOT/tests/issues/build && \"\$ODIN\" check ../test_issue_atomic_access --no-entry-point --vet-atomic-access --define ODIN_TEST_FANCY=false --vet --strict-style --ignore-unused-defineables --show-timings" ;;
 	esac
 done
 printf '\nSuite summary: %s\n' "$LOG/summary.txt"

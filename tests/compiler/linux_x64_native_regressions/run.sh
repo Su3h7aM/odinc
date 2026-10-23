@@ -32,18 +32,18 @@ assert_native() {
 }
 
 for optimization in none speed; do
-	"$odin" build "$here/fma.odin" --output="$out/fma" --opt="$optimization" --mcpu=generic
+	"$odin" build "$here/fma.odin" --output "$out/fma" --opt "$optimization" --mcpu generic
 	assert_native "$out/fma"
 	"$out/fma"
 	assert_no_proofs
 done
 
-"$odin" build "$here/intrinsic_fallback.odin" --output="$out/intrinsic-fallback"
+"$odin" build "$here/intrinsic_fallback.odin" --output "$out/intrinsic-fallback"
 "$out/intrinsic-fallback"
 assert_no_proofs
 
 # Managed rechecking must reuse its proof object and remove its directory.
-"$odin" build "$here/proof_cleanup.odin" --output="$out/proof-cleanup" --show-system-calls >"$out/build.log" 2>&1
+"$odin" build "$here/proof_cleanup.odin" --output "$out/proof-cleanup" --show-system-calls >"$out/build.log" 2>&1
 "$out/proof-cleanup"
 if [ "$(grep -c 'proof_input.asm" -f' "$out/build.log")" -ne 1 ]; then
 	cat "$out/build.log" >&2

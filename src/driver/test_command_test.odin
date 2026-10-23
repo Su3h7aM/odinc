@@ -7,7 +7,7 @@ import "core:testing"
 
 @(test)
 test_command_flag_syntax :: proc(t: ^testing.T) {
-	for arguments in ([][]string{{"testdata", "--all-packages", "--output", "tests", "--define=COUNT=3", "--collection", "custom=somewhere", "--keep-executable"}, {"--all-packages", "--output=tests", "--define", "COUNT=3", "--collection=custom=somewhere", "--keep-executable", "testdata"}}) {
+	for arguments in ([][]string{{"testdata", "--all-packages", "--output", "tests", "--define", "COUNT=3", "--collection", "custom=somewhere", "--keep-executable"}, {"--all-packages", "--output", "tests", "--define", "COUNT=3", "--collection", "custom=somewhere", "--keep-executable", "testdata"}}) {
 		command, error := parse_command_arguments("test", arguments)
 		defer delete(command.options.defines)
 		defer delete(command.collections)
@@ -25,7 +25,7 @@ test_command_flag_syntax :: proc(t: ^testing.T) {
 	testing.expect(t, command.run && len(command.run_arguments) == 2 && command.run_arguments[0] == "a" && command.run_arguments[1] == "--output=b")
 	build, build_error := parse_command_arguments(
 		"build",
-		[]string{"testdata", "--disallow-do", "--show-timings", "--lifetime-markers", "--ignore-unused-defineables", "--mcpu=x86_64_v2"},
+		[]string{"testdata", "--disallow-do", "--show-timings", "--lifetime-markers", "--ignore-unused-defineables", "--mcpu", "x86_64_v2"},
 	)
 	defer delete(build.options.defines)
 	defer delete(build.collections)
@@ -38,7 +38,7 @@ test_command_bad_flags :: proc(t: ^testing.T) {
 	for row in ([]struct {
 			arguments: []string,
 			message:   string,
-		}{{{"testdata", "--unknown"}, "Unable to find any flag named `unknown`."}, {{"testdata", "--output"}, "Expected a value for `output` but none was given."}, {{"testdata", "--build-mode=test"}, "Unable to find any flag named `build-mode`."}, {{"testdata", "-o", "tests"}, "Unable to find any short flag named `o`."}, {{"testdata", "--mcpu=x86-64"}, "--mcpu expects one of: x86_64_v1, x86_64_v2, x86_64_v3, x86_64_v4"}}) {
+		}{{{"testdata", "--unknown"}, "Unable to find any flag named `unknown`."}, {{"testdata", "--output"}, "Expected a value for `output` but none was given."}, {{"testdata", "--build-mode", "test"}, "Unable to find any flag named `build-mode`."}, {{"testdata", "-o", "tests"}, "Unable to find any short flag named `o`."}, {{"testdata", "--output=tests"}, "use `--output value`, not `--output=tests`"}, {{"testdata", "--mcpu", "x86-64"}, "--mcpu expects one of: x86_64_v1, x86_64_v2, x86_64_v3, x86_64_v4"}}) {
 		command, error := parse_command_arguments("test", row.arguments)
 		delete(command.options.defines)
 		delete(command.collections)
@@ -110,7 +110,7 @@ test_command_input_kind :: proc(t: ^testing.T) {
 }
 @(test)
 test_check_command_flags :: proc(t: ^testing.T) {
-	for arguments in ([][]string{{"source.odin", "--no-entry-point", "--disallow-do", "--collection", "custom=somewhere", "--define=COUNT=3"}, {"--no-entry-point", "--disallow-do", "--collection", "custom=somewhere", "--define", "COUNT=3", "source.odin"}}) {
+	for arguments in ([][]string{{"source.odin", "--no-entry-point", "--disallow-do", "--collection", "custom=somewhere", "--define", "COUNT=3"}, {"--no-entry-point", "--disallow-do", "--collection", "custom=somewhere", "--define", "COUNT=3", "source.odin"}}) {
 		command, error := parse_command_arguments("check", arguments)
 		defer delete(command.options.defines)
 		defer delete(command.collections)
@@ -121,7 +121,7 @@ test_check_command_flags :: proc(t: ^testing.T) {
 		testing.expect_value(t, command.options.defines["COUNT"], "3")
 		testing.expect(t, len(command.collections) == 1 && command.collections[0] == Collection{"custom", "somewhere"})
 	}
-	for argument in ([]string{"--output=ignored", "--keep-executable", "--build-mode=test", "--histogram", "-C", "-D"}) {
+	for argument in ([]string{"--output", "--keep-executable", "--build-mode", "--histogram", "-C", "-D"}) {
 		command, error := parse_command_arguments("check", []string{"source.odin", argument})
 		delete(command.options.defines)
 		delete(command.collections)

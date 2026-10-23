@@ -200,7 +200,7 @@ def build_once(odin, corpus, out_dir, threads, timeout):
         shutil.rmtree(out_dir, ignore_errors=True)
     os.makedirs(out_dir, exist_ok=True)
     cmd = [odin, "build", corpus, "--build-mode=llvm",
-           f"--thread-count={threads}", "--output=" + out_dir]
+           "--thread-count", str(threads), "--output", out_dir]
     t0 = time.time()
     try:
         p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
