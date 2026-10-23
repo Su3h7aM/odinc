@@ -4,6 +4,7 @@ import "base:runtime"
 import "core:hash"
 import "core:mem"
 import "oc:check"
+import "oc:syntax"
 import "oc:types"
 
 Value_Id :: distinct u32
@@ -99,6 +100,17 @@ Escape :: struct {
 	view:              check.View_Id,
 	variadic:          check.Entity_Id,
 	reachable:         bool,
+	muted:             bool,
+	nil_deref:         bool,
+	uninit_vet:        bool,
+	nils:              [dynamic]Nil_Fact,
+	nil_uses:          [dynamic]Nil_Use,
+	uninit_entities:   [dynamic]check.Entity_Id,
+	defers:            [dynamic]Defer_Frame,
+	targets:           [dynamic]Control_Target,
+	reported:          [dynamic]syntax.Node_Index,
+	fallen:            Escape_State,
+	fallen_live:       bool,
 }
 
 @(private = "package")
@@ -117,6 +129,12 @@ escape_graph_init :: proc(escape: ^Escape, run: ^Run) -> runtime.Allocator_Error
 	escape.temporary_objects = make(map[check.Expression_Ref]Object_Id, allocator)
 	escape.entity_objects = make([]Object_Id, len(run.program.entities), allocator) or_return
 	escape.memory = make([dynamic]Value_Id, 0, allocator) or_return
+	escape.nils = make([dynamic]Nil_Fact, 0, allocator) or_return
+	escape.nil_uses = make([dynamic]Nil_Use, 0, allocator) or_return
+	escape.uninit_entities = make([dynamic]check.Entity_Id, 0, allocator) or_return
+	escape.defers = make([dynamic]Defer_Frame, 0, allocator) or_return
+	escape.targets = make([dynamic]Control_Target, 0, allocator) or_return
+	escape.reported = make([dynamic]syntax.Node_Index, 0, allocator) or_return
 	append(&escape.graph.values, Value{}) or_return
 	append(&escape.graph.objects, Object{}) or_return
 	append(&escape.graph.paths, Path{}) or_return

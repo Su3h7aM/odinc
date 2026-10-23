@@ -59,9 +59,9 @@ escape_has_unknown_effects :: proc(escape: ^Escape, expression: check.Expression
 	case syntax.Tag_Expr:
 		return escape_has_unknown_effects(escape, {expression.view, payload.expr})
 	case syntax.Or_Return_Expr:
-		return true
+		return false
 	case syntax.Or_Branch_Expr:
-		return true
+		return false
 	case syntax.Type_Assertion:
 		return true
 	case syntax.Field_Value:
@@ -69,9 +69,13 @@ escape_has_unknown_effects :: proc(escape: ^Escape, expression: check.Expression
 	case syntax.Binary_Expr:
 		return escape_has_unknown_effects(escape, {expression.view, payload.left}) || escape_has_unknown_effects(escape, {expression.view, payload.right})
 	case syntax.Ternary_Expr:
-		return true
+		return(
+			escape_has_unknown_effects(escape, {expression.view, payload.x}) ||
+			escape_has_unknown_effects(escape, {expression.view, payload.cond}) ||
+			escape_has_unknown_effects(escape, {expression.view, payload.y}) \
+		)
 	case syntax.Or_Else_Expr:
-		return true
+		return escape_has_unknown_effects(escape, {expression.view, payload.x}) || escape_has_unknown_effects(escape, {expression.view, payload.y})
 	case syntax.Index_Expr:
 		return escape_has_unknown_effects(escape, {expression.view, payload.expr}) || escape_has_unknown_effects(escape, {expression.view, payload.index})
 	case syntax.Slice_Expr:

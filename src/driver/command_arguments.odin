@@ -54,6 +54,8 @@ Command_Flags :: struct {
 	vet_packages:              string,
 	vet:                       bool,
 	vet_when_shadowing:        bool,
+	vet_nil_deref:             bool,
+	vet_uninitialized:         bool,
 	warnings_as_errors:        bool,
 	ignore_warnings:           bool,
 	strict_style:              bool,
@@ -86,6 +88,8 @@ Check_Command_Flags :: struct {
 	vet_packages:              string,
 	vet:                       bool,
 	vet_when_shadowing:        bool,
+	vet_nil_deref:             bool,
+	vet_uninitialized:         bool,
 	warnings_as_errors:        bool,
 	ignore_warnings:           bool,
 	strict_style:              bool,
@@ -154,6 +158,8 @@ parse_command_arguments :: proc(name: string, args: []string, allocator := conte
 		model.vet_packages = check_flags.vet_packages
 		model.vet = check_flags.vet
 		model.vet_when_shadowing = check_flags.vet_when_shadowing
+		model.vet_nil_deref = check_flags.vet_nil_deref
+		model.vet_uninitialized = check_flags.vet_uninitialized
 		model.warnings_as_errors = check_flags.warnings_as_errors
 		model.ignore_warnings = check_flags.ignore_warnings
 		model.strict_style = check_flags.strict_style
@@ -163,6 +169,9 @@ parse_command_arguments :: proc(name: string, args: []string, allocator := conte
 	if command.help || error != "" { return }
 	if model.no_atomic_analysis &&
 	   model.vet_atomic_access { return command, "--vet-atomic-access cannot be used with --no-atomic-analysis, as it is part of it" }
+	if model.no_escape_analysis &&
+	   (model.vet_nil_deref ||
+			   model.vet_uninitialized) { return command, "--vet-nil-deref and --vet-uninitialized cannot be used with --no-escape-analysis, as they are part of it" }
 	if model.ignore_warnings && model.warnings_as_errors {
 		for argument in args {
 			if argument == "--ignore-warnings" ||
@@ -280,6 +289,8 @@ vet_flags_from_command :: proc(model: Command_Flags) -> (flags: syntax.Vet_Flags
 	if model.vet_atomic_access { flags += {.Atomic_Access} }
 	if model.vet_tabs { flags += {.Tabs} }
 	if model.vet_when_shadowing { flags += {.When_Shadowing} }
+	if model.vet_nil_deref { flags += {.Nil_Deref} }
+	if model.vet_uninitialized { flags += {.Uninitialized} }
 	return
 }
 

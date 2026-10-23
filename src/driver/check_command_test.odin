@@ -160,7 +160,7 @@ analysis_policy_and_diagnostics_use_the_common_check_path :: proc(t: ^testing.T)
 	}
 	for row in ([]struct {
 			tag, text: string,
-		}{{"#+analysisx", "Expected a space after #+analysis"}, {"#+analysis\tescape", "Expected a space after #+analysis"}, {"#+analysis !", "Expected an analysis name after '!'"}, {"#+analysis unknown", "Invalid analysis name: unknown\n\tExpected one of the following\n\tescape\n\tatomic"}, {"#+vet nil-deref", "Invalid vet flag name: nil-deref"}, {"#+vet uninitialized", "Invalid vet flag name: uninitialized"}}) {
+		}{{"#+analysisx", "Expected a space after #+analysis"}, {"#+analysis\tescape", "Expected a space after #+analysis"}, {"#+analysis !", "Expected an analysis name after '!'"}, {"#+analysis unknown", "Invalid analysis name: unknown\n\tExpected one of the following\n\tescape\n\tatomic"}}) {
 		source := strings.concatenate({row.tag, "\npackage main\n"}, context.temp_allocator) or_else ""
 		ast: syntax.Ast
 		syntax.ast_init(&ast)
@@ -188,11 +188,29 @@ analysis_policy_and_diagnostics_use_the_common_check_path :: proc(t: ^testing.T)
 		testing.expect_value(t, atomic_error, "")
 		testing.expect_value(t, atomic_command.options.parse_options.vet, syntax.Vet_Flags{.Atomic_Access})
 		testing.expect(t, .Atomic_Access not_in syntax.VET_ALL)
+		nil_flags, nil_tag_error, _ := syntax.parse_vet_tag(" nil-deref", {})
+		testing.expect_value(t, nil_tag_error, .None)
+		testing.expect_value(t, nil_flags, syntax.Vet_Flags{.Nil_Deref})
+		uninitialized_flags, uninitialized_tag_error, _ := syntax.parse_vet_tag(" uninitialized", {})
+		testing.expect_value(t, uninitialized_tag_error, .None)
+		testing.expect_value(t, uninitialized_flags, syntax.Vet_Flags{.Uninitialized})
+		testing.expect(t, .Nil_Deref not_in syntax.VET_ALL)
+		testing.expect(t, .Uninitialized not_in syntax.VET_ALL)
+		nil_command, nil_error := parse_command_arguments("check", []string{".", "--vet-nil-deref"})
+		defer delete(nil_command.collections)
+		defer delete(nil_command.options.defines)
+		testing.expect_value(t, nil_error, "")
+		testing.expect(t, .Nil_Deref in nil_command.options.parse_options.vet)
+		uninitialized_command, uninitialized_error := parse_command_arguments("check", []string{".", "--vet-uninitialized"})
+		defer delete(uninitialized_command.collections)
+		defer delete(uninitialized_command.options.defines)
+		testing.expect_value(t, uninitialized_error, "")
+		testing.expect(t, .Uninitialized in uninitialized_command.options.parse_options.vet)
 	}
 	for row in ([]struct {
 			arguments: []string,
 			message:   string,
-		}{{{".", "--vet-nil-deref"}, "Unable to find any flag named `vet-nil-deref`."}, {{".", "--vet-uninitialized"}, "Unable to find any flag named `vet-uninitialized`."}, {{".", "--no-escape-analysis", "--vet-nil-deref"}, "Unable to find any flag named `vet-nil-deref`."}, {{".", "--no-escape-analysis", "--vet-uninitialized"}, "Unable to find any flag named `vet-uninitialized`."}, {{".", "--no-atomic-analysis", "--vet-atomic-access"}, "--vet-atomic-access cannot be used with --no-atomic-analysis, as it is part of it"}, {{".", "--vet-atomic-access", "--no-atomic-analysis"}, "--vet-atomic-access cannot be used with --no-atomic-analysis, as it is part of it"}}) {
+		}{{{".", "--no-escape-analysis", "--vet-nil-deref"}, "--vet-nil-deref and --vet-uninitialized cannot be used with --no-escape-analysis, as they are part of it"}, {{".", "--no-escape-analysis", "--vet-uninitialized"}, "--vet-nil-deref and --vet-uninitialized cannot be used with --no-escape-analysis, as they are part of it"}, {{".", "--no-atomic-analysis", "--vet-atomic-access"}, "--vet-atomic-access cannot be used with --no-atomic-analysis, as it is part of it"}, {{".", "--vet-atomic-access", "--no-atomic-analysis"}, "--vet-atomic-access cannot be used with --no-atomic-analysis, as it is part of it"}}) {
 		command, error := parse_command_arguments("check", row.arguments)
 		defer delete(command.collections)
 		defer delete(command.options.defines)

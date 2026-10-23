@@ -19,6 +19,8 @@ Vet_Flag :: enum u8 {
 	When_Shadowing,
 	Explicit_Allocators,
 	Atomic_Access,
+	Nil_Deref,
+	Uninitialized,
 }
 
 Vet_Flags :: bit_set[Vet_Flag;u16]
@@ -61,6 +63,10 @@ vet_flags_from_name :: proc(name: string) -> (flags: Vet_Flags, ok: bool) {
 		return {.Explicit_Allocators}, true
 	case "atomic-access":
 		return {.Atomic_Access}, true
+	case "nil-deref":
+		return {.Nil_Deref}, true
+	case "uninitialized":
+		return {.Uninitialized}, true
 	}
 	return {}, false
 }

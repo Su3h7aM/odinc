@@ -248,6 +248,7 @@ escape_elements :: proc(escape: ^Escape, expression: check.Expression_Ref) -> (r
 
 @(private = "file")
 escape_aggregate :: proc(escape: ^Escape, expression: check.Expression_Ref, info: check.Expression_Info) -> (result: Value_Id, err: runtime.Allocator_Error) {
+	if info.plan == 0 { return }
 	descriptor := escape_type(escape, info.type)
 	plan := check.plan(escape.run.program, info.plan)^
 	aggregate: check.Aggregate_Plan
@@ -319,7 +320,33 @@ escape_expression :: proc(escape: ^Escape, expression: check.Expression_Ref) -> 
 	file := &program.files[program.typed_views[expression.view].file]
 	ast := file.ast
 	info := check.expression_info(program, expression.view, expression.node)
-	if info.type == 0 || info.state == .Inactive || info.state == .Invalid { return }
+	if info.state == .Inactive || info.state == .Invalid { return }
+	escape_note_expression(escape, expression) or_return
+	#partial switch early in ast.nodes[expression.node].payload {
+	case syntax.Or_Return_Expr:
+		value := escape_expression(escape, {expression.view, early.expr}) or_return
+		escape_or_return(escape, expression.node) or_return
+		return value, nil
+	case syntax.Or_Branch_Expr:
+		value := escape_expression(escape, {expression.view, early.expr}) or_return
+		saved := escape_capture(escape) or_return
+		kind: syntax.Token_Kind = .Break if early.token.kind == .Or_Break else .Continue
+		escape_branch(escape, early.label, kind) or_return
+		escape_restore(escape, saved) or_return
+		return value, nil
+	case syntax.Ternary_Expr:
+		escape_expression(escape, {expression.view, early.cond}) or_return
+		left := escape_expression(escape, {expression.view, early.x}) or_return
+		right := escape_expression(escape, {expression.view, early.y}) or_return
+		merged, _ := escape_union_values(escape, left, right) or_return
+		return merged, nil
+	case syntax.Or_Else_Expr:
+		left := escape_expression(escape, {expression.view, early.x}) or_return
+		right := escape_expression(escape, {expression.view, early.y}) or_return
+		merged, _ := escape_union_values(escape, left, right) or_return
+		return merged, nil
+	}
+	if info.type == 0 { return }
 	if upstream_constant(program, expression, info) {
 		if escape_type(escape, info.type).kind != .Slice { return }
 		#partial switch payload in ast.nodes[expression.node].payload {
@@ -348,9 +375,7 @@ escape_expression :: proc(escape: ^Escape, expression: check.Expression_Ref) -> 
 	case syntax.Selector_Expr:
 		if info.entity != 0 && .Field not_in program.entities[info.entity].flags { return escape_ident_value(escape, expression, info.entity) }
 		if info.plan != 0 {
-			if place, ok := check.plan(program, info.plan)^.(check.Place_Plan); ok {
-				return escape_member_value(escape, expression, place)
-			}
+			if place, ok := check.plan(program, info.plan)^.(check.Place_Plan); ok { return escape_member_value(escape, expression, place) }
 		}
 	case syntax.Deref_Expr:
 		pointer := escape_expression(escape, {expression.view, payload.expr}) or_return
