@@ -131,7 +131,9 @@ parse_block_stmt :: proc(p: ^Parser, is_when: bool) -> Node_Index {
 // parse_do_body parses the statement after `do`, which must start on the line of the header.
 parse_do_body :: proc(p: ^Parser, header_end: u32) -> Node_Index {
 	body := convert_stmt_to_body(p, parse_stmt(p))
-	if newline_between(p, header_end, p.ast.nodes[body].start) {
+	if p.disallow_do {
+		report(p, .Disallowed_Do, p.ast.nodes[body].start)
+	} else if newline_between(p, header_end, p.ast.nodes[body].start) {
 		report(p, .Misplaced_Do_Body, p.ast.nodes[body].start)
 	}
 	return body

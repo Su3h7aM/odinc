@@ -20,6 +20,7 @@ Driver_Error :: enum u8 {
 	Check_Failed,
 	Import_Cycle,
 	Invalid_Define,
+	External_Library_Used,
 }
 
 // Records how far initialization got, so session_destroy releases exactly what was initialized.
@@ -48,6 +49,14 @@ Import_Edge_Record :: struct {
 	source: check.Source_Span,
 }
 
+// A syntax error with an official message, located at its line and column in path.
+Syntax_Diagnostic :: struct {
+	path:   string,
+	line:   u32,
+	column: u32,
+	text:   string,
+}
+
 // Heap-allocated: the checkers keep pointers to its fields. Diagnostics stay inspectable after Check_Failed.
 Session :: struct {
 	allocator:           runtime.Allocator,
@@ -62,6 +71,7 @@ Session :: struct {
 	build:               check.Build_Configuration,
 	defines:             map[string]string,
 	managed_libc:        bool,
+	stop_at_external:    bool,
 	collection:          check.Collection,
 	resolver:            check.Resolver,
 	type_checker:        check.Type_Checker,
@@ -74,12 +84,14 @@ Session :: struct {
 	unsupported_imports: [dynamic]Unsupported_Import,
 	unresolved_when:     Unresolved_When,
 	load_failures:       [dynamic]string,
+	syntax_diagnostics:  [dynamic]Syntax_Diagnostic,
 	import_edges:        [dynamic]Import_Edge_Record,
 	cyclic_import:       Maybe(check.Source_Span),
 	program_files:       [dynamic]check.File,
 	program:             check.Checked_Program,
 	main_scope:          check.Scope_Id,
 	no_entry_point:      bool,
+	disallow_do:         bool,
 	test_options:        ^Test_Options,
 	test_entry:          check.Entity_Id,
 	test_entry_file:     check.File_Id,
@@ -97,14 +109,15 @@ check_program :: proc(
 	defines: map[string]string = nil,
 	level: types.X86_Level = .V1,
 	file_error: ^File_Error = nil,
+	disallow_do: bool = false,
 ) -> (
 	session: ^Session,
 	err: Driver_Error,
 ) {
-	session, err = check_program_profile(odin_root, main_path, allocator, no_entry_point, user_collections, defines, false, level, file_error)
+	session, err = check_program_profile(odin_root, main_path, allocator, no_entry_point, user_collections, defines, false, level, file_error, disallow_do)
 	if session == nil || !session_uses_external_library(session) { return session, err }
 	session_destroy(session)
-	return check_program_profile(odin_root, main_path, allocator, no_entry_point, user_collections, defines, true, level, file_error)
+	return check_program_profile(odin_root, main_path, allocator, no_entry_point, user_collections, defines, true, level, file_error, disallow_do)
 }
 
 // Owned profile first (no libc); a used external library makes check_program recheck with the managed profile.
@@ -118,6 +131,7 @@ check_program_profile :: proc(
 	managed_libc: bool,
 	level: types.X86_Level = .V1,
 	file_error: ^File_Error = nil,
+	disallow_do: bool = false,
 ) -> (
 	session: ^Session,
 	err: Driver_Error,
@@ -129,8 +143,10 @@ check_program_profile :: proc(
 	session.defines = defines
 	session.no_entry_point = no_entry_point
 	session.managed_libc = managed_libc
+	session.stop_at_external = !managed_libc
+	session.disallow_do = disallow_do
 	err = check_session(session, odin_root, main_path, user_collections, level, file_error)
-	if err != nil && err != .Check_Failed && err != .Unsupported_Import && err != .Parse_Failed && err != .Import_Cycle {
+	if err != nil && err != .Check_Failed && err != .Unsupported_Import && err != .Parse_Failed && err != .Import_Cycle && err != .External_Library_Used {
 		session_destroy(session)
 		session = nil
 	}
@@ -140,10 +156,24 @@ check_program_profile :: proc(
 // A used library outside the shipped base/ and core/ trees (system, vendor, or user file) is a real libc bridge.
 @(private = "file")
 session_uses_external_library :: proc(session: ^Session) -> bool {
+	return any_external_library_used(session, library_entities(session, context.temp_allocator))
+}
+
+@(private = "file")
+library_entities :: proc(session: ^Session, allocator: runtime.Allocator) -> []check.Entity_Id {
+	libraries := make([dynamic]check.Entity_Id, allocator)
+	for entity, id in session.scopes.entities {
+		if _, is_library := entity.data.(check.Library_Data); is_library { append(&libraries, check.Entity_Id(id)) }
+	}
+	return libraries[:]
+}
+
+@(private = "file")
+any_external_library_used :: proc(session: ^Session, libraries: []check.Entity_Id) -> bool {
 	root := session.build.root
-	for entity in session.scopes.entities {
-		library, is_library := entity.data.(check.Library_Data)
-		if !is_library || !library.used { continue }
+	for id in libraries {
+		library := check.entity_get(&session.scopes, id).data.(check.Library_Data)
+		if !library.used { continue }
 		for library_path in library.paths {
 			if library_is_external(library_path, root) { return true }
 		}
@@ -182,6 +212,7 @@ session_destroy :: proc(session: ^Session) {
 	delete(session.owned_strings)
 	delete(session.unsupported_imports)
 	delete(session.load_failures)
+	delete(session.syntax_diagnostics)
 	delete(session.import_edges)
 	delete(session.program_files)
 	free(session, allocator)
@@ -266,9 +297,12 @@ check_session :: proc(
 		if error := validate_test_signatures(session, main_package); error != .None { return error }
 	}
 
+	libraries: []check.Entity_Id
+	if session.stop_at_external { libraries = library_entities(session, context.temp_allocator) }
 	for declaration in session.collection.declarations {
 		if check.entity_get(&session.scopes, declaration.entity).package_id != main_package { continue }
 		if _, resolve_error := check.resolve_entity(&session.resolver, declaration.entity); resolve_error != nil { return .Check_Failed }
+		if session.stop_at_external && any_external_library_used(session, libraries) { return .External_Library_Used }
 	}
 	directives_valid, directive_error := check.check_package_directives(&session.checker)
 	if directive_error != nil || !directives_valid { return .Check_Failed }
@@ -681,7 +715,7 @@ load_source :: proc(
 	Driver_Error,
 ) {
 	if error := push(&session.sources, source); error != .None { return 0, error }
-	ast, has_errors, parse_error := parse_source(source, session.allocator)
+	ast, has_errors, parse_error := parse_source(session, path, source)
 	if ast != nil {
 		if error := push(&session.asts, ast); error != .None { return 0, error }
 	}
@@ -693,15 +727,34 @@ load_source :: proc(
 
 // Parses source into a new ast that refers to source, so the caller keeps source alive.
 @(private = "file")
-parse_source :: proc(source: []byte, allocator: runtime.Allocator) -> (ast: ^syntax.Ast, has_errors: bool, err: Driver_Error) {
-	allocated, allocation_error := new(syntax.Ast, allocator)
+parse_source :: proc(session: ^Session, path: string, source: []byte) -> (ast: ^syntax.Ast, has_errors: bool, err: Driver_Error) {
+	allocated, allocation_error := new(syntax.Ast, session.allocator)
 	if allocation_error != nil { return nil, false, .Allocation_Failed }
-	syntax.ast_init(allocated, allocator)
+	syntax.ast_init(allocated, session.allocator)
 	parser: syntax.Parser
-	syntax.parser_init(&parser, allocated, source, allocator)
+	syntax.parser_init(&parser, allocated, source, session.allocator)
 	defer syntax.parser_destroy(&parser)
+	parser.disallow_do = session.disallow_do
 	syntax.parse_file(&parser)
+	for parse_error in parser.errors {
+		text := syntax.parse_error_text(parse_error.kind)
+		if text == "" { continue }
+		if record_error := record_syntax_diagnostic(session, path, source, parse_error.offset, text); record_error != .None {
+			return allocated, true, record_error
+		}
+	}
 	return allocated, len(parser.errors) + len(parser.lex_errors) != 0, .None
+}
+
+@(private = "file")
+record_syntax_diagnostic :: proc(session: ^Session, path: string, source: []byte, offset: u32, text: string) -> Driver_Error {
+	table, table_error := syntax.make_line_table(source, session.allocator)
+	if table_error != nil { return .Allocation_Failed }
+	defer syntax.destroy_line_table(&table)
+	line, column := syntax.line_col(table, offset)
+	owned_path, path_error := own(session, path)
+	if path_error != .None { return path_error }
+	return push(&session.syntax_diagnostics, Syntax_Diagnostic{path = owned_path, line = line, column = column, text = text})
 }
 
 @(private = "file")

@@ -18,25 +18,32 @@ Command_Arguments :: struct {
 
 @(private = "file")
 Command_Flags :: struct {
-	path:            string `args:"pos=0"`,
-	output:          string `args:"short=o"`,
-	collection:      [dynamic]string `args:"short=c"`,
-	define:          [dynamic]string `args:"short=d"`,
-	keep_executable: bool `args:"short=k"`,
-	all_packages:    bool,
-	build_mode:      string,
-	thread_count:    int,
-	mcpu:            string,
-	opt:             string,
-	sanitize:        string,
+	path:                      string `args:"pos=0"`,
+	output:                    string,
+	collection:                [dynamic]string,
+	define:                    [dynamic]string,
+	keep_executable:           bool,
+	all_packages:              bool,
+	thread_count:              int,
+	mcpu:                      string,
+	opt:                       string,
+	sanitize:                  string,
+	ignore_unused_defineables: bool,
+	lifetime_markers:          bool,
+	show_timings:              bool,
+	disallow_do:               bool,
 }
 
 @(private = "file")
 Check_Command_Flags :: struct {
-	path:           string `args:"pos=0"`,
-	collection:     [dynamic]string `args:"short=c"`,
-	define:         [dynamic]string `args:"short=d"`,
-	no_entry_point: bool,
+	path:                      string `args:"pos=0"`,
+	collection:                [dynamic]string,
+	define:                    [dynamic]string,
+	no_entry_point:            bool,
+	ignore_unused_defineables: bool,
+	lifetime_markers:          bool,
+	show_timings:              bool,
+	disallow_do:               bool,
 }
 
 @(private = "file")
@@ -83,6 +90,7 @@ parse_command_arguments :: proc(name: string, args: []string, allocator := conte
 		model.collection = check_flags.collection
 		model.define = check_flags.define
 		command.no_entry_point = check_flags.no_entry_point
+		model.disallow_do = check_flags.disallow_do
 	} else {
 		command.help, error = parse_command_flag_model(&model, args, allocator)
 	}
@@ -93,6 +101,7 @@ parse_command_arguments :: proc(name: string, args: []string, allocator := conte
 	command.keep_executable = model.keep_executable
 	command.options.all_packages = model.all_packages
 	command.options.thread_count = model.thread_count
+	command.options.disallow_do = model.disallow_do
 	if command.path == "" { return command, fmt.tprintf("usage: odinc %s <file-or-directory> [options] [-- arguments]", name) }
 	if model.sanitize != "" { return command, "odinc test: sanitizers are not supported" }
 	if model.thread_count < 1 { return command, "--thread-count expects a positive integer" }
@@ -102,10 +111,6 @@ parse_command_arguments :: proc(name: string, args: []string, allocator := conte
 	if model.opt != "" {
 		if model.opt != "speed" { return command, "--opt expects speed" }
 		command.options.optimization_mode = .Speed
-	}
-	if model.build_mode != "" {
-		if model.build_mode != "test" { return command, "--build-mode expects test" }
-		command.test_mode = true
 	}
 	for value in model.collection {
 		collection, collection_valid := collection_from_value(value)

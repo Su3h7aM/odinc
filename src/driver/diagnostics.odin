@@ -24,6 +24,9 @@ write_diagnostics :: proc(session: ^Session, writer: io.Writer) {
 	for path in session.load_failures {
 		fmt.wprintfln(writer, "%s: parse failed", path)
 	}
+	for diagnostic in session.syntax_diagnostics {
+		fmt.wprintfln(writer, "%s:%d:%d: Syntax Error: %s", diagnostic.path, diagnostic.line, diagnostic.column, diagnostic.text)
+	}
 	if span, found := session.cyclic_import.?; found {
 		file := session.files[span.file]
 		line, column := syntax.line_col(file.lines, span.start)

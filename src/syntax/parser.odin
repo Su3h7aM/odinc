@@ -57,6 +57,7 @@ Parse_Error_Kind :: enum u8 {
 	// Expected_Space_After_Feature is a tag starting with #+feature but with no
 	// space after it, e.g. #+featurex.
 	Expected_Space_After_Feature,
+	Disallowed_Do,
 	Out_Of_Memory,
 }
 
@@ -82,6 +83,7 @@ Parser :: struct {
 	allow_in_expr:    bool,
 	allow_type:       bool,
 	in_foreign_block: bool,
+	disallow_do:      bool,
 }
 
 parser_init :: proc(p: ^Parser, ast: ^Ast, source: []byte, allocator := context.allocator) {
@@ -102,6 +104,12 @@ parser_destroy :: proc(p: ^Parser) {
 
 report :: proc(p: ^Parser, kind: Parse_Error_Kind, offset: u32, expected := Token_Kind.Invalid) {
 	append(&p.errors, Parse_Error{kind = kind, offset = offset, expected = expected})
+}
+
+// The official text of a parse error that has one; empty for the rest.
+parse_error_text :: proc(kind: Parse_Error_Kind) -> string {
+	if kind == .Disallowed_Do { return "'do' has been disallowed" }
+	return ""
 }
 
 push :: proc(p: ^Parser, list: ^$L/[dynamic]$E, value: E) {
