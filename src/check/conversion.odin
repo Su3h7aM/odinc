@@ -512,8 +512,14 @@ conversion_procedure_assignment :: proc(store: ^types.Store, source, target: typ
 conversion_offset_zero_pointer :: proc(store: ^types.Store, source, target: types.Type_Id, config: Conversion_Config) -> bool {
 	source_type := types.get(store, source)
 	target_type := types.get(store, target)
-	if source_type.kind != .Pointer || target_type.kind != .Pointer || config.field_flags == nil { return false }
-	return conversion_offset_zero_subtype(store, config.field_flags^, source_type.elem, target_type.elem, config.layout)
+	if source_type.kind != .Pointer || target_type.kind != .Pointer { return false }
+	return conversion_offset_zero_element(store, config, source_type.elem, target_type.elem)
+}
+
+// Whether `source` holds `target` at offset zero through `using` or `#subtype` fields.
+@(private = "package")
+conversion_offset_zero_element :: proc(store: ^types.Store, config: Conversion_Config, source, target: types.Type_Id) -> bool {
+	return config.field_flags != nil && conversion_offset_zero_subtype(store, config.field_flags^, source, target, config.layout)
 }
 
 @(private = "file")

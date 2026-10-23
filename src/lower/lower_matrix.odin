@@ -864,3 +864,29 @@ lower_matrix_outer :: proc(state: ^Procedure_State, node: syntax.Node_Index, typ
 	}
 	return slot
 }
+
+// `transpose` fills `result[i, j]` with `source[j, i]`.
+@(private)
+lower_matrix_transpose :: proc(state: ^Procedure_State, node: syntax.Node_Index, type, source_type: types.Type_Id, source_value: ir.Node_Id) -> ir.Node_Id {
+	function := state.job.function
+	shape := lower_type(state, type)
+	source := lower_type(state, source_type)
+	if state.failed { return 0 }
+	layout := state.job.layouts[type]
+	if layout.error != .None || shape.kind != .Matrix || source.kind != .Matrix || layout.size > i64(max(u32)) { return lower_fail(state, node, .Builtin) }
+	element_layout := state.job.layouts[shape.elem]
+	if element_layout.error != .None || element_layout.size <= 0 || element_layout.size > i64(max(u32)) {
+		return lower_fail(state, node, .Builtin)
+	}
+	element_size := u32(element_layout.size)
+	slot := ir.stack_slot(function, state.entry_control, u32(max(layout.size, 1)), u32(layout.align))
+	for row in 0 ..< shape.count {
+		for column in 0 ..< shape.upper_bound {
+			value := lower_load(state, lower_matrix_element_address(state, source_value, source, column, row, element_size), shape.elem)
+			if state.failed || function.error != nil { return 0 }
+			lower_store(state, lower_matrix_element_address(state, slot, shape, row, column, element_size), value, shape.elem)
+			if state.failed { return 0 }
+		}
+	}
+	return slot
+}

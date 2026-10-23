@@ -34,8 +34,8 @@ matrix_type :: proc(
 	err: Resolve_Error,
 ) {
 	shape := syntax.node_payload(file.ast, node, syntax.Matrix_Type)
-	rows, rows_valid := array_count(checker, file_id, scope, shape.row_count) or_return
-	columns, columns_valid := array_count(checker, file_id, scope, shape.column_count) or_return
+	rows, rows_valid := array_count(checker, file_id, scope, matrix_dimension(file, shape.row_count)) or_return
+	columns, columns_valid := array_count(checker, file_id, scope, matrix_dimension(file, shape.column_count)) or_return
 	elem := type_expression(checker, file_id, scope, shape.elem, true) or_return
 	if !rows_valid || !columns_valid || elem == types.TYPE_POISON { return types.TYPE_POISON, nil }
 	if rows < 1 || columns < 1 || rows > MATRIX_ELEMENT_COUNT_MAX || columns > MATRIX_ELEMENT_COUNT_MAX || rows * columns > MATRIX_ELEMENT_COUNT_MAX {
@@ -48,4 +48,11 @@ matrix_type :: proc(
 	}
 	return types.intern(checker.store, types.Type{kind = .Matrix, elem = elem, count = rows, upper_bound = columns, row_major = matrix_row_major(file, node)}),
 		nil
+}
+
+// A polymorphic dimension `$N` names the constant bound for it.
+@(private = "file")
+matrix_dimension :: proc(file: ^File, node: syntax.Node_Index) -> syntax.Node_Index {
+	if file.ast.nodes[node].kind == .Poly_Type { return syntax.node_payload(file.ast, node, syntax.Poly_Type).type }
+	return node
 }

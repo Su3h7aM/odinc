@@ -26,7 +26,7 @@ expression_matrix_builtin :: proc(
 	operand_nodes := arguments
 	want := len(arguments)
 	if kind == .Hadamard_Product || kind == .Outer_Product { want = 2 }
-	if kind == .Matrix_Flatten { want = 1 }
+	if kind == .Matrix_Flatten || kind == .Transpose { want = 1 }
 	if len(arguments) != want { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
 	operands := make([]Operand, len(operand_nodes), allocator) or_return
 	infos := make([]Expression_Info, len(operand_nodes), allocator) or_return
@@ -62,6 +62,14 @@ expression_matrix_builtin :: proc(
 		} else {
 			return expression_failure(checker, view, scope, node, .Invalid_Operand)
 		}
+	case .Transpose:
+		base := bases[0]
+		if base.kind != .Matrix { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
+		result = matrix_hint_type(
+			store,
+			types.intern(store, types.Type{kind = .Matrix, elem = base.elem, count = base.upper_bound, upper_bound = base.count, row_major = base.row_major}),
+			hint,
+		)
 	case .Outer_Product:
 		left, right := bases[0], bases[1]
 		if left.kind != .Array || right.kind != .Array { return expression_failure(checker, view, scope, node, .Invalid_Operand) }

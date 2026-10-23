@@ -43,8 +43,26 @@ matrix_index_operand :: proc(
 	failed: bool,
 	err: Resolve_Error,
 ) {
-	position := check_expression(checker, view, scope, index_node, checker.default_integer) or_return
+	position := check_expression(checker, view, scope, index_node, checker.default_integer, false) or_return
 	if position.state == .Invalid { return nil, false, true, nil }
+	store := checker.type_checker.store
+	if position.type != types.TYPE_NONE && conversion_untyped(types.get(store, position.type).kind) {
+		position = expression_conversion(
+			checker,
+			view,
+			scope,
+			index_node,
+			Operand(Expression_Ref{view, index_node}),
+			position,
+			checker.default_integer,
+			.Assignment,
+		) or_return
+		if position.state == .Invalid { return nil, false, true, nil }
+	}
+	if position.type == types.TYPE_NONE || !conversion_integer(types.get(store, conversion_base_type(store, position.type)).kind) {
+		_, err = expression_failure(checker, view, scope, index_node, .Invalid_Operand)
+		return nil, false, true, err
+	}
 	if position.mode == .Constant {
 		integer := constant_pool_get(checker.constants, position.constant).value.(big.Int)
 		index, index_error := big.int_get_i64(&integer)

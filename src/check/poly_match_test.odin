@@ -117,6 +117,7 @@ main :: proc "contextless" () {
 	testing.expect(t, ok)
 }
 
+// Matrix patterns bind dimensions, matrices index by any integer and transpose, and `$T/^Base` accepts a subtype pointer.
 // A `#simd[$N]$E` pattern matches a vector and binds its lane count; constant arrays compare, untyped constants convert to
 // `any`, and a procedure taking a pointer to an offset-zero subtype is assignable to one taking the pointer to the base.
 @(test)
@@ -132,6 +133,11 @@ apply :: proc "contextless" (how: proc "contextless" (a: []int), what: []int) { 
 gen :: proc "contextless" (a: $T/[]$E) {}
 #assert(#hash("a", "crc32") == 3904355907)
 lanes :: proc "contextless" (v: #simd[$N]$E) -> [N]E { return transmute([N]E)v }
+Node :: struct { id: int }
+Expr :: struct { using node: Node, e: int }
+Index :: distinct i32
+matrix_dimension :: proc "contextless" (m: matrix[$N, N]$E) -> int { return N }
+pointer_of :: proc "contextless" (node: $T/^Node) -> typeid { return T }
 entry :: proc "contextless" (v: #simd[4]f32, w: []int) {
 	a := lanes(v)
 	apply(gen, w)
@@ -140,9 +146,13 @@ entry :: proc "contextless" (v: #simd[4]f32, w: []int) {
 	b, c := any(1), cast(any)2.5
 	d: proc(self: ^IFoo) -> int = proc(self: ^Foo) -> int { return 0 }
 	_, _, _, _ = a, b, c, d
+	m := matrix[2, 2]f32{}
+	k := Index(1)
+	e: ^Expr
+	_, _, _, _ = matrix_dimension(m), m[k, k], transpose(m), pointer_of(e)
 }
 `,
 	)
-	_, ok := check_procedure_source(t, source, .None, "", 0, procedure_name = "entry")
+	_, ok := check_procedure_source(t, source, .None, "", 0, procedure_name = "entry", intrinsic_names = {"transpose"})
 	testing.expect(t, ok)
 }

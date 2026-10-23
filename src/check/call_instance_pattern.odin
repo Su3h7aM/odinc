@@ -90,6 +90,13 @@ poly_pattern_has_poly :: proc(file: ^File, pattern: syntax.Node_Index) -> bool {
 	case .Fixed_Capacity_Dynamic_Array_Type:
 		array := syntax.node_payload(file.ast, pattern, syntax.Fixed_Capacity_Dynamic_Array_Type)
 		return poly_pattern_has_poly(file, array.elem) || file.ast.nodes[array.capacity].kind == .Poly_Type
+	case .Matrix_Type:
+		shape := syntax.node_payload(file.ast, pattern, syntax.Matrix_Type)
+		return(
+			poly_pattern_has_poly(file, shape.elem) ||
+			file.ast.nodes[shape.row_count].kind == .Poly_Type ||
+			file.ast.nodes[shape.column_count].kind == .Poly_Type \
+		)
 	case .Map_Type:
 		map_type := syntax.node_payload(file.ast, pattern, syntax.Map_Type)
 		return poly_pattern_has_poly(file, map_type.key) || poly_pattern_has_poly(file, map_type.value)
@@ -171,6 +178,8 @@ poly_match_pattern :: proc(match: ^Poly_Match, pattern: syntax.Node_Index, argum
 	case .Fixed_Capacity_Dynamic_Array_Type:
 		array := syntax.node_payload(file.ast, pattern, syntax.Fixed_Capacity_Dynamic_Array_Type)
 		return poly_match_array(match, .Fixed_Capacity_Array, array.capacity, array.elem, argument)
+	case .Matrix_Type:
+		return poly_match_matrix(match, syntax.node_payload(file.ast, pattern, syntax.Matrix_Type), argument)
 	case .Map_Type:
 		map_type := syntax.node_payload(file.ast, pattern, syntax.Map_Type)
 		store := match.checker.type_checker.store
@@ -254,7 +263,12 @@ poly_match_element :: proc(match: ^Poly_Match, kind: types.Kind, elem: syntax.No
 	descriptor := types.get(store, underlying_type(store, argument))
 	if descriptor.kind != kind { return false, nil }
 	element := descriptor.elem
-	return poly_match_pattern(match, elem, element)
+	matched = poly_match_pattern(match, elem, element) or_return
+	file := match.checker.type_checker.files[match.definition_file]
+	if matched || (kind != .Pointer && kind != .Multi_Pointer) || poly_pattern_has_poly(file, elem) { return matched, nil }
+	bound_scope := poly_bound_scope(match) or_return
+	expected := type_expression(match.checker.type_checker, match.definition_file, bound_scope, elem, true) or_return
+	return expected != types.TYPE_POISON && conversion_offset_zero_element(store, match.checker.config, element, expected), nil
 }
 
 // A `#soa` array pattern matches only an `#soa` type of the same form; the element pattern is matched
@@ -406,4 +420,30 @@ poly_integer_constant :: proc(match: ^Poly_Match, value: i64) -> (constant: Cons
 		return 0, false, expression_constant_failure(match.checker, match.call_file, match.call_node, intern_error)
 	}
 	return interned, true, nil
+}
+
+@(private = "file")
+poly_match_matrix :: proc(match: ^Poly_Match, shape: syntax.Matrix_Type, argument: types.Type_Id) -> (matched: bool, err: Resolve_Error) {
+	store := match.checker.type_checker.store
+	descriptor := types.get(store, underlying_type(store, argument))
+	if descriptor.kind != .Matrix { return false, nil }
+	file := match.checker.type_checker.files[match.definition_file]
+	dimensions := [2]struct {
+		node:  syntax.Node_Index,
+		count: i64,
+	}{{shape.row_count, descriptor.count}, {shape.column_count, descriptor.upper_bound}}
+	for dimension in dimensions {
+		if file.ast.nodes[dimension.node].kind == .Poly_Type {
+			name := expression_text(file, syntax.node_payload(file.ast, dimension.node, syntax.Poly_Type).type)
+			constant, ok, constant_error := poly_integer_constant(match, dimension.count)
+			if constant_error != nil || !ok { return false, constant_error }
+			bound := poly_bind(store, match.bindings, name, match.checker.default_integer, constant) or_return
+			if !bound { return false, nil }
+			continue
+		}
+		expected, valid, count_error := poly_match_count(match, dimension.node)
+		if count_error != nil { return false, count_error }
+		if !valid || expected != dimension.count { return false, nil }
+	}
+	return poly_match_pattern(match, shape.elem, descriptor.elem)
 }

@@ -144,6 +144,9 @@ lower_intrinsic :: proc(
 	case .Outer_Product:
 		if len(plan.arguments) != 2 { return lower_fail(state, node, .Builtin) }
 		return lower_matrix_outer(state, node, info.type, values[0], values[1])
+	case .Transpose:
+		if len(plan.arguments) != 1 { return lower_fail(state, node, .Builtin) }
+		return lower_matrix_transpose(state, node, info.type, operand_type(state, plan.arguments[0]), values[0])
 	case .Ptr_Offset:
 		if function.nodes.type[values[0]] != .Ptr || !is_integer_value(function, values[1]) { return lower_fail(state, node, .Builtin) }
 		pointer := lower_type(state, operand_type(state, plan.arguments[0]))
