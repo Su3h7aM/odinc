@@ -1107,12 +1107,27 @@ mem_matches_inline :: #force_inline proc "contextless" (op: ^Operand, op_type: O
 	return false
 }
 
+imm_type_width :: #force_inline proc "contextless" (op_type: Operand_Type) -> u8 {
+	#partial switch op_type {
+	case .IMM8, .IMM8SX: return 1
+	case .IMM16:         return 2
+	case .IMM32:         return 4
+	case .IMM64:         return 8
+	}
+	return 0
+}
+
 imm_matches_inline :: #force_inline proc "contextless" (op: ^Operand, op_type: Operand_Type) -> bool {
 	// A labeled immediate is an address placeholder (movabs): it must select the
 	// full imm64 form regardless of the label id's numeric value, so a small id
 	// doesn't collapse to a shorter `mov r64, imm32` and lose the ABS64 slot.
 	if op.flags.imm_is_label {
 		return op_type == .IMM64
+	}
+	// A declared immediate size is the widest field allowed: a wider form is refused,
+	// so an imm8 operand cannot pick the imm16 form just because its value fits there.
+	if op.size != 0 && imm_type_width(op_type) > op.size {
+		return false
 	}
 	// Match based on whether the VALUE fits in the encoding's immediate size.
 	// x64 immediates are interpreted as both signed and unsigned depending on context:

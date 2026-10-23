@@ -48,6 +48,21 @@ imm_value_class :: #force_inline proc "contextless" (v: i64) -> u8 {
 	return 4  // imm64
 }
 
+@(private) IMM_VALUE_CLASS_COUNT :: 5
+
+// Declared immediate size as a class 0-4 (0 = unspecified); other sizes are not cacheable.
+@(private, require_results)
+imm_size_class :: #force_inline proc "contextless" (size: u8) -> (class: u8, ok: bool) {
+	switch size {
+	case 0: return 0, true
+	case 1: return 1, true
+	case 2: return 2, true
+	case 4: return 3, true
+	case 8: return 4, true
+	}
+	return 0, false
+}
+
 // Per-operand shape code: kind in bits 5-7, class/size/value-class in bits 0-4.
 // ok = false means the operand can't be coded cleanly (a non-standard memory
 // size); the caller then skips the cache and scans.
@@ -75,7 +90,9 @@ op_match_code :: #force_inline proc "contextless" (op: ^Operand) -> (code: u8, o
 		}
 		return 0, false
 	case .IMMEDIATE:
-		return (3 << 5) | imm_value_class(op.immediate), true
+		size_class, size_ok := imm_size_class(op.size)
+		if !size_ok { return 0, false }
+		return (3 << 5) | (size_class * IMM_VALUE_CLASS_COUNT + imm_value_class(op.immediate)), true
 	case .RELATIVE:
 		c: u8 = 0
 		switch op.size {
