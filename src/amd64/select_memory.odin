@@ -3,39 +3,173 @@ package amd64
 import "oc:ir"
 
 @(private)
-select_address :: proc(selector: ^Selector, node: ir.Node_Id) -> (address: Memory_Ref, err: Select_Status) {
+Address_Parts :: struct {
+	base:         ir.Node_Id,
+	index:        ir.Node_Id,
+	displacement: i32,
+	scale:        u8,
+}
+
+// The address of an address node, computed once: its base, index and displacement.
+// A node that does not fold is its own base.
+@(private)
+address_parts_of :: proc(selector: ^Selector, node: ir.Node_Id) -> Address_Parts {
+	if !selector.address_ready[node] {
+		selector.address_parts[node] = compute_address_parts(selector, node)
+		selector.address_ready[node] = true
+	}
+	return selector.address_parts[node]
+}
+
+@(private)
+compute_address_parts :: proc(selector: ^Selector, node: ir.Node_Id) -> Address_Parts {
 	input := selector.input
 	#partial switch input.nodes.kind[node] {
-	case .Stack_Slot:
-		if input.nodes.data[node].slot.align <= MAX_FRAME_ALIGNMENT {
-			return Memory_Ref{base = Frame_Object{.Slot, selector.slots[node]}}, nil
-		}
-	case .Symbol_Addr:
-		return Memory_Ref{base = Symbol_Target{symbol = input.nodes.data[node].symbol}}, nil
 	case .Ptr_Offset:
 		offset := input.nodes.data[node].int_value
 		if offset >= i64(min(i32)) && offset <= i64(max(i32)) {
-			base := select_address(selector, ir.node_input(input, node, 0)) or_return
+			base := address_parts_of(selector, ir.node_input(input, node, 0))
 			displacement := i64(base.displacement) + offset
 			if displacement >= i64(min(i32)) && displacement <= i64(max(i32)) {
 				base.displacement = i32(displacement)
-				return base, nil
+				return base
 			}
 		}
 	case .Ptr_Index:
 		stride := input.nodes.data[node].index
 		if stride == 1 || stride == 2 || stride == 4 || stride == 8 {
-			base := select_address(selector, ir.node_input(input, node, 0)) or_return
-			_, symbol := base.base.(Symbol_Target)
-			if !base.has_index && !symbol {
-				base.index = select_value(selector, ir.node_input(input, node, 1)) or_return
-				base.has_index, base.scale = true, u8(stride)
-				return base, nil
+			base := address_parts_of(selector, ir.node_input(input, node, 0))
+			if base.index == ir.NODE_NONE && input.nodes.kind[base.base] != .Symbol_Addr {
+				base.index, base.scale = ir.node_input(input, node, 1), u8(stride)
+				return base
 			}
 		}
 	}
-	value := select_value(selector, node) or_return
-	return Memory_Ref{base = value}, nil
+	return Address_Parts{base = node}
+}
+
+// Whether an address node is folded into the memory operands of its users instead of
+// being computed into a register.
+@(private)
+folds_into_operand :: proc(selector: ^Selector, node: ir.Node_Id) -> bool {
+	return address_parts_of(selector, node).base != node
+}
+
+@(private)
+select_address :: proc(selector: ^Selector, node: ir.Node_Id) -> (address: Memory_Ref, err: Select_Status) {
+	input := selector.input
+	parts := address_parts_of(selector, node)
+	address.displacement = parts.displacement
+	#partial switch input.nodes.kind[parts.base] {
+	case .Stack_Slot:
+		if input.nodes.data[parts.base].slot.align <= MAX_FRAME_ALIGNMENT {
+			address.base = Frame_Object{.Slot, selector.slots[parts.base]}
+		} else {
+			address.base = select_value(selector, parts.base) or_return
+		}
+	case .Symbol_Addr:
+		address.base = Symbol_Target {
+			symbol = input.nodes.data[parts.base].symbol,
+		}
+	case:
+		address.base = select_value(selector, parts.base) or_return
+	}
+	if parts.index != ir.NODE_NONE {
+		address.index = select_value(selector, parts.index) or_return
+		address.has_index, address.scale = true, parts.scale
+	}
+	return
+}
+
+@(private)
+address_node :: proc(kind: ir.Node_Kind) -> bool {
+	return kind == .Stack_Slot || kind == .Ptr_Offset || kind == .Ptr_Index
+}
+
+// Size of a constant-length copy or fill small enough to be emitted inline, when its
+// address operands can take the displacement of every byte it touches.
+@(private)
+inline_copy_size :: proc(selector: ^Selector, node: ir.Node_Id) -> (size: u64, ok: bool) {
+	input := selector.input
+	inputs := ir.node_inputs(input, node)
+	if input.nodes.kind[inputs[4]] != .Const_Int { return }
+	size = u64(input.nodes.data[inputs[4]].int_value)
+	if size > INLINE_COPY_LIMIT { return 0, false }
+	address_count := 2 if input.nodes.kind[node] == .Mem_Copy else 1
+	for operand in inputs[2:2 + address_count] {
+		parts := address_parts_of(selector, operand)
+		if i64(parts.displacement) + i64(size) > i64(max(i32)) { return 0, false }
+	}
+	return size, true
+}
+
+@(private)
+is_address_operand :: proc(selector: ^Selector, node: ir.Node_Id, index: int) -> bool {
+	input := selector.input
+	#partial switch input.nodes.kind[node] {
+	case .Load, .Store, .Load_Ordered, .Atomic_Rmw, .Atomic_Cas:
+		return index == 2
+	case .Mem_Copy, .Mem_Set:
+		_, is_inline := inline_copy_size(selector, node)
+		return is_inline && (index == 2 || index == 3 && input.nodes.kind[node] == .Mem_Copy)
+	}
+	return false
+}
+
+@(private)
+require_address_value :: proc(selector: ^Selector, node: ir.Node_Id, pending: ^[dynamic]ir.Node_Id) -> Select_Status {
+	if !address_node(selector.input.nodes.kind[node]) || selector.materialized[node] { return nil }
+	selector.materialized[node] = true
+	append(pending, node) or_return
+	return nil
+}
+
+@(private)
+require_address_parts :: proc(selector: ^Selector, node: ir.Node_Id, pending: ^[dynamic]ir.Node_Id) -> Select_Status {
+	input := selector.input
+	parts := address_parts_of(selector, node)
+	if input.nodes.kind[parts.base] != .Stack_Slot || input.nodes.data[parts.base].slot.align > MAX_FRAME_ALIGNMENT {
+		require_address_value(selector, parts.base, pending) or_return
+	}
+	if parts.index != ir.NODE_NONE { require_address_value(selector, parts.index, pending) or_return }
+	return nil
+}
+
+@(private)
+cover_address_inputs :: proc(selector: ^Selector, node: ir.Node_Id, pending: ^[dynamic]ir.Node_Id) -> Select_Status {
+	input := selector.input
+	if address_node(input.nodes.kind[node]) { return nil }
+	for operand, index in ir.node_inputs(input, node) {
+		if is_address_operand(selector, node, index) {
+			require_address_parts(selector, operand, pending) or_return
+		} else {
+			require_address_value(selector, operand, pending) or_return
+		}
+	}
+	return nil
+}
+
+// Marks the address nodes that some instruction consumes as a value; the others fold
+// into the memory operands of their users and are never materialized.
+@(private)
+cover_addresses :: proc(selector: ^Selector) -> Select_Status {
+	pending := make([dynamic]ir.Node_Id, selector.allocator)
+	input := selector.input
+	for block in selector.schedule.blocks {
+		for node in block.nodes { cover_address_inputs(selector, node, &pending) or_return }
+		exit := selector.schedule.cfg.exits[block.id]
+		if exit != ir.NODE_NONE { cover_address_inputs(selector, exit, &pending) or_return }
+	}
+	for index := 0; index < len(pending); index += 1 {
+		node := pending[index]
+		if input.nodes.kind[node] == .Stack_Slot { continue }
+		if folds_into_operand(selector, node) {
+			require_address_parts(selector, node, &pending) or_return
+		} else {
+			for operand in ir.node_inputs(input, node) { require_address_value(selector, operand, &pending) or_return }
+		}
+	}
+	return nil
 }
 
 @(private)
@@ -58,6 +192,7 @@ select_memory :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Status {
 			return emit(output, selector.block, .AND, 8, destination, rounded, Immediate(-i64(slot.align)))
 		}
 		selector.slots[node] = add_frame_slot(output, slot.size, slot.align) or_return
+		if !selector.materialized[node] { return nil }
 		return emit(output, selector.block, .LEA, 8, destination, Memory_Ref{base = Frame_Object{.Slot, selector.slots[node]}})
 	case .Stack_Alloc:
 		alignment := input.nodes.data[node].index
@@ -74,6 +209,11 @@ select_memory :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Status {
 		emit(output, selector.block, .MOV, 8, Physical_Register(Gpr.RSP), adjusted) or_return
 		return emit(output, selector.block, .ADD, 8, destination, adjusted, Immediate(output.outgoing_bytes))
 	case .Ptr_Offset:
+		if !selector.materialized[node] { return nil }
+		if folds_into_operand(selector, node) {
+			address := select_address(selector, node) or_return
+			return emit(output, selector.block, .LEA, 8, destination, address)
+		}
 		base := select_value(selector, inputs[0]) or_return
 		offset := input.nodes.data[node].int_value
 		if offset >= i64(min(i32)) &&
@@ -82,6 +222,11 @@ select_memory :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Status {
 		emit(output, selector.block, .MOVABS, 8, constant, Immediate(offset)) or_return
 		return emit(output, selector.block, .ADD, 8, destination, base, constant)
 	case .Ptr_Index:
+		if !selector.materialized[node] { return nil }
+		if folds_into_operand(selector, node) {
+			address := select_address(selector, node) or_return
+			return emit(output, selector.block, .LEA, 8, destination, address)
+		}
 		base := select_value(selector, inputs[0]) or_return
 		index := select_value(selector, inputs[1]) or_return
 		stride := input.nodes.data[node].index
@@ -124,43 +269,12 @@ select_copy_set :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Status 
 	input, output := selector.input, selector.output
 	inputs := ir.node_inputs(input, node)
 	is_copy := input.nodes.kind[node] == .Mem_Copy
+	if _, is_inline := inline_copy_size(selector, node); is_inline {
+		return select_inline_copy_set(selector, node)
+	}
 	destination := select_value(selector, inputs[2]) or_return
 	source := select_value(selector, inputs[3]) or_return
 	count := select_value(selector, inputs[4]) or_return
-	if input.nodes.kind[inputs[4]] == .Const_Int {
-		size := u64(input.nodes.data[inputs[4]].int_value)
-		if size <= INLINE_COPY_LIMIT {
-			values: [INLINE_COPY_LIMIT]Vreg
-			widths: [INLINE_COPY_LIMIT]u8
-			positions: [INLINE_COPY_LIMIT]i32
-			length := 0
-			for position := u64(0); position < size; {
-				width := u64(8)
-				for width > size - position { width /= 2 }
-				value := source
-				if is_copy {
-					value = new_vreg(output, .Int) or_return
-					emit(
-						output,
-						selector.block,
-						.MOVZX if width < 4 else .MOV,
-						u8(width),
-						value,
-						Memory_Ref{base = source, displacement = i32(position)},
-					) or_return
-				} else {
-					width = 1
-				}
-				values[length], widths[length], positions[length] = value, u8(width), i32(position)
-				length += 1
-				position += width
-			}
-			for index in 0 ..< length {
-				emit(output, selector.block, .MOV, widths[index], Memory_Ref{base = destination, displacement = positions[index]}, values[index]) or_return
-			}
-			return nil
-		}
-	}
 	destination_copy := new_vreg(output, .Int) or_return
 	source_copy := new_vreg(output, .Int) or_return
 	count_copy := new_vreg(output, .Int) or_return
@@ -205,5 +319,49 @@ select_copy_set :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Status 
 	emit_instruction(output, forward, Machine_Instruction{mnemonic = .MOVSB, width = 1, rep = true, operands = operands[:]}) or_return
 	select_jump(selector, done) or_return
 	selector.block = done
+	return nil
+}
+
+// Each chunk moves through one register; a copy loads its source bytes, a fill stores its
+// single value byte by byte.
+@(private)
+select_inline_copy_set :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Status {
+	input, output := selector.input, selector.output
+	inputs := ir.node_inputs(input, node)
+	is_copy := input.nodes.kind[node] == .Mem_Copy
+	size, _ := inline_copy_size(selector, node)
+	destination := select_address(selector, inputs[2]) or_return
+	source: Memory_Ref
+	fill: Vreg
+	if is_copy {
+		source = select_address(selector, inputs[3]) or_return
+	} else {
+		fill = select_value(selector, inputs[3]) or_return
+	}
+	values: [INLINE_COPY_LIMIT]Vreg
+	widths: [INLINE_COPY_LIMIT]u8
+	positions: [INLINE_COPY_LIMIT]i32
+	length := 0
+	for position := u64(0); position < size; {
+		width := u64(8)
+		for width > size - position { width /= 2 }
+		value := fill
+		if is_copy {
+			value = new_vreg(output, .Int) or_return
+			load := source
+			load.displacement += i32(position)
+			emit(output, selector.block, .MOVZX if width < 4 else .MOV, u8(width), value, load) or_return
+		} else {
+			width = 1
+		}
+		values[length], widths[length], positions[length] = value, u8(width), i32(position)
+		length += 1
+		position += width
+	}
+	for index in 0 ..< length {
+		store := destination
+		store.displacement += positions[index]
+		emit(output, selector.block, .MOV, widths[index], store, values[index]) or_return
+	}
 	return nil
 }

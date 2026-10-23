@@ -54,24 +54,27 @@ select_function :: proc(
 
 @(private)
 Selector :: struct {
-	input:      ^ir.Function,
-	output:     ^Machine_Function,
-	schedule:   ^sched.Schedule,
+	input:         ^ir.Function,
+	output:        ^Machine_Function,
+	schedule:      ^sched.Schedule,
 	// Effective features for this function: its own enable set union the module baseline.
-	features:   types.X86_Features,
-	allocator:  mem.Allocator,
-	values:     []Vreg,
-	tuples:     [][]Vreg,
-	slots:      []u32,
-	blocks:     []u32,
-	edges:      [][]u32,
-	nodes_of:   [][]ir.Node_Id,
-	resolved:   []ir.Block_Id,
-	current:    ir.Node_Id,
-	block:      u32,
-	signature:  ir.Signature,
-	assignment: Assignment,
-	params:     []Machine_Operand,
+	features:      types.X86_Features,
+	allocator:     mem.Allocator,
+	values:        []Vreg,
+	materialized:  []bool,
+	address_parts: []Address_Parts,
+	address_ready: []bool,
+	tuples:        [][]Vreg,
+	slots:         []u32,
+	blocks:        []u32,
+	edges:         [][]u32,
+	nodes_of:      [][]ir.Node_Id,
+	resolved:      []ir.Block_Id,
+	current:       ir.Node_Id,
+	block:         u32,
+	signature:     ir.Signature,
+	assignment:    Assignment,
+	params:        []Machine_Operand,
 }
 
 @(private)
@@ -92,17 +95,20 @@ select_function_impl :: proc(
 	defer virtual.arena_destroy(&arena)
 	allocator := virtual.arena_allocator(&arena)
 	selector := Selector {
-		input     = input,
-		output    = output,
-		schedule  = schedule,
-		allocator = allocator,
-		values    = make([]Vreg, len(input.nodes), allocator) or_return,
-		tuples    = make([][]Vreg, len(input.nodes), allocator) or_return,
-		slots     = make([]u32, len(input.nodes), allocator) or_return,
-		blocks    = make([]u32, len(schedule.blocks), allocator) or_return,
-		edges     = make([][]u32, len(schedule.blocks), allocator) or_return,
-		nodes_of  = make([][]ir.Node_Id, len(schedule.blocks), allocator) or_return,
-		resolved  = make([]ir.Block_Id, len(schedule.blocks), allocator) or_return,
+		input         = input,
+		output        = output,
+		schedule      = schedule,
+		allocator     = allocator,
+		values        = make([]Vreg, len(input.nodes), allocator) or_return,
+		materialized  = make([]bool, len(input.nodes), allocator) or_return,
+		address_parts = make([]Address_Parts, len(input.nodes), allocator) or_return,
+		address_ready = make([]bool, len(input.nodes), allocator) or_return,
+		tuples        = make([][]Vreg, len(input.nodes), allocator) or_return,
+		slots         = make([]u32, len(input.nodes), allocator) or_return,
+		blocks        = make([]u32, len(schedule.blocks), allocator) or_return,
+		edges         = make([][]u32, len(schedule.blocks), allocator) or_return,
+		nodes_of      = make([][]ir.Node_Id, len(schedule.blocks), allocator) or_return,
+		resolved      = make([]ir.Block_Id, len(schedule.blocks), allocator) or_return,
 	}
 	selector.features = input.target_features | types.x86_level_features(microarch)
 	if len(schedule.blocks) == 0 || int(input.signature) >= len(input.signatures) {
@@ -159,6 +165,7 @@ select_function_impl :: proc(
 		selector.values[node] = new_vreg(output, class) or_return
 	}
 	selector.params = lower_start(output, 0, selector.signature, selector.assignment, allocator) or_return
+	cover_addresses(&selector) or_return
 	for block in schedule.blocks {
 		if selector.resolved[block.id] != block.id { continue }
 		selector.block = selector.blocks[block.id]
@@ -309,6 +316,7 @@ select_value :: proc(selector: ^Selector, node: ir.Node_Id) -> (value: Vreg, err
 		return 0, select_failure(selector)
 	}
 	kind := input.nodes.kind[node]
+	if address_node(kind) && !selector.materialized[node] { return 0, select_failure(selector, .Malformed_Input) }
 	if .Rematerialize not_in ir.kind_info[kind].flags { return selector.values[node], nil }
 	class := Register_Class.Int
 	if got, is_register := register_class_of(input.nodes.type[node]); is_register {

@@ -101,14 +101,18 @@ bitwise_atomic_preserves_inputs_from_scratch_registers :: proc(t: ^testing.T) {
 		testing.expect_value(t, emit_pseudo(&function, block, .Entry, fixed(address, gpr(.RDI), .Def), fixed(value, gpr(register), .Def)), nil)
 		values := make([]Vreg, len(input.nodes), allocator)
 		tuples := make([][]Vreg, len(input.nodes), allocator)
+		address_parts := make([]Address_Parts, len(input.nodes), allocator)
+		address_ready := make([]bool, len(input.nodes), allocator)
 		values[address_node], values[value_node] = address, value
 		selector := Selector {
-			input     = input,
-			output    = &function,
-			allocator = allocator,
-			values    = values,
-			tuples    = tuples,
-			block     = block,
+			input         = input,
+			output        = &function,
+			allocator     = allocator,
+			values        = values,
+			tuples        = tuples,
+			address_parts = address_parts,
+			address_ready = address_ready,
+			block         = block,
 		}
 		if !testing.expect_value(t, select_atomic(&selector, atomic), nil) { return }
 		testing.expect_value(t, emit_pseudo(&function, block, .Return), nil)
