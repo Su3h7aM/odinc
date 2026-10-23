@@ -19,6 +19,13 @@ lower_string_switch_plan :: proc(state: ^Procedure_State, node: syntax.Node_Inde
 lower_string_case :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan_id: check.Plan_Id) -> ir.Node_Id {
 	plan := check.plan(state.job.program, plan_id)
 	if plan == nil { return lower_fail(state, node, .Switch) }
+	if interval, is_interval := plan^.(check.Interval_Plan); is_interval {
+		lower := lower_string_case(state, node, interval.lower_compare)
+		if state.failed { return 0 }
+		upper := lower_string_case(state, node, interval.upper_compare)
+		if state.failed { return 0 }
+		return ir.binary(state.job.function, .And, lower, upper)
+	}
 	call, ok := plan^.(check.Call_Plan)
 	if !ok || len(call.results) != 1 { return lower_fail(state, node, .Switch) }
 	values: [1]ir.Node_Id

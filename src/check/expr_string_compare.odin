@@ -61,6 +61,38 @@ runtime_comparison_plan :: proc(checker: ^Expression_Checker, name: string, left
 	return plan, true, nil
 }
 
+@(private = "package")
+string_interval_comparisons :: proc(
+	checker: ^Expression_Checker,
+	tag_entity: Entity_Id,
+	tag_type: types.Type_Id,
+	interval: syntax.Binary_Expr,
+	view: View_Id,
+	inclusive: bool,
+) -> (
+	lower, upper: Plan_Id,
+	supported: bool,
+	err: Resolve_Error,
+) {
+	store := checker.type_checker.store
+	kind := types.get(store, conversion_base_type(store, tag_type)).kind
+	upper_operator := syntax.Token_Kind.Lt_Eq if inclusive else .Lt
+	lower_supported, upper_supported: bool
+	lower, lower_supported = runtime_comparison_plan(
+		checker,
+		runtime_comparison_name(kind, .Gt_Eq),
+		Operand(tag_entity),
+		Operand(Expression_Ref{view, interval.left}),
+	) or_return
+	upper, upper_supported = runtime_comparison_plan(
+		checker,
+		runtime_comparison_name(kind, upper_operator),
+		Operand(tag_entity),
+		Operand(Expression_Ref{view, interval.right}),
+	) or_return
+	return lower, upper, lower_supported && upper_supported, nil
+}
+
 @(private = "file")
 runtime_comparison_name :: proc(kind: types.Kind, operator: syntax.Token_Kind) -> string {
 	#partial switch operator {

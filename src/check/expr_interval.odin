@@ -5,9 +5,11 @@ import "oc:syntax"
 import "oc:types"
 
 Interval_Plan :: struct {
-	lower:     Operand,
-	upper:     Operand,
-	inclusive: bool,
+	lower:         Operand,
+	upper:         Operand,
+	inclusive:     bool,
+	lower_compare: Plan_Id,
+	upper_compare: Plan_Id,
 }
 
 @(private = "package")
@@ -31,6 +33,7 @@ expression_switch_interval :: proc(
 	node: syntax.Node_Index,
 	interval: syntax.Binary_Expr,
 	tag_type: types.Type_Id,
+	tag_entity: Entity_Id,
 ) -> (
 	plan: Plan_Id,
 	ok: bool,
@@ -60,6 +63,16 @@ expression_switch_interval :: proc(
 			return 0, false, err
 		}
 	}
+	inclusive := interval.op.kind != .Range_Half
+	lower_compare, upper_compare: Plan_Id
+	if tag_entity != 0 {
+		supported: bool
+		lower_compare, upper_compare, supported = string_interval_comparisons(checker, tag_entity, tag_type, interval, view, inclusive) or_return
+		if !supported {
+			expression_unsupported(checker, view, scope, node, "Switch_Comparison") or_return
+			return 0, false, nil
+		}
+	}
 	plan = Plan_Id(len(checker.plans))
 	append(
 		&checker.plans,
@@ -67,7 +80,9 @@ expression_switch_interval :: proc(
 			Interval_Plan {
 				lower = Operand(Expression_Ref{view, interval.left}),
 				upper = Operand(Expression_Ref{view, interval.right}),
-				inclusive = interval.op.kind != .Range_Half,
+				inclusive = inclusive,
+				lower_compare = lower_compare,
+				upper_compare = upper_compare,
 			},
 		),
 	) or_return

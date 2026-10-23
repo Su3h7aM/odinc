@@ -51,7 +51,7 @@ expression_switch :: proc(checker: ^Expression_Checker, view: View_Id, file_id: 
 		for value in syntax.node_list(file.ast, case_clause.list) {
 			if statement.cond != 0 {
 				if interval, is_interval := expression_interval(checker, file_id, value); is_interval {
-					plan, interval_ok, interval_error := expression_switch_interval(checker, view, switch_scope, value, interval, tag_type)
+					plan, interval_ok, interval_error := expression_switch_interval(checker, view, switch_scope, value, interval, tag_type, tag_entity)
 					if interval_error != nil { return interval_error }
 					if interval_ok && tag_entity != 0 { append(&comparisons, plan) or_return }
 					continue
