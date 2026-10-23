@@ -83,7 +83,7 @@ Keep the number of tests to the minimum necessary. Write only tests that provide
 
 Validate once, at the end. Finish the whole implementation first, then run the checks and tests for the touched packages a single time. While working, use a small `/tmp` reproducer instead of a test suite.
 
-- `mise run upstream-test` is slow. Run it only when the change targets behavior the upstream suite covers, and select the stages that cover it: `mise run upstream-test <fork|odinc> [stage...]`. The fork baseline in `build/upstream-tests-fork/` is reused, not rerun.
+- `mise run test-upstream` runs the `tests/` suite with odinc and is slow. Run it only when the change targets behavior the suite covers, and select the stages that cover it: `mise run test-upstream [stage...]`.
 - The orchestrator states this rule in every task prompt.
 
 ## Workflow

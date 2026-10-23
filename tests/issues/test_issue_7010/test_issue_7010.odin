@@ -116,4 +116,4 @@ test_simd :: proc(t: ^testing.T) {
 }
 
 // clang -c test_issue_7010.c -o test_issue_7010_c.o
-// odin test test_issue_7010.odin -file
+// odin test test_issue_7010.odin

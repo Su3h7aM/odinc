@@ -36,12 +36,11 @@ execute_struct_checks :: proc(t: ^testing.T) {
 			log.errorf("fork() failed: %s", posix.strerror())
 		case 0:
 			posix.execlp(
-				ODIN_ROOT + "/odin",
-				ODIN_ROOT + "/odin",
+				ODIN_ROOT + "/build/odinc",
+				ODIN_ROOT + "/build/odinc",
 				"build",
 				#directory + "/structs/structs.odin",
-				"-out:" + #directory + "/structs/odin_structs",
-				"-file",
+				"--output=" + #directory + "/structs/odin_structs",
 				nil,
 			)
 			posix.exit(69)

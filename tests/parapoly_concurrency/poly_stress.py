@@ -14,22 +14,22 @@ exercises those paths hard enough to surface:
 
 Method: generate a corpus that instantiates many polymorphic procedures and records, including
 many mutually-recursive generic record pairs entered from both directions concurrently, build it
-with -build-mode:llvm (checker + IR only, fast, no linking), and compare a single-threaded
+with --build-mode=llvm (checker + IR only, fast, no linking), and compare a single-threaded
 baseline against many multi-threaded builds. A per-run timeout is treated as a deadlock, a
 nonzero exit as a crash, and a differing set of emitted `define` symbols as nondeterminism.
 
 Examples
 --------
     # struct pairs (the default), heavy:
-    python poly_stress.py all --odin ../../odin.exe --work ./_work \
+    python poly_stress.py all --odin ../../build/odinc.exe --work ./_work \
         --kind struct --pairs 300 --procs 200 --threads 32 --iters 25
 
     # union pairs (currently reproduces a pre-existing mutual-recursion crash):
-    python poly_stress.py all --odin ../../odin.exe --work ./_work --kind union --pairs 50
+    python poly_stress.py all --odin ../../build/odinc.exe --work ./_work --kind union --pairs 50
 
     # generate once, then run repeatedly:
-    python poly_stress.py gen --out ./_work/corpus --kind struct --pairs 300
-    python poly_stress.py run --odin ../../odin.exe --corpus ./_work/corpus --work ./_work
+    python poly_stress.py gen --output ./_work/corpus --kind struct --pairs 300
+    python poly_stress.py run --odin ../../build/odinc.exe --corpus ./_work/corpus --work ./_work
 """
 
 import argparse
@@ -199,8 +199,8 @@ def build_once(odin, corpus, out_dir, threads, timeout):
     if os.path.isdir(out_dir):
         shutil.rmtree(out_dir, ignore_errors=True)
     os.makedirs(out_dir, exist_ok=True)
-    cmd = [odin, "build", corpus, "-build-mode:llvm",
-           f"-thread-count:{threads}", "-out:" + out_dir]
+    cmd = [odin, "build", corpus, "--build-mode=llvm",
+           f"--thread-count={threads}", "--output=" + out_dir]
     t0 = time.time()
     try:
         p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
@@ -279,7 +279,7 @@ def main():
         p.add_argument("--iters", type=int, default=20)
         p.add_argument("--timeout", type=int, default=60)
 
-    g = sub.add_parser("gen"); g.add_argument("--out", required=True); add_gen_args(g)
+    g = sub.add_parser("gen"); g.add_argument("--output", required=True); add_gen_args(g)
     r = sub.add_parser("run")
     r.add_argument("--odin", required=True); r.add_argument("--corpus", required=True)
     r.add_argument("--work", required=True); add_run_args(r)

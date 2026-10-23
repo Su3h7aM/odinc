@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+#MISE description="Run the upstream tests with odinc"
+set -uo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
+STAGES=(examples examples_sdl3 internal core_normal wycheproof noise x509_limbo vendor issues abi_default benchmark_check atomic_diagnostics)
+for stage in "$@"; do
+	found=false
+	for available in "${STAGES[@]}"; do
+		if [[ "$stage" == "$available" ]]; then found=true; break; fi
+	done
+	if [[ "$found" == false ]]; then
+		printf 'unknown test-upstream stage: %s\nusage: mise run test-upstream [stage...]\navailable stages: %s\n' "$stage" "${STAGES[*]}" >&2
+		exit 1
+	fi
+done
+if (($#)); then STAGES=("$@"); fi
+ODIN_BIN="$PROJECT_ROOT/build/odinc"
+[[ -x "$ODIN_BIN" ]] || die "odinc is missing; run mise run build first"
+RUN_ROOT=$(mktemp -d /tmp/odinc-suite.XXXXXX)
+trap 'rm -rf "$RUN_ROOT"' EXIT
+cp -a "$PROJECT_ROOT/tests" "$RUN_ROOT/tests"
+mkdir -p "$RUN_ROOT/build"
+ln -s "$ODIN_BIN" "$RUN_ROOT/build/odinc"
+export ODIN="$RUN_ROOT/build/odinc"
+export ODIN_ROOT="$PROJECT_ROOT"
+LOG="$PROJECT_ROOT/build/test-upstream"
+mkdir -p "$LOG"
+: > "$LOG/summary.txt"
+FLAGS='--vet --vet-tabs --strict-style --vet-style --warnings-as-errors --disallow-do'
+TF='--define=ODIN_TEST_FANCY=false --define=ODIN_TEST_FAIL_ON_BAD_MEMORY=true'
+run_stage() {
+	local name="$1"; shift
+	printf '\n==> %s\n' "$name"
+	( timeout 3000 bash -c "$*" ) >"$LOG/$name.log" 2>&1
+	local code=$?
+	printf '%s exit=%s\n' "$name" "$code" | tee -a "$LOG/summary.txt"
+	return 0
+}
+for stage in "${STAGES[@]}"; do
+	case "$stage" in
+		examples) run_stage examples "\"\$ODIN\" check $PROJECT_ROOT/examples/all $FLAGS" ;;
+		examples_sdl3) run_stage examples_sdl3 "\"\$ODIN\" check $PROJECT_ROOT/examples/all/sdl3 $FLAGS --no-entry-point" ;;
+		internal) run_stage internal "cd $RUN_ROOT/tests/internal && \"\$ODIN\" test . --all-packages $FLAGS $TF --sanitize=address" ;;
+		core_normal) run_stage core_normal "cd $RUN_ROOT/tests/core && \"\$ODIN\" test normal.odin --all-packages $FLAGS $TF --sanitize=address" ;;
+		wycheproof) run_stage wycheproof "cd $RUN_ROOT/tests/core && \"\$ODIN\" test crypto/wycheproof --vet --vet-tabs --strict-style --vet-style --vet-cast --warnings-as-errors --disallow-do --define=ODIN_TEST_FANCY=false" ;;
+		noise) run_stage noise "cd $RUN_ROOT/tests/core && \"\$ODIN\" test crypto/noise --vet --vet-tabs --strict-style --vet-style --vet-cast --warnings-as-errors --disallow-do --define=ODIN_TEST_FANCY=false" ;;
+		x509_limbo) run_stage x509_limbo "cd $RUN_ROOT/tests/core && \"\$ODIN\" test crypto/x509_limbo --vet --vet-tabs --strict-style --vet-style --vet-cast --warnings-as-errors --disallow-do --define=ODIN_TEST_FANCY=false" ;;
+		vendor) run_stage vendor "mkdir -p $RUN_ROOT/vendor_build && cp $PROJECT_ROOT/vendor/lua/5.4/linux/*.so $RUN_ROOT/vendor_build/ && cd $RUN_ROOT/vendor_build && LD_LIBRARY_PATH=$RUN_ROOT/vendor_build \"\$ODIN\" test $RUN_ROOT/tests/vendor --all-packages $FLAGS $TF --sanitize=address" ;;
+		issues) run_stage issues "cd $RUN_ROOT/tests/issues && ./run.sh" ;;
+		abi_default) run_stage abi_default "cd $RUN_ROOT/tests/abi && ABI_CFLAGS= ./run.sh" ;;
+		benchmark_check) run_stage benchmark_check "\"\$ODIN\" check $RUN_ROOT/tests/benchmark --vet --vet-tabs --strict-style --vet-style --warnings-as-errors --disallow-do --no-entry-point" ;;
+		atomic_diagnostics) run_stage atomic_diagnostics "mkdir -p $RUN_ROOT/tests/issues/build && cd $RUN_ROOT/tests/issues/build && \"\$ODIN\" check ../test_issue_atomic_access --no-entry-point --vet-atomic-access --define=ODIN_TEST_FANCY=false --vet --strict-style --ignore-unused-defineables --show-timings" ;;
+	esac
+done
+printf '\nSuite summary: %s\n' "$LOG/summary.txt"

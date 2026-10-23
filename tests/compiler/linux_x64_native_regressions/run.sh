@@ -9,7 +9,7 @@ fi
 here=$(cd "$(dirname "$0")" && pwd)
 root=$(cd "$here/../../.." && pwd)
 export ODIN_ROOT="$root"
-odin=${ODIN:-$root/odin}
+odin=${ODIN:-$root/build/odinc}
 out=$(mktemp -d)
 trap 'rm -rf "$out"' EXIT
 mkdir "$out/tmp"
@@ -32,18 +32,18 @@ assert_native() {
 }
 
 for optimization in none speed; do
-	"$odin" build "$here/fma.odin" -file -out:"$out/fma" -o:"$optimization" -microarch:generic
+	"$odin" build "$here/fma.odin" --output="$out/fma" --opt="$optimization" --mcpu=generic
 	assert_native "$out/fma"
 	"$out/fma"
 	assert_no_proofs
 done
 
-"$odin" build "$here/intrinsic_fallback.odin" -file -out:"$out/intrinsic-fallback"
+"$odin" build "$here/intrinsic_fallback.odin" --output="$out/intrinsic-fallback"
 "$out/intrinsic-fallback"
 assert_no_proofs
 
 # Managed rechecking must reuse its proof object and remove its directory.
-"$odin" build "$here/proof_cleanup.odin" -file -out:"$out/proof-cleanup" -show-system-calls >"$out/build.log" 2>&1
+"$odin" build "$here/proof_cleanup.odin" --output="$out/proof-cleanup" --show-system-calls >"$out/build.log" 2>&1
 "$out/proof-cleanup"
 if [ "$(grep -c 'proof_input.asm" -f' "$out/build.log")" -ne 1 ]; then
 	cat "$out/build.log" >&2
@@ -53,7 +53,7 @@ fi
 assert_no_proofs
 
 # Check mode also assembles proofs.
-"$odin" check "$here/proof_cleanup.odin" -file
+"$odin" check "$here/proof_cleanup.odin" 
 assert_no_proofs
 
 echo 'Linux x64 native compiler regressions passed'

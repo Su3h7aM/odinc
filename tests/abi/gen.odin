@@ -7,7 +7,7 @@
 // agree", so one corpus is valid on every target without knowing whether it is
 // SysV, AAPCS64 or Win64.
 //
-//	odin run gen.odin -file -- <output directory>
+//	odin run gen.odin -- <output directory>
 package abi_gen
 
 import "core:fmt"

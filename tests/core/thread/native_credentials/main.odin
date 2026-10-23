@@ -2,7 +2,7 @@
 package main
 
 // Run in a disposable user namespace with at least two mapped IDs:
-// odin build tests/core/thread/native_credentials -no-crt -out:/tmp/odin-credentials
+// odin build tests/core/thread/native_credentials --no-crt --output=/tmp/odin-credentials
 // timeout 15 unshare -Ur --map-auto /tmp/odin-credentials
 // This needs a separate process because it changes every native thread's IDs.
 import "base:intrinsics"
