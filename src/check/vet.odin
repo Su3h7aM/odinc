@@ -39,6 +39,7 @@ check_vet :: proc(checker: ^Expression_Checker, errors_found: bool) -> Resolve_E
 		if complete { check_when_shadowing(checker, scopes, &entity, Entity_Id(index), flags, first) or_return }
 	}
 	check_deprecated_imports(checker, first) or_return
+	check_deprecated_field_align(checker, first) or_return
 	slice.sort_by(checker.diagnostics[first:], proc(a, b: Expression_Diagnostic) -> bool {
 		if a.source.file != b.source.file { return a.source.file < b.source.file }
 		return a.source.start < b.source.start
@@ -239,6 +240,28 @@ report_deprecated_import :: proc(checker: ^Expression_Checker, first: int, decla
 	)
 	span := file.ast.nodes[declaration.node]
 	return report_at(checker, first, .Deprecated, severity, {declaration.file, span.start, span.end}, reason)
+}
+
+@(private = "file")
+check_deprecated_field_align :: proc(checker: ^Expression_Checker, first: int) -> Resolve_Error {
+	for file, index in checker.type_checker.files {
+		if file == nil { continue }
+		for node, node_index in file.ast.nodes {
+			if node.kind != .Struct_Type { continue }
+			record := syntax.node_payload(file.ast, syntax.Node_Index(node_index), syntax.Struct_Type)
+			if record.field_align_pos == 0 { continue }
+			start := record.field_align_pos
+			report_at(
+				checker,
+				first,
+				.Deprecated,
+				.Warning,
+				{File_Id(index), start, start + len("field_align")},
+				"#field_align has been deprecated in favour of #min_field_align",
+			) or_return
+		}
+	}
+	return nil
 }
 
 // Generic instances check one body several times, so a finding at an already reported place is dropped.

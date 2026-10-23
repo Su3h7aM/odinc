@@ -469,6 +469,7 @@ Fixed_Capacity_Dynamic_Array_Type :: struct {
 
 Struct_Type :: struct {
 	tok_pos:         u32,
+	field_align_pos: u32,
 	poly_params:     Node_Index,
 	align:           Node_Index,
 	min_field_align: Node_Index,

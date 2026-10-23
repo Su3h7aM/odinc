@@ -1117,9 +1117,15 @@ enum_descriptor :: proc(
 		next = value + 1
 	}
 	members = members[:count]
+	fields := make([]types.Type_Field, count, checker.arena_allocator) or_return
+	for member, index in members {fields[index] = {
+			name = member.name,
+			type = base,
+		}}
 	descriptor = types.Type {
 		kind             = .Enum,
 		name             = name,
+		fields           = fields,
 		backing          = base,
 		count            = i64(count),
 		enum_lower_bound = lower,

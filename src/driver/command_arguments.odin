@@ -52,6 +52,7 @@ Command_Flags :: struct {
 	vet:                       bool,
 	vet_when_shadowing:        bool,
 	warnings_as_errors:        bool,
+	ignore_warnings:           bool,
 	strict_style:              bool,
 }
 
@@ -80,6 +81,7 @@ Check_Command_Flags :: struct {
 	vet:                       bool,
 	vet_when_shadowing:        bool,
 	warnings_as_errors:        bool,
+	ignore_warnings:           bool,
 	strict_style:              bool,
 }
 
@@ -144,11 +146,20 @@ parse_command_arguments :: proc(name: string, args: []string, allocator := conte
 		model.vet = check_flags.vet
 		model.vet_when_shadowing = check_flags.vet_when_shadowing
 		model.warnings_as_errors = check_flags.warnings_as_errors
+		model.ignore_warnings = check_flags.ignore_warnings
 		model.strict_style = check_flags.strict_style
 	} else {
 		command.help, error = parse_command_flag_model(&model, args, allocator)
 	}
 	if command.help || error != "" { return }
+	if model.ignore_warnings && model.warnings_as_errors {
+		for argument in args {
+			if argument == "--ignore-warnings" ||
+			   strings.has_prefix(argument, "--ignore-warnings=") { return command, "-warnings-as-errors cannot be used with -ignore-warnings" }
+			if argument == "--warnings-as-errors" ||
+			   strings.has_prefix(argument, "--warnings-as-errors=") { return command, "-ignore-warnings cannot be used with -warnings-as-errors" }
+		}
+	}
 
 	command.path = model.path
 	command.output = model.output
@@ -161,6 +172,7 @@ parse_command_arguments :: proc(name: string, args: []string, allocator := conte
 	if model.vet_unused_procedures && model.vet_packages == "" { return command, "--vet-unused-procedures must be used with --vet-packages" }
 	command.options.check_options = check.Check_Options {
 		warnings_as_errors = model.warnings_as_errors,
+		ignore_warnings    = model.ignore_warnings,
 	}
 	command.options.parse_options = syntax.Parse_Options {
 		disallow_do  = model.disallow_do,

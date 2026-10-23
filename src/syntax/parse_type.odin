@@ -694,6 +694,7 @@ parse_struct_type :: proc(p: ^Parser) -> Node_Index {
 	poly_params := parse_poly_params(p)
 
 	align, min_field_align, max_field_align: Node_Index
+	field_align_pos: u32
 	flags: Struct_Flags
 	prev_level := p.expr_level
 	p.expr_level = -1
@@ -707,6 +708,7 @@ parse_struct_type :: proc(p: ^Parser) -> Node_Index {
 			}
 			align = parse_expr(p, true)
 		case "min_field_align", "field_align":
+			if name == "field_align" { field_align_pos = tag.start + 1 }
 			if min_field_align != 0 {
 				report(p, .Duplicate_Directive, tag.start)
 			}
@@ -747,6 +749,7 @@ parse_struct_type :: proc(p: ^Parser) -> Node_Index {
 		close.end,
 		Struct_Type {
 			tok_pos = tok.start,
+			field_align_pos = field_align_pos,
 			poly_params = poly_params,
 			align = align,
 			min_field_align = min_field_align,

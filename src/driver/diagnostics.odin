@@ -48,6 +48,7 @@ write_diagnostics :: proc(session: ^Session, writer: io.Writer) {
 		write_diagnostic(session, writer, diagnostic.kind, "", diagnostic.source)
 	}
 	for diagnostic in session.checker.diagnostics {
+		if diagnostic.severity == .Warning && session.check_options.ignore_warnings { continue }
 		reason := diagnostic.reason
 		if diagnostic.kind == .Conversion && diagnostic.conversion != .None {
 			if reason == "" {

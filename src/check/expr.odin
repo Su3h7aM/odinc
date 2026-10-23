@@ -10,6 +10,7 @@ import "oc:types"
 
 Check_Options :: struct {
 	warnings_as_errors: bool,
+	ignore_warnings:    bool,
 	// The package whose declarations are all checked, so findings about whole files or packages are sound there.
 	complete_package:   Package_Id,
 }

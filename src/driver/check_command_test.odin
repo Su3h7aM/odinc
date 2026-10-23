@@ -4,7 +4,68 @@ import "core:os"
 import "core:path/filepath"
 import "core:strings"
 import "core:testing"
+import "oc:check"
 import "oc:syntax"
+
+@(test)
+check_command_warning_controls_and_anonymous_type_diagnostics :: proc(t: ^testing.T) {
+	root, _ := filepath.join({#directory, "..", ".."}, context.temp_allocator)
+	directory, directory_error := os.make_directory_temp("", "driver-check-warnings-*", context.temp_allocator)
+	if !testing.expect_value(t, directory_error, nil) { return }
+	defer os.remove_all(directory)
+	main_path, _ := filepath.join({directory, "main.odin"}, context.temp_allocator)
+	source := `package main
+S :: struct #field_align(8) { x: int }
+main :: proc() {
+	x: struct { a: int }
+	_ = cast(type_of(x))x
+	y: union { int, string }
+	_ = cast(type_of(y))y
+	e: enum { A, B }
+	_ = cast(type_of(e))e
+	b: bit_set[0..=3]
+	_ = cast(type_of(b))b
+	p: proc "contextless" (x: int, args: ..string) -> (a: bool, b: int)
+	_ = cast(type_of(p))p
+}
+`
+	if !testing.expect_value(t, os.write_entire_file(main_path, transmute([]byte)source), nil) { return }
+	for row in ([]struct {
+			vet:     syntax.Vet_Flags,
+			options: check.Check_Options,
+			error:   Driver_Error,
+			warning: bool,
+		}{{{}, {}, .None, true}, {{.Deprecated}, {}, .None, true}, {{}, {warnings_as_errors = true}, .Check_Failed, true}, {{}, {ignore_warnings = true}, .None, false}, {{.Cast}, {ignore_warnings = true}, .Check_Failed, false}}) {
+		log := strings.builder_make()
+		error := check_file(
+			root,
+			main_path,
+			strings.to_writer(&log),
+			context.allocator,
+			false,
+			nil,
+			nil,
+			parse_options = {vet = row.vet},
+			check_options = row.options,
+		)
+		testing.expect_value(t, error, row.error)
+		text := strings.to_string(log)
+		testing.expect_value(t, strings.contains(text, "#field_align has been deprecated in favour of #min_field_align"), row.warning)
+		if .Cast in row.vet {
+			for spelling in ([]string{"struct {a: int}", "union {int, string}", "enum int {A, B}", "bit_set[0..=3]", "proc \"contextless\" (int, ..string) -> (bool, int)"}) {
+				testing.expect(t, strings.contains(text, spelling), text)
+			}
+		}
+		strings.builder_destroy(&log)
+	}
+	for arguments, index in ([][]string{{".", "--ignore-warnings", "--warnings-as-errors"}, {".", "--warnings-as-errors", "--ignore-warnings"}}) {
+		command, error := parse_command_arguments("check", arguments)
+		defer delete(command.collections)
+		defer delete(command.options.defines)
+		expected := "-warnings-as-errors cannot be used with -ignore-warnings" if index == 0 else "-ignore-warnings cannot be used with -warnings-as-errors"
+		testing.expect_value(t, error, expected)
+	}
+}
 
 @(test)
 check_command_checks_without_building :: proc(t: ^testing.T) {

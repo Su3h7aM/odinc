@@ -818,7 +818,7 @@ align_up :: proc(size, alignment: i64) -> i64 { if alignment <= 1 { return size 
 next_power_of_two :: proc(value: i64) -> i64 { if value <= 1 { return 1 }; result := i64(1); for result < value { result *= 2 }; return result }
 clamp :: proc(value, lower, upper: i64) -> i64 { return min(max(value, lower), upper) }
 
-// Spells common type forms as source text and any other form by its kind. The result is allocator-owned.
+// Spells types as in the official type_to_string. The result is allocator-owned.
 type_text :: proc(store: ^Store, id: Type_Id, allocator: runtime.Allocator) -> string {
 	builder := strings.builder_make(allocator)
 	write_type_text(&builder, store, id)
@@ -833,6 +833,40 @@ write_type_text :: proc(builder: ^strings.Builder, store: ^Store, id: Type_Id) {
 		return
 	}
 	#partial switch descriptor.kind {
+	case .Bool:
+		if descriptor.count == 0 { strings.write_string(builder, "bool") } else {
+			strings.write_byte(builder, 'b')
+			strings.write_i64(builder, descriptor.count * 8)
+		}
+	case .Integer, .Float, .Complex, .Quaternion:
+		prefix := "f"
+		#partial switch descriptor.kind {
+		case .Integer:
+			prefix = "u"; if descriptor.signed { prefix = "i" }
+		case .Complex:
+			prefix = "complex"
+		case .Quaternion:
+			prefix = "quaternion"
+		case .Float:
+		}
+		strings.write_string(builder, prefix)
+		strings.write_i64(builder, descriptor.count * 8)
+		if descriptor.endianness == .Little { strings.write_string(builder, "le") }
+		if descriptor.endianness == .Big { strings.write_string(builder, "be") }
+	case .String:
+		strings.write_string(builder, "string")
+	case .String16:
+		strings.write_string(builder, "string16")
+	case .CString:
+		strings.write_string(builder, "cstring")
+	case .CString16:
+		strings.write_string(builder, "cstring16")
+	case .Raw_Pointer:
+		strings.write_string(builder, "rawptr")
+	case .Any:
+		strings.write_string(builder, "any")
+	case .Type_Id:
+		strings.write_string(builder, "typeid")
 	case .Pointer:
 		strings.write_byte(builder, '^')
 		write_type_text(builder, store, descriptor.elem)
@@ -850,7 +884,152 @@ write_type_text :: proc(builder: ^strings.Builder, store: ^Store, id: Type_Id) {
 		strings.write_i64(builder, descriptor.count)
 		strings.write_byte(builder, ']')
 		write_type_text(builder, store, descriptor.elem)
+	case .Struct:
+		if descriptor.soa != .None {
+			switch descriptor.soa {
+			case .Fixed:
+				strings.write_string(builder, "#soa[")
+				strings.write_i64(builder, descriptor.count)
+				strings.write_byte(builder, ']')
+			case .Slice:
+				strings.write_string(builder, "#soa[]")
+			case .Dynamic:
+				strings.write_string(builder, "#soa[dynamic]")
+			case .None:
+			}
+			write_type_text(builder, store, descriptor.soa_elem)
+			return
+		}
+		strings.write_string(builder, "struct")
+		if descriptor.packed { strings.write_string(builder, " #packed") }
+		if descriptor.raw_union { strings.write_string(builder, " #raw_union") }
+		write_type_alignment(builder, descriptor.custom_align)
+		strings.write_string(builder, " {")
+		if len(descriptor.fields) > 16 {
+			strings.write_i64(builder, i64(len(descriptor.fields)))
+			strings.write_string(builder, " fields...")
+		} else {
+			for field, index in descriptor.fields {
+				if index != 0 { strings.write_string(builder, ", ") }
+				strings.write_string(builder, field.name)
+				strings.write_string(builder, ": ")
+				write_type_text(builder, store, field.type)
+			}
+		}
+		strings.write_byte(builder, '}')
+	case .Union:
+		strings.write_string(builder, "union")
+		if descriptor.union_form == .No_Nil { strings.write_string(builder, " #no_nil") }
+		if descriptor.union_form == .Shared_Nil { strings.write_string(builder, " #shared_nil") }
+		write_type_alignment(builder, descriptor.custom_align)
+		strings.write_string(builder, " {")
+		write_type_list(builder, store, descriptor.variants)
+		strings.write_byte(builder, '}')
+	case .Enum:
+		strings.write_string(builder, "enum")
+		if descriptor.backing != TYPE_NONE {
+			strings.write_byte(builder, ' ')
+			write_type_text(builder, store, descriptor.backing)
+		}
+		strings.write_string(builder, " {")
+		for field, index in descriptor.fields {
+			if index != 0 { strings.write_string(builder, ", ") }
+			strings.write_string(builder, field.name)
+		}
+		strings.write_byte(builder, '}')
+	case .Bit_Set:
+		strings.write_string(builder, "bit_set[")
+		if descriptor.elem == TYPE_NONE {
+			strings.write_string(builder, "<unresolved>")
+		} else if get(store, core_type(store, descriptor.elem)).kind == .Enum {
+			write_type_text(builder, store, descriptor.elem)
+		} else {
+			strings.write_i64(builder, descriptor.lower_bound)
+			strings.write_string(builder, "..=")
+			strings.write_i64(builder, descriptor.upper_bound)
+		}
+		if descriptor.backing != TYPE_NONE {
+			strings.write_string(builder, "; ")
+			write_type_text(builder, store, descriptor.backing)
+		}
+		strings.write_byte(builder, ']')
+	case .Procedure:
+		strings.write_string(builder, "proc")
+		if descriptor.convention != .Odin {
+			strings.write_string(builder, " \"")
+			strings.write_string(builder, calling_convention_text(descriptor.convention))
+			strings.write_string(builder, "\" ")
+		}
+		strings.write_byte(builder, '(')
+		for parameter, index in descriptor.params {
+			if index != 0 { strings.write_string(builder, ", ") }
+			parameter := parameter
+			if index == len(descriptor.params) - 1 {
+				if descriptor.c_vararg { strings.write_string(builder, "#c_vararg ") }
+				if descriptor.variadic {
+					strings.write_string(builder, "..")
+					parameter = get(store, parameter).elem
+				}
+			}
+			write_type_text(builder, store, parameter)
+		}
+		strings.write_byte(builder, ')')
+		if len(descriptor.results) != 0 {
+			strings.write_string(builder, " -> ")
+			if len(descriptor.results) > 1 { strings.write_byte(builder, '(') }
+			write_type_list(builder, store, descriptor.results)
+			if len(descriptor.results) > 1 { strings.write_byte(builder, ')') }
+		}
+	case .Map:
+		strings.write_string(builder, "map[")
+		write_type_text(builder, store, descriptor.index)
+		strings.write_byte(builder, ']')
+		write_type_text(builder, store, descriptor.elem)
 	case:
 		strings.write_string(builder, reflect.enum_string(descriptor.kind))
 	}
+}
+
+@(private = "file")
+write_type_alignment :: proc(builder: ^strings.Builder, alignment: i64) {
+	if alignment == 0 { return }
+	strings.write_string(builder, " #align ")
+	strings.write_i64(builder, alignment)
+}
+
+@(private = "file")
+write_type_list :: proc(builder: ^strings.Builder, store: ^Store, ids: []Type_Id) {
+	for id, index in ids {
+		if index != 0 { strings.write_string(builder, ", ") }
+		write_type_text(builder, store, id)
+	}
+}
+
+@(private = "file")
+calling_convention_text :: proc(convention: Calling_Convention) -> string {
+	switch convention {
+	case .Odin:
+		return "odin"
+	case .Contextless:
+		return "contextless"
+	case .C:
+		return "c"
+	case .Stdcall:
+		return "stdcall"
+	case .Fastcall:
+		return "fastcall"
+	case .Win64:
+		return "win64"
+	case .SysV:
+		return "sysv"
+	case .Preserve_None:
+		return "preserve_none"
+	case .Preserve_Most:
+		return "preserve_most"
+	case .Preserve_All:
+		return "preserve_all"
+	case .Inline_Asm:
+		return "inline_asm"
+	}
+	return ""
 }
