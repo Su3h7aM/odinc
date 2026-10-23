@@ -9,9 +9,12 @@ import "oc:syntax"
 import "oc:types"
 
 Check_Options :: struct {
-	vet_using_stmt, vet_using_param: bool,
-	warnings_as_errors:              bool,
+	vet_using_stmt, vet_using_param:          bool,
+	vet_unused_variables, vet_unused_imports: bool,
+	warnings_as_errors:                       bool,
 }
+
+Message_Diagnostics :: bit_set[Expression_Diagnostic_Kind]{.Using_Shadowing, .Unused, .Large_Local}
 
 Diagnostic_Severity :: enum u8 {
 	Error,
@@ -21,6 +24,8 @@ Diagnostic_Severity :: enum u8 {
 Expression_Diagnostic_Kind :: enum u8 {
 	None,
 	Using_Shadowing,
+	Unused,
+	Large_Local,
 	Unsupported,
 	Undeclared_Name,
 	Invalid_Operand,

@@ -171,8 +171,15 @@ scope_inside_body :: proc(store: ^Scope_Store, scope: Scope_Id) -> bool {
 	return false
 }
 
-// Procedure boundaries hide enclosing runtime locals and labels, as scope_lookup_parent does.
+// Resolves a name that the program refers to, so the entity counts as used, as check_ident does in the official checker.
 scope_lookup :: proc(store: ^Scope_Store, scope: Scope_Id, name: string) -> (entity: Entity_Id, found_scope: Scope_Id) {
+	entity, found_scope = scope_find(store, scope, name)
+	if found := entity_get(store, entity); found != nil { found.flags += {.Used} }
+	return
+}
+
+// Procedure boundaries hide enclosing runtime locals and labels, as scope_lookup_parent does. Does not mark the entity used.
+scope_find :: proc(store: ^Scope_Store, scope: Scope_Id, name: string) -> (entity: Entity_Id, found_scope: Scope_Id) {
 	if name == "" || name == "_" { return }
 	crossed_procedure := false
 	current_scope := scope

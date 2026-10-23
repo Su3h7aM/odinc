@@ -56,7 +56,7 @@ write_diagnostics :: proc(session: ^Session, writer: io.Writer) {
 				reason = fmt.tprintf("%v %s", diagnostic.conversion, reason)
 			}
 		}
-		if diagnostic.severity == .Warning || diagnostic.kind == .Using_Shadowing {
+		if diagnostic.severity == .Warning || diagnostic.kind in check.Message_Diagnostics {
 			file := session.files[diagnostic.source.file]
 			line, column := syntax.line_col(file.lines, diagnostic.source.start)
 			severity := "Warning" if diagnostic.severity == .Warning && !session.check_options.warnings_as_errors else "Error"

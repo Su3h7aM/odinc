@@ -42,6 +42,9 @@ Command_Flags :: struct {
 	vet_semicolon:             bool,
 	vet_using_stmt:            bool,
 	vet_using_param:           bool,
+	vet_unused:                bool,
+	vet_unused_variables:      bool,
+	vet_unused_imports:        bool,
 	warnings_as_errors:        bool,
 	strict_style:              bool,
 }
@@ -61,6 +64,9 @@ Check_Command_Flags :: struct {
 	vet_semicolon:             bool,
 	vet_using_stmt:            bool,
 	vet_using_param:           bool,
+	vet_unused:                bool,
+	vet_unused_variables:      bool,
+	vet_unused_imports:        bool,
 	warnings_as_errors:        bool,
 	strict_style:              bool,
 }
@@ -116,6 +122,9 @@ parse_command_arguments :: proc(name: string, args: []string, allocator := conte
 		model.vet_semicolon = check_flags.vet_semicolon
 		model.vet_using_stmt = check_flags.vet_using_stmt
 		model.vet_using_param = check_flags.vet_using_param
+		model.vet_unused = check_flags.vet_unused
+		model.vet_unused_variables = check_flags.vet_unused_variables
+		model.vet_unused_imports = check_flags.vet_unused_imports
 		model.warnings_as_errors = check_flags.warnings_as_errors
 		model.strict_style = check_flags.strict_style
 	} else {
@@ -130,9 +139,11 @@ parse_command_arguments :: proc(name: string, args: []string, allocator := conte
 	command.options.all_packages = model.all_packages
 	command.options.thread_count = model.thread_count
 	command.options.check_options = check.Check_Options {
-		vet_using_stmt     = model.vet_using_stmt,
-		vet_using_param    = model.vet_using_param,
-		warnings_as_errors = model.warnings_as_errors,
+		vet_using_stmt       = model.vet_using_stmt,
+		vet_using_param      = model.vet_using_param,
+		vet_unused_variables = model.vet_unused || model.vet_unused_variables,
+		vet_unused_imports   = model.vet_unused || model.vet_unused_imports,
+		warnings_as_errors   = model.warnings_as_errors,
 	}
 	command.options.parse_options = syntax.Parse_Options {
 		vet_semicolon = model.vet_semicolon,

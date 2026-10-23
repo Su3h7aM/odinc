@@ -108,7 +108,7 @@ check_procedure_source :: proc(
 				   checker.diagnostics,
 			   ) { return {}, false }
 	}
-	if !testing.expect(t, check_using_shadowing(&checker) == nil) { return {}, false }
+	if !testing.expect(t, check_vet(&checker, 1, false) == nil) { return {}, false }
 	if expected_kind != .None {
 		reported := false
 		for diagnostic in checker.diagnostics { reported ||= diagnostic.kind == expected_kind && diagnostic.reason == expected_reason }

@@ -478,6 +478,7 @@ Entity_Flag :: enum u8 {
 	Any_Integer,
 	No_Broadcast,
 	Test,
+	Used,
 }
 Entity_Flags :: bit_set[Entity_Flag;u64]
 

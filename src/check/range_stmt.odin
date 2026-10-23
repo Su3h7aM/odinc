@@ -121,7 +121,16 @@ range_declare :: proc(
 	}
 	variable, create_error := entity_create(
 		checker.type_checker.resolver.scopes,
-		Entity{name = name, kind = .Variable, scope = scope, state = .Resolved, flags = flags, type = type, data = Variable_Data{storage = .Local}},
+		Entity {
+			name = name,
+			kind = .Variable,
+			scope = scope,
+			declaration = {checker.views[view].file, ident},
+			state = .Resolved,
+			flags = flags,
+			type = type,
+			data = Variable_Data{storage = .Local},
+		},
 	)
 	if create_error != nil { return binding_resolve_error(create_error) }
 	_, insert_error := scope_insert(checker.type_checker.resolver.scopes, scope, variable)

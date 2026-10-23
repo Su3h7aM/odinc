@@ -336,7 +336,7 @@ check_session :: proc(
 	if directive_error != nil || !directives_valid { return .Check_Failed }
 	startup_valid, startup_error := check.resolve_startup_procedures(&session.checker)
 	if startup_error != nil || !startup_valid { return .Check_Failed }
-	if check.check_using_shadowing(&session.checker) != nil { return .Allocation_Failed }
+	if check.check_vet(&session.checker, main_package, session_has_errors(session)) != nil { return .Allocation_Failed }
 	if session_has_errors(session) {
 		return .Check_Failed
 	}

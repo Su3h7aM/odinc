@@ -1,6 +1,7 @@
 package types
 
 import "base:runtime"
+import "core:reflect"
 import "core:strings"
 
 // Type_Id is a stable index into Store.types. Zero denotes no type; TYPE_POISON
@@ -815,3 +816,40 @@ target_max_align :: proc(config: Layout_Config) -> i64 { return config.max_align
 align_up :: proc(size, alignment: i64) -> i64 { if alignment <= 1 { return size }; return ((size + alignment - 1) / alignment) * alignment }
 next_power_of_two :: proc(value: i64) -> i64 { if value <= 1 { return 1 }; result := i64(1); for result < value { result *= 2 }; return result }
 clamp :: proc(value, lower, upper: i64) -> i64 { return min(max(value, lower), upper) }
+
+// Spells common type forms as source text and any other form by its kind. The result is allocator-owned.
+type_text :: proc(store: ^Store, id: Type_Id, allocator: runtime.Allocator) -> string {
+	builder := strings.builder_make(allocator)
+	write_type_text(&builder, store, id)
+	return strings.to_string(builder)
+}
+
+@(private = "file")
+write_type_text :: proc(builder: ^strings.Builder, store: ^Store, id: Type_Id) {
+	descriptor := get(store, id)
+	if descriptor.name != "" {
+		strings.write_string(builder, descriptor.name)
+		return
+	}
+	#partial switch descriptor.kind {
+	case .Pointer:
+		strings.write_byte(builder, '^')
+		write_type_text(builder, store, descriptor.elem)
+	case .Multi_Pointer:
+		strings.write_string(builder, "[^]")
+		write_type_text(builder, store, descriptor.elem)
+	case .Slice:
+		strings.write_string(builder, "[]")
+		write_type_text(builder, store, descriptor.elem)
+	case .Dynamic_Array:
+		strings.write_string(builder, "[dynamic]")
+		write_type_text(builder, store, descriptor.elem)
+	case .Array:
+		strings.write_byte(builder, '[')
+		strings.write_i64(builder, descriptor.count)
+		strings.write_byte(builder, ']')
+		write_type_text(builder, store, descriptor.elem)
+	case:
+		strings.write_string(builder, reflect.enum_string(descriptor.kind))
+	}
+}

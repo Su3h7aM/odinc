@@ -299,7 +299,7 @@ check_using_shadowing :: proc(checker: ^Expression_Checker) -> Resolve_Error {
 		if scope == nil || scope.kind == .Package || scope.kind == .File || scope.kind == .Procedure { continue }
 		parent := scope_get(scopes, scope.parent)
 		if parent == nil || parent.kind == .Package || parent.kind == .File { continue }
-		previous, _ := scope_lookup(scopes, scope.parent, entity.name)
+		previous, _ := scope_find(scopes, scope.parent, entity.name)
 		shadowed := entity_get(scopes, previous)
 		if shadowed == nil || shadowed.kind != .Variable || shadowed.type != entity.type { continue }
 		if entity.declaration.file == 0 || shadowed.declaration.file != entity.declaration.file { continue }

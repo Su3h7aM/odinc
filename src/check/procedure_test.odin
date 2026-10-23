@@ -208,3 +208,31 @@ global_initializers_require_contextless_unless_file_opts_in :: proc(t: ^testing.
 	_, accepted := check_procedure_source(t, transmute([]byte)string("#+feature global-context\n" + SOURCE), diagnostic_count = 0)
 	testing.expect(t, accepted)
 }
+
+@(test)
+unused_vet_reports_unread_locals_and_large_locals_warn :: proc(t: ^testing.T) {
+	// Official: an assigned variable counts as used; only never-referenced names are reported.
+	source := transmute([]byte)string("package sample\nf :: proc() { a := 1; b := 2; _ = b; c: int; c = 3 }\n")
+	_, ok := check_procedure_source(
+		t,
+		source,
+		.Unused,
+		"'a' declared but not used",
+		diagnostic_count = 1,
+		procedure_name = "f",
+		check_options = {vet_unused_variables = true},
+	)
+	testing.expect(t, ok)
+	_, silent := check_procedure_source(t, source, diagnostic_count = 0, procedure_name = "f")
+	testing.expect(t, silent)
+	large := transmute([]byte)string("package sample\nf :: proc() { big: [300000]u8; _ = big }\n")
+	_, warned := check_procedure_source(
+		t,
+		large,
+		.Large_Local,
+		"Declaration of 'big' may cause a stack overflow due to its type '[300000]u8' having a size of 300000 bytes",
+		diagnostic_count = 1,
+		procedure_name = "f",
+	)
+	testing.expect(t, warned)
+}
