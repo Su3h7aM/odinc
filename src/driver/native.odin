@@ -90,13 +90,14 @@ build_file :: proc(
 	level: types.X86_Level = .V1,
 	parse_options: syntax.Parse_Options = {},
 	interpreter: string = link.DEFAULT_INTERPRETER,
+	check_options: check.Check_Options = {},
 ) -> (
 	image: []byte,
 	err: Build_Error,
 ) {
 	file_error: File_Error
 	defer file_error_destroy(&file_error, allocator)
-	session, driver_err := check_program(odin_root, main_path, allocator, false, user_collections, defines, level, &file_error, parse_options)
+	session, driver_err := check_program(odin_root, main_path, allocator, false, user_collections, defines, level, &file_error, parse_options, check_options)
 	defer if session != nil { session_destroy(session) }
 	if driver_err == .Check_Failed || driver_err == .Unsupported_Import || driver_err == .Parse_Failed || driver_err == .Import_Cycle {
 		write_diagnostics(session, log)
@@ -115,6 +116,7 @@ build_file :: proc(
 		return nil, driver_err
 	}
 
+	write_diagnostics(session, log)
 	module: ir.Module
 	lower_errors, lower_err := lower.lower_program(&session.program, &module, allocator, worker_count = thread_count)
 	defer delete(lower_errors, allocator)

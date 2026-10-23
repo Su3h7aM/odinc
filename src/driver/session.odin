@@ -92,6 +92,7 @@ Session :: struct {
 	main_scope:          check.Scope_Id,
 	no_entry_point:      bool,
 	parse_options:       syntax.Parse_Options,
+	check_options:       check.Check_Options,
 	test_options:        ^Test_Options,
 	test_entry:          check.Entity_Id,
 	test_entry_file:     check.File_Id,
@@ -110,14 +111,39 @@ check_program :: proc(
 	level: types.X86_Level = .V1,
 	file_error: ^File_Error = nil,
 	parse_options: syntax.Parse_Options = {},
+	check_options: check.Check_Options = {},
 ) -> (
 	session: ^Session,
 	err: Driver_Error,
 ) {
-	session, err = check_program_profile(odin_root, main_path, allocator, no_entry_point, user_collections, defines, false, level, file_error, parse_options)
+	session, err = check_program_profile(
+		odin_root,
+		main_path,
+		allocator,
+		no_entry_point,
+		user_collections,
+		defines,
+		false,
+		level,
+		file_error,
+		parse_options,
+		check_options,
+	)
 	if session == nil || !session_uses_external_library(session) { return session, err }
 	session_destroy(session)
-	return check_program_profile(odin_root, main_path, allocator, no_entry_point, user_collections, defines, true, level, file_error, parse_options)
+	return check_program_profile(
+		odin_root,
+		main_path,
+		allocator,
+		no_entry_point,
+		user_collections,
+		defines,
+		true,
+		level,
+		file_error,
+		parse_options,
+		check_options,
+	)
 }
 
 // Owned profile first (no libc); a used external library makes check_program recheck with the managed profile.
@@ -132,6 +158,7 @@ check_program_profile :: proc(
 	level: types.X86_Level = .V1,
 	file_error: ^File_Error = nil,
 	parse_options: syntax.Parse_Options = {},
+	check_options: check.Check_Options = {},
 ) -> (
 	session: ^Session,
 	err: Driver_Error,
@@ -145,6 +172,7 @@ check_program_profile :: proc(
 	session.managed_libc = managed_libc
 	session.stop_at_external = !managed_libc
 	session.parse_options = parse_options
+	session.check_options = check_options
 	err = check_session(session, odin_root, main_path, user_collections, level, file_error)
 	if err != nil && err != .Check_Failed && err != .Unsupported_Import && err != .Parse_Failed && err != .Import_Cycle && err != .External_Library_Used {
 		session_destroy(session)
@@ -308,8 +336,8 @@ check_session :: proc(
 	if directive_error != nil || !directives_valid { return .Check_Failed }
 	startup_valid, startup_error := check.resolve_startup_procedures(&session.checker)
 	if startup_error != nil || !startup_valid { return .Check_Failed }
-	if len(session.collection.diagnostics) + len(session.type_checker.diagnostics) + len(session.resolver.diagnostics) + len(session.checker.diagnostics) !=
-	   0 {
+	if check.check_using_shadowing(&session.checker) != nil { return .Allocation_Failed }
+	if session_has_errors(session) {
 		return .Check_Failed
 	}
 
@@ -400,6 +428,7 @@ session_init_checkers :: proc(session: ^Session) -> Driver_Error {
 		allocator,
 	)
 	if checker_error != nil { return .Allocation_Failed }
+	session.checker.options = session.check_options
 	session.checker.packages = session.packages[:]
 	session.checker.target_features = session.build.target_features
 	session.checker.microarch = session.build.microarch
@@ -568,6 +597,7 @@ load_package :: proc(
 	defer os.file_info_slice_delete(infos, session.allocator)
 	slice.sort_by(infos, proc(a, b: os.File_Info) -> bool { return a.name < b.name })
 	loaded := 0
+	parse_failed := false
 	for info in infos {
 		if info.type == .Directory || !strings.has_suffix(info.name, ".odin") { continue }
 		source, source_error := os.read_entire_file_from_path(info.fullpath, session.allocator)
@@ -582,6 +612,7 @@ load_package :: proc(
 		}
 		file_id, load_error := load_source(session, info.fullpath, source, package_id, package_scope)
 		if load_error == .Parse_Failed {
+			parse_failed = true
 			failed_path, path_error := own(session, info.fullpath)
 			if path_error != .None { return path_error }
 			if error := push(&session.load_failures, failed_path); error != .None { return error }
@@ -594,7 +625,10 @@ load_package :: proc(
 		}
 		if check.collect_file(&session.collection, session.files[file_id], file_id, order) != nil { return .Check_Failed }
 	}
-	if loaded == 0 { return .Import_Failed }
+	if loaded == 0 {
+		if parse_failed { return .Parse_Failed }
+		return .Import_Failed
+	}
 	return .None
 }
 

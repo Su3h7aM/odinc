@@ -18,6 +18,7 @@ check_procedure_source :: proc(
 	package_name := "",
 	defines: map[string]string = nil,
 	microarch: types.X86_Level = .V1,
+	check_options: Check_Options = {},
 ) -> (
 	procedure: Procedure_Data,
 	ok: bool,
@@ -65,6 +66,8 @@ check_procedure_source :: proc(
 		source     = source,
 		scope      = file_scope,
 	}
+	file.lines = syntax.make_line_table(source, context.allocator)
+	defer syntax.destroy_line_table(&file.lines)
 	collection: Collection
 	collection_init(&collection, &scopes, context.allocator)
 	defer collection_destroy(&collection)
@@ -82,6 +85,7 @@ check_procedure_source :: proc(
 	) { return {}, false }
 	defer expression_checker_destroy(&checker)
 	checker.packages = []Package{{}, {kind = package_kind, name = package_name, scope = package_scope}}
+	checker.options = check_options
 	checker.defines = defines
 	checker.target_features = types.x86_features_list(types.x86_level_features(microarch), context.allocator)
 	checker.microarch = microarch
@@ -104,6 +108,7 @@ check_procedure_source :: proc(
 				   checker.diagnostics,
 			   ) { return {}, false }
 	}
+	if !testing.expect(t, check_using_shadowing(&checker) == nil) { return {}, false }
 	if expected_kind != .None {
 		reported := false
 		for diagnostic in checker.diagnostics { reported ||= diagnostic.kind == expected_kind && diagnostic.reason == expected_reason }

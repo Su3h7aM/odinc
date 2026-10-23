@@ -38,6 +38,7 @@ compile_command :: proc(name: string, args: []string) -> int {
 			   command.collections[:],
 			   command.options.defines,
 			   command.options.parse_options,
+			   command.options.check_options,
 		   ) !=
 		   .None { return 1 }
 		return 0
@@ -78,6 +79,7 @@ build_command_image :: proc(root: string, command: driver.Command_Arguments) -> 
 			command.options.microarch,
 			command.options.parse_options,
 			command.dynamic_linker,
+			command.options.check_options,
 		)
 	}
 	if error != nil { return 1 }

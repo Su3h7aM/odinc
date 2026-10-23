@@ -16,6 +16,7 @@ check_file :: proc(
 	collections: []Collection,
 	defines: map[string]string,
 	parse_options: syntax.Parse_Options = {},
+	check_options: check.Check_Options = {},
 ) -> Driver_Error {
 	file_error: File_Error
 	defer file_error_destroy(&file_error, allocator)
@@ -28,6 +29,7 @@ check_file :: proc(
 		defines,
 		file_error = &file_error,
 		parse_options = parse_options,
+		check_options = check_options,
 	)
 	defer session_destroy(session)
 	if error != .None {
@@ -41,6 +43,7 @@ check_file :: proc(
 		}
 		return error
 	}
+	write_diagnostics(session, writer)
 	return check_command_entry_point(session, writer, no_entry_point)
 }
 

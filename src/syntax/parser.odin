@@ -75,10 +75,11 @@ Parse_Error :: struct {
 
 // Parser must not move after `parser_init`: the tokenizer keeps a pointer to `lex_errors`.
 Parse_Options :: struct {
-	disallow_do:  bool,
-	vet_tabs:     bool,
-	vet_style:    bool,
-	strict_style: bool,
+	disallow_do:   bool,
+	vet_tabs:      bool,
+	vet_style:     bool,
+	vet_semicolon: bool,
+	strict_style:  bool,
 }
 
 Parser :: struct {
@@ -209,7 +210,7 @@ skip_possible_newline_before_brace :: proc(p: ^Parser, ignore_strict_style := fa
 
 check_unneeded_semicolon :: proc(p: ^Parser) {
 	semicolon := p.curr
-	if !p.options.strict_style || semicolon.kind != .Semicolon || is_inserted_semicolon(semicolon) { return }
+	if !(p.options.strict_style || p.options.vet_semicolon) || semicolon.kind != .Semicolon || is_inserted_semicolon(semicolon) { return }
 	next := peek_token(p, 0)
 	if newline_between(p, semicolon.end, next.start) || next.kind == .EOF || next.kind == .Close_Brace || next.kind == .Close_Paren {
 		report(p, .Unneeded_Semicolon, semicolon.start)

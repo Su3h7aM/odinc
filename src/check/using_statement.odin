@@ -1,5 +1,6 @@
 package check
 
+import "core:fmt"
 import "core:math/big"
 import "core:mem"
 import "oc:syntax"
@@ -213,7 +214,7 @@ using_struct_fields :: proc(
 		for name in names { if name == field.name { seen = true; break } }
 		if seen { return using_collision(checker, view, scope, node) }
 		append(names, field.name) or_return
-		flags: Entity_Flags
+		flags: Entity_Flags = {.Using}
 		root_indirect := indirect
 		if len(prefix) != 0 { root_indirect = prefix[0].indirect }
 		// An #soa loop variable reports .Soa_Variable whether it binds by
@@ -230,6 +231,7 @@ using_struct_fields :: proc(
 			scopes,
 			Entity {
 				name = field.name,
+				declaration = {checker.views[view].file, node},
 				kind = .Variable,
 				scope = scope,
 				state = .Resolved,
@@ -285,5 +287,37 @@ store_using_binding :: proc(checker: ^Expression_Checker, scope: Scope_Id, bindi
 	copy(bindings, scope_get(scopes, scope).using_bindings)
 	bindings[len(bindings) - 1] = binding
 	scope_get(scopes, scope).using_bindings = bindings
+	return nil
+}
+
+check_using_shadowing :: proc(checker: ^Expression_Checker) -> Resolve_Error {
+	if !checker.options.vet_using_stmt && !checker.options.vet_using_param { return nil }
+	scopes := checker.type_checker.resolver.scopes
+	for entity in scopes.entities {
+		if entity.kind != .Variable || .Using not_in entity.flags || .Parameter in entity.flags { continue }
+		scope := scope_get(scopes, entity.scope)
+		if scope == nil || scope.kind == .Package || scope.kind == .File || scope.kind == .Procedure { continue }
+		parent := scope_get(scopes, scope.parent)
+		if parent == nil || parent.kind == .Package || parent.kind == .File { continue }
+		previous, _ := scope_lookup(scopes, scope.parent, entity.name)
+		shadowed := entity_get(scopes, previous)
+		if shadowed == nil || shadowed.kind != .Variable || shadowed.type != entity.type { continue }
+		if entity.declaration.file == 0 || shadowed.declaration.file != entity.declaration.file { continue }
+		file := checker.type_checker.files[entity.declaration.file]
+		position := file.ast.nodes[entity.declaration.node]
+		previous_position := file.ast.nodes[shadowed.declaration.node]
+		if previous_position.start > position.start { continue }
+		line, _ := syntax.line_col(file.lines, previous_position.start)
+		reason := fmt.aprintf(
+			"Declaration of '%s' from 'using' shadows declaration at line %d",
+			entity.name,
+			line,
+			allocator = mem.dynamic_arena_allocator(&checker.arena),
+		)
+		append(
+			&checker.diagnostics,
+			Expression_Diagnostic{kind = .Using_Shadowing, source = {entity.declaration.file, position.start, position.end}, reason = reason},
+		) or_return
+	}
 	return nil
 }

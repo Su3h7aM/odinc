@@ -56,6 +56,13 @@ write_diagnostics :: proc(session: ^Session, writer: io.Writer) {
 				reason = fmt.tprintf("%v %s", diagnostic.conversion, reason)
 			}
 		}
+		if diagnostic.severity == .Warning || diagnostic.kind == .Using_Shadowing {
+			file := session.files[diagnostic.source.file]
+			line, column := syntax.line_col(file.lines, diagnostic.source.start)
+			severity := "Warning" if diagnostic.severity == .Warning && !session.check_options.warnings_as_errors else "Error"
+			fmt.wprintfln(writer, "%s(%d:%d) %s: %s", file.display_path, line, column, severity, reason)
+			continue
+		}
 		write_diagnostic(session, writer, diagnostic.kind, reason, diagnostic.source)
 	}
 }
@@ -99,4 +106,13 @@ write_diagnostic :: proc(session: ^Session, writer: io.Writer, kind: any, reason
 		return
 	}
 	fmt.wprintfln(writer, "%s:%d:%d: %v %s", file.display_path, line, column, kind, reason)
+}
+
+@(private = "package")
+session_has_errors :: proc(session: ^Session) -> bool {
+	if len(session.collection.diagnostics) + len(session.type_checker.diagnostics) + len(session.resolver.diagnostics) != 0 { return true }
+	for diagnostic in session.checker.diagnostics {
+		if diagnostic.severity == .Error || session.check_options.warnings_as_errors { return true }
+	}
+	return false
 }

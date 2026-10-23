@@ -332,3 +332,22 @@ matrix_order_directive_tags_matrix_type_only :: proc(t: ^testing.T) {
 		}
 	}
 }
+
+@(test)
+vet_semicolon_rejects_only_unneeded_explicit_semicolons :: proc(t: ^testing.T) {
+	for row in ([]struct {
+			source: string,
+			errors: int,
+		}{{"package sample\nf :: proc() { x := 1; _ = x }\n", 0}, {"package sample\nf :: proc() { x := 1;\n_ = x }\n", 1}, {"package sample\nf :: proc() { for i := 0; i < 2; i += 1 {} }\n", 0}}) {
+		ast: Ast
+		ast_init(&ast, context.allocator)
+		defer ast_destroy(&ast)
+		parser: Parser
+		parser_init(&parser, &ast, transmute([]byte)row.source)
+		defer parser_destroy(&parser)
+		parser.options.vet_semicolon = true
+		parse_file(&parser)
+		testing.expect_value(t, len(parser.errors), row.errors)
+		if len(parser.errors) != 0 { testing.expect_value(t, parser.errors[0].kind, Parse_Error_Kind.Unneeded_Semicolon) }
+	}
+}

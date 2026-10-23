@@ -8,8 +8,19 @@ import "core:mem/virtual"
 import "oc:syntax"
 import "oc:types"
 
+Check_Options :: struct {
+	vet_using_stmt, vet_using_param: bool,
+	warnings_as_errors:              bool,
+}
+
+Diagnostic_Severity :: enum u8 {
+	Error,
+	Warning,
+}
+
 Expression_Diagnostic_Kind :: enum u8 {
 	None,
+	Using_Shadowing,
 	Unsupported,
 	Undeclared_Name,
 	Invalid_Operand,
@@ -34,6 +45,7 @@ Expression_Diagnostic_Kind :: enum u8 {
 }
 Expression_Diagnostic :: struct {
 	kind:       Expression_Diagnostic_Kind,
+	severity:   Diagnostic_Severity,
 	source:     Source_Span,
 	conversion: Conversion_Error,
 	constant:   Constant_Error,
@@ -48,6 +60,7 @@ View_Key :: struct {
 }
 
 Expression_Checker :: struct {
+	options:              Check_Options,
 	type_checker:         ^Type_Checker,
 	constants:            ^Constant_Pool,
 	config:               Conversion_Config,

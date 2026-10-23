@@ -6,6 +6,7 @@ import "core:fmt"
 import "core:os"
 import "core:path/filepath"
 import "core:strings"
+import "oc:check"
 import "oc:link"
 import "oc:syntax"
 import "oc:types"
@@ -38,6 +39,10 @@ Command_Flags :: struct {
 	disallow_do:               bool,
 	vet_tabs:                  bool,
 	vet_style:                 bool,
+	vet_semicolon:             bool,
+	vet_using_stmt:            bool,
+	vet_using_param:           bool,
+	warnings_as_errors:        bool,
 	strict_style:              bool,
 }
 
@@ -53,6 +58,10 @@ Check_Command_Flags :: struct {
 	disallow_do:               bool,
 	vet_tabs:                  bool,
 	vet_style:                 bool,
+	vet_semicolon:             bool,
+	vet_using_stmt:            bool,
+	vet_using_param:           bool,
+	warnings_as_errors:        bool,
 	strict_style:              bool,
 }
 
@@ -104,6 +113,10 @@ parse_command_arguments :: proc(name: string, args: []string, allocator := conte
 		model.disallow_do = check_flags.disallow_do
 		model.vet_tabs = check_flags.vet_tabs
 		model.vet_style = check_flags.vet_style
+		model.vet_semicolon = check_flags.vet_semicolon
+		model.vet_using_stmt = check_flags.vet_using_stmt
+		model.vet_using_param = check_flags.vet_using_param
+		model.warnings_as_errors = check_flags.warnings_as_errors
 		model.strict_style = check_flags.strict_style
 	} else {
 		command.help, error = parse_command_flag_model(&model, args, allocator)
@@ -116,11 +129,17 @@ parse_command_arguments :: proc(name: string, args: []string, allocator := conte
 	command.keep_executable = model.keep_executable
 	command.options.all_packages = model.all_packages
 	command.options.thread_count = model.thread_count
+	command.options.check_options = check.Check_Options {
+		vet_using_stmt     = model.vet_using_stmt,
+		vet_using_param    = model.vet_using_param,
+		warnings_as_errors = model.warnings_as_errors,
+	}
 	command.options.parse_options = syntax.Parse_Options {
-		disallow_do  = model.disallow_do,
-		vet_tabs     = model.vet_tabs,
-		vet_style    = model.vet_style,
-		strict_style = model.strict_style,
+		vet_semicolon = model.vet_semicolon,
+		disallow_do   = model.disallow_do,
+		vet_tabs      = model.vet_tabs,
+		vet_style     = model.vet_style,
+		strict_style  = model.strict_style,
 	}
 	if command.path == "" { return command, fmt.tprintf("usage: odinc %s <file-or-directory> [options] [-- arguments]", name) }
 	if model.sanitize != "" { return command, "odinc test: sanitizers are not supported" }

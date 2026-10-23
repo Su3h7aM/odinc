@@ -177,3 +177,23 @@ dynamic_linker_command_flag :: proc(t: ^testing.T) {
 		testing.expect(t, error != "", "a loader path and the long flag spelling are required")
 	}
 }
+
+@(test)
+vet_options_reach_every_checking_command :: proc(t: ^testing.T) {
+	for name in ([]string{"build", "run", "test", "check"}) {
+		command, error := parse_command_arguments(
+			name,
+			[]string{"testdata", "--vet-using-stmt", "--vet-using-param", "--vet-semicolon", "--warnings-as-errors"},
+		)
+		defer delete(command.options.defines)
+		defer delete(command.collections)
+		testing.expect_value(t, error, "")
+		testing.expect(
+			t,
+			command.options.check_options.vet_using_stmt &&
+			command.options.check_options.vet_using_param &&
+			command.options.check_options.warnings_as_errors &&
+			command.options.parse_options.vet_semicolon,
+		)
+	}
+}

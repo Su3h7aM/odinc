@@ -18,6 +18,7 @@ Test_Options :: struct {
 	thread_count:      int,
 	microarch:         types.X86_Level,
 	parse_options:     syntax.Parse_Options,
+	check_options:     check.Check_Options,
 }
 
 build_tests :: proc(
@@ -37,6 +38,7 @@ build_tests :: proc(
 	test_options := options
 	session.test_options = &test_options
 	session.parse_options = options.parse_options
+	session.check_options = options.check_options
 	defer session_destroy(session)
 	file_error: File_Error
 	defer file_error_destroy(&file_error, allocator)
@@ -60,6 +62,7 @@ build_tests :: proc(
 		}
 		return nil, error
 	}
+	write_diagnostics(session, log)
 	module: ir.Module
 	worker_count := max(options.thread_count, 1)
 	errors, lower_error := lower.lower_program(&session.program, &module, allocator, worker_count = worker_count)

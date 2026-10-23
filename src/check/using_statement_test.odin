@@ -55,3 +55,31 @@ promoted_field_collisions_are_rejected_at_the_struct_declaration :: proc(t: ^tes
 		testing.expectf(t, ok, "must reject unused declaration: %s", declaration)
 	}
 }
+
+@(test)
+using_vets_only_report_same_type_shadowing_from_using :: proc(t: ^testing.T) {
+	for options in ([]Check_Options{{vet_using_stmt = true}, {vet_using_param = true}}) {
+		_, ok := check_procedure_source(
+			t,
+			transmute([]byte)string(
+				"#+feature using-stmt\npackage sample\nPoint :: struct { x: int }\nf :: proc() { x := 1; point := Point{}; { using point }; _ = x }\n",
+			),
+			.Using_Shadowing,
+			"Declaration of 'x' from 'using' shadows declaration at line 4",
+			diagnostic_count = 1,
+			procedure_name = "f",
+			check_options = options,
+		)
+		testing.expect(t, ok)
+		_, clean := check_procedure_source(
+			t,
+			transmute([]byte)string(
+				"#+feature using-stmt\npackage sample\nPoint :: struct { x: int }\nx: int\ng :: proc(using point: Point) { _ = x }\nf :: proc() { x := f32(1); point := Point{}; { using point }; _ = x }\n",
+			),
+			diagnostic_count = 0,
+			procedure_name = "f",
+			check_options = options,
+		)
+		testing.expect(t, clean)
+	}
+}

@@ -556,6 +556,7 @@ expression_main_convention :: proc(checker: ^Expression_Checker, view: View_Id, 
 expression_diagnostics_within :: proc(checker: ^Expression_Checker, first: int, body: Node_Ref) -> bool {
 	span := checker.type_checker.files[body.file].ast.nodes[body.node]
 	for diagnostic in checker.diagnostics[first:] {
+		if diagnostic.severity == .Warning && !checker.options.warnings_as_errors { continue }
 		source := diagnostic.source
 		if source.file == body.file && source.start >= span.start && source.end <= span.end { return true }
 	}
@@ -1306,6 +1307,7 @@ expression_bind_local_declaration :: proc(
 			scopes,
 			Entity {
 				name = expression_text(file, name_node),
+				declaration = {file_id, name_node},
 				kind = .Variable,
 				scope = scope,
 				state = .Resolved,
