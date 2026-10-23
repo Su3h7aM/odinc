@@ -78,6 +78,33 @@ find_branch_compare :: proc(selector: ^Selector, block: ir.Block_Id, condition: 
 	}
 }
 
+// Sets the flags of a Select condition and returns the CMOV that moves the true value. A condition
+// marked `fused` is an integer compare whose flags feed the CMOV directly.
+@(private)
+select_condition_flags :: proc(selector: ^Selector, condition: ir.Node_Id) -> (move_if_true: x86.Mnemonic, err: Select_Status) {
+	if !selector.fused[condition] {
+		value := select_value(selector, condition) or_return
+		emit(selector.output, selector.block, .TEST, 1, value, value) or_return
+		return .CMOVNE, nil
+	}
+	select_integer_flags(selector, condition) or_return
+	#partial switch selector.input.nodes.kind[condition] {
+	case .Eq:
+		return .CMOVE, nil
+	case .Ne:
+		return .CMOVNE, nil
+	case .SLt:
+		return .CMOVL, nil
+	case .SLe:
+		return .CMOVLE, nil
+	case .ULt:
+		return .CMOVB, nil
+	case .ULe:
+		return .CMOVBE, nil
+	}
+	return .CMOVNE, select_failure(selector, .Malformed_Input)
+}
+
 // Counts every input slot, so a node is fusable into its branch only when `use_counts` is 1.
 // Marks the compares and negations that `select_exit` folds into the branch as `fused`.
 @(private)
@@ -99,6 +126,15 @@ fuse_branch_conditions :: proc(selector: ^Selector) -> Select_Status {
 		for node := condition;; node = ir.node_input(input, node, 0) {
 			selector.fused[node] = true
 			if node == compare { break }
+		}
+	}
+	for node in 1 ..< len(input.nodes) {
+		if input.nodes.kind[node] != .Select { continue }
+		condition := ir.node_input(input, ir.Node_Id(node), 0)
+		if selector.use_counts[condition] != 1 || selector.schedule.placement[condition] != selector.schedule.placement[node] { continue }
+		#partial switch input.nodes.kind[condition] {
+		case .Eq, .Ne, .SLt, .SLe, .ULt, .ULe:
+			selector.fused[condition] = true
 		}
 	}
 	return nil

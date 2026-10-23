@@ -36,11 +36,10 @@ select_integer :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Status {
 		}
 		return emit(output, selector.block, .MOVSXD if kind == .Sext else .MOV, 8 if kind == .Sext else 4, destination, value)
 	case .Select:
-		condition := select_value(selector, inputs[0]) or_return
 		if_true := select_value(selector, inputs[1]) or_return
 		if_false := select_value(selector, inputs[2]) or_return
-		emit(output, selector.block, .TEST, 1, condition, condition) or_return
-		return emit(output, selector.block, .CMOVNE, width, destination, if_false, if_true)
+		move_if_true := select_condition_flags(selector, inputs[0]) or_return
+		return emit(output, selector.block, move_if_true, width, destination, if_false, if_true)
 	case .Eq, .Ne, .SLt, .SLe, .ULt, .ULe:
 		byte := new_vreg(output, .Int) or_return
 		mnemonics := #partial [ir.Node_Kind]x86.Mnemonic {

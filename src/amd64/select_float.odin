@@ -204,7 +204,6 @@ select_float_select :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Sta
 		return select_failure(selector)
 	}
 	inputs := ir.node_inputs(input, node)
-	condition := select_value(selector, inputs[0]) or_return
 	if_true := select_value(selector, inputs[1]) or_return
 	if_false := select_value(selector, inputs[2]) or_return
 	true_bits := new_vreg(output, .Int) or_return
@@ -212,8 +211,8 @@ select_float_select :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Sta
 	chosen := new_vreg(output, .Int) or_return
 	emit(output, selector.block, transfer, width, true_bits, if_true) or_return
 	emit(output, selector.block, transfer, width, false_bits, if_false) or_return
-	emit(output, selector.block, .TEST, 1, condition, condition) or_return
-	emit(output, selector.block, .CMOVNE, width, chosen, false_bits, true_bits) or_return
+	move_if_true := select_condition_flags(selector, inputs[0]) or_return
+	emit(output, selector.block, move_if_true, width, chosen, false_bits, true_bits) or_return
 	return emit(output, selector.block, transfer, width, selector.values[node], chosen)
 }
 
