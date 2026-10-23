@@ -2,8 +2,8 @@
 #+build !js
 package odin_libc
 
-import "core:c"
 import "core:io"
+import "core:c"
 import "core:os"
 
 _fopen :: proc(path, _mode: cstring) -> FILE {
@@ -38,7 +38,7 @@ _fopen :: proc(path, _mode: cstring) -> FILE {
 }
 
 _fseek :: proc(_file: FILE, offset: c.long, whence: i32) -> i32 {
-	file := __file(_file)
+	file := __file(_file) 
 	if _, err := os.seek(file, i64(offset), io.Seek_From(whence)); err != nil {
 		return -1
 	}
@@ -47,7 +47,7 @@ _fseek :: proc(_file: FILE, offset: c.long, whence: i32) -> i32 {
 }
 
 _ftell :: proc(_file: FILE) -> c.long {
-	file := __file(_file)
+	file := __file(_file) 
 	pos, err := os.seek(file, 0, .Current)
 	if err != nil {
 		return -1
@@ -57,7 +57,7 @@ _ftell :: proc(_file: FILE) -> c.long {
 }
 
 _fclose :: proc(_file: FILE) -> i32 {
-	file := __file(_file)
+	file := __file(_file) 
 	if err := os.close(file); err != nil {
 		return EOF
 	}
@@ -66,19 +66,19 @@ _fclose :: proc(_file: FILE) -> i32 {
 }
 
 _fread :: proc(buffer: [^]byte, size: uint, count: uint, _file: FILE) -> uint {
-	file := __file(_file)
-	n, _ := os.read(file, buffer[:size * count])
+	file := __file(_file) 
+	n, _ := os.read(file, buffer[:size*count])
 	return uint(max(0, n)) / size
 }
 
 _fwrite :: proc(buffer: [^]byte, size: uint, count: uint, _file: FILE) -> uint {
-	file := __file(_file)
-	n, _ := os.write(file, buffer[:size * count])
+	file := __file(_file) 
+	n, _ := os.write(file, buffer[:size*count])
 	return uint(max(0, n)) / size
 }
 
 _putchar :: proc(char: c.int) -> c.int {
-	n, err := os.write_byte(os.stdout, byte(char))
+	n, err := os.write_byte(os.stdout, byte(char))	
 	if n == 0 || err != nil {
 		return EOF
 	}
@@ -94,14 +94,11 @@ _getchar :: proc() -> c.int {
 	return c.int(ret[0])
 }
 
-@(private = "file")
+@(private="file")
 __file :: proc(file: FILE) -> ^os.File {
 	switch (uint(uintptr(file))) {
-	case 2:
-		return os.stdout
-	case 3:
-		return os.stderr
-	case:
-		return (^os.File)(file)
+	case 2: return os.stdout
+	case 3: return os.stderr
+	case:   return (^os.File)(file)
 	}
 }

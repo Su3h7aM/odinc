@@ -2,183 +2,175 @@
 #+build darwin
 package darwin_QuartzCore
 
-import "base:intrinsics"
 import cffi "core:c"
+import NS "core:sys/darwin/Foundation"
+import "base:intrinsics"
 import CF "core:sys/darwin/CoreFoundation"
 import CG "core:sys/darwin/CoreGraphics"
-import NS "core:sys/darwin/Foundation"
 
-@(objc_class = "CAMetalDisplayLink", objc_superclass = NS.Object)
-MetalDisplayLink :: struct {
-	using _: NS.Object,
-}
+@(objc_class="CAMetalDisplayLink", objc_superclass=NS.Object)
+MetalDisplayLink :: struct { using _: NS.Object}
 
 foreign lib {
-	@(objc_type = MetalDisplayLink, objc_selector = "initWithMetalLayer:", objc_name = "initWithMetalLayer")
+	@(objc_type=MetalDisplayLink, objc_selector="initWithMetalLayer:", objc_name="initWithMetalLayer")
 	MetalDisplayLink_initWithMetalLayer :: proc(self: ^MetalDisplayLink, layer: ^MetalLayer) -> instancetype ---
 
-	@(objc_type = MetalDisplayLink, objc_selector = "addToRunLoop:forMode:", objc_name = "addToRunLoop")
+	@(objc_type=MetalDisplayLink, objc_selector="addToRunLoop:forMode:", objc_name="addToRunLoop")
 	MetalDisplayLink_addToRunLoop :: proc(self: ^MetalDisplayLink, runloop: ^NS.RunLoop, mode: ^NS.String) ---
 
-	@(objc_type = MetalDisplayLink, objc_selector = "removeFromRunLoop:forMode:", objc_name = "removeFromRunLoop")
+	@(objc_type=MetalDisplayLink, objc_selector="removeFromRunLoop:forMode:", objc_name="removeFromRunLoop")
 	MetalDisplayLink_removeFromRunLoop :: proc(self: ^MetalDisplayLink, runloop: ^NS.RunLoop, mode: ^NS.String) ---
 
-	@(objc_type = MetalDisplayLink, objc_selector = "invalidate", objc_name = "invalidate")
+	@(objc_type=MetalDisplayLink, objc_selector="invalidate", objc_name="invalidate")
 	MetalDisplayLink_invalidate :: proc(self: ^MetalDisplayLink) ---
 
-	@(objc_type = MetalDisplayLink, objc_selector = "delegate", objc_name = "delegate")
+	@(objc_type=MetalDisplayLink, objc_selector="delegate", objc_name="delegate")
 	MetalDisplayLink_delegate :: proc(self: ^MetalDisplayLink) -> ^MetalDisplayLinkDelegate ---
 
-	@(objc_type = MetalDisplayLink, objc_selector = "setDelegate:", objc_name = "setDelegate")
+	@(objc_type=MetalDisplayLink, objc_selector="setDelegate:", objc_name="setDelegate")
 	MetalDisplayLink_setDelegate :: proc(self: ^MetalDisplayLink, delegate: ^MetalDisplayLinkDelegate) ---
 
-	@(objc_type = MetalDisplayLink, objc_selector = "preferredFrameLatency", objc_name = "preferredFrameLatency")
+	@(objc_type=MetalDisplayLink, objc_selector="preferredFrameLatency", objc_name="preferredFrameLatency")
 	MetalDisplayLink_preferredFrameLatency :: proc(self: ^MetalDisplayLink) -> cffi.float ---
 
-	@(objc_type = MetalDisplayLink, objc_selector = "setPreferredFrameLatency:", objc_name = "setPreferredFrameLatency")
+	@(objc_type=MetalDisplayLink, objc_selector="setPreferredFrameLatency:", objc_name="setPreferredFrameLatency")
 	MetalDisplayLink_setPreferredFrameLatency :: proc(self: ^MetalDisplayLink, preferredFrameLatency: cffi.float) ---
 
-	@(objc_type = MetalDisplayLink, objc_selector = "preferredFrameRateRange", objc_name = "preferredFrameRateRange")
+	@(objc_type=MetalDisplayLink, objc_selector="preferredFrameRateRange", objc_name="preferredFrameRateRange")
 	MetalDisplayLink_preferredFrameRateRange :: proc(self: ^MetalDisplayLink) -> FrameRateRange ---
 
-	@(objc_type = MetalDisplayLink, objc_selector = "setPreferredFrameRateRange:", objc_name = "setPreferredFrameRateRange")
+	@(objc_type=MetalDisplayLink, objc_selector="setPreferredFrameRateRange:", objc_name="setPreferredFrameRateRange")
 	MetalDisplayLink_setPreferredFrameRateRange :: proc(self: ^MetalDisplayLink, preferredFrameRateRange: FrameRateRange) ---
 
-	@(objc_type = MetalDisplayLink, objc_selector = "isPaused", objc_name = "isPaused")
+	@(objc_type=MetalDisplayLink, objc_selector="isPaused", objc_name="isPaused")
 	MetalDisplayLink_isPaused :: proc(self: ^MetalDisplayLink) -> bool ---
 
-	@(objc_type = MetalDisplayLink, objc_selector = "setPaused:", objc_name = "setPaused")
+	@(objc_type=MetalDisplayLink, objc_selector="setPaused:", objc_name="setPaused")
 	MetalDisplayLink_setPaused :: proc(self: ^MetalDisplayLink, paused: bool) ---
 }
 
 
-@(objc_class = "CAMetalDisplayLinkDelegate")
-MetalDisplayLinkDelegate :: struct {
-	using _: intrinsics.objc_object,
-}
+@(objc_class="CAMetalDisplayLinkDelegate")
+MetalDisplayLinkDelegate :: struct { using _: intrinsics.objc_object}
 
 foreign lib {
-	@(objc_type = MetalDisplayLinkDelegate, objc_selector = "metalDisplayLink:needsUpdate:", objc_name = "metalDisplayLink")
+	@(objc_type=MetalDisplayLinkDelegate, objc_selector="metalDisplayLink:needsUpdate:", objc_name="metalDisplayLink")
 	MetalDisplayLinkDelegate_metalDisplayLink :: proc(self: ^MetalDisplayLinkDelegate, link: ^MetalDisplayLink, update: ^MetalDisplayLinkUpdate) ---
 }
 
 
-@(objc_class = "CAMetalDisplayLinkUpdate", objc_superclass = NS.Object)
-MetalDisplayLinkUpdate :: struct {
-	using _: NS.Object,
-}
+@(objc_class="CAMetalDisplayLinkUpdate", objc_superclass=NS.Object)
+MetalDisplayLinkUpdate :: struct { using _: NS.Object}
 
 foreign lib {
-	@(objc_type = MetalDisplayLinkUpdate, objc_selector = "drawable", objc_name = "drawable")
+	@(objc_type=MetalDisplayLinkUpdate, objc_selector="drawable", objc_name="drawable")
 	MetalDisplayLinkUpdate_drawable :: proc(self: ^MetalDisplayLinkUpdate) -> ^MetalDrawable ---
 
-	@(objc_type = MetalDisplayLinkUpdate, objc_selector = "targetTimestamp", objc_name = "targetTimestamp")
+	@(objc_type=MetalDisplayLinkUpdate, objc_selector="targetTimestamp", objc_name="targetTimestamp")
 	MetalDisplayLinkUpdate_targetTimestamp :: proc(self: ^MetalDisplayLinkUpdate) -> CF.TimeInterval ---
 
-	@(objc_type = MetalDisplayLinkUpdate, objc_selector = "targetPresentationTimestamp", objc_name = "targetPresentationTimestamp")
+	@(objc_type=MetalDisplayLinkUpdate, objc_selector="targetPresentationTimestamp", objc_name="targetPresentationTimestamp")
 	MetalDisplayLinkUpdate_targetPresentationTimestamp :: proc(self: ^MetalDisplayLinkUpdate) -> CF.TimeInterval ---
 }
 
 
-@(objc_class = "CAMetalDrawable")
+@(objc_class="CAMetalDrawable")
 MetalDrawable :: struct {
 	using _: intrinsics.objc_object,
 	using _: MTLDrawable,
 }
 
 foreign lib {
-	@(objc_type = MetalDrawable, objc_selector = "texture", objc_name = "texture")
+	@(objc_type=MetalDrawable, objc_selector="texture", objc_name="texture")
 	MetalDrawable_texture :: proc(self: ^MetalDrawable) -> ^MTLTexture ---
 
-	@(objc_type = MetalDrawable, objc_selector = "layer", objc_name = "layer")
+	@(objc_type=MetalDrawable, objc_selector="layer", objc_name="layer")
 	MetalDrawable_layer :: proc(self: ^MetalDrawable) -> ^MetalLayer ---
 }
 
 
-@(objc_class = "CAMetalLayer", objc_superclass = Layer)
-MetalLayer :: struct {
-	using _: Layer,
-}
+@(objc_class="CAMetalLayer", objc_superclass=Layer)
+MetalLayer :: struct { using _: Layer}
 
 foreign lib {
-	@(objc_type = MetalLayer, objc_selector = "nextDrawable", objc_name = "nextDrawable")
+	@(objc_type=MetalLayer, objc_selector="nextDrawable", objc_name="nextDrawable")
 	MetalLayer_nextDrawable :: proc(self: ^MetalLayer) -> ^MetalDrawable ---
 
-	@(objc_type = MetalLayer, objc_selector = "device", objc_name = "device")
+	@(objc_type=MetalLayer, objc_selector="device", objc_name="device")
 	MetalLayer_device :: proc(self: ^MetalLayer) -> ^MTLDevice ---
 
-	@(objc_type = MetalLayer, objc_selector = "setDevice:", objc_name = "setDevice")
+	@(objc_type=MetalLayer, objc_selector="setDevice:", objc_name="setDevice")
 	MetalLayer_setDevice :: proc(self: ^MetalLayer, device: ^MTLDevice) ---
 
-	@(objc_type = MetalLayer, objc_selector = "preferredDevice", objc_name = "preferredDevice")
+	@(objc_type=MetalLayer, objc_selector="preferredDevice", objc_name="preferredDevice")
 	MetalLayer_preferredDevice :: proc(self: ^MetalLayer) -> ^MTLDevice ---
 
-	@(objc_type = MetalLayer, objc_selector = "pixelFormat", objc_name = "pixelFormat")
+	@(objc_type=MetalLayer, objc_selector="pixelFormat", objc_name="pixelFormat")
 	MetalLayer_pixelFormat :: proc(self: ^MetalLayer) -> MTLPixelFormat ---
 
-	@(objc_type = MetalLayer, objc_selector = "setPixelFormat:", objc_name = "setPixelFormat")
+	@(objc_type=MetalLayer, objc_selector="setPixelFormat:", objc_name="setPixelFormat")
 	MetalLayer_setPixelFormat :: proc(self: ^MetalLayer, pixelFormat: MTLPixelFormat) ---
 
-	@(objc_type = MetalLayer, objc_selector = "framebufferOnly", objc_name = "framebufferOnly")
+	@(objc_type=MetalLayer, objc_selector="framebufferOnly", objc_name="framebufferOnly")
 	MetalLayer_framebufferOnly :: proc(self: ^MetalLayer) -> bool ---
 
-	@(objc_type = MetalLayer, objc_selector = "setFramebufferOnly:", objc_name = "setFramebufferOnly")
+	@(objc_type=MetalLayer, objc_selector="setFramebufferOnly:", objc_name="setFramebufferOnly")
 	MetalLayer_setFramebufferOnly :: proc(self: ^MetalLayer, framebufferOnly: bool) ---
 
-	@(objc_type = MetalLayer, objc_selector = "drawableSize", objc_name = "drawableSize")
+	@(objc_type=MetalLayer, objc_selector="drawableSize", objc_name="drawableSize")
 	MetalLayer_drawableSize :: proc(self: ^MetalLayer) -> CG.Size ---
 
-	@(objc_type = MetalLayer, objc_selector = "setDrawableSize:", objc_name = "setDrawableSize")
+	@(objc_type=MetalLayer, objc_selector="setDrawableSize:", objc_name="setDrawableSize")
 	MetalLayer_setDrawableSize :: proc(self: ^MetalLayer, drawableSize: CG.Size) ---
 
-	@(objc_type = MetalLayer, objc_selector = "maximumDrawableCount", objc_name = "maximumDrawableCount")
+	@(objc_type=MetalLayer, objc_selector="maximumDrawableCount", objc_name="maximumDrawableCount")
 	MetalLayer_maximumDrawableCount :: proc(self: ^MetalLayer) -> NS.UInteger ---
 
-	@(objc_type = MetalLayer, objc_selector = "setMaximumDrawableCount:", objc_name = "setMaximumDrawableCount")
+	@(objc_type=MetalLayer, objc_selector="setMaximumDrawableCount:", objc_name="setMaximumDrawableCount")
 	MetalLayer_setMaximumDrawableCount :: proc(self: ^MetalLayer, maximumDrawableCount: NS.UInteger) ---
 
-	@(objc_type = MetalLayer, objc_selector = "presentsWithTransaction", objc_name = "presentsWithTransaction")
+	@(objc_type=MetalLayer, objc_selector="presentsWithTransaction", objc_name="presentsWithTransaction")
 	MetalLayer_presentsWithTransaction :: proc(self: ^MetalLayer) -> bool ---
 
-	@(objc_type = MetalLayer, objc_selector = "setPresentsWithTransaction:", objc_name = "setPresentsWithTransaction")
+	@(objc_type=MetalLayer, objc_selector="setPresentsWithTransaction:", objc_name="setPresentsWithTransaction")
 	MetalLayer_setPresentsWithTransaction :: proc(self: ^MetalLayer, presentsWithTransaction: bool) ---
 
-	@(objc_type = MetalLayer, objc_selector = "colorspace", objc_name = "colorspace")
+	@(objc_type=MetalLayer, objc_selector="colorspace", objc_name="colorspace")
 	MetalLayer_colorspace :: proc(self: ^MetalLayer) -> CG.ColorSpaceRef ---
 
-	@(objc_type = MetalLayer, objc_selector = "setColorspace:", objc_name = "setColorspace")
+	@(objc_type=MetalLayer, objc_selector="setColorspace:", objc_name="setColorspace")
 	MetalLayer_setColorspace :: proc(self: ^MetalLayer, colorspace: CG.ColorSpaceRef) ---
 
-	@(objc_type = MetalLayer, objc_selector = "wantsExtendedDynamicRangeContent", objc_name = "wantsExtendedDynamicRangeContent")
+	@(objc_type=MetalLayer, objc_selector="wantsExtendedDynamicRangeContent", objc_name="wantsExtendedDynamicRangeContent")
 	MetalLayer_wantsExtendedDynamicRangeContent :: proc(self: ^MetalLayer) -> bool ---
 
-	@(objc_type = MetalLayer, objc_selector = "setWantsExtendedDynamicRangeContent:", objc_name = "setWantsExtendedDynamicRangeContent")
+	@(objc_type=MetalLayer, objc_selector="setWantsExtendedDynamicRangeContent:", objc_name="setWantsExtendedDynamicRangeContent")
 	MetalLayer_setWantsExtendedDynamicRangeContent :: proc(self: ^MetalLayer, wantsExtendedDynamicRangeContent: bool) ---
 
-	@(objc_type = MetalLayer, objc_selector = "EDRMetadata", objc_name = "EDRMetadata")
+	@(objc_type=MetalLayer, objc_selector="EDRMetadata", objc_name="EDRMetadata")
 	MetalLayer_EDRMetadata :: proc(self: ^MetalLayer) -> ^EDRMetadata ---
 
-	@(objc_type = MetalLayer, objc_selector = "setEDRMetadata:", objc_name = "setEDRMetadata")
+	@(objc_type=MetalLayer, objc_selector="setEDRMetadata:", objc_name="setEDRMetadata")
 	MetalLayer_setEDRMetadata :: proc(self: ^MetalLayer, _EDRMetadata: ^EDRMetadata) ---
 
-	@(objc_type = MetalLayer, objc_selector = "displaySyncEnabled", objc_name = "displaySyncEnabled")
+	@(objc_type=MetalLayer, objc_selector="displaySyncEnabled", objc_name="displaySyncEnabled")
 	MetalLayer_displaySyncEnabled :: proc(self: ^MetalLayer) -> bool ---
 
-	@(objc_type = MetalLayer, objc_selector = "setDisplaySyncEnabled:", objc_name = "setDisplaySyncEnabled")
+	@(objc_type=MetalLayer, objc_selector="setDisplaySyncEnabled:", objc_name="setDisplaySyncEnabled")
 	MetalLayer_setDisplaySyncEnabled :: proc(self: ^MetalLayer, displaySyncEnabled: bool) ---
 
-	@(objc_type = MetalLayer, objc_selector = "allowsNextDrawableTimeout", objc_name = "allowsNextDrawableTimeout")
+	@(objc_type=MetalLayer, objc_selector="allowsNextDrawableTimeout", objc_name="allowsNextDrawableTimeout")
 	MetalLayer_allowsNextDrawableTimeout :: proc(self: ^MetalLayer) -> bool ---
 
-	@(objc_type = MetalLayer, objc_selector = "setAllowsNextDrawableTimeout:", objc_name = "setAllowsNextDrawableTimeout")
+	@(objc_type=MetalLayer, objc_selector="setAllowsNextDrawableTimeout:", objc_name="setAllowsNextDrawableTimeout")
 	MetalLayer_setAllowsNextDrawableTimeout :: proc(self: ^MetalLayer, allowsNextDrawableTimeout: bool) ---
 
-	@(objc_type = MetalLayer, objc_selector = "developerHUDProperties", objc_name = "developerHUDProperties")
+	@(objc_type=MetalLayer, objc_selector="developerHUDProperties", objc_name="developerHUDProperties")
 	MetalLayer_developerHUDProperties :: proc(self: ^MetalLayer) -> ^NS.Dictionary ---
 
-	@(objc_type = MetalLayer, objc_selector = "setDeveloperHUDProperties:", objc_name = "setDeveloperHUDProperties")
+	@(objc_type=MetalLayer, objc_selector="setDeveloperHUDProperties:", objc_name="setDeveloperHUDProperties")
 	MetalLayer_setDeveloperHUDProperties :: proc(self: ^MetalLayer, developerHUDProperties: ^NS.Dictionary) ---
 
-	@(objc_type = MetalLayer, objc_selector = "residencySet", objc_name = "residencySet")
+	@(objc_type=MetalLayer, objc_selector="residencySet", objc_name="residencySet")
 	MetalLayer_residencySet :: proc(self: ^MetalLayer) -> ^MTLResidencySet ---
 }

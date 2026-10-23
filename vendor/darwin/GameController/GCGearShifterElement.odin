@@ -4,16 +4,16 @@ package darwin_GameController
 
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class = "GCGearShifterElement", objc_superclass = NS.Object)
+@(objc_class="GCGearShifterElement", objc_superclass=NS.Object)
 GearShifterElement :: struct {
 	using _: NS.Object,
 	using _: PhysicalInputElement,
 }
 
 foreign lib {
-	@(objc_type = GearShifterElement, objc_selector = "patternInput", objc_name = "patternInput")
+	@(objc_type=GearShifterElement, objc_selector="patternInput", objc_name="patternInput")
 	GearShifterElement_patternInput :: proc(self: ^GearShifterElement) -> ^SwitchPositionInput ---
 
-	@(objc_type = GearShifterElement, objc_selector = "sequentialInput", objc_name = "sequentialInput")
+	@(objc_type=GearShifterElement, objc_selector="sequentialInput", objc_name="sequentialInput")
 	GearShifterElement_sequentialInput :: proc(self: ^GearShifterElement) -> ^RelativeInput ---
 }

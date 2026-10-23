@@ -2,7 +2,7 @@ package miniaudio
 
 import "core:c"
 
-foreign import lib {LIB}
+foreign import lib { LIB }
 
 /************************************************************************************************************************************************************
 
@@ -21,12 +21,12 @@ open_mode_flag :: enum c.int {
 	WRITE = 1,
 }
 
-open_mode_flags :: bit_set[open_mode_flag;u32]
+open_mode_flags :: bit_set[open_mode_flag; u32]
 
 seek_origin :: enum c.int {
 	start,
 	current,
-	end, /* Not used by decoders. */
+	end,  /* Not used by decoders. */
 }
 
 file_info :: struct {
@@ -34,7 +34,7 @@ file_info :: struct {
 }
 
 vfs_callbacks :: struct {
-	onOpen:  proc "c" (pVFS: ^vfs, pFilePath: cstring, openMode: open_mode_flags, pFile: ^vfs_file) -> result,
+	onOpen:  proc "c" (pVFS: ^vfs, pFilePath: cstring,      openMode: open_mode_flags, pFile: ^vfs_file) -> result,
 	onOpenW: proc "c" (pVFS: ^vfs, pFilePath: [^]c.wchar_t, openMode: open_mode_flags, pFile: ^vfs_file) -> result,
 	onClose: proc "c" (pVFS: ^vfs, file: vfs_file) -> result,
 	onRead:  proc "c" (pVFS: ^vfs, file: vfs_file, pDst: rawptr, sizeInBytes: c.size_t, pBytesRead: ^c.size_t) -> result,
@@ -45,7 +45,7 @@ vfs_callbacks :: struct {
 }
 
 default_vfs :: struct {
-	cb:                  vfs_callbacks,
+	cb: vfs_callbacks,
 	allocationCallbacks: allocation_callbacks, /* Only used for the wchar_t version of open() on non-Windows platforms. */
 }
 
@@ -54,19 +54,19 @@ ma_seek_proc :: proc "c" (pUserData: rawptr, offset: i64, origin: seek_origin) -
 ma_tell_proc :: proc "c" (pUserData: rawptr, pCursor: ^i64) -> result
 
 
-@(default_calling_convention = "c", link_prefix = "ma_")
+@(default_calling_convention="c", link_prefix="ma_")
 foreign lib {
-	vfs_open :: proc(pVFS: ^vfs, pFilePath: cstring, openMode: open_mode_flags, pFile: ^vfs_file) -> result ---
-	vfs_open_w :: proc(pVFS: ^vfs, pFilePath: [^]c.wchar_t, openMode: open_mode_flags, pFile: ^vfs_file) -> result ---
-	vfs_close :: proc(pVFS: ^vfs, file: vfs_file) -> result ---
-	vfs_read :: proc(pVFS: ^vfs, file: vfs_file, pDst: rawptr, sizeInBytes: c.size_t, pBytesRead: ^c.size_t) -> result ---
-	vfs_write :: proc(pVFS: ^vfs, file: vfs_file, pSrc: rawptr, sizeInBytes: c.size_t, pBytesWritten: ^c.size_t) -> result ---
-	vfs_seek :: proc(pVFS: ^vfs, file: vfs_file, offset: i64, origin: seek_origin) -> result ---
-	vfs_tell :: proc(pVFS: ^vfs, file: vfs_file, pCursor: ^i64) -> result ---
-	vfs_info :: proc(pVFS: ^vfs, file: vfs_file, pInfo: ^file_info) -> result ---
+	vfs_open               :: proc(pVFS: ^vfs, pFilePath: cstring,      openMode: open_mode_flags, pFile: ^vfs_file) -> result ---
+	vfs_open_w             :: proc(pVFS: ^vfs, pFilePath: [^]c.wchar_t, openMode: open_mode_flags, pFile: ^vfs_file) -> result ---
+	vfs_close              :: proc(pVFS: ^vfs, file: vfs_file) -> result ---
+	vfs_read               :: proc(pVFS: ^vfs, file: vfs_file, pDst: rawptr, sizeInBytes: c.size_t, pBytesRead: ^c.size_t) -> result ---
+	vfs_write              :: proc(pVFS: ^vfs, file: vfs_file, pSrc: rawptr, sizeInBytes: c.size_t, pBytesWritten: ^c.size_t) -> result ---
+	vfs_seek               :: proc(pVFS: ^vfs, file: vfs_file, offset: i64, origin: seek_origin) -> result ---
+	vfs_tell               :: proc(pVFS: ^vfs, file: vfs_file, pCursor: ^i64) -> result ---
+	vfs_info               :: proc(pVFS: ^vfs, file: vfs_file, pInfo: ^file_info) -> result ---
 	vfs_open_and_read_file :: proc(pVFS: ^vfs, pFilePath: cstring, ppData: ^rawptr, pSize: ^c.size_t, pAllocationCallbacks: ^allocation_callbacks) -> result ---
 
-	default_vfs_init :: proc(pVFS: ^default_vfs, pAllocationCallbacks: ^allocation_callbacks) -> result ---
+	default_vfs_init       :: proc(pVFS: ^default_vfs, pAllocationCallbacks: ^allocation_callbacks) -> result ---
 }
 
 encoding_format :: enum c.int {

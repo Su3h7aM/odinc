@@ -4,7 +4,7 @@ package darwin_CloudKit
 
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class = "CKServerChangeToken", objc_superclass = NS.Object)
+@(objc_class="CKServerChangeToken", objc_superclass=NS.Object)
 ServerChangeToken :: struct {
 	using _: NS.Object,
 	using _: NS.Copying,
@@ -12,9 +12,9 @@ ServerChangeToken :: struct {
 }
 
 foreign lib {
-	@(objc_type = ServerChangeToken, objc_selector = "init", objc_name = "init")
+	@(objc_type=ServerChangeToken, objc_selector="init", objc_name="init")
 	ServerChangeToken_init :: proc(self: ^ServerChangeToken) -> instancetype ---
 
-	@(objc_type = ServerChangeToken, objc_selector = "new", objc_name = "new", objc_is_class_method = true)
+	@(objc_type=ServerChangeToken, objc_selector="new", objc_name="new", objc_is_class_method=true)
 	ServerChangeToken_new :: proc() -> ^ServerChangeToken ---
 }

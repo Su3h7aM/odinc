@@ -3,7 +3,7 @@ package vendor_box3d
 import "core:c"
 
 DEFAULT_CATEGORY_BITS :: max(u64)
-DEFAULT_MASK_BITS :: max(u64)
+DEFAULT_MASK_BITS     :: max(u64)
 
 
 // Task interface
@@ -36,7 +36,7 @@ FinishTaskCallback :: proc "c" (userTask: rawptr, userContext: rawptr)
 // The user needs to be able to create debug draw shapes for multi-pass rendering to work efficiently.
 // These user shapes are created and destroyed via callback so they can be bound to shape lifetime and scaling updates.
 // @ingroup debug_draw
-CreateDebugShapeCallback :: proc "c" (debugShape: ^DebugShape, userContext: rawptr) -> rawptr
+CreateDebugShapeCallback  :: proc "c" (debugShape: ^DebugShape, userContext: rawptr) -> rawptr
 DestroyDebugShapeCallback :: proc "c" (userShape: rawptr, userContext: rawptr)
 
 // Optional friction mixing callback. This intentionally provides no context objects because this is called
@@ -104,18 +104,9 @@ OverlapResultFcn :: proc "c" (shapeId: ShapeId, ctx: rawptr) -> bool
 // @return -1 to filter, 0 to terminate, fraction to clip the ray for closest hit, 1 to continue
 // @see b3World_CastRay
 // @ingroup world
-CastResultFcn :: proc "c" (
-	shapeId: ShapeId,
-	point: Pos,
-	normal: Vec3,
-	fraction: f32,
-	userMaterialId: u64,
-	triangleIndex: c.int,
-	childIndex: c.int,
-	ctx: rawptr,
-) -> f32
+CastResultFcn :: proc "c" (shapeId: ShapeId, point: Pos, normal: Vec3, fraction: f32, userMaterialId: u64, triangleIndex: c.int, childIndex: c.int, ctx: rawptr) -> f32
 
-@(link_prefix = "b3", default_calling_convention = "c", require_results)
+@(link_prefix="b3", default_calling_convention="c", require_results)
 foreign lib {
 	// Use this to initialize your world definition
 	// @ingroup world
@@ -196,27 +187,29 @@ foreign lib {
 // the high byte where the color converters ignore it.
 @(require_results)
 MakeDebugColor :: #force_inline proc "c" (rgb: HexColor, material: DebugMaterial) -> u32 {
-	return (u32(rgb) & 0x00FFFFFF) | (u32(material) << 24)
+	return (u32(rgb)&0x00FFFFFF) | (u32(material)<<24)
 }
+
+
 
 
 // Optional world capacities that can be use to avoid run-time allocations
 // @ingroup world
 Capacity :: struct {
 	// Number of expected static shapes.
-	staticShapeCount:  c.int,
+	staticShapeCount: c.int,
 
 	// Number of expected dynamic and kinematic shapes.
 	dynamicShapeCount: c.int,
 
 	// Number of expected static bodies.
-	staticBodyCount:   c.int,
+	staticBodyCount: c.int,
 
 	// Number of expected dynamic and kinematic bodies.
-	dynamicBodyCount:  c.int,
+	dynamicBodyCount: c.int,
 
 	// Number of expected contacts.
-	contactCount:      c.int,
+	contactCount: c.int,
 }
 
 
@@ -224,42 +217,42 @@ Capacity :: struct {
 // @ingroup world
 WorldDef :: struct {
 	// Gravity vector. Box3D has no up-vector defined.
-	gravity:               Vec3,
+	gravity: Vec3,
 
 	// Restitution speed threshold, usually in m/s. Collisions above this
 	// speed have restitution applied (will bounce).
-	restitutionThreshold:  f32,
+	restitutionThreshold: f32,
 
 	// Hit event speed threshold, usually in m/s. Collisions above this
 	// speed can generate hit events if the shape also enables hit events.
-	hitEventThreshold:     f32,
+	hitEventThreshold: f32,
 
 	// Contact stiffness. Cycles per second. Increasing this increases the speed of overlap recovery, but can introduce jitter.
-	contactHertz:          f32,
+	contactHertz: f32,
 
 	// Contact bounciness. Non-dimensional. You can speed up overlap recovery by decreasing this with
 	// the trade-off that overlap resolution becomes more energetic.
-	contactDampingRatio:   f32,
+	contactDampingRatio: f32,
 
 	// This parameter controls how fast overlap is resolved and usually has units of meters per second. This only
 	// puts a cap on the resolution speed. The resolution speed is increased by increasing the hertz and/or
 	// decreasing the damping ratio.
-	contactSpeed:          f32,
+	contactSpeed: f32,
 
 	// Maximum linear speed. Usually meters per second.
-	maximumLinearSpeed:    f32,
+	maximumLinearSpeed: f32,
 
 	// Optional mixing callback for friction. The default uses sqrt(frictionA * frictionB).
-	frictionCallback:      FrictionCallback,
+	frictionCallback: FrictionCallback,
 
 	// Optional mixing callback for restitution. The default uses max(restitutionA, restitutionB).
-	restitutionCallback:   RestitutionCallback,
+	restitutionCallback: RestitutionCallback,
 
 	// Can bodies go to sleep to improve performance
-	enableSleep:           bool,
+	enableSleep: bool,
 
 	// Enable continuous collision
-	enableContinuous:      bool,
+	enableContinuous: bool,
 
 	// Number of workers to use with the provided task system. Box3D performs best when using only
 	// performance cores and accessing a single L2 cache. Efficiency cores and hyper-threading provide
@@ -267,35 +260,35 @@ WorldDef :: struct {
 	// This is clamped to the range [1, B3_MAX_WORKERS]. Using a value above 1 will turn on multithreading.
 	// If task callbacks are provided then Box3D will use the user provided task system. Otherwise Box3D
 	// will create threads and use an internal scheduler.
-	workerCount:           u32,
+	workerCount: u32,
 
 	// function to spawn task
-	enqueueTask:           EnqueueTaskCallback,
+	enqueueTask: EnqueueTaskCallback,
 
 	// function to finish a task
-	finishTask:            FinishTaskCallback,
+	finishTask: FinishTaskCallback,
 
 	// User context that is provided to enqueueTask and finishTask
-	userTaskContext:       rawptr,
+	userTaskContext: rawptr,
 
 	// User data associated with a world
-	userData:              rawptr,
+	userData: rawptr,
 
 	// Used to create debug draw shapes. This is called when a shape is
 	// first drawn using b3DebugDraw.
-	createDebugShape:      CreateDebugShapeCallback,
+	createDebugShape: CreateDebugShapeCallback,
 
 	// Used to destroy debug draw shapes. This is called when a shape is modified or destroyed.
-	destroyDebugShape:     DestroyDebugShapeCallback,
+	destroyDebugShape: DestroyDebugShapeCallback,
 
 	// This is passed to the debug shape callbacks to provide a user context.
 	userDebugShapeContext: rawptr,
 
 	// Optional initial capacities
-	capacity:              Capacity,
+	capacity: Capacity,
 
 	// Used internally to detect a valid definition. DO NOT SET.
-	internalValue:         c.int,
+	internalValue: c.int,
 }
 
 
@@ -304,26 +297,26 @@ WorldDef :: struct {
 // @ingroup body
 BodyType :: enum c.int {
 	// zero mass, zero velocity, may be manually moved
-	staticBody    = 0,
+	staticBody = 0,
 
 	// zero mass, velocity set by user, moved by solver
 	kinematicBody = 1,
 
 	// positive mass, velocity determined by forces, moved by solver
-	dynamicBody   = 2,
+	dynamicBody = 2,
 }
 
 // Motion locks to restrict the body movement
 // @ingroup body
 MotionLocks :: struct {
 	// Prevent translation along the x-axis
-	linearX:  bool,
+	linearX: bool,
 
 	// Prevent translation along the y-axis
-	linearY:  bool,
+	linearY: bool,
 
 	// Prevent translation along the z-axis
-	linearZ:  bool,
+	linearZ: bool,
 
 	// Prevent rotation around the x-axis
 	angularX: bool,
@@ -340,57 +333,57 @@ MotionLocks :: struct {
 // Body definitions are temporary objects used to bundle creation parameters.
 // Must be initialized using b3DefaultBodyDef().
 // @ingroup body
-BodyDef :: struct {
+BodyDef :: struct{
 	// The body type: static, kinematic, or dynamic.
-	type:                   BodyType,
+	type: BodyType,
 
 	// The initial world position of the body. Bodies should be created with the desired position.
 	// @note Creating bodies at the origin and then moving them nearly doubles the cost of body creation, especially
 	// if the body is moved after shapes have been added.
-	position:               Pos,
+	position: Pos,
 
 	// The initial world rotation of the body.
-	rotation:               Quat,
+	rotation: Quat,
 
 	// The initial linear velocity of the body's origin. Usually in meters per second.
-	linearVelocity:         Vec3,
+	linearVelocity: Vec3,
 
 	// The initial angular velocity of the body. Radians per second.
-	angularVelocity:        Vec3,
+	angularVelocity: Vec3,
 
 	// Linear damping is used to reduce the linear velocity. The damping parameter
 	// can be larger than 1 but the damping effect becomes sensitive to the
 	// time step when the damping parameter is large.
 	// Generally linear damping is undesirable because it makes objects move slowly
 	// as if they are floating.
-	linearDamping:          f32,
+	linearDamping: f32,
 
 	// Angular damping is used to reduce the angular velocity. The damping parameter
 	// can be larger than 1.0f but the damping effect becomes sensitive to the
 	// time step when the damping parameter is large.
 	// Angular damping can be used to slow down rotating bodies.
-	angularDamping:         f32,
+	angularDamping: f32,
 
 	// Scale the gravity applied to this body. Non-dimensional.
-	gravityScale:           f32,
+	gravityScale: f32,
 
 	// Sleep speed threshold, default is 0.05 meters per second
-	sleepThreshold:         f32,
+	sleepThreshold: f32,
 
 	// Optional body name for debugging.
-	name:                   cstring,
+	name: cstring,
 
 	// Use this to store application specific body data.
-	userData:               rawptr,
+	userData: rawptr,
 
 	// Motions locks to restrict linear and angular movement
-	motionLocks:            MotionLocks,
+	motionLocks: MotionLocks,
 
 	// Set this flag to false if this body should never fall asleep.
-	enableSleep:            bool,
+	enableSleep: bool,
 
 	// Is this body initially awake or sleeping?
-	isAwake:                bool,
+	isAwake: bool,
 
 	// Treat this body as a high speed object that performs continuous collision detection
 	// against dynamic and kinematic bodies, but not other bullet bodies.
@@ -406,21 +399,21 @@ BodyDef :: struct {
 	// So what are good use cases for bullets? Pinball games or games with dynamic containers that hold other objects.
 	// It should be a use case where it doesn't break the game if there is a collision missed, but having them
 	// captured improves the quality of the game.
-	isBullet:               bool,
+	isBullet: bool,
 
 	// Used to disable a body. A disabled body does not move or collide.
-	isEnabled:              bool,
+	isEnabled: bool,
 
 	// This allows this body to bypass rotational speed limits. Should only be used
 	// for circular objects, like wheels.
-	allowFastRotation:      bool,
+	allowFastRotation: bool,
 
 	// Enable contact recycling. True by default. Leaving this enabled improves performance
 	// but may lead to ghost collision that should be avoided on characters.
 	enableContactRecycling: bool,
 
 	// Used internally to detect a valid definition. DO NOT SET.
-	internalValue:          c.int,
+	internalValue: c.int,
 }
 
 
@@ -449,7 +442,7 @@ Filter :: struct {
 	// @code{.odin}
 	// maskBits = {/Static, .Player};
 	// @endcode
-	maskBits:     u64,
+	maskBits: u64,
 
 	// Collision groups allow a certain group of objects to never collide (negative)
 	// or always collide (positive). A group index of zero has no effect. Non-zero group filtering
@@ -457,7 +450,7 @@ Filter :: struct {
 	// For example, you may want ragdolls to collide with other ragdolls but you don't want
 	// ragdoll self-collision. In this case you would give each ragdoll a unique negative group index
 	// and apply that group index to all shapes on the ragdoll.
-	groupIndex:   c.int,
+	groupIndex: c.int,
 }
 
 
@@ -465,30 +458,30 @@ Filter :: struct {
 // @ingroup shape
 SurfaceMaterial :: struct {
 	// The Coulomb (dry) friction coefficient, usually in the range [0,1].
-	friction:          f32,
+	friction: f32,
 
 	// The coefficient of restitution (bounce) usually in the range [0,1].
 	// https://en.wikipedia.org/wiki/Coefficient_of_restitution
-	restitution:       f32,
+	restitution: f32,
 
 	// The rolling resistance usually in the range [0,1]. This is only used for spheres and capsules.
 	rollingResistance: f32,
 
 	// The tangent velocity for conveyor belts. This is local to the shape and will be projected
 	// onto the contact surface.
-	tangentVelocity:   Vec3,
+	tangentVelocity: Vec3,
 
 	// User material identifier. This is passed with query results and to friction and restitution
 	// combining functions. It is not used internally.
-	userMaterialId:    u64,
+	userMaterialId: u64,
 
 	// Custom debug draw color. Ignored if 0. The low 24 bits are RGB. The high byte may
 	// carry a b3DebugMaterial preset, see b3MakeDebugColor.
 	// @see b3HexColor
-	customColor:       u32,
+	customColor: u32,
 
 	// Explicit padding. Must be zero.
-	padding:           u32,
+	padding: u32,
 }
 
 
@@ -518,61 +511,61 @@ ShapeType :: enum c.int {
 // @ingroup shape
 ShapeDef :: struct {
 	// Optional shape name for debugging
-	name:                     cstring,
+	name: cstring,
 
 	// Use this to store application specific shape data.
-	userData:                 rawptr,
+	userData: rawptr,
 
 	// Surface material used on mesh shapes per triangle. Ignored for convex shapes. Ignored for compound shapes.
-	materials:                [^]SurfaceMaterial `fmt:"v,materialCount"`,
+	materials: [^]SurfaceMaterial `fmt:"v,materialCount"`,
 
 	// Surface material count.
-	materialCount:            c.int,
+	materialCount: c.int,
 
 	// The base surface material. Ignored for compound shapes.
-	baseMaterial:             SurfaceMaterial,
+	baseMaterial: SurfaceMaterial,
 
 	// The density, usually in kg/m^3.
-	density:                  f32,
+	density: f32,
 
 	// Explosion scale for b3World_Explode. non-dimensional
-	explosionScale:           f32,
+	explosionScale: f32,
 
 	// Contact filtering data.
-	filter:                   Filter,
+	filter: Filter,
 
 	// Enable custom filtering. Only one of the two shapes needs to enable custom filtering. See b3WorldDef.
-	enableCustomFiltering:    bool,
+	enableCustomFiltering: bool,
 
 	// A sensor shape generates overlap events but never generates a collision response.
 	// Sensors do not have continuous collision. Instead, use a ray or shape cast for those scenarios.
 	// Sensors still contribute to the body mass if they have non-zero density.
 	// @note Sensor events are disabled by default.
 	// @see enableSensorEvents
-	isSensor:                 bool,
+	isSensor: bool,
 
 	// Enable sensor events for this shape. This applies to sensors and non-sensors. False by default, even for sensors.
 	// Only convex shapes may act as sensor visitors.
-	enableSensorEvents:       bool,
+	enableSensorEvents: bool,
 
 	// Enable contact events for this shape. Only applies to kinematic and dynamic bodies. Ignored for sensors. False by default.
-	enableContactEvents:      bool,
+	enableContactEvents: bool,
 
 	// Enable hit events for this shape. Only applies to kinematic and dynamic bodies. Ignored for sensors. False by default.
-	enableHitEvents:          bool,
+	enableHitEvents: bool,
 
 	// Enable pre-solve contact events for this shape. Only applies to dynamic bodies. These are expensive
 	//	and must be carefully handled due to multithreading. Ignored for sensors.
-	enablePreSolveEvents:     bool,
+	enablePreSolveEvents: bool,
 
 	// When shapes are created they will scan the environment for collision the next time step. This can significantly slow down
 	// static body creation when there are many static shapes.
 	// This is flag is ignored for dynamic and kinematic shapes which always invoke contact creation.
-	invokeContactCreation:    bool,
+	invokeContactCreation: bool,
 
 	// Should the body update the mass properties when this shape is created. Default is true.
 	// Warning: if this is false, you MUST call b3Body_ApplyMassFromShapes or b3Body_SetMassData before simulating the world.
-	updateBodyMass:           bool,
+	updateBodyMass: bool,
 
 	// Enable speculative collision. Leave this true unless you care about reducing ghost collision
 	// more than continuous collision under rotation.
@@ -580,7 +573,7 @@ ShapeDef :: struct {
 	enableSpeculativeContact: bool,
 
 	// Used internally to detect a valid definition. DO NOT SET.
-	internalValue:            c.int,
+	internalValue: c.int,
 }
 
 //! @cond
@@ -615,40 +608,40 @@ Profile :: struct {
 // Counters that give details of the simulation size.
 // @ingroup world
 Counters :: struct {
-	bodyCount:            c.int,
-	shapeCount:           c.int,
-	contactCount:         c.int,
-	jointCount:           c.int,
-	islandCount:          c.int,
-	stackUsed:            c.int,
-	arenaCapacity:        c.int,
-	staticTreeHeight:     c.int,
-	treeHeight:           c.int,
-	satCallCount:         c.int,
-	satCacheHitCount:     c.int,
-	byteCount:            c.int,
-	taskCount:            c.int,
-	colorCounts:          [24]c.int,
-	manifoldCounts:       [CONTACT_MANIFOLD_COUNT_BUCKETS]c.int,
+	bodyCount:        c.int,
+	shapeCount:       c.int,
+	contactCount:     c.int,
+	jointCount:       c.int,
+	islandCount:      c.int,
+	stackUsed:        c.int,
+	arenaCapacity:    c.int,
+	staticTreeHeight: c.int,
+	treeHeight:       c.int,
+	satCallCount:     c.int,
+	satCacheHitCount: c.int,
+	byteCount:        c.int,
+	taskCount:        c.int,
+	colorCounts:      [24]c.int,
+	manifoldCounts:   [CONTACT_MANIFOLD_COUNT_BUCKETS]c.int,
 
 	// Number of contacts touched by the collide pass
 	// graph contacts + awake-set non-touching
-	awakeContactCount:    c.int,
+	awakeContactCount: c.int,
 
 	// Number of contacts recycled in the most recent step.
 	recycledContactCount: c.int,
 
 	// Maximum number of time of impact iterations
-	distanceIterations:   c.int,
-	pushBackIterations:   c.int,
-	rootIterations:       c.int,
+	distanceIterations: c.int,
+	pushBackIterations: c.int,
+	rootIterations:     c.int,
 }
 //! @endcond
 
 // Joint type enumeration. This is useful because all joint types use b3JointId and sometimes you
 // want to get the type of a joint.
 // @ingroup joint
-JointType :: enum c.int {
+JointType :: enum c.int  {
 	parallelJoint,
 	distanceJoint,
 	filterJoint,
@@ -667,40 +660,40 @@ JointType :: enum c.int {
 // @ingroup joint
 JointDef :: struct {
 	// User data pointer
-	userData:               rawptr,
+	userData: rawptr,
 
 	// The first attached body
-	bodyIdA:                BodyId,
+	bodyIdA: BodyId,
 
 	// The second attached body
-	bodyIdB:                BodyId,
+	bodyIdB: BodyId,
 
 	// The first local joint frame
-	localFrameA:            Transform,
+	localFrameA: Transform,
 
 	// The second local joint frame
-	localFrameB:            Transform,
+	localFrameB: Transform,
 
 	// Force threshold for joint events
-	forceThreshold:         f32,
+	forceThreshold: f32,
 
 	// Torque threshold for joint events
-	torqueThreshold:        f32,
+	torqueThreshold: f32,
 
 	// Constraint hertz (advanced feature)
-	constraintHertz:        f32,
+	constraintHertz: f32,
 
 	// Constraint damping ratio (advanced feature)
 	constraintDampingRatio: f32,
 
 	// Debug draw scale
-	drawScale:              f32,
+	drawScale: f32,
 
 	// Set this flag to true if the attached bodies should collide
-	collideConnected:       bool,
+	collideConnected: bool,
 
 	// Used internally to detect a valid definition. DO NOT SET.
-	internalValue:          c.int,
+	internalValue: c.int,
 }
 
 // Distance joint definition.
@@ -709,14 +702,14 @@ JointDef :: struct {
 // @ingroup distance_joint
 DistanceJointDef :: struct {
 	// Base joint definition
-	using base:       JointDef,
+	using base: JointDef,
 
 	// The rest length of this joint. Clamped to a stable minimum value.
-	length:           f32,
+	length: f32,
 
 	// Enable the distance constraint to behave like a spring. If false
 	// then the distance joint will be rigid, overriding the limit and motor.
-	enableSpring:     bool,
+	enableSpring: bool,
 
 	// The lower spring force controls how much tension it can sustain
 	lowerSpringForce: f32,
@@ -725,28 +718,28 @@ DistanceJointDef :: struct {
 	upperSpringForce: f32,
 
 	// The spring linear stiffness Hertz, cycles per second
-	hertz:            f32,
+	hertz: f32,
 
 	// The spring linear damping ratio, non-dimensional
-	dampingRatio:     f32,
+	dampingRatio: f32,
 
 	// Enable/disable the joint limit
-	enableLimit:      bool,
+	enableLimit: bool,
 
 	// Minimum length. Clamped to a stable minimum value.
-	minLength:        f32,
+	minLength: f32,
 
 	// Maximum length. Must be greater than or equal to the minimum length.
-	maxLength:        f32,
+	maxLength: f32,
 
 	// Enable/disable the joint motor
-	enableMotor:      bool,
+	enableMotor: bool,
 
 	// The maximum motor force, usually in newtons
-	maxMotorForce:    f32,
+	maxMotorForce: f32,
 
 	// The desired motor speed, usually in meters per second
-	motorSpeed:       f32,
+	motorSpeed: f32,
 }
 
 
@@ -754,37 +747,37 @@ DistanceJointDef :: struct {
 // @ingroup motor_joint
 MotorJointDef :: struct {
 	// Base joint definition
-	using base:          JointDef,
+	using base: JointDef,
 
 	// The desired linear velocity
-	linearVelocity:      Vec3,
+	linearVelocity: Vec3,
 
 	// The maximum motor force in newtons
-	maxVelocityForce:    f32,
+	maxVelocityForce: f32,
 
 	// The desired angular velocity
-	angularVelocity:     Vec3,
+	angularVelocity: Vec3,
 
 	// The maximum motor torque in newton-meters
-	maxVelocityTorque:   f32,
+	maxVelocityTorque: f32,
 
 	// Linear spring hertz for position control
-	linearHertz:         f32,
+	linearHertz: f32,
 
 	// Linear spring damping ratio
-	linearDampingRatio:  f32,
+	linearDampingRatio: f32,
 
 	// Maximum spring force in newtons
-	maxSpringForce:      f32,
+	maxSpringForce: f32,
 
 	// Angular spring hertz for position control
-	angularHertz:        f32,
+	angularHertz: f32,
 
 	// Angular spring damping ratio
 	angularDampingRatio: f32,
 
 	// Maximum spring torque in newton-meters
-	maxSpringTorque:     f32,
+	maxSpringTorque: f32,
 }
 
 // A filter joint is used to disable collision between two specific bodies.
@@ -800,16 +793,16 @@ FilterJointDef :: struct {
 // @ingroup parallel_joint
 ParallelJointDef :: struct {
 	// Base joint definition
-	using base:   JointDef,
+	using base: JointDef,
 
 	// The spring stiffness Hertz, cycles per second
-	hertz:        f32,
+	hertz: f32,
 
 	// The spring damping ratio, non-dimensional
 	dampingRatio: f32,
 
 	// The maximum spring torque, typically in newton-meters.
-	maxTorque:    f32,
+	maxTorque: f32,
 }
 
 // Prismatic joint definition. Body B may slide along the x-axis in local frame A.
@@ -818,38 +811,38 @@ ParallelJointDef :: struct {
 // @ingroup prismatic_joint
 PrismaticJointDef :: struct {
 	// Base joint definition
-	using base:        JointDef,
+	using base: JointDef,
 
 	// Enable a linear spring along the prismatic joint axis
-	enableSpring:      bool,
+	enableSpring: bool,
 
 	// The spring stiffness Hertz, cycles per second
-	hertz:             f32,
+	hertz: f32,
 
 	// The spring damping ratio, non-dimensional
-	dampingRatio:      f32,
+	dampingRatio: f32,
 
 	// The target translation for the joint in meters. The spring-damper will drive
 	// to this translation.
 	targetTranslation: f32,
 
 	// Enable/disable the joint limit
-	enableLimit:       bool,
+	enableLimit: bool,
 
 	// The lower translation limit
-	lowerTranslation:  f32,
+	lowerTranslation: f32,
 
 	// The upper translation limit
-	upperTranslation:  f32,
+	upperTranslation: f32,
 
 	// Enable/disable the joint motor
-	enableMotor:       bool,
+	enableMotor: bool,
 
 	// The maximum motor force, typically in newtons
-	maxMotorForce:     f32,
+	maxMotorForce: f32,
 
 	// The desired motor speed, typically in meters per second
-	motorSpeed:        f32,
+	motorSpeed: f32,
 }
 
 // Revolute joint definition. A point on body B is fixed to a point on body A.
@@ -857,38 +850,38 @@ PrismaticJointDef :: struct {
 // @ingroup revolute_joint
 RevoluteJointDef :: struct {
 	// Base joint definition.
-	using base:     JointDef,
+	using base: JointDef,
 
 	// The bodyB angle minus bodyA angle in the reference state (radians).
 	// This defines the zero angle for the joint limit.
-	targetAngle:    f32,
+	targetAngle: f32,
 
 	// Enable a rotational spring on the revolute hinge axis.
-	enableSpring:   bool,
+	enableSpring: bool,
 
 	// The spring stiffness Hertz, cycles per second.
-	hertz:          f32,
+	hertz: f32,
 
 	// The spring damping ratio, non-dimensional.
-	dampingRatio:   f32,
+	dampingRatio: f32,
 
 	// A flag to enable joint limits.
-	enableLimit:    bool,
+	enableLimit: bool,
 
 	// The lower angle for the joint limit in radians. Minimum of -0.99*pi radians.
-	lowerAngle:     f32,
+	lowerAngle: f32,
 
 	// The upper angle for the joint limit in radians. Maximum of 0.99*pi radians.
-	upperAngle:     f32,
+	upperAngle: f32,
 
 	// A flag to enable the joint motor.
-	enableMotor:    bool,
+	enableMotor: bool,
 
 	// The maximum motor torque, typically in newton-meters.
 	maxMotorTorque: f32,
 
 	// The desired motor speed in radians per second.
-	motorSpeed:     f32,
+	motorSpeed: f32,
 }
 
 // Spherical joint definition. A point on body B is fixed to a point on body A.
@@ -896,44 +889,44 @@ RevoluteJointDef :: struct {
 // @ingroup spherical_joint
 SphericalJointDef :: struct {
 	// Base joint definition
-	using base:       JointDef,
+	using base: JointDef,
 
 	// Enable a rotational spring that attempts to align the two joint frames.
-	enableSpring:     bool,
+	enableSpring: bool,
 
 	// The spring stiffness Hertz, cycles per second. This may be clamped internally
 	// according to the time step to maintain stability. Non-negative number.
-	hertz:            f32,
+	hertz: f32,
 
 	// The spring damping ratio, non-dimensional. Non-negative number.
-	dampingRatio:     f32,
+	dampingRatio: f32,
 
 	// Target spring rotation, joint frame B relative to joint frame A.
-	targetRotation:   Quat,
+	targetRotation: Quat,
 
 	// A flag to enable the cone limit. The cone is centered on the frameA z-axis.
-	enableConeLimit:  bool,
+	enableConeLimit: bool,
 
 	// The angle for the cone limit in radians. Valid range is [0, pi]
-	coneAngle:        f32,
+	coneAngle: f32,
 
 	// A flag to enable the twist limit. The twist is centered on the frameB z-axis.
 	enableTwistLimit: bool,
 
 	// The angle for the lower twist limit in radians. Minimum of -0.99*pi radians.
-	lowerTwistAngle:  f32,
+	lowerTwistAngle: f32,
 
 	// The angle for the upper twist limit in radians. Maximum of 0.99*pi radians.
-	upperTwistAngle:  f32,
+	upperTwistAngle: f32,
 
 	// A flag to enable the joint motor
-	enableMotor:      bool,
+	enableMotor: bool,
 
 	// The maximum motor torque, typically in newton-meters. Non-negative number.
-	maxMotorTorque:   f32,
+	maxMotorTorque: f32,
 
 	// The desired motor angular velocity in radians per second.
-	motorVelocity:    Vec3,
+	motorVelocity: Vec3,
 }
 
 
@@ -944,16 +937,16 @@ SphericalJointDef :: struct {
 // @ingroup weld_joint
 WeldJointDef :: struct {
 	// Base joint definition
-	using base:          JointDef,
+	using base: JointDef,
 
 	// Linear stiffness expressed as Hertz (cycles per second). Use zero for maximum stiffness.
-	linearHertz:         f32,
+	linearHertz: f32,
 
 	// Angular stiffness as Hertz (cycles per second). Use zero for maximum stiffness.
-	angularHertz:        f32,
+	angularHertz: f32,
 
 	// Linear damping ratio, non-dimensional. Use 1 for critical damping.
-	linearDampingRatio:  f32,
+	linearDampingRatio: f32,
 
 	// Linear damping ratio, non-dimensional. Use 1 for critical damping.
 	angularDampingRatio: f32,
@@ -967,58 +960,58 @@ WeldJointDef :: struct {
 // @ingroup wheel_joint
 WheelJointDef :: struct {
 	// Base joint definition
-	using base:             JointDef,
+	using base: JointDef,
 
 	// Enable a linear spring along the local axis
 	enableSuspensionSpring: bool,
 
 	// Spring stiffness in Hertz
-	suspensionHertz:        f32,
+	suspensionHertz: f32,
 
 	// Spring damping ratio, non-dimensional
 	suspensionDampingRatio: f32,
 
 	// Enable/disable the joint linear limit
-	enableSuspensionLimit:  bool,
+	enableSuspensionLimit: bool,
 
 	// The lower suspension translation limit
-	lowerSuspensionLimit:   f32,
+	lowerSuspensionLimit: f32,
 
 	// The upper translation limit
-	upperSuspensionLimit:   f32,
+	upperSuspensionLimit: f32,
 
 	// Enable/disable the joint rotational motor
-	enableSpinMotor:        bool,
+	enableSpinMotor: bool,
 
 	// The maximum motor torque, typically in newton-meters
-	maxSpinTorque:          f32,
+	maxSpinTorque: f32,
 
 	// The desired motor speed in radians per second
-	spinSpeed:              f32,
+	spinSpeed: f32,
 
 	// Enable steering, otherwise the steering is fixed forward
-	enableSteering:         bool,
+	enableSteering: bool,
 
 	// Steering stiffness in Hertz
-	steeringHertz:          f32,
+	steeringHertz: f32,
 
 	// Spring damping ratio, non-dimensional
-	steeringDampingRatio:   f32,
+	steeringDampingRatio: f32,
 
 	// The target steering angle in radians
-	targetSteeringAngle:    f32,
+	targetSteeringAngle: f32,
 
 	// The maximum steering torque in N*m
-	maxSteeringTorque:      f32,
+	maxSteeringTorque: f32,
 
 	// Enable/disable the steering angular limit
-	enableSteeringLimit:    bool,
+	enableSteeringLimit: bool,
 
 	// The lower steering angle in radians
-	lowerSteeringLimit:     f32,
+	lowerSteeringLimit: f32,
 
 	// The upper steering angle in radians
-	upperSteeringLimit:     f32,
+	upperSteeringLimit: f32,
 }
 
 
@@ -1027,16 +1020,16 @@ WheelJointDef :: struct {
 // @ingroup world
 ExplosionDef :: struct {
 	// Mask bits to filter shapes
-	maskBits:       u64,
+	maskBits: u64,
 
 	// The center of the explosion in world space
-	position:       Pos,
+	position: Pos,
 
 	// The radius of the explosion
-	radius:         f32,
+	radius: f32,
 
 	// The falloff distance beyond the radius. Impulse is reduced to zero at this distance.
-	falloff:        f32,
+	falloff: f32,
 
 	// Impulse per unit area. This applies an impulse according to the shape area that
 	// is facing the explosion. Explosions only apply to spheres, capsules, and hulls. This
@@ -1064,7 +1057,7 @@ ExplosionDef :: struct {
 // A begin-touch event is generated when a shape starts to overlap a sensor shape.
 SensorBeginTouchEvent :: struct {
 	// The id of the sensor shape
-	sensorShapeId:  ShapeId,
+	sensorShapeId: ShapeId,
 
 	// The id of the shape that began touching the sensor shape
 	visitorShapeId: ShapeId,
@@ -1078,7 +1071,7 @@ SensorEndTouchEvent :: struct {
 	// The id of the sensor shape
 	//	@warning this shape may have been destroyed
 	//	@see b3Shape_IsValid
-	sensorShapeId:  ShapeId,
+	sensorShapeId: ShapeId,
 
 	// The id of the shape that stopped touching the sensor shape
 	//	@warning this shape may have been destroyed
@@ -1094,22 +1087,22 @@ SensorEvents :: struct {
 	beginEvents: [^]SensorBeginTouchEvent `fmt:"v,beginCount"`,
 
 	// Array of sensor end touch events
-	endEvents:   [^]SensorEndTouchEvent `fmt:"v,endCount"`,
+	endEvents: [^]SensorEndTouchEvent `fmt:"v,endCount"`,
 
 	// The number of begin touch events
-	beginCount:  c.int,
+	beginCount: c.int,
 
 	// The number of end touch events
-	endCount:    c.int,
+	endCount: c.int,
 }
 
 // A begin-touch event is generated when two shapes begin touching.
 ContactBeginTouchEvent :: struct {
 	// Id of the first shape
-	shapeIdA:  ShapeId,
+	shapeIdA: ShapeId,
 
 	// Id of the second shape
-	shapeIdB:  ShapeId,
+	shapeIdB: ShapeId,
 
 	// The transient contact id. This contact may be destroyed automatically when the world is modified or simulated.
 	// Use b3Contact_IsValid before using this id.
@@ -1124,12 +1117,12 @@ ContactEndTouchEvent :: struct {
 	// Id of the first shape
 	//	@warning this shape may have been destroyed
 	//	@see b3Shape_IsValid
-	shapeIdA:  ShapeId,
+	shapeIdA: ShapeId,
 
 	// Id of the first shape
 	//	@warning this shape may have been destroyed
 	//	@see b3Shape_IsValid
-	shapeIdB:  ShapeId,
+	shapeIdB: ShapeId,
 
 	// Id of the contact.
 	//	@warning this contact may have been destroyed
@@ -1141,26 +1134,26 @@ ContactEndTouchEvent :: struct {
 // This may be reported for speculative contacts that have a confirmed impulse.
 ContactHitEvent :: struct {
 	// Id of the first shape
-	shapeIdA:        ShapeId,
+	shapeIdA: ShapeId,
 
 	// Id of the second shape
-	shapeIdB:        ShapeId,
+	shapeIdB: ShapeId,
 
 	// Id of the contact.
 	//	@warning this contact may have been destroyed
 	//	@see b3Contact_IsValid
-	contactId:       ContactId,
+	contactId: ContactId,
 
 	// Point where the shapes hit at the beginning of the time step.
 	// This is a mid-point between the two surfaces. It could be at speculative
 	// point where the two shapes were not touching at the beginning of the time step.
-	point:           Pos,
+	point: Pos,
 
 	// Normal vector pointing from shape A to shape B
-	normal:          Vec3,
+	normal: Vec3,
 
 	// The speed the shapes are approaching. Always positive. Typically in meters per second.
-	approachSpeed:   f32,
+	approachSpeed: f32,
 
 	// User material on shape A
 	userMaterialIdA: u64,
@@ -1177,19 +1170,19 @@ ContactEvents :: struct {
 	beginEvents: [^]ContactBeginTouchEvent `fmt:"v,beginCount"`,
 
 	// Array of end touch events
-	endEvents:   [^]ContactEndTouchEvent `fmt:"v,endCount"`,
+	endEvents:   [^]ContactEndTouchEvent   `fmt:"v,endCount"`,
 
 	// Array of hit events
-	hitEvents:   [^]ContactHitEvent `fmt:"v,hitCount"`,
+	hitEvents:   [^]ContactHitEvent        `fmt:"v,hitCount"`,
 
 	// Number of begin touch events
-	beginCount:  c.int,
+	beginCount: c.int,
 
 	// Number of end touch events
-	endCount:    c.int,
+	endCount:   c.int,
 
 	// Number of hit events
-	hitCount:    c.int,
+	hitCount:   c.int,
 }
 
 // Body move events triggered when a body moves.
@@ -1204,13 +1197,13 @@ ContactEvents :: struct {
 // @note If sleeping is disabled all dynamic and kinematic bodies will trigger move events.
 BodyMoveEvent :: struct {
 	// The body user data.
-	userData:   rawptr,
+	userData: rawptr,
 
 	// The body transform.
-	transform:  WorldTransform,
+	transform: WorldTransform,
 
 	// The body id.
-	bodyId:     BodyId,
+	bodyId: BodyId,
 
 	// Did the body fall asleep this time step?
 	fellAsleep: bool,
@@ -1224,14 +1217,14 @@ BodyEvents :: struct {
 	moveEvents: [^]BodyMoveEvent `fmt:"v,moveCount"`,
 
 	// Number of move events
-	moveCount:  c.int,
+	moveCount: c.int,
 }
 
 // Joint events report joints that are awake and have a force and/or torque exceeding the threshold
 // The observed forces and torques are not returned for efficiency reasons.
 JointEvent :: struct {
 	// The joint id
-	jointId:  JointId,
+	jointId: JointId,
 
 	// The user data from the joint for convenience
 	userData: rawptr,
@@ -1245,7 +1238,7 @@ JointEvents :: struct {
 	jointEvents: [^]JointEvent `fmt:"v,count"`,
 
 	// Number of events
-	count:       c.int,
+	count: c.int,
 }
 
 // The contact data for two shapes. By convention the manifold normal points
@@ -1254,23 +1247,23 @@ JointEvents :: struct {
 ContactData :: struct {
 	// The contact id. You may hold onto this to track a contact across time steps.
 	// This id may become orphaned. Use b3Contact_IsValid before using it for other functions.
-	contactId:     ContactId,
+	contactId: ContactId,
 
 	// The first shape id.
-	shapeIdA:      ShapeId,
+	shapeIdA: ShapeId,
 
 	// The second shape id.
-	shapeIdB:      ShapeId,
+	shapeIdB: ShapeId,
 
 	// The contact manifold. This points to internal data and may become invalid. Do not store
 	// this pointer.
-	manifolds:     [^]Manifold `fmt:"v,manifoldCount"`,
+	manifolds: [^]Manifold `fmt:"v,manifoldCount"`,
 
 	// The number of contact manifolds. For mesh and height-field collision there can be multiple manifolds.
 	manifoldCount: c.int,
 }
 
-/**@}*/// event
+/**@}*/ // event
 
 /**
  * @defgroup query Query
@@ -1289,24 +1282,24 @@ QueryFilter :: struct {
 
 	// The collision mask bits. This states the shape categories that this
 	// query would accept for collision.
-	maskBits:     u64,
+	maskBits: u64,
 
 	// Optional id combined with @ref name to identify this query in a recording, e.g. an entity id.
 	// Need not be unique on its own. 0 with a null name means untagged. Ignored when not recording.
-	id:           u64,
+	id: u64,
 
 	// Optional label combined with @ref id to identify this query, e.g. "bullet". Need not be unique
 	// on its own. The recorder hashes (id, name) into one stable key the viewer tracks the query by,
 	// so the same id and name pair identifies the same query across frames. NULL means none. Ignored
 	// when not recording.
-	name:         cstring,
+	name: cstring,
 }
 
 
 // Low level ray cast input data.
 RayCastInput :: struct {
 	// Start point of the ray cast.
-	origin:      Vec3,
+	origin: Vec3,
 
 	// Translation of the ray cast.
 	// end = start + translation.
@@ -1319,36 +1312,36 @@ RayCastInput :: struct {
 // Result from b3World_RayCastClosest.
 RayResult :: struct {
 	// The shape hit.
-	shapeId:        ShapeId,
+	shapeId: ShapeId,
 
 	// The world point of the hit.
-	point:          Pos,
+	point: Pos,
 
 	// The world normal of the shape surface at the hit point.
-	normal:         Vec3,
+	normal: Vec3,
 
 	// The user material id at the hit point. This can be per triangle
 	// if the shape is a mesh, height-field, or compound with child mesh.
 	userMaterialId: u64,
 
 	// The fraction of the input ray.
-	fraction:       f32,
+	fraction: f32,
 
 	// The triangle index if the shape is a mesh, height-field, or compound with
 	// child mesh.
-	triangleIndex:  c.int,
+	triangleIndex: c.int,
 
 	// The child index if the shape is a compound.
-	childIndex:     c.int,
+	childIndex: c.int,
 
 	// The number of BVH nodes visited. Diagnostic.
-	nodeVisits:     c.int,
+	nodeVisits: c.int,
 
 	// The number of BVH leaves visited. Diagnostic.
-	leafVisits:     c.int,
+	leafVisits: c.int,
 
 	// Did the ray hit? If false, all other data is invalid.
-	hit:            bool,
+	hit: bool,
 }
 
 // A shape proxy is used by the GJK algorithm. It can represent a convex shape.
@@ -1357,7 +1350,7 @@ ShapeProxy :: struct {
 	points: [^]Vec3 `fmt:"v,count"`,
 
 	// The number of points. Do not exceed B3_MAX_SHAPE_CAST_POINTS.
-	count:  c.int,
+	count: c.int,
 
 	// The external radius of the point cloud.
 	radius: f32,
@@ -1368,7 +1361,7 @@ ShapeProxy :: struct {
 // A capsule is two points with a non-zero radius. A box is four points with a zero radius.
 ShapeCastInput :: struct {
 	// A generic query shape.
-	proxy:       ShapeProxy,
+	proxy: ShapeProxy,
 
 	// The translation of the shape cast.
 	translation: Vec3,
@@ -1385,7 +1378,7 @@ ShapeCastInput :: struct {
 // stays a conservative box sweep and the precise narrow phase happens per shape in the callback.
 BoxCastInput :: struct {
 	// The AABB to cast, in the tree's frame.
-	box:         AABB,
+	box: AABB,
 
 	// The sweep translation.
 	translation: Vec3,
@@ -1397,28 +1390,28 @@ BoxCastInput :: struct {
 // Low level ray cast or shape-cast output data.
 CastOutput :: struct {
 	// The surface normal at the hit point.
-	normal:        Vec3,
+	normal: Vec3,
 
 	// The surface hit point.
-	point:         Vec3,
+	point: Vec3,
 
 	// The fraction of the input translation at collision.
-	fraction:      f32,
+	fraction: f32,
 
 	// The number of iterations used.
-	iterations:    c.int,
+	iterations: c.int,
 
 	// The index of the mesh or height field triangle hit.
 	triangleIndex: c.int,
 
 	// The index of the compound child shape.
-	childIndex:    c.int,
+	childIndex: c.int,
 
 	// The material index. May be -1 for null.
 	materialIndex: c.int,
 
 	// Did the cast hit?
-	hit:           bool,
+	hit: bool,
 }
 
 
@@ -1426,58 +1419,58 @@ CastOutput :: struct {
 // stays precise far from the world origin. Mirrors b3CastOutput with a double precision point.
 WorldCastOutput :: struct {
 	// The surface normal at the hit point.
-	normal:        Vec3,
+	normal: Vec3,
 
 	// The surface hit point in world space.
-	point:         Pos,
+	point: Pos,
 
 	// The fraction of the input translation at collision.
-	fraction:      f32,
+	fraction: f32,
 
 	// The number of iterations used.
-	iterations:    c.int,
+	iterations: c.int,
 
 	// The index of the mesh or height field triangle hit.
 	triangleIndex: c.int,
 
 	// The index of the compound child shape.
-	childIndex:    c.int,
+	childIndex: c.int,
 
 	// The material index. May be -1 for null.
 	materialIndex: c.int,
 
 	// Did the cast hit?
-	hit:           bool,
+	hit: bool,
 }
 
 
 // Body cast result for ray and shape casts.
 BodyCastResult :: struct {
 	// The shape hit.
-	shapeId:        ShapeId,
+	shapeId: ShapeId,
 
 	// The world point on the shape surface.
-	point:          Pos,
+	point: Pos,
 
 	// The world normal vector on the shape surface.
-	normal:         Vec3,
+	normal: Vec3,
 
 	// The fraction along the ray hit.
 	// hit point = origin + fraction * translation
-	fraction:       f32,
+	fraction: f32,
 
 	// The triangle index if the shape is a mesh or height-field.
-	triangleIndex:  c.int,
+	triangleIndex: c.int,
 
 	// The user material id at the hit point. This can be per triangle
 	// if the shape is a mesh, height-field, or compound with child mesh.
 	userMaterialId: u64,
 
 	// The number of iterations used. Diagnostic.
-	iterations:     c.int,
+	iterations: c.int,
 
 	// Did the cast hit? If false, all other fields are invalid.
-	hit:            bool,
+	hit: bool,
 }
 
 // Used to warm start the GJK simplex. If you call this function multiple times with nearby
@@ -1490,7 +1483,7 @@ SimplexCache :: struct {
 
 	// todo use an index of 0xFF as a sentinel and remove the count
 	// The number of stored simplex points
-	count:  u16,
+	count: u16,
 
 	// The cached simplex indices on shape A
 	indexA: [4]u8,
@@ -1505,44 +1498,44 @@ emptyDistanceCache :: SimplexCache{}
 ShapeCastPairInput :: struct {
 	proxyA:       ShapeProxy, //< The proxy for shape A
 	proxyB:       ShapeProxy, //< The proxy for shape B
-	transform:    Transform, //< Transform of shape B in shape A's frame, the relative pose B in A
-	translationB: Vec3, //< The translation of shape B, in A's frame
-	maxFraction:  f32, //< The fraction of the translation to consider, typically 1
-	canEncroach:  bool, //< Allows shapes with a radius to move slightly closer if already touching
+	transform:    Transform,  //< Transform of shape B in shape A's frame, the relative pose B in A
+	translationB: Vec3,       //< The translation of shape B, in A's frame
+	maxFraction:  f32,        //< The fraction of the translation to consider, typically 1
+	canEncroach:  bool,       //< Allows shapes with a radius to move slightly closer if already touching
 }
 
 // Input for ShapeDistance
 DistanceInput :: struct {
 	// The proxy for shape A
-	proxyA:    ShapeProxy,
+	proxyA: ShapeProxy,
 
 	// The proxy for shape B
-	proxyB:    ShapeProxy,
+	proxyB: ShapeProxy,
 
 	// Transform of shape B in shape A's frame, the relative pose B in A
 	// (b3InvMulWorldTransforms( worldA, worldB )). The query is origin independent and runs in frame A.
 	transform: Transform,
 
 	// Should the proxy radius be considered?
-	useRadii:  bool,
+	useRadii: bool,
 }
 
 // Output for b3ShapeDistance
 DistanceOutput :: struct {
-	pointA:       Vec3, //< Closest point on shapeA, in shape A's frame
-	pointB:       Vec3, //< Closest point on shapeB, in shape A's frame
-	normal:       Vec3, //< A to B normal in shape A's frame. Invalid if distance is zero.
-	distance:     f32, //< The final distance, zero if overlapped
+	pointA:       Vec3,  //< Closest point on shapeA, in shape A's frame
+	pointB:       Vec3,  //< Closest point on shapeB, in shape A's frame
+	normal:       Vec3,  //< A to B normal in shape A's frame. Invalid if distance is zero.
+	distance:     f32,   //< The final distance, zero if overlapped
 	iterations:   c.int, //< Number of GJK iterations used
 	simplexCount: c.int, //< The number of simplexes stored in the simplex array
 }
 
 // Simplex vertex for debugging the GJK algorithm
 SimplexVertex :: struct {
-	wA:     Vec3, //< support point in proxyA
-	wB:     Vec3, //< support point in proxyB
-	w:      Vec3, //< wB - wA
-	a:      f32, //< barycentric coordinates
+	wA:     Vec3,  //< support point in proxyA
+	wB:     Vec3,  //< support point in proxyB
+	w:      Vec3,  //< wB - wA
+	a:      f32,   //< barycentric coordinates
 	indexA: c.int, //< wA index
 	indexB: c.int, //< wB index
 }
@@ -1550,7 +1543,7 @@ SimplexVertex :: struct {
 // Simplex from the GJK algorithm
 Simplex :: struct {
 	vertices: [4]SimplexVertex `fmt:"v,count"`, //< vertices
-	count:    c.int, //< number of valid vertices
+	count:    c.int,                            //< number of valid vertices
 }
 
 // This describes the motion of a body/shape for TOI computation. Shapes are defined with respect to the body origin,
@@ -1568,9 +1561,9 @@ Sweep :: struct {
 TOIInput :: struct {
 	proxyA:      ShapeProxy, //< The proxy for shape A
 	proxyB:      ShapeProxy, //< The proxy for shape B
-	sweepA:      Sweep, //< The movement of shape A
-	sweepB:      Sweep, //< The movement of shape B
-	maxFraction: f32, //< Defines the sweep interval [0, tMax]
+	sweepA:      Sweep,      //< The movement of shape A
+	sweepB:      Sweep,      //< The movement of shape B
+	maxFraction: f32,        //< Defines the sweep interval [0, tMax]
 }
 
 // Describes the TOI output
@@ -1585,19 +1578,19 @@ TOIState :: enum c.int {
 // Time of impact output
 TOIOutput :: struct {
 	// The type of result
-	state:              TOIState,
+	state: TOIState,
 
 	// The hit point
-	point:              Vec3,
+	point: Vec3,
 
 	// The hit normal
-	normal:             Vec3,
+	normal: Vec3,
 
 	// The sweep time of the collision
-	fraction:           f32,
+	fraction: f32,
 
 	// The final distance
-	distance:           f32,
+	distance: f32,
 
 	// Number of outer iterations
 	distanceIterations: c.int,
@@ -1606,15 +1599,15 @@ TOIOutput :: struct {
 	pushBackIterations: c.int,
 
 	// Total number of root iterations
-	rootIterations:     c.int,
+	rootIterations: c.int,
 
 	// Indicates that the time of impact detected initial
 	// overlap and used a fallback sphere as a last ditch effort
 	// to prevent tunneling.
-	usedFallback:       bool,
+	usedFallback: bool,
 }
 
-/**@}*/// query
+/**@}*/ // query
 
 /**
  * @defgroup tree Dynamic Tree
@@ -1635,7 +1628,7 @@ TOIOutput :: struct {
  */
 
 // Flags for tree nodes. For internal usage.
-TreeNodeFlags :: distinct bit_set[TreeNodeFlag;u16]
+TreeNodeFlags :: distinct bit_set[TreeNodeFlag; u16]
 
 TreeNodeFlag :: enum u16 {
 	allocatedNode = 0,
@@ -1653,30 +1646,32 @@ TreeNodeChildren :: struct {
 // todo test padding to 64 bytes to avoid straddling cache lines
 TreeNode :: struct {
 	// The node bounding box
-	aabb:         AABB, // 24
+	aabb: AABB, // 24
 
 	// Category bits for collision filtering
 	categoryBits: u64, // 8
-	using _:      struct #raw_union {
+
+	using _: struct #raw_union {
 		// Children (internal node)
 		children: TreeNodeChildren,
 
 		// User data (leaf node)
 		userData: u64,
 	}, // 8
-	using _:      struct #raw_union {
+
+	using _: struct #raw_union {
 		// The node parent index (allocated node)
 		parent: c.int,
 
 		// The node freelist next index (free node)
-		next:   c.int,
+		next: c.int,
 	}, // 4
 
 	// Height of the node. Leaves have a height of 0.
-	height:       u16, // 2
+	height: u16, // 2
 
 	// @see TreeNodeFlags
-	flags:        TreeNodeFlags, // 2
+	flags: TreeNodeFlags, // 2
 }
 
 // Dynamic tree version for compatibility testing.
@@ -1687,37 +1682,37 @@ DYNAMIC_TREE_VERSION :: 0x93EDAF889FD30B4A
 DynamicTree :: struct {
 	// The dynamic tree version. Always the first field. Useful
 	// if the tree is serialized.
-	version:         u64,
+	version: u64,
 
 	// The tree nodes
-	nodes:           [^]TreeNode `fmt:"v,nodeCapacity"`,
+	nodes: [^]TreeNode `fmt:"v,nodeCapacity"`,
 
 	// The root index
-	root:            c.int,
+	root: c.int,
 
 	// The number of nodes
-	nodeCount:       c.int,
+	nodeCount: c.int,
 
 	// The allocated node space
-	nodeCapacity:    c.int,
+	nodeCapacity: c.int,
 
 	// Number of proxies created
-	proxyCount:      c.int,
+	proxyCount: c.int,
 
 	// Node free list
-	freeList:        c.int,
+	freeList: c.int,
 
 	// Leaf indices for rebuild
-	leafIndices:     [^]int,
+	leafIndices: [^]int,
 
 	// Leaf bounding boxes for rebuild
-	leafBoxes:       [^]AABB,
+	leafBoxes: [^]AABB,
 
 	// Leaf bounding box centers for rebuild
-	leafCenters:     [^]Vec3,
+	leafCenters: [^]Vec3,
 
 	// Bins for sorting during rebuild
-	binIndices:      [^]c.int,
+	binIndices: [^]c.int,
 
 	// Allocated space for rebuilding
 	rebuildCapacity: c.int,
@@ -1754,7 +1749,7 @@ TreeBoxCastCallbackFcn :: proc "c" (#by_ptr input: BoxCastInput, proxyId: c.int,
 // - return a value of input->maxFraction to continue the ray cast without clipping
 TreeRayCastCallbackFcn :: proc "c" (#by_ptr input: RayCastInput, proxyId: c.int, userData: u64, ctx: rawptr) -> f32
 
-/**@}*/// tree
+/**@}*/ // tree
 
 /**
  * @defgroup character Character Mover
@@ -1775,14 +1770,14 @@ PlaneResult :: struct {
 // this is assembled by the user from plane results in b3PlaneResult.
 CollisionPlane :: struct {
 	// The collision plane between the mover and some shape.
-	plane:        Plane,
+	plane: Plane,
 
 	// Setting this to FLT_MAX makes the plane as rigid as possible. Lower values can
 	// make the plane collision soft. Usually in meters.
-	pushLimit:    f32,
+	pushLimit: f32,
 
 	// The push on the mover determined by b3SolvePlanes. Usually in meters.
-	push:         f32,
+	push: f32,
 
 	// Indicates if b3ClipVector should clip against this plane. Should be false for soft collision.
 	clipVelocity: bool,
@@ -1791,7 +1786,7 @@ CollisionPlane :: struct {
 // Result returned by b3SolvePlanes.
 PlaneSolverResult :: struct {
 	// The final relative translation.
-	delta:          Vec3,
+	delta: Vec3,
 
 	// The number of iterations used by the plane solver. For diagnostics.
 	iterationCount: c.int,
@@ -1803,7 +1798,7 @@ BodyPlaneResult :: struct {
 	shapeId: ShapeId,
 
 	// The plane result.
-	result:  PlaneResult,
+	result: PlaneResult,
 }
 
 // Used to collect collision planes for character movers.
@@ -1814,7 +1809,7 @@ PlaneResultFcn :: proc "c" (shapeId: ShapeId, plane: [^]PlaneResult, planeCount:
 // Return true to accept the collision
 MoverFilterFcn :: proc "c" (shapeId: ShapeId, ctx: rawptr) -> bool
 
-/**@}*/// mover
+/**@}*/ // mover
 
 /**
  * @defgroup geometry Geometry
@@ -1827,10 +1822,10 @@ MoverFilterFcn :: proc "c" (shapeId: ShapeId, ctx: rawptr) -> bool
 // This holds the mass data computed for a shape.
 MassData :: struct {
 	// The shape mass
-	mass:    f32,
+	mass: f32,
 
 	// The local center of mass position.
-	center:  Vec3,
+	center: Vec3,
 
 	// The inertia tensor about the shape center of mass.
 	inertia: Matrix3,
@@ -1851,7 +1846,7 @@ Sphere :: struct {
 	radius: f32,
 }
 
-/**@}*/// sphere
+/**@}*/ // sphere
 
 /**
  * @defgroup capsule Capsule
@@ -1869,10 +1864,10 @@ Capsule :: struct {
 	center2: Vec3,
 
 	// The radius of the hemispheres
-	radius:  f32,
+	radius: f32,
 }
 
-/**@}*/// capsule
+/**@}*/ // capsule
 
 /**
  * @defgroup hull Convex Hull
@@ -1891,16 +1886,16 @@ HullVertex :: struct {
 // Half-edge for hull data structure
 HullHalfEdge :: struct {
 	// Next edge index CCW
-	next:   u8,
+	next: u8,
 
 	// Twin edge index
-	twin:   u8,
+	twin: u8,
 
 	// index of origin vertex and point
 	origin: u8,
 
 	// Face to the left of this edge
-	face:   u8,
+	face: u8,
 }
 
 // A hull face. Hulls use a half-edge data structure, so a face
@@ -1917,55 +1912,55 @@ HULL_VERSION :: 0xDA5150191B994C01
 // @note This data structure has data hanging off the end and cannot be directly copied.
 HullData :: struct {
 	// Version must be first and match B3_HULL_VERSION
-	version:         u64,
+	version: u64,
 
 	// The total number of bytes for this hull.
-	byteCount:       c.int,
+	byteCount: c.int,
 
 	// Hash of this hull (this field is zero when the hash is computed).
-	hash:            u32,
+	hash: u32,
 
 	// Axis-aligned box in local space.
-	aabb:            AABB,
+	aabb: AABB,
 
 	// Surface area, typically in squared meters.
-	surfaceArea:     f32,
+	surfaceArea: f32,
 
 	// Volume, typically in m^3.
-	volume:          f32,
+	volume: f32,
 
 	// The radius of the largest sphere at the center.
-	innerRadius:     f32,
+	innerRadius: f32,
 
 	// The local centroid
-	center:          Vec3,
+	center: Vec3,
 
 	// The inertia tensor about the centroid.
-	centralInertia:  Matrix3,
+	centralInertia: Matrix3,
 
 	// The vertex count.
-	vertexCount:     c.int,
+	vertexCount: c.int,
 
 	// Offset of the vertex array in bytes from the struct address.
-	vertexOffset:    c.int,
+	vertexOffset: c.int,
 
 	// Offset of the point array in bytes from the struct address.
-	pointOffset:     c.int,
+	pointOffset: c.int,
 
 	// This is the half-edge count (double the edge count)
-	edgeCount:       c.int,
+	edgeCount: c.int,
 
 	// Offset of the edge array in bytes from the struct address.
-	edgeOffset:      c.int,
+	edgeOffset: c.int,
 
 	// The face count. Hulls faces are convex polygons.
-	faceCount:       c.int,
+	faceCount: c.int,
 
 	// Offset of the face plane array in bytes from the struct address.
-	planeOffset:     c.int,
+	planeOffset: c.int,
 
 	// Offset of the face array in bytes from the struct address.
-	faceOffset:      c.int,
+	faceOffset: c.int,
 
 	// Offset of structure of array (SOA) vertices
 	soaVertexOffset: c.int,
@@ -1975,28 +1970,28 @@ HullData :: struct {
 
 	// Explicit padding. Hull identity is a content hash and memcmp over raw bytes,
 	// so there must be no unnamed padding for struct copies to scramble.
-	padding:         c.int,
+	padding: c.int,
 }
 
 // Efficient box hull
 BoxHull :: struct {
 	// The embedded hull. So the offsets index into the arrays that follow.
-	base:        HullData,
-	boxVertices: [8]HullVertex, //< Box vertices.
-	boxPoints:   [8]Vec3, //< Box points.
-	boxEdges:    [24]HullHalfEdge, //< Box half-edges.
-	boxPlanes:   [6]Plane, //< Box face planes.
-	boxFaces:    [6]HullFace, //< Box faces.
-	padding:     [10]u8, //< Explicit padding, see b3HullData::padding.
-	vx:          [8]f32, //< vertex x
-	vy:          [8]f32, //< vertex y
-	vz:          [8]f32, //< vertex z
-	nx:          [8]f32, //< normal x, padded to multiple of 4
-	ny:          [8]f32, //< normal y, padded to multiple of 4
-	nz:          [8]f32, //< normal z, padded to multiple of 4
+	base:         HullData,
+	boxVertices:  [8]HullVertex,    //< Box vertices.
+	boxPoints:    [8]Vec3,          //< Box points.
+	boxEdges:     [24]HullHalfEdge, //< Box half-edges.
+	boxPlanes:    [6]Plane,         //< Box face planes.
+	boxFaces:     [6]HullFace,      //< Box faces.
+	padding:      [10]u8,           //< Explicit padding, see b3HullData::padding.
+	vx:           [8]f32,           //< vertex x
+	vy:           [8]f32,           //< vertex y
+	vz:           [8]f32,           //< vertex z
+	nx:           [8]f32,           //< normal x, padded to multiple of 4
+	ny:           [8]f32,           //< normal y, padded to multiple of 4
+	nz:           [8]f32,           //< normal z, padded to multiple of 4
 }
 
-/**@}*/// hull
+/**@}*/ // hull
 
 /**
  * @defgroup mesh Triangle Mesh
@@ -2007,10 +2002,10 @@ BoxHull :: struct {
 // This is used to create a re-usable collision mesh
 MeshDef :: struct {
 	// Triangle vertices
-	vertices:        [^]Vec3 `fmt:"v,vertexCount"`,
+	vertices: [^]Vec3 `fmt:"v,vertexCount"`,
 
 	// Triangle vertex indices. 3 for each triangle. CCW winding.
-	indices:         [^]i32,
+	indices: [^]i32,
 
 	// Triangle material index. 1 per triangle. Indexes into b3ShapeDef::materials.
 	// This allows different run-time material data to be associated with different
@@ -2018,23 +2013,23 @@ MeshDef :: struct {
 	materialIndices: [^]u8,
 
 	// Tolerance for vertex welding in length units.
-	weldTolerance:   f32,
+	weldTolerance: f32,
 
 	// The vertex count. Must be 3 or more.
-	vertexCount:     c.int,
+	vertexCount: c.int,
 
 	// The triangle count. Must be 1 or more.
-	triangleCount:   c.int,
+	triangleCount: c.int,
 
 	// Optionally weld nearby vertices.
-	weldVertices:    bool,
+	weldVertices: bool,
 
 	// Use the median split instead of SAH to speed up mesh creation. Good
 	// for meshes that are structured like a grid.
-	useMedianSplit:  bool,
+	useMedianSplit: bool,
 
 	// Compute triangle adjacency information using shared edges
-	identifyEdges:   bool,
+	identifyEdges: bool,
 }
 
 // 64-bit mesh version. Useful for validating serialized data.
@@ -2042,27 +2037,28 @@ MESH_VERSION :: 0xABD11AB62A6E886D
 
 // Triangle mesh edge flags.
 
-MeshEdgeFlags :: distinct bit_set[MeshEdgeFlag;c.uint]
+MeshEdgeFlags :: distinct bit_set[MeshEdgeFlag; c.uint]
 MeshEdgeFlag :: enum c.uint {
-	concaveEdge1        = 0,
-	concaveEdge2        = 1,
-	concaveEdge3        = 2,
+	concaveEdge1 = 0,
+	concaveEdge2 = 1,
+	concaveEdge3 = 2,
+
 	inverseConcaveEdge1 = 4,
 	inverseConcaveEdge2 = 5,
 	inverseConcaveEdge3 = 6,
 }
 
-concaveEdge1 :: MeshEdgeFlags{.concaveEdge1}
-concaveEdge2 :: MeshEdgeFlags{.concaveEdge2}
-concaveEdge3 :: MeshEdgeFlags{.concaveEdge3}
+concaveEdge1        :: MeshEdgeFlags{.concaveEdge1}
+concaveEdge2        :: MeshEdgeFlags{.concaveEdge2}
+concaveEdge3        :: MeshEdgeFlags{.concaveEdge3}
 inverseConcaveEdge1 :: MeshEdgeFlags{.inverseConcaveEdge1}
 inverseConcaveEdge2 :: MeshEdgeFlags{.inverseConcaveEdge2}
 inverseConcaveEdge3 :: MeshEdgeFlags{.inverseConcaveEdge3}
-allConcaveEdges :: concaveEdge1 + concaveEdge2 + concaveEdge3
-flatEdge1 :: concaveEdge1 + inverseConcaveEdge1
-flatEdge2 :: concaveEdge2 + inverseConcaveEdge2
-flatEdge3 :: concaveEdge3 + inverseConcaveEdge3
-allFlatEdges :: flatEdge1 + flatEdge2 + flatEdge3
+allConcaveEdges     :: concaveEdge1 + concaveEdge2 + concaveEdge3
+flatEdge1           :: concaveEdge1 + inverseConcaveEdge1
+flatEdge2           :: concaveEdge2 + inverseConcaveEdge2
+flatEdge3           :: concaveEdge3 + inverseConcaveEdge3
+allFlatEdges        :: flatEdge1 + flatEdge2 + flatEdge3
 
 // A mesh triangle.
 MeshTriangle :: struct {
@@ -2074,16 +2070,16 @@ MeshTriangle :: struct {
 // A mesh BVH node.
 MeshNode :: struct {
 	// The lower bound of the node AABB. Strategic placement for SIMD.
-	lowerBound:     Vec3,
+	lowerBound: Vec3,
 
 	// Anonymous union.
-	data:           struct #raw_union {
+	data: struct #raw_union {
 		// Internal node
 		asNode: bit_field u32 {
 			// Split axis. 0, 1, or 2.
-			axis:        u32 | 2,
+			axis:          u32 | 2,
 			// Offset of the second child node.
-			childOffset: u32 | 30,
+			childOffset:   u32 | 30,
 		},
 
 		// Leaf node
@@ -2097,7 +2093,7 @@ MeshNode :: struct {
 	},
 
 	// The upper bound of the node AABB.  Strategic placement for SIMD.
-	upperBound:     Vec3,
+	upperBound: Vec3,
 
 	// The index of the leaf triangles.
 	triangleOffset: u32,
@@ -2107,65 +2103,65 @@ MeshNode :: struct {
 // @note This struct has data hanging off the end and cannot be directly copied.
 MeshData :: struct {
 	// Version must be first.
-	version:         u64,
+	version: u64,
 
 	// The total number of bytes for this mesh.
-	byteCount:       c.int,
+	byteCount: c.int,
 
 	// Hash of this mesh (this field is zero when the hash is computed)
-	hash:            u32,
+	hash: u32,
 
 	// Local axis-aligned box.
-	bounds:          AABB,
+	bounds: AABB,
 
 	// Combined surface area of all triangles. Single-sided.
-	surfaceArea:     f32,
+	surfaceArea: f32,
 
 	// The height of the bounding volume hierarchy.
-	treeHeight:      c.int,
+	treeHeight: c.int,
 
 	// The number of degenerate triangles. Diagnostic.
 	degenerateCount: c.int,
 
 	// Offset of the node array in bytes from the struct address.
-	nodeOffset:      c.int,
+	nodeOffset: c.int,
 
 	// The number of BVH nodes.
-	nodeCount:       c.int,
+	nodeCount: c.int,
 
 	// Offset of the vertex array in bytes from the struct address.
-	vertexOffset:    c.int,
+	vertexOffset: c.int,
 
 	// The number of vertices.
-	vertexCount:     c.int,
+	vertexCount: c.int,
 
 	// Offset of the triangle array in bytes from the struct address.
-	triangleOffset:  c.int,
+	triangleOffset: c.int,
 
 	// The number of triangles.
-	triangleCount:   c.int,
+	triangleCount: c.int,
 
 	// Offset of the material array in bytes from the struct address.
-	materialOffset:  c.int,
+	materialOffset: c.int,
 
 	// The number of materials.
-	materialCount:   c.int,
+	materialCount: c.int,
 
 	// Offset of the triangle flag array in bytes from the struct address.
-	flagsOffset:     c.int,
+	flagsOffset: c.int,
 }
 
 // This allows mesh data to be re-used with different scales.
 Mesh :: struct {
 	// Immutable pointer to the mesh data.
-	data:  ^MeshData,
+	data: ^MeshData,
 
 	// This scale may be non-uniform and have negative components. However,
 	// no component may be very small in magnitude.
 	scale: Vec3,
 }
 
-/**@}*/// mesh
+/**@}*/ // mesh
 
 /**
  * @defgroup height_field Height Field
@@ -2177,21 +2173,21 @@ Mesh :: struct {
 HeightFieldDef :: struct {
 	// Grid point heights
 	// count = countX * countZ
-	heights:             [^]f32,
+	heights: [^]f32,
 
 	// Grid cell material
 	// A value of 0xFF is reserved for holes
 	// count = (countX - 1) * (countZ - 1)
-	materialIndices:     [^]u8,
+	materialIndices: [^]u8,
 
 	// The height field scale. All components must be positive values.
-	scale:               Vec3,
+	scale: Vec3,
 
 	// The number of grid lines along the x-axis.
-	countX:              c.int,
+	countX: c.int,
 
 	// The number of grid lines along the z-axis.
-	countZ:              c.int,
+	countZ: c.int,
 
 	// Global minimum and maximum heights used for quantization. This is important
 	// if you want height fields to be placed next to each other and line up exactly.
@@ -2204,7 +2200,7 @@ HeightFieldDef :: struct {
 	globalMaximumHeight: f32,
 
 	// Use clock-wise winding. This effectively inverts the height-field along the y-axis.
-	clockwiseWinding:    bool,
+	clockwiseWinding: bool,
 }
 
 // This material index is used to designate holes in a height field.
@@ -2217,38 +2213,38 @@ HEIGHT_FIELD_VERSION :: 0x8B18CBD138A6BC84
 // @note This data structure has data hanging off the end and cannot be directly copied.
 HeightFieldData :: struct {
 	// Version must be first and match B3_HEIGHT_FIELD_VERSION
-	version:        i64,
+	version: i64,
 
 	// The total number of bytes for this height field.
-	byteCount:      c.int,
+	byteCount: c.int,
 
 	// Hash of this height field (this field is zero when the hash is computed).
-	hash:           u32,
+	hash: u32,
 
 	// The local axis-aligned bounding box.
-	aabb:           AABB,
+	aabb: AABB,
 
 	// The minimum y value.
-	minHeight:      f32,
+	minHeight: f32,
 
 	// The maximum y value
-	maxHeight:      f32,
+	maxHeight: f32,
 
 	// The quantization scale.
-	heightScale:    f32,
+	heightScale: f32,
 
 	// The overall scale.
-	scale:          Vec3,
+	scale: Vec3,
 
 	// The number of grid columns along the local x-axis.
-	columnCount:    c.int,
+	columnCount: c.int,
 
 	// The number of grid rows along the local z-axis.
-	rowCount:       c.int,
+	rowCount: c.int,
 
 	// Offset of the compressed height array in bytes from the struct address.
 	// uint16_t, one per grid point.
-	heightsOffset:  c.int,
+	heightsOffset: c.int,
 
 	// Offset of the material index array in bytes from the struct address.
 	// uint8_t, one per cell.
@@ -2256,17 +2252,17 @@ HeightFieldData :: struct {
 
 	// Offset of the flag array in bytes from the struct address.
 	// uint8_t, one per triangle.
-	flagsOffset:    c.int,
+	flagsOffset: c.int,
 
 	// Triangle winding.
-	clockwise:      bool,
+	clockwise: bool,
 
 	// Explicit padding. Identity is a content hash over raw bytes, so there must
 	// be no unnamed padding for struct copies to scramble.
-	padding:        [3]u8,
+	padding: [3]u8,
 }
 
-/**@}*/// height_field
+/**@}*/ // height_field
 
 /**
  * @defgroup compound Compound
@@ -2277,7 +2273,7 @@ HeightFieldData :: struct {
 // Definition for a capsule in a compound shape.
 CompoundCapsuleDef :: struct {
 	// Local capsule.
-	capsule:  Capsule,
+	capsule: Capsule,
 
 	// Material properties.
 	material: SurfaceMaterial,
@@ -2286,29 +2282,29 @@ CompoundCapsuleDef :: struct {
 // Definition for a convex hull in a compound shape.
 CompoundHullDef :: struct {
 	// Shared hull.
-	hull:      ^HullData,
+	hull: ^HullData,
 
 	// Transform of the shared hull into compound local space.
 	transform: Transform,
 
 	// Material properties.
-	material:  SurfaceMaterial,
+	material: SurfaceMaterial,
 }
 
 // Definition for a triangle mesh in a compound shape.
 CompoundMeshDef :: struct {
 	// Shared mesh.
-	meshData:      ^MeshData,
+	meshData: ^MeshData,
 
 	// Transform of the shared mesh into compound local space.
-	transform:     Transform,
+	transform: Transform,
 
 	// Local space non-uniform mesh scale. May have negative components.
-	scale:         Vec3,
+	scale: Vec3,
 
 	// Material properties.
 	// This array must line up with the material indices on the triangles.
-	materials:     [^]SurfaceMaterial `fmt:"v,materialCount"`,
+	materials: [^]SurfaceMaterial `fmt:"v,materialCount"`,
 
 	// Number of materials.
 	materialCount: c.int,
@@ -2317,7 +2313,7 @@ CompoundMeshDef :: struct {
 // Definition for a sphere in a compound shape.
 CompoundSphereDef :: struct {
 	// Local sphere.
-	sphere:   Sphere,
+	sphere: Sphere,
 
 	// Material properties.
 	material: SurfaceMaterial,
@@ -2327,32 +2323,32 @@ CompoundSphereDef :: struct {
 // into the run-time compound shape.
 CompoundDef :: struct {
 	// Capsule instances.
-	capsules:     [^]CompoundCapsuleDef `fmt:"v,capsuleCount"`,
+	capsules: [^]CompoundCapsuleDef `fmt:"v,capsuleCount"`,
 
 	// Number of capsules.
 	capsuleCount: int,
 
 	// Hulls instances.
-	hulls:        [^]CompoundHullDef `fmt:"v,hullCount"`,
+	hulls: [^]CompoundHullDef `fmt:"v,hullCount"`,
 
 	// Number of hull instances.
-	hullCount:    int,
+	hullCount: int,
 
 	// Mesh instances.
-	meshes:       [^]CompoundMeshDef `fmt:"v,meshCount"`,
+	meshes: [^]CompoundMeshDef `fmt:"v,meshCount"`,
 
 	// Number of mesh instances.
-	meshCount:    int,
+	meshCount: int,
 
 	// Sphere instances.
-	spheres:      [^]CompoundSphereDef `fmt:"v,sphereCount"`,
+	spheres: [^]CompoundSphereDef `fmt:"v,sphereCount"`,
 
 	// Number of spheres.
-	sphereCount:  int,
+	sphereCount: int,
 }
 
 // The compound version depends on the tree, mesh, and hull versions.
-COMPOUND_VERSION :: 0xB11DCE70FAD5622B ~ DYNAMIC_TREE_VERSION ~ MESH_VERSION ~ HULL_VERSION
+COMPOUND_VERSION ::  0xB11DCE70FAD5622B ~ DYNAMIC_TREE_VERSION ~ MESH_VERSION ~ HULL_VERSION
 
 // Meshes used in compounds have limited space for materials. If you have
 // a mesh with many materials, you can use it outside of the compound.
@@ -2367,58 +2363,58 @@ MAX_COMPOUND_MESH_MATERIALS :: 4
 // add multiple shapes to a body using the regular shape creation functions.
 CompoundData :: struct {
 	// The compound version is always first.
-	version:         u64,
+	version: u64,
 
 	// The total number of bytes for this compound.
-	byteCount:       c.int,
+	byteCount: c.int,
 
 	// Offset of the tree node array in bytes from the struct address.
-	nodeOffset:      c.int,
+	nodeOffset: c.int,
 
 	// Immutable dynamic tree. The tree node pointer must be fixed up using the node offset
-	tree:            DynamicTree,
+	tree: DynamicTree,
 
 	// Offset of the material array in bytes from the struct address.
-	materialOffset:  c.int,
+	materialOffset: c.int,
 
 	// The number of materials.
-	materialCount:   c.int,
+	materialCount: c.int,
 
 	// Offset of the capsule array in bytes from the struct address.
-	capsuleOffset:   c.int,
+	capsuleOffset: c.int,
 
 	// The number of capsules.
-	capsuleCount:    c.int,
+	capsuleCount: c.int,
 
 	// Offset of the hull instance array in bytes from the struct address.
-	hullOffset:      c.int,
+	hullOffset: c.int,
 
 	// The number of hull instances.
-	hullCount:       c.int,
+	hullCount: c.int,
 
 	// The number of unique hulls. Diagnostic.
 	sharedHullCount: c.int,
 
 	// Offset of the mesh instance array in bytes from the struct address.
-	meshOffset:      c.int,
+	meshOffset: c.int,
 
 	// The number of mesh instances.
-	meshCount:       c.int,
+	meshCount: c.int,
 
 	// The number of unique meshes. Diagnostic.
 	sharedMeshCount: c.int,
 
 	// Offset of the sphere array in bytes from the struct address.
-	sphereOffset:    c.int,
+	sphereOffset: c.int,
 
 	// The number of spheres.
-	sphereCount:     c.int,
+	sphereCount: c.int,
 }
 
 // A capsule that lives in a compound.
 CompoundCapsule :: struct {
 	// Local capsule.
-	capsule:       Capsule,
+	capsule: Capsule,
 
 	// Index to a shared material.
 	materialIndex: c.int,
@@ -2427,10 +2423,10 @@ CompoundCapsule :: struct {
 // A hull that lives in a compound.
 CompoundHull :: struct {
 	// Pointer to the unique shared hull.
-	hull:          ^HullData,
+	hull: ^HullData,
 
 	// The transform of this hull instance.
-	transform:     Transform,
+	transform: Transform,
 
 	// Index to a shared material.
 	materialIndex: c.int,
@@ -2439,13 +2435,13 @@ CompoundHull :: struct {
 // A mesh with non-uniform scale that lives in a compound.
 CompoundMesh :: struct {
 	// Pointer to the unique shared mesh.
-	meshData:        [^]MeshData,
+	meshData: [^]MeshData,
 
 	// The transform of this mesh instance.
-	transform:       Transform,
+	transform: Transform,
 
 	// Non-uniform scale of this mesh instance.
-	scale:           Vec3,
+	scale: Vec3,
 
 	// This is used to access the surface material from b3GetCompoundMaterials.
 	// Requires an extra level of indirection. The triangle material index
@@ -2457,7 +2453,7 @@ CompoundMesh :: struct {
 // A sphere that lives in a compound.
 CompoundSphere :: struct {
 	// Local sphere.
-	sphere:        Sphere,
+	sphere: Sphere,
 
 	// Index to a shared material.
 	materialIndex: c.int,
@@ -2466,30 +2462,30 @@ CompoundSphere :: struct {
 // Child shape of a compound
 ChildShape :: struct {
 	// Tagged union.
-	using _:         struct #raw_union {
-		capsule: Capsule, //< Capsule.
+	using _: struct #raw_union {
+		capsule: Capsule,   //< Capsule.
 		hull:    ^HullData, //< Hull.
-		mesh:    Mesh, //< Mesh.
-		sphere:  Sphere, //< Sphere.
+		mesh:    Mesh,      //< Mesh.
+		sphere:  Sphere,    //< Sphere.
 	},
 
 	// Transform of the shape into compound local space.
-	transform:       Transform,
+	transform: Transform,
 
 	// Material indices. Index 0 is used for convex shapes.
 	// todo limit to 64K?
 	materialIndices: [MAX_COMPOUND_MESH_MATERIALS]c.int,
 
 	// The shape type (union tag).
-	type:            ShapeType,
+	type: ShapeType,
 }
 
 // Callback for compound overlap queries.
 CompoundQueryFcn :: proc "c" (#by_ptr compound: CompoundData, childIndex: c.int, ctx: rawptr) -> bool
 
-/**@}*/// compound
+/**@}*/ // compound
 
-/**@}*/// geometry
+/**@}*/ // geometry
 
 /**
  * @defgroup collision Shape Collision
@@ -2504,20 +2500,20 @@ CompoundQueryFcn :: proc "c" (#by_ptr compound: CompoundData, childIndex: c.int,
 // the time step.
 ManifoldPoint :: struct {
 	// Location of the contact point relative to the bodyA center of mass in world space.
-	anchorA:            Vec3,
+	anchorA: Vec3,
 
 	// Location of the contact point relative to the bodyB center of mass in world space.
-	anchorB:            Vec3,
+	anchorB: Vec3,
 
 	// The separation of the contact point, negative if penetrating
-	separation:         f32,
+	separation: f32,
 
 	// Cached separation used for contact recycling
-	baseSeparation:     f32,
+	baseSeparation: f32,
 
 	// The impulse along the manifold normal vector. Since Box3D uses sub-stepping, this is
 	// result from the final sub-step.
-	normalImpulse:      f32,
+	normalImpulse: f32,
 
 	// The total normal impulse applied during sub-stepping. This is important
 	// to identify speculative contact points that had an interaction in the time step.
@@ -2525,39 +2521,39 @@ ManifoldPoint :: struct {
 
 	// Relative normal velocity pre-solve. Used for hit events. If the normal impulse is
 	// zero then there was no hit. Negative means shapes are approaching.
-	normalVelocity:     f32,
+	normalVelocity: f32,
 
 	// Local point for matching
 	// Uniquely identifies a contact point between two shapes
-	featureId:          u32,
+	featureId: u32,
 
 	// Triangle index if one of the shapes is a mesh or height field
-	triangleIndex:      c.int,
+	triangleIndex: c.int,
 
 	// Did this contact point exist in the previous step?
-	persisted:          bool,
+	persisted: bool,
 }
 
 // A contact manifold describes the contact points between colliding shapes.
 // @note Box3D uses speculative collision so some contact points may be separated.
 Manifold :: struct {
 	// The manifold points. There may be 1 to 4 valid points.
-	points:          [MAX_MANIFOLD_POINTS]ManifoldPoint,
+	points: [MAX_MANIFOLD_POINTS]ManifoldPoint,
 
 	// The unit normal vector in world space, points from shape A to shape B
-	normal:          Vec3,
+	normal: Vec3,
 
 	// Central friction angular impulse (applied about the normal)
-	twistImpulse:    f32,
+	twistImpulse: f32,
 
 	// Central friction linear impulse
 	frictionImpulse: Vec3,
 
 	// Rolling resistance angular impulse
-	rollingImpulse:  Vec3,
+	rollingImpulse: Vec3,
 
 	// The number of contact points, will be 0 to 4
-	pointCount:      c.int,
+	pointCount: c.int,
 }
 
 // Cached separating axis feature.
@@ -2597,16 +2593,16 @@ SATCache :: struct {
 	separation: f32,
 
 	// b3SeparatingFeature.
-	type:       u8,
+	type: u8,
 
 	// Index of the feature on shape A.
-	indexA:     u8,
+	indexA: u8,
 
 	// Index of the feature on shape B.
-	indexB:     u8,
+	indexB: u8,
 
 	// Was the cache re-used?
-	hit:        u8,
+	hit: u8,
 }
 
 // Contact points are always the result of two edges intersecting.
@@ -2629,13 +2625,13 @@ FeaturePair :: struct {
 // A local manifold point and normal in frame A.
 LocalManifoldPoint :: struct {
 	// Local point in frame A.
-	point:         Vec3,
+	point: Vec3,
 
 	// The contact point separation. Negative for overlap.
-	separation:    f32,
+	separation: f32,
 
 	// The feature pair for this point.
-	pair:          FeaturePair,
+	pair: FeaturePair,
 
 	// The triangle index when collide with a mesh or height-field.
 	triangleIndex: c.int,
@@ -2644,34 +2640,35 @@ LocalManifoldPoint :: struct {
 // A local manifold with no dynamic information. Used by b3Collide functions.
 LocalManifold :: struct {
 	// Local normal in frame A.
-	normal:          Vec3,
+	normal: Vec3,
 
 	// The triangle normal.
-	triangleNormal:  Vec3,
+	triangleNormal: Vec3,
 
 	// The manifold points. From a point buffer.
-	points:          LocalManifoldPoint,
+	points: LocalManifoldPoint,
 
 	// The number of manifold points. Only bounded by the buffer capacity.
-	pointCount:      c.int,
+	pointCount: c.int,
 
 	// The index of the triangle.
-	triangleIndex:   c.int,
-	i1:              c.int, //< Vertex 1 index.
-	i2:              c.int, //< Vertex 2 index.
-	i3:              c.int, //< Vertex 3 index.
+	triangleIndex: c.int,
+
+	i1: c.int, //< Vertex 1 index.
+	i2: c.int, //< Vertex 2 index.
+	i3: c.int, //< Vertex 3 index.
 
 	// The squared distance of a sphere from a triangle. For ghost collision reduction.
 	squaredDistance: f32,
 
 	// The triangle feature involved.
-	feature:         TriangleFeature,
+	feature: TriangleFeature,
 
 	// MeshEdgeFlags.
-	triangleFlags:   MeshEdgeFlags,
+	triangleFlags: MeshEdgeFlags,
 }
 
-/**@}*/// collision
+/**@}*/ // collision
 
 /**
  * @defgroup debug_draw Debug Draw
@@ -2824,6 +2821,7 @@ HexColor :: enum c.uint {
 	WhiteSmoke           = 0xF5F5F5,
 	Yellow               = 0xFFFF00,
 	YellowGreen          = 0x9ACD32,
+
 	Box2DRed             = 0xDC3132,
 	Box2DBlue            = 0x30AEBF,
 	Box2DGreen           = 0x8CC924,
@@ -2851,16 +2849,16 @@ DebugShape :: struct {
 	shapeId: ShapeId,
 
 	// Shape type.
-	type:    ShapeType,
+	type: ShapeType,
 
 	// Tagged union.
 	using _: struct #raw_union {
-		capsule:     ^Capsule `raw_union_tag:"type=.capsuleShape"`, //< Capsule shape.
-		compound:    ^CompoundData `raw_union_tag:"type=.compoundShape"`, //< Compound shape.
-		heightField: ^HeightFieldData `raw_union_tag:"type=.heightShape"`, //< Height-field shape.
-		hull:        ^HullData `raw_union_tag:"type=.hullShape"`, //< Convex hull shape.
-		mesh:        ^Mesh `raw_union_tag:"type=.meshShape"`, //< Mesh shape with scale.
-		sphere:      ^Sphere `raw_union_tag:"type=.sphereShape"`, //< Sphere shape.
+		capsule:     ^Capsule         `raw_union_tag:"type=.capsuleShape"`,  //< Capsule shape.
+		compound:    ^CompoundData    `raw_union_tag:"type=.compoundShape"`, //< Compound shape.
+		heightField: ^HeightFieldData `raw_union_tag:"type=.heightShape"`,   //< Height-field shape.
+		hull:        ^HullData        `raw_union_tag:"type=.hullShape"`,     //< Convex hull shape.
+		mesh:        ^Mesh            `raw_union_tag:"type=.meshShape"`,     //< Mesh shape with scale.
+		sphere:      ^Sphere          `raw_union_tag:"type=.sphereShape"`,   //< Sphere shape.
 	},
 }
 
@@ -2871,83 +2869,83 @@ DebugDraw :: struct {
 	// Draws a user shape. The userShape pointer is owned by the application and is known to Box3D as
 	// an opaque pointer returned from b3CreateDebugShapeCallback. When this is called the drawn shape has
 	// passed a culling test against drawingBounds below.
-	DrawShapeFcn:        proc "c" (userShape: rawptr, transform: WorldTransform, color: HexColor, ctx: rawptr) -> bool,
+	DrawShapeFcn: proc "c" (userShape: rawptr, transform: WorldTransform, color: HexColor, ctx: rawptr) -> bool,
 
 	// Draw a line segment.
-	DrawSegmentFcn:      proc "c" (p1, p2: Pos, color: HexColor, ctx: rawptr),
+	DrawSegmentFcn: proc "c" (p1, p2: Pos, color: HexColor, ctx: rawptr),
 
 	// Draw a transform. Choose your own length scale.
-	DrawTransformFcn:    proc "c" (transform: WorldTransform, ctx: rawptr),
+	DrawTransformFcn: proc "c" (transform: WorldTransform, ctx: rawptr),
 
 	// Draw a point.
-	DrawPointFcn:        proc "c" (p: Pos, size: f32, color: HexColor, ctx: rawptr),
+	DrawPointFcn: proc "c" (p: Pos, size: f32, color: HexColor, ctx: rawptr),
 
 	// Draw a sphere.
-	DrawSphereFcn:       proc "c" (p: Pos, radius: f32, color: HexColor, alpha: f32, ctx: rawptr),
+	DrawSphereFcn: proc "c" (p: Pos, radius: f32, color: HexColor, alpha: f32, ctx: rawptr),
 
 	// Draw a capsule.
-	DrawCapsuleFcn:      proc "c" (p1, p2: Pos, radius: f32, color: HexColor, alpha: f32, ctx: rawptr),
+	DrawCapsuleFcn: proc "c" (p1, p2: Pos, radius: f32, color: HexColor, alpha: f32, ctx: rawptr),
 
 	// Draw a bounding box.
-	DrawBoundsFcn:       proc "c" (aabb: AABB, color: HexColor, ctx: rawptr),
+	DrawBoundsFcn: proc "c" (aabb: AABB, color: HexColor, ctx: rawptr),
 
 	// Draw an oriented box.
-	DrawBoxFcn:          proc "c" (extents: Vec3, transform: WorldTransform, color: HexColor, ctx: rawptr),
+	DrawBoxFcn: proc "c" (extents: Vec3, transform: WorldTransform, color: HexColor, ctx: rawptr),
 
 	// Draw a string in world space
-	DrawStringFcn:       proc "c" (p: Pos, s: cstring, color: HexColor, ctx: rawptr),
+	DrawStringFcn: proc "c" (p: Pos, s: cstring, color: HexColor, ctx: rawptr),
 
 	// World bounds to use for debug draw
-	drawingBounds:       AABB,
+	drawingBounds: AABB,
 
 	// Scale to use when drawing forces
-	forceScale:          f32,
+	forceScale: f32,
 
 	// Global scaling for joint drawing
-	jointScale:          f32,
+	jointScale: f32,
 
 	// Option to draw shapes
-	drawShapes:          bool,
+	drawShapes: bool,
 
 	// Option to draw joints
-	drawJoints:          bool,
+	drawJoints: bool,
 
 	// Option to draw additional information for joints
-	drawJointExtras:     bool,
+	drawJointExtras: bool,
 
 	// Option to draw the bounding boxes for shapes
-	drawBounds:          bool,
+	drawBounds: bool,
 
 	// Option to draw the mass and center of mass of dynamic bodies
-	drawMass:            bool,
+	drawMass: bool,
 
 	// Option to draw the sleep information for dynamic and kinematic bodies
-	drawSleep:           bool,
+	drawSleep: bool,
 
 	// Option to draw body names
-	drawBodyNames:       bool,
+	drawBodyNames: bool,
 
 	// Option to draw contact points
-	drawContacts:        bool,
+	drawContacts: bool,
 
 	// Draw contact anchor A or B
-	drawAnchorA:         bool,
+	drawAnchorA: bool,
 
 	// Option to visualize the graph coloring used for contacts and joints
-	drawGraphColors:     bool,
+	drawGraphColors: bool,
 
 	// Option to draw contact features
 	drawContactFeatures: bool,
 
 	// Option to draw contact normals
-	drawContactNormals:  bool,
+	drawContactNormals: bool,
 
 	// Option to draw contact normal forces
-	drawContactForces:   bool,
+	drawContactForces: bool,
 
 	// Option to draw islands as bounding boxes
-	drawIslands:         bool,
+	drawIslands: bool,
 
 	// User context that is passed as an argument to drawing callback functions
-	ctx:                 rawptr,
+	ctx: rawptr,
 }

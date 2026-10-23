@@ -1,24 +1,20 @@
 #+build !js
 package wgpu
 
-@(link_prefix = "wgpu")
+@(link_prefix="wgpu")
 foreign libwgpu {
-	@(link_name = "wgpuGenerateReport")
+	@(link_name="wgpuGenerateReport")
 	RawGenerateReport :: proc(instance: Instance, report: ^GlobalReport) ---
-	@(link_name = "wgpuInstanceEnumerateAdapters")
-	RawInstanceEnumerateAdapters :: proc(instance: Instance, /* NULLABLE */
-		options:  /* const */^InstanceEnumerateAdapterOptions,
-		adapters: [^]Adapter,) -> uint ---
+	@(link_name="wgpuInstanceEnumerateAdapters")
+	RawInstanceEnumerateAdapters :: proc(instance: Instance, /* NULLABLE */ options: /* const */ ^InstanceEnumerateAdapterOptions, adapters: [^]Adapter) -> uint ---
 
-	@(link_name = "wgpuQueueSubmitForIndex")
+	@(link_name="wgpuQueueSubmitForIndex")
 	RawQueueSubmitForIndex :: proc(queue: Queue, commandCount: uint, commands: [^]CommandBuffer) -> SubmissionIndex ---
 
 	QueueGetTimestampPeriod :: proc(queue: Queue) -> f32 ---
 
 	// Returns true if the queue is empty, or false if there are more queue submissions still in flight.
-	DevicePoll :: proc(device: Device,
-		wait: b32, /* NULLABLE */
-		submissionIndex:  /* const */^SubmissionIndex = nil,) -> b32 ---
+	DevicePoll :: proc(device: Device, wait: b32, /* NULLABLE */ submissionIndex: /* const */ ^SubmissionIndex = nil) -> b32 ---
 	DeviceCreateShaderModuleSpirV :: proc(device: Device, descriptor: ^ShaderModuleDescriptorSpirV) -> ShaderModule ---
 
 	SetLogCallback :: proc(callback: LogCallback, userdata: rawptr) ---
@@ -48,13 +44,9 @@ foreign libwgpu {
 	DeviceStartGraphicsDebuggerCapture :: proc(device: Device) -> b32 ---
 	DeviceStopGraphicsDebuggerCapture :: proc(device: Device) ---
 
-	CommandEncoderClearTexture :: proc(commandEncoder: CommandEncoder,
-		texture: Texture,
-		range:  /* const */^ImageSubresourceRange = nil,) ---
+	CommandEncoderClearTexture :: proc(commandEncoder: CommandEncoder, texture: Texture, range: /* const */ ^ImageSubresourceRange = nil) ---
 
-	DeviceCreateShaderModuleTrusted :: proc(device: Device,
-		descriptor:  /* const */^ShaderModuleDescriptor,
-		runtimeChecks: ShaderRuntimeChecks,) -> ShaderModule ---
+	DeviceCreateShaderModuleTrusted :: proc(device: Device, descriptor: /* const */ ^ShaderModuleDescriptor, runtimeChecks: ShaderRuntimeChecks) -> ShaderModule ---
 }
 
 GenerateReport :: proc "c" (instance: Instance) -> (report: GlobalReport) {
@@ -62,13 +54,7 @@ GenerateReport :: proc "c" (instance: Instance) -> (report: GlobalReport) {
 	return
 }
 
-InstanceEnumerateAdapters :: proc(
-	instance: Instance,
-	options: ^InstanceEnumerateAdapterOptions = nil,
-	allocator := context.allocator,
-) -> (
-	adapters: []Adapter,
-) {
+InstanceEnumerateAdapters :: proc(instance: Instance, options: ^InstanceEnumerateAdapterOptions = nil, allocator := context.allocator) -> (adapters: []Adapter) {
 	count := RawInstanceEnumerateAdapters(instance, options, nil)
 	adapters = make([]Adapter, count, allocator)
 	RawInstanceEnumerateAdapters(instance, options, raw_data(adapters))

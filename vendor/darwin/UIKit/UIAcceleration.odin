@@ -4,22 +4,20 @@ package darwin_UIKit
 
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class = "UIAcceleration", objc_superclass = NS.Object)
-Acceleration :: struct {
-	using _: NS.Object,
-}
+@(objc_class="UIAcceleration", objc_superclass=NS.Object)
+Acceleration :: struct { using _: NS.Object}
 
-@(default_calling_convention = "c")
+@(default_calling_convention="c")
 foreign lib {
-	@(objc_type = Acceleration, objc_selector = "timestamp", objc_name = "timestamp")
+	@(objc_type=Acceleration, objc_selector="timestamp", objc_name="timestamp")
 	Acceleration_timestamp :: proc(self: ^Acceleration) -> NS.TimeInterval ---
 
-	@(objc_type = Acceleration, objc_selector = "x", objc_name = "x")
+	@(objc_type=Acceleration, objc_selector="x", objc_name="x")
 	Acceleration_x :: proc(self: ^Acceleration) -> AccelerationValue ---
 
-	@(objc_type = Acceleration, objc_selector = "y", objc_name = "y")
+	@(objc_type=Acceleration, objc_selector="y", objc_name="y")
 	Acceleration_y :: proc(self: ^Acceleration) -> AccelerationValue ---
 
-	@(objc_type = Acceleration, objc_selector = "z", objc_name = "z")
+	@(objc_type=Acceleration, objc_selector="z", objc_name="z")
 	Acceleration_z :: proc(self: ^Acceleration) -> AccelerationValue ---
 }

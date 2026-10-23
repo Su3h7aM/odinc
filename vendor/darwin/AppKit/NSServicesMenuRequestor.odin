@@ -5,17 +5,17 @@ package darwin_AppKit
 import "base:intrinsics"
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class = "NSServicesMenuRequestor")
+@(objc_class="NSServicesMenuRequestor")
 ServicesMenuRequestor :: struct {
 	using _: intrinsics.objc_object,
 	using _: NS.ObjectProtocol,
 }
 
-@(default_calling_convention = "c")
+@(default_calling_convention="c")
 foreign lib {
-	@(objc_type = ServicesMenuRequestor, objc_selector = "writeSelectionToPasteboard:types:", objc_name = "writeSelectionToPasteboard")
+	@(objc_type=ServicesMenuRequestor, objc_selector="writeSelectionToPasteboard:types:", objc_name="writeSelectionToPasteboard")
 	ServicesMenuRequestor_writeSelectionToPasteboard :: proc(self: ^ServicesMenuRequestor, pboard: ^Pasteboard, types: ^NS.Array) -> bool ---
 
-	@(objc_type = ServicesMenuRequestor, objc_selector = "readSelectionFromPasteboard:", objc_name = "readSelectionFromPasteboard")
+	@(objc_type=ServicesMenuRequestor, objc_selector="readSelectionFromPasteboard:", objc_name="readSelectionFromPasteboard")
 	ServicesMenuRequestor_readSelectionFromPasteboard :: proc(self: ^ServicesMenuRequestor, pboard: ^Pasteboard) -> bool ---
 }

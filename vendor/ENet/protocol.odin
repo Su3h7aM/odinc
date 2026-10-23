@@ -1,14 +1,14 @@
 package ENet
 
-PROTOCOL_MINIMUM_MTU :: 576
-PROTOCOL_MAXIMUM_MTU :: 4096
+PROTOCOL_MINIMUM_MTU             :: 576
+PROTOCOL_MAXIMUM_MTU             :: 4096
 PROTOCOL_MAXIMUM_PACKET_COMMANDS :: 32
-PROTOCOL_MINIMUM_WINDOW_SIZE :: 4096
-PROTOCOL_MAXIMUM_WINDOW_SIZE :: 65536
-PROTOCOL_MINIMUM_CHANNEL_COUNT :: 1
-PROTOCOL_MAXIMUM_CHANNEL_COUNT :: 255
-PROTOCOL_MAXIMUM_PEER_ID :: 0xFFF
-PROTOCOL_MAXIMUM_FRAGMENT_COUNT :: 1024 * 1024
+PROTOCOL_MINIMUM_WINDOW_SIZE     :: 4096
+PROTOCOL_MAXIMUM_WINDOW_SIZE     :: 65536
+PROTOCOL_MINIMUM_CHANNEL_COUNT   :: 1
+PROTOCOL_MAXIMUM_CHANNEL_COUNT   :: 255
+PROTOCOL_MAXIMUM_PEER_ID         :: 0xFFF
+PROTOCOL_MAXIMUM_FRAGMENT_COUNT  :: 1024 * 1024
 
 ProtocolCommand :: enum i32 {
 	NONE                     = 0,
@@ -29,13 +29,13 @@ ProtocolCommand :: enum i32 {
 }
 
 ProtocolFlag :: enum i32 {
-	COMMAND_ACKNOWLEDGE  = 1 << 7,
-	COMMAND_UNSEQUENCED  = 1 << 6,
-	HEADER_COMPRESSED    = 1 << 14,
-	HEADER_SENT_TIME     = 1 << 15,
-	HEADER_MASK          = HEADER_COMPRESSED | HEADER_SENT_TIME,
-	HEADER_SESSION_MASK  = 3 << 12,
-	HEADER_SESSION_SHIFT = 12,
+	COMMAND_ACKNOWLEDGE    = 1 << 7,
+	COMMAND_UNSEQUENCED    = 1 << 6,
+	HEADER_COMPRESSED      = 1 << 14,
+	HEADER_SENT_TIME       = 1 << 15,
+	HEADER_MASK            = HEADER_COMPRESSED | HEADER_SENT_TIME,
+	HEADER_SESSION_MASK    = 3 << 12,
+	HEADER_SESSION_SHIFT   = 12,
 }
 
 ProtocolHeader :: struct #packed {
@@ -84,19 +84,19 @@ ProtocolConnect :: struct #packed {
 }
 
 ProtocolVerifyConnect :: struct #packed {
-	header:                     ProtocolCommandHeader,
-	outgoingPeerID:             u16,
-	incomingSessionID:          u8,
-	outgoingSessionID:          u8,
-	mtu:                        u32,
-	windowSize:                 u32,
-	channelCount:               u32,
-	incomingBandwidth:          u32,
-	outgoingBandwidth:          u32,
-	packetThrottleInterval:     u32,
-	packetThrottleAcceleration: u32,
-	packetThrottleDeceleration: u32,
-	connectID:                  u32,
+	header:                      ProtocolCommandHeader,
+	outgoingPeerID:              u16,
+	incomingSessionID:           u8,
+	outgoingSessionID:           u8,
+	mtu:                         u32,
+	windowSize:                  u32,
+	channelCount:                u32,
+	incomingBandwidth:           u32,
+	outgoingBandwidth:           u32,
+	packetThrottleInterval:      u32,
+	packetThrottleAcceleration:  u32,
+	packetThrottleDeceleration:  u32,
+	connectID:                   u32,
 }
 
 ProtocolBandwidthLimit :: struct #packed {

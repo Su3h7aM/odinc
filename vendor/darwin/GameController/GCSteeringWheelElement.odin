@@ -5,16 +5,16 @@ package darwin_GameController
 import cffi "core:c"
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class = "GCSteeringWheelElement", objc_superclass = NS.Object)
+@(objc_class="GCSteeringWheelElement", objc_superclass=NS.Object)
 SteeringWheelElement :: struct {
 	using _: NS.Object,
 	using _: AxisElement,
 }
 
 foreign lib {
-	@(objc_type = SteeringWheelElement, objc_selector = "init", objc_name = "init")
+	@(objc_type=SteeringWheelElement, objc_selector="init", objc_name="init")
 	SteeringWheelElement_init :: proc(self: ^SteeringWheelElement) -> instancetype ---
 
-	@(objc_type = SteeringWheelElement, objc_selector = "maximumDegreesOfRotation", objc_name = "maximumDegreesOfRotation")
+	@(objc_type=SteeringWheelElement, objc_selector="maximumDegreesOfRotation", objc_name="maximumDegreesOfRotation")
 	SteeringWheelElement_maximumDegreesOfRotation :: proc(self: ^SteeringWheelElement) -> cffi.float ---
 }

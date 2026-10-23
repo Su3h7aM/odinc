@@ -4,12 +4,13 @@ package stb_vorbis
 import c "core:c"
 
 @(private)
-LIB ::
-	("../lib/stb_vorbis.lib" when ODIN_OS ==
-		.Windows else "../lib/stb_vorbis.a" when ODIN_OS ==
-		.Linux else "../lib/darwin/stb_vorbis.a" when ODIN_OS ==
-		.Darwin else "../lib/stb_vorbis_wasm.o" when ODIN_ARCH == .wasm32 ||
-		ODIN_ARCH == .wasm64p32 else "")
+LIB :: (
+	     "../lib/stb_vorbis.lib"      when ODIN_OS == .Windows
+	else "../lib/stb_vorbis.a"        when ODIN_OS == .Linux
+	else "../lib/darwin/stb_vorbis.a" when ODIN_OS == .Darwin
+	else "../lib/stb_vorbis_wasm.o"   when ODIN_ARCH == .wasm32 || ODIN_ARCH == .wasm64p32
+	else ""
+)
 
 when LIB != "" {
 	when !#exists(LIB) {
@@ -20,7 +21,7 @@ when LIB != "" {
 when ODIN_ARCH == .wasm32 || ODIN_ARCH == .wasm64p32 {
 	foreign import lib "../lib/stb_vorbis_wasm.o"
 } else when LIB != "" {
-	foreign import lib {LIB}
+	foreign import lib { LIB }
 } else {
 	foreign import lib "system:stb_vorbis"
 }
@@ -57,28 +58,31 @@ NO_STDIO :: ODIN_ARCH == .wasm32 || ODIN_ARCH == .wasm64p32
 // to use malloc()/alloca()
 
 vorbis_alloc :: struct {
-	alloc_buffer:                 [^]byte,
+	alloc_buffer: [^]byte,
 	alloc_buffer_length_in_bytes: c.int,
 }
 
 vorbis :: struct {}
 
 vorbis_info :: struct {
-	sample_rate:                c.uint,
-	channels:                   c.int,
+	sample_rate: c.uint,
+	channels: c.int,
+
 	setup_memory_required:      c.uint,
 	setup_temp_memory_required: c.uint,
 	temp_memory_required:       c.uint,
-	max_frame_size:             c.int,
+
+	max_frame_size: c.int,
 }
 
 vorbis_comment :: struct {
-	vendor:              cstring,
+	vendor: cstring,
+
 	comment_list_length: c.int,
-	comment_list:        [^]cstring,
+	comment_list: [^]cstring,
 }
 
-@(default_calling_convention = "c", link_prefix = "stb_vorbis_")
+@(default_calling_convention="c", link_prefix="stb_vorbis_")
 foreign lib {
 	// get general information about the file
 	get_info :: proc(f: ^vorbis) -> vorbis_info ---
@@ -115,7 +119,7 @@ foreign lib {
 // need to give it the same data again PLUS more. Note that the Vorbis
 // specification does not bound the size of an individual frame.
 
-@(default_calling_convention = "c", link_prefix = "stb_vorbis_")
+@(default_calling_convention="c", link_prefix="stb_vorbis_")
 foreign lib {
 	// create a vorbis decoder by passing in the initial data block containing
 	//    the ogg&vorbis headers (you don't need to do parse them, just provide
@@ -125,7 +129,12 @@ foreign lib {
 	// on failure, returns NULL on error and sets *error, does not change *datablock_memory_consumed
 	// if returns NULL and *error is VORBIS_need_more_data, then the input block was
 	//       incomplete and you need to pass in a larger block from the start of the file
-	open_pushdata :: proc(datablock: [^]byte, datablock_length_in_bytes: c.int, datablock_memory_consumed_in_bytes: ^c.int, error: ^Error, alloc_buffer: ^vorbis_alloc) -> ^vorbis ---
+	open_pushdata :: proc(
+		datablock: [^]byte, datablock_length_in_bytes: c.int,
+		datablock_memory_consumed_in_bytes: ^c.int,
+		error: ^Error,
+		alloc_buffer: ^vorbis_alloc,
+	) -> ^vorbis ---
 
 	// decode a frame of audio sample data if possible from the passed-in data block
 	//
@@ -155,12 +164,13 @@ foreign lib {
 	// them or modify their contents. They are transient and will be overwritten
 	// once you ask for more data to get decoded, so be sure to grab any data
 	// you need before then.
-	decode_frame_pushdata :: proc(f: ^vorbis,
-		datablock: [^]byte,
-		datablock_length_in_bytes: c.int,
-		channels: ^c.int, // place to write number of float * buffers
-		output: ^[^]^f32, // place to write float ** array of float * buffers
-		samples: ^c.int,) -> c.int --- // place to write number of output samples
+	decode_frame_pushdata :: proc(
+	         f: ^vorbis,
+	         datablock: [^]byte, datablock_length_in_bytes: c.int,
+	         channels: ^c.int,   // place to write number of float * buffers
+	         output:   ^[^]^f32, // place to write float ** array of float * buffers
+	         samples:  ^c.int,   // place to write number of output samples
+	) -> c.int ---
 
 	// inform stb_vorbis that your next datablock will not be contiguous with
 	// previous ones (e.g. you've seeked in the data); future attempts to decode
@@ -185,7 +195,7 @@ foreign lib {
 // of callback to your code. (But if you don't support seeking, you may
 // just want to go ahead and use pushdata.)
 
-@(default_calling_convention = "c", link_prefix = "stb_vorbis_")
+@(default_calling_convention="c", link_prefix="stb_vorbis_")
 foreign lib {
 	when !NO_STDIO {
 		// decode an entire file and output the data interleaved into a malloc()ed
@@ -195,16 +205,19 @@ foreign lib {
 		decode_filename :: proc(filename: cstring, channels, sample_rate: ^c.int, output: ^[^]c.short) -> c.int ---
 	}
 	decode_memory :: proc(mem: [^]byte, len: c.int, channels, sample_rate: ^c.int, output: ^[^]c.short) -> c.int ---
-
-
+	
+	
+	
 	// create an ogg vorbis decoder from an ogg vorbis stream in memory (note
 	// this must be the entire stream!). on failure, returns NULL and sets *error
-	open_memory :: proc(data: [^]byte, len: c.int, error: ^Error, alloc_buffer: ^vorbis_alloc) -> ^vorbis ---
+	open_memory :: proc(data: [^]byte, len: c.int,
+	                    error: ^Error, alloc_buffer: ^vorbis_alloc) -> ^vorbis ---
 
 	when !NO_STDIO {
 		// create an ogg vorbis decoder from a filename via fopen(). on failure,
 		// returns NULL and sets *error (possibly to VORBIS_file_open_failure).
-		open_filename :: proc(filename: cstring, error: ^Error, alloc_buffer: ^vorbis_alloc) -> ^vorbis ---
+		open_filename :: proc(filename: cstring,
+							  error: ^Error, alloc_buffer: ^vorbis_alloc) -> ^vorbis ---
 
 		// create an ogg vorbis decoder from an open FILE *, looking for a stream at
 		// the _current_ seek point (ftell). on failure, returns NULL and sets *error.
@@ -213,14 +226,16 @@ foreign lib {
 		// perform stb_vorbis_seek_*() operations on this file, it will assume it
 		// owns the _entire_ rest of the file after the start point. Use the next
 		// function, stb_vorbis_open_file_section(), to limit it.
-		open_file :: proc(f: ^c.FILE, close_handle_on_close: b32, error: ^Error, alloc_buffer: ^vorbis_alloc) -> ^vorbis ---
+		open_file :: proc(f: ^c.FILE, close_handle_on_close: b32,
+						  error: ^Error, alloc_buffer: ^vorbis_alloc) -> ^vorbis ---
 
 		// create an ogg vorbis decoder from an open FILE *, looking for a stream at
 		// the _current_ seek point (ftell); the stream will be of length 'len' bytes.
 		// on failure, returns NULL and sets *error. note that stb_vorbis must "own"
 		// this stream; if you seek it in between calls to stb_vorbis, it will become
 		// confused.
-		open_file_section :: proc(f: ^c.FILE, close_handle_on_close: b32, error: ^Error, alloc_buffer: ^vorbis_alloc, len: c.uint) -> ^vorbis ---
+		open_file_section :: proc(f: ^c.FILE, close_handle_on_close: b32,
+								  error: ^Error, alloc_buffer: ^vorbis_alloc, len: c.uint) -> ^vorbis ---
 	}
 
 	// these functions seek in the Vorbis file to (approximately) 'sample_number'.
@@ -230,7 +245,7 @@ foreign lib {
 	// do not need to seek to EXACTLY the target sample when using `get_samples_*`,
 	// you can also use seek_frame().
 	seek_frame :: proc(f: ^vorbis, sample_number: c.uint) -> c.int ---
-	seek :: proc(f: ^vorbis, sample_number: c.uint) -> c.int ---
+	seek       :: proc(f: ^vorbis, sample_number: c.uint) -> c.int ---
 
 	// this function is equivalent to stb_vorbis_seek(f,0)
 	seek_start :: proc(f: ^vorbis) -> c.int ---
@@ -260,8 +275,8 @@ foreign lib {
 	// The maximum buffer size needed can be gotten from get_info(); however,
 	// the Vorbis I specification implies an absolute maximum of 4096 samples
 	// per channel.
-	get_frame_short_interleaved :: proc(f: ^vorbis, num_c: c.int, buffer: [^]c.short, num_shorts: c.int) -> c.int ---
-	get_frame_short :: proc(f: ^vorbis, num_c: c.int, buffer: ^[^]c.short, num_samples: c.int) -> c.int ---
+	get_frame_short_interleaved :: proc(f: ^vorbis, num_c: c.int, buffer: [^]c.short,  num_shorts:  c.int) -> c.int ---
+	get_frame_short             :: proc(f: ^vorbis, num_c: c.int, buffer: ^[^]c.short, num_samples: c.int) -> c.int ---
 
 	// Channel coercion rules:
 	//    Let M be the number of channels requested, and N the number of channels present,
@@ -280,40 +295,43 @@ foreign lib {
 	// buffering so you have to supply the buffers. DOES NOT APPLY THE COERCION RULES.
 	// Returns the number of samples stored per channel; it may be less than requested
 	// at the end of the file. If there are no more samples in the file, returns 0.
-	get_samples_float_interleaved :: proc(f: ^vorbis, channels: c.int, buffer: [^]f32, num_floats: c.int) -> c.int ---
-	get_samples_float :: proc(f: ^vorbis, channels: c.int, buffer: ^[^]f32, num_samples: c.int) -> c.int ---
+	get_samples_float_interleaved :: proc(f: ^vorbis, channels: c.int, buffer: [^]f32,  num_floats:  c.int) -> c.int ---
+	get_samples_float             :: proc(f: ^vorbis, channels: c.int, buffer: ^[^]f32, num_samples: c.int) -> c.int ---
 
 	// gets num_samples samples, not necessarily on a frame boundary--this requires
 	// buffering so you have to supply the buffers. Applies the coercion rules above
 	// to produce 'channels' channels. Returns the number of samples stored per channel;
 	// it may be less than requested at the end of the file. If there are no more
 	// samples in the file, returns 0.
-	get_samples_short_interleaved :: proc(f: ^vorbis, channels: c.int, buffer: [^]c.short, num_shorts: c.int) -> c.int ---
-	get_samples_short :: proc(f: ^vorbis, channels: c.int, buffer: ^[^]c.short, num_samples: c.int) -> c.int ---
-
+	get_samples_short_interleaved :: proc(f: ^vorbis, channels: c.int, buffer: [^]c.short,  num_shorts:  c.int) -> c.int ---
+	get_samples_short             :: proc(f: ^vorbis, channels: c.int, buffer: ^[^]c.short, num_samples: c.int) -> c.int ---
+	
 }
 
 Error :: enum c.int {
 	none = 0,
-	need_more_data = 1, // not a real error
-	invalid_api_mixing, // can't mix API modes
-	outofmem, // not enough memory
-	feature_not_supported, // uses floor 0
-	too_many_channels, // MAX_CHANNELS is too small
-	file_open_failure, // fopen() failed
-	seek_without_length, // can't seek in unknown-length file
-	unexpected_eof = 10, // file is truncated?
-	seek_invalid, // seek past EOF
+
+	need_more_data=1,             // not a real error
+
+	invalid_api_mixing,           // can't mix API modes
+	outofmem,                     // not enough memory
+	feature_not_supported,        // uses floor 0
+	too_many_channels,            // MAX_CHANNELS is too small
+	file_open_failure,            // fopen() failed
+	seek_without_length,          // can't seek in unknown-length file
+
+	unexpected_eof=10,            // file is truncated?
+	seek_invalid,                 // seek past EOF
 
 	// decoding errors (corrupt/invalid stream) -- you probably
 	// don't care about the exact details of these
 
 	// vorbis errors:
-	invalid_setup = 20,
+	invalid_setup=20,
 	invalid_stream,
 
 	// ogg errors:
-	missing_capture_pattern = 30,
+	missing_capture_pattern=30,
 	invalid_stream_structure_version,
 	continued_packet_flag_invalid,
 	incorrect_stream_serial_number,
@@ -325,6 +343,7 @@ Error :: enum c.int {
 }
 
 
+
 // MAX_CHANNELS [number]
 //     globally define this to the maximum number of channels you need.
 //     The spec does not put a restriction on channels except that
@@ -333,7 +352,7 @@ Error :: enum c.int {
 //     (255-16)*16 or around 4KB. Plus anything other memory usage
 //     I forgot to account for. Can probably go as low as 8 (7.1 audio),
 //     6 (5.1 audio), or 2 (stereo only).
-MAX_CHANNELS :: 16 // enough for anyone?
+MAX_CHANNELS :: 16  // enough for anyone?
 
 // PUSHDATA_CRC_COUNT [number]
 //     after a flush_pushdata(), stb_vorbis begins scanning for the

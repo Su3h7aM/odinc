@@ -5,13 +5,11 @@ package darwin_UIKit
 import "base:intrinsics"
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class = "UIObjectRestoration")
-ObjectRestoration :: struct {
-	using _: intrinsics.objc_object,
-}
+@(objc_class="UIObjectRestoration")
+ObjectRestoration :: struct { using _: intrinsics.objc_object}
 
-@(default_calling_convention = "c")
+@(default_calling_convention="c")
 foreign lib {
-	@(objc_type = ObjectRestoration, objc_selector = "objectWithRestorationIdentifierPath:coder:", objc_name = "objectWithRestorationIdentifierPath", objc_is_class_method = true)
+	@(objc_type=ObjectRestoration, objc_selector="objectWithRestorationIdentifierPath:coder:", objc_name="objectWithRestorationIdentifierPath", objc_is_class_method=true)
 	ObjectRestoration_objectWithRestorationIdentifierPath :: proc(identifierComponents: ^NS.Array, coder: ^NS.Coder) -> ^StateRestoring ---
 }

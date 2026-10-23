@@ -9,7 +9,11 @@ when ODIN_OS == .Windows {
 	when PORTMIDI_SHARED {
 		#panic("Shared linking not supported for portmidi on windows yet")
 	} else {
-		foreign import lib {"portmidi_s.lib", "system:Winmm.lib", "system:Advapi32.lib"}
+		foreign import lib {
+			"portmidi_s.lib",
+			"system:Winmm.lib",
+			"system:Advapi32.lib",
+		}
 	}
 } else {
 	foreign import lib "system:portmidi"
@@ -45,20 +49,20 @@ Error :: enum c.int {
 */
 Stream :: distinct rawptr
 
-@(default_calling_convention = "c", link_prefix = "Pm_")
+@(default_calling_convention="c", link_prefix="Pm_")
 foreign lib {
 	/**
 		Initialize() is the library initialisation function - call this before
 		using the library.
 	*/
 	Initialize :: proc() -> Error ---
-
+	
 	/**
 		Terminate() is the library termination function - call this after
 		using the library.
 	*/
-	Terminate :: proc() -> Error ---
-
+	Terminate  :: proc() -> Error ---
+	
 	/**
 		Test whether stream has a pending host error. Normally, the client finds
 		out about errors through returned error codes, but some errors can occur
@@ -73,7 +77,7 @@ foreign lib {
 		the stream, e.g. an input or output operation. Until the error is cleared,
 		no new error codes will be obtained, even for a different stream.
 	*/
-	HasHostError :: proc(stream: Stream) -> b32 ---
+	HasHostError :: proc(stream: Stream) -> b32 ---	
 }
 
 /**
@@ -81,8 +85,8 @@ foreign lib {
 	These strings are constants (set at compile time) so client has
 	no need to allocate storage
 */
-GetErrorText :: proc(errnum: Error) -> string {
-	@(default_calling_convention = "c")
+GetErrorText :: proc (errnum: Error) -> string {
+	@(default_calling_convention="c")
 	foreign lib {
 		Pm_GetErrorText :: proc(errnum: Error) -> cstring ---
 	}
@@ -94,8 +98,8 @@ GetErrorText :: proc(errnum: Error) -> string {
 	These strings are computed at run time, so client has to allocate storage.
 	After this routine executes, the host error is cleared.
 */
-GetHostErrorText :: proc(buf: []byte) -> string {
-	@(default_calling_convention = "c")
+GetHostErrorText :: proc (buf: []byte) -> string {
+	@(default_calling_convention="c")
 	foreign lib {
 		Pm_GetHostErrorText :: proc(msg: [^]u8, len: c.uint) ---
 	}
@@ -112,20 +116,20 @@ HOST_ERROR_MSG_LEN :: 256 /* any host error msg will occupy less
 DeviceID :: distinct c.int
 NoDevice :: DeviceID(-1)
 DeviceInfo :: struct {
-	structVersion: c.int, /**< this internal structure version */
+	structVersion: c.int,   /**< this internal structure version */ 
 	interf:        cstring, /**< underlying MIDI API, e.g. MMSystem or DirectX */
 	name:          cstring, /**< device name, e.g. USB MidiSport 1x1 */
-	input:         b32, /**< true if and only if (⟺) input is available */
-	output:        b32, /**< true if and only if (⟺) output is available */
-	opened:        b32, /**< used by generic PortMidi code to do error checking on arguments */
+	input:         b32,     /**< true if and only if (⟺) input is available */
+	output:        b32,     /**< true if and only if (⟺) output is available */
+	opened:        b32,     /**< used by generic PortMidi code to do error checking on arguments */
 }
 
-@(default_calling_convention = "c", link_prefix = "Pm_")
+@(default_calling_convention="c", link_prefix="Pm_")
 foreign lib {
 	/**  Get devices count, ids range from 0 to CountDevices()-1. */
-	CountDevices :: proc() -> c.int ---
+	CountDevices             :: proc() -> c.int ---
 
-	GetDefaultInputDeviceID :: proc() -> DeviceID ---
+	GetDefaultInputDeviceID  :: proc() -> DeviceID ---
 	GetDefaultOutputDeviceID :: proc() -> DeviceID ---
 }
 
@@ -138,10 +142,10 @@ Timestamp :: distinct i32
 TimeProc :: proc "c" (time_info: rawptr) -> Timestamp
 
 Before :: #force_inline proc "c" (t1, t2: Timestamp) -> b32 {
-	return b32((t1 - t2) < 0)
+	return b32((t1-t2) < 0)
 }
 
-@(default_calling_convention = "c", link_prefix = "Pm_")
+@(default_calling_convention="c", link_prefix="Pm_")
 foreign lib {
 	/**
 		GetDeviceInfo() returns a pointer to a DeviceInfo structure
@@ -153,7 +157,7 @@ foreign lib {
 		between calls to Initialize() and Terminate().
 	*/
 	GetDeviceInfo :: proc(id: DeviceID) -> ^DeviceInfo ---
-
+	
 	/**
 		OpenInput() and OpenOutput() open devices.
 
@@ -217,14 +221,25 @@ foreign lib {
 		Any stream that is successfully opened should eventually be closed
 		by calling Close().
 	*/
-	OpenInput :: proc(stream: ^Stream, inputDevice: DeviceID, inputDriverInfo: rawptr, bufferSize: i32, time_proc: TimeProc, time_info: rawptr) -> Error ---
+	OpenInput :: proc(stream: ^Stream,
+	                  inputDevice: DeviceID,
+	                  inputDriverInfo: rawptr,
+	                  bufferSize: i32,
+	                  time_proc: TimeProc,
+	                  time_info: rawptr) -> Error ---
 
-	OpenOutput :: proc(stream: ^Stream, outputDevice: DeviceID, outputDriverInfo: rawptr, bufferSize: i32, time_proc: TimeProc, time_info: rawptr, latency: i32) -> Error ---
-
+	OpenOutput :: proc(stream: ^Stream,
+	                   outputDevice: DeviceID,
+	                   outputDriverInfo: rawptr,
+	                   bufferSize: i32,
+	                   time_proc: TimeProc,
+	                   time_info: rawptr,
+	                   latency: i32) -> Error ---
+	
 }
 
 
-@(default_calling_convention = "c", link_prefix = "Pm_")
+@(default_calling_convention="c", link_prefix="Pm_")
 foreign lib {
 	/**
 		SetFilter() sets filters on an open input stream to drop selected
@@ -241,57 +256,57 @@ foreign lib {
 	 */
 	SetFilter :: proc(stream: Stream, filters: i32) -> Error ---
 }
-
-
+ 	
+ 	
 /* Filter bit-mask definitions */
 /** filter active sensing messages (0xFE): */
-FILT_ACTIVE :: 1 << 0x0E
+FILT_ACTIVE             :: 1 << 0x0E
 /** filter system exclusive messages (0xF0): */
-FILT_SYSEX :: 1 << 0x00
+FILT_SYSEX              :: 1 << 0x00
 /** filter MIDI clock message (0xF8) */
-FILT_CLOCK :: 1 << 0x08
+FILT_CLOCK              :: 1 << 0x08
 /** filter play messages (start 0xFA, stop 0xFC, continue 0xFB) */
-FILT_PLAY :: (1 << 0x0A) | (1 << 0x0C) | (1 << 0x0B)
+FILT_PLAY               :: (1 << 0x0A) | (1 << 0x0C) | (1 << 0x0B)
 /** filter tick messages (0xF9) */
-FILT_TICK :: 1 << 0x09
+FILT_TICK               :: 1 << 0x09
 /** filter undefined FD messages */
-FILT_FD :: 1 << 0x0D
+FILT_FD                 :: 1 << 0x0D
 /** filter undefined real-time messages */
-FILT_UNDEFINED :: FILT_FD
+FILT_UNDEFINED          :: FILT_FD
 /** filter reset messages (0xFF) */
-FILT_RESET :: 1 << 0x0F
+FILT_RESET              :: 1 << 0x0F
 /** filter all real-time messages */
-FILT_REALTIME :: FILT_ACTIVE | FILT_SYSEX | FILT_CLOCK | FILT_PLAY | FILT_UNDEFINED | FILT_RESET | FILT_TICK
+FILT_REALTIME           :: FILT_ACTIVE | FILT_SYSEX | FILT_CLOCK | FILT_PLAY | FILT_UNDEFINED | FILT_RESET | FILT_TICK
 /** filter note-on and note-off (0x90-0x9F and 0x80-0x8F */
-FILT_NOTE :: (1 << 0x19) | (1 << 0x18)
+FILT_NOTE               :: (1 << 0x19) | (1 << 0x18)
 /** filter channel aftertouch (most midi controllers use this) (0xD0-0xDF)*/
 FILT_CHANNEL_AFTERTOUCH :: 1 << 0x1D
 /** per-note aftertouch (0xA0-0xAF) */
-FILT_POLY_AFTERTOUCH :: 1 << 0x1A
+FILT_POLY_AFTERTOUCH    :: 1 << 0x1A
 /** filter both channel and poly aftertouch */
-FILT_AFTERTOUCH :: FILT_CHANNEL_AFTERTOUCH | FILT_POLY_AFTERTOUCH
+FILT_AFTERTOUCH         :: FILT_CHANNEL_AFTERTOUCH | FILT_POLY_AFTERTOUCH
 /** Program changes (0xC0-0xCF) */
-FILT_PROGRAM :: 1 << 0x1C
+FILT_PROGRAM            :: 1 << 0x1C
 /** Control Changes (CC's) (0xB0-0xBF)*/
-FILT_CONTROL :: 1 << 0x1B
+FILT_CONTROL            :: 1 << 0x1B
 /** Pitch Bender (0xE0-0xEF*/
-FILT_PITCHBEND :: 1 << 0x1E
+FILT_PITCHBEND          :: 1 << 0x1E
 /** MIDI Time Code (0xF1)*/
-FILT_MTC :: 1 << 0x01
+FILT_MTC                :: 1 << 0x01
 /** Song Position (0xF2) */
-FILT_SONG_POSITION :: 1 << 0x02
+FILT_SONG_POSITION      :: 1 << 0x02
 /** Song Select (0xF3)*/
-FILT_SONG_SELECT :: 1 << 0x03
+FILT_SONG_SELECT        :: 1 << 0x03
 /** Tuning request (0xF6)*/
-FILT_TUNE :: 1 << 0x06
+FILT_TUNE               :: 1 << 0x06
 /** All System Common messages (mtc, song position, song select, tune request) */
-FILT_SYSTEMCOMMON :: FILT_MTC | FILT_SONG_POSITION | FILT_SONG_SELECT | FILT_TUNE
+FILT_SYSTEMCOMMON       :: FILT_MTC | FILT_SONG_POSITION | FILT_SONG_SELECT | FILT_TUNE
 
 Channel :: #force_inline proc "c" (channel: c.int) -> c.int {
-	return 1 << c.uint(channel)
+	return 1<<c.uint(channel)
 }
 
-@(default_calling_convention = "c", link_prefix = "Pm_")
+@(default_calling_convention="c", link_prefix="Pm_")
 foreign lib {
 	/**
 		SetChannelMask() filters incoming messages based on channel.
@@ -309,7 +324,7 @@ foreign lib {
 		All channels are allowed by default
 	*/
 	SetChannelMask :: proc(stream: Stream, mask: c.int) -> Error ---
-
+	
 	/**
 		Abort() terminates outgoing messages immediately
 		The caller should immediately close the output port;
@@ -319,14 +334,14 @@ foreign lib {
 		any time.
 	 */
 	Abort :: proc(stream: Stream) -> Error ---
-
+	
 	/**
 		Close() closes a midi stream, flushing any pending buffers.
 		(PortMidi attempts to close open streams when the application 
 		exits -- this is particularly difficult under Windows.)
 	*/
 	Close :: proc(stream: Stream) -> Error ---
-
+	
 	/**
 		Synchronize() instructs PortMidi to (re)synchronize to the
 		time_proc passed when the stream was opened. Typically, this
@@ -366,18 +381,18 @@ MessageMake :: #force_inline proc "c" (status: c.int, data1, data2: c.int) -> Me
 MessageStatus :: #force_inline proc "c" (msg: Message) -> c.int {
 	return c.int(msg & 0xFF)
 }
-MessageData1 :: #force_inline proc "c" (msg: Message) -> c.int {
+MessageData1  :: #force_inline proc "c" (msg: Message) -> c.int {
 	return c.int((msg >> 8) & 0xFF)
 }
-MessageData2 :: #force_inline proc "c" (msg: Message) -> c.int {
+MessageData2  :: #force_inline proc "c" (msg: Message) -> c.int {
 	return c.int((msg >> 16) & 0xFF)
 }
 
 MessageCompose :: MessageMake
 MessageDecompose :: #force_inline proc "c" (msg: Message) -> (status, data1, data2: c.int) {
 	status = c.int(msg & 0xFF)
-	data1 = c.int((msg >> 8) & 0xFF)
-	data2 = c.int((msg >> 16) & 0xFF)
+	data1  = c.int((msg >> 8) & 0xFF)
+	data2  = c.int((msg >> 16) & 0xFF)
 	return
 }
 
@@ -454,7 +469,7 @@ Event :: struct {
 }
 
 
-@(default_calling_convention = "c", link_prefix = "Pm_")
+@(default_calling_convention="c", link_prefix="Pm_")
 foreign lib {
 	/**
 		Read() retrieves midi data into a buffer, and returns the number
@@ -481,12 +496,12 @@ foreign lib {
 
 	*/
 	Read :: proc(stream: Stream, buffer: [^]Event, length: i32) -> c.int ---
-
+	
 	/**
 		Poll() tests whether input is available.
 	*/
-	Poll :: proc(stream: Stream) -> Error ---
-
+	Poll       :: proc(stream: Stream) -> Error ---
+	
 	/** 
 		Write() writes midi data from a buffer. This may contain:
 			- short messages 
@@ -501,7 +516,7 @@ foreign lib {
 		Sysex data may contain embedded real-time messages.
 	*/
 	Write :: proc(stream: Stream, buffer: [^]Event, length: i32) -> Error ---
-
+	
 	/**
 		WriteShort() writes a timestamped non-system-exclusive midi message.
 		Messages are delivered in order as received, and timestamps must be 
@@ -509,7 +524,7 @@ foreign lib {
 		with latency = 0.)
 	*/
 	WriteShort :: proc(stream: Stream, whence: Timestamp, msg: Message) -> Error ---
-
+	
 	/**
 		WriteSysEx() writes a timestamped system-exclusive midi message.
 	*/

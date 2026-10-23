@@ -7,248 +7,208 @@ import cffi "core:c"
 import CF "core:sys/darwin/CoreFoundation"
 import NS "core:sys/darwin/Foundation"
 
-id :: ^intrinsics.objc_object
-SEL :: ^intrinsics.objc_selector
-Class :: ^intrinsics.objc_class
-IMP :: rawptr
-Protocol :: distinct id
-instancetype :: intrinsics.objc_instancetype
+id            :: ^intrinsics.objc_object
+SEL           :: ^intrinsics.objc_selector
+Class         :: ^intrinsics.objc_class
+IMP           :: rawptr
+Protocol      :: distinct id
+instancetype  :: intrinsics.objc_instancetype
 
 @(export)
-foreign import lib "system:ModelIO.framework"
+foreign import lib {
+	"system:ModelIO.framework",
+}
+
+
 
 
 Boolean :: CF.Boolean
-simd_char1 :: #simd[1]i8 // size = 1  | align = 1
-simd_char2 :: #simd[2]i8 // size = 2  | align = 2
-simd_char3 :: #simd[4]i8 // size = 4  | align = 4
-simd_char4 :: #simd[4]i8 // size = 4  | align = 4
-simd_char8 :: #simd[8]i8 // size = 8  | align = 8
-simd_char16 :: #simd[16]i8 // size = 16 | align = 16
-simd_char32 :: struct {
-	using v: [2]#simd[16]i8,
-} // #simd[32]i8  // size = 32 | align = 16
-simd_char64 :: struct {
-	using v: [4]#simd[16]i8,
-} // #simd[64]i8  // size = 64 | align = 16
-simd_uchar1 :: #simd[1]u8 // size = 1  | align = 1
-simd_uchar2 :: #simd[2]u8 // size = 2  | align = 2
-simd_uchar3 :: #simd[4]u8 // size = 4  | align = 4
-simd_uchar4 :: #simd[4]u8 // size = 4  | align = 4
-simd_uchar8 :: #simd[8]u8 // size = 8  | align = 8
-simd_uchar16 :: #simd[16]u8 // size = 16 | align = 16
-simd_uchar32 :: struct {
-	using v: [2]#simd[16]u8,
-} // #simd[32]u8  // size = 32 | align = 16
-simd_uchar64 :: struct {
-	using v: [4]#simd[16]u8,
-} // #simd[64]u8  // size = 64 | align = 16
-simd_short1 :: #simd[1]i16 // size = 2  | align = 2
-simd_short2 :: #simd[2]i16 // size = 4  | align = 4
-simd_short3 :: #simd[4]i16 // size = 8  | align = 8
-simd_short4 :: #simd[4]i16 // size = 8  | align = 8
-simd_short8 :: #simd[8]i16 // size = 16 | align = 16
-simd_short16 :: struct {
-	using v: [2]#simd[8]i16,
-} // #simd[16]i16 // size = 32 | align = 16
-simd_short32 :: struct {
-	using v: [4]#simd[8]i16,
-} // #simd[32]i16 // size = 64 | align = 16
-simd_ushort1 :: #simd[1]u16 // size = 2  | align = 2
-simd_ushort2 :: #simd[2]u16 // size = 4  | align = 4
-simd_ushort3 :: #simd[4]u16 // size = 8  | align = 8
-simd_ushort4 :: #simd[4]u16 // size = 8  | align = 8
-simd_ushort8 :: #simd[8]u16 // size = 16 | align = 16
-simd_ushort16 :: struct {
-	using v: [2]#simd[8]u16,
-} // #simd[16]u16 // size = 32 | align = 16
-simd_ushort32 :: struct {
-	using v: [4]#simd[8]u16,
-} // #simd[32]u16 // size = 64 | align = 16
-simd_int1 :: #simd[1]i32 // size = 4  | align = 4
-simd_int2 :: #simd[2]i32 // size = 8  | align = 8
-simd_int3 :: #simd[4]i32 // size = 16 | align = 16
-simd_int4 :: #simd[4]i32 // size = 16 | align = 16
-simd_int8 :: struct {
-	using v: [2]#simd[4]u32,
-} // #simd[8 ]i32 // size = 32 | align = 16
-simd_int16 :: struct {
-	using v: [4]#simd[4]u32,
-} // #simd[16]i32 // size = 64 | align = 16
-simd_uint1 :: #simd[1]u32 // size = 4  | align = 4
-simd_uint2 :: #simd[2]u32 // size = 8  | align = 8
-simd_uint3 :: #simd[4]u32 // size = 16 | align = 16
-simd_uint4 :: #simd[4]u32 // size = 16 | align = 16
-simd_uint8 :: struct {
-	using v: [2]#simd[4]u32,
-} // #simd[8 ]u32 // size = 32 | align = 16
-simd_uint16 :: struct {
-	using v: [4]#simd[4]u32,
-} // #simd[16]u32 // size = 64 | align = 16
-simd_float1 :: #simd[1]f32 // size = 4  | align = 4
-simd_float2 :: #simd[2]f32 // size = 8  | align = 8
-simd_float3 :: #simd[4]f32 // size = 16 | align = 16
-simd_float4 :: #simd[4]f32 // size = 16 | align = 16
-simd_float8 :: struct {
-	using v: [2]#simd[4]f32,
-} // #simd[8 ]f32 // size = 32 | align = 16
-simd_float16 :: struct {
-	using v: [4]#simd[4]f32,
-} // #simd[16]f32 // size = 64 | align = 16
-simd_double1 :: #simd[1]f64 // size = 8  | align = 8
-simd_double2 :: #simd[2]f64 // size = 16 | align = 16
-simd_double3 :: struct {
-	using v: [2]#simd[2]f64,
-} // #simd[4 ]f64 // size = 32 | align = 16
-simd_double4 :: struct {
-	using v: [2]#simd[2]f64,
-} // #simd[4 ]f64 // size = 32 | align = 16
-simd_double8 :: struct {
-	using v: [4]#simd[2]f64,
-} // #simd[8 ]f64 // size = 64 | align = 16
-simd_long1 :: #simd[1]i64 // size = 8  | align = 8
-simd_long2 :: #simd[2]i64 // size = 16 | align = 16
-simd_long3 :: struct {
-	using v: [2]#simd[2]i64,
-} // #simd[4 ]i64 // size = 32 | align = 16
-simd_long4 :: struct {
-	using v: [2]#simd[2]i64,
-} // #simd[4 ]i64 // size = 32 | align = 16
-simd_long8 :: struct {
-	using v: [4]#simd[2]i64,
-} // #simd[8 ]i64 // size = 64 | align = 16
-simd_ulong1 :: #simd[1]u64 // size = 8  | align = 8
-simd_ulong2 :: #simd[2]u64 // size = 16 | align = 16
-simd_ulong3 :: struct {
-	using v: [2]#simd[2]u64,
-} // #simd[4 ]u64 // size = 32 | align = 16
-simd_ulong4 :: struct {
-	using v: [2]#simd[2]u64,
-} // #simd[4 ]u64 // size = 32 | align = 16
-simd_ulong8 :: struct {
-	using v: [4]#simd[2]u64,
-} // #simd[8 ]u64 // size = 64 | align = 16
-vector_float2 :: simd_float2
-vector_float3 :: simd_float3
-vector_float4 :: simd_float4
-vector_double2 :: simd_double2
-vector_double3 :: simd_double3
-vector_double4 :: simd_double4
+simd_char1       :: #simd[1 ]i8                        // size = 1  | align = 1
+simd_char2       :: #simd[2 ]i8                        // size = 2  | align = 2
+simd_char3       :: #simd[4 ]i8                        // size = 4  | align = 4
+simd_char4       :: #simd[4 ]i8                        // size = 4  | align = 4
+simd_char8       :: #simd[8 ]i8                        // size = 8  | align = 8
+simd_char16      :: #simd[16]i8                        // size = 16 | align = 16
+simd_char32      :: struct { using v: [2]#simd[16]i8 } // #simd[32]i8  // size = 32 | align = 16
+simd_char64      :: struct { using v: [4]#simd[16]i8 } // #simd[64]i8  // size = 64 | align = 16
+simd_uchar1      :: #simd[1 ]u8                        // size = 1  | align = 1
+simd_uchar2      :: #simd[2 ]u8                        // size = 2  | align = 2
+simd_uchar3      :: #simd[4 ]u8                        // size = 4  | align = 4
+simd_uchar4      :: #simd[4 ]u8                        // size = 4  | align = 4
+simd_uchar8      :: #simd[8 ]u8                        // size = 8  | align = 8
+simd_uchar16     :: #simd[16]u8                        // size = 16 | align = 16
+simd_uchar32     :: struct { using v: [2]#simd[16]u8 } // #simd[32]u8  // size = 32 | align = 16
+simd_uchar64     :: struct { using v: [4]#simd[16]u8 } // #simd[64]u8  // size = 64 | align = 16
+simd_short1      :: #simd[1 ]i16                       // size = 2  | align = 2
+simd_short2      :: #simd[2 ]i16                       // size = 4  | align = 4
+simd_short3      :: #simd[4 ]i16                       // size = 8  | align = 8
+simd_short4      :: #simd[4 ]i16                       // size = 8  | align = 8
+simd_short8      :: #simd[8 ]i16                       // size = 16 | align = 16
+simd_short16     :: struct { using v: [2]#simd[8]i16 } // #simd[16]i16 // size = 32 | align = 16
+simd_short32     :: struct { using v: [4]#simd[8]i16 } // #simd[32]i16 // size = 64 | align = 16
+simd_ushort1     :: #simd[1 ]u16                       // size = 2  | align = 2
+simd_ushort2     :: #simd[2 ]u16                       // size = 4  | align = 4
+simd_ushort3     :: #simd[4 ]u16                       // size = 8  | align = 8
+simd_ushort4     :: #simd[4 ]u16                       // size = 8  | align = 8
+simd_ushort8     :: #simd[8 ]u16                       // size = 16 | align = 16
+simd_ushort16    :: struct { using v: [2]#simd[8]u16 } // #simd[16]u16 // size = 32 | align = 16
+simd_ushort32    :: struct { using v: [4]#simd[8]u16 } // #simd[32]u16 // size = 64 | align = 16
+simd_int1        :: #simd[1 ]i32                       // size = 4  | align = 4
+simd_int2        :: #simd[2 ]i32                       // size = 8  | align = 8
+simd_int3        :: #simd[4 ]i32                       // size = 16 | align = 16
+simd_int4        :: #simd[4 ]i32                       // size = 16 | align = 16
+simd_int8        :: struct { using v: [2]#simd[4]u32 } // #simd[8 ]i32 // size = 32 | align = 16
+simd_int16       :: struct { using v: [4]#simd[4]u32 } // #simd[16]i32 // size = 64 | align = 16
+simd_uint1       :: #simd[1 ]u32                       // size = 4  | align = 4
+simd_uint2       :: #simd[2 ]u32                       // size = 8  | align = 8
+simd_uint3       :: #simd[4 ]u32                       // size = 16 | align = 16
+simd_uint4       :: #simd[4 ]u32                       // size = 16 | align = 16
+simd_uint8       :: struct { using v: [2]#simd[4]u32 } // #simd[8 ]u32 // size = 32 | align = 16
+simd_uint16      :: struct { using v: [4]#simd[4]u32 } // #simd[16]u32 // size = 64 | align = 16
+simd_float1      :: #simd[1 ]f32                       // size = 4  | align = 4
+simd_float2      :: #simd[2 ]f32                       // size = 8  | align = 8
+simd_float3      :: #simd[4 ]f32                       // size = 16 | align = 16
+simd_float4      :: #simd[4 ]f32                       // size = 16 | align = 16
+simd_float8      :: struct { using v: [2]#simd[4]f32 } // #simd[8 ]f32 // size = 32 | align = 16
+simd_float16     :: struct { using v: [4]#simd[4]f32 } // #simd[16]f32 // size = 64 | align = 16
+simd_double1     :: #simd[1 ]f64                       // size = 8  | align = 8
+simd_double2     :: #simd[2 ]f64                       // size = 16 | align = 16
+simd_double3     :: struct { using v: [2]#simd[2]f64 } // #simd[4 ]f64 // size = 32 | align = 16
+simd_double4     :: struct { using v: [2]#simd[2]f64 } // #simd[4 ]f64 // size = 32 | align = 16
+simd_double8     :: struct { using v: [4]#simd[2]f64 } // #simd[8 ]f64 // size = 64 | align = 16
+simd_long1       :: #simd[1 ]i64                       // size = 8  | align = 8
+simd_long2       :: #simd[2 ]i64                       // size = 16 | align = 16
+simd_long3       :: struct { using v: [2]#simd[2]i64 } // #simd[4 ]i64 // size = 32 | align = 16
+simd_long4       :: struct { using v: [2]#simd[2]i64 } // #simd[4 ]i64 // size = 32 | align = 16
+simd_long8       :: struct { using v: [4]#simd[2]i64 } // #simd[8 ]i64 // size = 64 | align = 16
+simd_ulong1      :: #simd[1 ]u64                       // size = 8  | align = 8
+simd_ulong2      :: #simd[2 ]u64                       // size = 16 | align = 16
+simd_ulong3      :: struct { using v: [2]#simd[2]u64 } // #simd[4 ]u64 // size = 32 | align = 16
+simd_ulong4      :: struct { using v: [2]#simd[2]u64 } // #simd[4 ]u64 // size = 32 | align = 16
+simd_ulong8      :: struct { using v: [4]#simd[2]u64 } // #simd[8 ]u64 // size = 64 | align = 16
+vector_float2    :: simd_float2
+vector_float3    :: simd_float3
+vector_float4    :: simd_float4
+vector_double2   :: simd_double2
+vector_double3   :: simd_double3
+vector_double4   :: simd_double4
+
 
 
 foreign lib {
 	when ODIN_PLATFORM_SUBTARGET == .Default {
-		@(link_name = "kMDLabelBundleURL")
+		@(link_name="kMDLabelBundleURL")
 		LabelBundleURL: CF.StringRef
 
-		@(link_name = "kMDLabelContentChangeDate")
+		@(link_name="kMDLabelContentChangeDate")
 		LabelContentChangeDate: CF.StringRef
 
-		@(link_name = "kMDLabelDisplayName")
+		@(link_name="kMDLabelDisplayName")
 		LabelDisplayName: CF.StringRef
 
-		@(link_name = "kMDLabelIconData")
+		@(link_name="kMDLabelIconData")
 		LabelIconData: CF.StringRef
 
-		@(link_name = "kMDLabelIconUUID")
+		@(link_name="kMDLabelIconUUID")
 		LabelIconUUID: CF.StringRef
 
-		@(link_name = "kMDLabelIsMutuallyExclusiveSetMember")
+		@(link_name="kMDLabelIsMutuallyExclusiveSetMember")
 		LabelIsMutuallyExclusiveSetMember: CF.StringRef
 
-		@(link_name = "kMDLabelKind")
+		@(link_name="kMDLabelKind")
 		LabelKind: CF.StringRef
 
-		@(link_name = "kMDLabelSetsFinderColor")
+		@(link_name="kMDLabelSetsFinderColor")
 		LabelSetsFinderColor: CF.StringRef
 
-		@(link_name = "kMDLabelUUID")
+		@(link_name="kMDLabelUUID")
 		LabelUUID: CF.StringRef
 
-		@(link_name = "kMDLabelVisibility")
+		@(link_name="kMDLabelVisibility")
 		LabelVisibility: CF.StringRef
 
-		@(link_name = "kMDLabelKindIsMutuallyExclusiveSetKey")
+		@(link_name="kMDLabelKindIsMutuallyExclusiveSetKey")
 		LabelKindIsMutuallyExclusiveSetKey: CF.StringRef
 
-		@(link_name = "kMDLabelKindVisibilityKey")
+		@(link_name="kMDLabelKindVisibilityKey")
 		LabelKindVisibilityKey: CF.StringRef
 
-		@(link_name = "kMDLabelAddedNotification")
+		@(link_name="kMDLabelAddedNotification")
 		LabelAddedNotification: CF.StringRef
 
-		@(link_name = "kMDLabelChangedNotification")
+		@(link_name="kMDLabelChangedNotification")
 		LabelChangedNotification: CF.StringRef
 
-		@(link_name = "kMDLabelRemovedNotification")
+		@(link_name="kMDLabelRemovedNotification")
 		LabelRemovedNotification: CF.StringRef
 	}
 
-	@(link_name = "MDLVertexAttributeAnisotropy")
+	@(link_name="MDLVertexAttributeAnisotropy")
 	VertexAttributeAnisotropy: ^NS.String
 
-	@(link_name = "MDLVertexAttributeBinormal")
+	@(link_name="MDLVertexAttributeBinormal")
 	VertexAttributeBinormal: ^NS.String
 
-	@(link_name = "MDLVertexAttributeBitangent")
+	@(link_name="MDLVertexAttributeBitangent")
 	VertexAttributeBitangent: ^NS.String
 
-	@(link_name = "MDLVertexAttributeColor")
+	@(link_name="MDLVertexAttributeColor")
 	VertexAttributeColor: ^NS.String
 
-	@(link_name = "MDLVertexAttributeEdgeCrease")
+	@(link_name="MDLVertexAttributeEdgeCrease")
 	VertexAttributeEdgeCrease: ^NS.String
 
-	@(link_name = "MDLVertexAttributeJointIndices")
+	@(link_name="MDLVertexAttributeJointIndices")
 	VertexAttributeJointIndices: ^NS.String
 
-	@(link_name = "MDLVertexAttributeJointWeights")
+	@(link_name="MDLVertexAttributeJointWeights")
 	VertexAttributeJointWeights: ^NS.String
 
-	@(link_name = "MDLVertexAttributeNormal")
+	@(link_name="MDLVertexAttributeNormal")
 	VertexAttributeNormal: ^NS.String
 
-	@(link_name = "MDLVertexAttributeOcclusionValue")
+	@(link_name="MDLVertexAttributeOcclusionValue")
 	VertexAttributeOcclusionValue: ^NS.String
 
-	@(link_name = "MDLVertexAttributePosition")
+	@(link_name="MDLVertexAttributePosition")
 	VertexAttributePosition: ^NS.String
 
-	@(link_name = "MDLVertexAttributeShadingBasisU")
+	@(link_name="MDLVertexAttributeShadingBasisU")
 	VertexAttributeShadingBasisU: ^NS.String
 
-	@(link_name = "MDLVertexAttributeShadingBasisV")
+	@(link_name="MDLVertexAttributeShadingBasisV")
 	VertexAttributeShadingBasisV: ^NS.String
 
-	@(link_name = "MDLVertexAttributeSubdivisionStencil")
+	@(link_name="MDLVertexAttributeSubdivisionStencil")
 	VertexAttributeSubdivisionStencil: ^NS.String
 
-	@(link_name = "MDLVertexAttributeTangent")
+	@(link_name="MDLVertexAttributeTangent")
 	VertexAttributeTangent: ^NS.String
 
-	@(link_name = "MDLVertexAttributeTextureCoordinate")
+	@(link_name="MDLVertexAttributeTextureCoordinate")
 	VertexAttributeTextureCoordinate: ^NS.String
 
 	when ODIN_PLATFORM_SUBTARGET == .Default {
-		@(link_name = "MDLabelGetTypeID")
+		@(link_name="MDLabelGetTypeID")
 		LabelGetTypeID :: proc() -> CF.TypeID ---
 
-		@(link_name = "MDLabelCreate")
+		@(link_name="MDLabelCreate")
 		LabelCreate :: proc(allocator: CF.AllocatorRef, displayName: CF.StringRef, kind: CF.StringRef, domain: LabelDomain) -> LabelRef ---
 
-		@(link_name = "MDLabelCopyAttribute")
+		@(link_name="MDLabelCopyAttribute")
 		LabelCopyAttribute :: proc(label: LabelRef, name: CF.StringRef) -> CF.TypeRef ---
 
-		@(link_name = "MDLabelCopyAttributeName")
+		@(link_name="MDLabelCopyAttributeName")
 		LabelCopyAttributeName :: proc(label: LabelRef) -> CF.StringRef ---
 
-		@(link_name = "MDLabelDelete")
+		@(link_name="MDLabelDelete")
 		LabelDelete :: proc(label: LabelRef) -> Boolean ---
 
-		@(link_name = "MDLabelSetAttributes")
+		@(link_name="MDLabelSetAttributes")
 		LabelSetAttributes :: proc(label: LabelRef, attrs: CF.DictionaryRef) -> Boolean ---
 	}
 }
+
 
 
 when ODIN_PLATFORM_SUBTARGET == .Default {

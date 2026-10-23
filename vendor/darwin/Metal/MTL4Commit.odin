@@ -2,34 +2,32 @@
 #+build darwin
 package darwin_Metal
 
+import NS "core:sys/darwin/Foundation"
 import "base:intrinsics"
 import CF "core:sys/darwin/CoreFoundation"
-import NS "core:sys/darwin/Foundation"
 
-@(objc_class = "MTL4CommitOptions", objc_superclass = NS.Object)
-MTL4CommitOptions :: struct {
-	using _: NS.Object,
-}
+@(objc_class="MTL4CommitOptions", objc_superclass=NS.Object)
+MTL4CommitOptions :: struct { using _: NS.Object}
 
 foreign lib {
-	@(objc_type = MTL4CommitOptions, objc_selector = "addFeedbackHandler:", objc_name = "addFeedbackHandler")
+	@(objc_type=MTL4CommitOptions, objc_selector="addFeedbackHandler:", objc_name="addFeedbackHandler")
 	MTL4CommitOptions_addFeedbackHandler :: proc(self: ^MTL4CommitOptions, block: MTL4CommitFeedbackHandler) ---
 }
 
 
-@(objc_class = "MTL4CommitFeedback")
+@(objc_class="MTL4CommitFeedback")
 MTL4CommitFeedback :: struct {
 	using _: intrinsics.objc_object,
 	using _: NS.ObjectProtocol,
 }
 
 foreign lib {
-	@(objc_type = MTL4CommitFeedback, objc_selector = "error", objc_name = "error")
+	@(objc_type=MTL4CommitFeedback, objc_selector="error", objc_name="error")
 	MTL4CommitFeedback_error :: proc(self: ^MTL4CommitFeedback) -> ^NS.Error ---
 
-	@(objc_type = MTL4CommitFeedback, objc_selector = "GPUStartTime", objc_name = "GPUStartTime")
+	@(objc_type=MTL4CommitFeedback, objc_selector="GPUStartTime", objc_name="GPUStartTime")
 	MTL4CommitFeedback_GPUStartTime :: proc(self: ^MTL4CommitFeedback) -> CF.TimeInterval ---
 
-	@(objc_type = MTL4CommitFeedback, objc_selector = "GPUEndTime", objc_name = "GPUEndTime")
+	@(objc_type=MTL4CommitFeedback, objc_selector="GPUEndTime", objc_name="GPUEndTime")
 	MTL4CommitFeedback_GPUEndTime :: proc(self: ^MTL4CommitFeedback) -> CF.TimeInterval ---
 }

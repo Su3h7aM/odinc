@@ -20,11 +20,11 @@ import c "core:c/libc"
 
 Session :: distinct rawptr
 
-MAX_PLAYERS :: 4
-MAX_PREDICTION_FRAMES :: 8
-MAX_SPECTATORS :: 32
+MAX_PLAYERS              ::  4
+MAX_PREDICTION_FRAMES    ::  8
+MAX_SPECTATORS           :: 32
 
-SPECTATOR_INPUT_INTERVAL :: 4
+SPECTATOR_INPUT_INTERVAL ::  4
 
 PlayerHandle :: distinct c.int
 PlayerType :: enum c.int {
@@ -58,11 +58,11 @@ Player :: struct {
 	size:       c.int,
 	type:       PlayerType,
 	player_num: c.int,
-	using u:    struct #raw_union {
-		local:  struct{} `raw_union_tag:"type=.LOCAL"`,
+	using u: struct #raw_union {
+		local: struct {} `raw_union_tag:"type=.LOCAL"`,
 		remote: struct {
 			ip_address: [32]byte,
-			port:       u16,
+			port: u16,
 		} `raw_union_tag:"type=.REMOTE"`,
 	},
 }
@@ -114,44 +114,44 @@ INVALID_HANDLE :: PlayerHandle(-1)
 // down to ensure fairness.  The u.timesync.frames_ahead parameter in
 // the Event object indicates how many frames the client is.
 EventCode :: enum c.int {
-	CONNECTED_TO_PEER       = 1000,
-	SYNCHRONIZING_WITH_PEER = 1001,
-	SYNCHRONIZED_WITH_PEER  = 1002,
-	RUNNING                 = 1003,
-	DISCONNECTED_FROM_PEER  = 1004,
-	TIMESYNC                = 1005,
-	CONNECTION_INTERRUPTED  = 1006,
-	CONNECTION_RESUMED      = 1007,
+	CONNECTED_TO_PEER            = 1000,
+	SYNCHRONIZING_WITH_PEER      = 1001,
+	SYNCHRONIZED_WITH_PEER       = 1002,
+	RUNNING                      = 1003,
+	DISCONNECTED_FROM_PEER       = 1004,
+	TIMESYNC                     = 1005,
+	CONNECTION_INTERRUPTED       = 1006,
+	CONNECTION_RESUMED           = 1007,
 }
 
 // The Event structure contains an asynchronous event notification sent
 // by the on_event callback.  See EventCode, above, for a detailed
 // explanation of each event.
 Event :: struct {
-	code:    EventCode,
+	code: EventCode,
 	using u: struct #raw_union {
-		connected:              struct {
+		connected: struct {
 			player: PlayerHandle,
 		} `raw_union_tag:"code=.CONNECTED_TO_PEER"`,
-		synchronizing:          struct {
+		synchronizing: struct {
 			player: PlayerHandle,
 			count:  c.int,
 			total:  c.int,
 		} `raw_union_tag:"code=.SYNCHRONIZING_WITH_PEER"`,
-		synchronized:           struct {
+		synchronized: struct {
 			player: PlayerHandle,
 		} `raw_union_tag:"code=.SYNCHRONIZED_WITH_PEER"`,
-		disconnected:           struct {
+		disconnected: struct {
 			player: PlayerHandle,
 		} `raw_union_tag:"code=.DISCONNECTED_FROM_PEER"`,
-		timesync:               struct {
+		timesync: struct {
 			frames_ahead: c.int,
 		} `raw_union_tag:"code=.TIMESYNC"`,
 		connection_interrupted: struct {
 			player:             PlayerHandle,
 			disconnect_timeout: c.int,
 		} `raw_union_tag:"code=.connection_interrupted"`,
-		connection_resumed:     struct {
+		connection_resumed: struct {
 			player: PlayerHandle,
 		} `raw_union_tag:"code=.connection_resumed"`,
 	},
@@ -165,7 +165,7 @@ Event :: struct {
 SessionCallbacks :: struct {
 	// begin_game callback - This callback has been deprecated.  You must
 	// implement it, but should ignore the 'game' parameter.
-	begin_game:      proc "c" (game: cstring) -> bool,
+	begin_game: proc "c" (game: cstring) -> bool,
 
 	// save_game_state - The client should allocate a buffer, copy the
 	// entire contents of the current game state into it, and copy the
@@ -183,11 +183,11 @@ SessionCallbacks :: struct {
 	// log_game_state - Used in diagnostic testing.  The client should use
 	// the log function to write the contents of the specified save
 	// state in a human readible form.
-	log_game_state:  proc "c" (filename: cstring, buffer: [^]byte, len: c.int) -> bool,
+	log_game_state: proc "c" (filename: cstring, buffer: [^]byte, len: c.int) -> bool,
 
 	// free_buffer - Frees a game state allocated in save_game_state.  You
 	// should deallocate the memory contained in the buffer.
-	free_buffer:     proc "c" (buffer: rawptr),
+	free_buffer: proc "c" (buffer: rawptr),
 
 	// advance_frame - Called during a rollback.  You should advance your game
 	// state by exactly one frame.  Before each frame, call synchronize_input
@@ -196,11 +196,11 @@ SessionCallbacks :: struct {
 	// finished.
 	//
 	// The flags parameter is reserved.  It can safely be ignored at this time.
-	advance_frame:   proc "c" (flags: c.int) -> bool,
+	advance_frame: proc "c" (flags: c.int) -> bool,
 
 	// on_event - Notification that something has happened.  See the EventCode
 	// structure above for more information.
-	on_event:        proc "c" (info: ^Event) -> bool,
+	on_event: proc "c" (info: ^Event) -> bool,
 }
 
 // The NetworkStats function contains some statistics about the current
@@ -235,7 +235,7 @@ SessionCallbacks :: struct {
 // timesync.remote_frames_behind - The same as local_frames_behind, but
 // calculated from the perspective of the remote player.
 NetworkStats :: struct {
-	network:  struct {
+	network: struct {
 		send_queue_len: c.int,
 		recv_queue_len: c.int,
 		ping:           c.int,
@@ -247,8 +247,8 @@ NetworkStats :: struct {
 	},
 }
 
-@(default_calling_convention = "c")
-@(link_prefix = "ggpo_")
+@(default_calling_convention="c")
+@(link_prefix="ggpo_")
 foreign lib {
 	// start_session --
 	//
@@ -271,7 +271,12 @@ foreign lib {
 	// input_size - The size of the game inputs which will be passsed to add_local_input.
 	//
 	// local_port - The port GGPO should bind to for UDP traffic.
-	start_session :: proc(session: ^^Session, cb: ^SessionCallbacks, game: cstring, num_players: c.int, input_size: c.int, localport: u16) -> ErrorCode ---
+	start_session :: proc(session:     ^^Session,
+	                      cb:          ^SessionCallbacks,
+	                      game:        cstring,
+	                      num_players: c.int,
+	                      input_size:  c.int,
+	                      localport:   u16) -> ErrorCode ---
 
 
 	// add_player --
@@ -283,7 +288,9 @@ foreign lib {
 	//
 	// handle - An out parameter to a handle used to identify this player in the future.
 	// (e.g. in the on_event callbacks).
-	add_player :: proc(session: ^Session, player: ^Player, handle: ^PlayerHandle) -> ErrorCode ---
+	add_player :: proc(session: ^Session,
+	                   player:  ^Player,
+	                   handle:  ^PlayerHandle) -> ErrorCode ---
 
 
 	/*
@@ -310,7 +317,12 @@ foreign lib {
 	 * recommended value is 1.
 	 *
 	 */
-	start_synctest :: proc(session: ^^Session, cb: ^SessionCallbacks, game: cstring, num_players: c.int, input_size: c.int, frames: c.int) -> ErrorCode ---
+	start_synctest :: proc(session:     ^^Session,
+	                       cb:          ^SessionCallbacks,
+	                       game:        cstring,
+	                       num_players: c.int,
+	                       input_size:  c.int,
+	                       frames:      c.int) -> ErrorCode ---
 
 
 	// start_spectating --
@@ -335,7 +347,14 @@ foreign lib {
 	// player partcipating in the session can serve as a host.
 	//
 	// host_port - The port of the session on the host
-	start_spectating :: proc(session: ^^Session, cb: ^SessionCallbacks, game: cstring, num_players: c.int, input_size: c.int, local_port: u16, host_ip: cstring, host_port: u16) -> ErrorCode ---
+	start_spectating :: proc(session:     ^^Session,
+	                         cb:          ^SessionCallbacks,
+	                         game:        cstring,
+	                         num_players: c.int,
+	                         input_size:  c.int,
+	                         local_port:  u16,
+	                         host_ip:     cstring,
+	                         host_port:   u16) -> ErrorCode ---
 
 	// close_session --
 	// Used to close a session.  You must call close_session to
@@ -347,7 +366,9 @@ foreign lib {
 	//
 	// Change the amount of frames ggpo will delay local input.  Must be called
 	// before the first call to synchronize_input.
-	set_frame_delay :: proc(session: ^Session, player: PlayerHandle, frame_delay: c.int) -> ErrorCode ---
+	set_frame_delay :: proc(session:     ^Session,
+	                        player:      PlayerHandle,
+	                        frame_delay: c.int) -> ErrorCode ---
 
 	// idle --
 	// Should be called periodically by your application to give GGPO.net
@@ -356,7 +377,8 @@ foreign lib {
 	//
 	// timeout - The amount of time GGPO.net is allowed to spend in this function,
 	// in milliseconds.
-	idle :: proc(session: ^Session, timeout: c.int) -> ErrorCode ---
+	idle :: proc(session: ^Session,
+	             timeout: c.int) -> ErrorCode ---
 
 	// add_local_input --
 	//
@@ -371,7 +393,10 @@ foreign lib {
 	//
 	// size - The size of the controller inputs.  This must be exactly equal to the
 	// size passed into start_session.
-	add_local_input :: proc(session: ^Session, player: PlayerHandle, values: rawptr, size: c.int) -> ErrorCode ---
+	add_local_input :: proc(session: ^Session,
+	                        player:  PlayerHandle,
+	                        values:  rawptr,
+	                        size:    c.int) -> ErrorCode ---
 
 	// synchronize_input --
 	//
@@ -388,13 +413,17 @@ foreign lib {
 	// valid.  If a player has disconnected, the input in the values array for
 	// that player will be zeroed and the i-th flag will be set.  For example,
 	// if only player 3 has disconnected, disconnect flags will be 8 (i.e. 1 << 3).
-	synchronize_input :: proc(session: ^Session, values: rawptr, size: c.int, disconnect_flags: ^c.int) -> ErrorCode ---
+	synchronize_input :: proc(session:          ^Session,
+	                          values:           rawptr,
+	                          size:             c.int,
+	                          disconnect_flags: ^c.int) -> ErrorCode ---
 
 	// disconnect_player --
 	//
 	// Disconnects a remote player from a game.  Will return ERRORCODE_PLAYER_DISCONNECTED
 	// if you try to disconnect a player who has already been disconnected.
-	disconnect_player :: proc(session: ^Session, player: PlayerHandle) -> ErrorCode ---
+	disconnect_player :: proc(session: ^Session,
+	                          player:  PlayerHandle) -> ErrorCode ---
 
 	// advance_frame --
 	//
@@ -412,7 +441,9 @@ foreign lib {
 	// to add the remote player.
 	//
 	// stats - Out parameter to the network statistics.
-	get_network_stats :: proc(session: ^Session, player: PlayerHandle, stats: ^NetworkStats) -> ErrorCode ---
+	get_network_stats :: proc(session: ^Session,
+	                          player:  PlayerHandle,
+	                          stats:   ^NetworkStats) -> ErrorCode ---
 
 	// set_disconnect_timeout --
 	//
@@ -424,7 +455,8 @@ foreign lib {
 	// Setting a timeout value of 0 will disable automatic disconnects.
 	//
 	// timeout - The time in milliseconds to wait before disconnecting a peer.
-	set_disconnect_timeout :: proc(session: ^Session, timeout: c.int) -> ErrorCode ---
+	set_disconnect_timeout :: proc(session: ^Session,
+	                               timeout: c.int) -> ErrorCode ---
 
 	// set_disconnect_notify_start --
 	//
@@ -433,7 +465,8 @@ foreign lib {
 	//
 	// timeout - The amount of time which needs to elapse without receiving a packet
 	//           before the EVENTCODE_NETWORK_INTERRUPTED event is sent.
-	set_disconnect_notify_start :: proc(session: ^Session, timeout: c.int) -> ErrorCode ---
+	set_disconnect_notify_start :: proc(session: ^Session,
+	                                    timeout: c.int) -> ErrorCode ---
 
 	// log --
 	//

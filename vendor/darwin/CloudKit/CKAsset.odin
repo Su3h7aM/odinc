@@ -4,21 +4,19 @@ package darwin_CloudKit
 
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class = "CKAsset", objc_superclass = NS.Object)
-Asset :: struct {
-	using _: NS.Object,
-}
+@(objc_class="CKAsset", objc_superclass=NS.Object)
+Asset :: struct { using _: NS.Object}
 
 foreign lib {
-	@(objc_type = Asset, objc_selector = "init", objc_name = "init")
+	@(objc_type=Asset, objc_selector="init", objc_name="init")
 	Asset_init :: proc(self: ^Asset) -> instancetype ---
 
-	@(objc_type = Asset, objc_selector = "new", objc_name = "new", objc_is_class_method = true)
+	@(objc_type=Asset, objc_selector="new", objc_name="new", objc_is_class_method=true)
 	Asset_new :: proc() -> ^Asset ---
 
-	@(objc_type = Asset, objc_selector = "initWithFileURL:", objc_name = "initWithFileURL")
+	@(objc_type=Asset, objc_selector="initWithFileURL:", objc_name="initWithFileURL")
 	Asset_initWithFileURL :: proc(self: ^Asset, fileURL: ^NS.URL) -> instancetype ---
 
-	@(objc_type = Asset, objc_selector = "fileURL", objc_name = "fileURL")
+	@(objc_type=Asset, objc_selector="fileURL", objc_name="fileURL")
 	Asset_fileURL :: proc(self: ^Asset) -> ^NS.URL ---
 }

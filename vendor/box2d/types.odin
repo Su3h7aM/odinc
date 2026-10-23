@@ -67,41 +67,41 @@ RayResult :: struct {
 // @ingroup world
 WorldDef :: struct {
 	// Gravity vector. Box2D has no up-vector defined.
-	gravity:              Vec2,
+	gravity: Vec2,
 
 	// Restitution speed threshold, usually in m/s. Collisions above this
 	// speed have restitution applied (will bounce).
 	restitutionThreshold: f32,
 
 	// Threshold speed for hit events. Usually meters per second.
-	hitEventThreshold:    f32,
+	hitEventThreshold: f32,
 
 	// Contact stiffness. Cycles per second. Increasing this increases the speed of overlap recovery, but can introduce jitter.
-	contactHertz:         f32,
+	contactHertz: f32,
 
 	// Contact bounciness. Non-dimensional. You can speed up overlap recovery by decreasing this with
 	// the trade-off that overlap resolution becomes more energetic.
-	contactDampingRatio:  f32,
+	contactDampingRatio: f32,
 
 	// This parameter controls how fast overlap is resolved and usually has units of meters per second. This only
 	// puts a cap on the resolution speed. The resolution speed is increased by increasing the hertz and/or
 	// decreasing the damping ratio.
-	maxContactPushSpeed:  f32,
+	maxContactPushSpeed: f32,
 
 	// Maximum linear speed. Usually meters per second.
-	maximumLinearSpeed:   f32,
+	maximumLinearSpeed: f32,
 
 	// Optional mixing callback for friction. The default uses sqrt(frictionA * frictionB).
-	frictionCallback:     FrictionCallback,
+	frictionCallback: FrictionCallback,
 
 	// Optional mixing callback for restitution. The default uses max(restitutionA, restitutionB).
-	restitutionCallback:  RestitutionCallback,
+	restitutionCallback: RestitutionCallback,
 
 	// Can bodies go to sleep to improve performance
-	enableSleep:          bool,
+	enableSleep: bool,
 
 	// Enable continuous collision
-	enableContinuous:     bool,
+	enableContinuous: bool,
 
 	// Number of workers to use with the provided task system. Box2D performs best when using only
 	// performance cores and accessing a single L2 cache. Efficiency cores and hyper-threading provide
@@ -110,23 +110,25 @@ WorldDef :: struct {
 	// that you are allocating to b2World_Step.
 	// @warning Do not modify the default value unless you are also providing a task system and providing
 	// task callbacks (enqueueTask and finishTask).
-	workerCount:          i32,
+	workerCount: i32,
 
 	// Function to spawn tasks
-	enqueueTask:          EnqueueTaskCallback,
+	enqueueTask: EnqueueTaskCallback,
 
 	// Function to finish a task
-	finishTask:           FinishTaskCallback,
+	finishTask: FinishTaskCallback,
 
 	// User context that is provided to enqueueTask and finishTask
-	userTaskContext:      rawptr,
+	userTaskContext: rawptr,
 
 	// User data
-	userData:             rawptr,
+	userData: rawptr,
 
 	// Used internally to detect a valid definition. DO NOT SET.
-	internalValue:        i32,
+	internalValue: i32,
 }
+
+
 
 
 // The body simulation type.
@@ -134,13 +136,14 @@ WorldDef :: struct {
 // @ingroup body
 BodyType :: enum c.int {
 	// zero mass, zero velocity, may be manually moved
-	staticBody    = 0,
+	staticBody = 0,
 
 	// zero mass, velocity set by user, moved by solver
 	kinematicBody = 1,
 
 	// positive mass, velocity determined by forces, moved by solver
-	dynamicBody   = 2,
+	dynamicBody = 2,
+
 }
 
 // number of body types
@@ -153,71 +156,71 @@ bodyTypeCount :: len(BodyType)
 // @ingroup body
 BodyDef :: struct {
 	// The body type: static, kinematic, or dynamic.
-	type:              BodyType,
+	type: BodyType,
 
 	// The initial world position of the body. Bodies should be created with the desired position.
 	// @note Creating bodies at the origin and then moving them nearly doubles the cost of body creation, especially
 	//	if the body is moved after shapes have been added.
-	position:          Vec2,
+	position: Vec2,
 
 	// The initial world rotation of the body. Use b2MakeRot() if you have an angle.
-	rotation:          Rot,
+	rotation: Rot,
 
 	// The initial linear velocity of the body's origin. Usually in meters per second.
-	linearVelocity:    Vec2,
+	linearVelocity: Vec2,
 
 	// The initial angular velocity of the body. Radians per second.
-	angularVelocity:   f32,
+	angularVelocity: f32,
 
 	// Linear damping is used to reduce the linear velocity. The damping parameter
 	// can be larger than 1 but the damping effect becomes sensitive to the
 	// time step when the damping parameter is large.
 	//	Generally linear damping is undesirable because it makes objects move slowly
 	//	as if they are f32ing.
-	linearDamping:     f32,
+	linearDamping: f32,
 
 	// Angular damping is used to reduce the angular velocity. The damping parameter
 	// can be larger than 1.0f but the damping effect becomes sensitive to the
 	// time step when the damping parameter is large.
 	//	Angular damping can be use slow down rotating bodies.
-	angularDamping:    f32,
+	angularDamping: f32,
 
 	// Scale the gravity applied to this body. Non-dimensional.
-	gravityScale:      f32,
+	gravityScale: f32,
 
 	// Sleep speed threshold, default is 0.05 meters per second
-	sleepThreshold:    f32,
+	sleepThreshold: f32,
 
 	// Optional body name for debugging. Up to 32 characters (excluding null termination)
-	name:              cstring,
+	name: cstring,
 
 	// Use this to store application specific body data.
-	userData:          rawptr,
+	userData: rawptr,
 
 	// Set this flag to false if this body should never fall asleep.
-	enableSleep:       bool,
+	enableSleep: bool,
 
 	// Is this body initially awake or sleeping?
-	isAwake:           bool,
+	isAwake: bool,
 
 	// Should this body be prevented from rotating? Useful for characters.
-	fixedRotation:     bool,
+	fixedRotation: bool,
 
 	// Treat this body as high speed object that performs continuous collision detection
 	// against dynamic and kinematic bodies, but not other bullet bodies.
 	//	@warning Bullets should be used sparingly. They are not a solution for general dynamic-versus-dynamic
 	//	continuous collision. They may interfere with joint constraints.
-	isBullet:          bool,
+	isBullet: bool,
 
 	// Used to disable a body. A disabled body does not move or collide.
-	isEnabled:         bool,
+	isEnabled: bool,
 
 	// This allows this body to bypass rotational speed limits. Should only be used
 	// for circular objects, like wheels.
 	allowFastRotation: bool,
 
 	// Used internally to detect a valid definition. DO NOT SET.
-	internalValue:     i32,
+	internalValue: i32,
 }
 
 
@@ -246,7 +249,7 @@ Filter :: struct {
 	//	@code{.odin}
 	//	maskBits = u64(My_Categories.Static | My_Categories.Player);
 	//	@endcode
-	maskBits:     u64,
+	maskBits: u64,
 
 	// Collision groups allow a certain group of objects to never collide (negative)
 	// or always collide (positive). A group index of zero has no effect. Non-zero group filtering
@@ -254,7 +257,7 @@ Filter :: struct {
 	//	For example, you may want ragdolls to collide with other ragdolls but you don't want
 	//	ragdoll self-collision. In this case you would give each ragdoll a unique negative group index
 	//	and apply that group index to all shapes on the ragdoll.
-	groupIndex:   i32,
+	groupIndex: i32,
 }
 
 
@@ -268,7 +271,7 @@ QueryFilter :: struct {
 
 	// The collision mask bits. This states the shape categories that this
 	// query would accept for collision.
-	maskBits:     u64,
+	maskBits: u64,
 }
 
 
@@ -298,24 +301,24 @@ shapeTypeCount :: len(ShapeType)
 // @ingroup shape
 SurfaceMaterial :: struct {
 	// The Coulomb (dry) friction coefficient, usually in the range [0,1].
-	friction:          f32,
+	friction: f32,
 
 	// The coefficient of restitution (bounce) usually in the range [0,1].
 	// https://en.wikipedia.org/wiki/Coefficient_of_restitution
-	restitution:       f32,
+	restitution: f32,
 
 	// The rolling resistance usually in the range [0,1].
 	rollingResistance: f32,
 
 	// The tangent speed for conveyor belts
-	tangentSpeed:      f32,
+	tangentSpeed: f32,
 
 	// User material identifier. This is passed with query results and to friction and restitution
 	// combining functions. It is not used internally.
-	userMaterialId:    i32,
+	userMaterialId: i32,
 
 	// Custom debug draw color.
-	customColor:       u32,
+	customColor: u32,
 }
 
 // Used to create a shape.
@@ -325,38 +328,38 @@ SurfaceMaterial :: struct {
 // @ingroup shape
 ShapeDef :: struct {
 	// Use this to store application specific shape data.
-	userData:              rawptr,
+	userData: rawptr,
 
 	// The surface material for this shape.
-	material:              SurfaceMaterial,
+	material: SurfaceMaterial,
 
 	// The density, usually in kg/m^2.
 	// This is not part of the surface material because this is for the interior, which may have
 	// other considerations, such as being hollow. For example a wood barrel may be hollow or full of water.
-	density:               f32,
+	density: f32,
 
 	// Collision filtering data.
-	filter:                Filter,
+	filter: Filter,
 
 	// A sensor shape generates overlap events but never generates a collision response.
 	// Sensors do not have continuous collision. Instead, use a ray or shape cast for those scenarios.
 	// Sensors still contribute to the body mass if they have non-zero density.
 	// @note Sensor events are disabled by default.
 	// @see enableSensorEvents
-	isSensor:              bool,
+	isSensor: bool,
 
 	// Enable sensor events for this shape. This applies to sensors and non-sensors. False by default, even for sensors.
-	enableSensorEvents:    bool,
+	enableSensorEvents: bool,
 
 	// Enable contact events for this shape. Only applies to kinematic and dynamic bodies. Ignored for sensors. False by default.
-	enableContactEvents:   bool,
+	enableContactEvents: bool,
 
 	// Enable hit events for this shape. Only applies to kinematic and dynamic bodies. Ignored for sensors. False by default.
-	enableHitEvents:       bool,
+	enableHitEvents: bool,
 
 	// Enable pre-solve contact events for this shape. Only applies to dynamic bodies. These are expensive
 	//	and must be carefully handled due to threading. Ignored for sensors.
-	enablePreSolveEvents:  bool,
+	enablePreSolveEvents: bool,
 
 	// When shapes are created they will scan the environment for collision the next time step. This can significantly slow down
 	// static body creation when there are many static shapes.
@@ -364,10 +367,10 @@ ShapeDef :: struct {
 	invokeContactCreation: bool,
 
 	// Should the body update the mass properties when this shape is created. Default is true.
-	updateBodyMass:        bool,
+	updateBodyMass: bool,
 
 	// Used internally to detect a valid definition. DO NOT SET.
-	internalValue:         i32,
+	internalValue: i32,
 }
 
 
@@ -388,32 +391,32 @@ ShapeDef :: struct {
 // @ingroup shape
 ChainDef :: struct {
 	// Use this to store application specific shape data.
-	userData:           rawptr,
+	userData: rawptr,
 
 	// An array of at least 4 points. These are cloned and may be temporary.
-	points:             [^]Vec2 `fmt:"v,count"`,
+	points: [^]Vec2 `fmt:"v,count"`,
 
 	// The point count, must be 4 or more.
-	count:              i32,
+	count: i32,
 
 	// Surface materials for each segment. These are cloned.
-	materials:          [^]SurfaceMaterial `fmt:"v,materialCount"`,
+	materials: [^]SurfaceMaterial `fmt:"v,materialCount"`,
 
 	// The material count. Must be 1 or count. This allows you to provide one
 	// material for all segments or a unique material per segment.
-	materialCount:      i32,
+	materialCount: i32,
 
 	// Contact filtering data.
-	filter:             Filter,
+	filter: Filter,
 
 	// Indicates a closed chain formed by connecting the first and last points
-	isLoop:             bool,
+	isLoop: bool,
 
 	// Enable sensors to detect this chain. False by default.
 	enableSensorEvents: bool,
 
 	// Used internally to detect a valid definition. DO NOT SET.
-	internalValue:      i32,
+	internalValue: i32,
 }
 
 
@@ -485,56 +488,56 @@ JointType :: enum c.int {
 // @ingroup distance_joint
 DistanceJointDef :: struct {
 	// The first attached body
-	bodyIdA:          BodyId,
+	bodyIdA: BodyId,
 
 	// The second attached body
-	bodyIdB:          BodyId,
+	bodyIdB: BodyId,
 
 	// The local anchor point relative to bodyA's origin
-	localAnchorA:     Vec2,
+	localAnchorA: Vec2,
 
 	// The local anchor point relative to bodyB's origin
-	localAnchorB:     Vec2,
+	localAnchorB: Vec2,
 
 	// The rest length of this joint. Clamped to a stable minimum value.
-	length:           f32,
+	length: f32,
 
 	// Enable the distance constraint to behave like a spring. If false
 	//	then the distance joint will be rigid, overriding the limit and motor.
-	enableSpring:     bool,
+	enableSpring: bool,
 
 	// The spring linear stiffness Hertz, cycles per second
-	hertz:            f32,
+	hertz: f32,
 
 	// The spring linear damping ratio, non-dimensional
-	dampingRatio:     f32,
+	dampingRatio: f32,
 
 	// Enable/disable the joint limit
-	enableLimit:      bool,
+	enableLimit: bool,
 
 	// Minimum length. Clamped to a stable minimum value.
-	minLength:        f32,
+	minLength: f32,
 
 	// Maximum length. Must be greater than or equal to the minimum length.
-	maxLength:        f32,
+	maxLength: f32,
 
 	// Enable/disable the joint motor
-	enableMotor:      bool,
+	enableMotor: bool,
 
 	// The maximum motor force, usually in newtons
-	maxMotorForce:    f32,
+	maxMotorForce: f32,
 
 	// The desired motor speed, usually in meters per second
-	motorSpeed:       f32,
+	motorSpeed: f32,
 
 	// Set this flag to true if the attached bodies should collide
 	collideConnected: bool,
 
 	// User data pointer
-	userData:         rawptr,
+	userData: rawptr,
 
 	// Used internally to detect a valid definition. DO NOT SET.
-	internalValue:    i32,
+	internalValue: i32,
 }
 
 
@@ -544,22 +547,22 @@ DistanceJointDef :: struct {
 // @ingroup motor_joint
 MotorJointDef :: struct {
 	// The first attached body
-	bodyIdA:          BodyId,
+	bodyIdA: BodyId,
 
 	// The second attached body
-	bodyIdB:          BodyId,
+	bodyIdB: BodyId,
 
 	// Position of bodyB minus the position of bodyA, in bodyA's frame
-	linearOffset:     Vec2,
+	linearOffset: Vec2,
 
 	// The bodyB angle minus bodyA angle in radians
-	angularOffset:    f32,
+	angularOffset: f32,
 
 	// The maximum motor force in newtons
-	maxForce:         f32,
+	maxForce: f32,
 
 	// The maximum motor torque in newton-meters
-	maxTorque:        f32,
+	maxTorque: f32,
 
 	// Position correction factor in the range [0,1]
 	correctionFactor: f32,
@@ -568,10 +571,10 @@ MotorJointDef :: struct {
 	collideConnected: bool,
 
 	// User data pointer
-	userData:         rawptr,
+	userData: rawptr,
 
 	// Used internally to detect a valid definition. DO NOT SET.
-	internalValue:    i32,
+	internalValue: i32,
 }
 
 
@@ -582,31 +585,31 @@ MotorJointDef :: struct {
 // @ingroup mouse_joint
 MouseJointDef :: struct {
 	// The first attached body. This is assumed to be static.
-	bodyIdA:          BodyId,
+	bodyIdA: BodyId,
 
 	// The second attached body.
-	bodyIdB:          BodyId,
+	bodyIdB: BodyId,
 
 	// The initial target point in world space
-	target:           Vec2,
+	target: Vec2,
 
 	// Stiffness in hertz
-	hertz:            f32,
+	hertz: f32,
 
 	// Damping ratio, non-dimensional
-	dampingRatio:     f32,
+	dampingRatio: f32,
 
 	// Maximum force, typically in newtons
-	maxForce:         f32,
+	maxForce: f32,
 
 	// Set this flag to true if the attached bodies should collide.
 	collideConnected: bool,
 
 	// User data pointer
-	userData:         rawptr,
+	userData: rawptr,
 
 	// Used internally to detect a valid definition. DO NOT SET.
-	internalValue:    i32,
+	internalValue: i32,
 }
 
 // A filter joint is used to disable collision between two specific bodies.
@@ -614,13 +617,13 @@ MouseJointDef :: struct {
 // @ingroup filter_joint
 FilterJointDef :: struct {
 	/// The first attached body.
-	bodyIdA:       BodyId,
+	bodyIdA: BodyId,
 
 	/// The second attached body.
-	bodyIdB:       BodyId,
+	bodyIdB: BodyId,
 
 	/// User data pointer
-	userData:      rawptr,
+	userData: rawptr,
 
 	/// Used internally to detect a valid definition. DO NOT SET.
 	internalValue: i32,
@@ -635,62 +638,62 @@ FilterJointDef :: struct {
 // @ingroup prismatic_joint
 PrismaticJointDef :: struct {
 	// The first attached body
-	bodyIdA:           BodyId,
+	bodyIdA: BodyId,
 
 	// The second attached body
-	bodyIdB:           BodyId,
+	bodyIdB: BodyId,
 
 	// The local anchor point relative to bodyA's origin
-	localAnchorA:      Vec2,
+	localAnchorA: Vec2,
 
 	// The local anchor point relative to bodyB's origin
-	localAnchorB:      Vec2,
+	localAnchorB: Vec2,
 
 	// The local translation unit axis in bodyA
-	localAxisA:        Vec2,
+	localAxisA: Vec2,
 
 	// The constrained angle between the bodies: bodyB_angle - bodyA_angle
-	referenceAngle:    f32,
+	referenceAngle: f32,
 
 	// The target translation for the joint in meters. The spring-damper will drive
 	// to this translation.
 	targetTranslation: f32,
 
 	// Enable a linear spring along the prismatic joint axis
-	enableSpring:      bool,
+	enableSpring: bool,
 
 	// The spring stiffness Hertz, cycles per second
-	hertz:             f32,
+	hertz: f32,
 
 	// The spring damping ratio, non-dimensional
-	dampingRatio:      f32,
+	dampingRatio: f32,
 
 	// Enable/disable the joint limit
-	enableLimit:       bool,
+	enableLimit: bool,
 
 	// The lower translation limit
-	lowerTranslation:  f32,
+	lowerTranslation: f32,
 
 	// The upper translation limit
-	upperTranslation:  f32,
+	upperTranslation: f32,
 
 	// Enable/disable the joint motor
-	enableMotor:       bool,
+	enableMotor: bool,
 
 	// The maximum motor force, typically in newtons
-	maxMotorForce:     f32,
+	maxMotorForce: f32,
 
 	// The desired motor speed, typically in meters per second
-	motorSpeed:        f32,
+	motorSpeed: f32,
 
 	// Set this flag to true if the attached bodies should collide
-	collideConnected:  bool,
+	collideConnected: bool,
 
 	// User data pointer
-	userData:          rawptr,
+	userData: rawptr,
 
 	// Used internally to detect a valid definition. DO NOT SET.
-	internalValue:     i32,
+	internalValue: i32,
 }
 
 
@@ -708,63 +711,63 @@ PrismaticJointDef :: struct {
 // @ingroup revolute_joint
 RevoluteJointDef :: struct {
 	// The first attached body
-	bodyIdA:          BodyId,
+	bodyIdA: BodyId,
 
 	// The second attached body
-	bodyIdB:          BodyId,
+	bodyIdB: BodyId,
 
 	// The local anchor point relative to bodyA's origin
-	localAnchorA:     Vec2,
+	localAnchorA: Vec2,
 
 	// The local anchor point relative to bodyB's origin
-	localAnchorB:     Vec2,
+	localAnchorB: Vec2,
 
 	// The bodyB angle minus bodyA angle in the reference state (radians).
 	// This defines the zero angle for the joint limit.
-	referenceAngle:   f32,
+	referenceAngle: f32,
 
 	// The target angle for the joint in radians. The spring-damper will drive
 	// to this angle.
-	targetAngle:      f32,
+	targetAngle: f32,
 
 	// Enable a rotational spring on the revolute hinge axis
-	enableSpring:     bool,
+	enableSpring: bool,
 
 	// The spring stiffness Hertz, cycles per second
-	hertz:            f32,
+	hertz: f32,
 
 	// The spring damping ratio, non-dimensional
-	dampingRatio:     f32,
+	dampingRatio: f32,
 
 	// A flag to enable joint limits
-	enableLimit:      bool,
+	enableLimit: bool,
 
 	// The lower angle for the joint limit in radians. Minimum of -0.99*pi radians.
-	lowerAngle:       f32,
+	lowerAngle: f32,
 
 	// The upper angle for the joint limit in radians. Maximum of 0.99*pi radians.
-	upperAngle:       f32,
+	upperAngle: f32,
 
 	// A flag to enable the joint motor
-	enableMotor:      bool,
+	enableMotor: bool,
 
 	// The maximum motor torque, typically in newton-meters
-	maxMotorTorque:   f32,
+	maxMotorTorque: f32,
 
 	// The desired motor speed in radians per second
-	motorSpeed:       f32,
+	motorSpeed: f32,
 
 	// Scale the debug draw
-	drawSize:         f32,
+	drawSize: f32,
 
 	// Set this flag to true if the attached bodies should collide
 	collideConnected: bool,
 
 	// User data pointer
-	userData:         rawptr,
+	userData: rawptr,
 
 	// Used internally to detect a valid definition. DO NOT SET.
-	internalValue:    i32,
+	internalValue: i32,
 }
 
 
@@ -776,40 +779,40 @@ RevoluteJointDef :: struct {
 // @ingroup weld_joint
 WeldJointDef :: struct {
 	// The first attached body
-	bodyIdA:             BodyId,
+	bodyIdA: BodyId,
 
 	// The second attached body
-	bodyIdB:             BodyId,
+	bodyIdB: BodyId,
 
 	// The local anchor point relative to bodyA's origin
-	localAnchorA:        Vec2,
+	localAnchorA: Vec2,
 
 	// The local anchor point relative to bodyB's origin
-	localAnchorB:        Vec2,
+	localAnchorB: Vec2,
 
 	// The bodyB angle minus bodyA angle in the reference state (radians)
-	referenceAngle:      f32,
+	referenceAngle: f32,
 
 	// Linear stiffness expressed as Hertz (cycles per second). Use zero for maximum stiffness.
-	linearHertz:         f32,
+	linearHertz: f32,
 
 	// Angular stiffness as Hertz (cycles per second). Use zero for maximum stiffness.
-	angularHertz:        f32,
+	angularHertz: f32,
 
 	// Linear damping ratio, non-dimensional. Use 1 for critical damping.
-	linearDampingRatio:  f32,
+	linearDampingRatio: f32,
 
 	// Linear damping ratio, non-dimensional. Use 1 for critical damping.
 	angularDampingRatio: f32,
 
 	// Set this flag to true if the attached bodies should collide
-	collideConnected:    bool,
+	collideConnected: bool,
 
 	// User data pointer
-	userData:            rawptr,
+	userData: rawptr,
 
 	// Used internally to detect a valid definition. DO NOT SET.
-	internalValue:       i32,
+	internalValue: i32,
 }
 
 
@@ -822,31 +825,31 @@ WeldJointDef :: struct {
 // @ingroup wheel_joint
 WheelJointDef :: struct {
 	// The first attached body
-	bodyIdA:          BodyId,
+	bodyIdA: BodyId,
 
 	// The second attached body
-	bodyIdB:          BodyId,
+	bodyIdB: BodyId,
 
 	// The local anchor point relative to bodyA's origin
-	localAnchorA:     Vec2,
+	localAnchorA: Vec2,
 
 	// The local anchor point relative to bodyB's origin
-	localAnchorB:     Vec2,
+	localAnchorB: Vec2,
 
 	// The local translation unit axis in bodyA
-	localAxisA:       Vec2,
+	localAxisA: Vec2,
 
 	// Enable a linear spring along the local axis
-	enableSpring:     bool,
+	enableSpring: bool,
 
 	// Spring stiffness in Hertz
-	hertz:            f32,
+	hertz: f32,
 
 	// Spring damping ratio, non-dimensional
-	dampingRatio:     f32,
+	dampingRatio: f32,
 
 	// Enable/disable the joint linear limit
-	enableLimit:      bool,
+	enableLimit: bool,
 
 	// The lower translation limit
 	lowerTranslation: f32,
@@ -855,22 +858,22 @@ WheelJointDef :: struct {
 	upperTranslation: f32,
 
 	// Enable/disable the joint rotational motor
-	enableMotor:      bool,
+	enableMotor: bool,
 
 	// The maximum motor torque, typically in newton-meters
-	maxMotorTorque:   f32,
+	maxMotorTorque: f32,
 
 	// The desired motor speed in radians per second
-	motorSpeed:       f32,
+	motorSpeed: f32,
 
 	// Set this flag to true if the attached bodies should collide
 	collideConnected: bool,
 
 	// User data pointer
-	userData:         rawptr,
+	userData: rawptr,
 
 	// Used internally to detect a valid definition. DO NOT SET.
-	internalValue:    i32,
+	internalValue: i32,
 }
 
 // The explosion definition is used to configure options for explosions. Explosions
@@ -878,16 +881,16 @@ WheelJointDef :: struct {
 // @ingroup world
 ExplosionDef :: struct {
 	/// Mask bits to filter shapes
-	maskBits:         u64,
+	maskBits: u64,
 
 	/// The center of the explosion in world space
-	position:         Vec2,
+	position: Vec2,
 
 	/// The radius of the explosion
-	radius:           f32,
+	radius: f32,
 
 	/// The falloff distance beyond the radius. Impulse is reduced to zero at this distance.
-	falloff:          f32,
+	falloff: f32,
 
 	/// Impulse per unit length. This applies an impulse according to the shape perimeter that
 	/// is facing the explosion. Explosions only apply to circles, capsules, and polygons. This
@@ -915,7 +918,7 @@ ExplosionDef :: struct {
 // A begin touch event is generated when a shape starts to overlap a sensor shape.
 SensorBeginTouchEvent :: struct {
 	// The id of the sensor shape
-	sensorShapeId:  ShapeId,
+	sensorShapeId: ShapeId,
 
 	// The id of the dynamic shape that began touching the sensor shape
 	visitorShapeId: ShapeId,
@@ -929,7 +932,7 @@ SensorEndTouchEvent :: struct {
 	// The id of the sensor shape
 	// @warning this shape may have been destroyed
 	// @see b2Shape_IsValid
-	sensorShapeId:  ShapeId,
+	sensorShapeId: ShapeId,
 
 	// The id of the dynamic shape that stopped touching the sensor shape
 	// @warning this shape may have been destroyed
@@ -945,13 +948,13 @@ SensorEvents :: struct {
 	beginEvents: [^]SensorBeginTouchEvent `fmt:"v,beginCount"`,
 
 	// Array of sensor end touch events
-	endEvents:   [^]SensorEndTouchEvent `fmt:"v,endCount"`,
+	endEvents: [^]SensorEndTouchEvent `fmt:"v,endCount"`,
 
 	// The number of begin touch events
-	beginCount:  i32,
+	beginCount: i32,
 
 	// The number of end touch events
-	endCount:    i32,
+	endCount: i32,
 }
 
 // A begin touch event is generated when two shapes begin touching.
@@ -987,18 +990,18 @@ ContactEndTouchEvent :: struct {
 // This may be reported for speculative contacts that have a confirmed impulse.
 ContactHitEvent :: struct {
 	// Id of the first shape
-	shapeIdA:      ShapeId,
+	shapeIdA: ShapeId,
 
 	// Id of the second shape
-	shapeIdB:      ShapeId,
+	shapeIdB: ShapeId,
 
 	// Point where the shapes hit at the beginning of the time step.
 	// This is a mid-point between the two surfaces. It could be at speculative
 	// point where the two shapes were not touching at the beginning of the time step.
-	point:         Vec2,
+	point: Vec2,
 
 	// Normal vector pointing from shape A to shape B
-	normal:        Vec2,
+	normal: Vec2,
 
 	// The speed the shapes are approaching. Always positive. Typically in meters per second.
 	approachSpeed: f32,
@@ -1012,19 +1015,19 @@ ContactEvents :: struct {
 	beginEvents: [^]ContactBeginTouchEvent `fmt:"v,beginCount"`,
 
 	// Array of end touch events
-	endEvents:   [^]ContactEndTouchEvent `fmt:"v,endCount"`,
+	endEvents: [^]ContactEndTouchEvent `fmt:"v,endCount"`,
 
 	// Array of hit events
-	hitEvents:   [^]ContactHitEvent `fmt:"v,hitCount"`,
+	hitEvents: [^]ContactHitEvent `fmt:"v,hitCount"`,
 
 	// Number of begin touch events
-	beginCount:  i32,
+	beginCount: i32,
 
 	// Number of end touch events
-	endCount:    i32,
+	endCount: i32,
 
 	// Number of hit events
-	hitCount:    i32,
+	hitCount: i32,
 }
 
 // Body move events triggered when a body moves.
@@ -1052,7 +1055,8 @@ BodyEvents :: struct {
 	moveEvents: [^]BodyMoveEvent `fmt:"v,moveCount"`,
 
 	// Number of move events
-	moveCount:  i32,
+	moveCount: i32,
+
 }
 
 // The contact data for two shapes. By convention the manifold normal points
@@ -1279,77 +1283,77 @@ HexColor :: enum c.int {
 //	@ingroup world
 DebugDraw :: struct {
 	// Draw a closed polygon provided in CCW order.
-	DrawPolygonFcn:       proc "c" (vertices: [^]Vec2, vertexCount: c.int, color: HexColor, ctx: rawptr),
+	DrawPolygonFcn: proc "c" (vertices: [^]Vec2, vertexCount: c.int, color: HexColor, ctx: rawptr),
 
 	// Draw a solid closed polygon provided in CCW order.
-	DrawSolidPolygonFcn:  proc "c" (transform: Transform, vertices: [^]Vec2, vertexCount: c.int, radius: f32, colr: HexColor, ctx: rawptr),
+	DrawSolidPolygonFcn: proc "c" (transform: Transform, vertices: [^]Vec2, vertexCount: c.int, radius: f32, colr: HexColor, ctx: rawptr ),
 
 	// Draw a circle.
-	DrawCircleFcn:        proc "c" (center: Vec2, radius: f32, color: HexColor, ctx: rawptr),
+	DrawCircleFcn: proc "c" (center: Vec2, radius: f32, color: HexColor, ctx: rawptr),
 
 	// Draw a solid circle.
-	DrawSolidCircleFcn:   proc "c" (transform: Transform, radius: f32, color: HexColor, ctx: rawptr),
+	DrawSolidCircleFcn: proc "c" (transform: Transform, radius: f32, color: HexColor, ctx: rawptr),
 
 	// Draw a solid capsule.
-	DrawSolidCapsuleFcn:  proc "c" (p1, p2: Vec2, radius: f32, color: HexColor, ctx: rawptr),
+	DrawSolidCapsuleFcn: proc "c" (p1, p2: Vec2, radius: f32, color: HexColor, ctx: rawptr),
 
 	// Draw a line segment.
-	DrawSegmentFcn:       proc "c" (p1, p2: Vec2, color: HexColor, ctx: rawptr),
+	DrawSegmentFcn: proc "c" (p1, p2: Vec2, color: HexColor, ctx: rawptr),
 
 	// Draw a transform. Choose your own length scale.
-	DrawTransformFcn:     proc "c" (transform: Transform, ctx: rawptr),
+	DrawTransformFcn: proc "c" (transform: Transform, ctx: rawptr),
 
 	// Draw a point.
-	DrawPointFcn:         proc "c" (p: Vec2, size: f32, color: HexColor, ctx: rawptr),
+	DrawPointFcn: proc "c" (p: Vec2, size: f32, color: HexColor, ctx: rawptr),
 
 	// Draw a string in world space.
-	DrawStringFcn:        proc "c" (p: Vec2, s: cstring, color: HexColor, ctx: rawptr),
+	DrawStringFcn: proc "c" (p: Vec2, s: cstring, color: HexColor, ctx: rawptr),
 
 	// Bounds to use if restricting drawing to a rectangular region
-	drawingBounds:        AABB,
+	drawingBounds: AABB,
 
 	// Option to restrict drawing to a rectangular region. May suffer from unstable depth sorting.
-	useDrawingBounds:     bool,
+	useDrawingBounds: bool,
 
 	// Option to draw shapes
-	drawShapes:           bool,
+	drawShapes: bool,
 
 	// Option to draw joints
-	drawJoints:           bool,
+	drawJoints: bool,
 
 	// Option to draw additional information for joints
-	drawJointExtras:      bool,
+	drawJointExtras: bool,
 
 	// Option to draw the bounding boxes for shapes
-	drawBounds:           bool,
+	drawBounds: bool,
 
 	// Option to draw the mass and center of mass of dynamic bodies
-	drawMass:             bool,
+	drawMass: bool,
 
 	// Option to draw body names
-	drawBodyNames:        bool,
+	drawBodyNames: bool,
 
 	// Option to draw contact points
-	drawContacts:         bool,
+	drawContacts: bool,
 
 	// Option to visualize the graph coloring used for contacts and joints
-	drawGraphColors:      bool,
+	drawGraphColors: bool,
 
 	// Option to draw contact normals
-	drawContactNormals:   bool,
+	drawContactNormals: bool,
 
 	// Option to draw contact normal impulses
-	drawContactImpulses:  bool,
+	drawContactImpulses: bool,
 
 	// Option to draw contact feature ids
-	drawContactFeatures:  bool,
+	drawContactFeatures: bool,
 
 	// Option to draw contact friction impulses
 	drawFrictionImpulses: bool,
 
 	// Option to draw islands as bounding boxes
-	drawIslands:          bool,
+	drawIslands: bool,
 
 	// User context that is passed as an argument to drawing callback functions
-	userContext:          rawptr,
+	userContext: rawptr,
 }

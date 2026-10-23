@@ -36,21 +36,21 @@ AUDCLNT_SHAREMODE :: enum u32 {
 // VoiceTyping             - Dictation, typing by voice
 // Other                   - All other streams (default)
 AUDIO_STREAM_CATEGORY :: enum u32 {
-	Other                  = 0,
-	ForegroundOnlyMedia    = 1,
+	Other = 0,
+	ForegroundOnlyMedia = 1,
 	BackgroundCapableMedia = 2, // #if NTDDI_VERSION < NTDDI_WINTHRESHOLD
-	Communications         = 3,
-	Alerts                 = 4,
-	SoundEffects           = 5,
-	GameEffects            = 6,
-	GameMedia              = 7,
-	GameChat               = 8,
-	Speech                 = 9,
-	Movie                  = 10,
-	Media                  = 11,
-	FarFieldSpeech         = 12, // #if NTDDI_VERSION >= NTDDI_WIN10_FE
-	UniformSpeech          = 13, // #if NTDDI_VERSION >= NTDDI_WIN10_FE
-	VoiceTyping            = 14, // #if NTDDI_VERSION >= NTDDI_WIN10_FE
+	Communications = 3,
+	Alerts = 4,
+	SoundEffects = 5,
+	GameEffects = 6,
+	GameMedia = 7,
+	GameChat = 8,
+	Speech = 9,
+	Movie = 10,
+	Media = 11,
+	FarFieldSpeech = 12, // #if NTDDI_VERSION >= NTDDI_WIN10_FE
+	UniformSpeech = 13, // #if NTDDI_VERSION >= NTDDI_WIN10_FE
+	VoiceTyping = 14, // #if NTDDI_VERSION >= NTDDI_WIN10_FE
 }
 
 
@@ -131,10 +131,10 @@ ERole :: enum u32 {
 }
 
 AudioClientProperties :: struct {
-	cbSize:     u32,
+	cbSize: u32,
 	bIsOffload: windows.BOOL,
-	eCategory:  AUDIO_STREAM_CATEGORY,
-	Options:    bit_set[AUDCLNT_STREAMOPTION],
+	eCategory: AUDIO_STREAM_CATEGORY,
+	Options: bit_set[AUDCLNT_STREAMOPTION],
 }
 
 AUDCLNT_STREAMOPTIONS_NONE :: bit_set[AUDCLNT_STREAMOPTION]{}
@@ -172,13 +172,13 @@ SPEAKER :: enum windows.DWORD {
 // extended waveform format structure used for all non-PCM formats. this
 // structure is common to all non-PCM formats.
 WAVEFORMATEX :: struct #packed {
-	wFormatTag:      WAVE_FORMAT, // format type
-	nChannels:       windows.WORD, // number of channels (i.e. mono, stereo...)
-	nSamplesPerSec:  windows.DWORD, // sample rate
-	nAvgBytesPerSec: windows.DWORD, // for buffer estimation
-	nBlockAlign:     windows.WORD, // block size of data
-	wBitsPerSample:  windows.WORD, // number of bits per sample of mono data
-	cbSize:          windows.WORD, // the count in bytes of the size of extra information (after cbSize)
+	wFormatTag:         WAVE_FORMAT,  // format type
+	nChannels:          windows.WORD,  // number of channels (i.e. mono, stereo...)
+	nSamplesPerSec:     windows.DWORD, // sample rate
+	nAvgBytesPerSec:    windows.DWORD, // for buffer estimation
+	nBlockAlign:        windows.WORD,  // block size of data
+	wBitsPerSample:     windows.WORD,  // number of bits per sample of mono data
+	cbSize:             windows.WORD,  // the count in bytes of the size of extra information (after cbSize)
 }
 
 
@@ -189,14 +189,14 @@ WAVEFORMATEX :: struct #packed {
 // and use WAVE_FORMAT_EXTENSIBLE in the
 // WAVEFORMATEXTENSIBLE.Format.wFormatTag field.
 WAVEFORMATEXTENSIBLE :: struct {
-	Format:        WAVEFORMATEX,
+	Format:         WAVEFORMATEX,
 	using Samples: struct #raw_union {
-		wValidBitsPerSample: windows.WORD, // bits of precision
-		wSamplesPerBlock:    windows.WORD, // valid if wBitsPerSample==0
-		wReserved:           windows.WORD, // If neither applies, set to zero.
+		wValidBitsPerSample:    windows.WORD, // bits of precision
+		wSamplesPerBlock:       windows.WORD, // valid if wBitsPerSample==0
+		wReserved:              windows.WORD, // If neither applies, set to zero.
 	},
-	dwChannelMask: bit_set[SPEAKER], // which channels are  present in stream
-	SubFormat:     windows.GUID,
+	dwChannelMask:  bit_set[SPEAKER], // which channels are  present in stream
+	SubFormat:      windows.GUID,
 }
 
 

@@ -38,37 +38,37 @@ coding_channel_info_t :: struct {
 	 * This is provided as a convenient reference. Do not free, this
 	 * refers to the internal data structure in the context.
 	 */
-	channel_name:           cstring,
+	channel_name: cstring,
 
 	/** Number of lines for this channel in this chunk.
 	 *
 	 * May be 0 or less than overall image height based on sampling
 	 * (i.e. when in 4:2:0 type sampling)
 	 */
-	height:                 i32,
+	height: i32,
 
 	/** Width in pixel count.
 	 *
 	 * May be 0 or less than overall image width based on sampling
 	 * (i.e. 4:2:2 will have some channels have fewer values).
 	 */
-	width:                  i32,
+	width: i32,
 
 	/** Horizontal subsampling information. */
-	x_samples:              i32,
+	x_samples: i32,
 	/** Vertical subsampling information. */
-	y_samples:              i32,
+	y_samples: i32,
 
 	/** Linear flag from channel definition (used by b44). */
-	p_linear:               u8,
+	p_linear: u8,
 
 	/** How many bytes per pixel this channel consumes (2 for float16,
 	 * 4 for float32/uint32).
 	 */
-	bytes_per_element:      i8,
+	bytes_per_element: i8,
 
 	/** Small form of exr_pixel_type_t enum (EXR_PIXEL_UINT/HALF/FLOAT). */
-	data_type:              u16,
+	data_type: u16,
 
 	/**************************************************
 	 * Elements below must be edited by the caller
@@ -84,7 +84,7 @@ coding_channel_info_t :: struct {
 	/** Small form of exr_pixel_type_t enum
 	 * (EXR_PIXEL_UINT/HALF/FLOAT). Defaults to same type as input.
 	 */
-	user_data_type:         u16,
+	user_data_type: u16,
 
 	/** Increment to get to next pixel.
 	 *
@@ -95,7 +95,8 @@ coding_channel_info_t :: struct {
 	 * planar or interleaved data. For planar data, where the layout
 	 * is RRRRRGGGGGBBBBB, you can pass in 1 * bytes per component.
 	 */
-	user_pixel_stride:      i32,
+
+	user_pixel_stride: i32,
 
 	/** When \c lines > 1 for a chunk, this is the increment used to get
 	 * from beginning of line to beginning of next line.
@@ -103,7 +104,7 @@ coding_channel_info_t :: struct {
 	 * This is in bytes. Must be specified when the decode pointer is
 	 * specified (and always for encode).
 	 */
-	user_line_stride:       i32,
+	user_line_stride: i32,
 
 	/** This data member has different requirements reading vs
 	 * writing. When reading, if this is left as `NULL`, the channel
@@ -111,7 +112,7 @@ coding_channel_info_t :: struct {
 	 * operation, this pointer is considered const and not
 	 * modified. To make this more clear, a union is used here.
 	 */
-	using _:                struct #raw_union {
+	using _: struct #raw_union {
 		decode_to_ptr:   ^u8,
 		encode_from_ptr: ^u8,
 	},

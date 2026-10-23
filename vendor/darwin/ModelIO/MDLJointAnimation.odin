@@ -5,13 +5,11 @@ package darwin_ModelIO
 import "base:intrinsics"
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class = "MDLJointAnimation")
-JointAnimation :: struct {
-	using _: intrinsics.objc_object,
-}
+@(objc_class="MDLJointAnimation")
+JointAnimation :: struct { using _: intrinsics.objc_object}
 
 
-@(objc_class = "MDLPackedJointAnimation", objc_superclass = Object)
+@(objc_class="MDLPackedJointAnimation", objc_superclass=Object)
 PackedJointAnimation :: struct {
 	using _: Object,
 	using _: NS.Copying,
@@ -19,18 +17,18 @@ PackedJointAnimation :: struct {
 }
 
 foreign lib {
-	@(objc_type = PackedJointAnimation, objc_selector = "initWithName:jointPaths:", objc_name = "initWithName")
+	@(objc_type=PackedJointAnimation, objc_selector="initWithName:jointPaths:", objc_name="initWithName")
 	PackedJointAnimation_initWithName :: proc(self: ^PackedJointAnimation, name: ^NS.String, jointPaths: ^NS.Array) -> instancetype ---
 
-	@(objc_type = PackedJointAnimation, objc_selector = "jointPaths", objc_name = "jointPaths")
+	@(objc_type=PackedJointAnimation, objc_selector="jointPaths", objc_name="jointPaths")
 	PackedJointAnimation_jointPaths :: proc(self: ^PackedJointAnimation) -> ^NS.Array ---
 
-	@(objc_type = PackedJointAnimation, objc_selector = "translations", objc_name = "translations")
+	@(objc_type=PackedJointAnimation, objc_selector="translations", objc_name="translations")
 	PackedJointAnimation_translations :: proc(self: ^PackedJointAnimation) -> ^AnimatedVector3Array ---
 
-	@(objc_type = PackedJointAnimation, objc_selector = "rotations", objc_name = "rotations")
+	@(objc_type=PackedJointAnimation, objc_selector="rotations", objc_name="rotations")
 	PackedJointAnimation_rotations :: proc(self: ^PackedJointAnimation) -> ^AnimatedQuaternionArray ---
 
-	@(objc_type = PackedJointAnimation, objc_selector = "scales", objc_name = "scales")
+	@(objc_type=PackedJointAnimation, objc_selector="scales", objc_name="scales")
 	PackedJointAnimation_scales :: proc(self: ^PackedJointAnimation) -> ^AnimatedVector3Array ---
 }

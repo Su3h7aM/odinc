@@ -5,26 +5,26 @@ package darwin_UIKit
 import "base:intrinsics"
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class = "UILargeContentViewerItem")
+@(objc_class="UILargeContentViewerItem")
 LargeContentViewerItem :: struct {
 	using _: intrinsics.objc_object,
 	using _: NS.ObjectProtocol,
 }
 
-@(default_calling_convention = "c")
+@(default_calling_convention="c")
 foreign lib {
-	@(objc_type = LargeContentViewerItem, objc_selector = "showsLargeContentViewer", objc_name = "showsLargeContentViewer")
+	@(objc_type=LargeContentViewerItem, objc_selector="showsLargeContentViewer", objc_name="showsLargeContentViewer")
 	LargeContentViewerItem_showsLargeContentViewer :: proc(self: ^LargeContentViewerItem) -> bool ---
 
-	@(objc_type = LargeContentViewerItem, objc_selector = "largeContentTitle", objc_name = "largeContentTitle")
+	@(objc_type=LargeContentViewerItem, objc_selector="largeContentTitle", objc_name="largeContentTitle")
 	LargeContentViewerItem_largeContentTitle :: proc(self: ^LargeContentViewerItem) -> ^NS.String ---
 
-	@(objc_type = LargeContentViewerItem, objc_selector = "largeContentImage", objc_name = "largeContentImage")
+	@(objc_type=LargeContentViewerItem, objc_selector="largeContentImage", objc_name="largeContentImage")
 	LargeContentViewerItem_largeContentImage :: proc(self: ^LargeContentViewerItem) -> ^Image ---
 
-	@(objc_type = LargeContentViewerItem, objc_selector = "scalesLargeContentImage", objc_name = "scalesLargeContentImage")
+	@(objc_type=LargeContentViewerItem, objc_selector="scalesLargeContentImage", objc_name="scalesLargeContentImage")
 	LargeContentViewerItem_scalesLargeContentImage :: proc(self: ^LargeContentViewerItem) -> bool ---
 
-	@(objc_type = LargeContentViewerItem, objc_selector = "largeContentImageInsets", objc_name = "largeContentImageInsets")
+	@(objc_type=LargeContentViewerItem, objc_selector="largeContentImageInsets", objc_name="largeContentImageInsets")
 	LargeContentViewerItem_largeContentImageInsets :: proc(self: ^LargeContentViewerItem) -> EdgeInsets ---
 }

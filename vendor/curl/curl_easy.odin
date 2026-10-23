@@ -3,10 +3,10 @@ package vendor_curl
 import c "core:c/libc"
 
 /* Flag bits in the curl_blob struct: */
-BLOB_COPY :: blob_flags{.COPY} /* tell libcurl to copy the data */
-BLOB_NOCOPY :: blob_flags{} /* tell libcurl to NOT copy the data */
+BLOB_COPY   :: blob_flags{.COPY} /* tell libcurl to copy the data */
+BLOB_NOCOPY :: blob_flags{}      /* tell libcurl to NOT copy the data */
 
-blob_flags :: distinct bit_set[blob_flag;c.uint]
+blob_flags :: distinct bit_set[blob_flag; c.uint]
 blob_flag :: enum c.uint {
 	COPY = 0,
 }
@@ -18,10 +18,10 @@ blob :: struct {
 	                      left zeroes */
 }
 
-@(default_calling_convention = "c", link_prefix = "curl_")
+@(default_calling_convention="c", link_prefix="curl_")
 foreign lib {
-	easy_init :: proc() -> ^CURL ---
-	easy_setopt :: proc(curl: ^CURL, option: option, #c_vararg args: ..any) -> code ---
+	easy_init    :: proc() -> ^CURL ---
+	easy_setopt  :: proc(curl: ^CURL, option: option, #c_vararg args: ..any) -> code ---
 	easy_perform :: proc(curl: ^CURL) -> code ---
 	easy_cleanup :: proc(curl: ^CURL) ---
 

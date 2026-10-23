@@ -6,199 +6,202 @@ import "base:intrinsics"
 import cffi "core:c"
 import NS "core:sys/darwin/Foundation"
 
-id :: ^intrinsics.objc_object
-SEL :: ^intrinsics.objc_selector
-Class :: ^intrinsics.objc_class
-IMP :: rawptr
-Protocol :: distinct id
-instancetype :: intrinsics.objc_instancetype
+id            :: ^intrinsics.objc_object
+SEL           :: ^intrinsics.objc_selector
+Class         :: ^intrinsics.objc_class
+IMP           :: rawptr
+Protocol      :: distinct id
+instancetype  :: intrinsics.objc_instancetype
 
 @(export)
-foreign import lib "system:Metal.framework"
+foreign import lib {
+	"system:Metal.framework",
+}
+
+
+
+
 
 
 foreign lib {
-	@(link_name = "MTLTensorDomain")
+	@(link_name="MTLTensorDomain")
 	TensorDomain: ^NS.String
 
-	@(link_name = "MTLLibraryErrorDomain")
+	@(link_name="MTLLibraryErrorDomain")
 	LibraryErrorDomain: ^NS.String
 
-	@(link_name = "MTLCommonCounterTimestamp")
+	@(link_name="MTLCommonCounterTimestamp")
 	CommonCounterTimestamp: ^NS.String
 
-	@(link_name = "MTLCommonCounterTessellationInputPatches")
+	@(link_name="MTLCommonCounterTessellationInputPatches")
 	CommonCounterTessellationInputPatches: ^NS.String
 
-	@(link_name = "MTLCommonCounterVertexInvocations")
+	@(link_name="MTLCommonCounterVertexInvocations")
 	CommonCounterVertexInvocations: ^NS.String
 
-	@(link_name = "MTLCommonCounterPostTessellationVertexInvocations")
+	@(link_name="MTLCommonCounterPostTessellationVertexInvocations")
 	CommonCounterPostTessellationVertexInvocations: ^NS.String
 
-	@(link_name = "MTLCommonCounterClipperInvocations")
+	@(link_name="MTLCommonCounterClipperInvocations")
 	CommonCounterClipperInvocations: ^NS.String
 
-	@(link_name = "MTLCommonCounterClipperPrimitivesOut")
+	@(link_name="MTLCommonCounterClipperPrimitivesOut")
 	CommonCounterClipperPrimitivesOut: ^NS.String
 
-	@(link_name = "MTLCommonCounterFragmentInvocations")
+	@(link_name="MTLCommonCounterFragmentInvocations")
 	CommonCounterFragmentInvocations: ^NS.String
 
-	@(link_name = "MTLCommonCounterFragmentsPassed")
+	@(link_name="MTLCommonCounterFragmentsPassed")
 	CommonCounterFragmentsPassed: ^NS.String
 
-	@(link_name = "MTLCommonCounterComputeKernelInvocations")
+	@(link_name="MTLCommonCounterComputeKernelInvocations")
 	CommonCounterComputeKernelInvocations: ^NS.String
 
-	@(link_name = "MTLCommonCounterTotalCycles")
+	@(link_name="MTLCommonCounterTotalCycles")
 	CommonCounterTotalCycles: ^NS.String
 
-	@(link_name = "MTLCommonCounterVertexCycles")
+	@(link_name="MTLCommonCounterVertexCycles")
 	CommonCounterVertexCycles: ^NS.String
 
-	@(link_name = "MTLCommonCounterTessellationCycles")
+	@(link_name="MTLCommonCounterTessellationCycles")
 	CommonCounterTessellationCycles: ^NS.String
 
-	@(link_name = "MTLCommonCounterPostTessellationVertexCycles")
+	@(link_name="MTLCommonCounterPostTessellationVertexCycles")
 	CommonCounterPostTessellationVertexCycles: ^NS.String
 
-	@(link_name = "MTLCommonCounterFragmentCycles")
+	@(link_name="MTLCommonCounterFragmentCycles")
 	CommonCounterFragmentCycles: ^NS.String
 
-	@(link_name = "MTLCommonCounterRenderTargetWriteCycles")
+	@(link_name="MTLCommonCounterRenderTargetWriteCycles")
 	CommonCounterRenderTargetWriteCycles: ^NS.String
 
-	@(link_name = "MTLCommonCounterSetTimestamp")
+	@(link_name="MTLCommonCounterSetTimestamp")
 	CommonCounterSetTimestamp: ^NS.String
 
-	@(link_name = "MTLCommonCounterSetStageUtilization")
+	@(link_name="MTLCommonCounterSetStageUtilization")
 	CommonCounterSetStageUtilization: ^NS.String
 
-	@(link_name = "MTLCommonCounterSetStatistic")
+	@(link_name="MTLCommonCounterSetStatistic")
 	CommonCounterSetStatistic: ^NS.String
 
-	@(link_name = "MTLCounterErrorDomain")
+	@(link_name="MTLCounterErrorDomain")
 	CounterErrorDomain: ^NS.String
 
 	when ODIN_PLATFORM_SUBTARGET == .Default {
-		@(link_name = "MTLDeviceWasAddedNotification")
+		@(link_name="MTLDeviceWasAddedNotification")
 		DeviceWasAddedNotification: ^NS.String
 
-		@(link_name = "MTLDeviceRemovalRequestedNotification")
+		@(link_name="MTLDeviceRemovalRequestedNotification")
 		DeviceRemovalRequestedNotification: ^NS.String
 
-		@(link_name = "MTLDeviceWasRemovedNotification")
+		@(link_name="MTLDeviceWasRemovedNotification")
 		DeviceWasRemovedNotification: ^NS.String
 	}
 
-	@(link_name = "MTLDeviceErrorDomain")
+	@(link_name="MTLDeviceErrorDomain")
 	DeviceErrorDomain: ^NS.String
 
-	@(link_name = "MTLCommandBufferErrorDomain")
+	@(link_name="MTLCommandBufferErrorDomain")
 	CommandBufferErrorDomain: ^NS.String
 
-	@(link_name = "MTLCommandBufferEncoderInfoErrorKey")
+	@(link_name="MTLCommandBufferEncoderInfoErrorKey")
 	CommandBufferEncoderInfoErrorKey: ^NS.String
 
-	@(link_name = "MTL4CommandQueueErrorDomain")
+	@(link_name="MTL4CommandQueueErrorDomain")
 	MTL4CommandQueueErrorDomain: ^NS.String
 
-	@(link_name = "MTLCaptureErrorDomain")
+	@(link_name="MTLCaptureErrorDomain")
 	CaptureErrorDomain: ^NS.String
 
-	@(link_name = "MTLDynamicLibraryDomain")
+	@(link_name="MTLDynamicLibraryDomain")
 	DynamicLibraryDomain: ^NS.String
 
-	@(link_name = "MTLLogStateErrorDomain")
+	@(link_name="MTLLogStateErrorDomain")
 	LogStateErrorDomain: ^NS.String
 
-	@(link_name = "MTLBinaryArchiveDomain")
+	@(link_name="MTLBinaryArchiveDomain")
 	BinaryArchiveDomain: ^NS.String
 
-	@(link_name = "MTLIOErrorDomain")
+	@(link_name="MTLIOErrorDomain")
 	IOErrorDomain: ^NS.String
 
-	@(link_name = "MTLCreateSystemDefaultDevice")
+	@(link_name="MTLCreateSystemDefaultDevice")
 	CreateSystemDefaultDevice :: proc() -> ^Device ---
 
-	@(link_name = "MTLCopyAllDevices")
+	@(link_name="MTLCopyAllDevices")
 	CopyAllDevices :: proc() -> ^NS.Array ---
 
 	when ODIN_PLATFORM_SUBTARGET == .Default {
-		@(link_name = "MTLCopyAllDevicesWithObserver")
+		@(link_name="MTLCopyAllDevicesWithObserver")
 		CopyAllDevicesWithObserver :: proc(observer: ^^NS.ObjectProtocol, handler: DeviceNotificationHandler) -> ^NS.Array ---
 
-		@(link_name = "MTLRemoveDeviceObserver")
+		@(link_name="MTLRemoveDeviceObserver")
 		RemoveDeviceObserver :: proc(observer: ^NS.ObjectProtocol) ---
 	}
 
-	@(link_name = "MTLIOCompressionContextDefaultChunkSize")
+	@(link_name="MTLIOCompressionContextDefaultChunkSize")
 	IOCompressionContextDefaultChunkSize :: proc() -> cffi.size_t ---
 
-	@(link_name = "MTLIOCreateCompressionContext")
+	@(link_name="MTLIOCreateCompressionContext")
 	IOCreateCompressionContext :: proc(path: cstring, type: IOCompressionMethod, chunkSize: cffi.size_t) -> IOCompressionContext ---
 
-	@(link_name = "MTLIOCompressionContextAppendData")
+	@(link_name="MTLIOCompressionContextAppendData")
 	IOCompressionContextAppendData :: proc(_context: IOCompressionContext, data: rawptr, size: cffi.size_t) ---
 
-	@(link_name = "MTLIOFlushAndDestroyCompressionContext")
+	@(link_name="MTLIOFlushAndDestroyCompressionContext")
 	IOFlushAndDestroyCompressionContext :: proc(_context: IOCompressionContext) -> IOCompressionStatus ---
 }
 
 
+
 BufferLayoutStrideDynamic :: 18446744073709551615
-AttributeStrideStatic :: 18446744073709551615
+AttributeStrideStatic     :: 18446744073709551615
 Coordinate2D :: distinct SamplePosition
 GPUAddress :: distinct cffi.uint64_t
 ArgumentAccess :: distinct BindingAccess
 AutoreleasedRenderPipelineReflection :: distinct ^RenderPipelineReflection
 AutoreleasedComputePipelineReflection :: distinct ^ComputePipelineReflection
-NewLibraryCompletionHandler :: ^Objc_Block(proc "c" (library: ^Library, error: ^NS.Error))
-NewRenderPipelineStateCompletionHandler :: ^Objc_Block(proc "c" (renderPipelineState: ^RenderPipelineState, error: ^NS.Error))
-NewRenderPipelineStateWithReflectionCompletionHandler :: ^Objc_Block(
-	proc "c" (renderPipelineState: ^RenderPipelineState, reflection: ^RenderPipelineReflection, error: ^NS.Error),
-)
-NewComputePipelineStateCompletionHandler :: ^Objc_Block(proc "c" (computePipelineState: ^ComputePipelineState, error: ^NS.Error))
-NewComputePipelineStateWithReflectionCompletionHandler :: ^Objc_Block(
-	proc "c" (computePipelineState: ^ComputePipelineState, reflection: ^ComputePipelineReflection, error: ^NS.Error),
-)
-NewDynamicLibraryCompletionHandler :: ^Objc_Block(proc "c" (library: ^DynamicLibraryProtocol, error: ^NS.Error))
+NewLibraryCompletionHandler :: ^Objc_Block(proc "c" ( library: ^Library, error: ^NS.Error ))
+NewRenderPipelineStateCompletionHandler :: ^Objc_Block(proc "c" ( renderPipelineState: ^RenderPipelineState, error: ^NS.Error ))
+NewRenderPipelineStateWithReflectionCompletionHandler :: ^Objc_Block(proc "c" ( renderPipelineState: ^RenderPipelineState, reflection: ^RenderPipelineReflection, error: ^NS.Error ))
+NewComputePipelineStateCompletionHandler :: ^Objc_Block(proc "c" ( computePipelineState: ^ComputePipelineState, error: ^NS.Error ))
+NewComputePipelineStateWithReflectionCompletionHandler :: ^Objc_Block(proc "c" ( computePipelineState: ^ComputePipelineState, reflection: ^ComputePipelineReflection, error: ^NS.Error ))
+NewDynamicLibraryCompletionHandler :: ^Objc_Block(proc "c" ( library: ^DynamicLibraryProtocol, error: ^NS.Error ))
 AutoreleasedArgument :: distinct ^Argument
 CommonCounter :: distinct ^NS.String
 CommonCounterSet :: distinct ^NS.String
-MTL4NewBinaryFunctionCompletionHandler :: ^Objc_Block(proc "c" (function: ^MTL4BinaryFunctionProtocol, error: ^NS.Error))
-MTL4NewMachineLearningPipelineStateCompletionHandler :: ^Objc_Block(proc "c" (mlPipelineState: ^MTL4MachineLearningPipelineState, error: ^NS.Error))
+MTL4NewBinaryFunctionCompletionHandler :: ^Objc_Block(proc "c" ( function: ^MTL4BinaryFunctionProtocol, error: ^NS.Error ))
+MTL4NewMachineLearningPipelineStateCompletionHandler :: ^Objc_Block(proc "c" ( mlPipelineState: ^MTL4MachineLearningPipelineState, error: ^NS.Error ))
 when ODIN_PLATFORM_SUBTARGET == .Default {
 	DeviceNotificationName :: distinct ^NS.String
-	DeviceNotificationHandler :: ^Objc_Block(proc "c" (device: ^Device, notifyName: ^NS.String))
+	DeviceNotificationHandler :: ^Objc_Block(proc "c" ( device: ^Device, notifyName: ^NS.String ))
 }
 Timestamp :: distinct cffi.uint64_t
-CommandBufferHandler :: ^Objc_Block(proc "c" (_0: ^CommandBuffer))
-DrawablePresentedHandler :: ^Objc_Block(proc "c" (_0: ^Drawable))
+CommandBufferHandler :: ^Objc_Block(proc "c" ( _0: ^CommandBuffer ))
+DrawablePresentedHandler :: ^Objc_Block(proc "c" ( _0: ^Drawable ))
 PackedFloat3 :: distinct _MTLPackedFloat3
 PackedFloat4x3 :: distinct _MTLPackedFloat4x3
 AxisAlignedBoundingBox :: distinct _MTLAxisAlignedBoundingBox
-SharedEventNotificationBlock :: ^Objc_Block(proc "c" (_0: ^SharedEvent, value: cffi.uint64_t))
-MTL4CommitFeedbackHandler :: ^Objc_Block(proc "c" (commitFeedback: ^MTL4CommitFeedback))
-IOCommandBufferHandler :: ^Objc_Block(proc "c" (_0: ^IOCommandBuffer))
+SharedEventNotificationBlock :: ^Objc_Block(proc "c" ( _0: ^SharedEvent, value: cffi.uint64_t ))
+MTL4CommitFeedbackHandler :: ^Objc_Block(proc "c" ( commitFeedback: ^MTL4CommitFeedback ))
+IOCommandBufferHandler :: ^Objc_Block(proc "c" ( _0: ^IOCommandBuffer ))
 IOCompressionContext :: distinct rawptr
-ResourceOptions_StorageModeMemoryless :: ResourceOptions{.StorageModeManaged, .StorageModePrivate}
-ColorWriteMasks_All :: ColorWriteMasks{.Alpha, .Blue, .Green, .Red}
+ResourceOptions_StorageModeMemoryless :: ResourceOptions { .StorageModeManaged, .StorageModePrivate, }
+ColorWriteMasks_All :: ColorWriteMasks { .Alpha, .Blue, .Green, .Red, }
 
 ResourceUsageFlag :: enum cffi.ulong {
 	Read   = 0,
 	Write  = 1,
 	Sample = 2,
 }
-ResourceUsage :: bit_set[ResourceUsageFlag;cffi.ulong]
+ResourceUsage :: bit_set[ResourceUsageFlag; cffi.ulong]
 
 BarrierScopeFlag :: enum cffi.ulong {
 	Buffers       = 0,
 	Textures      = 1,
 	RenderTargets = 2,
 }
-BarrierScope :: bit_set[BarrierScopeFlag;cffi.ulong]
+BarrierScope :: bit_set[BarrierScopeFlag; cffi.ulong]
 
 Stage :: enum cffi.ulong {
 	Vertex                = 0,
@@ -212,7 +215,7 @@ Stage :: enum cffi.ulong {
 	AccelerationStructure = 29,
 	MachineLearning       = 30,
 }
-Stages :: bit_set[Stage;cffi.ulong]
+Stages :: bit_set[Stage; cffi.ulong]
 Stages_All :: transmute(Stages)cffi.ulong(0x7fffffffffffffff)
 
 PurgeableState :: enum cffi.ulong {
@@ -249,7 +252,7 @@ ResourceOption :: enum cffi.ulong {
 	OptionCPUCacheModeWriteCombined = 0,
 }
 
-ResourceOptions :: bit_set[ResourceOption;cffi.ulong]
+ResourceOptions :: bit_set[ResourceOption; cffi.ulong]
 
 SparsePageSize :: enum cffi.long {
 	_16  = 101,
@@ -537,7 +540,7 @@ TensorUsageFlag :: enum cffi.ulong {
 	Render          = 1,
 	MachineLearning = 2,
 }
-TensorUsage :: bit_set[TensorUsageFlag;cffi.ulong]
+TensorUsage :: bit_set[TensorUsageFlag; cffi.ulong]
 
 TextureType :: enum cffi.ulong {
 	_1D                 = 0,
@@ -568,7 +571,7 @@ TextureUsageFlag :: enum cffi.ulong {
 	PixelFormatView = 4,
 	ShaderAtomic    = 5,
 }
-TextureUsage :: bit_set[TextureUsageFlag;cffi.ulong]
+TextureUsage :: bit_set[TextureUsageFlag; cffi.ulong]
 TextureUsage_Unknown :: TextureUsage{}
 
 TextureCompressionType :: enum cffi.long {
@@ -619,14 +622,14 @@ BindingAccess :: enum cffi.ulong {
 }
 
 FunctionOption :: enum cffi.ulong {
-	CompileToBinary                     = 0,
+	CompileToBinary                  = 0,
 	StoreFunctionInMetalPipelinesScript = 1,
-	StoreFunctionInMetalScript          = 1,
-	FailOnBinaryArchiveMiss             = 2,
-	PipelineIndependent                 = 3,
+	StoreFunctionInMetalScript       = 1,
+	FailOnBinaryArchiveMiss          = 2,
+	PipelineIndependent              = 3,
 }
 
-FunctionOptions :: bit_set[FunctionOption;cffi.ulong]
+FunctionOptions :: bit_set[FunctionOption; cffi.ulong]
 
 PatchType :: enum cffi.ulong {
 	None     = 0,
@@ -799,7 +802,7 @@ PipelineOption :: enum cffi.ulong {
 	FailOnBinaryArchiveMiss = 2,
 }
 
-PipelineOptions :: bit_set[PipelineOption;cffi.ulong]
+PipelineOptions :: bit_set[PipelineOption; cffi.ulong]
 
 ReadWriteTextureTier :: enum cffi.ulong {
 	None = 0,
@@ -854,7 +857,7 @@ StoreActionOption :: enum cffi.ulong {
 	CustomSamplePositions = 0,
 }
 
-StoreActionOptions :: bit_set[StoreActionOption;cffi.ulong]
+StoreActionOptions :: bit_set[StoreActionOption; cffi.ulong]
 
 VisibilityResultType :: enum cffi.long {
 	Reset      = 0,
@@ -878,7 +881,7 @@ BlitOption :: enum cffi.ulong {
 	RowLinearPVRTC          = 2,
 }
 
-BlitOptions :: bit_set[BlitOption;cffi.ulong]
+BlitOptions :: bit_set[BlitOption; cffi.ulong]
 
 CommandBufferStatus :: enum cffi.ulong {
 	NotEnqueued = 0,
@@ -908,7 +911,7 @@ CommandBufferErrorOption :: enum cffi.ulong {
 	EncoderExecutionStatus = 0,
 }
 
-CommandBufferErrorOptions :: bit_set[CommandBufferErrorOption;cffi.ulong]
+CommandBufferErrorOptions :: bit_set[CommandBufferErrorOption; cffi.ulong]
 
 CommandEncoderErrorState :: enum cffi.long {
 	Unknown   = 0,
@@ -1134,7 +1137,7 @@ RenderStage :: enum cffi.ulong {
 	StageMesh     = 4,
 }
 
-RenderStages :: bit_set[RenderStage;cffi.ulong]
+RenderStages :: bit_set[RenderStage; cffi.ulong]
 
 BlendFactor :: enum cffi.ulong {
 	Zero                     = 0,
@@ -1176,7 +1179,7 @@ ColorWriteMask :: enum cffi.ulong {
 	Unspecialized = 4,
 }
 
-ColorWriteMasks :: bit_set[ColorWriteMask;cffi.ulong]
+ColorWriteMasks :: bit_set[ColorWriteMask; cffi.ulong]
 
 PrimitiveTopologyClass :: enum cffi.ulong {
 	Unspecified = 0,
@@ -1246,7 +1249,7 @@ AccelerationStructureRefitOption :: enum cffi.ulong {
 	PerPrimitiveData = 1,
 }
 
-AccelerationStructureRefitOptions :: bit_set[AccelerationStructureRefitOption;cffi.ulong]
+AccelerationStructureRefitOptions :: bit_set[AccelerationStructureRefitOption; cffi.ulong]
 
 AccelerationStructureUsageFlag :: enum cffi.ulong {
 	Refit                  = 0,
@@ -1255,17 +1258,17 @@ AccelerationStructureUsageFlag :: enum cffi.ulong {
 	PreferFastIntersection = 4,
 	MinimizeMemory         = 5,
 }
-AccelerationStructureUsage :: bit_set[AccelerationStructureUsageFlag;cffi.ulong]
+AccelerationStructureUsage :: bit_set[AccelerationStructureUsageFlag; cffi.ulong]
 AccelerationStructureUsage_None :: AccelerationStructureUsage{}
 
 AccelerationStructureInstanceOption :: enum cffi.uint {
-	DisableTriangleCulling                     = 0,
+	DisableTriangleCulling           = 0,
 	TriangleFrontFacingWindingCounterClockwise = 1,
-	Opaque                                     = 2,
-	NonOpaque                                  = 3,
+	Opaque                           = 2,
+	NonOpaque                        = 3,
 }
 
-AccelerationStructureInstanceOptions :: bit_set[AccelerationStructureInstanceOption;cffi.uint]
+AccelerationStructureInstanceOptions :: bit_set[AccelerationStructureInstanceOption; cffi.uint]
 
 MatrixLayout :: enum cffi.long {
 	ColumnMajor = 0,
@@ -1319,14 +1322,14 @@ MTL4VisibilityOption :: enum cffi.ulong {
 	ResourceAlias = 1,
 }
 
-MTL4VisibilityOptions :: bit_set[MTL4VisibilityOption;cffi.ulong]
+MTL4VisibilityOptions :: bit_set[MTL4VisibilityOption; cffi.ulong]
 
 MTL4RenderEncoderOption :: enum cffi.ulong {
 	Suspending = 0,
 	Resuming   = 1,
 }
 
-MTL4RenderEncoderOptions :: bit_set[MTL4RenderEncoderOption;cffi.ulong]
+MTL4RenderEncoderOptions :: bit_set[MTL4RenderEncoderOption; cffi.ulong]
 
 MTL4CommandQueueError :: enum cffi.long {
 	None          = 0,
@@ -1359,7 +1362,7 @@ IndirectCommandTypeFlag :: enum cffi.ulong {
 	DrawMeshThreadgroups      = 7,
 	DrawMeshThreads           = 8,
 }
-IndirectCommandType :: bit_set[IndirectCommandTypeFlag;cffi.ulong]
+IndirectCommandType :: bit_set[IndirectCommandTypeFlag; cffi.ulong]
 
 FunctionLogType :: enum cffi.ulong {
 	Validation = 0,
@@ -1408,15 +1411,15 @@ IntersectionFunctionSignatureFlag :: enum cffi.ulong {
 	IntersectionFunctionBuffer = 8,
 	UserData                   = 9,
 }
-IntersectionFunctionSignature :: bit_set[IntersectionFunctionSignatureFlag;cffi.ulong]
+IntersectionFunctionSignature :: bit_set[IntersectionFunctionSignatureFlag; cffi.ulong]
 IntersectionFunctionSignature_None :: IntersectionFunctionSignature{}
 
 StitchedLibraryOption :: enum cffi.ulong {
-	FailOnBinaryArchiveMiss            = 0,
+	FailOnBinaryArchiveMiss          = 0,
 	StoreLibraryInMetalPipelinesScript = 1,
 }
 
-StitchedLibraryOptions :: bit_set[StitchedLibraryOption;cffi.ulong]
+StitchedLibraryOptions :: bit_set[StitchedLibraryOption; cffi.ulong]
 
 IOPriority :: enum cffi.long {
 	High   = 0,
@@ -1487,7 +1490,7 @@ MTL4BinaryFunctionOption :: enum cffi.ulong {
 	PipelineIndependent = 1,
 }
 
-MTL4BinaryFunctionOptions :: bit_set[MTL4BinaryFunctionOption;cffi.ulong]
+MTL4BinaryFunctionOptions :: bit_set[MTL4BinaryFunctionOption; cffi.ulong]
 
 Origin :: struct #align (8) {
 	x: NS.UInteger,
@@ -1536,14 +1539,14 @@ CounterResultStageUtilization :: struct #align (8) {
 }
 
 CounterResultStatistic :: struct #align (8) {
-	tessellationInputPatches:          cffi.uint64_t,
-	vertexInvocations:                 cffi.uint64_t,
+	tessellationInputPatches:        cffi.uint64_t,
+	vertexInvocations:               cffi.uint64_t,
 	postTessellationVertexInvocations: cffi.uint64_t,
-	clipperInvocations:                cffi.uint64_t,
-	clipperPrimitivesOut:              cffi.uint64_t,
-	fragmentInvocations:               cffi.uint64_t,
-	fragmentsPassed:                   cffi.uint64_t,
-	computeKernelInvocations:          cffi.uint64_t,
+	clipperInvocations:              cffi.uint64_t,
+	clipperPrimitivesOut:            cffi.uint64_t,
+	fragmentInvocations:             cffi.uint64_t,
+	fragmentsPassed:                 cffi.uint64_t,
+	computeKernelInvocations:        cffi.uint64_t,
 }
 
 MTL4TimestampHeapEntry :: struct #align (8) {
@@ -1652,11 +1655,11 @@ MTL4BufferRange :: struct #align (8) {
 }
 
 _MTLPackedFloat3 :: struct #align (4) {
-	using _: struct #raw_union {
-		using _:  struct {
-			x: cffi.float,
-			y: cffi.float,
-			z: cffi.float,
+	using _ : struct #raw_union  {
+		using _ : struct  {
+			x:        cffi.float,
+			y:        cffi.float,
+			z:        cffi.float,
 		},
 		elements: [3]cffi.float,
 	},

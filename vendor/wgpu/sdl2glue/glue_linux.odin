@@ -4,7 +4,7 @@ import "vendor:sdl2"
 import "vendor:wgpu"
 
 GetSurface :: proc(instance: wgpu.Instance, window: ^sdl2.Window) -> wgpu.Surface {
-	window_info: sdl2.SysWMinfo
+	window_info: sdl2.SysWMinfo 
 	sdl2.VERSION(&window_info.version)
 	sdl2.GetWindowWMInfo(window, &window_info)
 
@@ -13,17 +13,29 @@ GetSurface :: proc(instance: wgpu.Instance, window: ^sdl2.Window) -> wgpu.Surfac
 		surface := window_info.info.wl.surface
 		return wgpu.InstanceCreateSurface(
 			instance,
-			&wgpu.SurfaceDescriptor {
-				nextInChain = &wgpu.SurfaceSourceWaylandSurface{chain = {sType = .SurfaceSourceWaylandSurface}, display = display, surface = surface},
+			&wgpu.SurfaceDescriptor{
+				nextInChain = &wgpu.SurfaceSourceWaylandSurface{
+					chain = {
+						sType = .SurfaceSourceWaylandSurface,
+					},
+					display = display,
+					surface = surface,
+				},
 			},
 		)
 	} else if window_info.subsystem == .X11 {
 		display := window_info.info.x11.display
-		window := window_info.info.x11.window
+		window  := window_info.info.x11.window
 		return wgpu.InstanceCreateSurface(
 			instance,
-			&wgpu.SurfaceDescriptor {
-				nextInChain = &wgpu.SurfaceSourceXlibWindow{chain = {sType = .SurfaceSourceXlibWindow}, display = display, window = u64(window)},
+			&wgpu.SurfaceDescriptor{
+				nextInChain = &wgpu.SurfaceSourceXlibWindow{
+					chain = {
+						sType = .SurfaceSourceXlibWindow,
+					},
+					display = display,
+					window  = u64(window),
+				},
 			},
 		)
 	} else {

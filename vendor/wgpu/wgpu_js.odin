@@ -4,14 +4,14 @@ import "base:runtime"
 
 g_context: runtime.Context
 
-@(private = "file", init)
+@(private="file", init)
 wgpu_init_allocator :: proc "contextless" () {
 	if g_context.allocator.procedure == nil {
 		g_context = runtime.default_context()
 	}
 }
 
-@(private = "file", export)
+@(private="file", export)
 wgpu_alloc :: proc "contextless" (size: i32) -> [^]byte {
 	context = g_context
 	bytes, err := runtime.mem_alloc(int(size), 16)
@@ -19,7 +19,7 @@ wgpu_alloc :: proc "contextless" (size: i32) -> [^]byte {
 	return raw_data(bytes)
 }
 
-@(private = "file", export)
+@(private="file", export)
 wgpu_free :: proc "contextless" (ptr: rawptr) {
 	context = g_context
 	err := free(ptr)

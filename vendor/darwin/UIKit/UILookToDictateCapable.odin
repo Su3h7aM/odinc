@@ -5,17 +5,17 @@ package darwin_UIKit
 import "base:intrinsics"
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class = "UILookToDictateCapable")
+@(objc_class="UILookToDictateCapable")
 LookToDictateCapable :: struct {
 	using _: intrinsics.objc_object,
 	using _: NS.ObjectProtocol,
 }
 
-@(default_calling_convention = "c")
+@(default_calling_convention="c")
 foreign lib {
-	@(objc_type = LookToDictateCapable, objc_selector = "isLookToDictateEnabled", objc_name = "isLookToDictateEnabled")
+	@(objc_type=LookToDictateCapable, objc_selector="isLookToDictateEnabled", objc_name="isLookToDictateEnabled")
 	LookToDictateCapable_isLookToDictateEnabled :: proc(self: ^LookToDictateCapable) -> bool ---
 
-	@(objc_type = LookToDictateCapable, objc_selector = "setLookToDictateEnabled:", objc_name = "setLookToDictateEnabled")
+	@(objc_type=LookToDictateCapable, objc_selector="setLookToDictateEnabled:", objc_name="setLookToDictateEnabled")
 	LookToDictateCapable_setLookToDictateEnabled :: proc(self: ^LookToDictateCapable, lookToDictateEnabled: bool) ---
 }

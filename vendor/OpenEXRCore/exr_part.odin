@@ -3,14 +3,14 @@ package vendor_openexr
 import "core:c"
 
 attr_list_access_mode_t :: enum c.int {
-	FILE_ORDER, /**< Order they appear in the file */
+	FILE_ORDER,   /**< Order they appear in the file */
 	SORTED_ORDER, /**< Alphabetically sorted */
 }
 
-@(link_prefix = "exr_", default_calling_convention = "c")
+@(link_prefix="exr_", default_calling_convention="c")
 foreign lib {
 	/** @brief Query how many parts are in the file. */
-	get_count :: proc(ctxt: const_context_t, count: ^c.int) -> result_t ---
+	get_count :: proc (ctxt: const_context_t, count: ^c.int) -> result_t ---
 
 	/** @brief Query the part name for the specified part.
 	 *
@@ -23,7 +23,11 @@ foreign lib {
 	get_storage :: proc(ctxt: const_context_t, part_index: c.int, out: ^storage_t) -> result_t ---
 
 	/** @brief Define a new part in the file. */
-	add_part :: proc(ctxt: context_t, partname: cstring, type: storage_t, new_index: ^c.int) -> result_t ---
+	add_part :: proc(
+		ctxt:      context_t,
+		partname:  cstring,
+		type:      storage_t,
+		new_index: ^c.int) -> result_t ---
 
 	/** @brief Query how many levels are in the specified part.
 	 *
@@ -37,7 +41,11 @@ foreign lib {
 	 * if you don't need both (i.e. in the case of a mip-level tiled
 	 * image)
 	 */
-	get_tile_levels :: proc(ctxt: const_context_t, part_index: c.int, levelsx: ^i32, levelsy: ^i32) -> result_t ---
+	get_tile_levels :: proc(
+		ctxt:       const_context_t,
+		part_index: c.int,
+		levelsx:    ^i32,
+		levelsy:    ^i32) -> result_t ---
 
 	/** @brief Query the tile size for a particular level in the specified part.
 	 *
@@ -52,7 +60,13 @@ foreign lib {
 	 * if you don't need both (i.e. in the case of a mip-level tiled
 	 * image)
 	 */
-	get_tile_sizes :: proc(ctxt: const_context_t, part_index: c.int, levelx: c.int, levely: c.int, tilew: ^i32, tileh: ^i32) -> result_t ---
+	get_tile_sizes :: proc(
+		ctxt:       const_context_t,
+		part_index: c.int,
+		levelx:     c.int,
+		levely:     c.int,
+		tilew:      ^i32,
+		tileh:      ^i32) -> result_t ---
 	/** @brief Query the tile count for a particular level in the specified part.
 	 *
 	 * If the part is a tiled part, fills in the count for the
@@ -65,7 +79,13 @@ foreign lib {
 	 * arguments, which enables testing if this part is a tiled part, or
 	 * if you don't need both for some reason.
 	 */
-	get_tile_counts :: proc(ctxt: const_context_t, part_index: c.int, levelx: c.int, levely: c.int, countx: ^i32, county: ^i32) -> result_t ---
+	get_tile_counts :: proc(
+		ctxt:       const_context_t,
+		part_index: c.int,
+		levelx:     c.int,
+		levely:     c.int,
+		countx:     ^i32,
+		county:     ^i32) -> result_t ---
 
 	/** @brief Query the data sizes for a particular level in the specified part.
 	 *
@@ -79,7 +99,13 @@ foreign lib {
 	 * arguments, which enables testing if this part is a tiled part, or
 	 * if you don't need both for some reason.
 	 */
-	get_level_sizes :: proc(ctxt: const_context_t, part_index: c.int, levelx: c.int, levely: c.int, levw: ^i32, levh: ^i32) -> result_t ---
+	get_level_sizes :: proc(
+		ctxt:       const_context_t,
+		part_index: c.int,
+		levelx:     c.int,
+		levely:     c.int,
+		levw:       ^i32,
+		levh:       ^i32) -> result_t ---
 
 	/** Return the number of chunks contained in this part of the file.
 	 *
@@ -179,10 +205,19 @@ foreign lib {
 	get_attribute_count :: proc(ctxt: const_context_t, part_index: c.int, count: ^i32) -> result_t ---
 
 	/** @brief Query a particular attribute by index. */
-	get_attribute_by_index :: proc(ctxt: const_context_t, part_index: c.int, mode: attr_list_access_mode_t, idx: i32, outattr: ^^attribute_t) -> result_t ---
+	get_attribute_by_index :: proc(
+		ctxt:       const_context_t,
+		part_index: c.int,
+		mode:       attr_list_access_mode_t,
+		idx:        i32,
+		outattr:    ^^attribute_t) -> result_t ---
 
 	/** @brief Query a particular attribute by name. */
-	get_attribute_by_name :: proc(ctxt: const_context_t, part_index: c.int, name: cstring, outattr: ^^attribute_t) -> result_t ---
+	get_attribute_by_name :: proc(
+		ctxt:       const_context_t,
+		part_index: c.int,
+		name:       cstring,
+		outattr:    ^^attribute_t) -> result_t ---
 
 	/** @brief Query the list of attributes in a part.
 	 *
@@ -192,19 +227,34 @@ foreign lib {
 	 * count. In this manner, the user can allocate memory for the list of
 	 * attributes, then re-call this function to get the full list.
 	 */
-	get_attribute_list :: proc(ctxt: const_context_t, part_index: c.int, mode: attr_list_access_mode_t, count: ^i32, outlist: [^]^attribute_t) -> result_t ---
+	get_attribute_list :: proc(
+		ctxt:       const_context_t,
+		part_index: c.int,
+		mode:       attr_list_access_mode_t,
+		count:      ^i32,
+		outlist:    [^]^attribute_t) -> result_t ---
 
 	/** Declare an attribute within the specified part.
 	 *
 	 * Only valid when a file is opened for write.
 	 */
-	attr_declare_by_type :: proc(ctxt: context_t, part_index: c.int, name: cstring, type: cstring, newattr: ^^attribute_t) -> result_t ---
+	attr_declare_by_type :: proc(
+		ctxt:       context_t,
+		part_index: c.int,
+		name:       cstring,
+		type:       cstring,
+		newattr:    ^^attribute_t) -> result_t ---
 
 	/** @brief Declare an attribute within the specified part.
 	 *
 	 * Only valid when a file is opened for write.
 	 */
-	attr_declare :: proc(ctxt: context_t, part_index: c.int, name: cstring, type: attribute_type_t, newattr: ^^attribute_t) -> result_t ---
+	attr_declare :: proc(
+		ctxt:       context_t,
+		part_index: c.int,
+		name:       cstring,
+		type:       attribute_type_t,
+		newattr:    ^^attribute_t) -> result_t ---
 
 	/**
 	 * @defgroup RequiredAttributeHelpers Required Attribute Utililities
@@ -220,7 +270,16 @@ foreign lib {
 	 * NB: other file types do require other attributes, such as the tile
 	 * description for a tiled file.
 	 */
-	initialize_required_attr :: proc(ctxt: context_t, part_index: c.int, displayWindow: ^attr_box2i_t, dataWindow: ^attr_box2i_t, pixelaspectratio: f32, screenWindowCenter: ^attr_v2f_t, screenWindowWidth: f32, lineorder: lineorder_t, ctype: compression_t) -> result_t ---
+	initialize_required_attr :: proc(
+		ctxt:               context_t,
+		part_index:         c.int,
+		displayWindow:      ^attr_box2i_t,
+		dataWindow:         ^attr_box2i_t,
+		pixelaspectratio:   f32,
+		screenWindowCenter: ^attr_v2f_t,
+		screenWindowWidth:  f32,
+		lineorder:          lineorder_t,
+		ctype:              compression_t) -> result_t ---
 
 	/** @brief Initialize all required attributes to default values:
 	 *
@@ -232,7 +291,12 @@ foreign lib {
 	 * - `lineorder` is set to `INCREASING_Y`
 	 * - `compression` is set to @p ctype
 	 */
-	initialize_required_attr_simple :: proc(ctxt: context_t, part_index: c.int, width: i32, height: i32, ctype: compression_t) -> result_t ---
+	initialize_required_attr_simple :: proc(
+		ctxt:       context_t,
+		part_index: c.int,
+		width:      i32,
+		height:     i32,
+		ctype:      compression_t) -> result_t ---
 
 	/** @brief Copy the attributes from one part to another.
 	 *
@@ -247,7 +311,11 @@ foreign lib {
 	 * input file as the source, you can copy the channel definitions (and
 	 * any other unassigned attributes from the source).
 	 */
-	copy_unset_attributes :: proc(ctxt: context_t, part_index: c.int, source: const_context_t, src_part_index: c.int) -> result_t ---
+	copy_unset_attributes :: proc(
+		ctxt:           context_t,
+		part_index:     c.int,
+		source:         const_context_t,
+		src_part_index: c.int) -> result_t ---
 
 	/** @brief Retrieve the list of channels. */
 	get_channels :: proc(ctxt: const_context_t, part_index: c.int, chlist: ^^attr_chlist_t) -> result_t ---
@@ -259,7 +327,14 @@ foreign lib {
 	 * closer to logarithmic (0). For r, g, b, luminance, this is normally
 	 * 0.
 	 */
-	add_channel :: proc(ctxt: context_t, part_index: c.int, name: cstring, ptype: pixel_type_t, percept: perceptual_treatment_t, xsamp: i32, ysamp: i32) -> result_t ---
+	add_channel :: proc(
+		ctxt:       context_t,
+		part_index: c.int,
+		name:       cstring,
+		ptype:      pixel_type_t,
+		percept:    perceptual_treatment_t,
+		xsamp:      i32,
+		ysamp:      i32) -> result_t ---
 
 	/** @brief Copy the channels from another source.
 	 *
@@ -304,10 +379,22 @@ foreign lib {
 	set_screen_window_width :: proc(ctxt: context_t, part_index: c.int, ssw: f32) -> result_t ---
 
 	/** @brief Retrieve the tiling info for a tiled part (use 0 for single part images). */
-	get_tile_descriptor :: proc(ctxt: const_context_t, part_index: c.int, xsize: ^u32, ysize: ^u32, level: ^tile_level_mode_t, round: ^tile_round_mode_t) -> result_t ---
+	get_tile_descriptor :: proc(
+		ctxt:       const_context_t,
+		part_index: c.int,
+		xsize:      ^u32,
+		ysize:      ^u32,
+		level:      ^tile_level_mode_t,
+		round:      ^tile_round_mode_t) -> result_t ---
 
 	/** @brief Set the tiling info for a tiled part (use 0 for single part images). */
-	set_tile_descriptor :: proc(ctxt: context_t, part_index: c.int, x_size: u32, y_size: u32, level_mode: tile_level_mode_t, round_mode: tile_round_mode_t) -> result_t ---
+	set_tile_descriptor :: proc(
+		ctxt:       context_t,
+		part_index: c.int,
+		x_size:     u32,
+		y_size:     u32,
+		level_mode: tile_level_mode_t,
+		round_mode: tile_round_mode_t) -> result_t ---
 
 	set_name :: proc(ctxt: context_t, part_index: c.int, val: cstring) -> result_t ---
 
@@ -327,39 +414,83 @@ foreign lib {
 	 * @{
 	 */
 
-	attr_get_box2i :: proc(ctxt: const_context_t, part_index: c.int, name: cstring, outval: ^attr_box2i_t) -> result_t ---
+	attr_get_box2i :: proc(
+		ctxt:       const_context_t,
+		part_index: c.int,
+		name:       cstring,
+		outval:     ^attr_box2i_t) -> result_t ---
 
-	attr_set_box2i :: proc(ctxt: context_t, part_index: c.int, name: cstring, val: ^attr_box2i_t) -> result_t ---
+	attr_set_box2i :: proc(
+		ctxt:       context_t,
+		part_index: c.int,
+		name:       cstring,
+		val:        ^attr_box2i_t) -> result_t ---
 
-	attr_get_box2f :: proc(ctxt: const_context_t, part_index: c.int, name: cstring, outval: ^attr_box2f_t) -> result_t ---
+	attr_get_box2f :: proc(
+		ctxt:       const_context_t,
+		part_index: c.int,
+		name:       cstring,
+		outval:     ^attr_box2f_t) -> result_t ---
 
-	attr_set_box2f :: proc(ctxt: context_t, part_index: c.int, name: cstring, val: ^attr_box2f_t) -> result_t ---
+	attr_set_box2f :: proc(
+		ctxt:       context_t,
+		part_index: c.int,
+		name:       cstring,
+		val:        ^attr_box2f_t) -> result_t ---
 
 	/** @brief Zero-copy query of channel data.
 	 *
 	 * Do not free or manipulate the @p chlist data, or use
 	 * after the lifetime of the context.
 	 */
-	attr_get_channels :: proc(ctxt: const_context_t, part_index: c.int, name: cstring, chlist: ^^attr_chlist_t) -> result_t ---
+	attr_get_channels :: proc(
+		ctxt:       const_context_t,
+		part_index: c.int,
+		name:       cstring,
+		chlist:     ^^attr_chlist_t) -> result_t ---
 
 	/** @brief This allows one to quickly copy the channels from one file
 	 * to another.
 	 */
-	attr_set_channels :: proc(ctxt: context_t, part_index: c.int, name: cstring, channels: ^attr_chlist_t) -> result_t ---
+	attr_set_channels :: proc(
+		ctxt:       context_t,
+		part_index: c.int,
+		name:       cstring,
+		channels:   ^attr_chlist_t) -> result_t ---
 
-	attr_get_chromaticities :: proc(ctxt: const_context_t, part_index: c.int, name: cstring, chroma: ^attr_chromaticities_t) -> result_t ---
+	attr_get_chromaticities :: proc(
+		ctxt:       const_context_t,
+		part_index: c.int,
+		name:       cstring,
+		chroma:     ^attr_chromaticities_t) -> result_t ---
 
-	attr_set_chromaticities :: proc(ctxt: context_t, part_index: c.int, name: cstring, chroma: ^attr_chromaticities_t) -> result_t ---
+	attr_set_chromaticities :: proc(
+		ctxt:       context_t,
+		part_index: c.int,
+		name:       cstring,
+		chroma:     ^attr_chromaticities_t) -> result_t ---
 
-	attr_get_compression :: proc(ctxt: const_context_t, part_index: c.int, name: cstring, out: ^compression_t) -> result_t ---
+	attr_get_compression :: proc(
+		ctxt:       const_context_t,
+		part_index: c.int,
+		name:       cstring,
+		out:        ^compression_t) -> result_t ---
 
-	attr_set_compression :: proc(ctxt: context_t, part_index: c.int, name: cstring, comp: compression_t) -> result_t ---
+	attr_set_compression :: proc(
+		ctxt:       context_t,
+		part_index: c.int,
+		name:       cstring,
+		comp:       compression_t) -> result_t ---
 
 	attr_get_double :: proc(ctxt: const_context_t, part_index: c.int, name: cstring, out: ^f64) -> result_t ---
 
 	attr_set_double :: proc(ctxt: context_t, part_index: c.int, name: cstring, val: f64) -> result_t ---
 
-	attr_get_envmap :: proc(ctxt: const_context_t, part_index: c.int, name: cstring, out: ^envmap_t) -> result_t ---
+	attr_get_envmap :: proc(
+		ctxt:       const_context_t,
+		part_index: c.int,
+		name:       cstring,
+		out:        ^envmap_t) -> result_t ---
 
 	attr_set_envmap :: proc(ctxt: context_t, part_index: c.int, name: cstring, emap: envmap_t) -> result_t ---
 
@@ -372,52 +503,127 @@ foreign lib {
 	 * Do not free or manipulate the @p out data, or use after the
 	 * lifetime of the context.
 	 */
-	attr_get_float_vector :: proc(ctxt: const_context_t, part_index: c.int, name: cstring, sz: ^i32, out: ^[^]f32) -> result_t ---
+	attr_get_float_vector :: proc(
+		ctxt:       const_context_t,
+		part_index: c.int,
+		name:       cstring,
+		sz:         ^i32,
+		out:        ^[^]f32) -> result_t ---
 
-	attr_set_float_vector :: proc(ctxt: context_t, part_index: c.int, name: cstring, sz: i32, vals: [^]f32) -> result_t ---
+	attr_set_float_vector :: proc(
+		ctxt:       context_t,
+		part_index: c.int,
+		name:       cstring,
+		sz:         i32,
+		vals:       [^]f32) -> result_t ---
 
 	attr_get_int :: proc(ctxt: const_context_t, part_index: c.int, name: cstring, out: ^i32) -> result_t ---
 
 	attr_set_int :: proc(ctxt: context_t, part_index: c.int, name: cstring, val: i32) -> result_t ---
 
-	attr_get_keycode :: proc(ctxt: const_context_t, part_index: c.int, name: cstring, out: ^attr_keycode_t) -> result_t ---
+	attr_get_keycode :: proc(
+		ctxt:       const_context_t,
+		part_index: c.int,
+		name:       cstring,
+		out:        ^attr_keycode_t) -> result_t ---
 
-	attr_set_keycode :: proc(ctxt: context_t, part_index: c.int, name: cstring, kc: ^attr_keycode_t) -> result_t ---
+	attr_set_keycode :: proc(
+		ctxt:       context_t,
+		part_index: c.int,
+		name:       cstring,
+		kc:         ^attr_keycode_t) -> result_t ---
 
-	attr_get_lineorder :: proc(ctxt: const_context_t, part_index: c.int, name: cstring, out: ^lineorder_t) -> result_t ---
+	attr_get_lineorder :: proc(
+		ctxt:       const_context_t,
+		part_index: c.int,
+		name:       cstring,
+		out:        ^lineorder_t) -> result_t ---
 
 	attr_set_lineorder :: proc(ctxt: context_t, part_index: c.int, name: cstring, lo: lineorder_t) -> result_t ---
 
-	attr_get_m33f :: proc(ctxt: const_context_t, part_index: c.int, name: cstring, out: ^attr_m33f_t) -> result_t ---
+	attr_get_m33f :: proc(
+		ctxt:       const_context_t,
+		part_index: c.int,
+		name:       cstring,
+		out:        ^attr_m33f_t) -> result_t ---
 
-	attr_set_m33f :: proc(ctxt: context_t, part_index: c.int, name: cstring, m: ^attr_m33f_t) -> result_t ---
+	attr_set_m33f :: proc(
+		ctxt:       context_t,
+		part_index: c.int,
+		name:       cstring,
+		m:          ^attr_m33f_t) -> result_t ---
 
-	attr_get_m33d :: proc(ctxt: const_context_t, part_index: c.int, name: cstring, out: ^attr_m33d_t) -> result_t ---
+	attr_get_m33d :: proc(
+		ctxt:       const_context_t,
+		part_index: c.int,
+		name:       cstring,
+		out:        ^attr_m33d_t) -> result_t ---
 
-	attr_set_m33d :: proc(ctxt: context_t, part_index: c.int, name: cstring, m: ^attr_m33d_t) -> result_t ---
+	attr_set_m33d :: proc(
+		ctxt:       context_t,
+		part_index: c.int,
+		name:       cstring,
+		m:          ^attr_m33d_t) -> result_t ---
 
-	attr_get_m44f :: proc(ctxt: const_context_t, part_index: c.int, name: cstring, out: ^attr_m44f_t) -> result_t ---
+	attr_get_m44f :: proc(
+		ctxt:       const_context_t,
+		part_index: c.int,
+		name:       cstring,
+		out:        ^attr_m44f_t) -> result_t ---
 
-	attr_set_m44f :: proc(ctxt: context_t, part_index: c.int, name: cstring, m: ^attr_m44f_t) -> result_t ---
+	attr_set_m44f :: proc(
+		ctxt:       context_t,
+		part_index: c.int,
+		name:       cstring,
+		m:          ^attr_m44f_t) -> result_t ---
 
-	attr_get_m44d :: proc(ctxt: const_context_t, part_index: c.int, name: cstring, out: ^attr_m44d_t) -> result_t ---
+	attr_get_m44d :: proc(
+		ctxt:       const_context_t,
+		part_index: c.int,
+		name:       cstring,
+		out:        ^attr_m44d_t) -> result_t ---
 
-	attr_set_m44d :: proc(ctxt: context_t, part_index: c.int, name: cstring, m: ^attr_m44d_t) -> result_t ---
+	attr_set_m44d :: proc(
+		ctxt:       context_t,
+		part_index: c.int,
+		name:       cstring,
+		m:          ^attr_m44d_t) -> result_t ---
 
-	attr_get_preview :: proc(ctxt: const_context_t, part_index: c.int, name: cstring, out: ^attr_preview_t) -> result_t ---
+	attr_get_preview :: proc(
+		ctxt:       const_context_t,
+		part_index: c.int,
+		name:       cstring,
+		out:        ^attr_preview_t) -> result_t ---
 
-	attr_set_preview :: proc(ctxt: context_t, part_index: c.int, name: cstring, p: ^attr_preview_t) -> result_t ---
+	attr_set_preview :: proc(
+		ctxt:       context_t,
+		part_index: c.int,
+		name:       cstring,
+		p:          ^attr_preview_t) -> result_t ---
 
-	attr_get_rational :: proc(ctxt: const_context_t, part_index: c.int, name: cstring, out: ^attr_rational_t) -> result_t ---
+	attr_get_rational :: proc(
+		ctxt:       const_context_t,
+		part_index: c.int,
+		name:       cstring,
+		out:        ^attr_rational_t) -> result_t ---
 
-	attr_set_rational :: proc(ctxt: context_t, part_index: c.int, name: cstring, r: ^attr_rational_t) -> result_t ---
+	attr_set_rational :: proc(
+		ctxt:       context_t,
+		part_index: c.int,
+		name:       cstring,
+		r:          ^attr_rational_t) -> result_t ---
 
 	/** @brief Zero-copy query of string value.
 	 *
 	 * Do not modify the string pointed to by @p out, and do not use
 	 * after the lifetime of the context.
 	 */
-	attr_get_string :: proc(ctxt: const_context_t, part_index: c.int, name: cstring, length: ^i32, out: ^cstring) -> result_t ---
+	attr_get_string :: proc(
+		ctxt:       const_context_t,
+		part_index: c.int,
+		name:       cstring,
+		length:     ^i32,
+		out:        ^cstring) -> result_t ---
 
 	attr_set_string :: proc(ctxt: context_t, part_index: c.int, name: cstring, s: cstring) -> result_t ---
 
@@ -430,44 +636,130 @@ foreign lib {
 	 * \p out must be a ``^cstring`` array large enough to hold
 	 * the string pointers for the string vector when provided.
 	 */
-	attr_get_string_vector :: proc(ctxt: const_context_t, part_index: c.int, name: cstring, size: ^i32, out: [^]cstring) -> result_t ---
+	attr_get_string_vector :: proc(
+		ctxt:       const_context_t,
+		part_index: c.int,
+		name:       cstring,
+		size:       ^i32,
+		out:        [^]cstring) -> result_t ---
 
-	attr_set_string_vector :: proc(ctxt: context_t, part_index: c.int, name: cstring, size: i32, sv: [^]cstring) -> result_t ---
+	attr_set_string_vector :: proc(
+		ctxt:       context_t,
+		part_index: c.int,
+		name:       cstring,
+		size:       i32,
+		sv:         [^]cstring) -> result_t ---
 
-	attr_get_tiledesc :: proc(ctxt: const_context_t, part_index: c.int, name: cstring, out: ^attr_tiledesc_t) -> result_t ---
+	attr_get_tiledesc :: proc(
+		ctxt:       const_context_t,
+		part_index: c.int,
+		name:       cstring,
+		out:        ^attr_tiledesc_t) -> result_t ---
 
-	attr_set_tiledesc :: proc(ctxt: context_t, part_index: c.int, name: cstring, td: ^attr_tiledesc_t) -> result_t ---
+	attr_set_tiledesc :: proc(
+		ctxt:       context_t,
+		part_index: c.int,
+		name:       cstring,
+		td:         ^attr_tiledesc_t) -> result_t ---
 
-	attr_get_timecode :: proc(ctxt: const_context_t, part_index: c.int, name: cstring, out: ^attr_timecode_t) -> result_t ---
+	attr_get_timecode :: proc(
+		ctxt:       const_context_t,
+		part_index: c.int,
+		name:       cstring,
+		out:        ^attr_timecode_t) -> result_t ---
 
-	attr_set_timecode :: proc(ctxt: context_t, part_index: c.int, name: cstring, tc: ^attr_timecode_t) -> result_t ---
+	attr_set_timecode :: proc(
+		ctxt:       context_t,
+		part_index: c.int,
+		name:       cstring,
+		tc:         ^attr_timecode_t) -> result_t ---
 
-	attr_get_v2i :: proc(ctxt: const_context_t, part_index: c.int, name: cstring, out: ^attr_v2i_t) -> result_t ---
+	attr_get_v2i :: proc(
+		ctxt:       const_context_t,
+		part_index: c.int,
+		name:       cstring,
+		out:        ^attr_v2i_t) -> result_t ---
 
-	attr_set_v2i :: proc(ctxt: context_t, part_index: c.int, name: cstring, v: ^attr_v2i_t) -> result_t ---
+	attr_set_v2i :: proc(
+		ctxt:       context_t,
+		part_index: c.int,
+		name:       cstring,
+		v:          ^attr_v2i_t) -> result_t ---
 
-	attr_get_v2f :: proc(ctxt: const_context_t, part_index: c.int, name: cstring, out: ^attr_v2f_t) -> result_t ---
+	attr_get_v2f :: proc(
+		ctxt:       const_context_t,
+		part_index: c.int,
+		name:       cstring,
+		out:        ^attr_v2f_t) -> result_t ---
 
-	attr_set_v2f :: proc(ctxt: context_t, part_index: c.int, name: cstring, v: ^attr_v2f_t) -> result_t ---
+	attr_set_v2f :: proc(
+		ctxt:       context_t,
+		part_index: c.int,
+		name:       cstring,
+		v:          ^attr_v2f_t) -> result_t ---
 
-	attr_get_v2d :: proc(ctxt: const_context_t, part_index: c.int, name: cstring, out: ^attr_v2d_t) -> result_t ---
+	attr_get_v2d :: proc(
+		ctxt:       const_context_t,
+		part_index: c.int,
+		name:       cstring,
+		out:        ^attr_v2d_t) -> result_t ---
 
-	attr_set_v2d :: proc(ctxt: context_t, part_index: c.int, name: cstring, v: ^attr_v2d_t) -> result_t ---
+	attr_set_v2d :: proc(
+		ctxt:       context_t,
+		part_index: c.int,
+		name:       cstring,
+		v:          ^attr_v2d_t) -> result_t ---
 
-	attr_get_v3i :: proc(ctxt: const_context_t, part_index: c.int, name: cstring, out: ^attr_v3i_t) -> result_t ---
+	attr_get_v3i :: proc(
+		ctxt:       const_context_t,
+		part_index: c.int,
+		name:       cstring,
+		out:        ^attr_v3i_t) -> result_t ---
 
-	attr_set_v3i :: proc(ctxt: context_t, part_index: c.int, name: cstring, v: ^attr_v3i_t) -> result_t ---
+	attr_set_v3i :: proc(
+		ctxt:       context_t,
+		part_index: c.int,
+		name:       cstring,
+		v:          ^attr_v3i_t) -> result_t ---
 
-	attr_get_v3f :: proc(ctxt: const_context_t, part_index: c.int, name: cstring, out: ^attr_v3f_t) -> result_t ---
+	attr_get_v3f :: proc(
+		ctxt:       const_context_t,
+		part_index: c.int,
+		name:       cstring,
+		out:        ^attr_v3f_t) -> result_t ---
 
-	attr_set_v3f :: proc(ctxt: context_t, part_index: c.int, name: cstring, v: ^attr_v3f_t) -> result_t ---
+	attr_set_v3f :: proc(
+		ctxt:       context_t,
+		part_index: c.int,
+		name:       cstring,
+		v:          ^attr_v3f_t) -> result_t ---
 
-	attr_get_v3d :: proc(ctxt: const_context_t, part_index: c.int, name: cstring, out: ^attr_v3d_t) -> result_t ---
+	attr_get_v3d :: proc(
+		ctxt:       const_context_t,
+		part_index: c.int,
+		name:       cstring,
+		out:        ^attr_v3d_t) -> result_t ---
 
-	attr_set_v3d :: proc(ctxt: context_t, part_index: c.int, name: cstring, v: ^attr_v3d_t) -> result_t ---
+	attr_set_v3d :: proc(
+		ctxt:       context_t,
+		part_index: c.int,
+		name:       cstring,
+		v:          ^attr_v3d_t) -> result_t ---
 
-	attr_get_user :: proc(ctxt: const_context_t, part_index: c.int, name: cstring, type: ^cstring, size: ^i32, out: ^rawptr) -> result_t ---
+	attr_get_user :: proc(
+		ctxt:       const_context_t,
+		part_index: c.int,
+		name:       cstring,
+		type:       ^cstring,
+		size:       ^i32,
+		out:        ^rawptr) -> result_t ---
 
-	attr_set_user :: proc(ctxt: context_t, part_index: c.int, name: cstring, type: cstring, size: i32, out: rawptr) -> result_t ---
+	attr_set_user :: proc(
+		ctxt:       context_t,
+		part_index: c.int,
+		name:       cstring,
+		type:       cstring,
+		size:       i32,
+		out:        rawptr) -> result_t ---
 
 }

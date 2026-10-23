@@ -2,27 +2,23 @@
 #+build darwin
 package darwin_AVFoundation
 
-import "base:intrinsics"
 import CA "vendor:darwin/QuartzCore"
+import "base:intrinsics"
 
-@(objc_class = "AVSynchronizedLayer", objc_superclass = CA.Layer)
-SynchronizedLayer :: struct {
-	using _: CA.Layer,
-}
+@(objc_class="AVSynchronizedLayer", objc_superclass=CA.Layer)
+SynchronizedLayer :: struct { using _: CA.Layer}
 
 foreign lib {
-	@(objc_type = SynchronizedLayer, objc_selector = "synchronizedLayerWithPlayerItem:", objc_name = "synchronizedLayerWithPlayerItem", objc_is_class_method = true)
+	@(objc_type=SynchronizedLayer, objc_selector="synchronizedLayerWithPlayerItem:", objc_name="synchronizedLayerWithPlayerItem", objc_is_class_method=true)
 	SynchronizedLayer_synchronizedLayerWithPlayerItem :: proc(playerItem: ^PlayerItem) -> ^SynchronizedLayer ---
 
-	@(objc_type = SynchronizedLayer, objc_selector = "playerItem", objc_name = "playerItem")
+	@(objc_type=SynchronizedLayer, objc_selector="playerItem", objc_name="playerItem")
 	SynchronizedLayer_playerItem :: proc(self: ^SynchronizedLayer) -> ^PlayerItem ---
 
-	@(objc_type = SynchronizedLayer, objc_selector = "setPlayerItem:", objc_name = "setPlayerItem")
+	@(objc_type=SynchronizedLayer, objc_selector="setPlayerItem:", objc_name="setPlayerItem")
 	SynchronizedLayer_setPlayerItem :: proc(self: ^SynchronizedLayer, playerItem: ^PlayerItem) ---
 }
 
 
-@(objc_class = "AVSynchronizedLayerInternal")
-SynchronizedLayerInternal :: struct {
-	using _: intrinsics.objc_object,
-}
+@(objc_class="AVSynchronizedLayerInternal")
+SynchronizedLayerInternal :: struct { using _: intrinsics.objc_object}

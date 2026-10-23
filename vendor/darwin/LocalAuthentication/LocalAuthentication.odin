@@ -6,24 +6,31 @@ import "base:intrinsics"
 import cffi "core:c"
 import NS "core:sys/darwin/Foundation"
 
-id :: ^intrinsics.objc_object
-SEL :: ^intrinsics.objc_selector
-Class :: ^intrinsics.objc_class
-IMP :: rawptr
-Protocol :: distinct id
-instancetype :: intrinsics.objc_instancetype
+id            :: ^intrinsics.objc_object
+SEL           :: ^intrinsics.objc_selector
+Class         :: ^intrinsics.objc_class
+IMP           :: rawptr
+Protocol      :: distinct id
+instancetype  :: intrinsics.objc_instancetype
 
 @(export, require)
-foreign import lib "system:LocalAuthentication.framework"
+foreign import lib {
+	"system:LocalAuthentication.framework",
+}
+
+
+
+
 
 
 foreign lib {
-	@(link_name = "LATouchIDAuthenticationMaximumAllowableReuseDuration")
+	@(link_name="LATouchIDAuthenticationMaximumAllowableReuseDuration")
 	TouchIDAuthenticationMaximumAllowableReuseDuration: NS.TimeInterval
 
-	@(link_name = "LAErrorDomain")
+	@(link_name="LAErrorDomain")
 	ErrorDomain: ^NS.String
 }
+
 
 
 BiometryType :: enum cffi.long {
@@ -39,16 +46,16 @@ CompanionTypeFlag :: enum cffi.long {
 	Mac    = 1,
 	Vision = 2,
 }
-CompanionType :: bit_set[CompanionTypeFlag;cffi.long]
+CompanionType :: bit_set[CompanionTypeFlag; cffi.long]
 
 Policy :: enum cffi.long {
-	DeviceOwnerAuthenticationWithBiometrics            = 1,
-	DeviceOwnerAuthentication                          = 2,
-	DeviceOwnerAuthenticationWithCompanion             = 3,
+	DeviceOwnerAuthenticationWithBiometrics = 1,
+	DeviceOwnerAuthentication        = 2,
+	DeviceOwnerAuthenticationWithCompanion = 3,
 	DeviceOwnerAuthenticationWithBiometricsOrCompanion = 4,
-	DeviceOwnerAuthenticationWithWristDetection        = 5,
-	DeviceOwnerAuthenticationWithWatch                 = 3,
-	DeviceOwnerAuthenticationWithBiometricsOrWatch     = 4,
+	DeviceOwnerAuthenticationWithWristDetection = 5,
+	DeviceOwnerAuthenticationWithWatch = 3,
+	DeviceOwnerAuthenticationWithBiometricsOrWatch = 4,
 }
 
 CredentialType :: enum cffi.long {

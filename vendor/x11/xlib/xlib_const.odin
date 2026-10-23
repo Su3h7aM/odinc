@@ -2,29 +2,29 @@
 package xlib
 
 XNClientWindow: cstring : "clientWindow"
-XNInputStyle: cstring : "inputStyle"
-XNFocusWindow: cstring : "focusWindow"
+XNInputStyle:   cstring : "inputStyle"
+XNFocusWindow:  cstring : "focusWindow"
 XNSpotLocation: cstring : "spotLocation"
 XNPreeditAttributes: cstring : "preeditAttributes"
 
 XIMPreeditNothing :: 0x0008
-XIMStatusNothing :: 0x0400
+XIMStatusNothing  :: 0x0400
 
 /* ----  X11/extensions/XKB.h ---------------------------------------------------------*/
 
-XkbMinLegalKeyCode :: 8
-XkbMaxLegalKeyCode :: 255
-XkbMaxKeyCount :: XkbMaxLegalKeyCode - XkbMinLegalKeyCode + 1
-XkbPerKeyBitArraySize :: (XkbMaxLegalKeyCode + 1) / 8
-XkbKeyNameLength :: 4
-XkbNumVirtualMods :: 16
-XkbNumIndicators :: 32
-XkbNumKbdGroups :: 4
-XkbAnyActionDataSize :: 7
-XkbUseCoreKbd :: 0x0100
+XkbMinLegalKeyCode     :: 8
+XkbMaxLegalKeyCode     :: 255
+XkbMaxKeyCount         :: XkbMaxLegalKeyCode - XkbMinLegalKeyCode + 1
+XkbPerKeyBitArraySize  :: (XkbMaxLegalKeyCode + 1) / 8
+XkbKeyNameLength       :: 4
+XkbNumVirtualMods      :: 16
+XkbNumIndicators       :: 32
+XkbNumKbdGroups        :: 4
+XkbAnyActionDataSize   :: 7
+XkbUseCoreKbd          :: 0x0100
 XkbActionMessageLength :: 6
 
-XkbInfoMask :: bit_set[XkbInfoMaskBits;int]
+XkbInfoMask :: bit_set[XkbInfoMaskBits; int]
 XkbInfoMaskBits :: enum u32 {
 	KeyTypes           = 0,
 	KeySyms            = 1,
@@ -36,11 +36,21 @@ XkbInfoMaskBits :: enum u32 {
 	VirtualModMap      = 7,
 }
 
-XkbAllClientInfoMask :: XkbInfoMask{.KeyTypes, .KeySyms, .ModifierMap}
+XkbAllClientInfoMask :: XkbInfoMask {
+	.KeyTypes,
+	.KeySyms,
+	.ModifierMap,
+}
 
-XkbAllServerInfoMask :: XkbInfoMask{.ExplicitComponents, .KeyActions, .KeyBehaviors, .VirtualMods, .VirtualModMap}
+XkbAllServerInfoMask :: XkbInfoMask {
+	.ExplicitComponents,
+	.KeyActions,
+	.KeyBehaviors,
+	.VirtualMods,
+	.VirtualModMap,
+}
 
-XkbEventMask :: bit_set[XkbEventType;int]
+XkbEventMask :: bit_set[XkbEventType; int]
 XkbEventType :: enum i32 {
 	NewKeyboardNotify     = 0,
 	MapNotify             = 1,
@@ -82,37 +92,37 @@ XIAllMasterDevices :: 1
 // Special values for many types. Most of these constants
 // aren't attached to a specific type.
 
-None :: 0
-ParentRelative :: 1
-CopyFromParent :: 0
-PointerWindow :: 0
-InputFocus :: 1
-PointerRoot :: 1
+None            :: 0
+ParentRelative  :: 1
+CopyFromParent  :: 0
+PointerWindow   :: 0
+InputFocus      :: 1
+PointerRoot     :: 1
 AnyPropertyType :: 0
-AnyKey :: 0
-AnyButton :: 0
-AllTemporary :: 0
-CurrentTime :: 0
-NoSymbol :: 0
+AnyKey          :: 0
+AnyButton       :: 0
+AllTemporary    :: 0
+CurrentTime     :: 0
+NoSymbol        :: 0
 
 PropModeReplace :: 0
 PropModePrepend :: 1
-PropModeAppend :: 2
+PropModeAppend  :: 2
 
-XA_ATOM :: Atom(4)
-XA_CARDINAL :: Atom(6)
-XA_INTEGER :: Atom(19)
-XA_WM_CLASS :: Atom(67)
+XA_ATOM              :: Atom(4)
+XA_CARDINAL          :: Atom(6)
+XA_INTEGER           :: Atom(19)
+XA_WM_CLASS          :: Atom(67)
 XA_WM_CLIENT_MACHINE :: Atom(36)
-XA_WM_COMMAND :: Atom(34)
-XA_WM_HINTS :: Atom(35)
-XA_WM_ICON_NAME :: Atom(37)
-XA_WM_ICON_SIZE :: Atom(38)
-XA_WM_NAME :: Atom(39)
-XA_WM_NORMAL_HINTS :: Atom(40)
-XA_WM_SIZE_HINTS :: Atom(41)
-XA_WM_TRANSIENT_FOR :: Atom(68)
-XA_WM_ZOOM_HINTS :: Atom(42)
+XA_WM_COMMAND        :: Atom(34)
+XA_WM_HINTS          :: Atom(35)
+XA_WM_ICON_NAME      :: Atom(37)
+XA_WM_ICON_SIZE      :: Atom(38)
+XA_WM_NAME           :: Atom(39)
+XA_WM_NORMAL_HINTS   :: Atom(40)
+XA_WM_SIZE_HINTS     :: Atom(41)
+XA_WM_TRANSIENT_FOR  :: Atom(68)
+XA_WM_ZOOM_HINTS     :: Atom(42)
 
 // NOTE(flysand): Some implementations return Status as enum, other return it
 // as an integer. I will make it a status.
@@ -141,10 +151,10 @@ Status :: enum i32 {
 
 LookupStringStatus :: enum i32 {
 	BufferOverflow = -1,
-	LookupNone     = 1,
-	LookupChars    = 2,
-	LookupKeySym   = 3,
-	LookupBoth     = 4,
+	LookupNone = 1,
+	LookupChars = 2,
+	LookupKeySym = 3,
+	LookupBoth = 4,
 }
 
 ByteOrder :: enum i32 {
@@ -153,17 +163,17 @@ ByteOrder :: enum i32 {
 }
 
 Gravity :: enum i32 {
-	ForgetGravity    = 0,
-	UnmapGravity     = 0,
-	NorthWestGravity = 1,
-	NorthGravity     = 2,
-	NorthEastGravity = 3,
-	WestGravity      = 4,
-	CenterGravity    = 5,
-	EastGravity      = 6,
-	SouthWestGravity = 7,
-	SouthGravity     = 8,
-	SouthEastGravity = 9,
+	ForgetGravity    =  0,
+	UnmapGravity     =  0,
+	NorthWestGravity =  1,
+	NorthGravity     =  2,
+	NorthEastGravity =  3,
+	WestGravity      =  4,
+	CenterGravity    =  5,
+	EastGravity      =  6,
+	SouthWestGravity =  7,
+	SouthGravity     =  8,
+	SouthEastGravity =  9,
 	StaticGravity    = 10,
 }
 
@@ -181,18 +191,18 @@ MouseButton :: enum i32 {
 	Button5 = 5,
 }
 
-EventMask :: bit_set[EventMaskBits;int]
+EventMask :: bit_set[EventMaskBits; int]
 EventMaskBits :: enum i32 {
-	KeyPress             = 0,
-	KeyRelease           = 1,
-	ButtonPress          = 2,
-	ButtonRelease        = 3,
-	EnterWindow          = 4,
-	LeaveWindow          = 5,
-	PointerMotion        = 6,
-	PointerMotionHint    = 7,
-	Button1Motion        = 8,
-	Button2Motion        = 9,
+	KeyPress             =  0,
+	KeyRelease           =  1,
+	ButtonPress          =  2,
+	ButtonRelease        =  3,
+	EnterWindow          =  4,
+	LeaveWindow          =  5,
+	PointerMotion        =  6,
+	PointerMotionHint    =  7,
+	Button1Motion        =  8,
+	Button2Motion        =  9,
 	Button3Motion        = 10,
 	Button4Motion        = 11,
 	Button5Motion        = 12,
@@ -247,7 +257,7 @@ EventType :: enum i32 {
 	GenericEvent     = 35,
 }
 
-InputMask :: bit_set[InputMaskBits;i32]
+InputMask :: bit_set[InputMaskBits; i32]
 InputMaskBits :: enum {
 	ShiftMask   = 0,
 	LockMask    = 1,
@@ -317,7 +327,7 @@ EventQueueMode :: enum i32 {
 	QueuedAfterFlush   = 2,
 }
 
-WindowAttributeMask :: bit_set[WindowAttributeMaskBits;int]
+WindowAttributeMask :: bit_set[WindowAttributeMaskBits; int]
 WindowAttributeMaskBits :: enum {
 	CWBackPixmap       = 0,
 	CWBackPixel        = 1,
@@ -342,7 +352,7 @@ WindowClass :: enum i32 {
 	InputOnly      = 2,
 }
 
-WindowChangesMask :: bit_set[WindowChangesMaskBits;i32]
+WindowChangesMask :: bit_set[WindowChangesMaskBits; i32]
 WindowChangesMaskBits :: enum {
 	CWX           = 0,
 	CWY           = 1,
@@ -486,38 +496,38 @@ ColormapAlloc :: enum i32 {
 	AllocAll  = 1,
 }
 
-ColorFlags :: bit_set[ColorFlagsBits;i32]
+ColorFlags :: bit_set[ColorFlagsBits; i32]
 ColorFlagsBits :: enum {
 	DoRed   = 0,
 	DoGreen = 1,
 	DoBlue  = 2,
 }
 
-GCAttributeMask :: bit_set[GCAttributeMaskBits;uint]
+GCAttributeMask :: bit_set[GCAttributeMaskBits; uint]
 GCAttributeMaskBits :: enum {
-	GCFunction          = 0,
-	GCPlaneMask         = 1,
-	GCForeground        = 2,
-	GCBackground        = 3,
-	GCLineWidth         = 4,
-	GCLineStyle         = 5,
-	GCCapStyle          = 6,
-	GCJoinStyle         = 7,
-	GCFillStyle         = 8,
-	GCFillRule          = 9,
-	GCTile              = 10,
-	GCStipple           = 11,
-	GCTileStipXOrigin   = 12,
-	GCTileStipYOrigin   = 13,
-	GCFont              = 14,
-	GCSubwindowMode     = 15,
-	GCGraphicsExposures = 16,
-	GCClipXOrigin       = 17,
-	GCClipYOrigin       = 18,
-	GCClipMask          = 19,
-	GCDashOffset        = 20,
-	GCDashList          = 21,
-	GCArcMode           = 22,
+	GCFunction         = 0,
+	GCPlaneMask        = 1,
+	GCForeground       = 2,
+	GCBackground       = 3,
+	GCLineWidth        = 4,
+	GCLineStyle        = 5,
+	GCCapStyle         = 6,
+	GCJoinStyle        = 7,
+	GCFillStyle        = 8,
+	GCFillRule         = 9,
+	GCTile             = 10,
+	GCStipple          = 11,
+	GCTileStipXOrigin  = 12,
+	GCTileStipYOrigin  = 13,
+	GCFont             = 14,
+	GCSubwindowMode    = 15,
+	GCGraphicsExposures= 16,
+	GCClipXOrigin      = 17,
+	GCClipYOrigin      = 18,
+	GCClipMask         = 19,
+	GCDashOffset       = 20,
+	GCDashList         = 21,
+	GCArcMode          = 22,
 }
 
 GCFunction :: enum i32 {
@@ -652,7 +662,7 @@ FocusRevert :: enum i32 {
 	RevertToParent      = 2,
 }
 
-KeyboardControlMask :: bit_set[KeyboardControlMaskBits;int]
+KeyboardControlMask :: bit_set[KeyboardControlMaskBits; int]
 KeyboardControlMaskBits :: enum {
 	KBKeyClickPercent = 0,
 	KBBellPercent     = 1,
@@ -675,7 +685,7 @@ KeyboardLedMode :: enum i32 {
 	LedModeOn  = 1,
 }
 
-WMHints :: bit_set[WMHintsBits;uint]
+WMHints :: bit_set[WMHintsBits; uint]
 WMHintsBits :: enum {
 	InputHint        = 0,
 	StateHint        = 1,
@@ -693,9 +703,17 @@ WMHintState :: enum i32 {
 	IconicState    = 3,
 }
 
-AllHints :: WMHints{.InputHint, .StateHint, .IconPixmapHint, .IconWindowHint, .IconPositionHint, .IconMaskHint, .WindowGroupHint}
+AllHints :: WMHints{
+	.InputHint,
+	.StateHint,
+	.IconPixmapHint,
+	.IconWindowHint,
+	.IconPositionHint,
+	.IconMaskHint,
+	.WindowGroupHint,
+}
 
-SizeHints :: bit_set[SizeHintsBits;int]
+SizeHints :: bit_set[SizeHintsBits; int]
 SizeHintsBits :: enum {
 	USPosition  = 0,
 	USSize      = 1,
@@ -709,7 +727,7 @@ SizeHintsBits :: enum {
 	PWinGravity = 9,
 }
 
-VisualInfoMask :: bit_set[VisualInfoMaskBits;int]
+VisualInfoMask :: bit_set[VisualInfoMaskBits; int]
 VisualInfoMaskBits :: enum {
 	VisualIDMask           = 0,
 	VisualScreenMask       = 1,
@@ -722,7 +740,7 @@ VisualInfoMaskBits :: enum {
 	VisualBitsPerRGBMask   = 8,
 }
 
-VisualNoMask :: VisualInfoMask{}
+VisualNoMask  :: VisualInfoMask {}
 VisualAllMask :: VisualInfoMask {
 	.VisualIDMask,
 	.VisualScreenMask,

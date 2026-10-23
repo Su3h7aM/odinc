@@ -3,9 +3,9 @@ package glfw
 
 import glfw "bindings"
 
-WindowHandle :: glfw.WindowHandle
+WindowHandle  :: glfw.WindowHandle
 MonitorHandle :: glfw.MonitorHandle
-CursorHandle :: glfw.CursorHandle
+CursorHandle  :: glfw.CursorHandle
 
 VidMode :: glfw.VidMode
 GammaRamp :: glfw.GammaRamp
@@ -16,29 +16,29 @@ Allocator :: glfw.Allocator
 
 /*** Procedure type declarations ***/
 
-WindowIconifyProc :: glfw.WindowIconifyProc
-WindowRefreshProc :: glfw.WindowRefreshProc
-WindowFocusProc :: glfw.WindowFocusProc
-WindowCloseProc :: glfw.WindowCloseProc
-WindowSizeProc :: glfw.WindowSizeProc
-WindowPosProc :: glfw.WindowPosProc
-WindowMaximizeProc :: glfw.WindowMaximizeProc
+WindowIconifyProc      :: glfw.WindowIconifyProc
+WindowRefreshProc      :: glfw.WindowRefreshProc
+WindowFocusProc        :: glfw.WindowFocusProc
+WindowCloseProc        :: glfw.WindowCloseProc
+WindowSizeProc         :: glfw.WindowSizeProc
+WindowPosProc          :: glfw.WindowPosProc
+WindowMaximizeProc     :: glfw.WindowMaximizeProc
 WindowContentScaleProc :: glfw.WindowContentScaleProc
-FramebufferSizeProc :: glfw.FramebufferSizeProc
-DropProc :: glfw.DropProc
-MonitorProc :: glfw.MonitorProc
+FramebufferSizeProc    :: glfw.FramebufferSizeProc
+DropProc               :: glfw.DropProc
+MonitorProc            :: glfw.MonitorProc
 
-KeyProc :: glfw.KeyProc
-MouseButtonProc :: glfw.MouseButtonProc
-CursorPosProc :: glfw.CursorPosProc
-ScrollProc :: glfw.ScrollProc
-CharProc :: glfw.CharProc
-CharModsProc :: glfw.CharModsProc
-CursorEnterProc :: glfw.CursorEnterProc
-JoystickProc :: glfw.JoystickProc
+KeyProc                :: glfw.KeyProc
+MouseButtonProc        :: glfw.MouseButtonProc
+CursorPosProc          :: glfw.CursorPosProc
+ScrollProc             :: glfw.ScrollProc
+CharProc               :: glfw.CharProc
+CharModsProc           :: glfw.CharModsProc
+CursorEnterProc        :: glfw.CursorEnterProc
+JoystickProc           :: glfw.JoystickProc
 
-ErrorProc :: glfw.ErrorProc
+ErrorProc              :: glfw.ErrorProc
 
-AllocateProc :: glfw.AllocateProc
-ReallocateProc :: glfw.ReallocateProc
-DeallocateProc :: glfw.DeallocateProc
+AllocateProc           :: glfw.AllocateProc
+ReallocateProc         :: glfw.ReallocateProc
+DeallocateProc         :: glfw.DeallocateProc

@@ -4,19 +4,19 @@ package darwin_Metal
 
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class = "MTLLogicalToPhysicalColorAttachmentMap", objc_superclass = NS.Object)
+@(objc_class="MTLLogicalToPhysicalColorAttachmentMap", objc_superclass=NS.Object)
 LogicalToPhysicalColorAttachmentMap :: struct {
 	using _: NS.Object,
 	using _: NS.Copying,
 }
 
 foreign lib {
-	@(objc_type = LogicalToPhysicalColorAttachmentMap, objc_selector = "setPhysicalIndex:forLogicalIndex:", objc_name = "setPhysicalIndex")
+	@(objc_type=LogicalToPhysicalColorAttachmentMap, objc_selector="setPhysicalIndex:forLogicalIndex:", objc_name="setPhysicalIndex")
 	LogicalToPhysicalColorAttachmentMap_setPhysicalIndex :: proc(self: ^LogicalToPhysicalColorAttachmentMap, physicalIndex: NS.UInteger, logicalIndex: NS.UInteger) ---
 
-	@(objc_type = LogicalToPhysicalColorAttachmentMap, objc_selector = "getPhysicalIndexForLogicalIndex:", objc_name = "getPhysicalIndexForLogicalIndex")
+	@(objc_type=LogicalToPhysicalColorAttachmentMap, objc_selector="getPhysicalIndexForLogicalIndex:", objc_name="getPhysicalIndexForLogicalIndex")
 	LogicalToPhysicalColorAttachmentMap_getPhysicalIndexForLogicalIndex :: proc(self: ^LogicalToPhysicalColorAttachmentMap, logicalIndex: NS.UInteger) -> NS.UInteger ---
 
-	@(objc_type = LogicalToPhysicalColorAttachmentMap, objc_selector = "reset", objc_name = "reset")
+	@(objc_type=LogicalToPhysicalColorAttachmentMap, objc_selector="reset", objc_name="reset")
 	LogicalToPhysicalColorAttachmentMap_reset :: proc(self: ^LogicalToPhysicalColorAttachmentMap) ---
 }

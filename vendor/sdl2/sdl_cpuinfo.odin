@@ -18,30 +18,30 @@ when ODIN_OS == .Windows {
 CACHELINE_SIZE :: 128
 
 
-@(default_calling_convention = "c", link_prefix = "SDL_")
+@(default_calling_convention="c", link_prefix="SDL_")
 foreign lib {
-	GetCPUCount :: proc() -> c.int ---
+	GetCPUCount         :: proc() -> c.int ---
 	GetCPUCacheLineSize :: proc() -> c.int ---
 
-	HasRDTSC :: proc() -> bool ---
-	HasAltiVec :: proc() -> bool ---
-	HasMMX :: proc() -> bool ---
-	Has3DNow :: proc() -> bool ---
-	HasSSE :: proc() -> bool ---
-	HasSSE2 :: proc() -> bool ---
-	HasSSE3 :: proc() -> bool ---
-	HasSSE41 :: proc() -> bool ---
-	HasSSE42 :: proc() -> bool ---
-	HasAVX :: proc() -> bool ---
-	HasAVX2 :: proc() -> bool ---
-	HasAVX512F :: proc() -> bool ---
-	HasARMSIMD :: proc() -> bool ---
-	HasNEON :: proc() -> bool ---
+	HasRDTSC            :: proc() -> bool  ---
+	HasAltiVec          :: proc() -> bool  ---
+	HasMMX              :: proc() -> bool  ---
+	Has3DNow            :: proc() -> bool  ---
+	HasSSE              :: proc() -> bool  ---
+	HasSSE2             :: proc() -> bool  ---
+	HasSSE3             :: proc() -> bool  ---
+	HasSSE41            :: proc() -> bool  ---
+	HasSSE42            :: proc() -> bool  ---
+	HasAVX              :: proc() -> bool  ---
+	HasAVX2             :: proc() -> bool  ---
+	HasAVX512F          :: proc() -> bool  ---
+	HasARMSIMD          :: proc() -> bool  ---
+	HasNEON             :: proc() -> bool  ---
 
-	GetSystemRAM :: proc() -> c.int ---
+	GetSystemRAM        :: proc() -> c.int ---
 
-	SIMDGetAlignment :: proc() -> c.size_t ---
-	SIMDAlloc :: proc(len: c.size_t) -> rawptr ---
-	SIMDRealloc :: proc(mem: rawptr, len: c.size_t) -> rawptr ---
-	SIMDFree :: proc(ptr: rawptr) ---
+	SIMDGetAlignment    :: proc() -> c.size_t ---
+	SIMDAlloc           :: proc(len: c.size_t) -> rawptr ---
+	SIMDRealloc         :: proc(mem: rawptr, len: c.size_t) -> rawptr ---
+	SIMDFree            :: proc(ptr: rawptr) ---
 }

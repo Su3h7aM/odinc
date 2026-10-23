@@ -4,24 +4,22 @@ package darwin_Metal
 
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class = "MTLMotionKeyframeData", objc_superclass = NS.Object)
-MotionKeyframeData :: struct {
-	using _: NS.Object,
-}
+@(objc_class="MTLMotionKeyframeData", objc_superclass=NS.Object)
+MotionKeyframeData :: struct { using _: NS.Object}
 
 foreign lib {
-	@(objc_type = MotionKeyframeData, objc_selector = "data", objc_name = "data", objc_is_class_method = true)
+	@(objc_type=MotionKeyframeData, objc_selector="data", objc_name="data", objc_is_class_method=true)
 	MotionKeyframeData_data :: proc() -> instancetype ---
 
-	@(objc_type = MotionKeyframeData, objc_selector = "buffer", objc_name = "buffer")
+	@(objc_type=MotionKeyframeData, objc_selector="buffer", objc_name="buffer")
 	MotionKeyframeData_buffer :: proc(self: ^MotionKeyframeData) -> ^Buffer ---
 
-	@(objc_type = MotionKeyframeData, objc_selector = "setBuffer:", objc_name = "setBuffer")
+	@(objc_type=MotionKeyframeData, objc_selector="setBuffer:", objc_name="setBuffer")
 	MotionKeyframeData_setBuffer :: proc(self: ^MotionKeyframeData, buffer: ^Buffer) ---
 
-	@(objc_type = MotionKeyframeData, objc_selector = "offset", objc_name = "offset")
+	@(objc_type=MotionKeyframeData, objc_selector="offset", objc_name="offset")
 	MotionKeyframeData_offset :: proc(self: ^MotionKeyframeData) -> NS.UInteger ---
 
-	@(objc_type = MotionKeyframeData, objc_selector = "setOffset:", objc_name = "setOffset")
+	@(objc_type=MotionKeyframeData, objc_selector="setOffset:", objc_name="setOffset")
 	MotionKeyframeData_setOffset :: proc(self: ^MotionKeyframeData, offset: NS.UInteger) ---
 }

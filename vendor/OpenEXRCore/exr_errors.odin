@@ -46,7 +46,7 @@ result_t :: enum i32 {
 error_code_t :: result_t
 
 
-@(link_prefix = "exr_", default_calling_convention = "c")
+@(link_prefix="exr_", default_calling_convention="c")
 foreign lib {
 	/** @brief Return a static string corresponding to the specified error code.
 	 *

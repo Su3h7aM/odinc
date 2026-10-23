@@ -2,59 +2,57 @@
 #+build darwin:ios
 package darwin_MapKit
 
-import "base:intrinsics"
 import NS "core:sys/darwin/Foundation"
 import CL "vendor:darwin/CoreLocation"
+import "base:intrinsics"
 
-@(objc_class = "MKReverseGeocoder", objc_superclass = NS.Object)
-ReverseGeocoder :: struct {
-	using _: NS.Object,
-}
+@(objc_class="MKReverseGeocoder", objc_superclass=NS.Object)
+ReverseGeocoder :: struct { using _: NS.Object}
 
-@(default_calling_convention = "c")
+@(default_calling_convention="c")
 foreign lib {
-	@(objc_type = ReverseGeocoder, objc_selector = "initWithCoordinate:", objc_name = "initWithCoordinate")
+	@(objc_type=ReverseGeocoder, objc_selector="initWithCoordinate:", objc_name="initWithCoordinate")
 	ReverseGeocoder_initWithCoordinate :: proc(self: ^ReverseGeocoder, coordinate: CL.LocationCoordinate2D) -> instancetype ---
 
-	@(objc_type = ReverseGeocoder, objc_selector = "start", objc_name = "start")
+	@(objc_type=ReverseGeocoder, objc_selector="start", objc_name="start")
 	ReverseGeocoder_start :: proc(self: ^ReverseGeocoder) ---
 
-	@(objc_type = ReverseGeocoder, objc_selector = "cancel", objc_name = "cancel")
+	@(objc_type=ReverseGeocoder, objc_selector="cancel", objc_name="cancel")
 	ReverseGeocoder_cancel :: proc(self: ^ReverseGeocoder) ---
 
-	@(objc_type = ReverseGeocoder, objc_selector = "delegate", objc_name = "delegate")
+	@(objc_type=ReverseGeocoder, objc_selector="delegate", objc_name="delegate")
 	ReverseGeocoder_delegate :: proc(self: ^ReverseGeocoder) -> ^ReverseGeocoderDelegate ---
 
-	@(objc_type = ReverseGeocoder, objc_selector = "setDelegate:", objc_name = "setDelegate")
+	@(objc_type=ReverseGeocoder, objc_selector="setDelegate:", objc_name="setDelegate")
 	ReverseGeocoder_setDelegate :: proc(self: ^ReverseGeocoder, delegate: ^ReverseGeocoderDelegate) ---
 
-	@(objc_type = ReverseGeocoder, objc_selector = "coordinate", objc_name = "coordinate")
+	@(objc_type=ReverseGeocoder, objc_selector="coordinate", objc_name="coordinate")
 	ReverseGeocoder_coordinate :: proc(self: ^ReverseGeocoder) -> CL.LocationCoordinate2D ---
 
-	@(objc_type = ReverseGeocoder, objc_selector = "placemark", objc_name = "placemark")
+	@(objc_type=ReverseGeocoder, objc_selector="placemark", objc_name="placemark")
 	ReverseGeocoder_placemark :: proc(self: ^ReverseGeocoder) -> ^Placemark ---
 
-	@(objc_type = ReverseGeocoder, objc_selector = "isQuerying", objc_name = "isQuerying")
+	@(objc_type=ReverseGeocoder, objc_selector="isQuerying", objc_name="isQuerying")
 	ReverseGeocoder_isQuerying :: proc(self: ^ReverseGeocoder) -> bool ---
 }
 
 
-@(objc_class = "MKReverseGeocoderDelegate")
+@(objc_class="MKReverseGeocoderDelegate")
 ReverseGeocoderDelegate :: struct {
 	using _: intrinsics.objc_object,
 	using _: NS.ObjectProtocol,
 }
 
-@(default_calling_convention = "c")
+@(default_calling_convention="c")
 foreign lib {
-	@(objc_type = ReverseGeocoderDelegate, objc_selector = "reverseGeocoder:didFindPlacemark:", objc_name = "reverseGeocoder_didFindPlacemark")
+	@(objc_type=ReverseGeocoderDelegate, objc_selector="reverseGeocoder:didFindPlacemark:", objc_name="reverseGeocoder_didFindPlacemark")
 	ReverseGeocoderDelegate_reverseGeocoder_didFindPlacemark :: proc(self: ^ReverseGeocoderDelegate, geocoder: ^ReverseGeocoder, placemark: ^Placemark) ---
 
-	@(objc_type = ReverseGeocoderDelegate, objc_selector = "reverseGeocoder:didFailWithError:", objc_name = "reverseGeocoder_didFailWithError")
+	@(objc_type=ReverseGeocoderDelegate, objc_selector="reverseGeocoder:didFailWithError:", objc_name="reverseGeocoder_didFailWithError")
 	ReverseGeocoderDelegate_reverseGeocoder_didFailWithError :: proc(self: ^ReverseGeocoderDelegate, geocoder: ^ReverseGeocoder, error: ^NS.Error) ---
 }
 
-@(objc_type = ReverseGeocoderDelegate, objc_name = "reverseGeocoder")
+@(objc_type=ReverseGeocoderDelegate, objc_name="reverseGeocoder")
 ReverseGeocoderDelegate_reverseGeocoder :: proc {
 	ReverseGeocoderDelegate_reverseGeocoder_didFindPlacemark,
 	ReverseGeocoderDelegate_reverseGeocoder_didFailWithError,

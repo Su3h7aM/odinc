@@ -3,157 +3,157 @@
 package darwin_GameController
 
 import "base:intrinsics"
-import cffi "core:c"
 import NS "core:sys/darwin/Foundation"
+import cffi "core:c"
 
-@(objc_class = "GCAxis2DInput")
+@(objc_class="GCAxis2DInput")
 Axis2DInput :: struct {
 	using _: intrinsics.objc_object,
 	using _: NS.ObjectProtocol,
 }
 
 foreign lib {
-	@(objc_type = Axis2DInput, objc_selector = "valueDidChangeHandler", objc_name = "valueDidChangeHandler")
+	@(objc_type=Axis2DInput, objc_selector="valueDidChangeHandler", objc_name="valueDidChangeHandler")
 	Axis2DInput_valueDidChangeHandler :: proc(self: ^Axis2DInput) -> ^Objc_Block(proc "c" ()) ---
 
-	@(objc_type = Axis2DInput, objc_selector = "setValueDidChangeHandler:", objc_name = "setValueDidChangeHandler")
+	@(objc_type=Axis2DInput, objc_selector="setValueDidChangeHandler:", objc_name="setValueDidChangeHandler")
 	Axis2DInput_setValueDidChangeHandler :: proc(self: ^Axis2DInput, valueDidChangeHandler: ^Objc_Block(proc "c" ())) ---
 
-	@(objc_type = Axis2DInput, objc_selector = "value", objc_name = "value")
+	@(objc_type=Axis2DInput, objc_selector="value", objc_name="value")
 	Axis2DInput_value :: proc(self: ^Axis2DInput) -> Point2 ---
 
-	@(objc_type = Axis2DInput, objc_selector = "isAnalog", objc_name = "isAnalog")
+	@(objc_type=Axis2DInput, objc_selector="isAnalog", objc_name="isAnalog")
 	Axis2DInput_isAnalog :: proc(self: ^Axis2DInput) -> bool ---
 
-	@(objc_type = Axis2DInput, objc_selector = "canWrap", objc_name = "canWrap")
+	@(objc_type=Axis2DInput, objc_selector="canWrap", objc_name="canWrap")
 	Axis2DInput_canWrap :: proc(self: ^Axis2DInput) -> bool ---
 
-	@(objc_type = Axis2DInput, objc_selector = "lastValueTimestamp", objc_name = "lastValueTimestamp")
+	@(objc_type=Axis2DInput, objc_selector="lastValueTimestamp", objc_name="lastValueTimestamp")
 	Axis2DInput_lastValueTimestamp :: proc(self: ^Axis2DInput) -> NS.TimeInterval ---
 
-	@(objc_type = Axis2DInput, objc_selector = "lastValueLatency", objc_name = "lastValueLatency")
+	@(objc_type=Axis2DInput, objc_selector="lastValueLatency", objc_name="lastValueLatency")
 	Axis2DInput_lastValueLatency :: proc(self: ^Axis2DInput) -> NS.TimeInterval ---
 
-	@(objc_type = Axis2DInput, objc_selector = "sources", objc_name = "sources")
+	@(objc_type=Axis2DInput, objc_selector="sources", objc_name="sources")
 	Axis2DInput_sources :: proc(self: ^Axis2DInput) -> ^NS.Set ---
 }
 
 
-@(objc_class = "GCLinearInput")
+@(objc_class="GCLinearInput")
 LinearInput :: struct {
 	using _: intrinsics.objc_object,
 	using _: NS.ObjectProtocol,
 }
 
 foreign lib {
-	@(objc_type = LinearInput, objc_selector = "valueDidChangeHandler", objc_name = "valueDidChangeHandler")
+	@(objc_type=LinearInput, objc_selector="valueDidChangeHandler", objc_name="valueDidChangeHandler")
 	LinearInput_valueDidChangeHandler :: proc(self: ^LinearInput) -> ^Objc_Block(proc "c" ()) ---
 
-	@(objc_type = LinearInput, objc_selector = "setValueDidChangeHandler:", objc_name = "setValueDidChangeHandler")
+	@(objc_type=LinearInput, objc_selector="setValueDidChangeHandler:", objc_name="setValueDidChangeHandler")
 	LinearInput_setValueDidChangeHandler :: proc(self: ^LinearInput, valueDidChangeHandler: ^Objc_Block(proc "c" ())) ---
 
-	@(objc_type = LinearInput, objc_selector = "value", objc_name = "value")
+	@(objc_type=LinearInput, objc_selector="value", objc_name="value")
 	LinearInput_value :: proc(self: ^LinearInput) -> cffi.float ---
 
-	@(objc_type = LinearInput, objc_selector = "isAnalog", objc_name = "isAnalog")
+	@(objc_type=LinearInput, objc_selector="isAnalog", objc_name="isAnalog")
 	LinearInput_isAnalog :: proc(self: ^LinearInput) -> bool ---
 
-	@(objc_type = LinearInput, objc_selector = "canWrap", objc_name = "canWrap")
+	@(objc_type=LinearInput, objc_selector="canWrap", objc_name="canWrap")
 	LinearInput_canWrap :: proc(self: ^LinearInput) -> bool ---
 
-	@(objc_type = LinearInput, objc_selector = "lastValueTimestamp", objc_name = "lastValueTimestamp")
+	@(objc_type=LinearInput, objc_selector="lastValueTimestamp", objc_name="lastValueTimestamp")
 	LinearInput_lastValueTimestamp :: proc(self: ^LinearInput) -> NS.TimeInterval ---
 
-	@(objc_type = LinearInput, objc_selector = "lastValueLatency", objc_name = "lastValueLatency")
+	@(objc_type=LinearInput, objc_selector="lastValueLatency", objc_name="lastValueLatency")
 	LinearInput_lastValueLatency :: proc(self: ^LinearInput) -> NS.TimeInterval ---
 
-	@(objc_type = LinearInput, objc_selector = "physicalExtents", objc_name = "physicalExtents")
+	@(objc_type=LinearInput, objc_selector="physicalExtents", objc_name="physicalExtents")
 	LinearInput_physicalExtents :: proc(self: ^LinearInput) -> ^PhysicalInputExtents ---
 
-	@(objc_type = LinearInput, objc_selector = "sources", objc_name = "sources")
+	@(objc_type=LinearInput, objc_selector="sources", objc_name="sources")
 	LinearInput_sources :: proc(self: ^LinearInput) -> ^NS.Set ---
 }
 
 
-@(objc_class = "GCPressedStateInput")
+@(objc_class="GCPressedStateInput")
 PressedStateInput :: struct {
 	using _: intrinsics.objc_object,
 	using _: NS.ObjectProtocol,
 }
 
 foreign lib {
-	@(objc_type = PressedStateInput, objc_selector = "pressedDidChangeHandler", objc_name = "pressedDidChangeHandler")
+	@(objc_type=PressedStateInput, objc_selector="pressedDidChangeHandler", objc_name="pressedDidChangeHandler")
 	PressedStateInput_pressedDidChangeHandler :: proc(self: ^PressedStateInput) -> ^Objc_Block(proc "c" ()) ---
 
-	@(objc_type = PressedStateInput, objc_selector = "setPressedDidChangeHandler:", objc_name = "setPressedDidChangeHandler")
+	@(objc_type=PressedStateInput, objc_selector="setPressedDidChangeHandler:", objc_name="setPressedDidChangeHandler")
 	PressedStateInput_setPressedDidChangeHandler :: proc(self: ^PressedStateInput, pressedDidChangeHandler: ^Objc_Block(proc "c" ())) ---
 
-	@(objc_type = PressedStateInput, objc_selector = "isPressed", objc_name = "isPressed")
+	@(objc_type=PressedStateInput, objc_selector="isPressed", objc_name="isPressed")
 	PressedStateInput_isPressed :: proc(self: ^PressedStateInput) -> bool ---
 
-	@(objc_type = PressedStateInput, objc_selector = "lastPressedStateTimestamp", objc_name = "lastPressedStateTimestamp")
+	@(objc_type=PressedStateInput, objc_selector="lastPressedStateTimestamp", objc_name="lastPressedStateTimestamp")
 	PressedStateInput_lastPressedStateTimestamp :: proc(self: ^PressedStateInput) -> NS.TimeInterval ---
 
-	@(objc_type = PressedStateInput, objc_selector = "lastPressedStateLatency", objc_name = "lastPressedStateLatency")
+	@(objc_type=PressedStateInput, objc_selector="lastPressedStateLatency", objc_name="lastPressedStateLatency")
 	PressedStateInput_lastPressedStateLatency :: proc(self: ^PressedStateInput) -> NS.TimeInterval ---
 
-	@(objc_type = PressedStateInput, objc_selector = "sources", objc_name = "sources")
+	@(objc_type=PressedStateInput, objc_selector="sources", objc_name="sources")
 	PressedStateInput_sources :: proc(self: ^PressedStateInput) -> ^NS.Set ---
 }
 
 
-@(objc_class = "GCRelativeInput")
+@(objc_class="GCRelativeInput")
 RelativeInput :: struct {
 	using _: intrinsics.objc_object,
 	using _: NS.ObjectProtocol,
 }
 
 foreign lib {
-	@(objc_type = RelativeInput, objc_selector = "deltaDidChangeHandler", objc_name = "deltaDidChangeHandler")
+	@(objc_type=RelativeInput, objc_selector="deltaDidChangeHandler", objc_name="deltaDidChangeHandler")
 	RelativeInput_deltaDidChangeHandler :: proc(self: ^RelativeInput) -> ^Objc_Block(proc "c" ()) ---
 
-	@(objc_type = RelativeInput, objc_selector = "setDeltaDidChangeHandler:", objc_name = "setDeltaDidChangeHandler")
+	@(objc_type=RelativeInput, objc_selector="setDeltaDidChangeHandler:", objc_name="setDeltaDidChangeHandler")
 	RelativeInput_setDeltaDidChangeHandler :: proc(self: ^RelativeInput, deltaDidChangeHandler: ^Objc_Block(proc "c" ())) ---
 
-	@(objc_type = RelativeInput, objc_selector = "delta", objc_name = "delta")
+	@(objc_type=RelativeInput, objc_selector="delta", objc_name="delta")
 	RelativeInput_delta :: proc(self: ^RelativeInput) -> cffi.float ---
 
-	@(objc_type = RelativeInput, objc_selector = "isAnalog", objc_name = "isAnalog")
+	@(objc_type=RelativeInput, objc_selector="isAnalog", objc_name="isAnalog")
 	RelativeInput_isAnalog :: proc(self: ^RelativeInput) -> bool ---
 
-	@(objc_type = RelativeInput, objc_selector = "lastDeltaTimestamp", objc_name = "lastDeltaTimestamp")
+	@(objc_type=RelativeInput, objc_selector="lastDeltaTimestamp", objc_name="lastDeltaTimestamp")
 	RelativeInput_lastDeltaTimestamp :: proc(self: ^RelativeInput) -> NS.TimeInterval ---
 
-	@(objc_type = RelativeInput, objc_selector = "lastDeltaLatency", objc_name = "lastDeltaLatency")
+	@(objc_type=RelativeInput, objc_selector="lastDeltaLatency", objc_name="lastDeltaLatency")
 	RelativeInput_lastDeltaLatency :: proc(self: ^RelativeInput) -> NS.TimeInterval ---
 
-	@(objc_type = RelativeInput, objc_selector = "sources", objc_name = "sources")
+	@(objc_type=RelativeInput, objc_selector="sources", objc_name="sources")
 	RelativeInput_sources :: proc(self: ^RelativeInput) -> ^NS.Set ---
 }
 
 
-@(objc_class = "GCTouchedStateInput")
+@(objc_class="GCTouchedStateInput")
 TouchedStateInput :: struct {
 	using _: intrinsics.objc_object,
 	using _: NS.ObjectProtocol,
 }
 
 foreign lib {
-	@(objc_type = TouchedStateInput, objc_selector = "touchedDidChangeHandler", objc_name = "touchedDidChangeHandler")
+	@(objc_type=TouchedStateInput, objc_selector="touchedDidChangeHandler", objc_name="touchedDidChangeHandler")
 	TouchedStateInput_touchedDidChangeHandler :: proc(self: ^TouchedStateInput) -> ^Objc_Block(proc "c" ()) ---
 
-	@(objc_type = TouchedStateInput, objc_selector = "setTouchedDidChangeHandler:", objc_name = "setTouchedDidChangeHandler")
+	@(objc_type=TouchedStateInput, objc_selector="setTouchedDidChangeHandler:", objc_name="setTouchedDidChangeHandler")
 	TouchedStateInput_setTouchedDidChangeHandler :: proc(self: ^TouchedStateInput, touchedDidChangeHandler: ^Objc_Block(proc "c" ())) ---
 
-	@(objc_type = TouchedStateInput, objc_selector = "isTouched", objc_name = "isTouched")
+	@(objc_type=TouchedStateInput, objc_selector="isTouched", objc_name="isTouched")
 	TouchedStateInput_isTouched :: proc(self: ^TouchedStateInput) -> bool ---
 
-	@(objc_type = TouchedStateInput, objc_selector = "lastTouchedStateTimestamp", objc_name = "lastTouchedStateTimestamp")
+	@(objc_type=TouchedStateInput, objc_selector="lastTouchedStateTimestamp", objc_name="lastTouchedStateTimestamp")
 	TouchedStateInput_lastTouchedStateTimestamp :: proc(self: ^TouchedStateInput) -> NS.TimeInterval ---
 
-	@(objc_type = TouchedStateInput, objc_selector = "lastTouchedStateLatency", objc_name = "lastTouchedStateLatency")
+	@(objc_type=TouchedStateInput, objc_selector="lastTouchedStateLatency", objc_name="lastTouchedStateLatency")
 	TouchedStateInput_lastTouchedStateLatency :: proc(self: ^TouchedStateInput) -> NS.TimeInterval ---
 
-	@(objc_type = TouchedStateInput, objc_selector = "sources", objc_name = "sources")
+	@(objc_type=TouchedStateInput, objc_selector="sources", objc_name="sources")
 	TouchedStateInput_sources :: proc(self: ^TouchedStateInput) -> ^NS.Set ---
 }

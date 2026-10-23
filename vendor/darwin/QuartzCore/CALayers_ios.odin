@@ -2,17 +2,17 @@
 #+build darwin:ios
 package darwin_QuartzCore
 
-@(objc_class = "CAEAGLLayer", objc_superclass = Layer)
+@(objc_class="CAEAGLLayer", objc_superclass=Layer)
 EAGLLayer :: struct {
 	using _: Layer,
 	using _: EAGLDrawable,
 }
 
-@(default_calling_convention = "c")
+@(default_calling_convention="c")
 foreign lib {
-	@(objc_type = EAGLLayer, objc_selector = "presentsWithTransaction", objc_name = "presentsWithTransaction")
+	@(objc_type=EAGLLayer, objc_selector="presentsWithTransaction", objc_name="presentsWithTransaction")
 	EAGLLayer_presentsWithTransaction :: proc(self: ^EAGLLayer) -> bool ---
 
-	@(objc_type = EAGLLayer, objc_selector = "setPresentsWithTransaction:", objc_name = "setPresentsWithTransaction")
+	@(objc_type=EAGLLayer, objc_selector="setPresentsWithTransaction:", objc_name="setPresentsWithTransaction")
 	EAGLLayer_setPresentsWithTransaction :: proc(self: ^EAGLLayer, presentsWithTransaction: bool) ---
 }

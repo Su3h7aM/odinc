@@ -4,10 +4,8 @@ package darwin_AVFoundation
 
 import "base:intrinsics"
 
-@(objc_class = "AVDisplayCriteriaInternal")
-DisplayCriteriaInternal :: struct {
-	using _: intrinsics.objc_object,
-}
+@(objc_class="AVDisplayCriteriaInternal")
+DisplayCriteriaInternal :: struct { using _: intrinsics.objc_object}
 
-@(default_calling_convention = "c")
-foreign lib {  }
+@(default_calling_convention="c")
+foreign lib {}

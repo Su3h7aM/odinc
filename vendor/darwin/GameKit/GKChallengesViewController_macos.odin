@@ -2,32 +2,30 @@
 #+build darwin:default
 package darwin_GameKit
 
-import "base:intrinsics"
 import NS "vendor:darwin/AppKit"
+import "base:intrinsics"
 
-@(objc_class = "GKChallengesViewController", objc_superclass = NS.ViewController)
+@(objc_class="GKChallengesViewController", objc_superclass=NS.ViewController)
 ChallengesViewController :: struct {
 	using _: NS.ViewController,
 	using _: ViewController,
 }
 
-@(default_calling_convention = "c")
+@(default_calling_convention="c")
 foreign lib {
-	@(objc_type = ChallengesViewController, objc_selector = "challengeDelegate", objc_name = "challengeDelegate")
+	@(objc_type=ChallengesViewController, objc_selector="challengeDelegate", objc_name="challengeDelegate")
 	ChallengesViewController_challengeDelegate :: proc(self: ^ChallengesViewController) -> ^ChallengesViewControllerDelegate ---
 
-	@(objc_type = ChallengesViewController, objc_selector = "setChallengeDelegate:", objc_name = "setChallengeDelegate")
+	@(objc_type=ChallengesViewController, objc_selector="setChallengeDelegate:", objc_name="setChallengeDelegate")
 	ChallengesViewController_setChallengeDelegate :: proc(self: ^ChallengesViewController, challengeDelegate: ^ChallengesViewControllerDelegate) ---
 }
 
 
-@(objc_class = "GKChallengesViewControllerDelegate")
-ChallengesViewControllerDelegate :: struct {
-	using _: intrinsics.objc_object,
-}
+@(objc_class="GKChallengesViewControllerDelegate")
+ChallengesViewControllerDelegate :: struct { using _: intrinsics.objc_object}
 
-@(default_calling_convention = "c")
+@(default_calling_convention="c")
 foreign lib {
-	@(objc_type = ChallengesViewControllerDelegate, objc_selector = "challengesViewControllerDidFinish:", objc_name = "challengesViewControllerDidFinish")
+	@(objc_type=ChallengesViewControllerDelegate, objc_selector="challengesViewControllerDidFinish:", objc_name="challengesViewControllerDidFinish")
 	ChallengesViewControllerDelegate_challengesViewControllerDidFinish :: proc(self: ^ChallengesViewControllerDelegate, viewController: ^ChallengesViewController) ---
 }

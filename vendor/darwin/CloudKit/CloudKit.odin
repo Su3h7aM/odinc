@@ -6,108 +6,114 @@ import "base:intrinsics"
 import cffi "core:c"
 import NS "core:sys/darwin/Foundation"
 
-id :: ^intrinsics.objc_object
-SEL :: ^intrinsics.objc_selector
-Class :: ^intrinsics.objc_class
-IMP :: rawptr
-Protocol :: distinct id
-instancetype :: intrinsics.objc_instancetype
+id            :: ^intrinsics.objc_object
+SEL           :: ^intrinsics.objc_selector
+Class         :: ^intrinsics.objc_class
+IMP           :: rawptr
+Protocol      :: distinct id
+instancetype  :: intrinsics.objc_instancetype
 
 @(export)
-foreign import lib "system:CloudKit.framework"
+foreign import lib {
+	"system:CloudKit.framework",
+}
+
+
 
 
 CLLocation :: struct {}
-CNContact :: struct {}
+CNContact  :: struct {}
+
 
 
 foreign lib {
-	@(link_name = "CKRecordTypeUserRecord")
+	@(link_name="CKRecordTypeUserRecord")
 	RecordTypeUserRecord: ^NS.String
 
-	@(link_name = "CKRecordRecordIDKey")
+	@(link_name="CKRecordRecordIDKey")
 	RecordRecordIDKey: ^NS.String
 
-	@(link_name = "CKRecordCreatorUserRecordIDKey")
+	@(link_name="CKRecordCreatorUserRecordIDKey")
 	RecordCreatorUserRecordIDKey: ^NS.String
 
-	@(link_name = "CKRecordCreationDateKey")
+	@(link_name="CKRecordCreationDateKey")
 	RecordCreationDateKey: ^NS.String
 
-	@(link_name = "CKRecordLastModifiedUserRecordIDKey")
+	@(link_name="CKRecordLastModifiedUserRecordIDKey")
 	RecordLastModifiedUserRecordIDKey: ^NS.String
 
-	@(link_name = "CKRecordModificationDateKey")
+	@(link_name="CKRecordModificationDateKey")
 	RecordModificationDateKey: ^NS.String
 
-	@(link_name = "CKRecordParentKey")
+	@(link_name="CKRecordParentKey")
 	RecordParentKey: ^NS.String
 
-	@(link_name = "CKRecordShareKey")
+	@(link_name="CKRecordShareKey")
 	RecordShareKey: ^NS.String
 
-	@(link_name = "CKCurrentUserDefaultName")
+	@(link_name="CKCurrentUserDefaultName")
 	CurrentUserDefaultName: ^NS.String
 
-	@(link_name = "CKOwnerDefaultName")
+	@(link_name="CKOwnerDefaultName")
 	OwnerDefaultName: ^NS.String
 
-	@(link_name = "CKAccountChangedNotification")
+	@(link_name="CKAccountChangedNotification")
 	AccountChangedNotification: ^NS.String
 
-	@(link_name = "CKErrorDomain")
+	@(link_name="CKErrorDomain")
 	ErrorDomain: ^NS.String
 
-	@(link_name = "CKPartialErrorsByItemIDKey")
+	@(link_name="CKPartialErrorsByItemIDKey")
 	PartialErrorsByItemIDKey: ^NS.String
 
-	@(link_name = "CKRecordChangedErrorAncestorRecordKey")
+	@(link_name="CKRecordChangedErrorAncestorRecordKey")
 	RecordChangedErrorAncestorRecordKey: ^NS.String
 
-	@(link_name = "CKRecordChangedErrorServerRecordKey")
+	@(link_name="CKRecordChangedErrorServerRecordKey")
 	RecordChangedErrorServerRecordKey: ^NS.String
 
-	@(link_name = "CKRecordChangedErrorClientRecordKey")
+	@(link_name="CKRecordChangedErrorClientRecordKey")
 	RecordChangedErrorClientRecordKey: ^NS.String
 
-	@(link_name = "CKErrorUserDidResetEncryptedDataKey")
+	@(link_name="CKErrorUserDidResetEncryptedDataKey")
 	ErrorUserDidResetEncryptedDataKey: ^NS.String
 
-	@(link_name = "CKErrorRetryAfterKey")
+	@(link_name="CKErrorRetryAfterKey")
 	ErrorRetryAfterKey: ^NS.String
 
-	@(link_name = "CKRecordZoneDefaultName")
+	@(link_name="CKRecordZoneDefaultName")
 	RecordZoneDefaultName: ^NS.String
 
-	@(link_name = "CKRecordTypeShare")
+	@(link_name="CKRecordTypeShare")
 	RecordTypeShare: ^NS.String
 
-	@(link_name = "CKRecordNameZoneWideShare")
+	@(link_name="CKRecordNameZoneWideShare")
 	RecordNameZoneWideShare: ^NS.String
 
-	@(link_name = "CKShareTitleKey")
+	@(link_name="CKShareTitleKey")
 	ShareTitleKey: ^NS.String
 
-	@(link_name = "CKShareThumbnailImageDataKey")
+	@(link_name="CKShareThumbnailImageDataKey")
 	ShareThumbnailImageDataKey: ^NS.String
 
-	@(link_name = "CKShareTypeKey")
+	@(link_name="CKShareTypeKey")
 	ShareTypeKey: ^NS.String
 
-	@(link_name = "CKQueryOperationMaximumResults")
+	@(link_name="CKQueryOperationMaximumResults")
 	QueryOperationMaximumResults: NS.UInteger
 }
+
 
 
 RecordType :: distinct ^NS.String
 RecordFieldKey :: distinct ^NS.String
 SubscriptionID :: distinct ^NS.String
 OperationID :: distinct ^NS.String
-ApplicationPermissionBlock :: ^Objc_Block(proc "c" (applicationPermissionStatus: ApplicationPermissionStatus, error: ^NS.Error))
-SharePreparationCompletionHandler :: ^Objc_Block(proc "c" (_0: ^Share, _1: ^NS.Error))
-SharePreparationHandler :: ^Objc_Block(proc "c" (_0: SharePreparationCompletionHandler))
-SharingParticipantAccessOptions_Any :: SharingParticipantAccessOptions{.AnyoneWithLink, .SpecifiedRecipientsOnly}
-SharingParticipantPermissionOptions_Any :: SharingParticipantPermissionOptions{.ReadOnly, .ReadWrite}
+ApplicationPermissionBlock :: ^Objc_Block(proc "c" ( applicationPermissionStatus: ApplicationPermissionStatus, error: ^NS.Error ))
+SharePreparationCompletionHandler :: ^Objc_Block(proc "c" ( _0: ^Share, _1: ^NS.Error ))
+SharePreparationHandler :: ^Objc_Block(proc "c" ( _0: SharePreparationCompletionHandler ))
+SharingParticipantAccessOptions_Any :: SharingParticipantAccessOptions { .AnyoneWithLink, .SpecifiedRecipientsOnly, }
+SharingParticipantPermissionOptions_Any :: SharingParticipantPermissionOptions { .ReadOnly, .ReadWrite, }
 
 ReferenceAction :: enum cffi.ulong {
 	None       = 0,
@@ -127,7 +133,7 @@ QuerySubscriptionOption :: enum cffi.ulong {
 	FiresOnce             = 3,
 }
 
-QuerySubscriptionOptions :: bit_set[QuerySubscriptionOption;cffi.ulong]
+QuerySubscriptionOptions :: bit_set[QuerySubscriptionOption; cffi.ulong]
 
 DatabaseScope :: enum cffi.long {
 	Public  = 1,
@@ -146,7 +152,7 @@ AccountStatus :: enum cffi.long {
 ApplicationPermission :: enum cffi.ulong {
 	UserDiscoverability = 0,
 }
-ApplicationPermissions :: bit_set[ApplicationPermission;cffi.ulong]
+ApplicationPermissions :: bit_set[ApplicationPermission; cffi.ulong]
 
 ApplicationPermissionStatus :: enum cffi.long {
 	InitialState     = 0,
@@ -214,7 +220,7 @@ RecordZoneCapabilityFlag :: enum cffi.ulong {
 	Sharing         = 2,
 	ZoneWideSharing = 3,
 }
-RecordZoneCapabilities :: bit_set[RecordZoneCapabilityFlag;cffi.ulong]
+RecordZoneCapabilities :: bit_set[RecordZoneCapabilityFlag; cffi.ulong]
 
 RecordZoneEncryptionScope :: enum cffi.long {
 	PerRecord = 0,
@@ -272,14 +278,14 @@ SharingParticipantAccessOption :: enum cffi.ulong {
 	SpecifiedRecipientsOnly = 1,
 }
 
-SharingParticipantAccessOptions :: bit_set[SharingParticipantAccessOption;cffi.ulong]
+SharingParticipantAccessOptions :: bit_set[SharingParticipantAccessOption; cffi.ulong]
 
 SharingParticipantPermissionOption :: enum cffi.ulong {
 	ReadOnly  = 0,
 	ReadWrite = 1,
 }
 
-SharingParticipantPermissionOptions :: bit_set[SharingParticipantPermissionOption;cffi.ulong]
+SharingParticipantPermissionOptions :: bit_set[SharingParticipantPermissionOption; cffi.ulong]
 
 SyncEnginePendingRecordZoneChangeType :: enum cffi.long {
 	SaveRecord   = 0,

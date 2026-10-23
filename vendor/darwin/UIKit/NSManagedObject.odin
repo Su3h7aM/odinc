@@ -4,19 +4,15 @@ package darwin_UIKit
 
 import "base:intrinsics"
 
-@(objc_class = "NSManagedObjectContext")
-NSManagedObjectContext :: struct {
-	using _: intrinsics.objc_object,
-}
+@(objc_class="NSManagedObjectContext")
+NSManagedObjectContext :: struct { using _: intrinsics.objc_object}
 
-@(default_calling_convention = "c")
-foreign lib {  }
+@(default_calling_convention="c")
+foreign lib {}
 
 
-@(objc_class = "NSManagedObjectModel")
-NSManagedObjectModel :: struct {
-	using _: intrinsics.objc_object,
-}
+@(objc_class="NSManagedObjectModel")
+NSManagedObjectModel :: struct { using _: intrinsics.objc_object}
 
-@(default_calling_convention = "c")
-foreign lib {  }
+@(default_calling_convention="c")
+foreign lib {}

@@ -1,21 +1,19 @@
 package vendor_commonmark
 
-import "base:runtime"
 import "core:c"
+import "base:runtime"
 
 COMMONMARK_SHARED :: #config(COMMONMARK_SHARED, false)
-BINDING_VERSION :: Version_Info {
-	major = 0,
-	minor = 30,
-	patch = 2,
-}
+BINDING_VERSION :: Version_Info{major = 0, minor = 30, patch = 2}
 
 when COMMONMARK_SHARED {
 	#panic("Shared linking for vendor:commonmark is not supported yet")
 }
 
 when ODIN_OS == .Windows {
-	foreign import lib "cmark_static.lib"
+	foreign import lib {
+		"cmark_static.lib",
+	}
 } else when ODIN_OS == .Linux {
 	foreign import lib "system:cmark"
 } else when ODIN_OS == .Darwin {
@@ -25,21 +23,21 @@ when ODIN_OS == .Windows {
 }
 
 Option :: enum c.int {
-	Source_Position = 1, // Include a `data-sourcepos` attribute on all block elements.
-	Hard_Breaks     = 2, // Render `softbreak` as hard line breaks.
-	Safe            = 3, // Defined for API compatibility, now enabled by default.
+	Source_Position =  1, // Include a `data-sourcepos` attribute on all block elements.
+	Hard_Breaks     =  2, // Render `softbreak` as hard line breaks.
+	Safe            =  3, // Defined for API compatibility, now enabled by default.
 	Unsafe          = 17, // Render raw HTML and unsafe links (`javascript:`, `vbscript:`,
-	// `file:`, and `data:`, except for `image/png`, `image/gif`,
-	// `image/jpeg`, or `image/webp` mime types).  By default,
-	// raw HTML is replaced by a placeholder HTML comment. Unsafe
-	// links are replaced by empty strings.
-	No_Breaks       = 4, // Render `softbreak` elements as spaces.
-	Normalize       = 8, // Legacy option, no effect.
-	Validate_UTF8   = 9, // Validate UTF-8 input before parsing, replacing illegal
-	// sequences with the replacement character U+FFFD.
+						  // `file:`, and `data:`, except for `image/png`, `image/gif`,
+						  // `image/jpeg`, or `image/webp` mime types).  By default,
+						  // raw HTML is replaced by a placeholder HTML comment. Unsafe
+						  // links are replaced by empty strings.
+	No_Breaks       =  4, // Render `softbreak` elements as spaces.
+	Normalize       =  8, // Legacy option, no effect.
+	Validate_UTF8   =  9, // Validate UTF-8 input before parsing, replacing illegal
+						  // sequences with the replacement character U+FFFD.
 	Smart           = 10, // Convert straight quotes to curly, --- to em dashes, -- to en dashes.
 }
-Options :: bit_set[Option;c.int]
+Options :: bit_set[Option; c.int]
 
 DEFAULT_OPTIONS :: Options{}
 
@@ -70,10 +68,12 @@ Node_Type :: enum u16 {
 	Strong,
 	Link,
 	Image,
-	First_Block = Document,
-	Last_Block = Thematic_Break,
+
+	First_Block  = Document,
+	Last_Block   = Thematic_Break,
+
 	First_Inline = Text,
-	Last_Inline = Image,
+	Last_Inline  = Image,
 }
 
 List_Type :: enum c.int {
@@ -96,14 +96,14 @@ Version_Info :: struct {
 	_:     u8,
 }
 
-@(default_calling_convention = "c", link_prefix = "cmark_")
+@(default_calling_convention="c", link_prefix="cmark_")
 foreign lib {
-	version :: proc() -> (res: Version_Info) ---
+	version        :: proc() -> (res: Version_Info) ---
 	version_string :: proc() -> (res: cstring) ---
 }
 
 // Simple API
-@(default_calling_convention = "c", link_prefix = "cmark_")
+@(default_calling_convention="c", link_prefix="cmark_")
 foreign lib {
 	// Convert 'text' (assumed to be a UTF-8 encoded string with length `len`) from CommonMark Markdown to HTML
 	// returning a null-terminated, UTF-8-encoded string. It is the caller's responsibility
@@ -118,12 +118,12 @@ markdown_to_html_from_string :: proc(text: string, options: Options) -> (html: s
 // Custom allocator - Defines the memory allocation functions to be used by CMark
 // when parsing and allocating a document tree
 Allocator :: struct {
-	calloc:  proc "c" (num: c.size_t, size: c.size_t) -> rawptr,
+	calloc:  proc "c" (num: c.size_t, size: c.size_t)  -> rawptr,
 	realloc: proc "c" (ptr: rawptr, new_size: c.size_t) -> rawptr,
 	free:    proc "c" (ptr: rawptr),
 }
 
-@(default_calling_convention = "c", link_prefix = "cmark_")
+@(default_calling_convention="c", link_prefix="cmark_")
 foreign lib {
 	// Returns a pointer to the default memory allocator.
 	get_default_mem_allocator :: proc() -> (mem: ^Allocator) ---
@@ -134,26 +134,31 @@ bufsize_t :: distinct i32
 // Node creation, destruction, and tree traversal
 Node :: struct {
 	mem:          ^Allocator,
+
 	next:         ^Node,
 	prev:         ^Node,
 	parent:       ^Node,
 	first_child:  ^Node,
 	last_child:   ^Node,
+
 	user_data:    rawptr,
 	data:         [^]u8,
 	len:          bufsize_t,
+
 	start_line:   c.int,
 	start_column: c.int,
 	end_line:     c.int,
 	end_column:   c.int,
+
 	type:         Node_Type,
 	flags:        Node_Flags,
-	as:           struct #raw_union {
-		list:            List `raw_union_tag:"type=.List"`,
-		code:            Code `raw_union_tag:"type=.Code"`,
-		heading:         Heading `raw_union_tag:"type=.Heading"`,
-		link:            Link `raw_union_tag:"type=.Link"`,
-		custom:          Custom `raw_union_tag:"type=.Custom"`,
+
+	as: struct #raw_union {
+		list:    List          `raw_union_tag:"type=.List"`,
+		code:    Code          `raw_union_tag:"type=.Code"`,
+		heading: Heading       `raw_union_tag:"type=.Heading"`,
+		link:    Link          `raw_union_tag:"type=.Link"`,
+		custom:  Custom        `raw_union_tag:"type=.Custom"`,
 		html_block_type: c.int `raw_union_tag:"type=.HTML_Block"`,
 	},
 }
@@ -163,7 +168,7 @@ Node_Flag :: enum u16 {
 	Last_Line_Blank   = 1,
 	Last_Line_Checked = 2,
 }
-Node_Flags :: bit_set[Node_Flag;u16]
+Node_Flags :: bit_set[Node_Flag; u16]
 
 List :: struct {
 	marker_offset: c.int,
@@ -200,7 +205,7 @@ Custom :: struct {
 	on_exit:  cstring,
 }
 
-@(default_calling_convention = "c", link_prefix = "cmark_")
+@(default_calling_convention="c", link_prefix="cmark_")
 foreign lib {
 	// Creates a new node of type 'type'.
 	// Note that the node may have other required properties, which it is the caller's responsibility
@@ -234,7 +239,7 @@ foreign lib {
 
 }
 
-Iter :: distinct rawptr
+Iter   :: distinct rawptr
 
 Event_Type :: enum c.int {
 	None,
@@ -243,7 +248,7 @@ Event_Type :: enum c.int {
 	Exit,
 }
 
-@(default_calling_convention = "c", link_prefix = "cmark_")
+@(default_calling_convention="c", link_prefix="cmark_")
 foreign lib {
 	// Creates a new iterator starting at 'root'.  The current node and event
 	// type are undefined until `iter_next` is called for the first time.
@@ -273,7 +278,7 @@ foreign lib {
 }
 
 // Accessors
-@(default_calling_convention = "c", link_prefix = "cmark_")
+@(default_calling_convention="c", link_prefix="cmark_")
 foreign lib {
 	// Returns the user data of `node`.
 	node_get_user_data :: proc(node: ^Node) -> (user_data: rawptr) ---
@@ -378,7 +383,7 @@ foreign lib {
 }
 
 // Tree Manipulation
-@(default_calling_convention = "c", link_prefix = "cmark_")
+@(default_calling_convention="c", link_prefix="cmark_")
 foreign lib {
 	// Unlinks a `node`, removing it from the tree, but not freeing its memory.
 	// (Use `node_free` for that.)
@@ -409,7 +414,7 @@ foreign lib {
 
 Parser :: distinct rawptr
 
-@(default_calling_convention = "c", link_prefix = "cmark_")
+@(default_calling_convention="c", link_prefix="cmark_")
 foreign lib {
 	// Creates a new parser object.
 	parser_new :: proc(options: Options) -> (parser: ^Parser) ---
@@ -449,7 +454,7 @@ parse_document_from_string :: proc "c" (s: string, options: Options) -> (root: ^
 }
 
 // Rendering
-@(default_calling_convention = "c", link_prefix = "cmark_")
+@(default_calling_convention="c", link_prefix="cmark_")
 foreign lib {
 	// Render a `node` tree as XML.
 	// It is the caller's responsibilityto free the returned buffer.
@@ -484,24 +489,13 @@ free_cstring :: proc "c" (str: cstring) {
 free_string :: proc "c" (s: string) {
 	free_rawptr(raw_data(s))
 }
-free :: proc {
-	free_rawptr,
-	free_cstring,
-}
+free :: proc{free_rawptr, free_cstring}
 
 // Wrap CMark allocator as Odin allocator
 @(private)
-cmark_allocator_proc :: proc(
-	allocator_data: rawptr,
-	mode: runtime.Allocator_Mode,
-	size, alignment: int,
-	old_memory: rawptr,
-	old_size: int,
-	loc := #caller_location,
-) -> (
-	res: []byte,
-	err: runtime.Allocator_Error,
-) {
+cmark_allocator_proc :: proc(allocator_data: rawptr, mode: runtime.Allocator_Mode,
+                             size, alignment: int,
+                             old_memory: rawptr, old_size: int, loc := #caller_location) -> (res: []byte, err: runtime.Allocator_Error) {
 
 	cmark_alloc := cast(^Allocator)allocator_data
 	switch mode {
@@ -538,5 +532,8 @@ cmark_allocator_proc :: proc(
 }
 
 get_default_mem_allocator_as_odin :: proc() -> runtime.Allocator {
-	return runtime.Allocator{procedure = cmark_allocator_proc, data = rawptr(get_default_mem_allocator())}
+	return runtime.Allocator{
+		procedure = cmark_allocator_proc,
+		data = rawptr(get_default_mem_allocator()),
+	}
 }

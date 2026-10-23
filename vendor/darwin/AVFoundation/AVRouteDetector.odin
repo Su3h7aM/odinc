@@ -2,33 +2,29 @@
 #+build darwin
 package darwin_AVFoundation
 
-import "base:intrinsics"
 import NS "core:sys/darwin/Foundation"
+import "base:intrinsics"
 
-@(objc_class = "AVRouteDetector", objc_superclass = NS.Object)
-RouteDetector :: struct {
-	using _: NS.Object,
-}
+@(objc_class="AVRouteDetector", objc_superclass=NS.Object)
+RouteDetector :: struct { using _: NS.Object}
 
 foreign lib {
-	@(objc_type = RouteDetector, objc_selector = "isRouteDetectionEnabled", objc_name = "isRouteDetectionEnabled")
+	@(objc_type=RouteDetector, objc_selector="isRouteDetectionEnabled", objc_name="isRouteDetectionEnabled")
 	RouteDetector_isRouteDetectionEnabled :: proc(self: ^RouteDetector) -> bool ---
 
-	@(objc_type = RouteDetector, objc_selector = "setRouteDetectionEnabled:", objc_name = "setRouteDetectionEnabled")
+	@(objc_type=RouteDetector, objc_selector="setRouteDetectionEnabled:", objc_name="setRouteDetectionEnabled")
 	RouteDetector_setRouteDetectionEnabled :: proc(self: ^RouteDetector, routeDetectionEnabled: bool) ---
 
-	@(objc_type = RouteDetector, objc_selector = "multipleRoutesDetected", objc_name = "multipleRoutesDetected")
+	@(objc_type=RouteDetector, objc_selector="multipleRoutesDetected", objc_name="multipleRoutesDetected")
 	RouteDetector_multipleRoutesDetected :: proc(self: ^RouteDetector) -> bool ---
 
-	@(objc_type = RouteDetector, objc_selector = "detectsCustomRoutes", objc_name = "detectsCustomRoutes")
+	@(objc_type=RouteDetector, objc_selector="detectsCustomRoutes", objc_name="detectsCustomRoutes")
 	RouteDetector_detectsCustomRoutes :: proc(self: ^RouteDetector) -> bool ---
 
-	@(objc_type = RouteDetector, objc_selector = "setDetectsCustomRoutes:", objc_name = "setDetectsCustomRoutes")
+	@(objc_type=RouteDetector, objc_selector="setDetectsCustomRoutes:", objc_name="setDetectsCustomRoutes")
 	RouteDetector_setDetectsCustomRoutes :: proc(self: ^RouteDetector, detectsCustomRoutes: bool) ---
 }
 
 
-@(objc_class = "AVRouteDetectorInternal")
-RouteDetectorInternal :: struct {
-	using _: intrinsics.objc_object,
-}
+@(objc_class="AVRouteDetectorInternal")
+RouteDetectorInternal :: struct { using _: intrinsics.objc_object}

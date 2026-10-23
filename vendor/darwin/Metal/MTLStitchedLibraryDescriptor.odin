@@ -4,34 +4,34 @@ package darwin_Metal
 
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class = "MTLStitchedLibraryDescriptor", objc_superclass = NS.Object)
+@(objc_class="MTLStitchedLibraryDescriptor", objc_superclass=NS.Object)
 StitchedLibraryDescriptor :: struct {
 	using _: NS.Object,
 	using _: NS.Copying,
 }
 
 foreign lib {
-	@(objc_type = StitchedLibraryDescriptor, objc_selector = "functionGraphs", objc_name = "functionGraphs")
+	@(objc_type=StitchedLibraryDescriptor, objc_selector="functionGraphs", objc_name="functionGraphs")
 	StitchedLibraryDescriptor_functionGraphs :: proc(self: ^StitchedLibraryDescriptor) -> ^NS.Array ---
 
-	@(objc_type = StitchedLibraryDescriptor, objc_selector = "setFunctionGraphs:", objc_name = "setFunctionGraphs")
+	@(objc_type=StitchedLibraryDescriptor, objc_selector="setFunctionGraphs:", objc_name="setFunctionGraphs")
 	StitchedLibraryDescriptor_setFunctionGraphs :: proc(self: ^StitchedLibraryDescriptor, functionGraphs: ^NS.Array) ---
 
-	@(objc_type = StitchedLibraryDescriptor, objc_selector = "functions", objc_name = "functions")
+	@(objc_type=StitchedLibraryDescriptor, objc_selector="functions", objc_name="functions")
 	StitchedLibraryDescriptor_functions :: proc(self: ^StitchedLibraryDescriptor) -> ^NS.Array ---
 
-	@(objc_type = StitchedLibraryDescriptor, objc_selector = "setFunctions:", objc_name = "setFunctions")
+	@(objc_type=StitchedLibraryDescriptor, objc_selector="setFunctions:", objc_name="setFunctions")
 	StitchedLibraryDescriptor_setFunctions :: proc(self: ^StitchedLibraryDescriptor, functions: ^NS.Array) ---
 
-	@(objc_type = StitchedLibraryDescriptor, objc_selector = "binaryArchives", objc_name = "binaryArchives")
+	@(objc_type=StitchedLibraryDescriptor, objc_selector="binaryArchives", objc_name="binaryArchives")
 	StitchedLibraryDescriptor_binaryArchives :: proc(self: ^StitchedLibraryDescriptor) -> ^NS.Array ---
 
-	@(objc_type = StitchedLibraryDescriptor, objc_selector = "setBinaryArchives:", objc_name = "setBinaryArchives")
+	@(objc_type=StitchedLibraryDescriptor, objc_selector="setBinaryArchives:", objc_name="setBinaryArchives")
 	StitchedLibraryDescriptor_setBinaryArchives :: proc(self: ^StitchedLibraryDescriptor, binaryArchives: ^NS.Array) ---
 
-	@(objc_type = StitchedLibraryDescriptor, objc_selector = "options", objc_name = "options")
+	@(objc_type=StitchedLibraryDescriptor, objc_selector="options", objc_name="options")
 	StitchedLibraryDescriptor_options :: proc(self: ^StitchedLibraryDescriptor) -> StitchedLibraryOptions ---
 
-	@(objc_type = StitchedLibraryDescriptor, objc_selector = "setOptions:", objc_name = "setOptions")
+	@(objc_type=StitchedLibraryDescriptor, objc_selector="setOptions:", objc_name="setOptions")
 	StitchedLibraryDescriptor_setOptions :: proc(self: ^StitchedLibraryDescriptor, options: StitchedLibraryOptions) ---
 }

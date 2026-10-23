@@ -14,7 +14,7 @@ AccelerationStructureCompatibilityKHR :: enum c.int {
 	INCOMPATIBLE = 1,
 }
 
-AccelerationStructureCreateFlagsKHR :: distinct bit_set[AccelerationStructureCreateFlagKHR;Flags]
+AccelerationStructureCreateFlagsKHR :: distinct bit_set[AccelerationStructureCreateFlagKHR; Flags]
 AccelerationStructureCreateFlagKHR :: enum Flags {
 	DEVICE_ADDRESS_CAPTURE_REPLAY        = 0,
 	DESCRIPTOR_BUFFER_CAPTURE_REPLAY_EXT = 3,
@@ -46,7 +46,7 @@ AccelerationStructureTypeKHR :: enum c.int {
 	BOTTOM_LEVEL_NV  = BOTTOM_LEVEL,
 }
 
-AccessFlags :: distinct bit_set[AccessFlag;Flags]
+AccessFlags :: distinct bit_set[AccessFlag; Flags]
 AccessFlag :: enum Flags {
 	INDIRECT_COMMAND_READ                     = 0,
 	INDEX_READ                                = 1,
@@ -86,10 +86,11 @@ AccessFlag :: enum Flags {
 AccessFlags_NONE :: AccessFlags{}
 
 
-AcquireProfilingLockFlagsKHR :: distinct bit_set[AcquireProfilingLockFlagKHR;Flags]
-AcquireProfilingLockFlagKHR :: enum Flags {}
+AcquireProfilingLockFlagsKHR :: distinct bit_set[AcquireProfilingLockFlagKHR; Flags]
+AcquireProfilingLockFlagKHR :: enum Flags {
+}
 
-AddressCommandFlagsKHR :: distinct bit_set[AddressCommandFlagKHR;Flags]
+AddressCommandFlagsKHR :: distinct bit_set[AddressCommandFlagKHR; Flags]
 AddressCommandFlagKHR :: enum Flags {
 	PROTECTED                               = 0,
 	FULLY_BOUND                             = 1,
@@ -99,7 +100,7 @@ AddressCommandFlagKHR :: enum Flags {
 	UNKNOWN_TRANSFORM_FEEDBACK_BUFFER_USAGE = 5,
 }
 
-AddressCopyFlagsKHR :: distinct bit_set[AddressCopyFlagKHR;Flags]
+AddressCopyFlagsKHR :: distinct bit_set[AddressCopyFlagKHR; Flags]
 AddressCopyFlagKHR :: enum Flags {
 	DEVICE_LOCAL = 0,
 	SPARSE       = 1,
@@ -117,7 +118,7 @@ AntiLagStageAMD :: enum c.int {
 	PRESENT = 1,
 }
 
-AttachmentDescriptionFlags :: distinct bit_set[AttachmentDescriptionFlag;Flags]
+AttachmentDescriptionFlags :: distinct bit_set[AttachmentDescriptionFlag; Flags]
 AttachmentDescriptionFlag :: enum Flags {
 	MAY_ALIAS                            = 0,
 	RESOLVE_SKIP_TRANSFER_FUNCTION_KHR   = 1,
@@ -235,7 +236,7 @@ BorderColor :: enum c.int {
 	INT_CUSTOM_EXT          = 1000287004,
 }
 
-BufferCreateFlags :: distinct bit_set[BufferCreateFlag;Flags]
+BufferCreateFlags :: distinct bit_set[BufferCreateFlag; Flags]
 BufferCreateFlag :: enum Flags {
 	SPARSE_BINDING                       = 0,
 	SPARSE_RESIDENCY                     = 1,
@@ -248,7 +249,7 @@ BufferCreateFlag :: enum Flags {
 	DEVICE_ADDRESS_CAPTURE_REPLAY_KHR    = DEVICE_ADDRESS_CAPTURE_REPLAY,
 }
 
-BufferUsageFlags :: distinct bit_set[BufferUsageFlag;Flags]
+BufferUsageFlags :: distinct bit_set[BufferUsageFlag; Flags]
 BufferUsageFlag :: enum Flags {
 	TRANSFER_SRC                                     = 0,
 	TRANSFER_DST                                     = 1,
@@ -283,7 +284,7 @@ BufferUsageFlag :: enum Flags {
 	SHADER_DEVICE_ADDRESS_KHR                        = SHADER_DEVICE_ADDRESS,
 }
 
-BuildAccelerationStructureFlagsKHR :: distinct bit_set[BuildAccelerationStructureFlagKHR;Flags]
+BuildAccelerationStructureFlagsKHR :: distinct bit_set[BuildAccelerationStructureFlagKHR; Flags]
 BuildAccelerationStructureFlagKHR :: enum Flags {
 	ALLOW_UPDATE                           = 0,
 	ALLOW_COMPACTION                       = 1,
@@ -312,7 +313,7 @@ BuildAccelerationStructureModeKHR :: enum c.int {
 	UPDATE = 1,
 }
 
-BuildMicromapFlagsEXT :: distinct bit_set[BuildMicromapFlagEXT;Flags]
+BuildMicromapFlagsEXT :: distinct bit_set[BuildMicromapFlagEXT; Flags]
 BuildMicromapFlagEXT :: enum Flags {
 	PREFER_FAST_TRACE = 0,
 	PREFER_FAST_BUILD = 1,
@@ -330,7 +331,7 @@ ChromaLocation :: enum c.int {
 	MIDPOINT_KHR     = MIDPOINT,
 }
 
-ClusterAccelerationStructureAddressResolutionFlagsNV :: distinct bit_set[ClusterAccelerationStructureAddressResolutionFlagNV;Flags]
+ClusterAccelerationStructureAddressResolutionFlagsNV :: distinct bit_set[ClusterAccelerationStructureAddressResolutionFlagNV; Flags]
 ClusterAccelerationStructureAddressResolutionFlagNV :: enum Flags {
 	INDIRECTED_DST_IMPLICIT_DATA = 0,
 	INDIRECTED_SCRATCH_DATA      = 1,
@@ -343,19 +344,19 @@ ClusterAccelerationStructureAddressResolutionFlagNV :: enum Flags {
 ClusterAccelerationStructureAddressResolutionFlagsNV_NONE :: ClusterAccelerationStructureAddressResolutionFlagsNV{}
 
 
-ClusterAccelerationStructureClusterFlagsNV :: distinct bit_set[ClusterAccelerationStructureClusterFlagNV;Flags]
+ClusterAccelerationStructureClusterFlagsNV :: distinct bit_set[ClusterAccelerationStructureClusterFlagNV; Flags]
 ClusterAccelerationStructureClusterFlagNV :: enum Flags {
 	ALLOW_DISABLE_OPACITY_MICROMAPS = 0,
 }
 
-ClusterAccelerationStructureGeometryFlagsNV :: distinct bit_set[ClusterAccelerationStructureGeometryFlagNV;Flags]
+ClusterAccelerationStructureGeometryFlagsNV :: distinct bit_set[ClusterAccelerationStructureGeometryFlagNV; Flags]
 ClusterAccelerationStructureGeometryFlagNV :: enum Flags {
 	CULL_DISABLE                   = 0,
 	NO_DUPLICATE_ANYHIT_INVOCATION = 1,
 	OPAQUE                         = 2,
 }
 
-ClusterAccelerationStructureIndexFormatFlagsNV :: distinct bit_set[ClusterAccelerationStructureIndexFormatFlagNV;Flags]
+ClusterAccelerationStructureIndexFormatFlagsNV :: distinct bit_set[ClusterAccelerationStructureIndexFormatFlagNV; Flags]
 ClusterAccelerationStructureIndexFormatFlagNV :: enum Flags {
 	_8BIT  = 0,
 	_16BIT = 1,
@@ -390,7 +391,7 @@ CoarseSampleOrderTypeNV :: enum c.int {
 	SAMPLE_MAJOR = 3,
 }
 
-ColorComponentFlags :: distinct bit_set[ColorComponentFlag;Flags]
+ColorComponentFlags :: distinct bit_set[ColorComponentFlag; Flags]
 ColorComponentFlag :: enum Flags {
 	R = 0,
 	G = 1,
@@ -424,26 +425,26 @@ CommandBufferLevel :: enum c.int {
 	SECONDARY = 1,
 }
 
-CommandBufferResetFlags :: distinct bit_set[CommandBufferResetFlag;Flags]
+CommandBufferResetFlags :: distinct bit_set[CommandBufferResetFlag; Flags]
 CommandBufferResetFlag :: enum Flags {
 	RELEASE_RESOURCES = 0,
 }
 
-CommandBufferUsageFlags :: distinct bit_set[CommandBufferUsageFlag;Flags]
+CommandBufferUsageFlags :: distinct bit_set[CommandBufferUsageFlag; Flags]
 CommandBufferUsageFlag :: enum Flags {
 	ONE_TIME_SUBMIT      = 0,
 	RENDER_PASS_CONTINUE = 1,
 	SIMULTANEOUS_USE     = 2,
 }
 
-CommandPoolCreateFlags :: distinct bit_set[CommandPoolCreateFlag;Flags]
+CommandPoolCreateFlags :: distinct bit_set[CommandPoolCreateFlag; Flags]
 CommandPoolCreateFlag :: enum Flags {
 	TRANSIENT            = 0,
 	RESET_COMMAND_BUFFER = 1,
 	PROTECTED            = 2,
 }
 
-CommandPoolResetFlags :: distinct bit_set[CommandPoolResetFlag;Flags]
+CommandPoolResetFlags :: distinct bit_set[CommandPoolResetFlag; Flags]
 CommandPoolResetFlag :: enum Flags {
 	RELEASE_RESOURCES = 0,
 }
@@ -501,7 +502,7 @@ ComponentTypeKHR :: enum c.int {
 	FLOAT_E5M2_NV   = FLOAT8_E5M2_EXT,
 }
 
-CompositeAlphaFlagsKHR :: distinct bit_set[CompositeAlphaFlagKHR;Flags]
+CompositeAlphaFlagsKHR :: distinct bit_set[CompositeAlphaFlagKHR; Flags]
 CompositeAlphaFlagKHR :: enum Flags {
 	OPAQUE          = 0,
 	PRE_MULTIPLIED  = 1,
@@ -513,7 +514,7 @@ CompressedTriangleFormatAMDX :: enum c.int {
 	COMPRESSED_TRIANGLE_FORMAT_DGF1_AMDX = 0,
 }
 
-ConditionalRenderingFlagsEXT :: distinct bit_set[ConditionalRenderingFlagEXT;Flags]
+ConditionalRenderingFlagsEXT :: distinct bit_set[ConditionalRenderingFlagEXT; Flags]
 ConditionalRenderingFlagEXT :: enum Flags {
 	INVERTED = 0,
 }
@@ -566,7 +567,7 @@ CubicFilterWeightsQCOM :: enum c.int {
 	MITCHELL_NETRAVALI    = 3,
 }
 
-CullModeFlags :: distinct bit_set[CullModeFlag;Flags]
+CullModeFlags :: distinct bit_set[CullModeFlag; Flags]
 CullModeFlag :: enum Flags {
 	FRONT = 0,
 	BACK  = 1,
@@ -580,14 +581,14 @@ DataGraphModelCacheTypeQCOM :: enum c.int {
 	GENERIC_BINARY = 0,
 }
 
-DataGraphOpticalFlowCreateFlagsARM :: distinct bit_set[DataGraphOpticalFlowCreateFlagARM;Flags]
+DataGraphOpticalFlowCreateFlagsARM :: distinct bit_set[DataGraphOpticalFlowCreateFlagARM; Flags]
 DataGraphOpticalFlowCreateFlagARM :: enum Flags {
 	ENABLE_HINT = 0,
 	ENABLE_COST = 1,
 	RESERVED_30 = 30,
 }
 
-DataGraphOpticalFlowExecuteFlagsARM :: distinct bit_set[DataGraphOpticalFlowExecuteFlagARM;Flags]
+DataGraphOpticalFlowExecuteFlagsARM :: distinct bit_set[DataGraphOpticalFlowExecuteFlagARM; Flags]
 DataGraphOpticalFlowExecuteFlagARM :: enum Flags {
 	DISABLE_TEMPORAL_HINTS      = 0,
 	INPUT_UNCHANGED             = 1,
@@ -596,7 +597,7 @@ DataGraphOpticalFlowExecuteFlagARM :: enum Flags {
 	REFERENCE_IS_PREVIOUS_INPUT = 4,
 }
 
-DataGraphOpticalFlowGridSizeFlagsARM :: distinct bit_set[DataGraphOpticalFlowGridSizeFlagARM;Flags]
+DataGraphOpticalFlowGridSizeFlagsARM :: distinct bit_set[DataGraphOpticalFlowGridSizeFlagARM; Flags]
 DataGraphOpticalFlowGridSizeFlagARM :: enum Flags {
 	_1X1 = 0,
 	_2X2 = 1,
@@ -607,7 +608,7 @@ DataGraphOpticalFlowGridSizeFlagARM :: enum Flags {
 DataGraphOpticalFlowGridSizeFlagsARM_UNKNOWN :: DataGraphOpticalFlowGridSizeFlagsARM{}
 
 
-DataGraphOpticalFlowImageUsageFlagsARM :: distinct bit_set[DataGraphOpticalFlowImageUsageFlagARM;Flags]
+DataGraphOpticalFlowImageUsageFlagsARM :: distinct bit_set[DataGraphOpticalFlowImageUsageFlagARM; Flags]
 DataGraphOpticalFlowImageUsageFlagARM :: enum Flags {
 	INPUT  = 0,
 	OUTPUT = 1,
@@ -659,7 +660,7 @@ DataGraphTOSALevelARM :: enum c.int {
 	_8K  = 1,
 }
 
-DataGraphTOSAQualityFlagsARM :: distinct bit_set[DataGraphTOSAQualityFlagARM;Flags]
+DataGraphTOSAQualityFlagsARM :: distinct bit_set[DataGraphTOSAQualityFlagARM; Flags]
 DataGraphTOSAQualityFlagARM :: enum Flags {
 	ACCELERATED  = 0,
 	CONFORMANT   = 1,
@@ -667,7 +668,7 @@ DataGraphTOSAQualityFlagARM :: enum Flags {
 	DEPRECATED   = 3,
 }
 
-DebugReportFlagsEXT :: distinct bit_set[DebugReportFlagEXT;Flags]
+DebugReportFlagsEXT :: distinct bit_set[DebugReportFlagEXT; Flags]
 DebugReportFlagEXT :: enum Flags {
 	INFORMATION         = 0,
 	WARNING             = 1,
@@ -724,7 +725,7 @@ DebugReportObjectTypeEXT :: enum c.int {
 	SAMPLER_YCBCR_CONVERSION_KHR   = SAMPLER_YCBCR_CONVERSION,
 }
 
-DebugUtilsMessageSeverityFlagsEXT :: distinct bit_set[DebugUtilsMessageSeverityFlagEXT;Flags]
+DebugUtilsMessageSeverityFlagsEXT :: distinct bit_set[DebugUtilsMessageSeverityFlagEXT; Flags]
 DebugUtilsMessageSeverityFlagEXT :: enum Flags {
 	VERBOSE = 0,
 	INFO    = 4,
@@ -732,7 +733,7 @@ DebugUtilsMessageSeverityFlagEXT :: enum Flags {
 	ERROR   = 12,
 }
 
-DebugUtilsMessageTypeFlagsEXT :: distinct bit_set[DebugUtilsMessageTypeFlagEXT;Flags]
+DebugUtilsMessageTypeFlagsEXT :: distinct bit_set[DebugUtilsMessageTypeFlagEXT; Flags]
 DebugUtilsMessageTypeFlagEXT :: enum Flags {
 	GENERAL                = 0,
 	VALIDATION             = 1,
@@ -745,7 +746,7 @@ DefaultVertexAttributeValueKHR :: enum c.int {
 	ZERO_ZERO_ZERO_ONE  = 1,
 }
 
-DependencyFlags :: distinct bit_set[DependencyFlag;Flags]
+DependencyFlags :: distinct bit_set[DependencyFlag; Flags]
 DependencyFlag :: enum Flags {
 	BY_REGION                                          = 0,
 	DEVICE_GROUP                                       = 2,
@@ -768,7 +769,7 @@ DepthClampModeEXT :: enum c.int {
 	USER_DEFINED_RANGE = 1,
 }
 
-DescriptorBindingFlags :: distinct bit_set[DescriptorBindingFlag;Flags]
+DescriptorBindingFlags :: distinct bit_set[DescriptorBindingFlag; Flags]
 DescriptorBindingFlag :: enum Flags {
 	UPDATE_AFTER_BIND               = 0,
 	UPDATE_UNUSED_WHILE_PENDING     = 1,
@@ -794,7 +795,7 @@ DescriptorMappingSourceEXT :: enum c.int {
 	SHADER_RECORD_ADDRESS          = 10,
 }
 
-DescriptorPoolCreateFlags :: distinct bit_set[DescriptorPoolCreateFlag;Flags]
+DescriptorPoolCreateFlags :: distinct bit_set[DescriptorPoolCreateFlag; Flags]
 DescriptorPoolCreateFlag :: enum Flags {
 	FREE_DESCRIPTOR_SET           = 0,
 	UPDATE_AFTER_BIND             = 1,
@@ -805,7 +806,7 @@ DescriptorPoolCreateFlag :: enum Flags {
 	HOST_ONLY_VALVE               = HOST_ONLY_EXT,
 }
 
-DescriptorSetLayoutCreateFlags :: distinct bit_set[DescriptorSetLayoutCreateFlag;Flags]
+DescriptorSetLayoutCreateFlags :: distinct bit_set[DescriptorSetLayoutCreateFlag; Flags]
 DescriptorSetLayoutCreateFlag :: enum Flags {
 	UPDATE_AFTER_BIND_POOL          = 1,
 	PUSH_DESCRIPTOR                 = 0,
@@ -850,7 +851,7 @@ DescriptorUpdateTemplateType :: enum c.int {
 	DESCRIPTOR_SET_KHR   = DESCRIPTOR_SET,
 }
 
-DeviceAddressBindingFlagsEXT :: distinct bit_set[DeviceAddressBindingFlagEXT;Flags]
+DeviceAddressBindingFlagsEXT :: distinct bit_set[DeviceAddressBindingFlagEXT; Flags]
 DeviceAddressBindingFlagEXT :: enum Flags {
 	INTERNAL_OBJECT = 0,
 }
@@ -860,7 +861,7 @@ DeviceAddressBindingTypeEXT :: enum c.int {
 	UNBIND = 1,
 }
 
-DeviceDiagnosticsConfigFlagsNV :: distinct bit_set[DeviceDiagnosticsConfigFlagNV;Flags]
+DeviceDiagnosticsConfigFlagsNV :: distinct bit_set[DeviceDiagnosticsConfigFlagNV; Flags]
 DeviceDiagnosticsConfigFlagNV :: enum Flags {
 	ENABLE_SHADER_DEBUG_INFO      = 0,
 	ENABLE_RESOURCE_TRACKING      = 1,
@@ -888,7 +889,7 @@ DeviceFaultAddressTypeKHR :: enum c.int {
 	INSTRUCTION_POINTER_FAULT_EXT   = INSTRUCTION_POINTER_FAULT,
 }
 
-DeviceFaultFlagsKHR :: distinct bit_set[DeviceFaultFlagKHR;Flags]
+DeviceFaultFlagsKHR :: distinct bit_set[DeviceFaultFlagKHR; Flags]
 DeviceFaultFlagKHR :: enum Flags {
 	FLAG_DEVICE_LOST         = 0,
 	FLAG_MEMORY_ADDRESS      = 1,
@@ -903,7 +904,7 @@ DeviceFaultVendorBinaryHeaderVersionKHR :: enum c.int {
 	ONE_EXT = ONE,
 }
 
-DeviceGroupPresentModeFlagsKHR :: distinct bit_set[DeviceGroupPresentModeFlagKHR;Flags]
+DeviceGroupPresentModeFlagsKHR :: distinct bit_set[DeviceGroupPresentModeFlagKHR; Flags]
 DeviceGroupPresentModeFlagKHR :: enum Flags {
 	LOCAL              = 0,
 	REMOTE             = 1,
@@ -919,7 +920,7 @@ DeviceMemoryReportEventTypeEXT :: enum c.int {
 	ALLOCATION_FAILED = 4,
 }
 
-DeviceQueueCreateFlags :: distinct bit_set[DeviceQueueCreateFlag;Flags]
+DeviceQueueCreateFlags :: distinct bit_set[DeviceQueueCreateFlag; Flags]
 DeviceQueueCreateFlag :: enum Flags {
 	PROTECTED                   = 0,
 	INTERNALLY_SYNCHRONIZED_KHR = 2,
@@ -945,7 +946,7 @@ DisplayEventTypeEXT :: enum c.int {
 	FIRST_PIXEL_OUT = 0,
 }
 
-DisplayPlaneAlphaFlagsKHR :: distinct bit_set[DisplayPlaneAlphaFlagKHR;Flags]
+DisplayPlaneAlphaFlagsKHR :: distinct bit_set[DisplayPlaneAlphaFlagKHR; Flags]
 DisplayPlaneAlphaFlagKHR :: enum Flags {
 	OPAQUE                  = 0,
 	GLOBAL                  = 1,
@@ -1104,13 +1105,13 @@ DynamicState :: enum c.int {
 	LINE_STIPPLE_KHR                        = LINE_STIPPLE,
 }
 
-EventCreateFlags :: distinct bit_set[EventCreateFlag;Flags]
+EventCreateFlags :: distinct bit_set[EventCreateFlag; Flags]
 EventCreateFlag :: enum Flags {
 	DEVICE_ONLY     = 0,
 	DEVICE_ONLY_KHR = DEVICE_ONLY,
 }
 
-ExportMetalObjectTypeFlagsEXT :: distinct bit_set[ExportMetalObjectTypeFlagEXT;Flags]
+ExportMetalObjectTypeFlagsEXT :: distinct bit_set[ExportMetalObjectTypeFlagEXT; Flags]
 ExportMetalObjectTypeFlagEXT :: enum Flags {
 	METAL_DEVICE        = 0,
 	METAL_COMMAND_QUEUE = 1,
@@ -1120,7 +1121,7 @@ ExportMetalObjectTypeFlagEXT :: enum Flags {
 	METAL_SHARED_EVENT  = 5,
 }
 
-ExternalFenceFeatureFlags :: distinct bit_set[ExternalFenceFeatureFlag;Flags]
+ExternalFenceFeatureFlags :: distinct bit_set[ExternalFenceFeatureFlag; Flags]
 ExternalFenceFeatureFlag :: enum Flags {
 	EXPORTABLE     = 0,
 	IMPORTABLE     = 1,
@@ -1128,7 +1129,7 @@ ExternalFenceFeatureFlag :: enum Flags {
 	IMPORTABLE_KHR = IMPORTABLE,
 }
 
-ExternalFenceHandleTypeFlags :: distinct bit_set[ExternalFenceHandleTypeFlag;Flags]
+ExternalFenceHandleTypeFlags :: distinct bit_set[ExternalFenceHandleTypeFlag; Flags]
 ExternalFenceHandleTypeFlag :: enum Flags {
 	OPAQUE_FD            = 0,
 	OPAQUE_WIN32         = 1,
@@ -1140,7 +1141,7 @@ ExternalFenceHandleTypeFlag :: enum Flags {
 	SYNC_FD_KHR          = SYNC_FD,
 }
 
-ExternalMemoryFeatureFlags :: distinct bit_set[ExternalMemoryFeatureFlag;Flags]
+ExternalMemoryFeatureFlags :: distinct bit_set[ExternalMemoryFeatureFlag; Flags]
 ExternalMemoryFeatureFlag :: enum Flags {
 	DEDICATED_ONLY     = 0,
 	EXPORTABLE         = 1,
@@ -1150,14 +1151,14 @@ ExternalMemoryFeatureFlag :: enum Flags {
 	IMPORTABLE_KHR     = IMPORTABLE,
 }
 
-ExternalMemoryFeatureFlagsNV :: distinct bit_set[ExternalMemoryFeatureFlagNV;Flags]
+ExternalMemoryFeatureFlagsNV :: distinct bit_set[ExternalMemoryFeatureFlagNV; Flags]
 ExternalMemoryFeatureFlagNV :: enum Flags {
 	DEDICATED_ONLY = 0,
 	EXPORTABLE     = 1,
 	IMPORTABLE     = 2,
 }
 
-ExternalMemoryHandleTypeFlags :: distinct bit_set[ExternalMemoryHandleTypeFlag;Flags]
+ExternalMemoryHandleTypeFlags :: distinct bit_set[ExternalMemoryHandleTypeFlag; Flags]
 ExternalMemoryHandleTypeFlag :: enum Flags {
 	OPAQUE_FD                       = 0,
 	OPAQUE_WIN32                    = 1,
@@ -1186,7 +1187,7 @@ ExternalMemoryHandleTypeFlag :: enum Flags {
 	D3D12_RESOURCE_KHR              = D3D12_RESOURCE,
 }
 
-ExternalMemoryHandleTypeFlagsNV :: distinct bit_set[ExternalMemoryHandleTypeFlagNV;Flags]
+ExternalMemoryHandleTypeFlagsNV :: distinct bit_set[ExternalMemoryHandleTypeFlagNV; Flags]
 ExternalMemoryHandleTypeFlagNV :: enum Flags {
 	OPAQUE_WIN32     = 0,
 	OPAQUE_WIN32_KMT = 1,
@@ -1194,7 +1195,7 @@ ExternalMemoryHandleTypeFlagNV :: enum Flags {
 	D3D11_IMAGE_KMT  = 3,
 }
 
-ExternalSemaphoreFeatureFlags :: distinct bit_set[ExternalSemaphoreFeatureFlag;Flags]
+ExternalSemaphoreFeatureFlags :: distinct bit_set[ExternalSemaphoreFeatureFlag; Flags]
 ExternalSemaphoreFeatureFlag :: enum Flags {
 	EXPORTABLE     = 0,
 	IMPORTABLE     = 1,
@@ -1202,7 +1203,7 @@ ExternalSemaphoreFeatureFlag :: enum Flags {
 	IMPORTABLE_KHR = IMPORTABLE,
 }
 
-ExternalSemaphoreHandleTypeFlags :: distinct bit_set[ExternalSemaphoreHandleTypeFlag;Flags]
+ExternalSemaphoreHandleTypeFlags :: distinct bit_set[ExternalSemaphoreHandleTypeFlag; Flags]
 ExternalSemaphoreHandleTypeFlag :: enum Flags {
 	OPAQUE_FD            = 0,
 	OPAQUE_WIN32         = 1,
@@ -1218,12 +1219,12 @@ ExternalSemaphoreHandleTypeFlag :: enum Flags {
 	SYNC_FD_KHR          = SYNC_FD,
 }
 
-FenceCreateFlags :: distinct bit_set[FenceCreateFlag;Flags]
+FenceCreateFlags :: distinct bit_set[FenceCreateFlag; Flags]
 FenceCreateFlag :: enum Flags {
 	SIGNALED = 0,
 }
 
-FenceImportFlags :: distinct bit_set[FenceImportFlag;Flags]
+FenceImportFlags :: distinct bit_set[FenceImportFlag; Flags]
 FenceImportFlag :: enum Flags {
 	TEMPORARY     = 0,
 	TEMPORARY_KHR = TEMPORARY,
@@ -1594,7 +1595,7 @@ Format :: enum c.int {
 	A8_UNORM_KHR                                   = A8_UNORM,
 }
 
-FormatFeatureFlags :: distinct bit_set[FormatFeatureFlag;Flags]
+FormatFeatureFlags :: distinct bit_set[FormatFeatureFlag; Flags]
 FormatFeatureFlag :: enum Flags {
 	SAMPLED_IMAGE                                                               = 0,
 	STORAGE_IMAGE                                                               = 1,
@@ -1668,12 +1669,12 @@ FragmentShadingRateTypeNV :: enum c.int {
 	ENUMS         = 1,
 }
 
-FrameBoundaryFlagsEXT :: distinct bit_set[FrameBoundaryFlagEXT;Flags]
+FrameBoundaryFlagsEXT :: distinct bit_set[FrameBoundaryFlagEXT; Flags]
 FrameBoundaryFlagEXT :: enum Flags {
 	FRAME_END = 0,
 }
 
-FramebufferCreateFlags :: distinct bit_set[FramebufferCreateFlag;Flags]
+FramebufferCreateFlags :: distinct bit_set[FramebufferCreateFlag; Flags]
 FramebufferCreateFlag :: enum Flags {
 	IMAGELESS     = 0,
 	IMAGELESS_KHR = IMAGELESS,
@@ -1691,7 +1692,7 @@ FullScreenExclusiveEXT :: enum c.int {
 	APPLICATION_CONTROLLED = 3,
 }
 
-GeometryFlagsKHR :: distinct bit_set[GeometryFlagKHR;Flags]
+GeometryFlagsKHR :: distinct bit_set[GeometryFlagKHR; Flags]
 GeometryFlagKHR :: enum Flags {
 	OPAQUE                             = 0,
 	NO_DUPLICATE_ANY_HIT_INVOCATION    = 1,
@@ -1699,7 +1700,7 @@ GeometryFlagKHR :: enum Flags {
 	NO_DUPLICATE_ANY_HIT_INVOCATION_NV = NO_DUPLICATE_ANY_HIT_INVOCATION,
 }
 
-GeometryInstanceFlagsKHR :: distinct bit_set[GeometryInstanceFlagKHR;Flags]
+GeometryInstanceFlagsKHR :: distinct bit_set[GeometryInstanceFlagKHR; Flags]
 GeometryInstanceFlagKHR :: enum Flags {
 	TRIANGLE_FACING_CULL_DISABLE       = 0,
 	TRIANGLE_FLIP_FACING               = 1,
@@ -1805,7 +1806,7 @@ GpaSampleTypeAMD :: enum c.int {
 	TIMING     = 2,
 }
 
-GpaSqShaderStageFlagsAMD :: distinct bit_set[GpaSqShaderStageFlagAMD;Flags]
+GpaSqShaderStageFlagsAMD :: distinct bit_set[GpaSqShaderStageFlagAMD; Flags]
 GpaSqShaderStageFlagAMD :: enum Flags {
 	PS = 0,
 	VS = 1,
@@ -1816,7 +1817,7 @@ GpaSqShaderStageFlagAMD :: enum Flags {
 	CS = 6,
 }
 
-GraphicsPipelineLibraryFlagsEXT :: distinct bit_set[GraphicsPipelineLibraryFlagEXT;Flags]
+GraphicsPipelineLibraryFlagsEXT :: distinct bit_set[GraphicsPipelineLibraryFlagEXT; Flags]
 GraphicsPipelineLibraryFlagEXT :: enum Flags {
 	VERTEX_INPUT_INTERFACE    = 0,
 	PRE_RASTERIZATION_SHADERS = 1,
@@ -1824,13 +1825,13 @@ GraphicsPipelineLibraryFlagEXT :: enum Flags {
 	FRAGMENT_OUTPUT_INTERFACE = 3,
 }
 
-HostImageCopyFlags :: distinct bit_set[HostImageCopyFlag;Flags]
+HostImageCopyFlags :: distinct bit_set[HostImageCopyFlag; Flags]
 HostImageCopyFlag :: enum Flags {
 	MEMCPY     = 0,
 	MEMCPY_EXT = MEMCPY,
 }
 
-ImageAspectFlags :: distinct bit_set[ImageAspectFlag;Flags]
+ImageAspectFlags :: distinct bit_set[ImageAspectFlag; Flags]
 ImageAspectFlag :: enum Flags {
 	COLOR              = 0,
 	DEPTH              = 1,
@@ -1851,7 +1852,7 @@ ImageAspectFlag :: enum Flags {
 ImageAspectFlags_NONE :: ImageAspectFlags{}
 
 
-ImageCompressionFixedRateFlagsEXT :: distinct bit_set[ImageCompressionFixedRateFlagEXT;Flags]
+ImageCompressionFixedRateFlagsEXT :: distinct bit_set[ImageCompressionFixedRateFlagEXT; Flags]
 ImageCompressionFixedRateFlagEXT :: enum Flags {
 	_1BPC  = 0,
 	_2BPC  = 1,
@@ -1882,7 +1883,7 @@ ImageCompressionFixedRateFlagEXT :: enum Flags {
 ImageCompressionFixedRateFlagsEXT_NONE :: ImageCompressionFixedRateFlagsEXT{}
 
 
-ImageCompressionFlagsEXT :: distinct bit_set[ImageCompressionFlagEXT;Flags]
+ImageCompressionFlagsEXT :: distinct bit_set[ImageCompressionFlagEXT; Flags]
 ImageCompressionFlagEXT :: enum Flags {
 	FIXED_RATE_DEFAULT  = 0,
 	FIXED_RATE_EXPLICIT = 1,
@@ -1892,7 +1893,7 @@ ImageCompressionFlagEXT :: enum Flags {
 ImageCompressionFlagsEXT_DEFAULT :: ImageCompressionFlagsEXT{}
 
 
-ImageCreateFlags :: distinct bit_set[ImageCreateFlag;Flags]
+ImageCreateFlags :: distinct bit_set[ImageCreateFlag; Flags]
 ImageCreateFlag :: enum Flags {
 	SPARSE_BINDING                            = 0,
 	SPARSE_RESIDENCY                          = 1,
@@ -1982,7 +1983,7 @@ ImageType :: enum c.int {
 	D3 = 2,
 }
 
-ImageUsageFlags :: distinct bit_set[ImageUsageFlag;Flags]
+ImageUsageFlags :: distinct bit_set[ImageUsageFlag; Flags]
 ImageUsageFlag :: enum Flags {
 	TRANSFER_SRC                            = 0,
 	TRANSFER_DST                            = 1,
@@ -2013,7 +2014,7 @@ ImageUsageFlag :: enum Flags {
 	HOST_TRANSFER_EXT                       = HOST_TRANSFER,
 }
 
-ImageViewCreateFlags :: distinct bit_set[ImageViewCreateFlag;Flags]
+ImageViewCreateFlags :: distinct bit_set[ImageViewCreateFlag; Flags]
 ImageViewCreateFlag :: enum Flags {
 	FRAGMENT_DENSITY_MAP_DYNAMIC_EXT     = 0,
 	DESCRIPTOR_BUFFER_CAPTURE_REPLAY_EXT = 2,
@@ -2040,19 +2041,19 @@ IndexType :: enum c.int {
 	UINT8_KHR = UINT8,
 }
 
-IndirectCommandsInputModeFlagsEXT :: distinct bit_set[IndirectCommandsInputModeFlagEXT;Flags]
+IndirectCommandsInputModeFlagsEXT :: distinct bit_set[IndirectCommandsInputModeFlagEXT; Flags]
 IndirectCommandsInputModeFlagEXT :: enum Flags {
 	VULKAN_INDEX_BUFFER = 0,
 	DXGI_INDEX_BUFFER   = 1,
 }
 
-IndirectCommandsLayoutUsageFlagsEXT :: distinct bit_set[IndirectCommandsLayoutUsageFlagEXT;Flags]
+IndirectCommandsLayoutUsageFlagsEXT :: distinct bit_set[IndirectCommandsLayoutUsageFlagEXT; Flags]
 IndirectCommandsLayoutUsageFlagEXT :: enum Flags {
 	EXPLICIT_PREPROCESS = 0,
 	UNORDERED_SEQUENCES = 1,
 }
 
-IndirectCommandsLayoutUsageFlagsNV :: distinct bit_set[IndirectCommandsLayoutUsageFlagNV;Flags]
+IndirectCommandsLayoutUsageFlagsNV :: distinct bit_set[IndirectCommandsLayoutUsageFlagNV; Flags]
 IndirectCommandsLayoutUsageFlagNV :: enum Flags {
 	EXPLICIT_PREPROCESS = 0,
 	INDEXED_SEQUENCES   = 1,
@@ -2099,12 +2100,12 @@ IndirectExecutionSetInfoTypeEXT :: enum c.int {
 	SHADER_OBJECTS = 1,
 }
 
-IndirectStateFlagsNV :: distinct bit_set[IndirectStateFlagNV;Flags]
+IndirectStateFlagsNV :: distinct bit_set[IndirectStateFlagNV; Flags]
 IndirectStateFlagNV :: enum Flags {
 	FLAG_FRONTFACE = 0,
 }
 
-InstanceCreateFlags :: distinct bit_set[InstanceCreateFlag;Flags]
+InstanceCreateFlags :: distinct bit_set[InstanceCreateFlag; Flags]
 InstanceCreateFlag :: enum Flags {
 	ENUMERATE_PORTABILITY_KHR = 0,
 }
@@ -2178,7 +2179,7 @@ LogicOp :: enum c.int {
 	SET           = 15,
 }
 
-MemoryAllocateFlags :: distinct bit_set[MemoryAllocateFlag;Flags]
+MemoryAllocateFlags :: distinct bit_set[MemoryAllocateFlag; Flags]
 MemoryAllocateFlag :: enum Flags {
 	DEVICE_MASK                       = 0,
 	DEVICE_ADDRESS                    = 1,
@@ -2189,7 +2190,7 @@ MemoryAllocateFlag :: enum Flags {
 	DEVICE_ADDRESS_CAPTURE_REPLAY_KHR = DEVICE_ADDRESS_CAPTURE_REPLAY,
 }
 
-MemoryHeapFlags :: distinct bit_set[MemoryHeapFlag;Flags]
+MemoryHeapFlags :: distinct bit_set[MemoryHeapFlag; Flags]
 MemoryHeapFlag :: enum Flags {
 	DEVICE_LOCAL       = 0,
 	MULTI_INSTANCE     = 1,
@@ -2197,7 +2198,7 @@ MemoryHeapFlag :: enum Flags {
 	MULTI_INSTANCE_KHR = MULTI_INSTANCE,
 }
 
-MemoryMapFlags :: distinct bit_set[MemoryMapFlag;Flags]
+MemoryMapFlags :: distinct bit_set[MemoryMapFlag; Flags]
 MemoryMapFlag :: enum Flags {
 	PLACED_EXT = 0,
 }
@@ -2208,7 +2209,7 @@ MemoryOverallocationBehaviorAMD :: enum c.int {
 	DISALLOWED = 2,
 }
 
-MemoryPropertyFlags :: distinct bit_set[MemoryPropertyFlag;Flags]
+MemoryPropertyFlags :: distinct bit_set[MemoryPropertyFlag; Flags]
 MemoryPropertyFlag :: enum Flags {
 	DEVICE_LOCAL        = 0,
 	HOST_VISIBLE        = 1,
@@ -2221,12 +2222,12 @@ MemoryPropertyFlag :: enum Flags {
 	RDMA_CAPABLE_NV     = 8,
 }
 
-MemoryUnmapFlags :: distinct bit_set[MemoryUnmapFlag;Flags]
+MemoryUnmapFlags :: distinct bit_set[MemoryUnmapFlag; Flags]
 MemoryUnmapFlag :: enum Flags {
 	RESERVE_EXT = 0,
 }
 
-MicromapCreateFlagsEXT :: distinct bit_set[MicromapCreateFlagEXT;Flags]
+MicromapCreateFlagsEXT :: distinct bit_set[MicromapCreateFlagEXT; Flags]
 MicromapCreateFlagEXT :: enum Flags {
 	DEVICE_ADDRESS_CAPTURE_REPLAY = 0,
 }
@@ -2327,12 +2328,12 @@ OpacityMicromapSpecialIndexKHR :: enum c.int {
 	FULLY_UNKNOWN_OPAQUE_EXT                     = FULLY_UNKNOWN_OPAQUE,
 }
 
-OpticalFlowExecuteFlagsNV :: distinct bit_set[OpticalFlowExecuteFlagNV;Flags]
+OpticalFlowExecuteFlagsNV :: distinct bit_set[OpticalFlowExecuteFlagNV; Flags]
 OpticalFlowExecuteFlagNV :: enum Flags {
 	DISABLE_TEMPORAL_HINTS = 0,
 }
 
-OpticalFlowGridSizeFlagsNV :: distinct bit_set[OpticalFlowGridSizeFlagNV;Flags]
+OpticalFlowGridSizeFlagsNV :: distinct bit_set[OpticalFlowGridSizeFlagNV; Flags]
 OpticalFlowGridSizeFlagNV :: enum Flags {
 	_1X1 = 0,
 	_2X2 = 1,
@@ -2362,7 +2363,7 @@ OpticalFlowSessionBindingPointNV :: enum c.int {
 	GLOBAL_FLOW          = 8,
 }
 
-OpticalFlowSessionCreateFlagsNV :: distinct bit_set[OpticalFlowSessionCreateFlagNV;Flags]
+OpticalFlowSessionCreateFlagsNV :: distinct bit_set[OpticalFlowSessionCreateFlagNV; Flags]
 OpticalFlowSessionCreateFlagNV :: enum Flags {
 	ENABLE_HINT        = 0,
 	ENABLE_COST        = 1,
@@ -2371,7 +2372,7 @@ OpticalFlowSessionCreateFlagNV :: enum Flags {
 	BOTH_DIRECTIONS    = 4,
 }
 
-OpticalFlowUsageFlagsNV :: distinct bit_set[OpticalFlowUsageFlagNV;Flags]
+OpticalFlowUsageFlagsNV :: distinct bit_set[OpticalFlowUsageFlagNV; Flags]
 OpticalFlowUsageFlagNV :: enum Flags {
 	INPUT       = 0,
 	OUTPUT      = 1,
@@ -2388,7 +2389,7 @@ OutOfBandQueueTypeNV :: enum c.int {
 	PRESENT = 1,
 }
 
-PartitionedAccelerationStructureInstanceFlagsNV :: distinct bit_set[PartitionedAccelerationStructureInstanceFlagNV;Flags]
+PartitionedAccelerationStructureInstanceFlagsNV :: distinct bit_set[PartitionedAccelerationStructureInstanceFlagNV; Flags]
 PartitionedAccelerationStructureInstanceFlagNV :: enum Flags {
 	FLAG_TRIANGLE_FACING_CULL_DISABLE = 0,
 	FLAG_TRIANGLE_FLIP_FACING         = 1,
@@ -2403,13 +2404,13 @@ PartitionedAccelerationStructureOpTypeNV :: enum c.int {
 	WRITE_PARTITION_TRANSLATION = 2,
 }
 
-PastPresentationTimingFlagsEXT :: distinct bit_set[PastPresentationTimingFlagEXT;Flags]
+PastPresentationTimingFlagsEXT :: distinct bit_set[PastPresentationTimingFlagEXT; Flags]
 PastPresentationTimingFlagEXT :: enum Flags {
 	ALLOW_PARTIAL_RESULTS      = 0,
 	ALLOW_OUT_OF_ORDER_RESULTS = 1,
 }
 
-PeerMemoryFeatureFlags :: distinct bit_set[PeerMemoryFeatureFlag;Flags]
+PeerMemoryFeatureFlags :: distinct bit_set[PeerMemoryFeatureFlag; Flags]
 PeerMemoryFeatureFlag :: enum Flags {
 	COPY_SRC        = 0,
 	COPY_DST        = 1,
@@ -2432,7 +2433,7 @@ PerformanceConfigurationTypeINTEL :: enum c.int {
 	PERFORMANCE_CONFIGURATION_TYPE_COMMAND_QUEUE_METRICS_DISCOVERY_ACTIVATED_INTEL = 0,
 }
 
-PerformanceCounterDescriptionFlagsKHR :: distinct bit_set[PerformanceCounterDescriptionFlagKHR;Flags]
+PerformanceCounterDescriptionFlagsKHR :: distinct bit_set[PerformanceCounterDescriptionFlagKHR; Flags]
 PerformanceCounterDescriptionFlagKHR :: enum Flags {
 	PERFORMANCE_IMPACTING = 0,
 	CONCURRENTLY_IMPACTED = 1,
@@ -2527,7 +2528,7 @@ PipelineBindPoint :: enum c.int {
 	RAY_TRACING_NV         = RAY_TRACING_KHR,
 }
 
-PipelineCacheCreateFlags :: distinct bit_set[PipelineCacheCreateFlag;Flags]
+PipelineCacheCreateFlags :: distinct bit_set[PipelineCacheCreateFlag; Flags]
 PipelineCacheCreateFlag :: enum Flags {
 	EXTERNALLY_SYNCHRONIZED           = 0,
 	INTERNALLY_SYNCHRONIZED_MERGE_KHR = 3,
@@ -2539,16 +2540,17 @@ PipelineCacheHeaderVersion :: enum c.int {
 	DATA_GRAPH_QCOM = 1000629000,
 }
 
-PipelineColorBlendStateCreateFlags :: distinct bit_set[PipelineColorBlendStateCreateFlag;Flags]
+PipelineColorBlendStateCreateFlags :: distinct bit_set[PipelineColorBlendStateCreateFlag; Flags]
 PipelineColorBlendStateCreateFlag :: enum Flags {
 	RASTERIZATION_ORDER_ATTACHMENT_ACCESS_EXT = 0,
 	RASTERIZATION_ORDER_ATTACHMENT_ACCESS_ARM = RASTERIZATION_ORDER_ATTACHMENT_ACCESS_EXT,
 }
 
-PipelineCompilerControlFlagsAMD :: distinct bit_set[PipelineCompilerControlFlagAMD;Flags]
-PipelineCompilerControlFlagAMD :: enum Flags {}
+PipelineCompilerControlFlagsAMD :: distinct bit_set[PipelineCompilerControlFlagAMD; Flags]
+PipelineCompilerControlFlagAMD :: enum Flags {
+}
 
-PipelineCreateFlags :: distinct bit_set[PipelineCreateFlag;Flags]
+PipelineCreateFlags :: distinct bit_set[PipelineCreateFlag; Flags]
 PipelineCreateFlag :: enum Flags {
 	DISABLE_OPTIMIZATION                                                     = 0,
 	ALLOW_DERIVATIVES                                                        = 1,
@@ -2592,7 +2594,7 @@ PipelineCreateFlag :: enum Flags {
 	PROTECTED_ACCESS_ONLY_EXT                                                = PROTECTED_ACCESS_ONLY,
 }
 
-PipelineCreationFeedbackFlags :: distinct bit_set[PipelineCreationFeedbackFlag;Flags]
+PipelineCreationFeedbackFlags :: distinct bit_set[PipelineCreationFeedbackFlag; Flags]
 PipelineCreationFeedbackFlag :: enum Flags {
 	VALID                              = 0,
 	APPLICATION_PIPELINE_CACHE_HIT     = 1,
@@ -2602,7 +2604,7 @@ PipelineCreationFeedbackFlag :: enum Flags {
 	BASE_PIPELINE_ACCELERATION_EXT     = BASE_PIPELINE_ACCELERATION,
 }
 
-PipelineDepthStencilStateCreateFlags :: distinct bit_set[PipelineDepthStencilStateCreateFlag;Flags]
+PipelineDepthStencilStateCreateFlags :: distinct bit_set[PipelineDepthStencilStateCreateFlag; Flags]
 PipelineDepthStencilStateCreateFlag :: enum Flags {
 	RASTERIZATION_ORDER_ATTACHMENT_DEPTH_ACCESS_EXT   = 0,
 	RASTERIZATION_ORDER_ATTACHMENT_STENCIL_ACCESS_EXT = 1,
@@ -2617,7 +2619,7 @@ PipelineExecutableStatisticFormatKHR :: enum c.int {
 	FLOAT64 = 3,
 }
 
-PipelineLayoutCreateFlags :: distinct bit_set[PipelineLayoutCreateFlag;Flags]
+PipelineLayoutCreateFlags :: distinct bit_set[PipelineLayoutCreateFlag; Flags]
 PipelineLayoutCreateFlag :: enum Flags {
 	INDEPENDENT_SETS_EXT = 1,
 	NO_TASK_SHADER_KHR   = 2,
@@ -2645,7 +2647,7 @@ PipelineRobustnessImageBehavior :: enum c.int {
 	ROBUST_IMAGE_ACCESS_2_EXT = ROBUST_IMAGE_ACCESS_2,
 }
 
-PipelineShaderStageCreateFlags :: distinct bit_set[PipelineShaderStageCreateFlag;Flags]
+PipelineShaderStageCreateFlags :: distinct bit_set[PipelineShaderStageCreateFlag; Flags]
 PipelineShaderStageCreateFlag :: enum Flags {
 	ALLOW_VARYING_SUBGROUP_SIZE     = 0,
 	REQUIRE_FULL_SUBGROUPS          = 1,
@@ -2653,7 +2655,7 @@ PipelineShaderStageCreateFlag :: enum Flags {
 	REQUIRE_FULL_SUBGROUPS_EXT      = REQUIRE_FULL_SUBGROUPS,
 }
 
-PipelineStageFlags :: distinct bit_set[PipelineStageFlag;Flags]
+PipelineStageFlags :: distinct bit_set[PipelineStageFlag; Flags]
 PipelineStageFlag :: enum Flags {
 	TOP_OF_PIPE                          = 0,
 	DRAW_INDIRECT                        = 1,
@@ -2706,7 +2708,7 @@ PolygonMode :: enum c.int {
 	FILL_RECTANGLE_NV = 1000153000,
 }
 
-PresentGravityFlagsKHR :: distinct bit_set[PresentGravityFlagKHR;Flags]
+PresentGravityFlagsKHR :: distinct bit_set[PresentGravityFlagKHR; Flags]
 PresentGravityFlagKHR :: enum Flags {
 	MIN          = 0,
 	MAX          = 1,
@@ -2727,7 +2729,7 @@ PresentModeKHR :: enum c.int {
 	FIFO_LATEST_READY_EXT     = FIFO_LATEST_READY,
 }
 
-PresentScalingFlagsKHR :: distinct bit_set[PresentScalingFlagKHR;Flags]
+PresentScalingFlagsKHR :: distinct bit_set[PresentScalingFlagKHR; Flags]
 PresentScalingFlagKHR :: enum Flags {
 	ONE_TO_ONE               = 0,
 	ASPECT_RATIO_STRETCH     = 1,
@@ -2737,7 +2739,7 @@ PresentScalingFlagKHR :: enum Flags {
 	STRETCH_EXT              = STRETCH,
 }
 
-PresentStageFlagsEXT :: distinct bit_set[PresentStageFlagEXT;Flags]
+PresentStageFlagsEXT :: distinct bit_set[PresentStageFlagEXT; Flags]
 PresentStageFlagEXT :: enum Flags {
 	QUEUE_OPERATIONS_END      = 0,
 	REQUEST_DEQUEUED          = 1,
@@ -2745,7 +2747,7 @@ PresentStageFlagEXT :: enum Flags {
 	IMAGE_FIRST_PIXEL_VISIBLE = 3,
 }
 
-PresentTimingInfoFlagsEXT :: distinct bit_set[PresentTimingInfoFlagEXT;Flags]
+PresentTimingInfoFlagsEXT :: distinct bit_set[PresentTimingInfoFlagEXT; Flags]
 PresentTimingInfoFlagEXT :: enum Flags {
 	PRESENT_AT_RELATIVE_TIME         = 0,
 	PRESENT_AT_NEAREST_REFRESH_CYCLE = 1,
@@ -2770,12 +2772,12 @@ ProvokingVertexModeEXT :: enum c.int {
 	LAST_VERTEX  = 1,
 }
 
-QueryControlFlags :: distinct bit_set[QueryControlFlag;Flags]
+QueryControlFlags :: distinct bit_set[QueryControlFlag; Flags]
 QueryControlFlag :: enum Flags {
 	PRECISE = 0,
 }
 
-QueryPipelineStatisticFlags :: distinct bit_set[QueryPipelineStatisticFlag;Flags]
+QueryPipelineStatisticFlags :: distinct bit_set[QueryPipelineStatisticFlag; Flags]
 QueryPipelineStatisticFlag :: enum Flags {
 	INPUT_ASSEMBLY_VERTICES                    = 0,
 	INPUT_ASSEMBLY_PRIMITIVES                  = 1,
@@ -2793,7 +2795,7 @@ QueryPipelineStatisticFlag :: enum Flags {
 	CLUSTER_CULLING_SHADER_INVOCATIONS_HUAWEI  = 13,
 }
 
-QueryPoolCreateFlags :: distinct bit_set[QueryPoolCreateFlag;Flags]
+QueryPoolCreateFlags :: distinct bit_set[QueryPoolCreateFlag; Flags]
 QueryPoolCreateFlag :: enum Flags {
 	RESET_KHR = 0,
 }
@@ -2802,7 +2804,7 @@ QueryPoolSamplingModeINTEL :: enum c.int {
 	QUERY_POOL_SAMPLING_MODE_MANUAL_INTEL = 0,
 }
 
-QueryResultFlags :: distinct bit_set[QueryResultFlag;Flags]
+QueryResultFlags :: distinct bit_set[QueryResultFlag; Flags]
 QueryResultFlag :: enum Flags {
 	_64               = 0,
 	WAIT              = 1,
@@ -2839,7 +2841,7 @@ QueryType :: enum c.int {
 	MICROMAP_COMPACTED_SIZE_EXT                                    = 1000396001,
 }
 
-QueueFlags :: distinct bit_set[QueueFlag;Flags]
+QueueFlags :: distinct bit_set[QueueFlag; Flags]
 QueueFlag :: enum Flags {
 	GRAPHICS         = 0,
 	COMPUTE          = 1,
@@ -2897,20 +2899,20 @@ RayTracingShaderGroupTypeKHR :: enum c.int {
 	PROCEDURAL_HIT_GROUP_NV = PROCEDURAL_HIT_GROUP,
 }
 
-RenderPassCreateFlags :: distinct bit_set[RenderPassCreateFlag;Flags]
+RenderPassCreateFlags :: distinct bit_set[RenderPassCreateFlag; Flags]
 RenderPassCreateFlag :: enum Flags {
 	TRANSFORM_QCOM                   = 1,
 	PER_LAYER_FRAGMENT_DENSITY_VALVE = 2,
 }
 
-RenderingAttachmentFlagsKHR :: distinct bit_set[RenderingAttachmentFlagKHR;Flags]
+RenderingAttachmentFlagsKHR :: distinct bit_set[RenderingAttachmentFlagKHR; Flags]
 RenderingAttachmentFlagKHR :: enum Flags {
 	INPUT_ATTACHMENT_FEEDBACK        = 0,
 	RESOLVE_SKIP_TRANSFER_FUNCTION   = 1,
 	RESOLVE_ENABLE_TRANSFER_FUNCTION = 2,
 }
 
-RenderingFlags :: distinct bit_set[RenderingFlag;Flags]
+RenderingFlags :: distinct bit_set[RenderingFlag; Flags]
 RenderingFlag :: enum Flags {
 	CONTENTS_SECONDARY_COMMAND_BUFFERS       = 0,
 	SUSPENDING                               = 1,
@@ -2927,13 +2929,13 @@ RenderingFlag :: enum Flags {
 	CONTENTS_INLINE_EXT                      = CONTENTS_INLINE_KHR,
 }
 
-ResolveImageFlagsKHR :: distinct bit_set[ResolveImageFlagKHR;Flags]
+ResolveImageFlagsKHR :: distinct bit_set[ResolveImageFlagKHR; Flags]
 ResolveImageFlagKHR :: enum Flags {
 	SKIP_TRANSFER_FUNCTION   = 0,
 	ENABLE_TRANSFER_FUNCTION = 1,
 }
 
-ResolveModeFlags :: distinct bit_set[ResolveModeFlag;Flags]
+ResolveModeFlags :: distinct bit_set[ResolveModeFlag; Flags]
 ResolveModeFlag :: enum Flags {
 	SAMPLE_ZERO                        = 0,
 	AVERAGE                            = 1,
@@ -3014,7 +3016,7 @@ Result :: enum c.int {
 	ERROR_INCOMPATIBLE_SHADER_BINARY_EXT               = INCOMPATIBLE_SHADER_BINARY_EXT,
 }
 
-SampleCountFlags :: distinct bit_set[SampleCountFlag;Flags]
+SampleCountFlags :: distinct bit_set[SampleCountFlag; Flags]
 SampleCountFlag :: enum Flags {
 	_1  = 0,
 	_2  = 1,
@@ -3034,7 +3036,7 @@ SamplerAddressMode :: enum c.int {
 	MIRROR_CLAMP_TO_EDGE_KHR = MIRROR_CLAMP_TO_EDGE,
 }
 
-SamplerCreateFlags :: distinct bit_set[SamplerCreateFlag;Flags]
+SamplerCreateFlags :: distinct bit_set[SamplerCreateFlag; Flags]
 SamplerCreateFlag :: enum Flags {
 	SUBSAMPLED_EXT                       = 0,
 	SUBSAMPLED_COARSE_RECONSTRUCTION_EXT = 1,
@@ -3089,7 +3091,7 @@ ScopeKHR :: enum c.int {
 	QUEUE_FAMILY_NV = QUEUE_FAMILY,
 }
 
-SemaphoreImportFlags :: distinct bit_set[SemaphoreImportFlag;Flags]
+SemaphoreImportFlags :: distinct bit_set[SemaphoreImportFlag; Flags]
 SemaphoreImportFlag :: enum Flags {
 	TEMPORARY     = 0,
 	TEMPORARY_KHR = TEMPORARY,
@@ -3102,7 +3104,7 @@ SemaphoreType :: enum c.int {
 	TIMELINE_KHR = TIMELINE,
 }
 
-SemaphoreWaitFlags :: distinct bit_set[SemaphoreWaitFlag;Flags]
+SemaphoreWaitFlags :: distinct bit_set[SemaphoreWaitFlag; Flags]
 SemaphoreWaitFlag :: enum Flags {
 	ANY     = 0,
 	ANY_KHR = ANY,
@@ -3113,10 +3115,11 @@ ShaderCodeTypeEXT :: enum c.int {
 	SPIRV  = 1,
 }
 
-ShaderCorePropertiesFlagsAMD :: distinct bit_set[ShaderCorePropertiesFlagAMD;Flags]
-ShaderCorePropertiesFlagAMD :: enum Flags {}
+ShaderCorePropertiesFlagsAMD :: distinct bit_set[ShaderCorePropertiesFlagAMD; Flags]
+ShaderCorePropertiesFlagAMD :: enum Flags {
+}
 
-ShaderCreateFlagsEXT :: distinct bit_set[ShaderCreateFlagEXT;Flags]
+ShaderCreateFlagsEXT :: distinct bit_set[ShaderCreateFlagEXT; Flags]
 ShaderCreateFlagEXT :: enum Flags {
 	LINK_STAGE                                    = 0,
 	DESCRIPTOR_HEAP                               = 10,
@@ -3154,7 +3157,7 @@ ShaderInfoTypeAMD :: enum c.int {
 	DISASSEMBLY = 2,
 }
 
-ShaderStageFlags :: distinct bit_set[ShaderStageFlag;Flags]
+ShaderStageFlags :: distinct bit_set[ShaderStageFlag; Flags]
 ShaderStageFlag :: enum Flags {
 	VERTEX                  = 0,
 	TESSELLATION_CONTROL    = 1,
@@ -3184,39 +3187,7 @@ ShaderStageFlag :: enum Flags {
 }
 
 ShaderStageFlags_ALL_GRAPHICS :: ShaderStageFlags{.VERTEX, .TESSELLATION_CONTROL, .TESSELLATION_EVALUATION, .GEOMETRY, .FRAGMENT}
-ShaderStageFlags_ALL :: ShaderStageFlags {
-	.VERTEX,
-	.TESSELLATION_CONTROL,
-	.TESSELLATION_EVALUATION,
-	.GEOMETRY,
-	.FRAGMENT,
-	.COMPUTE,
-	.TASK_EXT,
-	.MESH_EXT,
-	.RAYGEN_KHR,
-	.ANY_HIT_KHR,
-	.CLOSEST_HIT_KHR,
-	.MISS_KHR,
-	.INTERSECTION_KHR,
-	.CALLABLE_KHR,
-	.SUBPASS_SHADING_HUAWEI,
-	ShaderStageFlag(15),
-	ShaderStageFlag(16),
-	ShaderStageFlag(17),
-	ShaderStageFlag(18),
-	.CLUSTER_CULLING_HUAWEI,
-	ShaderStageFlag(20),
-	ShaderStageFlag(21),
-	ShaderStageFlag(22),
-	ShaderStageFlag(23),
-	ShaderStageFlag(24),
-	ShaderStageFlag(25),
-	ShaderStageFlag(26),
-	ShaderStageFlag(27),
-	ShaderStageFlag(28),
-	ShaderStageFlag(29),
-	ShaderStageFlag(30),
-}
+ShaderStageFlags_ALL :: ShaderStageFlags{.VERTEX, .TESSELLATION_CONTROL, .TESSELLATION_EVALUATION, .GEOMETRY, .FRAGMENT, .COMPUTE, .TASK_EXT, .MESH_EXT, .RAYGEN_KHR, .ANY_HIT_KHR, .CLOSEST_HIT_KHR, .MISS_KHR, .INTERSECTION_KHR, .CALLABLE_KHR, .SUBPASS_SHADING_HUAWEI, ShaderStageFlag(15), ShaderStageFlag(16), ShaderStageFlag(17), ShaderStageFlag(18), .CLUSTER_CULLING_HUAWEI, ShaderStageFlag(20), ShaderStageFlag(21), ShaderStageFlag(22), ShaderStageFlag(23), ShaderStageFlag(24), ShaderStageFlag(25), ShaderStageFlag(26), ShaderStageFlag(27), ShaderStageFlag(28), ShaderStageFlag(29), ShaderStageFlag(30)}
 
 
 ShadingRatePaletteEntryNV :: enum c.int {
@@ -3239,19 +3210,19 @@ SharingMode :: enum c.int {
 	CONCURRENT = 1,
 }
 
-SparseImageFormatFlags :: distinct bit_set[SparseImageFormatFlag;Flags]
+SparseImageFormatFlags :: distinct bit_set[SparseImageFormatFlag; Flags]
 SparseImageFormatFlag :: enum Flags {
 	SINGLE_MIPTAIL         = 0,
 	ALIGNED_MIP_SIZE       = 1,
 	NONSTANDARD_BLOCK_SIZE = 2,
 }
 
-SparseMemoryBindFlags :: distinct bit_set[SparseMemoryBindFlag;Flags]
+SparseMemoryBindFlags :: distinct bit_set[SparseMemoryBindFlag; Flags]
 SparseMemoryBindFlag :: enum Flags {
 	METADATA = 0,
 }
 
-SpirvResourceTypeFlagsEXT :: distinct bit_set[SpirvResourceTypeFlagEXT;Flags]
+SpirvResourceTypeFlagsEXT :: distinct bit_set[SpirvResourceTypeFlagEXT; Flags]
 SpirvResourceTypeFlagEXT :: enum Flags {
 	SAMPLER                   = 0,
 	SAMPLED_IMAGE             = 1,
@@ -3266,45 +3237,13 @@ SpirvResourceTypeFlagEXT :: enum Flags {
 	_MAX                      = 31, // Needed for the *_ALL bit set
 }
 
-SpirvResourceTypeFlagsEXT_ALL :: SpirvResourceTypeFlagsEXT {
-	.SAMPLER,
-	.SAMPLED_IMAGE,
-	.READ_ONLY_IMAGE,
-	.READ_WRITE_IMAGE,
-	.COMBINED_SAMPLED_IMAGE,
-	.UNIFORM_BUFFER,
-	.READ_ONLY_STORAGE_BUFFER,
-	.READ_WRITE_STORAGE_BUFFER,
-	.ACCELERATION_STRUCTURE,
-	.TENSOR_ARM,
-	SpirvResourceTypeFlagEXT(10),
-	SpirvResourceTypeFlagEXT(11),
-	SpirvResourceTypeFlagEXT(12),
-	SpirvResourceTypeFlagEXT(13),
-	SpirvResourceTypeFlagEXT(14),
-	SpirvResourceTypeFlagEXT(15),
-	SpirvResourceTypeFlagEXT(16),
-	SpirvResourceTypeFlagEXT(17),
-	SpirvResourceTypeFlagEXT(18),
-	SpirvResourceTypeFlagEXT(19),
-	SpirvResourceTypeFlagEXT(20),
-	SpirvResourceTypeFlagEXT(21),
-	SpirvResourceTypeFlagEXT(22),
-	SpirvResourceTypeFlagEXT(23),
-	SpirvResourceTypeFlagEXT(24),
-	SpirvResourceTypeFlagEXT(25),
-	SpirvResourceTypeFlagEXT(26),
-	SpirvResourceTypeFlagEXT(27),
-	SpirvResourceTypeFlagEXT(28),
-	SpirvResourceTypeFlagEXT(29),
-	SpirvResourceTypeFlagEXT(30),
-}
+SpirvResourceTypeFlagsEXT_ALL :: SpirvResourceTypeFlagsEXT{.SAMPLER, .SAMPLED_IMAGE, .READ_ONLY_IMAGE, .READ_WRITE_IMAGE, .COMBINED_SAMPLED_IMAGE, .UNIFORM_BUFFER, .READ_ONLY_STORAGE_BUFFER, .READ_WRITE_STORAGE_BUFFER, .ACCELERATION_STRUCTURE, .TENSOR_ARM, SpirvResourceTypeFlagEXT(10), SpirvResourceTypeFlagEXT(11), SpirvResourceTypeFlagEXT(12), SpirvResourceTypeFlagEXT(13), SpirvResourceTypeFlagEXT(14), SpirvResourceTypeFlagEXT(15), SpirvResourceTypeFlagEXT(16), SpirvResourceTypeFlagEXT(17), SpirvResourceTypeFlagEXT(18), SpirvResourceTypeFlagEXT(19), SpirvResourceTypeFlagEXT(20), SpirvResourceTypeFlagEXT(21), SpirvResourceTypeFlagEXT(22), SpirvResourceTypeFlagEXT(23), SpirvResourceTypeFlagEXT(24), SpirvResourceTypeFlagEXT(25), SpirvResourceTypeFlagEXT(26), SpirvResourceTypeFlagEXT(27), SpirvResourceTypeFlagEXT(28), SpirvResourceTypeFlagEXT(29), SpirvResourceTypeFlagEXT(30)}
 
 
-StencilFaceFlags :: distinct bit_set[StencilFaceFlag;Flags]
+StencilFaceFlags :: distinct bit_set[StencilFaceFlag; Flags]
 StencilFaceFlag :: enum Flags {
-	FRONT = 0,
-	BACK  = 1,
+	FRONT                  = 0,
+	BACK                   = 1,
 }
 
 StencilFaceFlags_FRONT_AND_BACK :: StencilFaceFlags{.FRONT, .BACK}
@@ -4823,7 +4762,7 @@ StructureType :: enum c.int {
 	RENDERING_END_INFO_EXT                                                 = RENDERING_END_INFO_KHR,
 }
 
-SubgroupFeatureFlags :: distinct bit_set[SubgroupFeatureFlag;Flags]
+SubgroupFeatureFlags :: distinct bit_set[SubgroupFeatureFlag; Flags]
 SubgroupFeatureFlag :: enum Flags {
 	BASIC                = 0,
 	VOTE                 = 1,
@@ -4841,7 +4780,7 @@ SubgroupFeatureFlag :: enum Flags {
 	ROTATE_CLUSTERED_KHR = ROTATE_CLUSTERED,
 }
 
-SubmitFlags :: distinct bit_set[SubmitFlag;Flags]
+SubmitFlags :: distinct bit_set[SubmitFlag; Flags]
 SubmitFlag :: enum Flags {
 	PROTECTED     = 0,
 	PROTECTED_KHR = PROTECTED,
@@ -4854,7 +4793,7 @@ SubpassContents :: enum c.int {
 	INLINE_AND_SECONDARY_COMMAND_BUFFERS_EXT = INLINE_AND_SECONDARY_COMMAND_BUFFERS_KHR,
 }
 
-SubpassDescriptionFlags :: distinct bit_set[SubpassDescriptionFlag;Flags]
+SubpassDescriptionFlags :: distinct bit_set[SubpassDescriptionFlag; Flags]
 SubpassDescriptionFlag :: enum Flags {
 	PER_VIEW_ATTRIBUTES_NVX                           = 0,
 	PER_VIEW_POSITION_X_ONLY_NVX                      = 1,
@@ -4889,12 +4828,12 @@ SubpassMergeStatusEXT :: enum c.int {
 	NOT_MERGED_UNSPECIFIED                   = 13,
 }
 
-SurfaceCounterFlagsEXT :: distinct bit_set[SurfaceCounterFlagEXT;Flags]
+SurfaceCounterFlagsEXT :: distinct bit_set[SurfaceCounterFlagEXT; Flags]
 SurfaceCounterFlagEXT :: enum Flags {
 	VBLANK = 0,
 }
 
-SurfaceTransformFlagsKHR :: distinct bit_set[SurfaceTransformFlagKHR;Flags]
+SurfaceTransformFlagsKHR :: distinct bit_set[SurfaceTransformFlagKHR; Flags]
 SurfaceTransformFlagKHR :: enum Flags {
 	IDENTITY                     = 0,
 	ROTATE_90                    = 1,
@@ -4907,7 +4846,7 @@ SurfaceTransformFlagKHR :: enum Flags {
 	INHERIT                      = 8,
 }
 
-SwapchainCreateFlagsKHR :: distinct bit_set[SwapchainCreateFlagKHR;Flags]
+SwapchainCreateFlagsKHR :: distinct bit_set[SwapchainCreateFlagKHR; Flags]
 SwapchainCreateFlagKHR :: enum Flags {
 	SPLIT_INSTANCE_BIND_REGIONS               = 0,
 	PROTECTED                                 = 1,
@@ -4946,7 +4885,7 @@ ThrottleHintTypeSEC :: enum c.int {
 	THROTTLE_HINT_TYPE_HIGH_SEC    = 2,
 }
 
-TileShadingRenderPassFlagsQCOM :: distinct bit_set[TileShadingRenderPassFlagQCOM;Flags]
+TileShadingRenderPassFlagsQCOM :: distinct bit_set[TileShadingRenderPassFlagQCOM; Flags]
 TileShadingRenderPassFlagQCOM :: enum Flags {
 	ENABLE             = 0,
 	PER_TILE_EXECUTION = 1,
@@ -4965,7 +4904,7 @@ TimeDomainKHR :: enum c.int {
 	QUERY_PERFORMANCE_COUNTER_EXT = QUERY_PERFORMANCE_COUNTER,
 }
 
-ToolPurposeFlags :: distinct bit_set[ToolPurposeFlag;Flags]
+ToolPurposeFlags :: distinct bit_set[ToolPurposeFlag; Flags]
 ToolPurposeFlag :: enum Flags {
 	VALIDATION              = 0,
 	PROFILING               = 1,
@@ -5026,35 +4965,46 @@ VertexInputRate :: enum c.int {
 	INSTANCE = 1,
 }
 
-VideoAV1ChromaSamplePosition :: enum c.int {}
+VideoAV1ChromaSamplePosition :: enum c.int {
+}
 
-VideoAV1ColorPrimaries :: enum c.int {}
+VideoAV1ColorPrimaries :: enum c.int {
+}
 
-VideoAV1FrameRestorationType :: enum c.int {}
+VideoAV1FrameRestorationType :: enum c.int {
+}
 
-VideoAV1FrameType :: enum c.int {}
+VideoAV1FrameType :: enum c.int {
+}
 
-VideoAV1InterpolationFilter :: enum c.int {}
+VideoAV1InterpolationFilter :: enum c.int {
+}
 
-VideoAV1Level :: enum c.int {}
+VideoAV1Level :: enum c.int {
+}
 
-VideoAV1MatrixCoefficients :: enum c.int {}
+VideoAV1MatrixCoefficients :: enum c.int {
+}
 
-VideoAV1Profile :: enum c.int {}
+VideoAV1Profile :: enum c.int {
+}
 
-VideoAV1ReferenceName :: enum c.int {}
+VideoAV1ReferenceName :: enum c.int {
+}
 
-VideoAV1TransferCharacteristics :: enum c.int {}
+VideoAV1TransferCharacteristics :: enum c.int {
+}
 
-VideoAV1TxMode :: enum c.int {}
+VideoAV1TxMode :: enum c.int {
+}
 
-VideoCapabilityFlagsKHR :: distinct bit_set[VideoCapabilityFlagKHR;Flags]
+VideoCapabilityFlagsKHR :: distinct bit_set[VideoCapabilityFlagKHR; Flags]
 VideoCapabilityFlagKHR :: enum Flags {
 	PROTECTED_CONTENT         = 0,
 	SEPARATE_REFERENCE_IMAGES = 1,
 }
 
-VideoChromaSubsamplingFlagsKHR :: distinct bit_set[VideoChromaSubsamplingFlagKHR;Flags]
+VideoChromaSubsamplingFlagsKHR :: distinct bit_set[VideoChromaSubsamplingFlagKHR; Flags]
 VideoChromaSubsamplingFlagKHR :: enum Flags {
 	MONOCHROME = 0,
 	_420       = 1,
@@ -5065,7 +5015,7 @@ VideoChromaSubsamplingFlagKHR :: enum Flags {
 VideoChromaSubsamplingFlagsKHR_INVALID :: VideoChromaSubsamplingFlagsKHR{}
 
 
-VideoCodecOperationFlagsKHR :: distinct bit_set[VideoCodecOperationFlagKHR;Flags]
+VideoCodecOperationFlagsKHR :: distinct bit_set[VideoCodecOperationFlagKHR; Flags]
 VideoCodecOperationFlagKHR :: enum Flags {
 	ENCODE_H264 = 16,
 	ENCODE_H265 = 17,
@@ -5079,14 +5029,14 @@ VideoCodecOperationFlagKHR :: enum Flags {
 VideoCodecOperationFlagsKHR_NONE :: VideoCodecOperationFlagsKHR{}
 
 
-VideoCodingControlFlagsKHR :: distinct bit_set[VideoCodingControlFlagKHR;Flags]
+VideoCodingControlFlagsKHR :: distinct bit_set[VideoCodingControlFlagKHR; Flags]
 VideoCodingControlFlagKHR :: enum Flags {
 	RESET                = 0,
 	ENCODE_RATE_CONTROL  = 1,
 	ENCODE_QUALITY_LEVEL = 2,
 }
 
-VideoComponentBitDepthFlagsKHR :: distinct bit_set[VideoComponentBitDepthFlagKHR;Flags]
+VideoComponentBitDepthFlagsKHR :: distinct bit_set[VideoComponentBitDepthFlagKHR; Flags]
 VideoComponentBitDepthFlagKHR :: enum Flags {
 	_8  = 0,
 	_10 = 2,
@@ -5096,15 +5046,16 @@ VideoComponentBitDepthFlagKHR :: enum Flags {
 VideoComponentBitDepthFlagsKHR_INVALID :: VideoComponentBitDepthFlagsKHR{}
 
 
-VideoDecodeCapabilityFlagsKHR :: distinct bit_set[VideoDecodeCapabilityFlagKHR;Flags]
+VideoDecodeCapabilityFlagsKHR :: distinct bit_set[VideoDecodeCapabilityFlagKHR; Flags]
 VideoDecodeCapabilityFlagKHR :: enum Flags {
 	DPB_AND_OUTPUT_COINCIDE = 0,
 	DPB_AND_OUTPUT_DISTINCT = 1,
 }
 
-VideoDecodeH264FieldOrderCount :: enum c.int {}
+VideoDecodeH264FieldOrderCount :: enum c.int {
+}
 
-VideoDecodeH264PictureLayoutFlagsKHR :: distinct bit_set[VideoDecodeH264PictureLayoutFlagKHR;Flags]
+VideoDecodeH264PictureLayoutFlagsKHR :: distinct bit_set[VideoDecodeH264PictureLayoutFlagKHR; Flags]
 VideoDecodeH264PictureLayoutFlagKHR :: enum Flags {
 	INTERLACED_INTERLEAVED_LINES = 0,
 	INTERLACED_SEPARATE_PLANES   = 1,
@@ -5113,7 +5064,7 @@ VideoDecodeH264PictureLayoutFlagKHR :: enum Flags {
 VideoDecodeH264PictureLayoutFlagsKHR_PROGRESSIVE :: VideoDecodeH264PictureLayoutFlagsKHR{}
 
 
-VideoDecodeUsageFlagsKHR :: distinct bit_set[VideoDecodeUsageFlagKHR;Flags]
+VideoDecodeUsageFlagsKHR :: distinct bit_set[VideoDecodeUsageFlagKHR; Flags]
 VideoDecodeUsageFlagKHR :: enum Flags {
 	TRANSCODING = 0,
 	OFFLINE     = 1,
@@ -5123,7 +5074,7 @@ VideoDecodeUsageFlagKHR :: enum Flags {
 VideoDecodeUsageFlagsKHR_DEFAULT :: VideoDecodeUsageFlagsKHR{}
 
 
-VideoEncodeAV1CapabilityFlagsKHR :: distinct bit_set[VideoEncodeAV1CapabilityFlagKHR;Flags]
+VideoEncodeAV1CapabilityFlagsKHR :: distinct bit_set[VideoEncodeAV1CapabilityFlagKHR; Flags]
 VideoEncodeAV1CapabilityFlagKHR :: enum Flags {
 	PER_RATE_CONTROL_GROUP_MIN_MAX_Q_INDEX = 0,
 	GENERATE_OBU_EXTENSION_HEADER          = 1,
@@ -5140,7 +5091,7 @@ VideoEncodeAV1PredictionModeKHR :: enum c.int {
 	BIDIRECTIONAL_COMPOUND  = 3,
 }
 
-VideoEncodeAV1RateControlFlagsKHR :: distinct bit_set[VideoEncodeAV1RateControlFlagKHR;Flags]
+VideoEncodeAV1RateControlFlagsKHR :: distinct bit_set[VideoEncodeAV1RateControlFlagKHR; Flags]
 VideoEncodeAV1RateControlFlagKHR :: enum Flags {
 	REGULAR_GOP                   = 0,
 	TEMPORAL_LAYER_PATTERN_DYADIC = 1,
@@ -5154,7 +5105,7 @@ VideoEncodeAV1RateControlGroupKHR :: enum c.int {
 	BIPREDICTIVE = 2,
 }
 
-VideoEncodeAV1StdFlagsKHR :: distinct bit_set[VideoEncodeAV1StdFlagKHR;Flags]
+VideoEncodeAV1StdFlagsKHR :: distinct bit_set[VideoEncodeAV1StdFlagKHR; Flags]
 VideoEncodeAV1StdFlagKHR :: enum Flags {
 	UNIFORM_TILE_SPACING_FLAG_SET = 0,
 	SKIP_MODE_PRESENT_UNSET       = 1,
@@ -5162,13 +5113,13 @@ VideoEncodeAV1StdFlagKHR :: enum Flags {
 	DELTA_Q                       = 3,
 }
 
-VideoEncodeAV1SuperblockSizeFlagsKHR :: distinct bit_set[VideoEncodeAV1SuperblockSizeFlagKHR;Flags]
+VideoEncodeAV1SuperblockSizeFlagsKHR :: distinct bit_set[VideoEncodeAV1SuperblockSizeFlagKHR; Flags]
 VideoEncodeAV1SuperblockSizeFlagKHR :: enum Flags {
 	_64  = 0,
 	_128 = 1,
 }
 
-VideoEncodeCapabilityFlagsKHR :: distinct bit_set[VideoEncodeCapabilityFlagKHR;Flags]
+VideoEncodeCapabilityFlagsKHR :: distinct bit_set[VideoEncodeCapabilityFlagKHR; Flags]
 VideoEncodeCapabilityFlagKHR :: enum Flags {
 	PRECEDING_EXTERNALLY_ENCODED_BYTES        = 0,
 	INSUFFICIENTSTREAM_BUFFER_RANGE_DETECTION = 1,
@@ -5176,7 +5127,7 @@ VideoEncodeCapabilityFlagKHR :: enum Flags {
 	EMPHASIS_MAP                              = 3,
 }
 
-VideoEncodeContentFlagsKHR :: distinct bit_set[VideoEncodeContentFlagKHR;Flags]
+VideoEncodeContentFlagsKHR :: distinct bit_set[VideoEncodeContentFlagKHR; Flags]
 VideoEncodeContentFlagKHR :: enum Flags {
 	CAMERA   = 0,
 	DESKTOP  = 1,
@@ -5186,7 +5137,7 @@ VideoEncodeContentFlagKHR :: enum Flags {
 VideoEncodeContentFlagsKHR_DEFAULT :: VideoEncodeContentFlagsKHR{}
 
 
-VideoEncodeFeedbackFlagsKHR :: distinct bit_set[VideoEncodeFeedbackFlagKHR;Flags]
+VideoEncodeFeedbackFlagsKHR :: distinct bit_set[VideoEncodeFeedbackFlagKHR; Flags]
 VideoEncodeFeedbackFlagKHR :: enum Flags {
 	BITSTREAM_BUFFER_OFFSET = 0,
 	BITSTREAM_BYTES_WRITTEN = 1,
@@ -5200,14 +5151,14 @@ VideoEncodeFeedbackFlagKHR :: enum Flags {
 	PICTURE_PARTITION_COUNT = 9,
 }
 
-VideoEncodeFlagsKHR :: distinct bit_set[VideoEncodeFlagKHR;Flags]
+VideoEncodeFlagsKHR :: distinct bit_set[VideoEncodeFlagKHR; Flags]
 VideoEncodeFlagKHR :: enum Flags {
 	INTRA_REFRESH               = 2,
 	WITH_QUANTIZATION_DELTA_MAP = 0,
 	WITH_EMPHASIS_MAP           = 1,
 }
 
-VideoEncodeH264CapabilityFlagsKHR :: distinct bit_set[VideoEncodeH264CapabilityFlagKHR;Flags]
+VideoEncodeH264CapabilityFlagsKHR :: distinct bit_set[VideoEncodeH264CapabilityFlagKHR; Flags]
 VideoEncodeH264CapabilityFlagKHR :: enum Flags {
 	HRD_COMPLIANCE                    = 0,
 	PREDICTION_WEIGHT_TABLE_GENERATED = 1,
@@ -5222,7 +5173,7 @@ VideoEncodeH264CapabilityFlagKHR :: enum Flags {
 	MB_QP_DIFF_WRAPAROUND             = 9,
 }
 
-VideoEncodeH264RateControlFlagsKHR :: distinct bit_set[VideoEncodeH264RateControlFlagKHR;Flags]
+VideoEncodeH264RateControlFlagsKHR :: distinct bit_set[VideoEncodeH264RateControlFlagKHR; Flags]
 VideoEncodeH264RateControlFlagKHR :: enum Flags {
 	ATTEMPT_HRD_COMPLIANCE        = 0,
 	REGULAR_GOP                   = 1,
@@ -5231,7 +5182,7 @@ VideoEncodeH264RateControlFlagKHR :: enum Flags {
 	TEMPORAL_LAYER_PATTERN_DYADIC = 4,
 }
 
-VideoEncodeH264StdFlagsKHR :: distinct bit_set[VideoEncodeH264StdFlagKHR;Flags]
+VideoEncodeH264StdFlagsKHR :: distinct bit_set[VideoEncodeH264StdFlagKHR; Flags]
 VideoEncodeH264StdFlagKHR :: enum Flags {
 	SEPARATE_COLOR_PLANE_FLAG_SET            = 0,
 	QPPRIME_Y_ZERO_TRANSFORM_BYPASS_FLAG_SET = 1,
@@ -5255,7 +5206,7 @@ VideoEncodeH264StdFlagKHR :: enum Flags {
 	DIFFERENT_SLICE_QP_DELTA                 = 20,
 }
 
-VideoEncodeH265CapabilityFlagsKHR :: distinct bit_set[VideoEncodeH265CapabilityFlagKHR;Flags]
+VideoEncodeH265CapabilityFlagsKHR :: distinct bit_set[VideoEncodeH265CapabilityFlagKHR; Flags]
 VideoEncodeH265CapabilityFlagKHR :: enum Flags {
 	HRD_COMPLIANCE                    = 0,
 	PREDICTION_WEIGHT_TABLE_GENERATED = 1,
@@ -5271,14 +5222,14 @@ VideoEncodeH265CapabilityFlagKHR :: enum Flags {
 	CU_QP_DIFF_WRAPAROUND             = 10,
 }
 
-VideoEncodeH265CtbSizeFlagsKHR :: distinct bit_set[VideoEncodeH265CtbSizeFlagKHR;Flags]
+VideoEncodeH265CtbSizeFlagsKHR :: distinct bit_set[VideoEncodeH265CtbSizeFlagKHR; Flags]
 VideoEncodeH265CtbSizeFlagKHR :: enum Flags {
 	_16 = 0,
 	_32 = 1,
 	_64 = 2,
 }
 
-VideoEncodeH265RateControlFlagsKHR :: distinct bit_set[VideoEncodeH265RateControlFlagKHR;Flags]
+VideoEncodeH265RateControlFlagsKHR :: distinct bit_set[VideoEncodeH265RateControlFlagKHR; Flags]
 VideoEncodeH265RateControlFlagKHR :: enum Flags {
 	ATTEMPT_HRD_COMPLIANCE            = 0,
 	REGULAR_GOP                       = 1,
@@ -5287,7 +5238,7 @@ VideoEncodeH265RateControlFlagKHR :: enum Flags {
 	TEMPORAL_SUB_LAYER_PATTERN_DYADIC = 4,
 }
 
-VideoEncodeH265StdFlagsKHR :: distinct bit_set[VideoEncodeH265StdFlagKHR;Flags]
+VideoEncodeH265StdFlagsKHR :: distinct bit_set[VideoEncodeH265StdFlagKHR; Flags]
 VideoEncodeH265StdFlagKHR :: enum Flags {
 	SEPARATE_COLOR_PLANE_FLAG_SET                = 0,
 	SAMPLE_ADAPTIVE_OFFSET_ENABLED_FLAG_SET      = 1,
@@ -5312,7 +5263,7 @@ VideoEncodeH265StdFlagKHR :: enum Flags {
 	DIFFERENT_SLICE_QP_DELTA                     = 20,
 }
 
-VideoEncodeH265TransformBlockSizeFlagsKHR :: distinct bit_set[VideoEncodeH265TransformBlockSizeFlagKHR;Flags]
+VideoEncodeH265TransformBlockSizeFlagsKHR :: distinct bit_set[VideoEncodeH265TransformBlockSizeFlagKHR; Flags]
 VideoEncodeH265TransformBlockSizeFlagKHR :: enum Flags {
 	_4  = 0,
 	_8  = 1,
@@ -5320,7 +5271,7 @@ VideoEncodeH265TransformBlockSizeFlagKHR :: enum Flags {
 	_32 = 3,
 }
 
-VideoEncodeIntraRefreshModeFlagsKHR :: distinct bit_set[VideoEncodeIntraRefreshModeFlagKHR;Flags]
+VideoEncodeIntraRefreshModeFlagsKHR :: distinct bit_set[VideoEncodeIntraRefreshModeFlagKHR; Flags]
 VideoEncodeIntraRefreshModeFlagKHR :: enum Flags {
 	PER_PICTURE_PARTITION = 0,
 	BLOCK_BASED           = 1,
@@ -5331,14 +5282,14 @@ VideoEncodeIntraRefreshModeFlagKHR :: enum Flags {
 VideoEncodeIntraRefreshModeFlagsKHR_NONE :: VideoEncodeIntraRefreshModeFlagsKHR{}
 
 
-VideoEncodePerPartitionFeedbackFlagsKHR :: distinct bit_set[VideoEncodePerPartitionFeedbackFlagKHR;Flags]
+VideoEncodePerPartitionFeedbackFlagsKHR :: distinct bit_set[VideoEncodePerPartitionFeedbackFlagKHR; Flags]
 VideoEncodePerPartitionFeedbackFlagKHR :: enum Flags {
 	STATUS                  = 0,
 	BITSTREAM_BUFFER_OFFSET = 1,
 	BITSTREAM_BYTES_WRITTEN = 2,
 }
 
-VideoEncodeRateControlModeFlagsKHR :: distinct bit_set[VideoEncodeRateControlModeFlagKHR;Flags]
+VideoEncodeRateControlModeFlagsKHR :: distinct bit_set[VideoEncodeRateControlModeFlagKHR; Flags]
 VideoEncodeRateControlModeFlagKHR :: enum Flags {
 	DISABLED = 0,
 	CBR      = 1,
@@ -5348,13 +5299,13 @@ VideoEncodeRateControlModeFlagKHR :: enum Flags {
 VideoEncodeRateControlModeFlagsKHR_DEFAULT :: VideoEncodeRateControlModeFlagsKHR{}
 
 
-VideoEncodeRgbChromaOffsetFlagsVALVE :: distinct bit_set[VideoEncodeRgbChromaOffsetFlagVALVE;Flags]
+VideoEncodeRgbChromaOffsetFlagsVALVE :: distinct bit_set[VideoEncodeRgbChromaOffsetFlagVALVE; Flags]
 VideoEncodeRgbChromaOffsetFlagVALVE :: enum Flags {
 	VIDEO_ENCODE_RGB_CHROMA_OFFSET_COSITED_EVEN_VALVE = 0,
 	VIDEO_ENCODE_RGB_CHROMA_OFFSET_MIDPOINT_VALVE     = 1,
 }
 
-VideoEncodeRgbModelConversionFlagsVALVE :: distinct bit_set[VideoEncodeRgbModelConversionFlagVALVE;Flags]
+VideoEncodeRgbModelConversionFlagsVALVE :: distinct bit_set[VideoEncodeRgbModelConversionFlagVALVE; Flags]
 VideoEncodeRgbModelConversionFlagVALVE :: enum Flags {
 	VIDEO_ENCODE_RGB_MODEL_CONVERSION_RGB_IDENTITY_VALVE   = 0,
 	VIDEO_ENCODE_RGB_MODEL_CONVERSION_YCBCR_IDENTITY_VALVE = 1,
@@ -5363,7 +5314,7 @@ VideoEncodeRgbModelConversionFlagVALVE :: enum Flags {
 	VIDEO_ENCODE_RGB_MODEL_CONVERSION_YCBCR_2020_VALVE     = 4,
 }
 
-VideoEncodeRgbRangeCompressionFlagsVALVE :: distinct bit_set[VideoEncodeRgbRangeCompressionFlagVALVE;Flags]
+VideoEncodeRgbRangeCompressionFlagsVALVE :: distinct bit_set[VideoEncodeRgbRangeCompressionFlagVALVE; Flags]
 VideoEncodeRgbRangeCompressionFlagVALVE :: enum Flags {
 	VIDEO_ENCODE_RGB_RANGE_COMPRESSION_FULL_RANGE_VALVE   = 0,
 	VIDEO_ENCODE_RGB_RANGE_COMPRESSION_NARROW_RANGE_VALVE = 1,
@@ -5377,7 +5328,7 @@ VideoEncodeTuningModeKHR :: enum c.int {
 	LOSSLESS          = 4,
 }
 
-VideoEncodeUsageFlagsKHR :: distinct bit_set[VideoEncodeUsageFlagKHR;Flags]
+VideoEncodeUsageFlagsKHR :: distinct bit_set[VideoEncodeUsageFlagKHR; Flags]
 VideoEncodeUsageFlagKHR :: enum Flags {
 	TRANSCODING  = 0,
 	STREAMING    = 1,
@@ -5388,45 +5339,64 @@ VideoEncodeUsageFlagKHR :: enum Flags {
 VideoEncodeUsageFlagsKHR_DEFAULT :: VideoEncodeUsageFlagsKHR{}
 
 
-VideoH264AspectRatioIdc :: enum c.int {}
+VideoH264AspectRatioIdc :: enum c.int {
+}
 
-VideoH264CabacInitIdc :: enum c.int {}
+VideoH264CabacInitIdc :: enum c.int {
+}
 
-VideoH264ChromaFormatIdc :: enum c.int {}
+VideoH264ChromaFormatIdc :: enum c.int {
+}
 
-VideoH264DisableDeblockingFilterIdc :: enum c.int {}
+VideoH264DisableDeblockingFilterIdc :: enum c.int {
+}
 
-VideoH264LevelIdc :: enum c.int {}
+VideoH264LevelIdc :: enum c.int {
+}
 
-VideoH264MemMgmtControlOp :: enum c.int {}
+VideoH264MemMgmtControlOp :: enum c.int {
+}
 
-VideoH264ModificationOfPicNumsIdc :: enum c.int {}
+VideoH264ModificationOfPicNumsIdc :: enum c.int {
+}
 
-VideoH264NonVclNaluType :: enum c.int {}
+VideoH264NonVclNaluType :: enum c.int {
+}
 
-VideoH264PictureType :: enum c.int {}
+VideoH264PictureType :: enum c.int {
+}
 
-VideoH264PocType :: enum c.int {}
+VideoH264PocType :: enum c.int {
+}
 
-VideoH264ProfileIdc :: enum c.int {}
+VideoH264ProfileIdc :: enum c.int {
+}
 
-VideoH264SliceType :: enum c.int {}
+VideoH264SliceType :: enum c.int {
+}
 
-VideoH264WeightedBipredIdc :: enum c.int {}
+VideoH264WeightedBipredIdc :: enum c.int {
+}
 
-VideoH265AspectRatioIdc :: enum c.int {}
+VideoH265AspectRatioIdc :: enum c.int {
+}
 
-VideoH265ChromaFormatIdc :: enum c.int {}
+VideoH265ChromaFormatIdc :: enum c.int {
+}
 
-VideoH265LevelIdc :: enum c.int {}
+VideoH265LevelIdc :: enum c.int {
+}
 
-VideoH265PictureType :: enum c.int {}
+VideoH265PictureType :: enum c.int {
+}
 
-VideoH265ProfileIdc :: enum c.int {}
+VideoH265ProfileIdc :: enum c.int {
+}
 
-VideoH265SliceType :: enum c.int {}
+VideoH265SliceType :: enum c.int {
+}
 
-VideoSessionCreateFlagsKHR :: distinct bit_set[VideoSessionCreateFlagKHR;Flags]
+VideoSessionCreateFlagsKHR :: distinct bit_set[VideoSessionCreateFlagKHR; Flags]
 VideoSessionCreateFlagKHR :: enum Flags {
 	PROTECTED_CONTENT                    = 0,
 	ALLOW_ENCODE_PARAMETER_OPTIMIZATIONS = 1,
@@ -5436,22 +5406,28 @@ VideoSessionCreateFlagKHR :: enum Flags {
 	INLINE_SESSION_PARAMETERS            = 5,
 }
 
-VideoSessionParametersCreateFlagsKHR :: distinct bit_set[VideoSessionParametersCreateFlagKHR;Flags]
+VideoSessionParametersCreateFlagsKHR :: distinct bit_set[VideoSessionParametersCreateFlagKHR; Flags]
 VideoSessionParametersCreateFlagKHR :: enum Flags {
 	QUANTIZATION_MAP_COMPATIBLE = 0,
 }
 
-VideoVP9ColorSpace :: enum c.int {}
+VideoVP9ColorSpace :: enum c.int {
+}
 
-VideoVP9FrameType :: enum c.int {}
+VideoVP9FrameType :: enum c.int {
+}
 
-VideoVP9InterpolationFilter :: enum c.int {}
+VideoVP9InterpolationFilter :: enum c.int {
+}
 
-VideoVP9Level :: enum c.int {}
+VideoVP9Level :: enum c.int {
+}
 
-VideoVP9Profile :: enum c.int {}
+VideoVP9Profile :: enum c.int {
+}
 
-VideoVP9ReferenceName :: enum c.int {}
+VideoVP9ReferenceName :: enum c.int {
+}
 
 ViewportCoordinateSwizzleNV :: enum c.int {
 	POSITIVE_X = 0,
@@ -5464,103 +5440,103 @@ ViewportCoordinateSwizzleNV :: enum c.int {
 	NEGATIVE_W = 7,
 }
 
-AccelerationStructureMotionInfoFlagsNV :: distinct bit_set[AccelerationStructureMotionInfoFlagNV;Flags]
-AccelerationStructureMotionInfoFlagNV :: enum u32 {}
-AccelerationStructureMotionInstanceFlagsNV :: distinct bit_set[AccelerationStructureMotionInstanceFlagNV;Flags]
-AccelerationStructureMotionInstanceFlagNV :: enum u32 {}
-BufferViewCreateFlags :: distinct bit_set[BufferViewCreateFlag;Flags]
-BufferViewCreateFlag :: enum u32 {}
-CommandPoolTrimFlags :: distinct bit_set[CommandPoolTrimFlag;Flags]
-CommandPoolTrimFlag :: enum u32 {}
-DebugUtilsMessengerCallbackDataFlagsEXT :: distinct bit_set[DebugUtilsMessengerCallbackDataFlagEXT;Flags]
-DebugUtilsMessengerCallbackDataFlagEXT :: enum u32 {}
-DebugUtilsMessengerCreateFlagsEXT :: distinct bit_set[DebugUtilsMessengerCreateFlagEXT;Flags]
-DebugUtilsMessengerCreateFlagEXT :: enum u32 {}
-DescriptorPoolResetFlags :: distinct bit_set[DescriptorPoolResetFlag;Flags]
-DescriptorPoolResetFlag :: enum u32 {}
-DescriptorUpdateTemplateCreateFlags :: distinct bit_set[DescriptorUpdateTemplateCreateFlag;Flags]
-DescriptorUpdateTemplateCreateFlag :: enum u32 {}
-DeviceCreateFlags :: distinct bit_set[DeviceCreateFlag;Flags]
-DeviceCreateFlag :: enum u32 {}
-DeviceMemoryReportFlagsEXT :: distinct bit_set[DeviceMemoryReportFlagEXT;Flags]
-DeviceMemoryReportFlagEXT :: enum u32 {}
-DirectDriverLoadingFlagsLUNARG :: distinct bit_set[DirectDriverLoadingFlagLUNARG;Flags]
-DirectDriverLoadingFlagLUNARG :: enum u32 {}
-DisplayModeCreateFlagsKHR :: distinct bit_set[DisplayModeCreateFlagKHR;Flags]
-DisplayModeCreateFlagKHR :: enum u32 {}
-DisplaySurfaceCreateFlagsKHR :: distinct bit_set[DisplaySurfaceCreateFlagKHR;Flags]
-DisplaySurfaceCreateFlagKHR :: enum u32 {}
-GpaPerfBlockPropertiesFlagsAMD :: distinct bit_set[GpaPerfBlockPropertiesFlagAMD;Flags]
-GpaPerfBlockPropertiesFlagAMD :: enum u32 {}
-HeadlessSurfaceCreateFlagsEXT :: distinct bit_set[HeadlessSurfaceCreateFlagEXT;Flags]
-HeadlessSurfaceCreateFlagEXT :: enum u32 {}
-IOSSurfaceCreateFlagsMVK :: distinct bit_set[IOSSurfaceCreateFlagMVK;Flags]
-IOSSurfaceCreateFlagMVK :: enum u32 {}
-MacOSSurfaceCreateFlagsMVK :: distinct bit_set[MacOSSurfaceCreateFlagMVK;Flags]
-MacOSSurfaceCreateFlagMVK :: enum u32 {}
-MetalSurfaceCreateFlagsEXT :: distinct bit_set[MetalSurfaceCreateFlagEXT;Flags]
-MetalSurfaceCreateFlagEXT :: enum u32 {}
-PerformanceCounterDescriptionFlagsARM :: distinct bit_set[PerformanceCounterDescriptionFlagARM;Flags]
-PerformanceCounterDescriptionFlagARM :: enum u32 {}
-PhysicalDeviceGpaPropertiesFlagsAMD :: distinct bit_set[PhysicalDeviceGpaPropertiesFlagAMD;Flags]
-PhysicalDeviceGpaPropertiesFlagAMD :: enum u32 {}
-PipelineCoverageModulationStateCreateFlagsNV :: distinct bit_set[PipelineCoverageModulationStateCreateFlagNV;Flags]
-PipelineCoverageModulationStateCreateFlagNV :: enum u32 {}
-PipelineCoverageReductionStateCreateFlagsNV :: distinct bit_set[PipelineCoverageReductionStateCreateFlagNV;Flags]
-PipelineCoverageReductionStateCreateFlagNV :: enum u32 {}
-PipelineCoverageToColorStateCreateFlagsNV :: distinct bit_set[PipelineCoverageToColorStateCreateFlagNV;Flags]
-PipelineCoverageToColorStateCreateFlagNV :: enum u32 {}
-PipelineDiscardRectangleStateCreateFlagsEXT :: distinct bit_set[PipelineDiscardRectangleStateCreateFlagEXT;Flags]
-PipelineDiscardRectangleStateCreateFlagEXT :: enum u32 {}
-PipelineDynamicStateCreateFlags :: distinct bit_set[PipelineDynamicStateCreateFlag;Flags]
-PipelineDynamicStateCreateFlag :: enum u32 {}
-PipelineInputAssemblyStateCreateFlags :: distinct bit_set[PipelineInputAssemblyStateCreateFlag;Flags]
-PipelineInputAssemblyStateCreateFlag :: enum u32 {}
-PipelineMultisampleStateCreateFlags :: distinct bit_set[PipelineMultisampleStateCreateFlag;Flags]
-PipelineMultisampleStateCreateFlag :: enum u32 {}
-PipelineRasterizationConservativeStateCreateFlagsEXT :: distinct bit_set[PipelineRasterizationConservativeStateCreateFlagEXT;Flags]
-PipelineRasterizationConservativeStateCreateFlagEXT :: enum u32 {}
-PipelineRasterizationDepthClipStateCreateFlagsEXT :: distinct bit_set[PipelineRasterizationDepthClipStateCreateFlagEXT;Flags]
-PipelineRasterizationDepthClipStateCreateFlagEXT :: enum u32 {}
-PipelineRasterizationStateCreateFlags :: distinct bit_set[PipelineRasterizationStateCreateFlag;Flags]
-PipelineRasterizationStateCreateFlag :: enum u32 {}
-PipelineRasterizationStateStreamCreateFlagsEXT :: distinct bit_set[PipelineRasterizationStateStreamCreateFlagEXT;Flags]
-PipelineRasterizationStateStreamCreateFlagEXT :: enum u32 {}
-PipelineTessellationStateCreateFlags :: distinct bit_set[PipelineTessellationStateCreateFlag;Flags]
-PipelineTessellationStateCreateFlag :: enum u32 {}
-PipelineVertexInputStateCreateFlags :: distinct bit_set[PipelineVertexInputStateCreateFlag;Flags]
-PipelineVertexInputStateCreateFlag :: enum u32 {}
-PipelineViewportStateCreateFlags :: distinct bit_set[PipelineViewportStateCreateFlag;Flags]
-PipelineViewportStateCreateFlag :: enum u32 {}
-PipelineViewportSwizzleStateCreateFlagsNV :: distinct bit_set[PipelineViewportSwizzleStateCreateFlagNV;Flags]
-PipelineViewportSwizzleStateCreateFlagNV :: enum u32 {}
-PrivateDataSlotCreateFlags :: distinct bit_set[PrivateDataSlotCreateFlag;Flags]
-PrivateDataSlotCreateFlag :: enum u32 {}
-SemaphoreCreateFlags :: distinct bit_set[SemaphoreCreateFlag;Flags]
-SemaphoreCreateFlag :: enum u32 {}
-ShaderInstrumentationValuesFlagsARM :: distinct bit_set[ShaderInstrumentationValuesFlagARM;Flags]
-ShaderInstrumentationValuesFlagARM :: enum u32 {}
-ShaderModuleCreateFlags :: distinct bit_set[ShaderModuleCreateFlag;Flags]
-ShaderModuleCreateFlag :: enum u32 {}
-ValidationCacheCreateFlagsEXT :: distinct bit_set[ValidationCacheCreateFlagEXT;Flags]
-ValidationCacheCreateFlagEXT :: enum u32 {}
-VideoBeginCodingFlagsKHR :: distinct bit_set[VideoBeginCodingFlagKHR;Flags]
-VideoBeginCodingFlagKHR :: enum u32 {}
-VideoDecodeFlagsKHR :: distinct bit_set[VideoDecodeFlagKHR;Flags]
-VideoDecodeFlagKHR :: enum u32 {}
-VideoEncodeRateControlFlagsKHR :: distinct bit_set[VideoEncodeRateControlFlagKHR;Flags]
-VideoEncodeRateControlFlagKHR :: enum u32 {}
-VideoEndCodingFlagsKHR :: distinct bit_set[VideoEndCodingFlagKHR;Flags]
-VideoEndCodingFlagKHR :: enum u32 {}
-WaylandSurfaceCreateFlagsKHR :: distinct bit_set[WaylandSurfaceCreateFlagKHR;Flags]
-WaylandSurfaceCreateFlagKHR :: enum u32 {}
-Win32SurfaceCreateFlagsKHR :: distinct bit_set[Win32SurfaceCreateFlagKHR;Flags]
-Win32SurfaceCreateFlagKHR :: enum u32 {}
-XcbSurfaceCreateFlagsKHR :: distinct bit_set[XcbSurfaceCreateFlagKHR;Flags]
-XcbSurfaceCreateFlagKHR :: enum u32 {}
-XlibSurfaceCreateFlagsKHR :: distinct bit_set[XlibSurfaceCreateFlagKHR;Flags]
-XlibSurfaceCreateFlagKHR :: enum u32 {}
-AccessFlags2 :: distinct bit_set[AccessFlag2;Flags64]
+AccelerationStructureMotionInfoFlagsNV               :: distinct bit_set[AccelerationStructureMotionInfoFlagNV; Flags]
+AccelerationStructureMotionInfoFlagNV                :: enum u32 {}
+AccelerationStructureMotionInstanceFlagsNV           :: distinct bit_set[AccelerationStructureMotionInstanceFlagNV; Flags]
+AccelerationStructureMotionInstanceFlagNV            :: enum u32 {}
+BufferViewCreateFlags                                :: distinct bit_set[BufferViewCreateFlag; Flags]
+BufferViewCreateFlag                                 :: enum u32 {}
+CommandPoolTrimFlags                                 :: distinct bit_set[CommandPoolTrimFlag; Flags]
+CommandPoolTrimFlag                                  :: enum u32 {}
+DebugUtilsMessengerCallbackDataFlagsEXT              :: distinct bit_set[DebugUtilsMessengerCallbackDataFlagEXT; Flags]
+DebugUtilsMessengerCallbackDataFlagEXT               :: enum u32 {}
+DebugUtilsMessengerCreateFlagsEXT                    :: distinct bit_set[DebugUtilsMessengerCreateFlagEXT; Flags]
+DebugUtilsMessengerCreateFlagEXT                     :: enum u32 {}
+DescriptorPoolResetFlags                             :: distinct bit_set[DescriptorPoolResetFlag; Flags]
+DescriptorPoolResetFlag                              :: enum u32 {}
+DescriptorUpdateTemplateCreateFlags                  :: distinct bit_set[DescriptorUpdateTemplateCreateFlag; Flags]
+DescriptorUpdateTemplateCreateFlag                   :: enum u32 {}
+DeviceCreateFlags                                    :: distinct bit_set[DeviceCreateFlag; Flags]
+DeviceCreateFlag                                     :: enum u32 {}
+DeviceMemoryReportFlagsEXT                           :: distinct bit_set[DeviceMemoryReportFlagEXT; Flags]
+DeviceMemoryReportFlagEXT                            :: enum u32 {}
+DirectDriverLoadingFlagsLUNARG                       :: distinct bit_set[DirectDriverLoadingFlagLUNARG; Flags]
+DirectDriverLoadingFlagLUNARG                        :: enum u32 {}
+DisplayModeCreateFlagsKHR                            :: distinct bit_set[DisplayModeCreateFlagKHR; Flags]
+DisplayModeCreateFlagKHR                             :: enum u32 {}
+DisplaySurfaceCreateFlagsKHR                         :: distinct bit_set[DisplaySurfaceCreateFlagKHR; Flags]
+DisplaySurfaceCreateFlagKHR                          :: enum u32 {}
+GpaPerfBlockPropertiesFlagsAMD                       :: distinct bit_set[GpaPerfBlockPropertiesFlagAMD; Flags]
+GpaPerfBlockPropertiesFlagAMD                        :: enum u32 {}
+HeadlessSurfaceCreateFlagsEXT                        :: distinct bit_set[HeadlessSurfaceCreateFlagEXT; Flags]
+HeadlessSurfaceCreateFlagEXT                         :: enum u32 {}
+IOSSurfaceCreateFlagsMVK                             :: distinct bit_set[IOSSurfaceCreateFlagMVK; Flags]
+IOSSurfaceCreateFlagMVK                              :: enum u32 {}
+MacOSSurfaceCreateFlagsMVK                           :: distinct bit_set[MacOSSurfaceCreateFlagMVK; Flags]
+MacOSSurfaceCreateFlagMVK                            :: enum u32 {}
+MetalSurfaceCreateFlagsEXT                           :: distinct bit_set[MetalSurfaceCreateFlagEXT; Flags]
+MetalSurfaceCreateFlagEXT                            :: enum u32 {}
+PerformanceCounterDescriptionFlagsARM                :: distinct bit_set[PerformanceCounterDescriptionFlagARM; Flags]
+PerformanceCounterDescriptionFlagARM                 :: enum u32 {}
+PhysicalDeviceGpaPropertiesFlagsAMD                  :: distinct bit_set[PhysicalDeviceGpaPropertiesFlagAMD; Flags]
+PhysicalDeviceGpaPropertiesFlagAMD                   :: enum u32 {}
+PipelineCoverageModulationStateCreateFlagsNV         :: distinct bit_set[PipelineCoverageModulationStateCreateFlagNV; Flags]
+PipelineCoverageModulationStateCreateFlagNV          :: enum u32 {}
+PipelineCoverageReductionStateCreateFlagsNV          :: distinct bit_set[PipelineCoverageReductionStateCreateFlagNV; Flags]
+PipelineCoverageReductionStateCreateFlagNV           :: enum u32 {}
+PipelineCoverageToColorStateCreateFlagsNV            :: distinct bit_set[PipelineCoverageToColorStateCreateFlagNV; Flags]
+PipelineCoverageToColorStateCreateFlagNV             :: enum u32 {}
+PipelineDiscardRectangleStateCreateFlagsEXT          :: distinct bit_set[PipelineDiscardRectangleStateCreateFlagEXT; Flags]
+PipelineDiscardRectangleStateCreateFlagEXT           :: enum u32 {}
+PipelineDynamicStateCreateFlags                      :: distinct bit_set[PipelineDynamicStateCreateFlag; Flags]
+PipelineDynamicStateCreateFlag                       :: enum u32 {}
+PipelineInputAssemblyStateCreateFlags                :: distinct bit_set[PipelineInputAssemblyStateCreateFlag; Flags]
+PipelineInputAssemblyStateCreateFlag                 :: enum u32 {}
+PipelineMultisampleStateCreateFlags                  :: distinct bit_set[PipelineMultisampleStateCreateFlag; Flags]
+PipelineMultisampleStateCreateFlag                   :: enum u32 {}
+PipelineRasterizationConservativeStateCreateFlagsEXT :: distinct bit_set[PipelineRasterizationConservativeStateCreateFlagEXT; Flags]
+PipelineRasterizationConservativeStateCreateFlagEXT  :: enum u32 {}
+PipelineRasterizationDepthClipStateCreateFlagsEXT    :: distinct bit_set[PipelineRasterizationDepthClipStateCreateFlagEXT; Flags]
+PipelineRasterizationDepthClipStateCreateFlagEXT     :: enum u32 {}
+PipelineRasterizationStateCreateFlags                :: distinct bit_set[PipelineRasterizationStateCreateFlag; Flags]
+PipelineRasterizationStateCreateFlag                 :: enum u32 {}
+PipelineRasterizationStateStreamCreateFlagsEXT       :: distinct bit_set[PipelineRasterizationStateStreamCreateFlagEXT; Flags]
+PipelineRasterizationStateStreamCreateFlagEXT        :: enum u32 {}
+PipelineTessellationStateCreateFlags                 :: distinct bit_set[PipelineTessellationStateCreateFlag; Flags]
+PipelineTessellationStateCreateFlag                  :: enum u32 {}
+PipelineVertexInputStateCreateFlags                  :: distinct bit_set[PipelineVertexInputStateCreateFlag; Flags]
+PipelineVertexInputStateCreateFlag                   :: enum u32 {}
+PipelineViewportStateCreateFlags                     :: distinct bit_set[PipelineViewportStateCreateFlag; Flags]
+PipelineViewportStateCreateFlag                      :: enum u32 {}
+PipelineViewportSwizzleStateCreateFlagsNV            :: distinct bit_set[PipelineViewportSwizzleStateCreateFlagNV; Flags]
+PipelineViewportSwizzleStateCreateFlagNV             :: enum u32 {}
+PrivateDataSlotCreateFlags                           :: distinct bit_set[PrivateDataSlotCreateFlag; Flags]
+PrivateDataSlotCreateFlag                            :: enum u32 {}
+SemaphoreCreateFlags                                 :: distinct bit_set[SemaphoreCreateFlag; Flags]
+SemaphoreCreateFlag                                  :: enum u32 {}
+ShaderInstrumentationValuesFlagsARM                  :: distinct bit_set[ShaderInstrumentationValuesFlagARM; Flags]
+ShaderInstrumentationValuesFlagARM                   :: enum u32 {}
+ShaderModuleCreateFlags                              :: distinct bit_set[ShaderModuleCreateFlag; Flags]
+ShaderModuleCreateFlag                               :: enum u32 {}
+ValidationCacheCreateFlagsEXT                        :: distinct bit_set[ValidationCacheCreateFlagEXT; Flags]
+ValidationCacheCreateFlagEXT                         :: enum u32 {}
+VideoBeginCodingFlagsKHR                             :: distinct bit_set[VideoBeginCodingFlagKHR; Flags]
+VideoBeginCodingFlagKHR                              :: enum u32 {}
+VideoDecodeFlagsKHR                                  :: distinct bit_set[VideoDecodeFlagKHR; Flags]
+VideoDecodeFlagKHR                                   :: enum u32 {}
+VideoEncodeRateControlFlagsKHR                       :: distinct bit_set[VideoEncodeRateControlFlagKHR; Flags]
+VideoEncodeRateControlFlagKHR                        :: enum u32 {}
+VideoEndCodingFlagsKHR                               :: distinct bit_set[VideoEndCodingFlagKHR; Flags]
+VideoEndCodingFlagKHR                                :: enum u32 {}
+WaylandSurfaceCreateFlagsKHR                         :: distinct bit_set[WaylandSurfaceCreateFlagKHR; Flags]
+WaylandSurfaceCreateFlagKHR                          :: enum u32 {}
+Win32SurfaceCreateFlagsKHR                           :: distinct bit_set[Win32SurfaceCreateFlagKHR; Flags]
+Win32SurfaceCreateFlagKHR                            :: enum u32 {}
+XcbSurfaceCreateFlagsKHR                             :: distinct bit_set[XcbSurfaceCreateFlagKHR; Flags]
+XcbSurfaceCreateFlagKHR                              :: enum u32 {}
+XlibSurfaceCreateFlagsKHR                            :: distinct bit_set[XlibSurfaceCreateFlagKHR; Flags]
+XlibSurfaceCreateFlagKHR                             :: enum u32 {}
+AccessFlags2 :: distinct bit_set[AccessFlag2; Flags64]
 AccessFlag2 :: enum Flags64 {
 	INDIRECT_COMMAND_READ                     = 0,
 	INDEX_READ                                = 1,
@@ -5639,7 +5615,7 @@ AccessFlag2 :: enum Flags64 {
 	MEMORY_DECOMPRESSION_WRITE_EXT            = 56,
 }
 
-BufferUsageFlags2 :: distinct bit_set[BufferUsageFlag2;Flags64]
+BufferUsageFlags2 :: distinct bit_set[BufferUsageFlag2; Flags64]
 BufferUsageFlag2 :: enum Flags64 {
 	TRANSFER_SRC                                     = 0,
 	TRANSFER_DST                                     = 1,
@@ -5686,7 +5662,7 @@ BufferUsageFlag2 :: enum Flags64 {
 	PREPROCESS_BUFFER_EXT                            = 31,
 }
 
-FormatFeatureFlags2 :: distinct bit_set[FormatFeatureFlag2;Flags64]
+FormatFeatureFlags2 :: distinct bit_set[FormatFeatureFlag2; Flags64]
 FormatFeatureFlag2 :: enum Flags64 {
 	SAMPLED_IMAGE                                                               = 0,
 	STORAGE_IMAGE                                                               = 1,
@@ -5777,7 +5753,7 @@ FormatFeatureFlag2 :: enum Flags64 {
 	DATA_GRAPH_OPTICAL_FLOW_COST_ARM                                            = 58,
 }
 
-PipelineCreateFlags2 :: distinct bit_set[PipelineCreateFlag2;Flags64]
+PipelineCreateFlags2 :: distinct bit_set[PipelineCreateFlag2; Flags64]
 PipelineCreateFlag2 :: enum Flags64 {
 	DISABLE_OPTIMIZATION                                  = 0,
 	ALLOW_DERIVATIVES                                     = 1,
@@ -5834,7 +5810,7 @@ PipelineCreateFlag2 :: enum Flags64 {
 	_64_INDEXING_EXT                                      = 43,
 }
 
-PipelineStageFlags2 :: distinct bit_set[PipelineStageFlag2;Flags64]
+PipelineStageFlags2 :: distinct bit_set[PipelineStageFlag2; Flags64]
 PipelineStageFlag2 :: enum Flags64 {
 	TOP_OF_PIPE                          = 0,
 	DRAW_INDIRECT                        = 1,
@@ -5915,3 +5891,6 @@ PipelineStageFlag2 :: enum Flags64 {
 	COPY_INDIRECT_KHR                    = 46,
 	MEMORY_DECOMPRESSION_EXT             = 45,
 }
+
+
+

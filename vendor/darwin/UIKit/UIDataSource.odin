@@ -5,41 +5,39 @@ package darwin_UIKit
 import "base:intrinsics"
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class = "UIDataSourceModelAssociation")
-DataSourceModelAssociation :: struct {
-	using _: intrinsics.objc_object,
-}
+@(objc_class="UIDataSourceModelAssociation")
+DataSourceModelAssociation :: struct { using _: intrinsics.objc_object}
 
-@(default_calling_convention = "c")
+@(default_calling_convention="c")
 foreign lib {
-	@(objc_type = DataSourceModelAssociation, objc_selector = "modelIdentifierForElementAtIndexPath:inView:", objc_name = "modelIdentifierForElementAtIndexPath")
+	@(objc_type=DataSourceModelAssociation, objc_selector="modelIdentifierForElementAtIndexPath:inView:", objc_name="modelIdentifierForElementAtIndexPath")
 	DataSourceModelAssociation_modelIdentifierForElementAtIndexPath :: proc(self: ^DataSourceModelAssociation, idx: ^NS.IndexPath, view: ^View) -> ^NS.String ---
 
-	@(objc_type = DataSourceModelAssociation, objc_selector = "indexPathForElementWithModelIdentifier:inView:", objc_name = "indexPathForElementWithModelIdentifier")
+	@(objc_type=DataSourceModelAssociation, objc_selector="indexPathForElementWithModelIdentifier:inView:", objc_name="indexPathForElementWithModelIdentifier")
 	DataSourceModelAssociation_indexPathForElementWithModelIdentifier :: proc(self: ^DataSourceModelAssociation, identifier: ^NS.String, view: ^View) -> ^NS.IndexPath ---
 }
 
 
-@(objc_class = "UIDataSourceTranslating")
+@(objc_class="UIDataSourceTranslating")
 DataSourceTranslating :: struct {
 	using _: intrinsics.objc_object,
 	using _: NS.ObjectProtocol,
 }
 
-@(default_calling_convention = "c")
+@(default_calling_convention="c")
 foreign lib {
-	@(objc_type = DataSourceTranslating, objc_selector = "presentationSectionIndexForDataSourceSectionIndex:", objc_name = "presentationSectionIndexForDataSourceSectionIndex")
+	@(objc_type=DataSourceTranslating, objc_selector="presentationSectionIndexForDataSourceSectionIndex:", objc_name="presentationSectionIndexForDataSourceSectionIndex")
 	DataSourceTranslating_presentationSectionIndexForDataSourceSectionIndex :: proc(self: ^DataSourceTranslating, dataSourceSectionIndex: NS.Integer) -> NS.Integer ---
 
-	@(objc_type = DataSourceTranslating, objc_selector = "dataSourceSectionIndexForPresentationSectionIndex:", objc_name = "dataSourceSectionIndexForPresentationSectionIndex")
+	@(objc_type=DataSourceTranslating, objc_selector="dataSourceSectionIndexForPresentationSectionIndex:", objc_name="dataSourceSectionIndexForPresentationSectionIndex")
 	DataSourceTranslating_dataSourceSectionIndexForPresentationSectionIndex :: proc(self: ^DataSourceTranslating, presentationSectionIndex: NS.Integer) -> NS.Integer ---
 
-	@(objc_type = DataSourceTranslating, objc_selector = "presentationIndexPathForDataSourceIndexPath:", objc_name = "presentationIndexPathForDataSourceIndexPath")
+	@(objc_type=DataSourceTranslating, objc_selector="presentationIndexPathForDataSourceIndexPath:", objc_name="presentationIndexPathForDataSourceIndexPath")
 	DataSourceTranslating_presentationIndexPathForDataSourceIndexPath :: proc(self: ^DataSourceTranslating, dataSourceIndexPath: ^NS.IndexPath) -> ^NS.IndexPath ---
 
-	@(objc_type = DataSourceTranslating, objc_selector = "dataSourceIndexPathForPresentationIndexPath:", objc_name = "dataSourceIndexPathForPresentationIndexPath")
+	@(objc_type=DataSourceTranslating, objc_selector="dataSourceIndexPathForPresentationIndexPath:", objc_name="dataSourceIndexPathForPresentationIndexPath")
 	DataSourceTranslating_dataSourceIndexPathForPresentationIndexPath :: proc(self: ^DataSourceTranslating, presentationIndexPath: ^NS.IndexPath) -> ^NS.IndexPath ---
 
-	@(objc_type = DataSourceTranslating, objc_selector = "performUsingPresentationValues:", objc_name = "performUsingPresentationValues")
+	@(objc_type=DataSourceTranslating, objc_selector="performUsingPresentationValues:", objc_name="performUsingPresentationValues")
 	DataSourceTranslating_performUsingPresentationValues :: proc(self: ^DataSourceTranslating, actionsToTranslate: ^Objc_Block(proc "c" ())) ---
 }

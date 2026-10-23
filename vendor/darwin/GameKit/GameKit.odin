@@ -6,258 +6,138 @@ import "base:intrinsics"
 import cffi "core:c"
 import NS "core:sys/darwin/Foundation"
 
-id :: ^intrinsics.objc_object
-SEL :: ^intrinsics.objc_selector
-Class :: ^intrinsics.objc_class
-IMP :: rawptr
-Protocol :: distinct id
-instancetype :: intrinsics.objc_instancetype
+id            :: ^intrinsics.objc_object
+SEL           :: ^intrinsics.objc_selector
+Class         :: ^intrinsics.objc_class
+IMP           :: rawptr
+Protocol      :: distinct id
+instancetype  :: intrinsics.objc_instancetype
 
 @(export)
-foreign import lib "system:GameKit.framework"
+foreign import lib {
+	"system:GameKit.framework",
+}
 
 
-simd_char1 :: struct #align (1) {
-	v: [1]i8,
-} // size = 1  | align = 1
-simd_char2 :: struct #align (2) {
-	v: [2]i8,
-} // size = 2  | align = 2
-simd_char3 :: struct #align (4) {
-	v: [3]i8,
-} // size = 4  | align = 4
-simd_char4 :: struct #align (4) {
-	v: [4]i8,
-} // size = 4  | align = 4
-simd_char8 :: struct #align (8) {
-	v: [8]i8,
-} // size = 8  | align = 8
-simd_char16 :: struct #align (16) {
-	v: [16]i8,
-} // size = 16 | align = 16
-simd_char32 :: struct #align (16) {
-	v: [32]i8,
-} // size = 32 | align = 16
-simd_char64 :: struct #align (16) {
-	v: [64]i8,
-} // size = 64 | align = 16
-simd_uchar1 :: struct #align (1) {
-	v: [1]u8,
-} // size = 1  | align = 1
-simd_uchar2 :: struct #align (2) {
-	v: [2]u8,
-} // size = 2  | align = 2
-simd_uchar3 :: struct #align (4) {
-	v: [3]u8,
-} // size = 4  | align = 4
-simd_uchar4 :: struct #align (4) {
-	v: [4]u8,
-} // size = 4  | align = 4
-simd_uchar8 :: struct #align (8) {
-	v: [8]u8,
-} // size = 8  | align = 8
-simd_uchar16 :: struct #align (16) {
-	v: [16]u8,
-} // size = 16 | align = 16
-simd_uchar32 :: struct #align (16) {
-	v: [32]u8,
-} // size = 32 | align = 16
-simd_uchar64 :: struct #align (16) {
-	v: [64]u8,
-} // size = 64 | align = 16
-simd_short1 :: struct #align (2) {
-	v: [1]i16,
-} // size = 2  | align = 2
-simd_short2 :: struct #align (4) {
-	v: [2]i16,
-} // size = 4  | align = 4
-simd_short3 :: struct #align (8) {
-	v: [3]i16,
-} // size = 8  | align = 8
-simd_short4 :: struct #align (8) {
-	v: [4]i16,
-} // size = 8  | align = 8
-simd_short8 :: struct #align (16) {
-	v: [8]i16,
-} // size = 16 | align = 16
-simd_short16 :: struct #align (16) {
-	v: [16]i16,
-} // size = 32 | align = 16
-simd_short32 :: struct #align (16) {
-	v: [32]i16,
-} // size = 64 | align = 16
-simd_ushort1 :: struct #align (2) {
-	v: [1]u16,
-} // size = 2  | align = 2
-simd_ushort2 :: struct #align (4) {
-	v: [2]u16,
-} // size = 4  | align = 4
-simd_ushort3 :: struct #align (8) {
-	v: [3]u16,
-} // size = 8  | align = 8
-simd_ushort4 :: struct #align (8) {
-	v: [4]u16,
-} // size = 8  | align = 8
-simd_ushort8 :: struct #align (16) {
-	v: [8]u16,
-} // size = 16 | align = 16
-simd_ushort16 :: struct #align (16) {
-	v: [16]u16,
-} // size = 32 | align = 16
-simd_ushort32 :: struct #align (16) {
-	v: [32]u16,
-} // size = 64 | align = 16
-simd_int1 :: struct #align (4) {
-	v: [1]i32,
-} // size = 4  | align = 4
-simd_int2 :: struct #align (8) {
-	v: [2]i32,
-} // size = 8  | align = 8
-simd_int3 :: struct #align (16) {
-	v: [3]i32,
-} // size = 16 | align = 16
-simd_int4 :: struct #align (16) {
-	v: [4]i32,
-} // size = 16 | align = 16
-simd_int8 :: struct #align (16) {
-	v: [8]i32,
-} // size = 32 | align = 16
-simd_int16 :: struct #align (16) {
-	v: [16]i32,
-} // size = 64 | align = 16
-simd_uint1 :: struct #align (4) {
-	v: [1]u32,
-} // size = 4  | align = 4
-simd_uint2 :: struct #align (8) {
-	v: [2]u32,
-} // size = 8  | align = 8
-simd_uint3 :: struct #align (16) {
-	v: [3]u32,
-} // size = 16 | align = 16
-simd_uint4 :: struct #align (16) {
-	v: [4]u32,
-} // size = 16 | align = 16
-simd_uint8 :: struct #align (16) {
-	v: [8]u32,
-} // size = 32 | align = 16
-simd_uint16 :: struct #align (16) {
-	v: [16]u32,
-} // size = 64 | align = 16
-simd_float1 :: struct #align (4) {
-	v: [1]f32,
-} // size = 4  | align = 4
-simd_float2 :: struct #align (8) {
-	v: [2]f32,
-} // size = 8  | align = 8
-simd_float3 :: struct #align (16) {
-	v: [3]f32,
-} // size = 16 | align = 16
-simd_float4 :: struct #align (16) {
-	v: [4]f32,
-} // size = 16 | align = 16
-simd_float8 :: struct #align (16) {
-	v: [8]f32,
-} // size = 32 | align = 16
-simd_float16 :: struct #align (16) {
-	v: [16]f32,
-} // size = 64 | align = 16
-simd_long1 :: struct #align (8) {
-	v: [1]i64,
-} // size = 8  | align = 8
-simd_long2 :: struct #align (16) {
-	v: [2]i64,
-} // size = 16 | align = 16
-simd_long3 :: struct #align (16) {
-	v: [3]i64,
-} // size = 32 | align = 16
-simd_long4 :: struct #align (16) {
-	v: [4]i64,
-} // size = 32 | align = 16
-simd_long8 :: struct #align (16) {
-	v: [8]i64,
-} // size = 64 | align = 16
-simd_ulong1 :: struct #align (8) {
-	v: [1]u64,
-} // size = 8  | align = 8
-simd_ulong2 :: struct #align (16) {
-	v: [2]u64,
-} // size = 16 | align = 16
-simd_ulong3 :: struct #align (16) {
-	v: [3]u64,
-} // size = 32 | align = 16
-simd_ulong4 :: struct #align (16) {
-	v: [4]u64,
-} // size = 32 | align = 16
-simd_ulong8 :: struct #align (16) {
-	v: [8]u64,
-} // size = 64 | align = 16
-simd_double1 :: struct #align (8) {
-	v: [1]f64,
-} // size = 8  | align = 8
-simd_double2 :: struct #align (16) {
-	v: [2]f64,
-} // size = 16 | align = 16
-simd_double3 :: struct #align (16) {
-	v: [3]f64,
-} // size = 32 | align = 16
-simd_double4 :: struct #align (16) {
-	v: [4]f64,
-} // size = 32 | align = 16
-simd_double8 :: struct #align (16) {
-	v: [8]f64,
-} // size = 64 | align = 16
-vector_float2 :: simd_float2
-vector_float3 :: simd_float3
-vector_float4 :: simd_float4
-vector_double2 :: simd_double2
-vector_double3 :: simd_double3
-vector_double4 :: simd_double4
+
+
+simd_char1       :: struct #align (1 ) { v: [1 ]i8   } // size = 1  | align = 1
+simd_char2       :: struct #align (2 ) { v: [2 ]i8   } // size = 2  | align = 2
+simd_char3       :: struct #align (4 ) { v: [3 ]i8   } // size = 4  | align = 4
+simd_char4       :: struct #align (4 ) { v: [4 ]i8   } // size = 4  | align = 4
+simd_char8       :: struct #align (8 ) { v: [8 ]i8   } // size = 8  | align = 8
+simd_char16      :: struct #align (16) { v: [16]i8   } // size = 16 | align = 16
+simd_char32      :: struct #align (16) { v: [32]i8   } // size = 32 | align = 16
+simd_char64      :: struct #align (16) { v: [64]i8   } // size = 64 | align = 16
+simd_uchar1      :: struct #align (1 ) { v: [1 ]u8   } // size = 1  | align = 1
+simd_uchar2      :: struct #align (2 ) { v: [2 ]u8   } // size = 2  | align = 2
+simd_uchar3      :: struct #align (4 ) { v: [3 ]u8   } // size = 4  | align = 4
+simd_uchar4      :: struct #align (4 ) { v: [4 ]u8   } // size = 4  | align = 4
+simd_uchar8      :: struct #align (8 ) { v: [8 ]u8   } // size = 8  | align = 8
+simd_uchar16     :: struct #align (16) { v: [16]u8   } // size = 16 | align = 16
+simd_uchar32     :: struct #align (16) { v: [32]u8   } // size = 32 | align = 16
+simd_uchar64     :: struct #align (16) { v: [64]u8   } // size = 64 | align = 16
+simd_short1      :: struct #align (2 ) { v: [1 ]i16  } // size = 2  | align = 2
+simd_short2      :: struct #align (4 ) { v: [2 ]i16  } // size = 4  | align = 4
+simd_short3      :: struct #align (8 ) { v: [3 ]i16  } // size = 8  | align = 8
+simd_short4      :: struct #align (8 ) { v: [4 ]i16  } // size = 8  | align = 8
+simd_short8      :: struct #align (16) { v: [8 ]i16  } // size = 16 | align = 16
+simd_short16     :: struct #align (16) { v: [16]i16  } // size = 32 | align = 16
+simd_short32     :: struct #align (16) { v: [32]i16  } // size = 64 | align = 16
+simd_ushort1     :: struct #align (2 ) { v: [1 ]u16  } // size = 2  | align = 2
+simd_ushort2     :: struct #align (4 ) { v: [2 ]u16  } // size = 4  | align = 4
+simd_ushort3     :: struct #align (8 ) { v: [3 ]u16  } // size = 8  | align = 8
+simd_ushort4     :: struct #align (8 ) { v: [4 ]u16  } // size = 8  | align = 8
+simd_ushort8     :: struct #align (16) { v: [8 ]u16  } // size = 16 | align = 16
+simd_ushort16    :: struct #align (16) { v: [16]u16  } // size = 32 | align = 16
+simd_ushort32    :: struct #align (16) { v: [32]u16  } // size = 64 | align = 16
+simd_int1        :: struct #align (4 ) { v: [1 ]i32  } // size = 4  | align = 4
+simd_int2        :: struct #align (8 ) { v: [2 ]i32  } // size = 8  | align = 8
+simd_int3        :: struct #align (16) { v: [3 ]i32  } // size = 16 | align = 16
+simd_int4        :: struct #align (16) { v: [4 ]i32  } // size = 16 | align = 16
+simd_int8        :: struct #align (16) { v: [8 ]i32  } // size = 32 | align = 16
+simd_int16       :: struct #align (16) { v: [16]i32  } // size = 64 | align = 16
+simd_uint1       :: struct #align (4 ) { v: [1 ]u32  } // size = 4  | align = 4
+simd_uint2       :: struct #align (8 ) { v: [2 ]u32  } // size = 8  | align = 8
+simd_uint3       :: struct #align (16) { v: [3 ]u32  } // size = 16 | align = 16
+simd_uint4       :: struct #align (16) { v: [4 ]u32  } // size = 16 | align = 16
+simd_uint8       :: struct #align (16) { v: [8 ]u32  } // size = 32 | align = 16
+simd_uint16      :: struct #align (16) { v: [16]u32  } // size = 64 | align = 16
+simd_float1      :: struct #align (4 ) { v: [1 ]f32  } // size = 4  | align = 4
+simd_float2      :: struct #align (8 ) { v: [2 ]f32  } // size = 8  | align = 8
+simd_float3      :: struct #align (16) { v: [3 ]f32  } // size = 16 | align = 16
+simd_float4      :: struct #align (16) { v: [4 ]f32  } // size = 16 | align = 16
+simd_float8      :: struct #align (16) { v: [8 ]f32  } // size = 32 | align = 16
+simd_float16     :: struct #align (16) { v: [16]f32  } // size = 64 | align = 16
+simd_long1       :: struct #align (8 ) { v: [1 ]i64  } // size = 8  | align = 8
+simd_long2       :: struct #align (16) { v: [2 ]i64  } // size = 16 | align = 16
+simd_long3       :: struct #align (16) { v: [3 ]i64  } // size = 32 | align = 16
+simd_long4       :: struct #align (16) { v: [4 ]i64  } // size = 32 | align = 16
+simd_long8       :: struct #align (16) { v: [8 ]i64  } // size = 64 | align = 16
+simd_ulong1      :: struct #align (8 ) { v: [1 ]u64  } // size = 8  | align = 8
+simd_ulong2      :: struct #align (16) { v: [2 ]u64  } // size = 16 | align = 16
+simd_ulong3      :: struct #align (16) { v: [3 ]u64  } // size = 32 | align = 16
+simd_ulong4      :: struct #align (16) { v: [4 ]u64  } // size = 32 | align = 16
+simd_ulong8      :: struct #align (16) { v: [8 ]u64  } // size = 64 | align = 16
+simd_double1     :: struct #align (8 ) { v: [1 ]f64  } // size = 8  | align = 8
+simd_double2     :: struct #align (16) { v: [2 ]f64  } // size = 16 | align = 16
+simd_double3     :: struct #align (16) { v: [3 ]f64  } // size = 32 | align = 16
+simd_double4     :: struct #align (16) { v: [4 ]f64  } // size = 32 | align = 16
+simd_double8     :: struct #align (16) { v: [8 ]f64  } // size = 64 | align = 16
+vector_float2    :: simd_float2
+vector_float3    :: simd_float3
+vector_float4    :: simd_float4
+vector_double2   :: simd_double2
+vector_double3   :: simd_double3
+vector_double4   :: simd_double4
 
 SCNNode :: NS.Object
-SKNode :: NS.Object
+SKNode  :: NS.Object
+
 
 
 foreign lib {
-	@(link_name = "GKErrorDomain")
+	@(link_name="GKErrorDomain")
 	ErrorDomain: ^NS.String
 
-	@(link_name = "GKPlayerIDNoLongerAvailable")
+	@(link_name="GKPlayerIDNoLongerAvailable")
 	PlayerIDNoLongerAvailable: ^NS.String
 
-	@(link_name = "GKPlayerDidChangeNotificationName")
+	@(link_name="GKPlayerDidChangeNotificationName")
 	PlayerDidChangeNotificationName: ^NS.String
 
-	@(link_name = "GKGameSessionErrorDomain")
+	@(link_name="GKGameSessionErrorDomain")
 	GameSessionErrorDomain: ^NS.String
 
-	@(link_name = "GKTurnTimeoutDefault")
+	@(link_name="GKTurnTimeoutDefault")
 	TurnTimeoutDefault: NS.TimeInterval
 
-	@(link_name = "GKTurnTimeoutNone")
+	@(link_name="GKTurnTimeoutNone")
 	TurnTimeoutNone: NS.TimeInterval
 
-	@(link_name = "GKExchangeTimeoutDefault")
+	@(link_name="GKExchangeTimeoutDefault")
 	ExchangeTimeoutDefault: NS.TimeInterval
 
-	@(link_name = "GKExchangeTimeoutNone")
+	@(link_name="GKExchangeTimeoutNone")
 	ExchangeTimeoutNone: NS.TimeInterval
 
-	@(link_name = "GKPlayerAuthenticationDidChangeNotificationName")
+	@(link_name="GKPlayerAuthenticationDidChangeNotificationName")
 	PlayerAuthenticationDidChangeNotificationName: ^NS.String
 
-	@(link_name = "GKVoiceChatServiceErrorDomain")
+	@(link_name="GKVoiceChatServiceErrorDomain")
 	VoiceChatServiceErrorDomain: ^NS.String
 
-	@(link_name = "GKSessionErrorDomain")
+	@(link_name="GKSessionErrorDomain")
 	SessionErrorDomain: ^NS.String
 }
+
 
 
 GameModelMaxScore :: 16777216
 GameModelMinScore :: -16777216
 MatchProperties :: distinct NS.Dictionary
-ChallengeComposeCompletionBlock :: ^Objc_Block(proc "c" (composeController: ^UI_ViewController, didIssueChallenge: bool, sentPlayerIDs: ^NS.Array))
-ChallengeComposeHandler :: ^Objc_Block(proc "c" (composeController: ^UI_ViewController, didIssueChallenge: bool, sentPlayers: ^NS.Array))
+ChallengeComposeCompletionBlock :: ^Objc_Block(proc "c" ( composeController: ^UI_ViewController, didIssueChallenge: bool, sentPlayerIDs: ^NS.Array ))
+ChallengeComposeHandler :: ^Objc_Block(proc "c" ( composeController: ^UI_ViewController, didIssueChallenge: bool, sentPlayers: ^NS.Array ))
 InviteeResponse :: distinct InviteRecipientResponse
 
 MeshGraphTriangulationModeFlag :: enum cffi.ulong {
@@ -265,7 +145,7 @@ MeshGraphTriangulationModeFlag :: enum cffi.ulong {
 	Centers       = 1,
 	EdgeMidpoints = 2,
 }
-MeshGraphTriangulationMode :: bit_set[MeshGraphTriangulationModeFlag;cffi.ulong]
+MeshGraphTriangulationMode :: bit_set[MeshGraphTriangulationModeFlag; cffi.ulong]
 
 RTreeSplitStrategy :: enum cffi.long {
 	Halve         = 0,
@@ -517,23 +397,23 @@ PeerConnectionState :: enum cffi.int {
 }
 
 VoiceChatServiceError :: enum cffi.int {
-	InternalError                         = 32000,
-	NoRemotePacketsError                  = 32001,
-	UnableToConnectError                  = 32002,
-	RemoteParticipantHangupError          = 32003,
-	InvalidCallIDError                    = 32004,
-	AudioUnavailableError                 = 32005,
-	UninitializedClientError              = 32006,
-	ClientMissingRequiredMethodsError     = 32007,
-	RemoteParticipantBusyError            = 32008,
-	RemoteParticipantCancelledError       = 32009,
+	InternalError                    = 32000,
+	NoRemotePacketsError             = 32001,
+	UnableToConnectError             = 32002,
+	RemoteParticipantHangupError     = 32003,
+	InvalidCallIDError               = 32004,
+	AudioUnavailableError            = 32005,
+	UninitializedClientError         = 32006,
+	ClientMissingRequiredMethodsError = 32007,
+	RemoteParticipantBusyError       = 32008,
+	RemoteParticipantCancelledError  = 32009,
 	RemoteParticipantResponseInvalidError = 32010,
-	RemoteParticipantDeclinedInviteError  = 32011,
-	MethodCurrentlyInvalidError           = 32012,
-	NetworkConfigurationError             = 32013,
-	UnsupportedRemoteVersionError         = 32014,
-	OutOfMemoryError                      = 32015,
-	InvalidParameterError                 = 32016,
+	RemoteParticipantDeclinedInviteError = 32011,
+	MethodCurrentlyInvalidError      = 32012,
+	NetworkConfigurationError        = 32013,
+	UnsupportedRemoteVersionError    = 32014,
+	OutOfMemoryError                 = 32015,
+	InvalidParameterError            = 32016,
 }
 
 SessionError :: enum cffi.int {

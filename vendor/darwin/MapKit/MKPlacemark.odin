@@ -2,31 +2,32 @@
 #+build darwin
 package darwin_MapKit
 
-import NS "core:sys/darwin/Foundation"
 import CL "vendor:darwin/CoreLocation"
+import NS "core:sys/darwin/Foundation"
 
-@(objc_class = "MKPlacemark", objc_superclass = CL.Placemark)
+@(objc_class="MKPlacemark", objc_superclass=CL.Placemark)
 Placemark :: struct {
 	using _: CL.Placemark,
 	using _: Annotation,
 }
 
 foreign lib {
-	@(objc_type = Placemark, objc_selector = "initWithCoordinate:", objc_name = "initWithCoordinate_")
+	@(objc_type=Placemark, objc_selector="initWithCoordinate:", objc_name="initWithCoordinate_")
 	Placemark_initWithCoordinate_ :: proc(self: ^Placemark, coordinate: CL.LocationCoordinate2D) -> instancetype ---
 
-	@(objc_type = Placemark, objc_selector = "initWithCoordinate:addressDictionary:", objc_name = "initWithCoordinate_addressDictionary")
+	@(objc_type=Placemark, objc_selector="initWithCoordinate:addressDictionary:", objc_name="initWithCoordinate_addressDictionary")
 	Placemark_initWithCoordinate_addressDictionary :: proc(self: ^Placemark, coordinate: CL.LocationCoordinate2D, addressDictionary: ^NS.Dictionary) -> instancetype ---
 
-	@(objc_type = Placemark, objc_selector = "initWithCoordinate:postalAddress:", objc_name = "initWithCoordinate_postalAddress")
+	@(objc_type=Placemark, objc_selector="initWithCoordinate:postalAddress:", objc_name="initWithCoordinate_postalAddress")
 	Placemark_initWithCoordinate_postalAddress :: proc(self: ^Placemark, coordinate: CL.LocationCoordinate2D, postalAddress: ^CNPostalAddress) -> instancetype ---
 
-	@(objc_type = Placemark, objc_selector = "countryCode", objc_name = "countryCode")
+	@(objc_type=Placemark, objc_selector="countryCode", objc_name="countryCode")
 	Placemark_countryCode :: proc(self: ^Placemark) -> ^NS.String ---
 }
 
 
-@(objc_type = Placemark, objc_name = "initWithCoordinate")
+
+@(objc_type=Placemark, objc_name="initWithCoordinate")
 Placemark_initWithCoordinate :: proc {
 	Placemark_initWithCoordinate_,
 	Placemark_initWithCoordinate_addressDictionary,

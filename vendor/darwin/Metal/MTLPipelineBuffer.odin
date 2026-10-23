@@ -4,30 +4,28 @@ package darwin_Metal
 
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class = "MTLPipelineBufferDescriptor", objc_superclass = NS.Object)
+@(objc_class="MTLPipelineBufferDescriptor", objc_superclass=NS.Object)
 PipelineBufferDescriptor :: struct {
 	using _: NS.Object,
 	using _: NS.Copying,
 }
 
 foreign lib {
-	@(objc_type = PipelineBufferDescriptor, objc_selector = "mutability", objc_name = "mutability")
+	@(objc_type=PipelineBufferDescriptor, objc_selector="mutability", objc_name="mutability")
 	PipelineBufferDescriptor_mutability :: proc(self: ^PipelineBufferDescriptor) -> Mutability ---
 
-	@(objc_type = PipelineBufferDescriptor, objc_selector = "setMutability:", objc_name = "setMutability")
+	@(objc_type=PipelineBufferDescriptor, objc_selector="setMutability:", objc_name="setMutability")
 	PipelineBufferDescriptor_setMutability :: proc(self: ^PipelineBufferDescriptor, mutability: Mutability) ---
 }
 
 
-@(objc_class = "MTLPipelineBufferDescriptorArray", objc_superclass = NS.Object)
-PipelineBufferDescriptorArray :: struct {
-	using _: NS.Object,
-}
+@(objc_class="MTLPipelineBufferDescriptorArray", objc_superclass=NS.Object)
+PipelineBufferDescriptorArray :: struct { using _: NS.Object}
 
 foreign lib {
-	@(objc_type = PipelineBufferDescriptorArray, objc_selector = "objectAtIndexedSubscript:", objc_name = "objectAtIndexedSubscript")
+	@(objc_type=PipelineBufferDescriptorArray, objc_selector="objectAtIndexedSubscript:", objc_name="objectAtIndexedSubscript")
 	PipelineBufferDescriptorArray_objectAtIndexedSubscript :: proc(self: ^PipelineBufferDescriptorArray, bufferIndex: NS.UInteger) -> ^PipelineBufferDescriptor ---
 
-	@(objc_type = PipelineBufferDescriptorArray, objc_selector = "setObject:atIndexedSubscript:", objc_name = "setObject")
+	@(objc_type=PipelineBufferDescriptorArray, objc_selector="setObject:atIndexedSubscript:", objc_name="setObject")
 	PipelineBufferDescriptorArray_setObject :: proc(self: ^PipelineBufferDescriptorArray, buffer: ^PipelineBufferDescriptor, bufferIndex: NS.UInteger) ---
 }

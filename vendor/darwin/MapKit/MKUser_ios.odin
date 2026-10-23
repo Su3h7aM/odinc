@@ -4,37 +4,33 @@ package darwin_MapKit
 
 import UI "vendor:darwin/UIKit"
 
-@(objc_class = "MKUserTrackingBarButtonItem", objc_superclass = UI.BarButtonItem)
-UserTrackingBarButtonItem :: struct {
-	using _: UI.BarButtonItem,
-}
+@(objc_class="MKUserTrackingBarButtonItem", objc_superclass=UI.BarButtonItem)
+UserTrackingBarButtonItem :: struct { using _: UI.BarButtonItem}
 
-@(default_calling_convention = "c")
+@(default_calling_convention="c")
 foreign lib {
-	@(objc_type = UserTrackingBarButtonItem, objc_selector = "initWithMapView:", objc_name = "initWithMapView")
+	@(objc_type=UserTrackingBarButtonItem, objc_selector="initWithMapView:", objc_name="initWithMapView")
 	UserTrackingBarButtonItem_initWithMapView :: proc(self: ^UserTrackingBarButtonItem, mapView: ^MapView) -> instancetype ---
 
-	@(objc_type = UserTrackingBarButtonItem, objc_selector = "mapView", objc_name = "mapView")
+	@(objc_type=UserTrackingBarButtonItem, objc_selector="mapView", objc_name="mapView")
 	UserTrackingBarButtonItem_mapView :: proc(self: ^UserTrackingBarButtonItem) -> ^MapView ---
 
-	@(objc_type = UserTrackingBarButtonItem, objc_selector = "setMapView:", objc_name = "setMapView")
+	@(objc_type=UserTrackingBarButtonItem, objc_selector="setMapView:", objc_name="setMapView")
 	UserTrackingBarButtonItem_setMapView :: proc(self: ^UserTrackingBarButtonItem, mapView: ^MapView) ---
 }
 
 
-@(objc_class = "MKUserTrackingButton", objc_superclass = UI.View)
-UserTrackingButton :: struct {
-	using _: UI.View,
-}
+@(objc_class="MKUserTrackingButton", objc_superclass=UI.View)
+UserTrackingButton :: struct { using _: UI.View}
 
-@(default_calling_convention = "c")
+@(default_calling_convention="c")
 foreign lib {
-	@(objc_type = UserTrackingButton, objc_selector = "userTrackingButtonWithMapView:", objc_name = "userTrackingButtonWithMapView", objc_is_class_method = true)
+	@(objc_type=UserTrackingButton, objc_selector="userTrackingButtonWithMapView:", objc_name="userTrackingButtonWithMapView", objc_is_class_method=true)
 	UserTrackingButton_userTrackingButtonWithMapView :: proc(mapView: ^MapView) -> instancetype ---
 
-	@(objc_type = UserTrackingButton, objc_selector = "mapView", objc_name = "mapView")
+	@(objc_type=UserTrackingButton, objc_selector="mapView", objc_name="mapView")
 	UserTrackingButton_mapView :: proc(self: ^UserTrackingButton) -> ^MapView ---
 
-	@(objc_type = UserTrackingButton, objc_selector = "setMapView:", objc_name = "setMapView")
+	@(objc_type=UserTrackingButton, objc_selector="setMapView:", objc_name="setMapView")
 	UserTrackingButton_setMapView :: proc(self: ^UserTrackingButton, mapView: ^MapView) ---
 }

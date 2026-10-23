@@ -3,74 +3,68 @@ package wgpu
 import "base:intrinsics"
 
 WGPU_SHARED :: #config(WGPU_SHARED, false)
-WGPU_DEBUG :: #config(WGPU_DEBUG, false)
+WGPU_DEBUG  :: #config(WGPU_DEBUG,  false)
 
-@(private)
-TYPE :: "debug" when WGPU_DEBUG else "release"
+@(private) TYPE :: "debug" when WGPU_DEBUG else "release"
 
 when ODIN_OS == .Windows {
-	@(private)
-	ARCH :: "x86_64" when ODIN_ARCH == .amd64 else "x86_64" when ODIN_ARCH == .i386 else #panic("unsupported WGPU Native architecture")
-	@(private)
-	EXT :: ".dll.lib" when WGPU_SHARED else ".lib"
-	@(private)
-	LIB :: "lib/wgpu-windows-" + ARCH + "-msvc-" + TYPE + "/lib/wgpu_native" + EXT
+	@(private) ARCH :: "x86_64"   when ODIN_ARCH == .amd64 else "x86_64" when ODIN_ARCH == .i386 else #panic("unsupported WGPU Native architecture")
+	@(private) EXT  :: ".dll.lib" when WGPU_SHARED else ".lib"
+	@(private) LIB  :: "lib/wgpu-windows-" + ARCH + "-msvc-" + TYPE + "/lib/wgpu_native" + EXT
 
 	when !#exists(LIB) {
-		#panic(
-			"Could not find the compiled WGPU Native library at '" +
-			#directory +
-			LIB +
-			"', these can be downloaded from https://github.com/gfx-rs/wgpu-native/releases/tag/v29.0.1.1, make sure to read the docs at '" +
-			#directory +
-			"doc.odin'",
-		)
+		#panic("Could not find the compiled WGPU Native library at '" + #directory + LIB + "', these can be downloaded from https://github.com/gfx-rs/wgpu-native/releases/tag/v29.0.1.1, make sure to read the docs at '" + #directory + "doc.odin'")
 	}
 
 	@(export)
-	foreign import libwgpu {LIB, "system:d3dcompiler.lib", "system:ws2_32.lib", "system:userenv.lib", "system:bcrypt.lib", "system:ntdll.lib", "system:opengl32.lib", "system:advapi32.lib", "system:user32.lib", "system:gdi32.lib", "system:ole32.lib", "system:oleaut32.lib", "system:propsys.lib", "system:runtimeobject.lib"}
+	foreign import libwgpu {
+		LIB,
+		"system:d3dcompiler.lib",
+		"system:ws2_32.lib",
+		"system:userenv.lib",
+		"system:bcrypt.lib",
+		"system:ntdll.lib",
+		"system:opengl32.lib",
+		"system:advapi32.lib",
+		"system:user32.lib",
+		"system:gdi32.lib",
+		"system:ole32.lib",
+		"system:oleaut32.lib",
+		"system:propsys.lib",
+		"system:runtimeobject.lib",
+	}
 } else when ODIN_OS == .Darwin {
-	@(private)
-	ARCH :: "x86_64" when ODIN_ARCH == .amd64 else "aarch64" when ODIN_ARCH == .arm64 else #panic("unsupported WGPU Native architecture")
-	@(private)
-	EXT :: ".dylib" when WGPU_SHARED else ".a"
-	@(private)
-	LIB :: "lib/wgpu-macos-" + ARCH + "-" + TYPE + "/lib/libwgpu_native" + EXT
+	@(private) ARCH :: "x86_64" when ODIN_ARCH == .amd64 else "aarch64" when ODIN_ARCH == .arm64 else #panic("unsupported WGPU Native architecture")
+	@(private) EXT  :: ".dylib" when WGPU_SHARED else ".a"
+	@(private) LIB  :: "lib/wgpu-macos-" + ARCH + "-" + TYPE + "/lib/libwgpu_native" + EXT
 
 	when !#exists(LIB) {
-		#panic(
-			"Could not find the compiled WGPU Native library at '" +
-			#directory +
-			LIB +
-			"', these can be downloaded from https://github.com/gfx-rs/wgpu-native/releases/tag/v29.0.1.1, make sure to read the docs at '" +
-			#directory +
-			"doc.odin'",
-		)
+		#panic("Could not find the compiled WGPU Native library at '" + #directory + LIB + "', these can be downloaded from https://github.com/gfx-rs/wgpu-native/releases/tag/v29.0.1.1, make sure to read the docs at '" + #directory + "doc.odin'")
 	}
 
 	@(export)
-	foreign import libwgpu {LIB, "system:Foundation.framework", "system:CoreFoundation.framework", "system:QuartzCore.framework", "system:Metal.framework"}
+	foreign import libwgpu {
+		LIB,
+		"system:Foundation.framework",
+		"system:CoreFoundation.framework",
+		"system:QuartzCore.framework",
+		"system:Metal.framework",
+	}
 } else when ODIN_OS == .Linux {
-	@(private)
-	ARCH :: "x86_64" when ODIN_ARCH == .amd64 else "aarch64" when ODIN_ARCH == .arm64 else #panic("unsupported WGPU Native architecture")
-	@(private)
-	EXT :: ".so" when WGPU_SHARED else ".a"
-	@(private)
-	LIB :: "lib/wgpu-linux-" + ARCH + "-" + TYPE + "/lib/libwgpu_native" + EXT
+	@(private) ARCH :: "x86_64" when ODIN_ARCH == .amd64 else "aarch64" when ODIN_ARCH == .arm64 else #panic("unsupported WGPU Native architecture")
+	@(private) EXT  :: ".so"    when WGPU_SHARED else ".a"
+	@(private) LIB  :: "lib/wgpu-linux-" + ARCH + "-" + TYPE + "/lib/libwgpu_native" + EXT
 
 	when !#exists(LIB) {
-		#panic(
-			"Could not find the compiled WGPU Native library at '" +
-			#directory +
-			LIB +
-			"', these can be downloaded from https://github.com/gfx-rs/wgpu-native/releases/tag/v29.0.1.1, make sure to read the docs at '" +
-			#directory +
-			"doc.odin'",
-		)
+		#panic("Could not find the compiled WGPU Native library at '" + #directory + LIB + "', these can be downloaded from https://github.com/gfx-rs/wgpu-native/releases/tag/v29.0.1.1, make sure to read the docs at '" + #directory + "doc.odin'")
 	}
 
 	@(export)
-	foreign import libwgpu {LIB, "system:dl", "system:m"}
+	foreign import libwgpu {
+		LIB,
+		"system:dl",
+		"system:m",
+	}
 } else when ODIN_OS == .JS {
 	@(export)
 	foreign import libwgpu "wgpu"
@@ -118,105 +112,106 @@ TextureView :: distinct rawptr
 ExternalTexture :: distinct rawptr
 
 AdapterType :: enum i32 {
-	DiscreteGPU   = 0x00000001,
+	DiscreteGPU = 0x00000001,
 	IntegratedGPU = 0x00000002,
-	CPU           = 0x00000003,
-	Unknown       = 0x00000004,
+	CPU = 0x00000003,
+	Unknown = 0x00000004,
 }
 
 AddressMode :: enum i32 {
-	Undefined     = 0x00000000,
-	ClampToEdge   = 0x00000001,
-	Repeat        = 0x00000002,
-	MirrorRepeat  = 0x00000003,
+	Undefined = 0x00000000,
+	ClampToEdge = 0x00000001,
+	Repeat = 0x00000002,
+	MirrorRepeat = 0x00000003,
 
 	// Native.
+
 	ClampToBorder = 0x00000004,
 }
 
 BackendType :: enum i32 {
 	Undefined = 0x00000000,
-	Null      = 0x00000001,
-	WebGPU    = 0x00000002,
-	D3D11     = 0x00000003,
-	D3D12     = 0x00000004,
-	Metal     = 0x00000005,
-	Vulkan    = 0x00000006,
-	OpenGL    = 0x00000007,
-	OpenGLES  = 0x00000008,
+	Null = 0x00000001,
+	WebGPU = 0x00000002,
+	D3D11 = 0x00000003,
+	D3D12 = 0x00000004,
+	Metal = 0x00000005,
+	Vulkan = 0x00000006,
+	OpenGL = 0x00000007,
+	OpenGLES = 0x00000008,
 }
 
 BlendFactor :: enum i32 {
-	Undefined         = 0x00000000,
-	Zero              = 0x00000001,
-	One               = 0x00000002,
-	Src               = 0x00000003,
-	OneMinusSrc       = 0x00000004,
-	SrcAlpha          = 0x00000005,
-	OneMinusSrcAlpha  = 0x00000006,
-	Dst               = 0x00000007,
-	OneMinusDst       = 0x00000008,
-	DstAlpha          = 0x00000009,
-	OneMinusDstAlpha  = 0x0000000A,
+	Undefined = 0x00000000,
+	Zero = 0x00000001,
+	One = 0x00000002,
+	Src = 0x00000003,
+	OneMinusSrc = 0x00000004,
+	SrcAlpha = 0x00000005,
+	OneMinusSrcAlpha = 0x00000006,
+	Dst = 0x00000007,
+	OneMinusDst = 0x00000008,
+	DstAlpha = 0x00000009,
+	OneMinusDstAlpha = 0x0000000A,
 	SrcAlphaSaturated = 0x0000000B,
-	Constant          = 0x0000000C,
-	OneMinusConstant  = 0x0000000D,
-	Src1              = 0x0000000E,
-	OneMinusSrc1      = 0x0000000F,
-	Src1Alpha         = 0x00000010,
+	Constant = 0x0000000C,
+	OneMinusConstant = 0x0000000D,
+	Src1 = 0x0000000E,
+	OneMinusSrc1 = 0x0000000F,
+	Src1Alpha = 0x00000010,
 	OneMinusSrc1Alpha = 0x00000011,
 }
 
 BlendOperation :: enum i32 {
-	Undefined       = 0x00000000,
-	Add             = 0x00000001,
-	Subtract        = 0x00000002,
+	Undefined = 0x00000000,
+	Add = 0x00000001,
+	Subtract = 0x00000002,
 	ReverseSubtract = 0x00000003,
-	Min             = 0x00000004,
-	Max             = 0x00000005,
+	Min = 0x00000004,
+	Max = 0x00000005,
 }
 
 BufferBindingType :: enum i32 {
-	BindingNotUsed  = 0x00000000,
-	Undefined       = 0x00000001,
-	Uniform         = 0x00000002,
-	Storage         = 0x00000003,
+	BindingNotUsed = 0x00000000,
+	Undefined = 0x00000001,
+	Uniform = 0x00000002,
+	Storage = 0x00000003,
 	ReadOnlyStorage = 0x00000004,
 }
 
 BufferMapState :: enum i32 {
 	Unmapped = 0x00000001,
-	Pending  = 0x00000002,
-	Mapped   = 0x00000003,
+	Pending = 0x00000002,
+	Mapped = 0x00000003,
 }
 
 CallbackMode :: enum i32 {
-	WaitAnyOnly        = 0x00000001,
+	WaitAnyOnly = 0x00000001,
 	AllowProcessEvents = 0x00000002,
-	AllowSpontaneos    = 0x00000003,
+	AllowSpontaneos = 0x00000003,
 }
 
 CompareFunction :: enum i32 {
-	Undefined    = 0x00000000,
-	Never        = 0x00000001,
-	Less         = 0x00000002,
-	Equal        = 0x00000003,
-	LessEqual    = 0x00000004,
-	Greater      = 0x00000005,
-	NotEqual     = 0x00000006,
+	Undefined = 0x00000000,
+	Never = 0x00000001,
+	Less = 0x00000002,
+	Equal = 0x00000003,
+	LessEqual = 0x00000004,
+	Greater = 0x00000005,
+	NotEqual = 0x00000006,
 	GreaterEqual = 0x00000007,
-	Always       = 0x00000008,
+	Always = 0x00000008,
 }
 
 CompilationInfoRequestStatus :: enum i32 {
-	Success           = 0x00000001,
+	Success = 0x00000001,
 	CallbackCancelled = 0x00000002,
 }
 
 CompilationMessageType :: enum i32 {
-	Error   = 0x00000001,
+	Error = 0x00000001,
 	Warning = 0x00000002,
-	Info    = 0x00000003,
+	Info = 0x00000003,
 }
 
 ComponentSwizzle :: enum i32 {
@@ -230,47 +225,47 @@ ComponentSwizzle :: enum i32 {
 }
 
 CompositeAlphaMode :: enum i32 {
-	Auto            = 0x00000000,
-	Opaque          = 0x00000001,
-	Premultiplied   = 0x00000002,
+	Auto = 0x00000000,
+	Opaque = 0x00000001,
+	Premultiplied = 0x00000002,
 	Unpremultiplied = 0x00000003,
-	Inherit         = 0x00000004,
+	Inherit = 0x00000004,
 }
 
 CreatePipelineAsyncStatus :: enum i32 {
-	Success           = 0x00000001,
+	Success = 0x00000001,
 	CallbackCancelled = 0x00000002,
-	ValidationError   = 0x00000003,
-	InternalError     = 0x00000004,
+	ValidationError = 0x00000003,
+	InternalError = 0x00000004,
 }
 
 CullMode :: enum i32 {
 	Undefined = 0x00000000,
-	None      = 0x00000001,
-	Front     = 0x00000002,
-	Back      = 0x00000003,
+	None = 0x00000001,
+	Front = 0x00000002,
+	Back = 0x00000003,
 }
 
 DeviceLostReason :: enum i32 {
-	Undefined         = 0x00000000,
-	Unknown           = 0x00000001,
-	Destroyed         = 0x00000002,
+	Undefined = 0x00000000,
+	Unknown   = 0x00000001,
+	Destroyed = 0x00000002,
 	CallbackCancelled = 0x00000003,
-	FailedCreation    = 0x00000004,
+	FailedCreation = 0x00000004,
 }
 
 ErrorFilter :: enum i32 {
-	Validation  = 0x00000001,
+	Validation = 0x00000001,
 	OutOfMemory = 0x00000002,
-	Internal    = 0x00000003,
+	Internal = 0x00000003,
 }
 
 ErrorType :: enum i32 {
-	NoError     = 0x00000001,
-	Validation  = 0x00000002,
+	NoError = 0x00000001,
+	Validation = 0x00000002,
 	OutOfMemory = 0x00000003,
-	Internal    = 0x00000004,
-	Unknown     = 0x00000005,
+	Internal = 0x00000004,
+	Unknown = 0x00000005,
 }
 
 FeatureLevel :: enum i32 {
@@ -374,62 +369,62 @@ FeatureName :: enum i32 {
 
 FilterMode :: enum i32 {
 	Undefined = 0x00000000,
-	Nearest   = 0x00000001,
-	Linear    = 0x00000002,
+	Nearest = 0x00000001,
+	Linear = 0x00000002,
 }
 
 FrontFace :: enum i32 {
 	Undefined = 0x00000000,
-	CCW       = 0x00000001,
-	CW        = 0x00000002,
+	CCW = 0x00000001,
+	CW = 0x00000002,
 }
 
 IndexFormat :: enum i32 {
 	Undefined = 0x00000000,
-	Uint16    = 0x00000001,
-	Uint32    = 0x00000002,
+	Uint16 = 0x00000001,
+	Uint32 = 0x00000002,
 }
 
 InstanceFeatureName :: enum i32 {
-	TimedWaitAny              = 1,
-	ShaderSourceSPIRV         = 2,
+	TimedWaitAny = 1,
+	ShaderSourceSPIRV = 2,
 	MultipleDevicesPerAdapter = 3,
 }
 
 LoadOp :: enum i32 {
 	Undefined = 0x00000000,
-	Load      = 0x00000001,
-	Clear     = 0x00000002,
+	Load = 0x00000001,
+	Clear = 0x00000002,
 }
 
 MapAsyncStatus :: enum i32 {
-	Success           = 0x00000001,
+	Success = 0x00000001,
 	CallbackCancelled = 0x00000002,
-	Error             = 0x00000003,
-	Aborted           = 0x00000004,
+	Error = 0x00000003,
+	Aborted = 0x00000004,
 }
 
 MipmapFilterMode :: enum i32 {
 	Undefined = 0x00000000,
-	Nearest   = 0x00000001,
-	Linear    = 0x00000002,
+	Nearest = 0x00000001,
+	Linear = 0x00000002,
 }
 
 OptionalBool :: enum i32 {
-	False     = 0x00000000,
-	True      = 0x00000001,
+	False = 0x00000000,
+	True = 0x00000001,
 	Undefined = 0x00000002,
 }
 
 PopErrorScopeStatus :: enum i32 {
-	Success           = 0x00000001,
+	Success = 0x00000001,
 	CallbackCancelled = 0x00000002,
-	Error             = 0x00000003,
+	Error = 0x00000003,
 }
 
 PowerPreference :: enum i32 {
-	Undefined       = 0x00000000,
-	LowPower        = 0x00000001,
+	Undefined = 0x00000000,
+	LowPower = 0x00000001,
 	HighPerformance = 0x00000002,
 }
 
@@ -439,87 +434,87 @@ PredefinedColorSpace :: enum i32 {
 }
 
 PresentMode :: enum i32 {
-	Undefined   = 0x00000000,
-	Fifo        = 0x00000001,
+	Undefined = 0x00000000,
+	Fifo = 0x00000001,
 	FifoRelaxed = 0x00000002,
-	Immediate   = 0x00000003,
-	Mailbox     = 0x00000004,
+	Immediate = 0x00000003,
+	Mailbox = 0x00000004,
 }
 
 PrimitiveTopology :: enum i32 {
-	Undefined     = 0x00000000,
-	PointList     = 0x00000001,
-	LineList      = 0x00000002,
-	LineStrip     = 0x00000003,
-	TriangleList  = 0x00000004,
+	Undefined = 0x00000000,
+	PointList = 0x00000001,
+	LineList = 0x00000002,
+	LineStrip = 0x00000003,
+	TriangleList = 0x00000004,
 	TriangleStrip = 0x00000005,
 }
 
 QueryType :: enum i32 {
 	// WebGPU.
-	Occlusion          = 0x00000001,
-	Timestamp          = 0x00000002,
+	Occlusion = 0x00000001,
+	Timestamp = 0x00000002,
 
 	// Native.
 	PipelineStatistics = 0x00030000,
 }
 
 QueueWorkDoneStatus :: enum i32 {
-	Success           = 0x00000001,
+	Success = 0x00000001,
 	CallbackCancelled = 0x00000002,
-	Error             = 0x00000003,
+	Error = 0x00000003,
 }
 
 RequestAdapterStatus :: enum i32 {
-	Success           = 0x00000001,
+	Success = 0x00000001,
 	CallbackCancelled = 0x00000002,
-	Unavailable       = 0x00000003,
-	Error             = 0x00000004,
+	Unavailable = 0x00000003,
+	Error = 0x00000004,
 }
 
 RequestDeviceStatus :: enum i32 {
-	Success           = 0x00000001,
+	Success = 0x00000001,
 	CallbackCancelled = 0x00000002,
-	Error             = 0x00000003,
+	Error = 0x00000003,
 }
 
 SamplerBindingType :: enum i32 {
 	BindingNotUsed = 0x00000000,
-	Undefined      = 0x00000001,
-	Filtering      = 0x00000002,
-	NonFiltering   = 0x00000003,
-	Comparison     = 0x00000004,
+	Undefined = 0x00000001,
+	Filtering = 0x00000002,
+	NonFiltering = 0x00000003,
+	Comparison = 0x00000004,
 }
 
 Status :: enum i32 {
 	Success = 0x00000001,
-	Error   = 0x00000002,
+	Error = 0x00000002,
 }
 
 StencilOperation :: enum i32 {
-	Undefined      = 0x00000000,
-	Keep           = 0x00000001,
-	Zero           = 0x00000002,
-	Replace        = 0x00000003,
-	Invert         = 0x00000004,
+	Undefined = 0x00000000,
+	Keep = 0x00000001,
+	Zero = 0x00000002,
+	Replace = 0x00000003,
+	Invert = 0x00000004,
 	IncrementClamp = 0x00000005,
 	DecrementClamp = 0x00000006,
-	IncrementWrap  = 0x00000007,
-	DecrementWrap  = 0x00000008,
+	IncrementWrap = 0x00000007,
+	DecrementWrap = 0x00000008,
 }
 
 StorageTextureAccess :: enum i32 {
 	BindingNotUsed = 0x00000000,
-	Undefined      = 0x00000001,
-	WriteOnly      = 0x00000002,
-	ReadOnly       = 0x00000003,
-	ReadWrite      = 0x00000004,
+	Undefined = 0x00000001,
+	WriteOnly = 0x00000002,
+	ReadOnly = 0x00000003,
+	ReadWrite = 0x00000004,
 }
 
 StoreOp :: enum i32 {
 	Undefined = 0x00000000,
-	Store     = 0x00000001,
-	Discard   = 0x00000002,
+	Store = 0x00000001,
+	Discard = 0x00000002,
 }
 
 SType :: enum i32 {
@@ -559,29 +554,29 @@ SType :: enum i32 {
 }
 
 SurfaceGetCurrentTextureStatus :: enum i32 {
-	SuccessOptimal    = 0x00000001,
+	SuccessOptimal = 0x00000001,
 	SuccessSuboptimal = 0x00000002,
-	Timeout           = 0x00000003,
-	Outdated          = 0x00000004,
-	Lost              = 0x00000005,
-	Error             = 0x00000006,
+	Timeout = 0x00000003,
+	Outdated = 0x00000004,
+	Lost = 0x00000005,
+	Error = 0x00000006,
 
 	// Native.
-	Occluded          = 0x00030001,
+	Occluded = 0x00030001,
 }
 
 TextureAspect :: enum i32 {
-	Undefined   = 0x00000000,
-	All         = 0x00000001,
+	Undefined = 0x00000000,
+	All = 0x00000001,
 	StencilOnly = 0x00000002,
-	DepthOnly   = 0x00000003,
+	DepthOnly = 0x00000003,
 }
 
 TextureDimension :: enum i32 {
 	Undefined = 0x00000000,
-	_1D       = 0x00000001,
-	_2D       = 0x00000002,
-	_3D       = 0x00000003,
+	_1D = 0x00000001,
+	_2D = 0x00000002,
+	_3D = 0x00000003,
 }
 
 TextureFormat :: enum i32 {
@@ -689,28 +684,29 @@ TextureFormat :: enum i32 {
 	ASTC12x12UnormSrgb = 0x00000065,
 
 	// Native.
+
 	NV12,
 	P010,
 }
 
 TextureSampleType :: enum i32 {
-	BindingNotUsed    = 0x00000000,
-	Undefined         = 0x00000001,
-	Float             = 0x00000002,
+	BindingNotUsed = 0x00000000,
+	Undefined = 0x00000001,
+	Float = 0x00000002,
 	UnfilterableFloat = 0x00000003,
-	Depth             = 0x00000004,
-	Sint              = 0x00000005,
-	Uint              = 0x00000006,
+	Depth = 0x00000004,
+	Sint = 0x00000005,
+	Uint = 0x00000006,
 }
 
 TextureViewDimension :: enum i32 {
 	Undefined = 0x00000000,
-	_1D       = 0x00000001,
-	_2D       = 0x00000002,
-	_2DArray  = 0x00000003,
-	Cube      = 0x00000004,
+	_1D = 0x00000001,
+	_2D = 0x00000002,
+	_2DArray = 0x00000003,
+	Cube = 0x00000004,
 	CubeArray = 0x00000005,
-	_3D       = 0x00000006,
+	_3D = 0x00000006,
 }
 
 ToneMappingMode :: enum i32 {
@@ -719,109 +715,109 @@ ToneMappingMode :: enum i32 {
 }
 
 VertexFormat :: enum i32 {
-	Uint8           = 0x00000001,
-	Uint8x2         = 0x00000002,
-	Uint8x4         = 0x00000003,
-	Sint8           = 0x00000004,
-	Sint8x2         = 0x00000005,
-	Sint8x4         = 0x00000006,
-	Unorm8          = 0x00000007,
-	Unorm8x2        = 0x00000008,
-	Unorm8x4        = 0x00000009,
-	Snorm8          = 0x0000000A,
-	Snorm8x2        = 0x0000000B,
-	Snorm8x4        = 0x0000000C,
-	Uint16          = 0x0000000D,
-	Uint16x2        = 0x0000000E,
-	Uint16x4        = 0x0000000F,
-	Sint16          = 0x00000010,
-	Sint16x2        = 0x00000011,
-	Sint16x4        = 0x00000012,
-	Unorm16         = 0x00000013,
-	Unorm16x2       = 0x00000014,
-	Unorm16x4       = 0x00000015,
-	Snorm16         = 0x00000016,
-	Snorm16x2       = 0x00000017,
-	Snorm16x4       = 0x00000018,
-	Float16         = 0x00000019,
-	Float16x2       = 0x0000001A,
-	Float16x4       = 0x0000001B,
-	Float32         = 0x0000001C,
-	Float32x2       = 0x0000001D,
-	Float32x3       = 0x0000001E,
-	Float32x4       = 0x0000001F,
-	Uint32          = 0x00000020,
-	Uint32x2        = 0x00000021,
-	Uint32x3        = 0x00000022,
-	Uint32x4        = 0x00000023,
-	Sint32          = 0x00000024,
-	Sint32x2        = 0x00000025,
-	Sint32x3        = 0x00000026,
-	Sint32x4        = 0x00000027,
+	Uint8 = 0x00000001,
+	Uint8x2 = 0x00000002,
+	Uint8x4 = 0x00000003,
+	Sint8 = 0x00000004,
+	Sint8x2 = 0x00000005,
+	Sint8x4 = 0x00000006,
+	Unorm8 = 0x00000007,
+	Unorm8x2 = 0x00000008,
+	Unorm8x4 = 0x00000009,
+	Snorm8 = 0x0000000A,
+	Snorm8x2 = 0x0000000B,
+	Snorm8x4 = 0x0000000C,
+	Uint16 = 0x0000000D,
+	Uint16x2 = 0x0000000E,
+	Uint16x4 = 0x0000000F,
+	Sint16 = 0x00000010,
+	Sint16x2 = 0x00000011,
+	Sint16x4 = 0x00000012,
+	Unorm16 = 0x00000013,
+	Unorm16x2 = 0x00000014,
+	Unorm16x4 = 0x00000015,
+	Snorm16 = 0x00000016,
+	Snorm16x2 = 0x00000017,
+	Snorm16x4 = 0x00000018,
+	Float16 = 0x00000019,
+	Float16x2 = 0x0000001A,
+	Float16x4 = 0x0000001B,
+	Float32 = 0x0000001C,
+	Float32x2 = 0x0000001D,
+	Float32x3 = 0x0000001E,
+	Float32x4 = 0x0000001F,
+	Uint32 = 0x00000020,
+	Uint32x2 = 0x00000021,
+	Uint32x3 = 0x00000022,
+	Uint32x4 = 0x00000023,
+	Sint32 = 0x00000024,
+	Sint32x2 = 0x00000025,
+	Sint32x3 = 0x00000026,
+	Sint32x4 = 0x00000027,
 	Unorm10_10_10_2 = 0x00000028,
-	Unorm8x4BGRA    = 0x00000029,
+	Unorm8x4BGRA = 0x00000029,
 }
 
 VertexStepMode :: enum i32 {
 	Undefined = 0x00000000,
-	Vertex    = 0x00000001,
-	Instance  = 0x00000002,
+	Vertex = 0x00000001,
+	Instance = 0x00000002,
 }
 
 WaitStatus :: enum i32 {
-	Success  = 0x00000001,
+	Success = 0x00000001,
 	TimedOut = 0x00000002,
-	Error    = 0x00000003,
+	Error = 0x00000003,
 }
 
 WGSLLanguageFeatureName :: enum i32 {
 	ReadonlyAndReadwriteStorageTextures = 0x00000001,
-	Packed4x8IntegerDotProduct          = 0x00000002,
-	UnrestrictedPointerParameters       = 0x00000003,
-	PointerCompositeAccess              = 0x00000004,
-	UniformBufferStandardLayout         = 0x00000005,
-	SubgroupId                          = 0x00000006,
-	TextureAndSamplerLet                = 0x00000007,
-	SubgroupUniformity                  = 0x00000008,
-	TextureFormatsTier1                 = 0x00000009,
-	LinearIndexing                      = 0x0000000A,
+	Packed4x8IntegerDotProduct = 0x00000002,
+	UnrestrictedPointerParameters = 0x00000003,
+	PointerCompositeAccess = 0x00000004,
+	UniformBufferStandardLayout = 0x00000005,
+	SubgroupId = 0x00000006,
+	TextureAndSamplerLet = 0x00000007,
+	SubgroupUniformity = 0x00000008,
+	TextureFormatsTier1 = 0x00000009,
+	LinearIndexing = 0x0000000A,
 }
 
 BufferUsage :: enum i32 {
-	MapRead      = 0x00000000,
-	MapWrite     = 0x00000001,
-	CopySrc      = 0x00000002,
-	CopyDst      = 0x00000003,
-	Index        = 0x00000004,
-	Vertex       = 0x00000005,
-	Uniform      = 0x00000006,
-	Storage      = 0x00000007,
-	Indirect     = 0x00000008,
+	MapRead = 0x00000000,
+	MapWrite = 0x00000001,
+	CopySrc = 0x00000002,
+	CopyDst = 0x00000003,
+	Index = 0x00000004,
+	Vertex = 0x00000005,
+	Uniform = 0x00000006,
+	Storage = 0x00000007,
+	Indirect = 0x00000008,
 	QueryResolve = 0x00000009,
 }
-BufferUsageFlags :: bit_set[BufferUsage;Flags]
+BufferUsageFlags :: bit_set[BufferUsage; Flags]
 
 ColorWriteMask :: enum i32 {
-	Red   = 0x00000000,
+	Red = 0x00000000,
 	Green = 0x00000001,
-	Blue  = 0x00000002,
+	Blue = 0x00000002,
 	Alpha = 0x00000003,
 }
-ColorWriteMaskFlags :: bit_set[ColorWriteMask;Flags]
-ColorWriteMaskFlags_All :: ColorWriteMaskFlags{.Red, .Green, .Blue, .Alpha}
+ColorWriteMaskFlags :: bit_set[ColorWriteMask; Flags]
+ColorWriteMaskFlags_All :: ColorWriteMaskFlags{ .Red, .Green, .Blue, .Alpha }
 
 MapMode :: enum i32 {
-	Read  = 0x00000000,
+	Read = 0x00000000,
 	Write = 0x00000001,
 }
-MapModeFlags :: bit_set[MapMode;Flags]
+MapModeFlags :: bit_set[MapMode; Flags]
 
 ShaderStage :: enum i32 {
-	Vertex   = 0x00000000,
+	Vertex = 0x00000000,
 	Fragment = 0x00000001,
-	Compute  = 0x00000002,
+	Compute = 0x00000002,
 }
-ShaderStageFlags :: bit_set[ShaderStage;Flags]
+ShaderStageFlags :: bit_set[ShaderStage; Flags]
 
 TextureUsage :: enum i32 {
 	CopySrc,
@@ -831,26 +827,14 @@ TextureUsage :: enum i32 {
 	RenderAttachment,
 	TransientAttachment,
 }
-TextureUsageFlags :: bit_set[TextureUsage;Flags]
+TextureUsageFlags :: bit_set[TextureUsage; Flags]
 
 Proc :: distinct rawptr
 
 BufferMapCallback :: #type proc "c" (status: MapAsyncStatus, message: StringView, userdata1: rawptr, userdata2: rawptr)
 CompilationInfoCallback :: #type proc "c" (status: CompilationInfoRequestStatus, compilationInfo: ^CompilationInfo, userdata1: rawptr, userdata2: rawptr)
-CreateComputePipelineAsyncCallback :: #type proc "c" (
-	status: CreatePipelineAsyncStatus,
-	pipeline: ComputePipeline,
-	message: StringView,
-	userdata1: rawptr,
-	userdata2: rawptr,
-)
-CreateRenderPipelineAsyncCallback :: #type proc "c" (
-	status: CreatePipelineAsyncStatus,
-	pipeline: RenderPipeline,
-	message: StringView,
-	userdata1: rawptr,
-	userdata2: rawptr,
-)
+CreateComputePipelineAsyncCallback :: #type proc "c" (status: CreatePipelineAsyncStatus, pipeline: ComputePipeline, message: StringView, userdata1: rawptr, userdata2: rawptr)
+CreateRenderPipelineAsyncCallback :: #type proc "c" (status: CreatePipelineAsyncStatus, pipeline: RenderPipeline, message: StringView, userdata1: rawptr, userdata2: rawptr)
 DeviceLostCallback :: #type proc "c" (device: ^Device, reason: DeviceLostReason, message: StringView, userdata1: rawptr, userdata2: rawptr)
 PopErrorScopeCallback :: #type proc "c" (status: PopErrorScopeStatus, type: ErrorType, message: StringView, userdata1: rawptr, userdata2: rawptr)
 QueueWorkDoneCallback :: #type proc "c" (status: QueueWorkDoneStatus, message: StringView, userdata1: rawptr, userdata2: rawptr)
@@ -859,99 +843,99 @@ RequestDeviceCallback :: #type proc "c" (status: RequestDeviceStatus, adapter: D
 UncapturedErrorCallback :: #type proc "c" (device: ^Device, type: ErrorType, message: StringView, userdata1: rawptr, userdata2: rawptr)
 
 ChainedStruct :: struct {
-	next:  ^ChainedStruct,
+	next: ^ChainedStruct,
 	sType: SType,
 }
 
 BufferMapCallbackInfo :: struct {
-	nextInChain:  /* const */^ChainedStruct,
-	mode:        CallbackMode,
-	callback:    BufferMapCallback,
-	userdata1:    /* NULLABLE */rawptr,
-	userdata2:    /* NULLABLE */rawptr,
+	nextInChain: /* const */ ^ChainedStruct,
+	mode: CallbackMode,
+	callback: BufferMapCallback,
+	userdata1: /* NULLABLE */ rawptr,
+	userdata2: /* NULLABLE */ rawptr,
 }
 
 CompilationInfoCallbackInfo :: struct {
-	nextInChain:  /* const */^ChainedStruct,
-	mode:        CallbackMode,
-	callback:    CompilationInfoCallback,
-	userdata1:    /* NULLABLE */rawptr,
-	userdata2:    /* NULLABLE */rawptr,
+	nextInChain: /* const */ ^ChainedStruct,
+	mode: CallbackMode,
+	callback: CompilationInfoCallback,
+	userdata1: /* NULLABLE */ rawptr,
+	userdata2: /* NULLABLE */ rawptr,
 }
 
 CreateComputePipelineAsyncCallbackInfo :: struct {
-	nextInChain:  /* const */^ChainedStruct,
-	mode:        CallbackMode,
-	callback:    CreateComputePipelineAsyncCallback,
-	userdata1:    /* NULLABLE */rawptr,
-	userdata2:    /* NULLABLE */rawptr,
+	nextInChain: /* const */ ^ChainedStruct,
+	mode: CallbackMode,
+	callback: CreateComputePipelineAsyncCallback,
+	userdata1: /* NULLABLE */ rawptr,
+	userdata2: /* NULLABLE */ rawptr,
 }
 
 CreateRenderPipelineAsyncCallbackInfo :: struct {
-	nextInChain:  /* const */^ChainedStruct,
-	mode:        CallbackMode,
-	callback:    CreateRenderPipelineAsyncCallback,
-	userdata1:    /* NULLABLE */rawptr,
-	userdata2:    /* NULLABLE */rawptr,
+	nextInChain: /* const */ ^ChainedStruct,
+	mode: CallbackMode,
+	callback: CreateRenderPipelineAsyncCallback,
+	userdata1: /* NULLABLE */ rawptr,
+	userdata2: /* NULLABLE */ rawptr,
 }
 
 DeviceLostCallbackInfo :: struct {
-	nextInChain:  /* const */^ChainedStruct,
-	mode:        CallbackMode,
-	callback:    DeviceLostCallback,
-	userdata1:    /* NULLABLE */rawptr,
-	userdata2:    /* NULLABLE */rawptr,
+	nextInChain: /* const */ ^ChainedStruct,
+	mode: CallbackMode,
+	callback: DeviceLostCallback,
+	userdata1: /* NULLABLE */ rawptr,
+	userdata2: /* NULLABLE */ rawptr,
 }
 
 PopErrorScopeCallbackInfo :: struct {
-	nextInChain:  /* const */^ChainedStruct,
-	mode:        CallbackMode,
-	callback:    PopErrorScopeCallback,
-	userdata1:    /* NULLABLE */rawptr,
-	userdata2:    /* NULLABLE */rawptr,
+	nextInChain: /* const */ ^ChainedStruct,
+	mode: CallbackMode,
+	callback: PopErrorScopeCallback,
+	userdata1: /* NULLABLE */ rawptr,
+	userdata2: /* NULLABLE */ rawptr,
 }
 
 QueueWorkDoneCallbackInfo :: struct {
-	nextInChain:  /* const */^ChainedStruct,
-	mode:        CallbackMode,
-	callback:    QueueWorkDoneCallback,
-	userdata1:    /* NULLABLE */rawptr,
-	userdata2:    /* NULLABLE */rawptr,
+	nextInChain: /* const */ ^ChainedStruct,
+	mode: CallbackMode,
+	callback: QueueWorkDoneCallback,
+	userdata1: /* NULLABLE */ rawptr,
+	userdata2: /* NULLABLE */ rawptr,
 }
 
 RequestAdapterCallbackInfo :: struct {
-	nextInChain:  /* const */^ChainedStruct,
-	mode:        CallbackMode,
-	callback:    RequestAdapterCallback,
-	userdata1:    /* NULLABLE */rawptr,
-	userdata2:    /* NULLABLE */rawptr,
+	nextInChain: /* const */ ^ChainedStruct,
+	mode: CallbackMode,
+	callback: RequestAdapterCallback,
+	userdata1: /* NULLABLE */ rawptr,
+	userdata2: /* NULLABLE */ rawptr,
 }
 
 RequestDeviceCallbackInfo :: struct {
-	nextInChain:  /* const */^ChainedStruct,
-	mode:        CallbackMode,
-	callback:    RequestDeviceCallback,
-	userdata1:    /* NULLABLE */rawptr,
-	userdata2:    /* NULLABLE */rawptr,
+	nextInChain: /* const */ ^ChainedStruct,
+	mode: CallbackMode,
+	callback: RequestDeviceCallback,
+	userdata1: /* NULLABLE */ rawptr,
+	userdata2: /* NULLABLE */ rawptr,
 }
 
 UncapturedErrorCallbackInfo :: struct {
-	nextInChain:  /* const */^ChainedStruct,
-	callback:    UncapturedErrorCallback,
-	userdata1:    /* NULLABLE */rawptr,
-	userdata2:    /* NULLABLE */rawptr,
+	nextInChain: /* const */ ^ChainedStruct,
+	callback: UncapturedErrorCallback,
+	userdata1: /* NULLABLE */ rawptr,
+	userdata2: /* NULLABLE */ rawptr,
 }
 
 AdapterInfo :: struct {
-	nextInChain:     ^ChainedStruct,
-	vendor:          StringView,
-	architecture:    StringView,
-	device:          StringView,
-	description:     StringView,
-	backendType:     BackendType,
-	adapterType:     AdapterType,
-	vendorID:        u32,
-	deviceID:        u32,
+	nextInChain: ^ChainedStruct,
+	vendor: StringView,
+	architecture: StringView,
+	device: StringView,
+	description: StringView,
+	backendType: BackendType,
+	adapterType: AdapterType,
+	vendorID: u32,
+	deviceID: u32,
 	subgroupMinSize: u32,
 	subgroupMaxSize: u32,
 }
@@ -963,59 +947,59 @@ BlendComponent :: struct {
 }
 
 BufferBindingLayout :: struct {
-	nextInChain:      ^ChainedStruct,
-	type:             BufferBindingType,
+	nextInChain: ^ChainedStruct,
+	type: BufferBindingType,
 	hasDynamicOffset: b32,
-	minBindingSize:   u64,
+	minBindingSize: u64,
 }
 
 BufferDescriptor :: struct {
-	nextInChain:       /* const */^ChainedStruct,
-	label:            StringView,
-	usage:            BufferUsageFlags,
-	size:             u64,
+	nextInChain: /* const */ ^ChainedStruct,
+	label: StringView,
+	usage: BufferUsageFlags,
+	size: u64,
 	mappedAtCreation: b32,
 }
 
 Color :: [4]f64
 
 CommandBufferDescriptor :: struct {
-	nextInChain:  /* const */^ChainedStruct,
-	label:       StringView,
+	nextInChain: /* const */ ^ChainedStruct,
+	label: StringView,
 }
 
 CommandEncoderDescriptor :: struct {
-	nextInChain:  /* const */^ChainedStruct,
-	label:       StringView,
+	nextInChain: /* const */ ^ChainedStruct,
+	label: StringView,
 }
 
 CompatibilityModeLimits :: struct {
-	using chain:                       ChainedStruct,
-	maxStorageBuffersInVertexStage:    u32,
-	maxStorageTexturesInVertexStage:   u32,
-	maxStorageBuffersInFragmentStage:  u32,
+	using chain: ChainedStruct,
+	maxStorageBuffersInVertexStage: u32,
+	maxStorageTexturesInVertexStage: u32,
+	maxStorageBuffersInFragmentStage: u32,
 	maxStorageTexturesInFragmentStage: u32,
 }
 
 CompilationMessage :: struct {
 	nextInChain: ^ChainedStruct,
-	message:     StringView,
-	type:        CompilationMessageType,
-	lineNum:     u64,
-	linePos:     u64,
-	offset:      u64,
-	length:      u64,
+	message: StringView,
+	type: CompilationMessageType,
+	lineNum: u64,
+	linePos: u64,
+	offset: u64,
+	length: u64,
 }
 
 ConstantEntry :: struct {
-	nextInChain:  /* const */^ChainedStruct,
-	key:         StringView,
-	value:       f64,
+	nextInChain: /* const */ ^ChainedStruct,
+	key: StringView,
+	value: f64,
 }
 
 Extent3D :: struct {
-	width:              u32,
-	height:             u32,
+	width: u32,
+	height: u32,
 	depthOrArrayLayers: u32,
 }
 
@@ -1023,7 +1007,7 @@ Extent3D :: struct {
 Chained in a `BindGroupEntry`.
 */
 ExternalTextureBindingEntry :: struct {
-	using chain:     ChainedStruct,
+	using chain: ChainedStruct,
 	externalTexture: ExternalTexture,
 }
 
@@ -1039,14 +1023,14 @@ Future :: struct {
 }
 
 InstanceLimits :: struct {
-	nextInChain:          ^ChainedStruct,
+	nextInChain: ^ChainedStruct,
 	timedWaitAnyMaxCount: uint,
 }
 
 MultisampleState :: struct {
-	nextInChain:            ^ChainedStruct,
-	count:                  u32,
-	mask:                   u32,
+	nextInChain: ^ChainedStruct,
+	count: u32,
+	mask: u32,
 	alphaToCoverageEnabled: b32,
 }
 
@@ -1057,72 +1041,72 @@ Origin3D :: struct {
 }
 
 PassTimestampWrites :: struct {
-	nextInChain:               ^ChainedStruct,
-	querySet:                  QuerySet,
+	nextInChain: ^ChainedStruct,
+	querySet: QuerySet,
 	beginningOfPassWriteIndex: u32,
-	endOfPassWriteIndex:       u32,
+	endOfPassWriteIndex: u32,
 }
 
 PipelineLayoutDescriptor :: struct {
-	nextInChain:          ^ChainedStruct,
-	label:                StringView,
+	nextInChain: ^ChainedStruct,
+	label: StringView,
 	bindGroupLayoutCount: uint,
-	bindGroupLayouts:     [^]BindGroupLayout `fmt:"v,bindGroupLayoutCount"`,
-	immediateSize:        u32,
+	bindGroupLayouts: [^]BindGroupLayout `fmt:"v,bindGroupLayoutCount"`,
+	immediateSize: u32,
 }
 
 PrimitiveState :: struct {
-	nextInChain:      ^ChainedStruct,
-	topology:         PrimitiveTopology,
+	nextInChain: ^ChainedStruct,
+	topology: PrimitiveTopology,
 	stripIndexFormat: IndexFormat,
-	frontFace:        FrontFace,
-	cullMode:         CullMode,
-	unclippedDepth:   b32,
+	frontFace: FrontFace,
+	cullMode: CullMode,
+	unclippedDepth: b32,
 }
 
 QuerySetDescriptor :: struct {
 	nextInChain: ^ChainedStruct,
-	label:       StringView,
-	type:        QueryType,
-	count:       u32,
+	label: StringView,
+	type: QueryType,
+	count: u32,
 }
 
 QueueDescriptor :: struct {
 	nextInChain: ^ChainedStruct,
-	label:       StringView,
+	label: StringView,
 }
 
 RenderBundleDescriptor :: struct {
 	nextInChain: ^ChainedStruct,
-	label:       StringView,
+	label: StringView,
 }
 
 RenderBundleEncoderDescriptor :: struct {
-	nextInChain:        ^ChainedStruct,
-	label:              StringView,
-	colorFormatCount:   uint,
-	colorFormats:        /* const */[^]TextureFormat `fmt:"v,colorFormatCount"`,
+	nextInChain: ^ChainedStruct,
+	label: StringView,
+	colorFormatCount: uint,
+	colorFormats: /* const */ [^]TextureFormat `fmt:"v,colorFormatCount"`,
 	depthStencilFormat: TextureFormat,
-	sampleCount:        u32,
-	depthReadOnly:      b32,
-	stencilReadOnly:    b32,
+	sampleCount: u32,
+	depthReadOnly: b32,
+	stencilReadOnly: b32,
 }
 
 RenderPassDepthStencilAttachment :: struct {
-	nextInChain:       ^ChainedStruct,
-	view:              TextureView,
-	depthLoadOp:       LoadOp,
-	depthStoreOp:      StoreOp,
-	depthClearValue:   f32,
-	depthReadOnly:     b32,
-	stencilLoadOp:     LoadOp,
-	stencilStoreOp:    StoreOp,
+	nextInChain: ^ChainedStruct,
+	view: TextureView,
+	depthLoadOp: LoadOp,
+	depthStoreOp: StoreOp,
+	depthClearValue: f32,
+	depthReadOnly: b32,
+	stencilLoadOp: LoadOp,
+	stencilStoreOp: StoreOp,
 	stencilClearValue: u32,
-	stencilReadOnly:   b32,
+	stencilReadOnly: b32,
 }
 
 RenderPassMaxDrawCount :: struct {
-	using chain:  ChainedStruct,
+	using chain: ChainedStruct,
 	maxDrawCount: u64,
 }
 
@@ -1130,101 +1114,101 @@ RenderPassMaxDrawCount :: struct {
 Chained in a `RequestAdapterOptions`.
 */
 RequestAdapterWebXROptions :: struct {
-	using chain:  ChainedStruct,
+	using chain: ChainedStruct,
 	xrCompatible: b32,
 }
 
 SamplerBindingLayout :: struct {
 	nextInChain: ^ChainedStruct,
-	type:        SamplerBindingType,
+	type: SamplerBindingType,
 }
 
 SamplerDescriptor :: struct {
-	nextInChain:   ^ChainedStruct,
-	label:         StringView,
-	addressModeU:  AddressMode,
-	addressModeV:  AddressMode,
-	addressModeW:  AddressMode,
-	magFilter:     FilterMode,
-	minFilter:     FilterMode,
-	mipmapFilter:  MipmapFilterMode,
-	lodMinClamp:   f32,
-	lodMaxClamp:   f32,
-	compare:       CompareFunction,
+	nextInChain: ^ChainedStruct,
+	label: StringView,
+	addressModeU: AddressMode,
+	addressModeV: AddressMode,
+	addressModeW: AddressMode,
+	magFilter: FilterMode,
+	minFilter: FilterMode,
+	mipmapFilter: MipmapFilterMode,
+	lodMinClamp: f32,
+	lodMaxClamp: f32,
+	compare: CompareFunction,
 	maxAnisotropy: u16,
 }
 
 ShaderSourceSPIRV :: struct {
 	using chain: ChainedStruct,
-	codeSize:    u32,
-	code:         /* const */[^]u32 `fmt:"v,codeSize"`,
+	codeSize: u32,
+	code: /* const */ [^]u32 `fmt:"v,codeSize"`,
 }
 
 ShaderSourceWGSL :: struct {
 	using chain: ChainedStruct,
-	code:        StringView,
+	code: StringView,
 }
 
 StencilFaceState :: struct {
-	compare:     CompareFunction,
-	failOp:      StencilOperation,
+	compare: CompareFunction,
+	failOp: StencilOperation,
 	depthFailOp: StencilOperation,
-	passOp:      StencilOperation,
+	passOp: StencilOperation,
 }
 
 StorageTextureBindingLayout :: struct {
-	nextInChain:   ^ChainedStruct,
-	access:        StorageTextureAccess,
-	format:        TextureFormat,
+	nextInChain: ^ChainedStruct,
+	access: StorageTextureAccess,
+	format: TextureFormat,
 	viewDimension: TextureViewDimension,
 }
 
 SupportedFeatures :: struct {
 	featureCount: uint,
-	features:      /* const */[^]FeatureName `fmt:"v,featureCount"`,
+	features: /* const */ [^]FeatureName `fmt:"v,featureCount"`,
 }
 
 SupportedInstanceFeatures :: struct {
 	featureCount: uint,
-	features:      /* const */[^]InstanceFeatureName `fmt:"v,featureCount"`,
+	features: /* const */ [^]InstanceFeatureName `fmt:"v,featureCount"`,
 }
 
 SupportedWGSLLanguageFeatures :: struct {
 	featureCount: uint,
-	features:      /* const */[^]WGSLLanguageFeatureName `fmt:"v,featureCount"`,
+	features: /* const */ [^]WGSLLanguageFeatureName `fmt:"v,featureCount"`,
 }
 
 SurfaceCapabilities :: struct {
-	nextInChain:      ^ChainedStruct,
-	usages:           TextureUsageFlags,
-	formatCount:      uint,
-	formats:           /* const */[^]TextureFormat `fmt:"v,formatCount"`,
+	nextInChain: ^ChainedStruct,
+	usages: TextureUsageFlags,
+	formatCount: uint,
+	formats: /* const */ [^]TextureFormat `fmt:"v,formatCount"`,
 	presentModeCount: uint,
-	presentModes:      /* const */[^]PresentMode `fmt:"v,presentModeCount"`,
-	alphaModeCount:   uint,
-	alphaModes:        /* const */[^]CompositeAlphaMode `fmt:"v,alphaModeCount"`,
+	presentModes: /* const */ [^]PresentMode `fmt:"v,presentModeCount"`,
+	alphaModeCount: uint,
+	alphaModes: /* const */ [^]CompositeAlphaMode `fmt:"v,alphaModeCount"`,
 }
 
 /*
 Chained in a `SurfaceConfiguration`.
 */
 SurfaceColorManagement :: struct {
-	using chain:     ChainedStruct,
-	colorSpace:      PredefinedColorSpace,
+	using chain: ChainedStruct,
+	colorSpace: PredefinedColorSpace,
 	toneMappingMode: ToneMappingMode,
 }
 
 SurfaceConfiguration :: struct {
-	nextInChain:     ^ChainedStruct,
-	device:          Device,
-	format:          TextureFormat,
-	usage:           TextureUsageFlags,
-	width:           u32,
-	height:          u32,
+	nextInChain: ^ChainedStruct,
+	device: Device,
+	format: TextureFormat,
+	usage: TextureUsageFlags,
+	width: u32,
+	height: u32,
 	viewFormatCount: uint,
-	viewFormats:      /* const */[^]TextureFormat `fmt:"v,viewFormatCount"`,
-	alphaMode:       CompositeAlphaMode,
-	presentMode:     PresentMode,
+	viewFormats: /* const */ [^]TextureFormat `fmt:"v,viewFormatCount"`,
+	alphaMode: CompositeAlphaMode,
+	presentMode: PresentMode,
 }
 
 /*
@@ -1232,7 +1216,7 @@ Chained in a `SurfaceDescriptor`.
 */
 SurfaceSourceAndroidNativeWindow :: struct {
 	using chain: ChainedStruct,
-	window:      rawptr,
+	window: rawptr,
 }
 
 /*
@@ -1240,7 +1224,7 @@ Chained in a `SurfaceDescriptor`.
 */
 SurfaceSourceCanvasHTMLSelector :: struct {
 	using chain: ChainedStruct,
-	selector:    StringView,
+	selector: StringView,
 }
 
 /*
@@ -1248,7 +1232,7 @@ Chained in a `SurfaceDescriptor`.
 */
 SurfaceSourceMetalLayer :: struct {
 	using chain: ChainedStruct,
-	layer:       rawptr,
+	layer: rawptr,
 }
 
 /*
@@ -1256,8 +1240,8 @@ Chained in a `SurfaceDescriptor`.
 */
 SurfaceSourceWaylandSurface :: struct {
 	using chain: ChainedStruct,
-	display:     rawptr,
-	surface:     rawptr,
+	display: rawptr,
+	surface: rawptr,
 }
 
 /*
@@ -1265,8 +1249,8 @@ Chained in a `SurfaceDescriptor`.
 */
 SurfaceSourceWindowsHWND :: struct {
 	using chain: ChainedStruct,
-	hinstance:   rawptr,
-	hwnd:        rawptr,
+	hinstance: rawptr,
+	hwnd: rawptr,
 }
 
 /*
@@ -1274,8 +1258,8 @@ Chained in a `SurfaceDescriptor`.
 */
 SurfaceSourceXcbWindow :: struct {
 	using chain: ChainedStruct,
-	connection:  rawptr,
-	window:      u32,
+	connection: rawptr,
+	window: u32,
 }
 
 /*
@@ -1283,31 +1267,31 @@ Chained in a `SurfaceDescriptor`.
 */
 SurfaceSourceXlibWindow :: struct {
 	using chain: ChainedStruct,
-	display:     rawptr,
-	window:      u64,
+	display: rawptr,
+	window: u64,
 }
 
 SurfaceTexture :: struct {
 	nextInChain: ^ChainedStruct,
-	texture:     Texture,
-	status:      SurfaceGetCurrentTextureStatus,
+	texture: Texture,
+	status: SurfaceGetCurrentTextureStatus,
 }
 
 TexelCopyBufferLayout :: struct {
-	offset:       u64,
-	bytesPerRow:  u32,
+	offset: u64,
+	bytesPerRow: u32,
 	rowsPerImage: u32,
 }
 
 TextureBindingLayout :: struct {
-	nextInChain:   ^ChainedStruct,
-	sampleType:    TextureSampleType,
+	nextInChain: ^ChainedStruct,
+	sampleType: TextureSampleType,
 	viewDimension: TextureViewDimension,
-	multisampled:  b32,
+	multisampled: b32,
 }
 
 TextureBindingViewDimension :: struct {
-	using chain:                 ChainedStruct,
+	using chain: ChainedStruct,
 	textureBindingViewDimension: TextureViewDimension,
 }
 
@@ -1316,34 +1300,31 @@ TextureComponentSwizzle :: struct {
 }
 
 VertexAttribute :: struct {
-	nextInChain:    ^ChainedStruct,
-	format:         VertexFormat,
-	offset:         u64,
+	nextInChain: ^ChainedStruct,
+	format: VertexFormat,
+	offset: u64,
 	shaderLocation: u32,
 }
 
 BindGroupEntry :: struct {
 	nextInChain: ^ChainedStruct,
-	binding:     u32,
-	/* NULLABLE */
-	buffer:      Buffer,
-	offset:      u64,
-	size:        u64,
-	/* NULLABLE */
-	sampler:     Sampler,
-	/* NULLABLE */
-	textureView: TextureView,
+	binding: u32,
+	/* NULLABLE */ buffer: Buffer,
+	offset: u64,
+	size: u64,
+	/* NULLABLE */ sampler: Sampler,
+	/* NULLABLE */ textureView: TextureView,
 }
 
 BindGroupLayoutEntry :: struct {
-	nextInChain:      ^ChainedStruct,
-	binding:          u32,
-	visibility:       ShaderStageFlags,
+	nextInChain: ^ChainedStruct,
+	binding: u32,
+	visibility: ShaderStageFlags,
 	bindingArraySize: u32,
-	buffer:           BufferBindingLayout,
-	sampler:          SamplerBindingLayout,
-	texture:          TextureBindingLayout,
-	storageTexture:   StorageTextureBindingLayout,
+	buffer: BufferBindingLayout,
+	sampler: SamplerBindingLayout,
+	texture: TextureBindingLayout,
+	storageTexture: StorageTextureBindingLayout,
 }
 
 BlendState :: struct {
@@ -1352,119 +1333,114 @@ BlendState :: struct {
 }
 
 CompilationInfo :: struct {
-	nextInChain:  ^ChainedStruct,
+	nextInChain: ^ChainedStruct,
 	messageCount: uint,
-	messages:      /* const */[^]CompilationMessage `fmt:"v,messageCount"`,
+	messages: /* const */ [^]CompilationMessage `fmt:"v,messageCount"`,
 }
 
 ComputePassDescriptor :: struct {
-	nextInChain:     ^ChainedStruct,
-	label:           StringView,
-	/* NULLABLE */
-	timestampWrites:  /* const */^PassTimestampWrites,
+	nextInChain: ^ChainedStruct,
+	label: StringView,
+	/* NULLABLE */ timestampWrites: /* const */ ^PassTimestampWrites,
 }
 
 ComputeState :: struct {
-	nextInChain:   ^ChainedStruct,
-	module:        ShaderModule,
-	entryPoint:    StringView,
+	nextInChain: ^ChainedStruct,
+	module: ShaderModule,
+	entryPoint: StringView,
 	constantCount: uint,
-	constants:     [^]ConstantEntry `fmt:"v,constantCount"`,
+	constants: [^]ConstantEntry `fmt:"v,constantCount"`,
 }
 
 DepthStencilState :: struct {
-	nextInChain:         ^ChainedStruct,
-	format:              TextureFormat,
-	depthWriteEnabled:   OptionalBool,
-	depthCompare:        CompareFunction,
-	stencilFront:        StencilFaceState,
-	stencilBack:         StencilFaceState,
-	stencilReadMask:     u32,
-	stencilWriteMask:    u32,
-	depthBias:           i32,
+	nextInChain: ^ChainedStruct,
+	format: TextureFormat,
+	depthWriteEnabled: OptionalBool,
+	depthCompare: CompareFunction,
+	stencilFront: StencilFaceState,
+	stencilBack: StencilFaceState,
+	stencilReadMask: u32,
+	stencilWriteMask: u32,
+	depthBias: i32,
 	depthBiasSlopeScale: f32,
-	depthBiasClamp:      f32,
+	depthBiasClamp: f32,
 }
 
 FutureWaitInfo :: struct {
-	future:    Future,
+	future: Future,
 	completed: b32,
 }
 
 InstanceDescriptor :: struct {
-	nextInChain:          ^ChainedStruct,
+	nextInChain: ^ChainedStruct,
 	requiredFeatureCount: uint,
-	requiredFeatures:     [^]InstanceFeatureName `fmt:"v,requiredFeatureCount"`,
-	/* NULLABLE */
-	requiredLimits:       ^InstanceLimits,
+	requiredFeatures: [^]InstanceFeatureName `fmt:"v,requiredFeatureCount"`,
+	/* NULLABLE */ requiredLimits: ^InstanceLimits,
 }
 
 Limits :: struct {
-	nextInChain:                               ^ChainedStruct,
-	maxTextureDimension1D:                     u32,
-	maxTextureDimension2D:                     u32,
-	maxTextureDimension3D:                     u32,
-	maxTextureArrayLayers:                     u32,
-	maxBindGroups:                             u32,
-	maxBindGroupsPlusVertexBuffers:            u32,
-	maxBindingsPerBindGroup:                   u32,
+	nextInChain: ^ChainedStruct,
+	maxTextureDimension1D: u32,
+	maxTextureDimension2D: u32,
+	maxTextureDimension3D: u32,
+	maxTextureArrayLayers: u32,
+	maxBindGroups: u32,
+	maxBindGroupsPlusVertexBuffers: u32,
+	maxBindingsPerBindGroup: u32,
 	maxDynamicUniformBuffersPerPipelineLayout: u32,
 	maxDynamicStorageBuffersPerPipelineLayout: u32,
-	maxSampledTexturesPerShaderStage:          u32,
-	maxSamplersPerShaderStage:                 u32,
-	maxStorageBuffersPerShaderStage:           u32,
-	maxStorageTexturesPerShaderStage:          u32,
-	maxUniformBuffersPerShaderStage:           u32,
-	maxUniformBufferBindingSize:               u64,
-	maxStorageBufferBindingSize:               u64,
-	minUniformBufferOffsetAlignment:           u32,
-	minStorageBufferOffsetAlignment:           u32,
-	maxVertexBuffers:                          u32,
-	maxBufferSize:                             u64,
-	maxVertexAttributes:                       u32,
-	maxVertexBufferArrayStride:                u32,
-	maxInterStageShaderVariables:              u32,
-	maxColorAttachments:                       u32,
-	maxColorAttachmentBytesPerSample:          u32,
-	maxComputeWorkgroupStorageSize:            u32,
-	maxComputeInvocationsPerWorkgroup:         u32,
-	maxComputeWorkgroupSizeX:                  u32,
-	maxComputeWorkgroupSizeY:                  u32,
-	maxComputeWorkgroupSizeZ:                  u32,
-	maxComputeWorkgroupsPerDimension:          u32,
-	maxImmediateSize:                          u32,
+	maxSampledTexturesPerShaderStage: u32,
+	maxSamplersPerShaderStage: u32,
+	maxStorageBuffersPerShaderStage: u32,
+	maxStorageTexturesPerShaderStage: u32,
+	maxUniformBuffersPerShaderStage: u32,
+	maxUniformBufferBindingSize: u64,
+	maxStorageBufferBindingSize: u64,
+	minUniformBufferOffsetAlignment: u32,
+	minStorageBufferOffsetAlignment: u32,
+	maxVertexBuffers: u32,
+	maxBufferSize: u64,
+	maxVertexAttributes: u32,
+	maxVertexBufferArrayStride: u32,
+	maxInterStageShaderVariables: u32,
+	maxColorAttachments: u32,
+	maxColorAttachmentBytesPerSample: u32,
+	maxComputeWorkgroupStorageSize: u32,
+	maxComputeInvocationsPerWorkgroup: u32,
+	maxComputeWorkgroupSizeX: u32,
+	maxComputeWorkgroupSizeY: u32,
+	maxComputeWorkgroupSizeZ: u32,
+	maxComputeWorkgroupsPerDimension: u32,
+	maxImmediateSize: u32,
 }
 
 RenderPassColorAttachment :: struct {
-	nextInChain:   ^ChainedStruct,
-	/* NULLABLE */
-	view:          TextureView,
-	depthSlice:    u32,
-	/* NULLABLE */
-	resolveTarget: TextureView,
-	loadOp:        LoadOp,
-	storeOp:       StoreOp,
-	clearValue:    Color,
+	nextInChain: ^ChainedStruct,
+	/* NULLABLE */ view: TextureView,
+	depthSlice: u32,
+	/* NULLABLE */ resolveTarget: TextureView,
+	loadOp: LoadOp,
+	storeOp: StoreOp,
+	clearValue: Color,
 }
 
 RequestAdapterOptions :: struct {
-	nextInChain:          ^ChainedStruct,
-	featureLevel:         FeatureLevel,
-	powerPreference:      PowerPreference,
+	nextInChain: ^ChainedStruct,
+	featureLevel: FeatureLevel,
+	powerPreference: PowerPreference,
 	forceFallbackAdapter: b32,
-	backendType:          BackendType,
-	/* NULLABLE */
-	compatibleSurface:    Surface,
+	backendType: BackendType,
+	/* NULLABLE */ compatibleSurface: Surface,
 }
 
 ShaderModuleDescriptor :: struct {
 	nextInChain: ^ChainedStruct,
-	label:       StringView,
+	label: StringView,
 }
 
 SurfaceDescriptor :: struct {
 	nextInChain: ^ChainedStruct,
-	label:       StringView,
+	label: StringView,
 }
 
 TexelCopyBufferInfo :: struct {
@@ -1473,10 +1449,10 @@ TexelCopyBufferInfo :: struct {
 }
 
 TexelCopyTextureInfo :: struct {
-	texture:  Texture,
+	texture: Texture,
 	mipLevel: u32,
-	origin:   Origin3D,
-	aspect:   TextureAspect,
+	origin: Origin3D,
+	aspect: TextureAspect,
 }
 
 /*
@@ -1484,154 +1460,143 @@ Chained in a `TextureViewDescriptor`.
 */
 TextureComponentSwizzleDescriptor :: struct {
 	using chain: ChainedStruct,
-	swizzle:     TextureComponentSwizzle,
+	swizzle: TextureComponentSwizzle,
 }
 
 TextureDescriptor :: struct {
-	nextInChain:     ^ChainedStruct,
-	label:           StringView,
-	usage:           TextureUsageFlags,
-	dimension:       TextureDimension,
-	size:            Extent3D,
-	format:          TextureFormat,
-	mipLevelCount:   u32,
-	sampleCount:     u32,
+	nextInChain: ^ChainedStruct,
+	label: StringView,
+	usage: TextureUsageFlags,
+	dimension: TextureDimension,
+	size: Extent3D,
+	format: TextureFormat,
+	mipLevelCount: u32,
+	sampleCount: u32,
 	viewFormatCount: uint,
-	viewFormats:      /* const */[^]TextureFormat `fmt:"v,viewFormatCount"`,
+	viewFormats: /* const */ [^]TextureFormat `fmt:"v,viewFormatCount"`,
 }
 
 VertexBufferLayout :: struct {
-	nextInChain:    ^ChainedStruct,
-	stepMode:       VertexStepMode,
-	arrayStride:    u64,
+	nextInChain: ^ChainedStruct,
+	stepMode: VertexStepMode,
+	arrayStride: u64,
 	attributeCount: uint,
-	attributes:      /* const */[^]VertexAttribute `fmt:"v,attributeCount"`,
+	attributes: /* const */ [^]VertexAttribute `fmt:"v,attributeCount"`,
 }
 
 BindGroupDescriptor :: struct {
 	nextInChain: ^ChainedStruct,
-	label:       StringView,
-	layout:      BindGroupLayout,
-	entryCount:  uint,
-	entries:      /* const */[^]BindGroupEntry `fmt:"v,entryCount"`,
+	label: StringView,
+	layout: BindGroupLayout,
+	entryCount: uint,
+	entries: /* const */ [^]BindGroupEntry `fmt:"v,entryCount"`,
 }
 
 BindGroupLayoutDescriptor :: struct {
 	nextInChain: ^ChainedStruct,
-	label:       StringView,
-	entryCount:  uint,
-	entries:      /* const */[^]BindGroupLayoutEntry `fmt:"v,entryCount"`,
+	label: StringView,
+	entryCount: uint,
+	entries: /* const */ [^]BindGroupLayoutEntry `fmt:"v,entryCount"`,
 }
 
 ColorTargetState :: struct {
 	nextInChain: ^ChainedStruct,
-	format:      TextureFormat,
-	/* NULLABLE */
-	blend:        /* const */^BlendState,
-	writeMask:   ColorWriteMaskFlags,
+	format: TextureFormat,
+	/* NULLABLE */ blend: /* const */ ^BlendState,
+	writeMask: ColorWriteMaskFlags,
 }
 
 ComputePipelineDescriptor :: struct {
 	nextInChain: ^ChainedStruct,
-	label:       StringView,
-	/* NULLABLE */
-	layout:      PipelineLayout,
-	compute:     ComputeState,
+	label: StringView,
+	/* NULLABLE */ layout: PipelineLayout,
+	compute: ComputeState,
 }
 
 DeviceDescriptor :: struct {
-	nextInChain:                 ^ChainedStruct,
-	label:                       StringView,
-	requiredFeatureCount:        uint,
-	requiredFeatures:             /* const */[^]FeatureName `fmt:"v,requiredFeatureCount"`,
-	/* NULLABLE */
-	requiredLimits:               /* const */^Limits,
-	defaultQueue:                QueueDescriptor,
-	deviceLostCallbackInfo:      DeviceLostCallbackInfo,
+	nextInChain: ^ChainedStruct,
+	label: StringView,
+	requiredFeatureCount: uint,
+	requiredFeatures: /* const */ [^]FeatureName `fmt:"v,requiredFeatureCount"`,
+	/* NULLABLE */ requiredLimits: /* const */ ^Limits,
+	defaultQueue: QueueDescriptor,
+	deviceLostCallbackInfo: DeviceLostCallbackInfo,
 	uncapturedErrorCallbackInfo: UncapturedErrorCallbackInfo,
 }
 
 RenderPassDescriptor :: struct {
-	nextInChain:            ^ChainedStruct,
-	label:                  StringView,
-	colorAttachmentCount:   uint,
-	colorAttachments:        /* const */[^]RenderPassColorAttachment `fmt:"v,colorAttachmentCount"`,
-	/* NULLABLE */
-	depthStencilAttachment:  /* const */^RenderPassDepthStencilAttachment,
-	/* NULLABLE */
-	occlusionQuerySet:      QuerySet,
-	/* NULLABLE */
-	timestampWrites:         /* const */^PassTimestampWrites,
+	nextInChain: ^ChainedStruct,
+	label: StringView,
+	colorAttachmentCount: uint,
+	colorAttachments: /* const */ [^]RenderPassColorAttachment `fmt:"v,colorAttachmentCount"`,
+	/* NULLABLE */ depthStencilAttachment: /* const */ ^RenderPassDepthStencilAttachment,
+	/* NULLABLE */ occlusionQuerySet: QuerySet,
+	/* NULLABLE */ timestampWrites: /* const */ ^PassTimestampWrites,
 }
 
 TextureViewDescriptor :: struct {
-	nextInChain:     ^ChainedStruct,
-	label:           StringView,
-	format:          TextureFormat,
-	dimension:       TextureViewDimension,
-	baseMipLevel:    u32,
-	mipLevelCount:   u32,
-	baseArrayLayer:  u32,
+	nextInChain: ^ChainedStruct,
+	label: StringView,
+	format: TextureFormat,
+	dimension: TextureViewDimension,
+	baseMipLevel: u32,
+	mipLevelCount: u32,
+	baseArrayLayer: u32,
 	arrayLayerCount: u32,
-	aspect:          TextureAspect,
-	usage:           TextureUsageFlags,
+	aspect: TextureAspect,
+	usage: TextureUsageFlags,
 }
 
 VertexState :: struct {
-	nextInChain:   ^ChainedStruct,
-	module:        ShaderModule,
-	entryPoint:    StringView,
+	nextInChain: ^ChainedStruct,
+	module: ShaderModule,
+	entryPoint: StringView,
 	constantCount: uint,
-	constants:      /* const */[^]ConstantEntry `fmt:"v,constantCount"`,
-	bufferCount:   uint,
-	buffers:        /* const */[^]VertexBufferLayout `fmt:"v,bufferCount"`,
+	constants: /* const */ [^]ConstantEntry `fmt:"v,constantCount"`,
+	bufferCount: uint,
+	buffers: /* const */ [^]VertexBufferLayout `fmt:"v,bufferCount"`,
 }
 
 FragmentState :: struct {
-	nextInChain:   ^ChainedStruct,
-	module:        ShaderModule,
-	entryPoint:    StringView,
+	nextInChain: ^ChainedStruct,
+	module: ShaderModule,
+	entryPoint: StringView,
 	constantCount: uint,
-	constants:      /* const */[^]ConstantEntry `fmt:"v,constantCount"`,
-	targetCount:   uint,
-	targets:        /* const */[^]ColorTargetState `fmt:"v,targetCount"`,
+	constants: /* const */ [^]ConstantEntry `fmt:"v,constantCount"`,
+	targetCount: uint,
+	targets: /* const */ [^]ColorTargetState `fmt:"v,targetCount"`,
 }
 
 RenderPipelineDescriptor :: struct {
-	nextInChain:  ^ChainedStruct,
-	label:        StringView,
-	/* NULLABLE */
-	layout:       PipelineLayout,
-	vertex:       VertexState,
-	primitive:    PrimitiveState,
-	/* NULLABLE */
-	depthStencil:  /* const */^DepthStencilState,
-	multisample:  MultisampleState,
-	/* NULLABLE */
-	fragment:      /* const */^FragmentState,
+	nextInChain: ^ChainedStruct,
+	label: StringView,
+	/* NULLABLE */ layout: PipelineLayout,
+	vertex: VertexState,
+	primitive: PrimitiveState,
+	/* NULLABLE */ depthStencil: /* const */ ^DepthStencilState,
+	multisample: MultisampleState,
+	/* NULLABLE */ fragment: /* const */ ^FragmentState,
 }
 
-@(link_prefix = "wgpu", default_calling_convention = "c")
+@(link_prefix="wgpu", default_calling_convention="c")
 foreign libwgpu {
-	@(link_name = "wgpuCreateInstance")
-	RawCreateInstance :: proc( /* NULLABLE */descriptor:  /* const */^InstanceDescriptor = nil,) -> Instance ---
+	@(link_name="wgpuCreateInstance")
+	RawCreateInstance :: proc(/* NULLABLE */ descriptor: /* const */ ^InstanceDescriptor = nil) -> Instance ---
 	GetInstanceFeatures :: proc(features: ^SupportedInstanceFeatures) ---
-	@(link_name = "wgpuGetInstanceLimits")
+	@(link_name="wgpuGetInstanceLimits")
 	RawGetInstanceLimits :: proc(limits: ^InstanceLimits) -> Status ---
 	HasInstanceFeature :: proc(feature: InstanceFeatureName) -> b32 ---
 	GetProcAddress :: proc(procName: StringView) -> Proc ---
 
 	// Methods of Adapter
-	@(link_name = "wgpuAdapterGetFeatures")
+	@(link_name="wgpuAdapterGetFeatures")
 	RawAdapterGetFeatures :: proc(adapter: Adapter, features: ^SupportedFeatures) ---
-	@(link_name = "wgpuAdapterGetInfo")
+	@(link_name="wgpuAdapterGetInfo")
 	RawAdapterGetInfo :: proc(adapter: Adapter, info: ^AdapterInfo) -> Status ---
-	@(link_name = "wgpuAdapterGetLimits")
+	@(link_name="wgpuAdapterGetLimits")
 	RawAdapterGetLimits :: proc(adapter: Adapter, limits: ^Limits) -> Status ---
 	AdapterHasFeature :: proc(adapter: Adapter, feature: FeatureName) -> b32 ---
-	AdapterRequestDevice :: proc(adapter: Adapter, /* NULLABLE */
-		descriptor:  /* const */^DeviceDescriptor,
-		callbackInfo: RequestDeviceCallbackInfo,) -> Future ---
+	AdapterRequestDevice :: proc(adapter: Adapter, /* NULLABLE */ descriptor: /* const */ ^DeviceDescriptor, callbackInfo: RequestDeviceCallbackInfo) -> Future ---
 	AdapterAddRef :: proc(adapter: Adapter) ---
 	AdapterRelease :: proc(adapter: Adapter) ---
 
@@ -1650,9 +1615,9 @@ foreign libwgpu {
 
 	// Methods of Buffer
 	BufferDestroy :: proc(buffer: Buffer) ---
-	@(link_name = "wgpuBufferGetConstMappedRange")
-	RawBufferGetConstMappedRange :: proc(buffer: Buffer, offset: uint, size: uint) -> rawptr ---
-	@(link_name = "wgpuBufferGetMappedRange")
+	@(link_name="wgpuBufferGetConstMappedRange")
+	RawBufferGetConstMappedRange :: proc(buffer: Buffer, offset: uint, size: uint) -> /* const */ rawptr ---
+	@(link_name="wgpuBufferGetMappedRange")
 	RawBufferGetMappedRange :: proc(buffer: Buffer, offset: uint, size: uint) -> rawptr ---
 	BufferGetMapState :: proc(buffer: Buffer) -> BufferMapState ---
 	BufferGetSize :: proc(buffer: Buffer) -> u64 ---
@@ -1671,26 +1636,14 @@ foreign libwgpu {
 	CommandBufferRelease :: proc(commandBuffer: CommandBuffer) ---
 
 	// Methods of CommandEncoder
-	CommandEncoderBeginComputePass :: proc(commandEncoder: CommandEncoder, /* NULLABLE */
-		descriptor:  /* const */^ComputePassDescriptor = nil,) -> ComputePassEncoder ---
-	CommandEncoderBeginRenderPass :: proc(commandEncoder: CommandEncoder,
-		descriptor:  /* const */^RenderPassDescriptor,) -> RenderPassEncoder ---
+	CommandEncoderBeginComputePass :: proc(commandEncoder: CommandEncoder, /* NULLABLE */ descriptor: /* const */ ^ComputePassDescriptor = nil) -> ComputePassEncoder ---
+	CommandEncoderBeginRenderPass :: proc(commandEncoder: CommandEncoder, descriptor: /* const */ ^RenderPassDescriptor) -> RenderPassEncoder ---
 	CommandEncoderClearBuffer :: proc(commandEncoder: CommandEncoder, buffer: Buffer, offset: u64, size: u64) ---
 	CommandEncoderCopyBufferToBuffer :: proc(commandEncoder: CommandEncoder, source: Buffer, sourceOffset: u64, destination: Buffer, destinationOffset: u64, size: u64) ---
-	CommandEncoderCopyBufferToTexture :: proc(commandEncoder: CommandEncoder,
-		source:  /* const */^TexelCopyBufferInfo,
-		destination:  /* const */^TexelCopyTextureInfo,
-		copySize:  /* const */^Extent3D,) ---
-	CommandEncoderCopyTextureToBuffer :: proc(commandEncoder: CommandEncoder,
-		source:  /* const */^TexelCopyTextureInfo,
-		destination:  /* const */^TexelCopyBufferInfo,
-		copySize:  /* const */^Extent3D,) ---
-	CommandEncoderCopyTextureToTexture :: proc(commandEncoder: CommandEncoder,
-		source:  /* const */^TexelCopyTextureInfo,
-		destination:  /* const */^TexelCopyTextureInfo,
-		copySize:  /* const */^Extent3D,) ---
-	CommandEncoderFinish :: proc(commandEncoder: CommandEncoder, /* NULLABLE */
-		descriptor:  /* const */^CommandBufferDescriptor = nil,) -> CommandBuffer ---
+	CommandEncoderCopyBufferToTexture :: proc(commandEncoder: CommandEncoder, source: /* const */ ^TexelCopyBufferInfo, destination: /* const */ ^TexelCopyTextureInfo, copySize: /* const */ ^Extent3D) ---
+	CommandEncoderCopyTextureToBuffer :: proc(commandEncoder: CommandEncoder, source: /* const */ ^TexelCopyTextureInfo, destination: /* const */ ^TexelCopyBufferInfo, copySize: /* const */ ^Extent3D) ---
+	CommandEncoderCopyTextureToTexture :: proc(commandEncoder: CommandEncoder, source: /* const */ ^TexelCopyTextureInfo, destination: /* const */ ^TexelCopyTextureInfo, copySize: /* const */ ^Extent3D) ---
+	CommandEncoderFinish :: proc(commandEncoder: CommandEncoder, /* NULLABLE */ descriptor: /* const */ ^CommandBufferDescriptor = nil) -> CommandBuffer ---
 	CommandEncoderInsertDebugMarker :: proc(commandEncoder: CommandEncoder, markerLabel: StringView) ---
 	CommandEncoderPopDebugGroup :: proc(commandEncoder: CommandEncoder) ---
 	CommandEncoderPushDebugGroup :: proc(commandEncoder: CommandEncoder, groupLabel: StringView) ---
@@ -1707,12 +1660,8 @@ foreign libwgpu {
 	ComputePassEncoderInsertDebugMarker :: proc(computePassEncoder: ComputePassEncoder, markerLabel: StringView) ---
 	ComputePassEncoderPopDebugGroup :: proc(computePassEncoder: ComputePassEncoder) ---
 	ComputePassEncoderPushDebugGroup :: proc(computePassEncoder: ComputePassEncoder, groupLabel: StringView) ---
-	@(link_name = "wgpuComputePassEncoderSetBindGroup")
-	RawComputePassEncoderSetBindGroup :: proc(computePassEncoder: ComputePassEncoder,
-		groupIndex: u32, /* NULLABLE */
-		group: BindGroup,
-		dynamicOffsetCount: uint,
-		dynamicOffsets:  /* const */[^]u32,) ---
+	@(link_name="wgpuComputePassEncoderSetBindGroup")
+	RawComputePassEncoderSetBindGroup :: proc(computePassEncoder: ComputePassEncoder, groupIndex: u32, /* NULLABLE */ group: BindGroup, dynamicOffsetCount: uint, dynamicOffsets: /* const */ [^]u32) ---
 	ComputePassEncoderSetImmediates :: proc(computePassEncoder: ComputePassEncoder, offset: u32, data: rawptr, size: uint) ---
 	ComputePassEncoderSetLabel :: proc(computePassEncoder: ComputePassEncoder, label: StringView) ---
 	ComputePassEncoderSetPipeline :: proc(computePassEncoder: ComputePassEncoder, pipeline: ComputePipeline) ---
@@ -1726,42 +1675,26 @@ foreign libwgpu {
 	ComputePipelineRelease :: proc(computePipeline: ComputePipeline) ---
 
 	// Methods of Device
-	DeviceCreateBindGroup :: proc(device: Device,
-		descriptor:  /* const */^BindGroupDescriptor,) -> BindGroup ---
-	DeviceCreateBindGroupLayout :: proc(device: Device,
-		descriptor:  /* const */^BindGroupLayoutDescriptor,) -> BindGroupLayout ---
-	DeviceCreateBuffer :: proc(device: Device,
-		descriptor:  /* const */^BufferDescriptor,) -> Buffer ---
-	DeviceCreateCommandEncoder :: proc(device: Device, /* NULLABLE */
-		descriptor:  /* const */^CommandEncoderDescriptor = nil,) -> CommandEncoder ---
-	DeviceCreateComputePipeline :: proc(device: Device,
-		descriptor:  /* const */^ComputePipelineDescriptor,) -> ComputePipeline ---
-	DeviceCreateComputePipelineAsync :: proc(device: Device,
-		descriptor:  /* const */^ComputePipelineDescriptor,
-		callbackInfo: CreateComputePipelineAsyncCallbackInfo,) -> Future ---
-	DeviceCreatePipelineLayout :: proc(device: Device,
-		descriptor:  /* const */^PipelineLayoutDescriptor,) -> PipelineLayout ---
-	DeviceCreateQuerySet :: proc(device: Device,
-		descriptor:  /* const */^QuerySetDescriptor,) -> QuerySet ---
-	DeviceCreateRenderBundleEncoder :: proc(device: Device,
-		descriptor:  /* const */^RenderBundleEncoderDescriptor,) -> RenderBundleEncoder ---
-	DeviceCreateRenderPipeline :: proc(device: Device,
-		descriptor:  /* const */^RenderPipelineDescriptor,) -> RenderPipeline ---
-	DeviceCreateRenderPipelineAsync :: proc(device: Device,
-		descriptor:  /* const */^RenderPipelineDescriptor,
-		callbackInfo: CreateRenderPipelineAsyncCallbackInfo,) -> Future ---
-	DeviceCreateSampler :: proc(device: Device, /* NULLABLE */
-		descriptor:  /* const */^SamplerDescriptor = nil,) -> Sampler ---
-	DeviceCreateShaderModule :: proc(device: Device,
-		descriptor:  /* const */^ShaderModuleDescriptor,) -> ShaderModule ---
-	DeviceCreateTexture :: proc(device: Device,
-		descriptor:  /* const */^TextureDescriptor,) -> Texture ---
+	DeviceCreateBindGroup :: proc(device: Device, descriptor: /* const */ ^BindGroupDescriptor) -> BindGroup ---
+	DeviceCreateBindGroupLayout :: proc(device: Device, descriptor: /* const */ ^BindGroupLayoutDescriptor) -> BindGroupLayout ---
+	DeviceCreateBuffer :: proc(device: Device, descriptor: /* const */ ^BufferDescriptor) -> Buffer ---
+	DeviceCreateCommandEncoder :: proc(device: Device, /* NULLABLE */ descriptor: /* const */ ^CommandEncoderDescriptor = nil) -> CommandEncoder ---
+	DeviceCreateComputePipeline :: proc(device: Device, descriptor: /* const */ ^ComputePipelineDescriptor) -> ComputePipeline ---
+	DeviceCreateComputePipelineAsync :: proc(device: Device, descriptor: /* const */ ^ComputePipelineDescriptor, callbackInfo: CreateComputePipelineAsyncCallbackInfo) -> Future ---
+	DeviceCreatePipelineLayout :: proc(device: Device, descriptor: /* const */ ^PipelineLayoutDescriptor) -> PipelineLayout ---
+	DeviceCreateQuerySet :: proc(device: Device, descriptor: /* const */ ^QuerySetDescriptor) -> QuerySet ---
+	DeviceCreateRenderBundleEncoder :: proc(device: Device, descriptor: /* const */ ^RenderBundleEncoderDescriptor) -> RenderBundleEncoder ---
+	DeviceCreateRenderPipeline :: proc(device: Device, descriptor: /* const */ ^RenderPipelineDescriptor) -> RenderPipeline ---
+	DeviceCreateRenderPipelineAsync :: proc(device: Device, descriptor: /* const */ ^RenderPipelineDescriptor, callbackInfo: CreateRenderPipelineAsyncCallbackInfo) -> Future ---
+	DeviceCreateSampler :: proc(device: Device, /* NULLABLE */ descriptor: /* const */ ^SamplerDescriptor = nil) -> Sampler ---
+	DeviceCreateShaderModule :: proc(device: Device, descriptor: /* const */ ^ShaderModuleDescriptor) -> ShaderModule ---
+	DeviceCreateTexture :: proc(device: Device, descriptor: /* const */ ^TextureDescriptor) -> Texture ---
 	DeviceDestroy :: proc(device: Device) ---
-	@(link_name = "wgpuDeviceGetAdapterInfo")
+	@(link_name="wgpuDeviceGetAdapterInfo")
 	RawDeviceGetAdapterInfo :: proc(device: Device, info: ^AdapterInfo) -> Status ---
-	@(link_name = "wgpuDeviceGetFeatures")
+	@(link_name="wgpuDeviceGetFeatures")
 	RawDeviceGetFeatures :: proc(device: Device, features: ^SupportedFeatures) ---
-	@(link_name = "wgpuDeviceGetLimits")
+	@(link_name="wgpuDeviceGetLimits")
 	RawDeviceGetLimits :: proc(device: Device, limits: ^Limits) -> Status ---
 	DeviceGetLostFuture :: proc(device: Device) -> Future ---
 	DeviceGetQueue :: proc(device: Device) -> Queue ---
@@ -1778,14 +1711,11 @@ foreign libwgpu {
 	ExternalTextureRelease :: proc(externalTexture: ExternalTexture) ---
 
 	// Methods of Instance
-	InstanceCreateSurface :: proc(instance: Instance,
-		descriptor:  /* const */^SurfaceDescriptor,) -> Surface ---
+	InstanceCreateSurface :: proc(instance: Instance, descriptor: /* const */ ^SurfaceDescriptor) -> Surface ---
 	InstanceGetWGSLLanguageFeatures :: proc(instance: Instance, features: ^SupportedWGSLLanguageFeatures) ---
 	InstanceHasWGSLLanguageFeature :: proc(instance: Instance, feature: WGSLLanguageFeatureName) -> b32 ---
 	InstanceProcessEvents :: proc(instance: Instance) ---
-	InstanceRequestAdapter :: proc(instance: Instance, /* NULLABLE */
-		options:  /* const */^RequestAdapterOptions,
-		callbackInfo: RequestAdapterCallbackInfo,) -> Future ---
+	InstanceRequestAdapter :: proc(instance: Instance, /* NULLABLE */ options: /* const */ ^RequestAdapterOptions, callbackInfo: RequestAdapterCallbackInfo) -> Future ---
 	InstanceWaitAny :: proc(instance: Instance, futureCount: uint, futures: [^]FutureWaitInfo, timeoutNS: u64) -> WaitStatus ---
 	InstanceAddRef :: proc(instance: Instance) ---
 	InstanceRelease :: proc(instance: Instance) ---
@@ -1806,21 +1736,10 @@ foreign libwgpu {
 	// Methods of Queue
 	QueueOnSubmittedWorkDone :: proc(queue: Queue, callbackInfo: QueueWorkDoneCallbackInfo) -> Future ---
 	QueueSetLabel :: proc(queue: Queue, label: StringView) ---
-	@(link_name = "wgpuQueueSubmit")
-	RawQueueSubmit :: proc(queue: Queue,
-		commandCount: uint,
-		commands:  /* const */[^]CommandBuffer,) ---
-	QueueWriteBuffer :: proc(queue: Queue,
-		buffer: Buffer,
-		bufferOffset: u64,
-		data:  /* const */rawptr,
-		size: uint,) ---
-	QueueWriteTexture :: proc(queue: Queue,
-		destination:  /* const */^TexelCopyTextureInfo,
-		data:  /* const */rawptr,
-		dataSize: uint,
-		dataLayout:  /* const */^TexelCopyBufferLayout,
-		writeSize:  /* const */^Extent3D,) ---
+	@(link_name="wgpuQueueSubmit")
+	RawQueueSubmit :: proc(queue: Queue, commandCount: uint, commands: /* const */ [^]CommandBuffer) ---
+	QueueWriteBuffer :: proc(queue: Queue, buffer: Buffer, bufferOffset: u64, data: /* const */ rawptr, size: uint) ---
+	QueueWriteTexture :: proc(queue: Queue, destination: /* const */ ^TexelCopyTextureInfo, data: /* const */ rawptr, dataSize: uint, dataLayout: /* const */ ^TexelCopyBufferLayout, writeSize: /* const */ ^Extent3D) ---
 	QueueAddRef :: proc(queue: Queue) ---
 	QueueRelease :: proc(queue: Queue) ---
 
@@ -1834,26 +1753,17 @@ foreign libwgpu {
 	RenderBundleEncoderDrawIndexed :: proc(renderBundleEncoder: RenderBundleEncoder, indexCount: u32, instanceCount: u32, firstIndex: u32, baseVertex: i32, firstInstance: u32) ---
 	RenderBundleEncoderDrawIndexedIndirect :: proc(renderBundleEncoder: RenderBundleEncoder, indirectBuffer: Buffer, indirectOffset: u64) ---
 	RenderBundleEncoderDrawIndirect :: proc(renderBundleEncoder: RenderBundleEncoder, indirectBuffer: Buffer, indirectOffset: u64) ---
-	RenderBundleEncoderFinish :: proc(renderBundleEncoder: RenderBundleEncoder, /* NULLABLE */
-		descriptor:  /* const */^RenderBundleDescriptor = nil,) -> RenderBundle ---
+	RenderBundleEncoderFinish :: proc(renderBundleEncoder: RenderBundleEncoder, /* NULLABLE */ descriptor: /* const */ ^RenderBundleDescriptor = nil) -> RenderBundle ---
 	RenderBundleEncoderInsertDebugMarker :: proc(renderBundleEncoder: RenderBundleEncoder, markerLabel: StringView) ---
 	RenderBundleEncoderPopDebugGroup :: proc(renderBundleEncoder: RenderBundleEncoder) ---
 	RenderBundleEncoderPushDebugGroup :: proc(renderBundleEncoder: RenderBundleEncoder, groupLabel: StringView) ---
-	@(link_name = "wgpuRenderBundleEncoderSetBindGroup")
-	RawRenderBundleEncoderSetBindGroup :: proc(renderBundleEncoder: RenderBundleEncoder,
-		groupIndex: u32, /* NULLABLE */
-		group: BindGroup,
-		dynamicOffsetCount: uint,
-		dynamicOffsets:  /* const */[^]u32,) ---
+	@(link_name="wgpuRenderBundleEncoderSetBindGroup")
+	RawRenderBundleEncoderSetBindGroup :: proc(renderBundleEncoder: RenderBundleEncoder, groupIndex: u32, /* NULLABLE */ group: BindGroup, dynamicOffsetCount: uint, dynamicOffsets: /* const */ [^]u32) ---
 	RenderBundleEncoderSetImmediates :: proc(renderBundleEncoder: RenderBundleEncoder, offset: u32, data: rawptr, size: uint) ---
 	RenderBundleEncoderSetIndexBuffer :: proc(renderBundleEncoder: RenderBundleEncoder, buffer: Buffer, format: IndexFormat, offset: u64, size: u64) ---
 	RenderBundleEncoderSetLabel :: proc(renderBundleEncoder: RenderBundleEncoder, label: StringView) ---
 	RenderBundleEncoderSetPipeline :: proc(renderBundleEncoder: RenderBundleEncoder, pipeline: RenderPipeline) ---
-	RenderBundleEncoderSetVertexBuffer :: proc(renderBundleEncoder: RenderBundleEncoder,
-		slot: u32, /* NULLABLE */
-		buffer: Buffer,
-		offset: u64,
-		size: u64,) ---
+	RenderBundleEncoderSetVertexBuffer :: proc(renderBundleEncoder: RenderBundleEncoder, slot: u32, /* NULLABLE */ buffer: Buffer, offset: u64, size: u64) ---
 	RenderBundleEncoderAddRef :: proc(renderBundleEncoder: RenderBundleEncoder) ---
 	RenderBundleEncoderRelease :: proc(renderBundleEncoder: RenderBundleEncoder) ---
 
@@ -1865,32 +1775,21 @@ foreign libwgpu {
 	RenderPassEncoderDrawIndirect :: proc(renderPassEncoder: RenderPassEncoder, indirectBuffer: Buffer, indirectOffset: u64) ---
 	RenderPassEncoderEnd :: proc(renderPassEncoder: RenderPassEncoder) ---
 	RenderPassEncoderEndOcclusionQuery :: proc(renderPassEncoder: RenderPassEncoder) ---
-	@(link_name = "wgpuRenderPassEncoderExecuteBundles")
-	RawRenderPassEncoderExecuteBundles :: proc(renderPassEncoder: RenderPassEncoder,
-		bundleCount: uint,
-		bundles:  /* const */[^]RenderBundle,) ---
+	@(link_name="wgpuRenderPassEncoderExecuteBundles")
+	RawRenderPassEncoderExecuteBundles :: proc(renderPassEncoder: RenderPassEncoder, bundleCount: uint, bundles: /* const */ [^]RenderBundle) ---
 	RenderPassEncoderInsertDebugMarker :: proc(renderPassEncoder: RenderPassEncoder, markerLabel: StringView) ---
 	RenderPassEncoderPopDebugGroup :: proc(renderPassEncoder: RenderPassEncoder) ---
 	RenderPassEncoderPushDebugGroup :: proc(renderPassEncoder: RenderPassEncoder, groupLabel: StringView) ---
-	@(link_name = "wgpuRenderPassEncoderSetBindGroup")
-	RawRenderPassEncoderSetBindGroup :: proc(renderPassEncoder: RenderPassEncoder,
-		groupIndex: u32, /* NULLABLE */
-		group: BindGroup,
-		dynamicOffsetCount: uint,
-		dynamicOffsets:  /* const */[^]u32,) ---
+	@(link_name="wgpuRenderPassEncoderSetBindGroup")
+	RawRenderPassEncoderSetBindGroup :: proc(renderPassEncoder: RenderPassEncoder, groupIndex: u32, /* NULLABLE */ group: BindGroup, dynamicOffsetCount: uint, dynamicOffsets: /* const */ [^]u32) ---
 	RenderPassEncoderSetImmediates :: proc(renderPassEncoder: RenderPassEncoder, offset: u32, data: rawptr, size: uint) ---
-	RenderPassEncoderSetBlendConstant :: proc(renderPassEncoder: RenderPassEncoder,
-		color:  /* const */^Color,) ---
+	RenderPassEncoderSetBlendConstant :: proc(renderPassEncoder: RenderPassEncoder, color: /* const */ ^Color) ---
 	RenderPassEncoderSetIndexBuffer :: proc(renderPassEncoder: RenderPassEncoder, buffer: Buffer, format: IndexFormat, offset: u64, size: u64) ---
 	RenderPassEncoderSetLabel :: proc(renderPassEncoder: RenderPassEncoder, label: StringView) ---
 	RenderPassEncoderSetPipeline :: proc(renderPassEncoder: RenderPassEncoder, pipeline: RenderPipeline) ---
 	RenderPassEncoderSetScissorRect :: proc(renderPassEncoder: RenderPassEncoder, x: u32, y: u32, width: u32, height: u32) ---
 	RenderPassEncoderSetStencilReference :: proc(renderPassEncoder: RenderPassEncoder, reference: u32) ---
-	RenderPassEncoderSetVertexBuffer :: proc(renderPassEncoder: RenderPassEncoder,
-		slot: u32, /* NULLABLE */
-		buffer: Buffer,
-		offset: u64,
-		size: u64,) ---
+	RenderPassEncoderSetVertexBuffer :: proc(renderPassEncoder: RenderPassEncoder, slot: u32, /* NULLABLE */ buffer: Buffer, offset: u64, size: u64) ---
 	RenderPassEncoderSetViewport :: proc(renderPassEncoder: RenderPassEncoder, x: f32, y: f32, width: f32, height: f32, minDepth: f32, maxDepth: f32) ---
 	RenderPassEncoderAddRef :: proc(renderPassEncoder: RenderPassEncoder) ---
 	RenderPassEncoderRelease :: proc(renderPassEncoder: RenderPassEncoder) ---
@@ -1922,11 +1821,10 @@ foreign libwgpu {
 	SupportedWGSLLanguageFeaturesFreeMembers :: proc(supportedWGSLLanguageFeatures: SupportedWGSLLanguageFeatures) ---
 
 	// Methods of Surface
-	SurfaceConfigure :: proc(surface: Surface,
-		config:  /* const */^SurfaceConfiguration,) ---
-	@(link_name = "wgpuSurfaceGetCapabilities")
+	SurfaceConfigure :: proc(surface: Surface, config: /* const */ ^SurfaceConfiguration) ---
+	@(link_name="wgpuSurfaceGetCapabilities")
 	RawSurfaceGetCapabilities :: proc(surface: Surface, adapter: Adapter, capabilities: ^SurfaceCapabilities) -> Status ---
-	@(link_name = "wgpuSurfaceGetCurrentTexture")
+	@(link_name="wgpuSurfaceGetCurrentTexture")
 	RawSurfaceGetCurrentTexture :: proc(surface: Surface, surfaceTexture: ^SurfaceTexture) ---
 	SurfacePresent :: proc(surface: Surface) -> Status ---
 	SurfaceSetLabel :: proc(surface: Surface, label: StringView) ---
@@ -1938,8 +1836,7 @@ foreign libwgpu {
 	SurfaceCapabilitiesFreeMembers :: proc(surfaceCapabilities: SurfaceCapabilities) ---
 
 	// Methods of Texture
-	TextureCreateView :: proc(texture: Texture, /* NULLABLE */
-		descriptor:  /* const */^TextureViewDescriptor = nil,) -> TextureView ---
+	TextureCreateView :: proc(texture: Texture, /* NULLABLE */ descriptor: /* const */ ^TextureViewDescriptor = nil) -> TextureView ---
 	TextureDestroy :: proc(texture: Texture) ---
 	TextureGetDepthOrArrayLayers :: proc(texture: Texture) -> u32 ---
 	TextureGetDimension :: proc(texture: Texture) -> TextureDimension ---
@@ -1962,15 +1859,13 @@ foreign libwgpu {
 
 // Wrappers of Instance
 
-CreateInstance :: proc "c" (
-	 /* NULLABLE */descriptor:  /* const */^InstanceDescriptor = nil,
-) -> Instance {
+CreateInstance :: proc "c" (/* NULLABLE */ descriptor: /* const */ ^InstanceDescriptor = nil) -> Instance {
 	when ODIN_OS != .JS {
 		v := (transmute([4]u8)GetVersion()).wzyx
 
 		if v.xyz != BINDINGS_VERSION.xyz {
 			buf: [1024]byte
-			n := copy(buf[:], "wgpu-native version mismatch: ")
+			n := copy(buf[:],  "wgpu-native version mismatch: ")
 			n += copy(buf[n:], "bindings are for version ")
 			n += copy(buf[n:], BINDINGS_VERSION_STRING)
 			n += copy(buf[n:], ", but a different version is linked")
@@ -2009,37 +1904,33 @@ BufferGetConstMappedRange :: proc "c" (buffer: Buffer, offset: uint, size: uint)
 	return ([^]byte)(RawBufferGetConstMappedRange(buffer, offset, size))[:size]
 }
 
-BufferGetConstMappedRangeTyped :: proc "c" (buffer: Buffer, offset: uint, $T: typeid) -> ^T where !intrinsics.type_is_sliceable(T) {
+BufferGetConstMappedRangeTyped :: proc "c" (buffer: Buffer, offset: uint, $T: typeid) -> ^T
+	where !intrinsics.type_is_sliceable(T) {
 
 	return (^T)(RawBufferGetConstMappedRange(buffer, 0, size_of(T)))
 }
 
 BufferGetConstMappedRangeSlice :: proc "c" (buffer: Buffer, offset: uint, length: uint, $T: typeid) -> []T {
-	return ([^]T)(RawBufferGetConstMappedRange(buffer, offset, size_of(T) * length))[:length]
+	return ([^]T)(RawBufferGetConstMappedRange(buffer, offset, size_of(T)*length))[:length]
 }
 
 BufferGetMappedRange :: proc "c" (buffer: Buffer, offset: uint, size: uint) -> []byte {
 	return ([^]byte)(RawBufferGetMappedRange(buffer, offset, size))[:size]
 }
 
-BufferGetMappedRangeTyped :: proc "c" (buffer: Buffer, offset: uint, $T: typeid) -> ^T where !intrinsics.type_is_sliceable(T) {
+BufferGetMappedRangeTyped :: proc "c" (buffer: Buffer, offset: uint, $T: typeid) -> ^T
+	where !intrinsics.type_is_sliceable(T) {
 
 	return (^T)(RawBufferGetMappedRange(buffer, offset, size_of(T)))
 }
 
 BufferGetMappedRangeSlice :: proc "c" (buffer: Buffer, offset: uint, $T: typeid, length: uint) -> []T {
-	return ([^]T)(RawBufferGetMappedRange(buffer, offset, size_of(T) * length))[:length]
+	return ([^]T)(RawBufferGetMappedRange(buffer, offset, size_of(T)*length))[:length]
 }
 
 // Wrappers of ComputePassEncoder
 
-ComputePassEncoderSetBindGroup :: proc "c" (
-	computePassEncoder: ComputePassEncoder,
-	groupIndex: u32,
-	/* NULLABLE */
-	group: BindGroup,
-	dynamicOffsets: []u32 = nil,
-) {
+ComputePassEncoderSetBindGroup :: proc "c" (computePassEncoder: ComputePassEncoder, groupIndex: u32, /* NULLABLE */ group: BindGroup, dynamicOffsets: []u32 = nil) {
 	RawComputePassEncoderSetBindGroup(computePassEncoder, groupIndex, group, len(dynamicOffsets), raw_data(dynamicOffsets))
 }
 
@@ -2061,20 +1952,18 @@ DeviceGetFeatures :: proc "c" (device: Device) -> (features: SupportedFeatures) 
 }
 
 BufferWithDataDescriptor :: struct {
-	/* NULLABLE */
-	label: StringView,
+	/* NULLABLE */ label: StringView,
 	usage: BufferUsageFlags,
 }
 
-DeviceCreateBufferWithDataSlice :: proc "c" (
-	device: Device,
-	descriptor:  /* const */^BufferWithDataDescriptor,
-	data: []$T,
-) -> (
-	buf: Buffer,
-) {
+DeviceCreateBufferWithDataSlice :: proc "c" (device: Device, descriptor: /* const */ ^BufferWithDataDescriptor, data: []$T) -> (buf: Buffer) {
 	size := u64(size_of(T) * len(data))
-	buf = DeviceCreateBuffer(device, &{label = descriptor.label, usage = descriptor.usage, size = size, mappedAtCreation = true})
+	buf = DeviceCreateBuffer(device, &{
+		label            = descriptor.label,
+		usage            = descriptor.usage,
+		size             = size,
+		mappedAtCreation = true,
+	})
 
 	mapping := BufferGetMappedRangeSlice(buf, 0, T, len(data))
 	copy(mapping, data)
@@ -2083,15 +1972,15 @@ DeviceCreateBufferWithDataSlice :: proc "c" (
 	return
 }
 
-DeviceCreateBufferWithDataTyped :: proc "c" (
-	device: Device,
-	descriptor:  /* const */^BufferWithDataDescriptor,
-	data: $T,
-) -> (
-	buf: Buffer,
-) where !intrinsics.type_is_sliceable(T) {
+DeviceCreateBufferWithDataTyped :: proc "c" (device: Device, descriptor: /* const */ ^BufferWithDataDescriptor, data: $T) -> (buf: Buffer)
+	where !intrinsics.type_is_sliceable(T) {
 
-	buf = DeviceCreateBuffer(device, &{label = descriptor.label, usage = descriptor.usage, size = size_of(T), mappedAtCreation = true})
+	buf = DeviceCreateBuffer(device, &{
+		label            = descriptor.label,
+		usage            = descriptor.usage,
+		size             = size_of(T),
+		mappedAtCreation = true,
+	})
 
 	mapping := BufferGetMappedRangeTyped(buf, 0, T)
 	mapping^ = data
@@ -2113,13 +2002,7 @@ QueueSubmit :: proc "c" (queue: Queue, commands: []CommandBuffer) {
 
 // Wrappers of RenderBundleEncoder
 
-RenderBundleEncoderSetBindGroup :: proc "c" (
-	renderBundleEncoder: RenderBundleEncoder,
-	groupIndex: u32,
-	/* NULLABLE */
-	group: BindGroup,
-	dynamicOffsets: []u32 = nil,
-) {
+RenderBundleEncoderSetBindGroup :: proc "c" (renderBundleEncoder: RenderBundleEncoder, groupIndex: u32, /* NULLABLE */ group: BindGroup, dynamicOffsets: []u32 = nil) {
 	RawRenderBundleEncoderSetBindGroup(renderBundleEncoder, groupIndex, group, len(dynamicOffsets), raw_data(dynamicOffsets))
 }
 
@@ -2129,13 +2012,7 @@ RenderPassEncoderExecuteBundles :: proc "c" (renderPassEncoder: RenderPassEncode
 	RawRenderPassEncoderExecuteBundles(renderPassEncoder, len(bundles), raw_data(bundles))
 }
 
-RenderPassEncoderSetBindGroup :: proc "c" (
-	renderPassEncoder: RenderPassEncoder,
-	groupIndex: u32,
-	/* NULLABLE */
-	group: BindGroup,
-	dynamicOffsets: []u32 = nil,
-) {
+RenderPassEncoderSetBindGroup :: proc "c" (renderPassEncoder: RenderPassEncoder, groupIndex: u32, /* NULLABLE */ group: BindGroup, dynamicOffsets: []u32 = nil) {
 	RawRenderPassEncoderSetBindGroup(renderPassEncoder, groupIndex, group, len(dynamicOffsets), raw_data(dynamicOffsets))
 }
 

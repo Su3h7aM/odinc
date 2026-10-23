@@ -2,120 +2,118 @@
 #+build darwin
 package darwin_Metal
 
-import "base:intrinsics"
 import NS "core:sys/darwin/Foundation"
+import "base:intrinsics"
 
-@(objc_class = "MTLCaptureDescriptor", objc_superclass = NS.Object)
+@(objc_class="MTLCaptureDescriptor", objc_superclass=NS.Object)
 CaptureDescriptor :: struct {
 	using _: NS.Object,
 	using _: NS.Copying,
 }
 
 foreign lib {
-	@(objc_type = CaptureDescriptor, objc_selector = "captureObject", objc_name = "captureObject")
+	@(objc_type=CaptureDescriptor, objc_selector="captureObject", objc_name="captureObject")
 	CaptureDescriptor_captureObject :: proc(self: ^CaptureDescriptor) -> id ---
 
-	@(objc_type = CaptureDescriptor, objc_selector = "setCaptureObject:", objc_name = "setCaptureObject")
+	@(objc_type=CaptureDescriptor, objc_selector="setCaptureObject:", objc_name="setCaptureObject")
 	CaptureDescriptor_setCaptureObject :: proc(self: ^CaptureDescriptor, captureObject: id) ---
 
-	@(objc_type = CaptureDescriptor, objc_selector = "destination", objc_name = "destination")
+	@(objc_type=CaptureDescriptor, objc_selector="destination", objc_name="destination")
 	CaptureDescriptor_destination :: proc(self: ^CaptureDescriptor) -> CaptureDestination ---
 
-	@(objc_type = CaptureDescriptor, objc_selector = "setDestination:", objc_name = "setDestination")
+	@(objc_type=CaptureDescriptor, objc_selector="setDestination:", objc_name="setDestination")
 	CaptureDescriptor_setDestination :: proc(self: ^CaptureDescriptor, destination: CaptureDestination) ---
 
-	@(objc_type = CaptureDescriptor, objc_selector = "outputURL", objc_name = "outputURL")
+	@(objc_type=CaptureDescriptor, objc_selector="outputURL", objc_name="outputURL")
 	CaptureDescriptor_outputURL :: proc(self: ^CaptureDescriptor) -> ^NS.URL ---
 
-	@(objc_type = CaptureDescriptor, objc_selector = "setOutputURL:", objc_name = "setOutputURL")
+	@(objc_type=CaptureDescriptor, objc_selector="setOutputURL:", objc_name="setOutputURL")
 	CaptureDescriptor_setOutputURL :: proc(self: ^CaptureDescriptor, outputURL: ^NS.URL) ---
 }
 
 
-@(objc_class = "MTLCaptureManager", objc_superclass = NS.Object)
-CaptureManager :: struct {
-	using _: NS.Object,
-}
+@(objc_class="MTLCaptureManager", objc_superclass=NS.Object)
+CaptureManager :: struct { using _: NS.Object}
 
 foreign lib {
-	@(objc_type = CaptureManager, objc_selector = "sharedCaptureManager", objc_name = "sharedCaptureManager", objc_is_class_method = true)
+	@(objc_type=CaptureManager, objc_selector="sharedCaptureManager", objc_name="sharedCaptureManager", objc_is_class_method=true)
 	CaptureManager_sharedCaptureManager :: proc() -> ^CaptureManager ---
 
-	@(objc_type = CaptureManager, objc_selector = "init", objc_name = "init")
+	@(objc_type=CaptureManager, objc_selector="init", objc_name="init")
 	CaptureManager_init :: proc(self: ^CaptureManager) -> instancetype ---
 
-	@(objc_type = CaptureManager, objc_selector = "newCaptureScopeWithDevice:", objc_name = "newCaptureScopeWithDevice")
+	@(objc_type=CaptureManager, objc_selector="newCaptureScopeWithDevice:", objc_name="newCaptureScopeWithDevice")
 	CaptureManager_newCaptureScopeWithDevice :: proc(self: ^CaptureManager, device: ^Device) -> ^CaptureScope ---
 
-	@(objc_type = CaptureManager, objc_selector = "newCaptureScopeWithCommandQueue:", objc_name = "newCaptureScopeWithCommandQueue")
+	@(objc_type=CaptureManager, objc_selector="newCaptureScopeWithCommandQueue:", objc_name="newCaptureScopeWithCommandQueue")
 	CaptureManager_newCaptureScopeWithCommandQueue :: proc(self: ^CaptureManager, commandQueue: ^CommandQueue) -> ^CaptureScope ---
 
-	@(objc_type = CaptureManager, objc_selector = "newCaptureScopeWithMTL4CommandQueue:", objc_name = "newCaptureScopeWithMTL4CommandQueue")
+	@(objc_type=CaptureManager, objc_selector="newCaptureScopeWithMTL4CommandQueue:", objc_name="newCaptureScopeWithMTL4CommandQueue")
 	CaptureManager_newCaptureScopeWithMTL4CommandQueue :: proc(self: ^CaptureManager, commandQueue: ^MTL4CommandQueue) -> ^CaptureScope ---
 
-	@(objc_type = CaptureManager, objc_selector = "supportsDestination:", objc_name = "supportsDestination")
+	@(objc_type=CaptureManager, objc_selector="supportsDestination:", objc_name="supportsDestination")
 	CaptureManager_supportsDestination :: proc(self: ^CaptureManager, destination: CaptureDestination) -> bool ---
 
-	@(objc_type = CaptureManager, objc_selector = "startCaptureWithDescriptor:error:", objc_name = "startCaptureWithDescriptor_error")
+	@(objc_type=CaptureManager, objc_selector="startCaptureWithDescriptor:error:", objc_name="startCaptureWithDescriptor_error")
 	CaptureManager_startCaptureWithDescriptor_error :: proc(self: ^CaptureManager, descriptor: ^CaptureDescriptor, error: ^^NS.Error) -> bool ---
 
-	@(objc_type = CaptureManager, objc_selector = "startCaptureWithDevice:", objc_name = "startCaptureWithDevice")
+	@(objc_type=CaptureManager, objc_selector="startCaptureWithDevice:", objc_name="startCaptureWithDevice")
 	CaptureManager_startCaptureWithDevice :: proc(self: ^CaptureManager, device: ^Device) ---
 
-	@(objc_type = CaptureManager, objc_selector = "startCaptureWithCommandQueue:", objc_name = "startCaptureWithCommandQueue")
+	@(objc_type=CaptureManager, objc_selector="startCaptureWithCommandQueue:", objc_name="startCaptureWithCommandQueue")
 	CaptureManager_startCaptureWithCommandQueue :: proc(self: ^CaptureManager, commandQueue: ^CommandQueue) ---
 
-	@(objc_type = CaptureManager, objc_selector = "startCaptureWithScope:", objc_name = "startCaptureWithScope")
+	@(objc_type=CaptureManager, objc_selector="startCaptureWithScope:", objc_name="startCaptureWithScope")
 	CaptureManager_startCaptureWithScope :: proc(self: ^CaptureManager, captureScope: ^CaptureScope) ---
 
-	@(objc_type = CaptureManager, objc_selector = "stopCapture", objc_name = "stopCapture")
+	@(objc_type=CaptureManager, objc_selector="stopCapture", objc_name="stopCapture")
 	CaptureManager_stopCapture :: proc(self: ^CaptureManager) ---
 
-	@(objc_type = CaptureManager, objc_selector = "defaultCaptureScope", objc_name = "defaultCaptureScope")
+	@(objc_type=CaptureManager, objc_selector="defaultCaptureScope", objc_name="defaultCaptureScope")
 	CaptureManager_defaultCaptureScope :: proc(self: ^CaptureManager) -> ^CaptureScope ---
 
-	@(objc_type = CaptureManager, objc_selector = "setDefaultCaptureScope:", objc_name = "setDefaultCaptureScope")
+	@(objc_type=CaptureManager, objc_selector="setDefaultCaptureScope:", objc_name="setDefaultCaptureScope")
 	CaptureManager_setDefaultCaptureScope :: proc(self: ^CaptureManager, defaultCaptureScope: ^CaptureScope) ---
 
-	@(objc_type = CaptureManager, objc_selector = "isCapturing", objc_name = "isCapturing")
+	@(objc_type=CaptureManager, objc_selector="isCapturing", objc_name="isCapturing")
 	CaptureManager_isCapturing :: proc(self: ^CaptureManager) -> bool ---
 }
 
 
 // Odin-style wrappers for methods with a trailing `^^Error` out-parameter
 
-@(objc_type = CaptureManager, objc_name = "startCaptureWithDescriptor")
+@(objc_type=CaptureManager, objc_name="startCaptureWithDescriptor")
 CaptureManager_startCaptureWithDescriptor :: #force_inline proc "c" (self: ^CaptureManager, descriptor: ^CaptureDescriptor) -> (ok: bool, err: ^NS.Error) {
 	ok = CaptureManager_startCaptureWithDescriptor_error(self, descriptor, &err)
 	return
 }
 
 
-@(objc_class = "MTLCaptureScope")
+@(objc_class="MTLCaptureScope")
 CaptureScope :: struct {
 	using _: intrinsics.objc_object,
 	using _: NS.ObjectProtocol,
 }
 
 foreign lib {
-	@(objc_type = CaptureScope, objc_selector = "beginScope", objc_name = "beginScope")
+	@(objc_type=CaptureScope, objc_selector="beginScope", objc_name="beginScope")
 	CaptureScope_beginScope :: proc(self: ^CaptureScope) ---
 
-	@(objc_type = CaptureScope, objc_selector = "endScope", objc_name = "endScope")
+	@(objc_type=CaptureScope, objc_selector="endScope", objc_name="endScope")
 	CaptureScope_endScope :: proc(self: ^CaptureScope) ---
 
-	@(objc_type = CaptureScope, objc_selector = "label", objc_name = "label")
+	@(objc_type=CaptureScope, objc_selector="label", objc_name="label")
 	CaptureScope_label :: proc(self: ^CaptureScope) -> ^NS.String ---
 
-	@(objc_type = CaptureScope, objc_selector = "setLabel:", objc_name = "setLabel")
+	@(objc_type=CaptureScope, objc_selector="setLabel:", objc_name="setLabel")
 	CaptureScope_setLabel :: proc(self: ^CaptureScope, label: ^NS.String) ---
 
-	@(objc_type = CaptureScope, objc_selector = "device", objc_name = "device")
+	@(objc_type=CaptureScope, objc_selector="device", objc_name="device")
 	CaptureScope_device :: proc(self: ^CaptureScope) -> ^Device ---
 
-	@(objc_type = CaptureScope, objc_selector = "commandQueue", objc_name = "commandQueue")
+	@(objc_type=CaptureScope, objc_selector="commandQueue", objc_name="commandQueue")
 	CaptureScope_commandQueue :: proc(self: ^CaptureScope) -> ^CommandQueue ---
 
-	@(objc_type = CaptureScope, objc_selector = "mtl4CommandQueue", objc_name = "mtl4CommandQueue")
+	@(objc_type=CaptureScope, objc_selector="mtl4CommandQueue", objc_name="mtl4CommandQueue")
 	CaptureScope_mtl4CommandQueue :: proc(self: ^CaptureScope) -> ^MTL4CommandQueue ---
 }

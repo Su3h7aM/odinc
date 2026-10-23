@@ -4,74 +4,68 @@ package darwin_GameController
 
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class = "GCMicroGamepad", objc_superclass = PhysicalInputProfile)
-MicroGamepad :: struct {
-	using _: PhysicalInputProfile,
-}
+@(objc_class="GCMicroGamepad", objc_superclass=PhysicalInputProfile)
+MicroGamepad :: struct { using _: PhysicalInputProfile}
 
 foreign lib {
-	@(objc_type = MicroGamepad, objc_selector = "saveSnapshot", objc_name = "saveSnapshot")
+	@(objc_type=MicroGamepad, objc_selector="saveSnapshot", objc_name="saveSnapshot")
 	MicroGamepad_saveSnapshot :: proc(self: ^MicroGamepad) -> ^MicroGamepadSnapshot ---
 
-	@(objc_type = MicroGamepad, objc_selector = "setStateFromMicroGamepad:", objc_name = "setStateFromMicroGamepad")
+	@(objc_type=MicroGamepad, objc_selector="setStateFromMicroGamepad:", objc_name="setStateFromMicroGamepad")
 	MicroGamepad_setStateFromMicroGamepad :: proc(self: ^MicroGamepad, microGamepad: ^MicroGamepad) ---
 
-	@(objc_type = MicroGamepad, objc_selector = "controller", objc_name = "controller")
+	@(objc_type=MicroGamepad, objc_selector="controller", objc_name="controller")
 	MicroGamepad_controller :: proc(self: ^MicroGamepad) -> ^Controller ---
 
-	@(objc_type = MicroGamepad, objc_selector = "valueChangedHandler", objc_name = "valueChangedHandler")
+	@(objc_type=MicroGamepad, objc_selector="valueChangedHandler", objc_name="valueChangedHandler")
 	MicroGamepad_valueChangedHandler :: proc(self: ^MicroGamepad) -> MicroGamepadValueChangedHandler ---
 
-	@(objc_type = MicroGamepad, objc_selector = "setValueChangedHandler:", objc_name = "setValueChangedHandler")
+	@(objc_type=MicroGamepad, objc_selector="setValueChangedHandler:", objc_name="setValueChangedHandler")
 	MicroGamepad_setValueChangedHandler :: proc(self: ^MicroGamepad, valueChangedHandler: MicroGamepadValueChangedHandler) ---
 
-	@(objc_type = MicroGamepad, objc_selector = "dpad", objc_name = "dpad")
+	@(objc_type=MicroGamepad, objc_selector="dpad", objc_name="dpad")
 	MicroGamepad_dpad :: proc(self: ^MicroGamepad) -> ^ControllerDirectionPad ---
 
-	@(objc_type = MicroGamepad, objc_selector = "buttonA", objc_name = "buttonA")
+	@(objc_type=MicroGamepad, objc_selector="buttonA", objc_name="buttonA")
 	MicroGamepad_buttonA :: proc(self: ^MicroGamepad) -> ^ControllerButtonInput ---
 
-	@(objc_type = MicroGamepad, objc_selector = "buttonX", objc_name = "buttonX")
+	@(objc_type=MicroGamepad, objc_selector="buttonX", objc_name="buttonX")
 	MicroGamepad_buttonX :: proc(self: ^MicroGamepad) -> ^ControllerButtonInput ---
 
-	@(objc_type = MicroGamepad, objc_selector = "buttonMenu", objc_name = "buttonMenu")
+	@(objc_type=MicroGamepad, objc_selector="buttonMenu", objc_name="buttonMenu")
 	MicroGamepad_buttonMenu :: proc(self: ^MicroGamepad) -> ^ControllerButtonInput ---
 
-	@(objc_type = MicroGamepad, objc_selector = "reportsAbsoluteDpadValues", objc_name = "reportsAbsoluteDpadValues")
+	@(objc_type=MicroGamepad, objc_selector="reportsAbsoluteDpadValues", objc_name="reportsAbsoluteDpadValues")
 	MicroGamepad_reportsAbsoluteDpadValues :: proc(self: ^MicroGamepad) -> bool ---
 
-	@(objc_type = MicroGamepad, objc_selector = "setReportsAbsoluteDpadValues:", objc_name = "setReportsAbsoluteDpadValues")
+	@(objc_type=MicroGamepad, objc_selector="setReportsAbsoluteDpadValues:", objc_name="setReportsAbsoluteDpadValues")
 	MicroGamepad_setReportsAbsoluteDpadValues :: proc(self: ^MicroGamepad, reportsAbsoluteDpadValues: bool) ---
 
-	@(objc_type = MicroGamepad, objc_selector = "allowsRotation", objc_name = "allowsRotation")
+	@(objc_type=MicroGamepad, objc_selector="allowsRotation", objc_name="allowsRotation")
 	MicroGamepad_allowsRotation :: proc(self: ^MicroGamepad) -> bool ---
 
-	@(objc_type = MicroGamepad, objc_selector = "setAllowsRotation:", objc_name = "setAllowsRotation")
+	@(objc_type=MicroGamepad, objc_selector="setAllowsRotation:", objc_name="setAllowsRotation")
 	MicroGamepad_setAllowsRotation :: proc(self: ^MicroGamepad, allowsRotation: bool) ---
 }
 
 
-@(objc_class = "GCMicroGamepadSnapshot", objc_superclass = MicroGamepad)
-MicroGamepadSnapshot :: struct {
-	using _: MicroGamepad,
-}
+@(objc_class="GCMicroGamepadSnapshot", objc_superclass=MicroGamepad)
+MicroGamepadSnapshot :: struct { using _: MicroGamepad}
 
 foreign lib {
-	@(objc_type = MicroGamepadSnapshot, objc_selector = "initWithSnapshotData:", objc_name = "initWithSnapshotData")
+	@(objc_type=MicroGamepadSnapshot, objc_selector="initWithSnapshotData:", objc_name="initWithSnapshotData")
 	MicroGamepadSnapshot_initWithSnapshotData :: proc(self: ^MicroGamepadSnapshot, data: ^NS.Data) -> instancetype ---
 
-	@(objc_type = MicroGamepadSnapshot, objc_selector = "initWithController:snapshotData:", objc_name = "initWithController")
+	@(objc_type=MicroGamepadSnapshot, objc_selector="initWithController:snapshotData:", objc_name="initWithController")
 	MicroGamepadSnapshot_initWithController :: proc(self: ^MicroGamepadSnapshot, controller: ^Controller, data: ^NS.Data) -> instancetype ---
 
-	@(objc_type = MicroGamepadSnapshot, objc_selector = "snapshotData", objc_name = "snapshotData")
+	@(objc_type=MicroGamepadSnapshot, objc_selector="snapshotData", objc_name="snapshotData")
 	MicroGamepadSnapshot_snapshotData :: proc(self: ^MicroGamepadSnapshot) -> ^NS.Data ---
 
-	@(objc_type = MicroGamepadSnapshot, objc_selector = "setSnapshotData:", objc_name = "setSnapshotData")
+	@(objc_type=MicroGamepadSnapshot, objc_selector="setSnapshotData:", objc_name="setSnapshotData")
 	MicroGamepadSnapshot_setSnapshotData :: proc(self: ^MicroGamepadSnapshot, snapshotData: ^NS.Data) ---
 }
 
 
-@(objc_class = "GCDirectionalGamepad", objc_superclass = MicroGamepad)
-DirectionalGamepad :: struct {
-	using _: MicroGamepad,
-}
+@(objc_class="GCDirectionalGamepad", objc_superclass=MicroGamepad)
+DirectionalGamepad :: struct { using _: MicroGamepad}

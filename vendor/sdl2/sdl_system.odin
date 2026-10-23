@@ -11,17 +11,17 @@ when ODIN_OS == .Windows {
 }
 
 // General
-@(default_calling_convention = "c", link_prefix = "SDL_")
+@(default_calling_convention="c", link_prefix="SDL_")
 foreign lib {
 	IsTablet :: proc() -> bool ---
 
 	/* Functions used by iOS application delegates to notify SDL about state changes */
-	OnApplicationWillTerminate :: proc() ---
-	OnApplicationDidReceiveMemoryWarning :: proc() ---
-	OnApplicationWillResignActive :: proc() ---
-	OnApplicationDidEnterBackground :: proc() ---
-	OnApplicationWillEnterForeground :: proc() ---
-	OnApplicationDidBecomeActive :: proc() ---
+	OnApplicationWillTerminate                 :: proc() ---
+	OnApplicationDidReceiveMemoryWarning       :: proc() ---
+	OnApplicationWillResignActive              :: proc() ---
+	OnApplicationDidEnterBackground            :: proc() ---
+	OnApplicationWillEnterForeground           :: proc() ---
+	OnApplicationDidBecomeActive               :: proc() ---
 	// iPhoneOS
 	OnApplicationDidChangeStatusBarOrientation :: proc() ---
 }
@@ -32,15 +32,15 @@ foreign lib {
 WindowsMessageHook :: proc "c" (userdata: rawptr, hWnd: rawptr, message: c.uint, wParam: u64, lParam: i64)
 
 IDirect3DDevice9 :: struct {}
-ID3D11Device :: struct {}
+ID3D11Device     :: struct {}
 
-@(default_calling_convention = "c", link_prefix = "SDL_")
+@(default_calling_convention="c", link_prefix="SDL_")
 foreign lib {
-	SetWindowsMessageHook :: proc(callback: WindowsMessageHook, userdata: rawptr) ---
+	SetWindowsMessageHook    :: proc(callback: WindowsMessageHook, userdata: rawptr) ---
 	Direct3D9GetAdapterIndex :: proc(displayIndex: c.int) -> c.int ---
-	RenderGetD3D9Device :: proc(renderer: ^Renderer) -> ^IDirect3DDevice9 ---
-	RenderGetD3D11Device :: proc(renderer: ^Renderer) -> ^ID3D11Device ---
-	DXGIGetOutputInfo :: proc(displayIndex: c.int, adapterIndex: ^c.int, outputIndex: ^c.int) -> bool ---
+	RenderGetD3D9Device      :: proc(renderer: ^Renderer) -> ^IDirect3DDevice9 ---
+	RenderGetD3D11Device     :: proc(renderer: ^Renderer) -> ^ID3D11Device ---
+	DXGIGetOutputInfo        :: proc(displayIndex: c.int, adapterIndex: ^c.int, outputIndex: ^c.int) -> bool ---
 }
 
 
@@ -78,16 +78,16 @@ WinRT_DeviceFamily :: enum {
 	XBOX,
 }
 
-@(default_calling_convention = "c", link_prefix = "SDL_")
+@(default_calling_convention="c", link_prefix="SDL_")
 foreign lib {
 	WinRTGetFSPathUNICODE :: proc(pathType: WinRT_Path) -> ^u16 ---
-	WinRTGetFSPathUTF8 :: proc(pathType: WinRT_Path) -> cstring ---
-	WinRTGetDeviceFamily :: proc() -> WinRT_DeviceFamily ---
+	WinRTGetFSPathUTF8    :: proc(pathType: WinRT_Path) -> cstring ---
+	WinRTGetDeviceFamily  :: proc() -> WinRT_DeviceFamily ---
 }
 
 
 // Linux
-@(default_calling_convention = "c", link_prefix = "SDL_")
+@(default_calling_convention="c", link_prefix="SDL_")
 foreign lib {
 	LinuxSetThreadPriority :: proc(threadID: i64, priority: c.int) -> c.int ---
 }
@@ -95,33 +95,34 @@ foreign lib {
 
 // iOS
 iOSSetAnimationCallback :: iPhoneSetAnimationCallback
-iOSSetEventPump :: iPhoneSetEventPump
+iOSSetEventPump         :: iPhoneSetEventPump
 
-@(default_calling_convention = "c", link_prefix = "SDL_")
+@(default_calling_convention="c", link_prefix="SDL_")
 foreign lib {
-	iPhoneSetAnimationCallback :: proc(window: ^Window, interval: c.int, callback: proc "c" (_: rawptr), callbackParam: rawptr) -> c.int ---
+	iPhoneSetAnimationCallback :: proc(window: ^Window, interval: c.int, callback: proc "c" (rawptr), callbackParam: rawptr) -> c.int ---
 	iPhoneSetEventPump :: proc(enabled: bool) ---
 }
 
 
+
 // Android
 
-ANDROID_EXTERNAL_STORAGE_READ :: 0x01
+ANDROID_EXTERNAL_STORAGE_READ  :: 0x01
 ANDROID_EXTERNAL_STORAGE_WRITE :: 0x02
 
 
-@(default_calling_convention = "c", link_prefix = "SDL_")
+@(default_calling_convention="c", link_prefix="SDL_")
 foreign lib {
-	AndroidGetJNIEnv :: proc() -> rawptr ---
-	AndroidGetActivity :: proc() -> rawptr ---
-	GetAndroidSDKVersion :: proc() -> c.int ---
-	IsAndroidTV :: proc() -> bool ---
-	IsChromebook :: proc() -> bool ---
-	IsDeXMode :: proc() -> bool ---
-	AndroidBackButton :: proc() ---
-	AndroidGetInternalStoragePath :: proc() -> cstring ---
+	AndroidGetJNIEnv               :: proc() -> rawptr ---
+	AndroidGetActivity             :: proc() -> rawptr ---
+	GetAndroidSDKVersion           :: proc() -> c.int ---
+	IsAndroidTV                    :: proc() -> bool ---
+	IsChromebook                   :: proc() -> bool ---
+	IsDeXMode                      :: proc() -> bool ---
+	AndroidBackButton              :: proc() ---
+	AndroidGetInternalStoragePath  :: proc() -> cstring ---
 	AndroidGetExternalStorageState :: proc() -> c.int ---
-	AndroidGetExternalStoragePath :: proc() -> cstring ---
-	AndroidRequestPermission :: proc(permission: cstring) -> bool ---
-	AndroidShowToast :: proc(message: cstring, duration, gravity, xoffset, yoffset: c.int) -> c.int ---
+	AndroidGetExternalStoragePath  :: proc() -> cstring ---
+	AndroidRequestPermission       :: proc(permission: cstring) -> bool ---
+	AndroidShowToast               :: proc(message: cstring, duration, gravity, xoffset, yoffset: c.int) -> c.int ---
 }

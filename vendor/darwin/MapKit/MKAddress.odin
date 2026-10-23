@@ -4,30 +4,28 @@ package darwin_MapKit
 
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class = "MKAddress", objc_superclass = NS.Object)
-Address :: struct {
-	using _: NS.Object,
-}
+@(objc_class="MKAddress", objc_superclass=NS.Object)
+Address :: struct { using _: NS.Object}
 
 foreign lib {
-	@(objc_type = Address, objc_selector = "initWithFullAddress:shortAddress:", objc_name = "initWithFullAddress")
+	@(objc_type=Address, objc_selector="initWithFullAddress:shortAddress:", objc_name="initWithFullAddress")
 	Address_initWithFullAddress :: proc(self: ^Address, fullAddress: ^NS.String, shortAddress: ^NS.String) -> instancetype ---
 
-	@(objc_type = Address, objc_selector = "init", objc_name = "init")
+	@(objc_type=Address, objc_selector="init", objc_name="init")
 	Address_init :: proc(self: ^Address) -> instancetype ---
 
-	@(objc_type = Address, objc_selector = "new", objc_name = "new", objc_is_class_method = true)
+	@(objc_type=Address, objc_selector="new", objc_name="new", objc_is_class_method=true)
 	Address_new :: proc() -> ^Address ---
 
-	@(objc_type = Address, objc_selector = "fullAddress", objc_name = "fullAddress")
+	@(objc_type=Address, objc_selector="fullAddress", objc_name="fullAddress")
 	Address_fullAddress :: proc(self: ^Address) -> ^NS.String ---
 
-	@(objc_type = Address, objc_selector = "shortAddress", objc_name = "shortAddress")
+	@(objc_type=Address, objc_selector="shortAddress", objc_name="shortAddress")
 	Address_shortAddress :: proc(self: ^Address) -> ^NS.String ---
 }
 
 
-@(objc_class = "MKAddressFilter", objc_superclass = NS.Object)
+@(objc_class="MKAddressFilter", objc_superclass=NS.Object)
 AddressFilter :: struct {
 	using _: NS.Object,
 	using _: NS.SecureCoding,
@@ -35,53 +33,51 @@ AddressFilter :: struct {
 }
 
 foreign lib {
-	@(objc_type = AddressFilter, objc_selector = "initIncludingOptions:", objc_name = "initIncludingOptions")
+	@(objc_type=AddressFilter, objc_selector="initIncludingOptions:", objc_name="initIncludingOptions")
 	AddressFilter_initIncludingOptions :: proc(self: ^AddressFilter, options: AddressFilterOptions) -> instancetype ---
 
-	@(objc_type = AddressFilter, objc_selector = "initExcludingOptions:", objc_name = "initExcludingOptions")
+	@(objc_type=AddressFilter, objc_selector="initExcludingOptions:", objc_name="initExcludingOptions")
 	AddressFilter_initExcludingOptions :: proc(self: ^AddressFilter, options: AddressFilterOptions) -> instancetype ---
 
-	@(objc_type = AddressFilter, objc_selector = "includesOptions:", objc_name = "includesOptions")
+	@(objc_type=AddressFilter, objc_selector="includesOptions:", objc_name="includesOptions")
 	AddressFilter_includesOptions :: proc(self: ^AddressFilter, options: AddressFilterOptions) -> bool ---
 
-	@(objc_type = AddressFilter, objc_selector = "excludesOptions:", objc_name = "excludesOptions")
+	@(objc_type=AddressFilter, objc_selector="excludesOptions:", objc_name="excludesOptions")
 	AddressFilter_excludesOptions :: proc(self: ^AddressFilter, options: AddressFilterOptions) -> bool ---
 
-	@(objc_type = AddressFilter, objc_selector = "filterIncludingAll", objc_name = "filterIncludingAll", objc_is_class_method = true)
+	@(objc_type=AddressFilter, objc_selector="filterIncludingAll", objc_name="filterIncludingAll", objc_is_class_method=true)
 	AddressFilter_filterIncludingAll :: proc() -> ^AddressFilter ---
 
-	@(objc_type = AddressFilter, objc_selector = "filterExcludingAll", objc_name = "filterExcludingAll", objc_is_class_method = true)
+	@(objc_type=AddressFilter, objc_selector="filterExcludingAll", objc_name="filterExcludingAll", objc_is_class_method=true)
 	AddressFilter_filterExcludingAll :: proc() -> ^AddressFilter ---
 }
 
 
-@(objc_class = "MKAddressRepresentations", objc_superclass = NS.Object)
-AddressRepresentations :: struct {
-	using _: NS.Object,
-}
+@(objc_class="MKAddressRepresentations", objc_superclass=NS.Object)
+AddressRepresentations :: struct { using _: NS.Object}
 
 foreign lib {
-	@(objc_type = AddressRepresentations, objc_selector = "init", objc_name = "init")
+	@(objc_type=AddressRepresentations, objc_selector="init", objc_name="init")
 	AddressRepresentations_init :: proc(self: ^AddressRepresentations) -> instancetype ---
 
-	@(objc_type = AddressRepresentations, objc_selector = "new", objc_name = "new", objc_is_class_method = true)
+	@(objc_type=AddressRepresentations, objc_selector="new", objc_name="new", objc_is_class_method=true)
 	AddressRepresentations_new :: proc() -> ^AddressRepresentations ---
 
-	@(objc_type = AddressRepresentations, objc_selector = "fullAddressIncludingRegion:singleLine:", objc_name = "fullAddressIncludingRegion")
+	@(objc_type=AddressRepresentations, objc_selector="fullAddressIncludingRegion:singleLine:", objc_name="fullAddressIncludingRegion")
 	AddressRepresentations_fullAddressIncludingRegion :: proc(self: ^AddressRepresentations, includingRegion: bool, singleLine: bool) -> ^NS.String ---
 
-	@(objc_type = AddressRepresentations, objc_selector = "cityWithContextUsingStyle:", objc_name = "cityWithContextUsingStyle")
+	@(objc_type=AddressRepresentations, objc_selector="cityWithContextUsingStyle:", objc_name="cityWithContextUsingStyle")
 	AddressRepresentations_cityWithContextUsingStyle :: proc(self: ^AddressRepresentations, style: AddressRepresentationsContextStyle) -> ^NS.String ---
 
-	@(objc_type = AddressRepresentations, objc_selector = "cityName", objc_name = "cityName")
+	@(objc_type=AddressRepresentations, objc_selector="cityName", objc_name="cityName")
 	AddressRepresentations_cityName :: proc(self: ^AddressRepresentations) -> ^NS.String ---
 
-	@(objc_type = AddressRepresentations, objc_selector = "cityWithContext", objc_name = "cityWithContext")
+	@(objc_type=AddressRepresentations, objc_selector="cityWithContext", objc_name="cityWithContext")
 	AddressRepresentations_cityWithContext :: proc(self: ^AddressRepresentations) -> ^NS.String ---
 
-	@(objc_type = AddressRepresentations, objc_selector = "regionName", objc_name = "regionName")
+	@(objc_type=AddressRepresentations, objc_selector="regionName", objc_name="regionName")
 	AddressRepresentations_regionName :: proc(self: ^AddressRepresentations) -> ^NS.String ---
 
-	@(objc_type = AddressRepresentations, objc_selector = "regionCode", objc_name = "regionCode")
+	@(objc_type=AddressRepresentations, objc_selector="regionCode", objc_name="regionCode")
 	AddressRepresentations_regionCode :: proc(self: ^AddressRepresentations) -> ^NS.String ---
 }

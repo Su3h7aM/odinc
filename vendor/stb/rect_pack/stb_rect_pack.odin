@@ -6,12 +6,13 @@ import "core:c"
 #assert(size_of(b32) == size_of(c.int))
 
 @(private)
-LIB ::
-	("../lib/stb_rect_pack.lib" when ODIN_OS ==
-		.Windows else "../lib/stb_rect_pack.a" when ODIN_OS ==
-		.Linux else "../lib/darwin/stb_rect_pack.a" when ODIN_OS ==
-		.Darwin else "../lib/stb_rect_pack_wasm.o" when ODIN_ARCH == .wasm32 ||
-		ODIN_ARCH == .wasm64p32 else "")
+LIB :: (
+	     "../lib/stb_rect_pack.lib"      when ODIN_OS == .Windows
+	else "../lib/stb_rect_pack.a"        when ODIN_OS == .Linux
+	else "../lib/darwin/stb_rect_pack.a" when ODIN_OS == .Darwin
+	else "../lib/stb_rect_pack_wasm.o"   when ODIN_ARCH == .wasm32 || ODIN_ARCH == .wasm64p32
+	else ""
+)
 
 when LIB != "" {
 	when !#exists(LIB) {
@@ -22,7 +23,7 @@ when LIB != "" {
 when ODIN_ARCH == .wasm32 || ODIN_ARCH == .wasm64p32 {
 	foreign import lib "../lib/stb_rect_pack_wasm.o"
 } else when LIB != "" {
-	foreign import lib {LIB}
+	foreign import lib { LIB }
 } else {
 	foreign import lib "system:stb_rect_pack"
 }
@@ -32,14 +33,14 @@ _MAXVAL :: max(Coord)
 
 Rect :: struct {
 	// reserved for your use:
-	id:         c.int,
-
+	id: c.int,
+	
 	// input:
-	w, h:       Coord,
+	w, h: Coord,
 
 	// output:
-	x, y:       Coord,
-	was_packed: b32, // non-zero if valid packing
+	x, y: Coord,
+	was_packed: b32,  // non-zero if valid packing
 }
 
 Heuristic :: enum c.int {
@@ -71,7 +72,7 @@ Context :: struct {
 }
 
 
-@(default_calling_convention = "c", link_prefix = "stbrp_")
+@(default_calling_convention="c", link_prefix="stbrp_")
 foreign lib {
 	// Assign packed locations to rectangles. The rectangles are of type
 	// 'Rect' defined below, stored in the array 'rects', and there

@@ -2,64 +2,60 @@
 #+build darwin
 package darwin_AVFoundation
 
-import "base:intrinsics"
-import NS "core:sys/darwin/Foundation"
 import CM "vendor:darwin/CoreMedia"
+import NS "core:sys/darwin/Foundation"
+import "base:intrinsics"
 
-@(objc_class = "AVOutputSettingsAssistant", objc_superclass = NS.Object)
-OutputSettingsAssistant :: struct {
-	using _: NS.Object,
-}
+@(objc_class="AVOutputSettingsAssistant", objc_superclass=NS.Object)
+OutputSettingsAssistant :: struct { using _: NS.Object}
 
 foreign lib {
-	@(objc_type = OutputSettingsAssistant, objc_selector = "init", objc_name = "init")
+	@(objc_type=OutputSettingsAssistant, objc_selector="init", objc_name="init")
 	OutputSettingsAssistant_init :: proc(self: ^OutputSettingsAssistant) -> instancetype ---
 
-	@(objc_type = OutputSettingsAssistant, objc_selector = "new", objc_name = "new", objc_is_class_method = true)
+	@(objc_type=OutputSettingsAssistant, objc_selector="new", objc_name="new", objc_is_class_method=true)
 	OutputSettingsAssistant_new :: proc() -> ^OutputSettingsAssistant ---
 
-	@(objc_type = OutputSettingsAssistant, objc_selector = "availableOutputSettingsPresets", objc_name = "availableOutputSettingsPresets", objc_is_class_method = true)
+	@(objc_type=OutputSettingsAssistant, objc_selector="availableOutputSettingsPresets", objc_name="availableOutputSettingsPresets", objc_is_class_method=true)
 	OutputSettingsAssistant_availableOutputSettingsPresets :: proc() -> ^NS.Array ---
 
-	@(objc_type = OutputSettingsAssistant, objc_selector = "outputSettingsAssistantWithPreset:", objc_name = "outputSettingsAssistantWithPreset", objc_is_class_method = true)
+	@(objc_type=OutputSettingsAssistant, objc_selector="outputSettingsAssistantWithPreset:", objc_name="outputSettingsAssistantWithPreset", objc_is_class_method=true)
 	OutputSettingsAssistant_outputSettingsAssistantWithPreset :: proc(presetIdentifier: ^NS.String) -> instancetype ---
 
-	@(objc_type = OutputSettingsAssistant, objc_selector = "audioSettings", objc_name = "audioSettings")
+	@(objc_type=OutputSettingsAssistant, objc_selector="audioSettings", objc_name="audioSettings")
 	OutputSettingsAssistant_audioSettings :: proc(self: ^OutputSettingsAssistant) -> ^NS.Dictionary ---
 
-	@(objc_type = OutputSettingsAssistant, objc_selector = "videoSettings", objc_name = "videoSettings")
+	@(objc_type=OutputSettingsAssistant, objc_selector="videoSettings", objc_name="videoSettings")
 	OutputSettingsAssistant_videoSettings :: proc(self: ^OutputSettingsAssistant) -> ^NS.Dictionary ---
 
-	@(objc_type = OutputSettingsAssistant, objc_selector = "outputFileType", objc_name = "outputFileType")
+	@(objc_type=OutputSettingsAssistant, objc_selector="outputFileType", objc_name="outputFileType")
 	OutputSettingsAssistant_outputFileType :: proc(self: ^OutputSettingsAssistant) -> ^NS.String ---
 
-	@(objc_type = OutputSettingsAssistant, objc_selector = "sourceAudioFormat", objc_name = "sourceAudioFormat")
+	@(objc_type=OutputSettingsAssistant, objc_selector="sourceAudioFormat", objc_name="sourceAudioFormat")
 	OutputSettingsAssistant_sourceAudioFormat :: proc(self: ^OutputSettingsAssistant) -> CM.AudioFormatDescriptionRef ---
 
-	@(objc_type = OutputSettingsAssistant, objc_selector = "setSourceAudioFormat:", objc_name = "setSourceAudioFormat")
+	@(objc_type=OutputSettingsAssistant, objc_selector="setSourceAudioFormat:", objc_name="setSourceAudioFormat")
 	OutputSettingsAssistant_setSourceAudioFormat :: proc(self: ^OutputSettingsAssistant, sourceAudioFormat: CM.AudioFormatDescriptionRef) ---
 
-	@(objc_type = OutputSettingsAssistant, objc_selector = "sourceVideoFormat", objc_name = "sourceVideoFormat")
+	@(objc_type=OutputSettingsAssistant, objc_selector="sourceVideoFormat", objc_name="sourceVideoFormat")
 	OutputSettingsAssistant_sourceVideoFormat :: proc(self: ^OutputSettingsAssistant) -> CM.VideoFormatDescriptionRef ---
 
-	@(objc_type = OutputSettingsAssistant, objc_selector = "setSourceVideoFormat:", objc_name = "setSourceVideoFormat")
+	@(objc_type=OutputSettingsAssistant, objc_selector="setSourceVideoFormat:", objc_name="setSourceVideoFormat")
 	OutputSettingsAssistant_setSourceVideoFormat :: proc(self: ^OutputSettingsAssistant, sourceVideoFormat: CM.VideoFormatDescriptionRef) ---
 
-	@(objc_type = OutputSettingsAssistant, objc_selector = "sourceVideoAverageFrameDuration", objc_name = "sourceVideoAverageFrameDuration")
+	@(objc_type=OutputSettingsAssistant, objc_selector="sourceVideoAverageFrameDuration", objc_name="sourceVideoAverageFrameDuration")
 	OutputSettingsAssistant_sourceVideoAverageFrameDuration :: proc(self: ^OutputSettingsAssistant) -> CM.Time ---
 
-	@(objc_type = OutputSettingsAssistant, objc_selector = "setSourceVideoAverageFrameDuration:", objc_name = "setSourceVideoAverageFrameDuration")
+	@(objc_type=OutputSettingsAssistant, objc_selector="setSourceVideoAverageFrameDuration:", objc_name="setSourceVideoAverageFrameDuration")
 	OutputSettingsAssistant_setSourceVideoAverageFrameDuration :: proc(self: ^OutputSettingsAssistant, sourceVideoAverageFrameDuration: CM.Time) ---
 
-	@(objc_type = OutputSettingsAssistant, objc_selector = "sourceVideoMinFrameDuration", objc_name = "sourceVideoMinFrameDuration")
+	@(objc_type=OutputSettingsAssistant, objc_selector="sourceVideoMinFrameDuration", objc_name="sourceVideoMinFrameDuration")
 	OutputSettingsAssistant_sourceVideoMinFrameDuration :: proc(self: ^OutputSettingsAssistant) -> CM.Time ---
 
-	@(objc_type = OutputSettingsAssistant, objc_selector = "setSourceVideoMinFrameDuration:", objc_name = "setSourceVideoMinFrameDuration")
+	@(objc_type=OutputSettingsAssistant, objc_selector="setSourceVideoMinFrameDuration:", objc_name="setSourceVideoMinFrameDuration")
 	OutputSettingsAssistant_setSourceVideoMinFrameDuration :: proc(self: ^OutputSettingsAssistant, sourceVideoMinFrameDuration: CM.Time) ---
 }
 
 
-@(objc_class = "AVOutputSettingsAssistantInternal")
-OutputSettingsAssistantInternal :: struct {
-	using _: intrinsics.objc_object,
-}
+@(objc_class="AVOutputSettingsAssistantInternal")
+OutputSettingsAssistantInternal :: struct { using _: intrinsics.objc_object}

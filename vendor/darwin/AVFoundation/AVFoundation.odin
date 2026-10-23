@@ -6,3743 +6,3750 @@ import "base:intrinsics"
 import cffi "core:c"
 import CF "core:sys/darwin/CoreFoundation"
 import CG "core:sys/darwin/CoreGraphics"
+import CM "vendor:darwin/CoreMedia"
 import NS "core:sys/darwin/Foundation"
 import AT "vendor:darwin/AudioToolbox"
-import CM "vendor:darwin/CoreMedia"
 
-id :: ^intrinsics.objc_object
-SEL :: ^intrinsics.objc_selector
-Class :: ^intrinsics.objc_class
-IMP :: rawptr
-Protocol :: distinct id
-instancetype :: intrinsics.objc_instancetype
+id            :: ^intrinsics.objc_object
+SEL           :: ^intrinsics.objc_selector
+Class         :: ^intrinsics.objc_class
+IMP           :: rawptr
+Protocol      :: distinct id
+instancetype  :: intrinsics.objc_instancetype
 
 @(export)
-foreign import lib "system:AVFoundation.framework"
+foreign import lib {
+	"system:AVFoundation.framework",
+}
 
 
-CVImageBufferRef :: struct {}
+
+
+
+CVImageBufferRef     :: struct {}
 CVPixelBufferPoolRef :: struct {}
-CVPixelBufferRef :: struct {}
-CIContext :: struct {}
-CIImage :: struct {}
-UTType :: struct {}
-NSImage :: struct {}
-UIImage :: struct {}
-OpaqueCAClock :: struct {}
+CVPixelBufferRef     :: struct {}
+CIContext            :: struct {}
+CIImage              :: struct {}
+UTType               :: struct {}
+NSImage              :: struct {}
+UIImage              :: struct {}
+OpaqueCAClock        :: struct {}
 
 MTAudioProcessingTapRef :: struct {} // From MediaToolbox
 
-DepthData :: ^NS.Object
-PortraitEffectsMatte :: ^NS.Object
-SemanticSegmentationMatte :: ^NS.Object
+DepthData                  :: ^NS.Object
+PortraitEffectsMatte       :: ^NS.Object
+SemanticSegmentationMatte  :: ^NS.Object
+
 
 
 foreign lib {
-	@(link_name = "AVCoreAnimationBeginTimeAtZero")
+	@(link_name="AVCoreAnimationBeginTimeAtZero")
 	CoreAnimationBeginTimeAtZero: CF.TimeInterval
 
-	@(link_name = "AVLayerVideoGravityResizeAspect")
+	@(link_name="AVLayerVideoGravityResizeAspect")
 	LayerVideoGravityResizeAspect: ^NS.String
 
-	@(link_name = "AVLayerVideoGravityResizeAspectFill")
+	@(link_name="AVLayerVideoGravityResizeAspectFill")
 	LayerVideoGravityResizeAspectFill: ^NS.String
 
-	@(link_name = "AVLayerVideoGravityResize")
+	@(link_name="AVLayerVideoGravityResize")
 	LayerVideoGravityResize: ^NS.String
 
-	@(link_name = "AVContentKeySystemFairPlayStreaming")
+	@(link_name="AVContentKeySystemFairPlayStreaming")
 	ContentKeySystemFairPlayStreaming: ^NS.String
 
-	@(link_name = "AVContentKeySystemClearKey")
+	@(link_name="AVContentKeySystemClearKey")
 	ContentKeySystemClearKey: ^NS.String
 
-	@(link_name = "AVContentKeySystemAuthorizationToken")
+	@(link_name="AVContentKeySystemAuthorizationToken")
 	ContentKeySystemAuthorizationToken: ^NS.String
 
-	@(link_name = "AVContentKeySessionServerPlaybackContextOptionProtocolVersions")
+	@(link_name="AVContentKeySessionServerPlaybackContextOptionProtocolVersions")
 	ContentKeySessionServerPlaybackContextOptionProtocolVersions: ^NS.String
 
-	@(link_name = "AVContentKeySessionServerPlaybackContextOptionServerChallenge")
+	@(link_name="AVContentKeySessionServerPlaybackContextOptionServerChallenge")
 	ContentKeySessionServerPlaybackContextOptionServerChallenge: ^NS.String
 
-	@(link_name = "AVContentKeyRequestRetryReasonTimedOut")
+	@(link_name="AVContentKeyRequestRetryReasonTimedOut")
 	ContentKeyRequestRetryReasonTimedOut: ^NS.String
 
-	@(link_name = "AVContentKeyRequestRetryReasonReceivedResponseWithExpiredLease")
+	@(link_name="AVContentKeyRequestRetryReasonReceivedResponseWithExpiredLease")
 	ContentKeyRequestRetryReasonReceivedResponseWithExpiredLease: ^NS.String
 
-	@(link_name = "AVContentKeyRequestRetryReasonReceivedObsoleteContentKey")
+	@(link_name="AVContentKeyRequestRetryReasonReceivedObsoleteContentKey")
 	ContentKeyRequestRetryReasonReceivedObsoleteContentKey: ^NS.String
 
-	@(link_name = "AVContentKeyRequestRequiresValidationDataInSecureTokenKey")
+	@(link_name="AVContentKeyRequestRequiresValidationDataInSecureTokenKey")
 	ContentKeyRequestRequiresValidationDataInSecureTokenKey: ^NS.String
 
-	@(link_name = "AVContentKeyRequestProtocolVersionsKey")
+	@(link_name="AVContentKeyRequestProtocolVersionsKey")
 	ContentKeyRequestProtocolVersionsKey: ^NS.String
 
-	@(link_name = "AVContentKeyRequestShouldRandomizeDeviceIdentifierKey")
+	@(link_name="AVContentKeyRequestShouldRandomizeDeviceIdentifierKey")
 	ContentKeyRequestShouldRandomizeDeviceIdentifierKey: ^NS.String
 
-	@(link_name = "AVContentKeyRequestRandomDeviceIdentifierSeedKey")
+	@(link_name="AVContentKeyRequestRandomDeviceIdentifierSeedKey")
 	ContentKeyRequestRandomDeviceIdentifierSeedKey: ^NS.String
 
-	@(link_name = "AVMediaTypeVideo")
+	@(link_name="AVMediaTypeVideo")
 	MediaTypeVideo: ^NS.String
 
-	@(link_name = "AVMediaTypeAudio")
+	@(link_name="AVMediaTypeAudio")
 	MediaTypeAudio: ^NS.String
 
-	@(link_name = "AVMediaTypeText")
+	@(link_name="AVMediaTypeText")
 	MediaTypeText: ^NS.String
 
-	@(link_name = "AVMediaTypeClosedCaption")
+	@(link_name="AVMediaTypeClosedCaption")
 	MediaTypeClosedCaption: ^NS.String
 
-	@(link_name = "AVMediaTypeSubtitle")
+	@(link_name="AVMediaTypeSubtitle")
 	MediaTypeSubtitle: ^NS.String
 
-	@(link_name = "AVMediaTypeTimecode")
+	@(link_name="AVMediaTypeTimecode")
 	MediaTypeTimecode: ^NS.String
 
-	@(link_name = "AVMediaTypeMetadata")
+	@(link_name="AVMediaTypeMetadata")
 	MediaTypeMetadata: ^NS.String
 
-	@(link_name = "AVMediaTypeMuxed")
+	@(link_name="AVMediaTypeMuxed")
 	MediaTypeMuxed: ^NS.String
 
-	@(link_name = "AVMediaTypeHaptic")
+	@(link_name="AVMediaTypeHaptic")
 	MediaTypeHaptic: ^NS.String
 
-	@(link_name = "AVVideoRangeSDR")
+	@(link_name="AVVideoRangeSDR")
 	VideoRangeSDR: ^NS.String
 
-	@(link_name = "AVVideoRangeHLG")
+	@(link_name="AVVideoRangeHLG")
 	VideoRangeHLG: ^NS.String
 
-	@(link_name = "AVVideoRangePQ")
+	@(link_name="AVVideoRangePQ")
 	VideoRangePQ: ^NS.String
 
-	@(link_name = "AVMediaTypeMetadataObject")
+	@(link_name="AVMediaTypeMetadataObject")
 	MediaTypeMetadataObject: ^NS.String
 
-	@(link_name = "AVMediaTypeDepthData")
+	@(link_name="AVMediaTypeDepthData")
 	MediaTypeDepthData: ^NS.String
 
-	@(link_name = "AVMediaTypeAuxiliaryPicture")
+	@(link_name="AVMediaTypeAuxiliaryPicture")
 	MediaTypeAuxiliaryPicture: ^NS.String
 
-	@(link_name = "AVMediaCharacteristicVisual")
+	@(link_name="AVMediaCharacteristicVisual")
 	MediaCharacteristicVisual: ^NS.String
 
-	@(link_name = "AVMediaCharacteristicAudible")
+	@(link_name="AVMediaCharacteristicAudible")
 	MediaCharacteristicAudible: ^NS.String
 
-	@(link_name = "AVMediaCharacteristicLegible")
+	@(link_name="AVMediaCharacteristicLegible")
 	MediaCharacteristicLegible: ^NS.String
 
-	@(link_name = "AVMediaCharacteristicFrameBased")
+	@(link_name="AVMediaCharacteristicFrameBased")
 	MediaCharacteristicFrameBased: ^NS.String
 
-	@(link_name = "AVMediaCharacteristicUsesWideGamutColorSpace")
+	@(link_name="AVMediaCharacteristicUsesWideGamutColorSpace")
 	MediaCharacteristicUsesWideGamutColorSpace: ^NS.String
 
-	@(link_name = "AVMediaCharacteristicContainsHDRVideo")
+	@(link_name="AVMediaCharacteristicContainsHDRVideo")
 	MediaCharacteristicContainsHDRVideo: ^NS.String
 
-	@(link_name = "AVMediaCharacteristicContainsAlphaChannel")
+	@(link_name="AVMediaCharacteristicContainsAlphaChannel")
 	MediaCharacteristicContainsAlphaChannel: ^NS.String
 
-	@(link_name = "AVMediaCharacteristicIsMainProgramContent")
+	@(link_name="AVMediaCharacteristicIsMainProgramContent")
 	MediaCharacteristicIsMainProgramContent: ^NS.String
 
-	@(link_name = "AVMediaCharacteristicIsAuxiliaryContent")
+	@(link_name="AVMediaCharacteristicIsAuxiliaryContent")
 	MediaCharacteristicIsAuxiliaryContent: ^NS.String
 
-	@(link_name = "AVMediaCharacteristicIsOriginalContent")
+	@(link_name="AVMediaCharacteristicIsOriginalContent")
 	MediaCharacteristicIsOriginalContent: ^NS.String
 
-	@(link_name = "AVMediaCharacteristicContainsOnlyForcedSubtitles")
+	@(link_name="AVMediaCharacteristicContainsOnlyForcedSubtitles")
 	MediaCharacteristicContainsOnlyForcedSubtitles: ^NS.String
 
-	@(link_name = "AVMediaCharacteristicTranscribesSpokenDialogForAccessibility")
+	@(link_name="AVMediaCharacteristicTranscribesSpokenDialogForAccessibility")
 	MediaCharacteristicTranscribesSpokenDialogForAccessibility: ^NS.String
 
-	@(link_name = "AVMediaCharacteristicDescribesMusicAndSoundForAccessibility")
+	@(link_name="AVMediaCharacteristicDescribesMusicAndSoundForAccessibility")
 	MediaCharacteristicDescribesMusicAndSoundForAccessibility: ^NS.String
 
-	@(link_name = "AVMediaCharacteristicEnhancesSpeechIntelligibility")
+	@(link_name="AVMediaCharacteristicEnhancesSpeechIntelligibility")
 	MediaCharacteristicEnhancesSpeechIntelligibility: ^NS.String
 
-	@(link_name = "AVMediaCharacteristicEasyToRead")
+	@(link_name="AVMediaCharacteristicEasyToRead")
 	MediaCharacteristicEasyToRead: ^NS.String
 
-	@(link_name = "AVMediaCharacteristicDescribesVideoForAccessibility")
+	@(link_name="AVMediaCharacteristicDescribesVideoForAccessibility")
 	MediaCharacteristicDescribesVideoForAccessibility: ^NS.String
 
-	@(link_name = "AVMediaCharacteristicLanguageTranslation")
+	@(link_name="AVMediaCharacteristicLanguageTranslation")
 	MediaCharacteristicLanguageTranslation: ^NS.String
 
-	@(link_name = "AVMediaCharacteristicDubbedTranslation")
+	@(link_name="AVMediaCharacteristicDubbedTranslation")
 	MediaCharacteristicDubbedTranslation: ^NS.String
 
-	@(link_name = "AVMediaCharacteristicVoiceOverTranslation")
+	@(link_name="AVMediaCharacteristicVoiceOverTranslation")
 	MediaCharacteristicVoiceOverTranslation: ^NS.String
 
-	@(link_name = "AVMediaCharacteristicTactileMinimal")
+	@(link_name="AVMediaCharacteristicTactileMinimal")
 	MediaCharacteristicTactileMinimal: ^NS.String
 
-	@(link_name = "AVMediaCharacteristicContainsStereoMultiviewVideo")
+	@(link_name="AVMediaCharacteristicContainsStereoMultiviewVideo")
 	MediaCharacteristicContainsStereoMultiviewVideo: ^NS.String
 
-	@(link_name = "AVMediaCharacteristicCarriesVideoStereoMetadata")
+	@(link_name="AVMediaCharacteristicCarriesVideoStereoMetadata")
 	MediaCharacteristicCarriesVideoStereoMetadata: ^NS.String
 
-	@(link_name = "AVMediaCharacteristicIndicatesHorizontalFieldOfView")
+	@(link_name="AVMediaCharacteristicIndicatesHorizontalFieldOfView")
 	MediaCharacteristicIndicatesHorizontalFieldOfView: ^NS.String
 
-	@(link_name = "AVMediaCharacteristicIndicatesNonRectilinearProjection")
+	@(link_name="AVMediaCharacteristicIndicatesNonRectilinearProjection")
 	MediaCharacteristicIndicatesNonRectilinearProjection: ^NS.String
 
-	@(link_name = "AVMediaCharacteristicMachineGenerated")
+	@(link_name="AVMediaCharacteristicMachineGenerated")
 	MediaCharacteristicMachineGenerated: ^NS.String
 
-	@(link_name = "AVFileTypeQuickTimeMovie")
+	@(link_name="AVFileTypeQuickTimeMovie")
 	FileTypeQuickTimeMovie: ^NS.String
 
-	@(link_name = "AVFileTypeQuickTimeAudio")
+	@(link_name="AVFileTypeQuickTimeAudio")
 	FileTypeQuickTimeAudio: ^NS.String
 
-	@(link_name = "AVFileTypeMPEG4")
+	@(link_name="AVFileTypeMPEG4")
 	FileTypeMPEG4: ^NS.String
 
-	@(link_name = "AVFileTypeAppleM4V")
+	@(link_name="AVFileTypeAppleM4V")
 	FileTypeAppleM4V: ^NS.String
 
-	@(link_name = "AVFileTypeAppleM4A")
+	@(link_name="AVFileTypeAppleM4A")
 	FileTypeAppleM4A: ^NS.String
 
-	@(link_name = "AVFileType3GPP")
+	@(link_name="AVFileType3GPP")
 	FileType3GPP: ^NS.String
 
-	@(link_name = "AVFileType3GPP2")
+	@(link_name="AVFileType3GPP2")
 	FileType3GPP2: ^NS.String
 
-	@(link_name = "AVFileTypeCoreAudioFormat")
+	@(link_name="AVFileTypeCoreAudioFormat")
 	FileTypeCoreAudioFormat: ^NS.String
 
-	@(link_name = "AVFileTypeWAVE")
+	@(link_name="AVFileTypeWAVE")
 	FileTypeWAVE: ^NS.String
 
-	@(link_name = "AVFileTypeAIFF")
+	@(link_name="AVFileTypeAIFF")
 	FileTypeAIFF: ^NS.String
 
-	@(link_name = "AVFileTypeAIFC")
+	@(link_name="AVFileTypeAIFC")
 	FileTypeAIFC: ^NS.String
 
-	@(link_name = "AVFileTypeAMR")
+	@(link_name="AVFileTypeAMR")
 	FileTypeAMR: ^NS.String
 
-	@(link_name = "AVFileTypeMPEGLayer3")
+	@(link_name="AVFileTypeMPEGLayer3")
 	FileTypeMPEGLayer3: ^NS.String
 
-	@(link_name = "AVFileTypeSunAU")
+	@(link_name="AVFileTypeSunAU")
 	FileTypeSunAU: ^NS.String
 
-	@(link_name = "AVFileTypeAC3")
+	@(link_name="AVFileTypeAC3")
 	FileTypeAC3: ^NS.String
 
-	@(link_name = "AVFileTypeEnhancedAC3")
+	@(link_name="AVFileTypeEnhancedAC3")
 	FileTypeEnhancedAC3: ^NS.String
 
-	@(link_name = "AVFileTypeJPEG")
+	@(link_name="AVFileTypeJPEG")
 	FileTypeJPEG: ^NS.String
 
-	@(link_name = "AVFileTypeDNG")
+	@(link_name="AVFileTypeDNG")
 	FileTypeDNG: ^NS.String
 
-	@(link_name = "AVFileTypeHEIC")
+	@(link_name="AVFileTypeHEIC")
 	FileTypeHEIC: ^NS.String
 
-	@(link_name = "AVFileTypeAVCI")
+	@(link_name="AVFileTypeAVCI")
 	FileTypeAVCI: ^NS.String
 
-	@(link_name = "AVFileTypeHEIF")
+	@(link_name="AVFileTypeHEIF")
 	FileTypeHEIF: ^NS.String
 
-	@(link_name = "AVFileTypeTIFF")
+	@(link_name="AVFileTypeTIFF")
 	FileTypeTIFF: ^NS.String
 
-	@(link_name = "AVFileTypeAppleiTT")
+	@(link_name="AVFileTypeAppleiTT")
 	FileTypeAppleiTT: ^NS.String
 
-	@(link_name = "AVFileTypeSCC")
+	@(link_name="AVFileTypeSCC")
 	FileTypeSCC: ^NS.String
 
-	@(link_name = "AVFileTypeAHAP")
+	@(link_name="AVFileTypeAHAP")
 	FileTypeAHAP: ^NS.String
 
-	@(link_name = "AVFileTypeDICOM")
+	@(link_name="AVFileTypeDICOM")
 	FileTypeDICOM: ^NS.String
 
-	@(link_name = "AVStreamingKeyDeliveryContentKeyType")
+	@(link_name="AVStreamingKeyDeliveryContentKeyType")
 	StreamingKeyDeliveryContentKeyType: ^NS.String
 
-	@(link_name = "AVStreamingKeyDeliveryPersistentContentKeyType")
+	@(link_name="AVStreamingKeyDeliveryPersistentContentKeyType")
 	StreamingKeyDeliveryPersistentContentKeyType: ^NS.String
 
-	@(link_name = "AVFileTypeProfileMPEG4AppleHLS")
+	@(link_name="AVFileTypeProfileMPEG4AppleHLS")
 	FileTypeProfileMPEG4AppleHLS: ^NS.String
 
-	@(link_name = "AVFileTypeProfileMPEG4CMAFCompliant")
+	@(link_name="AVFileTypeProfileMPEG4CMAFCompliant")
 	FileTypeProfileMPEG4CMAFCompliant: ^NS.String
 
-	@(link_name = "AVMetadataKeySpaceCommon")
+	@(link_name="AVMetadataKeySpaceCommon")
 	MetadataKeySpaceCommon: ^NS.String
 
-	@(link_name = "AVMetadataCommonKeyTitle")
+	@(link_name="AVMetadataCommonKeyTitle")
 	MetadataCommonKeyTitle: ^NS.String
 
-	@(link_name = "AVMetadataCommonKeyCreator")
+	@(link_name="AVMetadataCommonKeyCreator")
 	MetadataCommonKeyCreator: ^NS.String
 
-	@(link_name = "AVMetadataCommonKeySubject")
+	@(link_name="AVMetadataCommonKeySubject")
 	MetadataCommonKeySubject: ^NS.String
 
-	@(link_name = "AVMetadataCommonKeyDescription")
+	@(link_name="AVMetadataCommonKeyDescription")
 	MetadataCommonKeyDescription: ^NS.String
 
-	@(link_name = "AVMetadataCommonKeyPublisher")
+	@(link_name="AVMetadataCommonKeyPublisher")
 	MetadataCommonKeyPublisher: ^NS.String
 
-	@(link_name = "AVMetadataCommonKeyContributor")
+	@(link_name="AVMetadataCommonKeyContributor")
 	MetadataCommonKeyContributor: ^NS.String
 
-	@(link_name = "AVMetadataCommonKeyCreationDate")
+	@(link_name="AVMetadataCommonKeyCreationDate")
 	MetadataCommonKeyCreationDate: ^NS.String
 
-	@(link_name = "AVMetadataCommonKeyLastModifiedDate")
+	@(link_name="AVMetadataCommonKeyLastModifiedDate")
 	MetadataCommonKeyLastModifiedDate: ^NS.String
 
-	@(link_name = "AVMetadataCommonKeyType")
+	@(link_name="AVMetadataCommonKeyType")
 	MetadataCommonKeyType: ^NS.String
 
-	@(link_name = "AVMetadataCommonKeyFormat")
+	@(link_name="AVMetadataCommonKeyFormat")
 	MetadataCommonKeyFormat: ^NS.String
 
-	@(link_name = "AVMetadataCommonKeyIdentifier")
+	@(link_name="AVMetadataCommonKeyIdentifier")
 	MetadataCommonKeyIdentifier: ^NS.String
 
-	@(link_name = "AVMetadataCommonKeySource")
+	@(link_name="AVMetadataCommonKeySource")
 	MetadataCommonKeySource: ^NS.String
 
-	@(link_name = "AVMetadataCommonKeyLanguage")
+	@(link_name="AVMetadataCommonKeyLanguage")
 	MetadataCommonKeyLanguage: ^NS.String
 
-	@(link_name = "AVMetadataCommonKeyRelation")
+	@(link_name="AVMetadataCommonKeyRelation")
 	MetadataCommonKeyRelation: ^NS.String
 
-	@(link_name = "AVMetadataCommonKeyLocation")
+	@(link_name="AVMetadataCommonKeyLocation")
 	MetadataCommonKeyLocation: ^NS.String
 
-	@(link_name = "AVMetadataCommonKeyCopyrights")
+	@(link_name="AVMetadataCommonKeyCopyrights")
 	MetadataCommonKeyCopyrights: ^NS.String
 
-	@(link_name = "AVMetadataCommonKeyAlbumName")
+	@(link_name="AVMetadataCommonKeyAlbumName")
 	MetadataCommonKeyAlbumName: ^NS.String
 
-	@(link_name = "AVMetadataCommonKeyAuthor")
+	@(link_name="AVMetadataCommonKeyAuthor")
 	MetadataCommonKeyAuthor: ^NS.String
 
-	@(link_name = "AVMetadataCommonKeyArtist")
+	@(link_name="AVMetadataCommonKeyArtist")
 	MetadataCommonKeyArtist: ^NS.String
 
-	@(link_name = "AVMetadataCommonKeyArtwork")
+	@(link_name="AVMetadataCommonKeyArtwork")
 	MetadataCommonKeyArtwork: ^NS.String
 
-	@(link_name = "AVMetadataCommonKeyMake")
+	@(link_name="AVMetadataCommonKeyMake")
 	MetadataCommonKeyMake: ^NS.String
 
-	@(link_name = "AVMetadataCommonKeyModel")
+	@(link_name="AVMetadataCommonKeyModel")
 	MetadataCommonKeyModel: ^NS.String
 
-	@(link_name = "AVMetadataCommonKeySoftware")
+	@(link_name="AVMetadataCommonKeySoftware")
 	MetadataCommonKeySoftware: ^NS.String
 
-	@(link_name = "AVMetadataCommonKeyAccessibilityDescription")
+	@(link_name="AVMetadataCommonKeyAccessibilityDescription")
 	MetadataCommonKeyAccessibilityDescription: ^NS.String
 
-	@(link_name = "AVMetadataFormatQuickTimeUserData")
+	@(link_name="AVMetadataFormatQuickTimeUserData")
 	MetadataFormatQuickTimeUserData: ^NS.String
 
-	@(link_name = "AVMetadataKeySpaceQuickTimeUserData")
+	@(link_name="AVMetadataKeySpaceQuickTimeUserData")
 	MetadataKeySpaceQuickTimeUserData: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeUserDataKeyAlbum")
+	@(link_name="AVMetadataQuickTimeUserDataKeyAlbum")
 	MetadataQuickTimeUserDataKeyAlbum: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeUserDataKeyArranger")
+	@(link_name="AVMetadataQuickTimeUserDataKeyArranger")
 	MetadataQuickTimeUserDataKeyArranger: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeUserDataKeyArtist")
+	@(link_name="AVMetadataQuickTimeUserDataKeyArtist")
 	MetadataQuickTimeUserDataKeyArtist: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeUserDataKeyAuthor")
+	@(link_name="AVMetadataQuickTimeUserDataKeyAuthor")
 	MetadataQuickTimeUserDataKeyAuthor: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeUserDataKeyChapter")
+	@(link_name="AVMetadataQuickTimeUserDataKeyChapter")
 	MetadataQuickTimeUserDataKeyChapter: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeUserDataKeyComment")
+	@(link_name="AVMetadataQuickTimeUserDataKeyComment")
 	MetadataQuickTimeUserDataKeyComment: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeUserDataKeyComposer")
+	@(link_name="AVMetadataQuickTimeUserDataKeyComposer")
 	MetadataQuickTimeUserDataKeyComposer: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeUserDataKeyCopyright")
+	@(link_name="AVMetadataQuickTimeUserDataKeyCopyright")
 	MetadataQuickTimeUserDataKeyCopyright: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeUserDataKeyCreationDate")
+	@(link_name="AVMetadataQuickTimeUserDataKeyCreationDate")
 	MetadataQuickTimeUserDataKeyCreationDate: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeUserDataKeyDescription")
+	@(link_name="AVMetadataQuickTimeUserDataKeyDescription")
 	MetadataQuickTimeUserDataKeyDescription: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeUserDataKeyDirector")
+	@(link_name="AVMetadataQuickTimeUserDataKeyDirector")
 	MetadataQuickTimeUserDataKeyDirector: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeUserDataKeyDisclaimer")
+	@(link_name="AVMetadataQuickTimeUserDataKeyDisclaimer")
 	MetadataQuickTimeUserDataKeyDisclaimer: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeUserDataKeyEncodedBy")
+	@(link_name="AVMetadataQuickTimeUserDataKeyEncodedBy")
 	MetadataQuickTimeUserDataKeyEncodedBy: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeUserDataKeyFullName")
+	@(link_name="AVMetadataQuickTimeUserDataKeyFullName")
 	MetadataQuickTimeUserDataKeyFullName: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeUserDataKeyGenre")
+	@(link_name="AVMetadataQuickTimeUserDataKeyGenre")
 	MetadataQuickTimeUserDataKeyGenre: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeUserDataKeyHostComputer")
+	@(link_name="AVMetadataQuickTimeUserDataKeyHostComputer")
 	MetadataQuickTimeUserDataKeyHostComputer: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeUserDataKeyInformation")
+	@(link_name="AVMetadataQuickTimeUserDataKeyInformation")
 	MetadataQuickTimeUserDataKeyInformation: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeUserDataKeyKeywords")
+	@(link_name="AVMetadataQuickTimeUserDataKeyKeywords")
 	MetadataQuickTimeUserDataKeyKeywords: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeUserDataKeyMake")
+	@(link_name="AVMetadataQuickTimeUserDataKeyMake")
 	MetadataQuickTimeUserDataKeyMake: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeUserDataKeyModel")
+	@(link_name="AVMetadataQuickTimeUserDataKeyModel")
 	MetadataQuickTimeUserDataKeyModel: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeUserDataKeyOriginalArtist")
+	@(link_name="AVMetadataQuickTimeUserDataKeyOriginalArtist")
 	MetadataQuickTimeUserDataKeyOriginalArtist: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeUserDataKeyOriginalFormat")
+	@(link_name="AVMetadataQuickTimeUserDataKeyOriginalFormat")
 	MetadataQuickTimeUserDataKeyOriginalFormat: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeUserDataKeyOriginalSource")
+	@(link_name="AVMetadataQuickTimeUserDataKeyOriginalSource")
 	MetadataQuickTimeUserDataKeyOriginalSource: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeUserDataKeyPerformers")
+	@(link_name="AVMetadataQuickTimeUserDataKeyPerformers")
 	MetadataQuickTimeUserDataKeyPerformers: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeUserDataKeyProducer")
+	@(link_name="AVMetadataQuickTimeUserDataKeyProducer")
 	MetadataQuickTimeUserDataKeyProducer: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeUserDataKeyPublisher")
+	@(link_name="AVMetadataQuickTimeUserDataKeyPublisher")
 	MetadataQuickTimeUserDataKeyPublisher: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeUserDataKeyProduct")
+	@(link_name="AVMetadataQuickTimeUserDataKeyProduct")
 	MetadataQuickTimeUserDataKeyProduct: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeUserDataKeySoftware")
+	@(link_name="AVMetadataQuickTimeUserDataKeySoftware")
 	MetadataQuickTimeUserDataKeySoftware: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeUserDataKeySpecialPlaybackRequirements")
+	@(link_name="AVMetadataQuickTimeUserDataKeySpecialPlaybackRequirements")
 	MetadataQuickTimeUserDataKeySpecialPlaybackRequirements: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeUserDataKeyTrack")
+	@(link_name="AVMetadataQuickTimeUserDataKeyTrack")
 	MetadataQuickTimeUserDataKeyTrack: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeUserDataKeyWarning")
+	@(link_name="AVMetadataQuickTimeUserDataKeyWarning")
 	MetadataQuickTimeUserDataKeyWarning: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeUserDataKeyWriter")
+	@(link_name="AVMetadataQuickTimeUserDataKeyWriter")
 	MetadataQuickTimeUserDataKeyWriter: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeUserDataKeyURLLink")
+	@(link_name="AVMetadataQuickTimeUserDataKeyURLLink")
 	MetadataQuickTimeUserDataKeyURLLink: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeUserDataKeyLocationISO6709")
+	@(link_name="AVMetadataQuickTimeUserDataKeyLocationISO6709")
 	MetadataQuickTimeUserDataKeyLocationISO6709: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeUserDataKeyTrackName")
+	@(link_name="AVMetadataQuickTimeUserDataKeyTrackName")
 	MetadataQuickTimeUserDataKeyTrackName: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeUserDataKeyCredits")
+	@(link_name="AVMetadataQuickTimeUserDataKeyCredits")
 	MetadataQuickTimeUserDataKeyCredits: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeUserDataKeyPhonogramRights")
+	@(link_name="AVMetadataQuickTimeUserDataKeyPhonogramRights")
 	MetadataQuickTimeUserDataKeyPhonogramRights: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeUserDataKeyTaggedCharacteristic")
+	@(link_name="AVMetadataQuickTimeUserDataKeyTaggedCharacteristic")
 	MetadataQuickTimeUserDataKeyTaggedCharacteristic: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeUserDataKeyAccessibilityDescription")
+	@(link_name="AVMetadataQuickTimeUserDataKeyAccessibilityDescription")
 	MetadataQuickTimeUserDataKeyAccessibilityDescription: ^NS.String
 
-	@(link_name = "AVMetadataFormatISOUserData")
+	@(link_name="AVMetadataFormatISOUserData")
 	MetadataFormatISOUserData: ^NS.String
 
-	@(link_name = "AVMetadataKeySpaceISOUserData")
+	@(link_name="AVMetadataKeySpaceISOUserData")
 	MetadataKeySpaceISOUserData: ^NS.String
 
-	@(link_name = "AVMetadataISOUserDataKeyCopyright")
+	@(link_name="AVMetadataISOUserDataKeyCopyright")
 	MetadataISOUserDataKeyCopyright: ^NS.String
 
-	@(link_name = "AVMetadataISOUserDataKeyTaggedCharacteristic")
+	@(link_name="AVMetadataISOUserDataKeyTaggedCharacteristic")
 	MetadataISOUserDataKeyTaggedCharacteristic: ^NS.String
 
-	@(link_name = "AVMetadataISOUserDataKeyDate")
+	@(link_name="AVMetadataISOUserDataKeyDate")
 	MetadataISOUserDataKeyDate: ^NS.String
 
-	@(link_name = "AVMetadataISOUserDataKeyAccessibilityDescription")
+	@(link_name="AVMetadataISOUserDataKeyAccessibilityDescription")
 	MetadataISOUserDataKeyAccessibilityDescription: ^NS.String
 
-	@(link_name = "AVMetadata3GPUserDataKeyCopyright")
+	@(link_name="AVMetadata3GPUserDataKeyCopyright")
 	Metadata3GPUserDataKeyCopyright: ^NS.String
 
-	@(link_name = "AVMetadata3GPUserDataKeyAuthor")
+	@(link_name="AVMetadata3GPUserDataKeyAuthor")
 	Metadata3GPUserDataKeyAuthor: ^NS.String
 
-	@(link_name = "AVMetadata3GPUserDataKeyPerformer")
+	@(link_name="AVMetadata3GPUserDataKeyPerformer")
 	Metadata3GPUserDataKeyPerformer: ^NS.String
 
-	@(link_name = "AVMetadata3GPUserDataKeyGenre")
+	@(link_name="AVMetadata3GPUserDataKeyGenre")
 	Metadata3GPUserDataKeyGenre: ^NS.String
 
-	@(link_name = "AVMetadata3GPUserDataKeyRecordingYear")
+	@(link_name="AVMetadata3GPUserDataKeyRecordingYear")
 	Metadata3GPUserDataKeyRecordingYear: ^NS.String
 
-	@(link_name = "AVMetadata3GPUserDataKeyLocation")
+	@(link_name="AVMetadata3GPUserDataKeyLocation")
 	Metadata3GPUserDataKeyLocation: ^NS.String
 
-	@(link_name = "AVMetadata3GPUserDataKeyTitle")
+	@(link_name="AVMetadata3GPUserDataKeyTitle")
 	Metadata3GPUserDataKeyTitle: ^NS.String
 
-	@(link_name = "AVMetadata3GPUserDataKeyDescription")
+	@(link_name="AVMetadata3GPUserDataKeyDescription")
 	Metadata3GPUserDataKeyDescription: ^NS.String
 
-	@(link_name = "AVMetadata3GPUserDataKeyCollection")
+	@(link_name="AVMetadata3GPUserDataKeyCollection")
 	Metadata3GPUserDataKeyCollection: ^NS.String
 
-	@(link_name = "AVMetadata3GPUserDataKeyUserRating")
+	@(link_name="AVMetadata3GPUserDataKeyUserRating")
 	Metadata3GPUserDataKeyUserRating: ^NS.String
 
-	@(link_name = "AVMetadata3GPUserDataKeyThumbnail")
+	@(link_name="AVMetadata3GPUserDataKeyThumbnail")
 	Metadata3GPUserDataKeyThumbnail: ^NS.String
 
-	@(link_name = "AVMetadata3GPUserDataKeyAlbumAndTrack")
+	@(link_name="AVMetadata3GPUserDataKeyAlbumAndTrack")
 	Metadata3GPUserDataKeyAlbumAndTrack: ^NS.String
 
-	@(link_name = "AVMetadata3GPUserDataKeyKeywordList")
+	@(link_name="AVMetadata3GPUserDataKeyKeywordList")
 	Metadata3GPUserDataKeyKeywordList: ^NS.String
 
-	@(link_name = "AVMetadata3GPUserDataKeyMediaClassification")
+	@(link_name="AVMetadata3GPUserDataKeyMediaClassification")
 	Metadata3GPUserDataKeyMediaClassification: ^NS.String
 
-	@(link_name = "AVMetadata3GPUserDataKeyMediaRating")
+	@(link_name="AVMetadata3GPUserDataKeyMediaRating")
 	Metadata3GPUserDataKeyMediaRating: ^NS.String
 
-	@(link_name = "AVMetadataFormatQuickTimeMetadata")
+	@(link_name="AVMetadataFormatQuickTimeMetadata")
 	MetadataFormatQuickTimeMetadata: ^NS.String
 
-	@(link_name = "AVMetadataKeySpaceQuickTimeMetadata")
+	@(link_name="AVMetadataKeySpaceQuickTimeMetadata")
 	MetadataKeySpaceQuickTimeMetadata: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyAuthor")
+	@(link_name="AVMetadataQuickTimeMetadataKeyAuthor")
 	MetadataQuickTimeMetadataKeyAuthor: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyComment")
+	@(link_name="AVMetadataQuickTimeMetadataKeyComment")
 	MetadataQuickTimeMetadataKeyComment: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyCopyright")
+	@(link_name="AVMetadataQuickTimeMetadataKeyCopyright")
 	MetadataQuickTimeMetadataKeyCopyright: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyCreationDate")
+	@(link_name="AVMetadataQuickTimeMetadataKeyCreationDate")
 	MetadataQuickTimeMetadataKeyCreationDate: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyDirector")
+	@(link_name="AVMetadataQuickTimeMetadataKeyDirector")
 	MetadataQuickTimeMetadataKeyDirector: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyDisplayName")
+	@(link_name="AVMetadataQuickTimeMetadataKeyDisplayName")
 	MetadataQuickTimeMetadataKeyDisplayName: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyInformation")
+	@(link_name="AVMetadataQuickTimeMetadataKeyInformation")
 	MetadataQuickTimeMetadataKeyInformation: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyKeywords")
+	@(link_name="AVMetadataQuickTimeMetadataKeyKeywords")
 	MetadataQuickTimeMetadataKeyKeywords: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyProducer")
+	@(link_name="AVMetadataQuickTimeMetadataKeyProducer")
 	MetadataQuickTimeMetadataKeyProducer: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyPublisher")
+	@(link_name="AVMetadataQuickTimeMetadataKeyPublisher")
 	MetadataQuickTimeMetadataKeyPublisher: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyAlbum")
+	@(link_name="AVMetadataQuickTimeMetadataKeyAlbum")
 	MetadataQuickTimeMetadataKeyAlbum: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyArtist")
+	@(link_name="AVMetadataQuickTimeMetadataKeyArtist")
 	MetadataQuickTimeMetadataKeyArtist: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyArtwork")
+	@(link_name="AVMetadataQuickTimeMetadataKeyArtwork")
 	MetadataQuickTimeMetadataKeyArtwork: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyDescription")
+	@(link_name="AVMetadataQuickTimeMetadataKeyDescription")
 	MetadataQuickTimeMetadataKeyDescription: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeySoftware")
+	@(link_name="AVMetadataQuickTimeMetadataKeySoftware")
 	MetadataQuickTimeMetadataKeySoftware: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyYear")
+	@(link_name="AVMetadataQuickTimeMetadataKeyYear")
 	MetadataQuickTimeMetadataKeyYear: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyGenre")
+	@(link_name="AVMetadataQuickTimeMetadataKeyGenre")
 	MetadataQuickTimeMetadataKeyGenre: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyiXML")
+	@(link_name="AVMetadataQuickTimeMetadataKeyiXML")
 	MetadataQuickTimeMetadataKeyiXML: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyLocationISO6709")
+	@(link_name="AVMetadataQuickTimeMetadataKeyLocationISO6709")
 	MetadataQuickTimeMetadataKeyLocationISO6709: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyMake")
+	@(link_name="AVMetadataQuickTimeMetadataKeyMake")
 	MetadataQuickTimeMetadataKeyMake: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyModel")
+	@(link_name="AVMetadataQuickTimeMetadataKeyModel")
 	MetadataQuickTimeMetadataKeyModel: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyArranger")
+	@(link_name="AVMetadataQuickTimeMetadataKeyArranger")
 	MetadataQuickTimeMetadataKeyArranger: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyEncodedBy")
+	@(link_name="AVMetadataQuickTimeMetadataKeyEncodedBy")
 	MetadataQuickTimeMetadataKeyEncodedBy: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyOriginalArtist")
+	@(link_name="AVMetadataQuickTimeMetadataKeyOriginalArtist")
 	MetadataQuickTimeMetadataKeyOriginalArtist: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyPerformer")
+	@(link_name="AVMetadataQuickTimeMetadataKeyPerformer")
 	MetadataQuickTimeMetadataKeyPerformer: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyComposer")
+	@(link_name="AVMetadataQuickTimeMetadataKeyComposer")
 	MetadataQuickTimeMetadataKeyComposer: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyCredits")
+	@(link_name="AVMetadataQuickTimeMetadataKeyCredits")
 	MetadataQuickTimeMetadataKeyCredits: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyPhonogramRights")
+	@(link_name="AVMetadataQuickTimeMetadataKeyPhonogramRights")
 	MetadataQuickTimeMetadataKeyPhonogramRights: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyCameraIdentifier")
+	@(link_name="AVMetadataQuickTimeMetadataKeyCameraIdentifier")
 	MetadataQuickTimeMetadataKeyCameraIdentifier: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyCameraFrameReadoutTime")
+	@(link_name="AVMetadataQuickTimeMetadataKeyCameraFrameReadoutTime")
 	MetadataQuickTimeMetadataKeyCameraFrameReadoutTime: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyTitle")
+	@(link_name="AVMetadataQuickTimeMetadataKeyTitle")
 	MetadataQuickTimeMetadataKeyTitle: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyCollectionUser")
+	@(link_name="AVMetadataQuickTimeMetadataKeyCollectionUser")
 	MetadataQuickTimeMetadataKeyCollectionUser: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyRatingUser")
+	@(link_name="AVMetadataQuickTimeMetadataKeyRatingUser")
 	MetadataQuickTimeMetadataKeyRatingUser: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyLocationName")
+	@(link_name="AVMetadataQuickTimeMetadataKeyLocationName")
 	MetadataQuickTimeMetadataKeyLocationName: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyLocationBody")
+	@(link_name="AVMetadataQuickTimeMetadataKeyLocationBody")
 	MetadataQuickTimeMetadataKeyLocationBody: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyLocationNote")
+	@(link_name="AVMetadataQuickTimeMetadataKeyLocationNote")
 	MetadataQuickTimeMetadataKeyLocationNote: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyLocationRole")
+	@(link_name="AVMetadataQuickTimeMetadataKeyLocationRole")
 	MetadataQuickTimeMetadataKeyLocationRole: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyLocationDate")
+	@(link_name="AVMetadataQuickTimeMetadataKeyLocationDate")
 	MetadataQuickTimeMetadataKeyLocationDate: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyDirectionFacing")
+	@(link_name="AVMetadataQuickTimeMetadataKeyDirectionFacing")
 	MetadataQuickTimeMetadataKeyDirectionFacing: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyDirectionMotion")
+	@(link_name="AVMetadataQuickTimeMetadataKeyDirectionMotion")
 	MetadataQuickTimeMetadataKeyDirectionMotion: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyContentIdentifier")
+	@(link_name="AVMetadataQuickTimeMetadataKeyContentIdentifier")
 	MetadataQuickTimeMetadataKeyContentIdentifier: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyAccessibilityDescription")
+	@(link_name="AVMetadataQuickTimeMetadataKeyAccessibilityDescription")
 	MetadataQuickTimeMetadataKeyAccessibilityDescription: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyIsMontage")
+	@(link_name="AVMetadataQuickTimeMetadataKeyIsMontage")
 	MetadataQuickTimeMetadataKeyIsMontage: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyFullFrameRatePlaybackIntent")
+	@(link_name="AVMetadataQuickTimeMetadataKeyFullFrameRatePlaybackIntent")
 	MetadataQuickTimeMetadataKeyFullFrameRatePlaybackIntent: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyCinematicVideoIntent")
+	@(link_name="AVMetadataQuickTimeMetadataKeyCinematicVideoIntent")
 	MetadataQuickTimeMetadataKeyCinematicVideoIntent: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyCameraISOSensitivity")
+	@(link_name="AVMetadataQuickTimeMetadataKeyCameraISOSensitivity")
 	MetadataQuickTimeMetadataKeyCameraISOSensitivity: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyCameraWhiteBalance")
+	@(link_name="AVMetadataQuickTimeMetadataKeyCameraWhiteBalance")
 	MetadataQuickTimeMetadataKeyCameraWhiteBalance: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyWhiteBalanceByCCTWhiteBalanceFactors")
+	@(link_name="AVMetadataQuickTimeMetadataKeyWhiteBalanceByCCTWhiteBalanceFactors")
 	MetadataQuickTimeMetadataKeyWhiteBalanceByCCTWhiteBalanceFactors: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyWhiteBalanceByCCTColorMatrices")
+	@(link_name="AVMetadataQuickTimeMetadataKeyWhiteBalanceByCCTColorMatrices")
 	MetadataQuickTimeMetadataKeyWhiteBalanceByCCTColorMatrices: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyCameraShutterSpeedAngle")
+	@(link_name="AVMetadataQuickTimeMetadataKeyCameraShutterSpeedAngle")
 	MetadataQuickTimeMetadataKeyCameraShutterSpeedAngle: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyCameraShutterSpeedTime")
+	@(link_name="AVMetadataQuickTimeMetadataKeyCameraShutterSpeedTime")
 	MetadataQuickTimeMetadataKeyCameraShutterSpeedTime: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyCameraLensIrisFNumber")
+	@(link_name="AVMetadataQuickTimeMetadataKeyCameraLensIrisFNumber")
 	MetadataQuickTimeMetadataKeyCameraLensIrisFNumber: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyCameraLensModel")
+	@(link_name="AVMetadataQuickTimeMetadataKeyCameraLensModel")
 	MetadataQuickTimeMetadataKeyCameraLensModel: ^NS.String
 
-	@(link_name = "AVMetadataQuickTimeMetadataKeyCameraFocalLength35mmEquivalent")
+	@(link_name="AVMetadataQuickTimeMetadataKeyCameraFocalLength35mmEquivalent")
 	MetadataQuickTimeMetadataKeyCameraFocalLength35mmEquivalent: ^NS.String
 
-	@(link_name = "AVMetadataFormatiTunesMetadata")
+	@(link_name="AVMetadataFormatiTunesMetadata")
 	MetadataFormatiTunesMetadata: ^NS.String
 
-	@(link_name = "AVMetadataKeySpaceiTunes")
+	@(link_name="AVMetadataKeySpaceiTunes")
 	MetadataKeySpaceiTunes: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeyAlbum")
+	@(link_name="AVMetadataiTunesMetadataKeyAlbum")
 	MetadataiTunesMetadataKeyAlbum: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeyArtist")
+	@(link_name="AVMetadataiTunesMetadataKeyArtist")
 	MetadataiTunesMetadataKeyArtist: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeyUserComment")
+	@(link_name="AVMetadataiTunesMetadataKeyUserComment")
 	MetadataiTunesMetadataKeyUserComment: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeyCoverArt")
+	@(link_name="AVMetadataiTunesMetadataKeyCoverArt")
 	MetadataiTunesMetadataKeyCoverArt: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeyCopyright")
+	@(link_name="AVMetadataiTunesMetadataKeyCopyright")
 	MetadataiTunesMetadataKeyCopyright: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeyReleaseDate")
+	@(link_name="AVMetadataiTunesMetadataKeyReleaseDate")
 	MetadataiTunesMetadataKeyReleaseDate: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeyEncodedBy")
+	@(link_name="AVMetadataiTunesMetadataKeyEncodedBy")
 	MetadataiTunesMetadataKeyEncodedBy: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeyPredefinedGenre")
+	@(link_name="AVMetadataiTunesMetadataKeyPredefinedGenre")
 	MetadataiTunesMetadataKeyPredefinedGenre: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeyUserGenre")
+	@(link_name="AVMetadataiTunesMetadataKeyUserGenre")
 	MetadataiTunesMetadataKeyUserGenre: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeySongName")
+	@(link_name="AVMetadataiTunesMetadataKeySongName")
 	MetadataiTunesMetadataKeySongName: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeyTrackSubTitle")
+	@(link_name="AVMetadataiTunesMetadataKeyTrackSubTitle")
 	MetadataiTunesMetadataKeyTrackSubTitle: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeyEncodingTool")
+	@(link_name="AVMetadataiTunesMetadataKeyEncodingTool")
 	MetadataiTunesMetadataKeyEncodingTool: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeyComposer")
+	@(link_name="AVMetadataiTunesMetadataKeyComposer")
 	MetadataiTunesMetadataKeyComposer: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeyAlbumArtist")
+	@(link_name="AVMetadataiTunesMetadataKeyAlbumArtist")
 	MetadataiTunesMetadataKeyAlbumArtist: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeyAccountKind")
+	@(link_name="AVMetadataiTunesMetadataKeyAccountKind")
 	MetadataiTunesMetadataKeyAccountKind: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeyAppleID")
+	@(link_name="AVMetadataiTunesMetadataKeyAppleID")
 	MetadataiTunesMetadataKeyAppleID: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeyArtistID")
+	@(link_name="AVMetadataiTunesMetadataKeyArtistID")
 	MetadataiTunesMetadataKeyArtistID: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeySongID")
+	@(link_name="AVMetadataiTunesMetadataKeySongID")
 	MetadataiTunesMetadataKeySongID: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeyDiscCompilation")
+	@(link_name="AVMetadataiTunesMetadataKeyDiscCompilation")
 	MetadataiTunesMetadataKeyDiscCompilation: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeyDiscNumber")
+	@(link_name="AVMetadataiTunesMetadataKeyDiscNumber")
 	MetadataiTunesMetadataKeyDiscNumber: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeyGenreID")
+	@(link_name="AVMetadataiTunesMetadataKeyGenreID")
 	MetadataiTunesMetadataKeyGenreID: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeyGrouping")
+	@(link_name="AVMetadataiTunesMetadataKeyGrouping")
 	MetadataiTunesMetadataKeyGrouping: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeyPlaylistID")
+	@(link_name="AVMetadataiTunesMetadataKeyPlaylistID")
 	MetadataiTunesMetadataKeyPlaylistID: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeyContentRating")
+	@(link_name="AVMetadataiTunesMetadataKeyContentRating")
 	MetadataiTunesMetadataKeyContentRating: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeyBeatsPerMin")
+	@(link_name="AVMetadataiTunesMetadataKeyBeatsPerMin")
 	MetadataiTunesMetadataKeyBeatsPerMin: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeyTrackNumber")
+	@(link_name="AVMetadataiTunesMetadataKeyTrackNumber")
 	MetadataiTunesMetadataKeyTrackNumber: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeyArtDirector")
+	@(link_name="AVMetadataiTunesMetadataKeyArtDirector")
 	MetadataiTunesMetadataKeyArtDirector: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeyArranger")
+	@(link_name="AVMetadataiTunesMetadataKeyArranger")
 	MetadataiTunesMetadataKeyArranger: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeyAuthor")
+	@(link_name="AVMetadataiTunesMetadataKeyAuthor")
 	MetadataiTunesMetadataKeyAuthor: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeyLyrics")
+	@(link_name="AVMetadataiTunesMetadataKeyLyrics")
 	MetadataiTunesMetadataKeyLyrics: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeyAcknowledgement")
+	@(link_name="AVMetadataiTunesMetadataKeyAcknowledgement")
 	MetadataiTunesMetadataKeyAcknowledgement: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeyConductor")
+	@(link_name="AVMetadataiTunesMetadataKeyConductor")
 	MetadataiTunesMetadataKeyConductor: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeyDescription")
+	@(link_name="AVMetadataiTunesMetadataKeyDescription")
 	MetadataiTunesMetadataKeyDescription: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeyDirector")
+	@(link_name="AVMetadataiTunesMetadataKeyDirector")
 	MetadataiTunesMetadataKeyDirector: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeyEQ")
+	@(link_name="AVMetadataiTunesMetadataKeyEQ")
 	MetadataiTunesMetadataKeyEQ: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeyLinerNotes")
+	@(link_name="AVMetadataiTunesMetadataKeyLinerNotes")
 	MetadataiTunesMetadataKeyLinerNotes: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeyRecordCompany")
+	@(link_name="AVMetadataiTunesMetadataKeyRecordCompany")
 	MetadataiTunesMetadataKeyRecordCompany: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeyOriginalArtist")
+	@(link_name="AVMetadataiTunesMetadataKeyOriginalArtist")
 	MetadataiTunesMetadataKeyOriginalArtist: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeyPhonogramRights")
+	@(link_name="AVMetadataiTunesMetadataKeyPhonogramRights")
 	MetadataiTunesMetadataKeyPhonogramRights: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeyProducer")
+	@(link_name="AVMetadataiTunesMetadataKeyProducer")
 	MetadataiTunesMetadataKeyProducer: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeyPerformer")
+	@(link_name="AVMetadataiTunesMetadataKeyPerformer")
 	MetadataiTunesMetadataKeyPerformer: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeyPublisher")
+	@(link_name="AVMetadataiTunesMetadataKeyPublisher")
 	MetadataiTunesMetadataKeyPublisher: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeySoundEngineer")
+	@(link_name="AVMetadataiTunesMetadataKeySoundEngineer")
 	MetadataiTunesMetadataKeySoundEngineer: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeySoloist")
+	@(link_name="AVMetadataiTunesMetadataKeySoloist")
 	MetadataiTunesMetadataKeySoloist: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeyCredits")
+	@(link_name="AVMetadataiTunesMetadataKeyCredits")
 	MetadataiTunesMetadataKeyCredits: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeyThanks")
+	@(link_name="AVMetadataiTunesMetadataKeyThanks")
 	MetadataiTunesMetadataKeyThanks: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeyOnlineExtras")
+	@(link_name="AVMetadataiTunesMetadataKeyOnlineExtras")
 	MetadataiTunesMetadataKeyOnlineExtras: ^NS.String
 
-	@(link_name = "AVMetadataiTunesMetadataKeyExecProducer")
+	@(link_name="AVMetadataiTunesMetadataKeyExecProducer")
 	MetadataiTunesMetadataKeyExecProducer: ^NS.String
 
-	@(link_name = "AVMetadataFormatID3Metadata")
+	@(link_name="AVMetadataFormatID3Metadata")
 	MetadataFormatID3Metadata: ^NS.String
 
-	@(link_name = "AVMetadataKeySpaceID3")
+	@(link_name="AVMetadataKeySpaceID3")
 	MetadataKeySpaceID3: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyAudioEncryption")
+	@(link_name="AVMetadataID3MetadataKeyAudioEncryption")
 	MetadataID3MetadataKeyAudioEncryption: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyAttachedPicture")
+	@(link_name="AVMetadataID3MetadataKeyAttachedPicture")
 	MetadataID3MetadataKeyAttachedPicture: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyAudioSeekPointIndex")
+	@(link_name="AVMetadataID3MetadataKeyAudioSeekPointIndex")
 	MetadataID3MetadataKeyAudioSeekPointIndex: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyComments")
+	@(link_name="AVMetadataID3MetadataKeyComments")
 	MetadataID3MetadataKeyComments: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyCommercial")
+	@(link_name="AVMetadataID3MetadataKeyCommercial")
 	MetadataID3MetadataKeyCommercial: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyCommerical")
+	@(link_name="AVMetadataID3MetadataKeyCommerical")
 	MetadataID3MetadataKeyCommerical: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyEncryption")
+	@(link_name="AVMetadataID3MetadataKeyEncryption")
 	MetadataID3MetadataKeyEncryption: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyEqualization")
+	@(link_name="AVMetadataID3MetadataKeyEqualization")
 	MetadataID3MetadataKeyEqualization: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyEqualization2")
+	@(link_name="AVMetadataID3MetadataKeyEqualization2")
 	MetadataID3MetadataKeyEqualization2: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyEventTimingCodes")
+	@(link_name="AVMetadataID3MetadataKeyEventTimingCodes")
 	MetadataID3MetadataKeyEventTimingCodes: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyGeneralEncapsulatedObject")
+	@(link_name="AVMetadataID3MetadataKeyGeneralEncapsulatedObject")
 	MetadataID3MetadataKeyGeneralEncapsulatedObject: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyGroupIdentifier")
+	@(link_name="AVMetadataID3MetadataKeyGroupIdentifier")
 	MetadataID3MetadataKeyGroupIdentifier: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyInvolvedPeopleList_v23")
+	@(link_name="AVMetadataID3MetadataKeyInvolvedPeopleList_v23")
 	MetadataID3MetadataKeyInvolvedPeopleList_v23: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyLink")
+	@(link_name="AVMetadataID3MetadataKeyLink")
 	MetadataID3MetadataKeyLink: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyMusicCDIdentifier")
+	@(link_name="AVMetadataID3MetadataKeyMusicCDIdentifier")
 	MetadataID3MetadataKeyMusicCDIdentifier: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyMPEGLocationLookupTable")
+	@(link_name="AVMetadataID3MetadataKeyMPEGLocationLookupTable")
 	MetadataID3MetadataKeyMPEGLocationLookupTable: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyOwnership")
+	@(link_name="AVMetadataID3MetadataKeyOwnership")
 	MetadataID3MetadataKeyOwnership: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyPrivate")
+	@(link_name="AVMetadataID3MetadataKeyPrivate")
 	MetadataID3MetadataKeyPrivate: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyPlayCounter")
+	@(link_name="AVMetadataID3MetadataKeyPlayCounter")
 	MetadataID3MetadataKeyPlayCounter: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyPopularimeter")
+	@(link_name="AVMetadataID3MetadataKeyPopularimeter")
 	MetadataID3MetadataKeyPopularimeter: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyPositionSynchronization")
+	@(link_name="AVMetadataID3MetadataKeyPositionSynchronization")
 	MetadataID3MetadataKeyPositionSynchronization: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyRecommendedBufferSize")
+	@(link_name="AVMetadataID3MetadataKeyRecommendedBufferSize")
 	MetadataID3MetadataKeyRecommendedBufferSize: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyRelativeVolumeAdjustment")
+	@(link_name="AVMetadataID3MetadataKeyRelativeVolumeAdjustment")
 	MetadataID3MetadataKeyRelativeVolumeAdjustment: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyRelativeVolumeAdjustment2")
+	@(link_name="AVMetadataID3MetadataKeyRelativeVolumeAdjustment2")
 	MetadataID3MetadataKeyRelativeVolumeAdjustment2: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyReverb")
+	@(link_name="AVMetadataID3MetadataKeyReverb")
 	MetadataID3MetadataKeyReverb: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeySeek")
+	@(link_name="AVMetadataID3MetadataKeySeek")
 	MetadataID3MetadataKeySeek: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeySignature")
+	@(link_name="AVMetadataID3MetadataKeySignature")
 	MetadataID3MetadataKeySignature: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeySynchronizedLyric")
+	@(link_name="AVMetadataID3MetadataKeySynchronizedLyric")
 	MetadataID3MetadataKeySynchronizedLyric: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeySynchronizedTempoCodes")
+	@(link_name="AVMetadataID3MetadataKeySynchronizedTempoCodes")
 	MetadataID3MetadataKeySynchronizedTempoCodes: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyAlbumTitle")
+	@(link_name="AVMetadataID3MetadataKeyAlbumTitle")
 	MetadataID3MetadataKeyAlbumTitle: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyBeatsPerMinute")
+	@(link_name="AVMetadataID3MetadataKeyBeatsPerMinute")
 	MetadataID3MetadataKeyBeatsPerMinute: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyComposer")
+	@(link_name="AVMetadataID3MetadataKeyComposer")
 	MetadataID3MetadataKeyComposer: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyContentType")
+	@(link_name="AVMetadataID3MetadataKeyContentType")
 	MetadataID3MetadataKeyContentType: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyCopyright")
+	@(link_name="AVMetadataID3MetadataKeyCopyright")
 	MetadataID3MetadataKeyCopyright: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyDate")
+	@(link_name="AVMetadataID3MetadataKeyDate")
 	MetadataID3MetadataKeyDate: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyEncodingTime")
+	@(link_name="AVMetadataID3MetadataKeyEncodingTime")
 	MetadataID3MetadataKeyEncodingTime: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyPlaylistDelay")
+	@(link_name="AVMetadataID3MetadataKeyPlaylistDelay")
 	MetadataID3MetadataKeyPlaylistDelay: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyOriginalReleaseTime")
+	@(link_name="AVMetadataID3MetadataKeyOriginalReleaseTime")
 	MetadataID3MetadataKeyOriginalReleaseTime: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyRecordingTime")
+	@(link_name="AVMetadataID3MetadataKeyRecordingTime")
 	MetadataID3MetadataKeyRecordingTime: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyReleaseTime")
+	@(link_name="AVMetadataID3MetadataKeyReleaseTime")
 	MetadataID3MetadataKeyReleaseTime: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyTaggingTime")
+	@(link_name="AVMetadataID3MetadataKeyTaggingTime")
 	MetadataID3MetadataKeyTaggingTime: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyEncodedBy")
+	@(link_name="AVMetadataID3MetadataKeyEncodedBy")
 	MetadataID3MetadataKeyEncodedBy: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyLyricist")
+	@(link_name="AVMetadataID3MetadataKeyLyricist")
 	MetadataID3MetadataKeyLyricist: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyFileType")
+	@(link_name="AVMetadataID3MetadataKeyFileType")
 	MetadataID3MetadataKeyFileType: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyTime")
+	@(link_name="AVMetadataID3MetadataKeyTime")
 	MetadataID3MetadataKeyTime: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyInvolvedPeopleList_v24")
+	@(link_name="AVMetadataID3MetadataKeyInvolvedPeopleList_v24")
 	MetadataID3MetadataKeyInvolvedPeopleList_v24: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyContentGroupDescription")
+	@(link_name="AVMetadataID3MetadataKeyContentGroupDescription")
 	MetadataID3MetadataKeyContentGroupDescription: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyTitleDescription")
+	@(link_name="AVMetadataID3MetadataKeyTitleDescription")
 	MetadataID3MetadataKeyTitleDescription: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeySubTitle")
+	@(link_name="AVMetadataID3MetadataKeySubTitle")
 	MetadataID3MetadataKeySubTitle: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyInitialKey")
+	@(link_name="AVMetadataID3MetadataKeyInitialKey")
 	MetadataID3MetadataKeyInitialKey: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyLanguage")
+	@(link_name="AVMetadataID3MetadataKeyLanguage")
 	MetadataID3MetadataKeyLanguage: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyLength")
+	@(link_name="AVMetadataID3MetadataKeyLength")
 	MetadataID3MetadataKeyLength: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyMusicianCreditsList")
+	@(link_name="AVMetadataID3MetadataKeyMusicianCreditsList")
 	MetadataID3MetadataKeyMusicianCreditsList: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyMediaType")
+	@(link_name="AVMetadataID3MetadataKeyMediaType")
 	MetadataID3MetadataKeyMediaType: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyMood")
+	@(link_name="AVMetadataID3MetadataKeyMood")
 	MetadataID3MetadataKeyMood: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyOriginalAlbumTitle")
+	@(link_name="AVMetadataID3MetadataKeyOriginalAlbumTitle")
 	MetadataID3MetadataKeyOriginalAlbumTitle: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyOriginalFilename")
+	@(link_name="AVMetadataID3MetadataKeyOriginalFilename")
 	MetadataID3MetadataKeyOriginalFilename: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyOriginalLyricist")
+	@(link_name="AVMetadataID3MetadataKeyOriginalLyricist")
 	MetadataID3MetadataKeyOriginalLyricist: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyOriginalArtist")
+	@(link_name="AVMetadataID3MetadataKeyOriginalArtist")
 	MetadataID3MetadataKeyOriginalArtist: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyOriginalReleaseYear")
+	@(link_name="AVMetadataID3MetadataKeyOriginalReleaseYear")
 	MetadataID3MetadataKeyOriginalReleaseYear: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyFileOwner")
+	@(link_name="AVMetadataID3MetadataKeyFileOwner")
 	MetadataID3MetadataKeyFileOwner: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyLeadPerformer")
+	@(link_name="AVMetadataID3MetadataKeyLeadPerformer")
 	MetadataID3MetadataKeyLeadPerformer: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyBand")
+	@(link_name="AVMetadataID3MetadataKeyBand")
 	MetadataID3MetadataKeyBand: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyConductor")
+	@(link_name="AVMetadataID3MetadataKeyConductor")
 	MetadataID3MetadataKeyConductor: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyModifiedBy")
+	@(link_name="AVMetadataID3MetadataKeyModifiedBy")
 	MetadataID3MetadataKeyModifiedBy: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyPartOfASet")
+	@(link_name="AVMetadataID3MetadataKeyPartOfASet")
 	MetadataID3MetadataKeyPartOfASet: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyProducedNotice")
+	@(link_name="AVMetadataID3MetadataKeyProducedNotice")
 	MetadataID3MetadataKeyProducedNotice: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyPublisher")
+	@(link_name="AVMetadataID3MetadataKeyPublisher")
 	MetadataID3MetadataKeyPublisher: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyTrackNumber")
+	@(link_name="AVMetadataID3MetadataKeyTrackNumber")
 	MetadataID3MetadataKeyTrackNumber: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyRecordingDates")
+	@(link_name="AVMetadataID3MetadataKeyRecordingDates")
 	MetadataID3MetadataKeyRecordingDates: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyInternetRadioStationName")
+	@(link_name="AVMetadataID3MetadataKeyInternetRadioStationName")
 	MetadataID3MetadataKeyInternetRadioStationName: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyInternetRadioStationOwner")
+	@(link_name="AVMetadataID3MetadataKeyInternetRadioStationOwner")
 	MetadataID3MetadataKeyInternetRadioStationOwner: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeySize")
+	@(link_name="AVMetadataID3MetadataKeySize")
 	MetadataID3MetadataKeySize: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyAlbumSortOrder")
+	@(link_name="AVMetadataID3MetadataKeyAlbumSortOrder")
 	MetadataID3MetadataKeyAlbumSortOrder: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyPerformerSortOrder")
+	@(link_name="AVMetadataID3MetadataKeyPerformerSortOrder")
 	MetadataID3MetadataKeyPerformerSortOrder: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyTitleSortOrder")
+	@(link_name="AVMetadataID3MetadataKeyTitleSortOrder")
 	MetadataID3MetadataKeyTitleSortOrder: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyInternationalStandardRecordingCode")
+	@(link_name="AVMetadataID3MetadataKeyInternationalStandardRecordingCode")
 	MetadataID3MetadataKeyInternationalStandardRecordingCode: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyEncodedWith")
+	@(link_name="AVMetadataID3MetadataKeyEncodedWith")
 	MetadataID3MetadataKeyEncodedWith: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeySetSubtitle")
+	@(link_name="AVMetadataID3MetadataKeySetSubtitle")
 	MetadataID3MetadataKeySetSubtitle: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyYear")
+	@(link_name="AVMetadataID3MetadataKeyYear")
 	MetadataID3MetadataKeyYear: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyUserText")
+	@(link_name="AVMetadataID3MetadataKeyUserText")
 	MetadataID3MetadataKeyUserText: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyUniqueFileIdentifier")
+	@(link_name="AVMetadataID3MetadataKeyUniqueFileIdentifier")
 	MetadataID3MetadataKeyUniqueFileIdentifier: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyTermsOfUse")
+	@(link_name="AVMetadataID3MetadataKeyTermsOfUse")
 	MetadataID3MetadataKeyTermsOfUse: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyUnsynchronizedLyric")
+	@(link_name="AVMetadataID3MetadataKeyUnsynchronizedLyric")
 	MetadataID3MetadataKeyUnsynchronizedLyric: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyCommercialInformation")
+	@(link_name="AVMetadataID3MetadataKeyCommercialInformation")
 	MetadataID3MetadataKeyCommercialInformation: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyCopyrightInformation")
+	@(link_name="AVMetadataID3MetadataKeyCopyrightInformation")
 	MetadataID3MetadataKeyCopyrightInformation: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyOfficialAudioFileWebpage")
+	@(link_name="AVMetadataID3MetadataKeyOfficialAudioFileWebpage")
 	MetadataID3MetadataKeyOfficialAudioFileWebpage: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyOfficialArtistWebpage")
+	@(link_name="AVMetadataID3MetadataKeyOfficialArtistWebpage")
 	MetadataID3MetadataKeyOfficialArtistWebpage: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyOfficialAudioSourceWebpage")
+	@(link_name="AVMetadataID3MetadataKeyOfficialAudioSourceWebpage")
 	MetadataID3MetadataKeyOfficialAudioSourceWebpage: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyOfficialInternetRadioStationHomepage")
+	@(link_name="AVMetadataID3MetadataKeyOfficialInternetRadioStationHomepage")
 	MetadataID3MetadataKeyOfficialInternetRadioStationHomepage: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyPayment")
+	@(link_name="AVMetadataID3MetadataKeyPayment")
 	MetadataID3MetadataKeyPayment: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyOfficialPublisherWebpage")
+	@(link_name="AVMetadataID3MetadataKeyOfficialPublisherWebpage")
 	MetadataID3MetadataKeyOfficialPublisherWebpage: ^NS.String
 
-	@(link_name = "AVMetadataID3MetadataKeyUserURL")
+	@(link_name="AVMetadataID3MetadataKeyUserURL")
 	MetadataID3MetadataKeyUserURL: ^NS.String
 
-	@(link_name = "AVMetadataKeySpaceIcy")
+	@(link_name="AVMetadataKeySpaceIcy")
 	MetadataKeySpaceIcy: ^NS.String
 
-	@(link_name = "AVMetadataIcyMetadataKeyStreamTitle")
+	@(link_name="AVMetadataIcyMetadataKeyStreamTitle")
 	MetadataIcyMetadataKeyStreamTitle: ^NS.String
 
-	@(link_name = "AVMetadataIcyMetadataKeyStreamURL")
+	@(link_name="AVMetadataIcyMetadataKeyStreamURL")
 	MetadataIcyMetadataKeyStreamURL: ^NS.String
 
-	@(link_name = "AVMetadataFormatHLSMetadata")
+	@(link_name="AVMetadataFormatHLSMetadata")
 	MetadataFormatHLSMetadata: ^NS.String
 
-	@(link_name = "AVMetadataKeySpaceHLSDateRange")
+	@(link_name="AVMetadataKeySpaceHLSDateRange")
 	MetadataKeySpaceHLSDateRange: ^NS.String
 
-	@(link_name = "AVMetadataKeySpaceAudioFile")
+	@(link_name="AVMetadataKeySpaceAudioFile")
 	MetadataKeySpaceAudioFile: ^NS.String
 
-	@(link_name = "AVMetadataFormatUnknown")
+	@(link_name="AVMetadataFormatUnknown")
 	MetadataFormatUnknown: ^NS.String
 
-	@(link_name = "AVMetadataExtraAttributeValueURIKey")
+	@(link_name="AVMetadataExtraAttributeValueURIKey")
 	MetadataExtraAttributeValueURIKey: ^NS.String
 
-	@(link_name = "AVMetadataExtraAttributeBaseURIKey")
+	@(link_name="AVMetadataExtraAttributeBaseURIKey")
 	MetadataExtraAttributeBaseURIKey: ^NS.String
 
-	@(link_name = "AVMetadataExtraAttributeInfoKey")
+	@(link_name="AVMetadataExtraAttributeInfoKey")
 	MetadataExtraAttributeInfoKey: ^NS.String
 
-	@(link_name = "AVVideoCodecKey")
+	@(link_name="AVVideoCodecKey")
 	VideoCodecKey: ^NS.String
 
-	@(link_name = "AVVideoCodecTypeHEVC")
+	@(link_name="AVVideoCodecTypeHEVC")
 	VideoCodecTypeHEVC: ^NS.String
 
-	@(link_name = "AVVideoCodecTypeH264")
+	@(link_name="AVVideoCodecTypeH264")
 	VideoCodecTypeH264: ^NS.String
 
-	@(link_name = "AVVideoCodecTypeJPEG")
+	@(link_name="AVVideoCodecTypeJPEG")
 	VideoCodecTypeJPEG: ^NS.String
 
-	@(link_name = "AVVideoCodecTypeJPEGXL")
+	@(link_name="AVVideoCodecTypeJPEGXL")
 	VideoCodecTypeJPEGXL: ^NS.String
 
-	@(link_name = "AVVideoCodecTypeAppleProRes4444")
+	@(link_name="AVVideoCodecTypeAppleProRes4444")
 	VideoCodecTypeAppleProRes4444: ^NS.String
 
-	@(link_name = "AVVideoCodecTypeAppleProRes4444XQ")
+	@(link_name="AVVideoCodecTypeAppleProRes4444XQ")
 	VideoCodecTypeAppleProRes4444XQ: ^NS.String
 
-	@(link_name = "AVVideoCodecTypeAppleProRes422")
+	@(link_name="AVVideoCodecTypeAppleProRes422")
 	VideoCodecTypeAppleProRes422: ^NS.String
 
-	@(link_name = "AVVideoCodecTypeAppleProRes422HQ")
+	@(link_name="AVVideoCodecTypeAppleProRes422HQ")
 	VideoCodecTypeAppleProRes422HQ: ^NS.String
 
-	@(link_name = "AVVideoCodecTypeAppleProRes422LT")
+	@(link_name="AVVideoCodecTypeAppleProRes422LT")
 	VideoCodecTypeAppleProRes422LT: ^NS.String
 
-	@(link_name = "AVVideoCodecTypeAppleProRes422Proxy")
+	@(link_name="AVVideoCodecTypeAppleProRes422Proxy")
 	VideoCodecTypeAppleProRes422Proxy: ^NS.String
 
-	@(link_name = "AVVideoCodecTypeAppleProResRAW")
+	@(link_name="AVVideoCodecTypeAppleProResRAW")
 	VideoCodecTypeAppleProResRAW: ^NS.String
 
-	@(link_name = "AVVideoCodecTypeAppleProResRAWHQ")
+	@(link_name="AVVideoCodecTypeAppleProResRAWHQ")
 	VideoCodecTypeAppleProResRAWHQ: ^NS.String
 
-	@(link_name = "AVVideoCodecTypeHEVCWithAlpha")
+	@(link_name="AVVideoCodecTypeHEVCWithAlpha")
 	VideoCodecTypeHEVCWithAlpha: ^NS.String
 
-	@(link_name = "AVVideoCodecHEVC")
+	@(link_name="AVVideoCodecHEVC")
 	VideoCodecHEVC: ^NS.String
 
-	@(link_name = "AVVideoCodecH264")
+	@(link_name="AVVideoCodecH264")
 	VideoCodecH264: ^NS.String
 
-	@(link_name = "AVVideoCodecJPEG")
+	@(link_name="AVVideoCodecJPEG")
 	VideoCodecJPEG: ^NS.String
 
-	@(link_name = "AVVideoCodecAppleProRes4444")
+	@(link_name="AVVideoCodecAppleProRes4444")
 	VideoCodecAppleProRes4444: ^NS.String
 
-	@(link_name = "AVVideoCodecAppleProRes422")
+	@(link_name="AVVideoCodecAppleProRes422")
 	VideoCodecAppleProRes422: ^NS.String
 
-	@(link_name = "AVVideoWidthKey")
+	@(link_name="AVVideoWidthKey")
 	VideoWidthKey: ^NS.String
 
-	@(link_name = "AVVideoHeightKey")
+	@(link_name="AVVideoHeightKey")
 	VideoHeightKey: ^NS.String
 
-	@(link_name = "AVVideoPixelAspectRatioKey")
+	@(link_name="AVVideoPixelAspectRatioKey")
 	VideoPixelAspectRatioKey: ^NS.String
 
-	@(link_name = "AVVideoPixelAspectRatioHorizontalSpacingKey")
+	@(link_name="AVVideoPixelAspectRatioHorizontalSpacingKey")
 	VideoPixelAspectRatioHorizontalSpacingKey: ^NS.String
 
-	@(link_name = "AVVideoPixelAspectRatioVerticalSpacingKey")
+	@(link_name="AVVideoPixelAspectRatioVerticalSpacingKey")
 	VideoPixelAspectRatioVerticalSpacingKey: ^NS.String
 
-	@(link_name = "AVVideoCleanApertureKey")
+	@(link_name="AVVideoCleanApertureKey")
 	VideoCleanApertureKey: ^NS.String
 
-	@(link_name = "AVVideoCleanApertureWidthKey")
+	@(link_name="AVVideoCleanApertureWidthKey")
 	VideoCleanApertureWidthKey: ^NS.String
 
-	@(link_name = "AVVideoCleanApertureHeightKey")
+	@(link_name="AVVideoCleanApertureHeightKey")
 	VideoCleanApertureHeightKey: ^NS.String
 
-	@(link_name = "AVVideoCleanApertureHorizontalOffsetKey")
+	@(link_name="AVVideoCleanApertureHorizontalOffsetKey")
 	VideoCleanApertureHorizontalOffsetKey: ^NS.String
 
-	@(link_name = "AVVideoCleanApertureVerticalOffsetKey")
+	@(link_name="AVVideoCleanApertureVerticalOffsetKey")
 	VideoCleanApertureVerticalOffsetKey: ^NS.String
 
-	@(link_name = "AVVideoScalingModeKey")
+	@(link_name="AVVideoScalingModeKey")
 	VideoScalingModeKey: ^NS.String
 
-	@(link_name = "AVVideoScalingModeFit")
+	@(link_name="AVVideoScalingModeFit")
 	VideoScalingModeFit: ^NS.String
 
-	@(link_name = "AVVideoScalingModeResize")
+	@(link_name="AVVideoScalingModeResize")
 	VideoScalingModeResize: ^NS.String
 
-	@(link_name = "AVVideoScalingModeResizeAspect")
+	@(link_name="AVVideoScalingModeResizeAspect")
 	VideoScalingModeResizeAspect: ^NS.String
 
-	@(link_name = "AVVideoScalingModeResizeAspectFill")
+	@(link_name="AVVideoScalingModeResizeAspectFill")
 	VideoScalingModeResizeAspectFill: ^NS.String
 
-	@(link_name = "AVVideoColorPropertiesKey")
+	@(link_name="AVVideoColorPropertiesKey")
 	VideoColorPropertiesKey: ^NS.String
 
-	@(link_name = "AVVideoColorPrimariesKey")
+	@(link_name="AVVideoColorPrimariesKey")
 	VideoColorPrimariesKey: ^NS.String
 
-	@(link_name = "AVVideoColorPrimaries_ITU_R_709_2")
+	@(link_name="AVVideoColorPrimaries_ITU_R_709_2")
 	VideoColorPrimaries_ITU_R_709_2: ^NS.String
 
-	@(link_name = "AVVideoColorPrimaries_EBU_3213")
+	@(link_name="AVVideoColorPrimaries_EBU_3213")
 	VideoColorPrimaries_EBU_3213: ^NS.String
 
-	@(link_name = "AVVideoColorPrimaries_SMPTE_C")
+	@(link_name="AVVideoColorPrimaries_SMPTE_C")
 	VideoColorPrimaries_SMPTE_C: ^NS.String
 
-	@(link_name = "AVVideoColorPrimaries_P3_D65")
+	@(link_name="AVVideoColorPrimaries_P3_D65")
 	VideoColorPrimaries_P3_D65: ^NS.String
 
-	@(link_name = "AVVideoColorPrimaries_ITU_R_2020")
+	@(link_name="AVVideoColorPrimaries_ITU_R_2020")
 	VideoColorPrimaries_ITU_R_2020: ^NS.String
 
-	@(link_name = "AVVideoTransferFunctionKey")
+	@(link_name="AVVideoTransferFunctionKey")
 	VideoTransferFunctionKey: ^NS.String
 
-	@(link_name = "AVVideoTransferFunction_ITU_R_709_2")
+	@(link_name="AVVideoTransferFunction_ITU_R_709_2")
 	VideoTransferFunction_ITU_R_709_2: ^NS.String
 
-	@(link_name = "AVVideoTransferFunction_SMPTE_240M_1995")
+	@(link_name="AVVideoTransferFunction_SMPTE_240M_1995")
 	VideoTransferFunction_SMPTE_240M_1995: ^NS.String
 
-	@(link_name = "AVVideoTransferFunction_SMPTE_ST_2084_PQ")
+	@(link_name="AVVideoTransferFunction_SMPTE_ST_2084_PQ")
 	VideoTransferFunction_SMPTE_ST_2084_PQ: ^NS.String
 
-	@(link_name = "AVVideoTransferFunction_ITU_R_2100_HLG")
+	@(link_name="AVVideoTransferFunction_ITU_R_2100_HLG")
 	VideoTransferFunction_ITU_R_2100_HLG: ^NS.String
 
-	@(link_name = "AVVideoTransferFunction_Linear")
+	@(link_name="AVVideoTransferFunction_Linear")
 	VideoTransferFunction_Linear: ^NS.String
 
-	@(link_name = "AVVideoTransferFunction_IEC_sRGB")
+	@(link_name="AVVideoTransferFunction_IEC_sRGB")
 	VideoTransferFunction_IEC_sRGB: ^NS.String
 
-	@(link_name = "AVVideoYCbCrMatrixKey")
+	@(link_name="AVVideoYCbCrMatrixKey")
 	VideoYCbCrMatrixKey: ^NS.String
 
-	@(link_name = "AVVideoYCbCrMatrix_ITU_R_709_2")
+	@(link_name="AVVideoYCbCrMatrix_ITU_R_709_2")
 	VideoYCbCrMatrix_ITU_R_709_2: ^NS.String
 
-	@(link_name = "AVVideoYCbCrMatrix_ITU_R_601_4")
+	@(link_name="AVVideoYCbCrMatrix_ITU_R_601_4")
 	VideoYCbCrMatrix_ITU_R_601_4: ^NS.String
 
-	@(link_name = "AVVideoYCbCrMatrix_SMPTE_240M_1995")
+	@(link_name="AVVideoYCbCrMatrix_SMPTE_240M_1995")
 	VideoYCbCrMatrix_SMPTE_240M_1995: ^NS.String
 
-	@(link_name = "AVVideoYCbCrMatrix_ITU_R_2020")
+	@(link_name="AVVideoYCbCrMatrix_ITU_R_2020")
 	VideoYCbCrMatrix_ITU_R_2020: ^NS.String
 
-	@(link_name = "AVVideoAllowWideColorKey")
+	@(link_name="AVVideoAllowWideColorKey")
 	VideoAllowWideColorKey: ^NS.String
 
-	@(link_name = "AVVideoCompressionPropertiesKey")
+	@(link_name="AVVideoCompressionPropertiesKey")
 	VideoCompressionPropertiesKey: ^NS.String
 
-	@(link_name = "AVVideoAverageBitRateKey")
+	@(link_name="AVVideoAverageBitRateKey")
 	VideoAverageBitRateKey: ^NS.String
 
-	@(link_name = "AVVideoQualityKey")
+	@(link_name="AVVideoQualityKey")
 	VideoQualityKey: ^NS.String
 
-	@(link_name = "AVVideoMaxKeyFrameIntervalKey")
+	@(link_name="AVVideoMaxKeyFrameIntervalKey")
 	VideoMaxKeyFrameIntervalKey: ^NS.String
 
-	@(link_name = "AVVideoMaxKeyFrameIntervalDurationKey")
+	@(link_name="AVVideoMaxKeyFrameIntervalDurationKey")
 	VideoMaxKeyFrameIntervalDurationKey: ^NS.String
 
-	@(link_name = "AVVideoAppleProRAWBitDepthKey")
+	@(link_name="AVVideoAppleProRAWBitDepthKey")
 	VideoAppleProRAWBitDepthKey: ^NS.String
 
-	@(link_name = "AVVideoAllowFrameReorderingKey")
+	@(link_name="AVVideoAllowFrameReorderingKey")
 	VideoAllowFrameReorderingKey: ^NS.String
 
-	@(link_name = "AVVideoProfileLevelKey")
+	@(link_name="AVVideoProfileLevelKey")
 	VideoProfileLevelKey: ^NS.String
 
-	@(link_name = "AVVideoProfileLevelH264Baseline30")
+	@(link_name="AVVideoProfileLevelH264Baseline30")
 	VideoProfileLevelH264Baseline30: ^NS.String
 
-	@(link_name = "AVVideoProfileLevelH264Baseline31")
+	@(link_name="AVVideoProfileLevelH264Baseline31")
 	VideoProfileLevelH264Baseline31: ^NS.String
 
-	@(link_name = "AVVideoProfileLevelH264Baseline41")
+	@(link_name="AVVideoProfileLevelH264Baseline41")
 	VideoProfileLevelH264Baseline41: ^NS.String
 
-	@(link_name = "AVVideoProfileLevelH264BaselineAutoLevel")
+	@(link_name="AVVideoProfileLevelH264BaselineAutoLevel")
 	VideoProfileLevelH264BaselineAutoLevel: ^NS.String
 
-	@(link_name = "AVVideoProfileLevelH264Main30")
+	@(link_name="AVVideoProfileLevelH264Main30")
 	VideoProfileLevelH264Main30: ^NS.String
 
-	@(link_name = "AVVideoProfileLevelH264Main31")
+	@(link_name="AVVideoProfileLevelH264Main31")
 	VideoProfileLevelH264Main31: ^NS.String
 
-	@(link_name = "AVVideoProfileLevelH264Main32")
+	@(link_name="AVVideoProfileLevelH264Main32")
 	VideoProfileLevelH264Main32: ^NS.String
 
-	@(link_name = "AVVideoProfileLevelH264Main41")
+	@(link_name="AVVideoProfileLevelH264Main41")
 	VideoProfileLevelH264Main41: ^NS.String
 
-	@(link_name = "AVVideoProfileLevelH264MainAutoLevel")
+	@(link_name="AVVideoProfileLevelH264MainAutoLevel")
 	VideoProfileLevelH264MainAutoLevel: ^NS.String
 
-	@(link_name = "AVVideoProfileLevelH264High40")
+	@(link_name="AVVideoProfileLevelH264High40")
 	VideoProfileLevelH264High40: ^NS.String
 
-	@(link_name = "AVVideoProfileLevelH264High41")
+	@(link_name="AVVideoProfileLevelH264High41")
 	VideoProfileLevelH264High41: ^NS.String
 
-	@(link_name = "AVVideoProfileLevelH264HighAutoLevel")
+	@(link_name="AVVideoProfileLevelH264HighAutoLevel")
 	VideoProfileLevelH264HighAutoLevel: ^NS.String
 
-	@(link_name = "AVVideoH264EntropyModeKey")
+	@(link_name="AVVideoH264EntropyModeKey")
 	VideoH264EntropyModeKey: ^NS.String
 
-	@(link_name = "AVVideoH264EntropyModeCAVLC")
+	@(link_name="AVVideoH264EntropyModeCAVLC")
 	VideoH264EntropyModeCAVLC: ^NS.String
 
-	@(link_name = "AVVideoH264EntropyModeCABAC")
+	@(link_name="AVVideoH264EntropyModeCABAC")
 	VideoH264EntropyModeCABAC: ^NS.String
 
-	@(link_name = "AVVideoExpectedSourceFrameRateKey")
+	@(link_name="AVVideoExpectedSourceFrameRateKey")
 	VideoExpectedSourceFrameRateKey: ^NS.String
 
-	@(link_name = "AVVideoAverageNonDroppableFrameRateKey")
+	@(link_name="AVVideoAverageNonDroppableFrameRateKey")
 	VideoAverageNonDroppableFrameRateKey: ^NS.String
 
-	@(link_name = "AVVideoDecompressionPropertiesKey")
+	@(link_name="AVVideoDecompressionPropertiesKey")
 	VideoDecompressionPropertiesKey: ^NS.String
 
-	@(link_name = "AVVideoEncoderSpecificationKey")
+	@(link_name="AVVideoEncoderSpecificationKey")
 	VideoEncoderSpecificationKey: ^NS.String
 
-	@(link_name = "AVVideoApertureModeCleanAperture")
+	@(link_name="AVVideoApertureModeCleanAperture")
 	VideoApertureModeCleanAperture: ^NS.String
 
-	@(link_name = "AVVideoApertureModeProductionAperture")
+	@(link_name="AVVideoApertureModeProductionAperture")
 	VideoApertureModeProductionAperture: ^NS.String
 
-	@(link_name = "AVVideoApertureModeEncodedPixels")
+	@(link_name="AVVideoApertureModeEncodedPixels")
 	VideoApertureModeEncodedPixels: ^NS.String
 
-	@(link_name = "AVURLAssetPreferPreciseDurationAndTimingKey")
+	@(link_name="AVURLAssetPreferPreciseDurationAndTimingKey")
 	URLAssetPreferPreciseDurationAndTimingKey: ^NS.String
 
-	@(link_name = "AVURLAssetOverrideMIMETypeKey")
+	@(link_name="AVURLAssetOverrideMIMETypeKey")
 	URLAssetOverrideMIMETypeKey: ^NS.String
 
-	@(link_name = "AVURLAssetReferenceRestrictionsKey")
+	@(link_name="AVURLAssetReferenceRestrictionsKey")
 	URLAssetReferenceRestrictionsKey: ^NS.String
 
-	@(link_name = "AVURLAssetHTTPCookiesKey")
+	@(link_name="AVURLAssetHTTPCookiesKey")
 	URLAssetHTTPCookiesKey: ^NS.String
 
-	@(link_name = "AVURLAssetAllowsCellularAccessKey")
+	@(link_name="AVURLAssetAllowsCellularAccessKey")
 	URLAssetAllowsCellularAccessKey: ^NS.String
 
-	@(link_name = "AVURLAssetAllowsExpensiveNetworkAccessKey")
+	@(link_name="AVURLAssetAllowsExpensiveNetworkAccessKey")
 	URLAssetAllowsExpensiveNetworkAccessKey: ^NS.String
 
-	@(link_name = "AVURLAssetAllowsConstrainedNetworkAccessKey")
+	@(link_name="AVURLAssetAllowsConstrainedNetworkAccessKey")
 	URLAssetAllowsConstrainedNetworkAccessKey: ^NS.String
 
-	@(link_name = "AVURLAssetShouldSupportAliasDataReferencesKey")
+	@(link_name="AVURLAssetShouldSupportAliasDataReferencesKey")
 	URLAssetShouldSupportAliasDataReferencesKey: ^NS.String
 
-	@(link_name = "AVURLAssetURLRequestAttributionKey")
+	@(link_name="AVURLAssetURLRequestAttributionKey")
 	URLAssetURLRequestAttributionKey: ^NS.String
 
-	@(link_name = "AVURLAssetHTTPUserAgentKey")
+	@(link_name="AVURLAssetHTTPUserAgentKey")
 	URLAssetHTTPUserAgentKey: ^NS.String
 
-	@(link_name = "AVURLAssetPrimarySessionIdentifierKey")
+	@(link_name="AVURLAssetPrimarySessionIdentifierKey")
 	URLAssetPrimarySessionIdentifierKey: ^NS.String
 
-	@(link_name = "AVURLAssetShouldParseExternalSphericalTagsKey")
+	@(link_name="AVURLAssetShouldParseExternalSphericalTagsKey")
 	URLAssetShouldParseExternalSphericalTagsKey: ^NS.String
 
-	@(link_name = "AVAssetDurationDidChangeNotification")
+	@(link_name="AVAssetDurationDidChangeNotification")
 	AssetDurationDidChangeNotification: ^NS.String
 
-	@(link_name = "AVAssetContainsFragmentsDidChangeNotification")
+	@(link_name="AVAssetContainsFragmentsDidChangeNotification")
 	AssetContainsFragmentsDidChangeNotification: ^NS.String
 
-	@(link_name = "AVAssetWasDefragmentedNotification")
+	@(link_name="AVAssetWasDefragmentedNotification")
 	AssetWasDefragmentedNotification: ^NS.String
 
-	@(link_name = "AVAssetChapterMetadataGroupsDidChangeNotification")
+	@(link_name="AVAssetChapterMetadataGroupsDidChangeNotification")
 	AssetChapterMetadataGroupsDidChangeNotification: ^NS.String
 
-	@(link_name = "AVAssetMediaSelectionGroupsDidChangeNotification")
+	@(link_name="AVAssetMediaSelectionGroupsDidChangeNotification")
 	AssetMediaSelectionGroupsDidChangeNotification: ^NS.String
 
-	@(link_name = "AVAudioTimePitchAlgorithmLowQualityZeroLatency")
+	@(link_name="AVAudioTimePitchAlgorithmLowQualityZeroLatency")
 	AudioTimePitchAlgorithmLowQualityZeroLatency: ^NS.String
 
-	@(link_name = "AVAudioTimePitchAlgorithmTimeDomain")
+	@(link_name="AVAudioTimePitchAlgorithmTimeDomain")
 	AudioTimePitchAlgorithmTimeDomain: ^NS.String
 
-	@(link_name = "AVAudioTimePitchAlgorithmSpectral")
+	@(link_name="AVAudioTimePitchAlgorithmSpectral")
 	AudioTimePitchAlgorithmSpectral: ^NS.String
 
-	@(link_name = "AVAudioTimePitchAlgorithmVarispeed")
+	@(link_name="AVAudioTimePitchAlgorithmVarispeed")
 	AudioTimePitchAlgorithmVarispeed: ^NS.String
 
-	@(link_name = "AVAssetExportPresetLowQuality")
+	@(link_name="AVAssetExportPresetLowQuality")
 	AssetExportPresetLowQuality: ^NS.String
 
-	@(link_name = "AVAssetExportPresetMediumQuality")
+	@(link_name="AVAssetExportPresetMediumQuality")
 	AssetExportPresetMediumQuality: ^NS.String
 
-	@(link_name = "AVAssetExportPresetHighestQuality")
+	@(link_name="AVAssetExportPresetHighestQuality")
 	AssetExportPresetHighestQuality: ^NS.String
 
-	@(link_name = "AVAssetExportPresetHEVCHighestQuality")
+	@(link_name="AVAssetExportPresetHEVCHighestQuality")
 	AssetExportPresetHEVCHighestQuality: ^NS.String
 
-	@(link_name = "AVAssetExportPresetHEVCHighestQualityWithAlpha")
+	@(link_name="AVAssetExportPresetHEVCHighestQualityWithAlpha")
 	AssetExportPresetHEVCHighestQualityWithAlpha: ^NS.String
 
-	@(link_name = "AVAssetExportPreset640x480")
+	@(link_name="AVAssetExportPreset640x480")
 	AssetExportPreset640x480: ^NS.String
 
-	@(link_name = "AVAssetExportPreset960x540")
+	@(link_name="AVAssetExportPreset960x540")
 	AssetExportPreset960x540: ^NS.String
 
-	@(link_name = "AVAssetExportPreset1280x720")
+	@(link_name="AVAssetExportPreset1280x720")
 	AssetExportPreset1280x720: ^NS.String
 
-	@(link_name = "AVAssetExportPreset1920x1080")
+	@(link_name="AVAssetExportPreset1920x1080")
 	AssetExportPreset1920x1080: ^NS.String
 
-	@(link_name = "AVAssetExportPreset3840x2160")
+	@(link_name="AVAssetExportPreset3840x2160")
 	AssetExportPreset3840x2160: ^NS.String
 
-	@(link_name = "AVAssetExportPresetHEVC1920x1080")
+	@(link_name="AVAssetExportPresetHEVC1920x1080")
 	AssetExportPresetHEVC1920x1080: ^NS.String
 
-	@(link_name = "AVAssetExportPresetHEVC1920x1080WithAlpha")
+	@(link_name="AVAssetExportPresetHEVC1920x1080WithAlpha")
 	AssetExportPresetHEVC1920x1080WithAlpha: ^NS.String
 
-	@(link_name = "AVAssetExportPresetHEVC3840x2160")
+	@(link_name="AVAssetExportPresetHEVC3840x2160")
 	AssetExportPresetHEVC3840x2160: ^NS.String
 
-	@(link_name = "AVAssetExportPresetHEVC3840x2160WithAlpha")
+	@(link_name="AVAssetExportPresetHEVC3840x2160WithAlpha")
 	AssetExportPresetHEVC3840x2160WithAlpha: ^NS.String
 
-	@(link_name = "AVAssetExportPresetHEVC4320x2160")
+	@(link_name="AVAssetExportPresetHEVC4320x2160")
 	AssetExportPresetHEVC4320x2160: ^NS.String
 
-	@(link_name = "AVAssetExportPresetHEVC7680x4320")
+	@(link_name="AVAssetExportPresetHEVC7680x4320")
 	AssetExportPresetHEVC7680x4320: ^NS.String
 
-	@(link_name = "AVAssetExportPresetMVHEVC960x960")
+	@(link_name="AVAssetExportPresetMVHEVC960x960")
 	AssetExportPresetMVHEVC960x960: ^NS.String
 
-	@(link_name = "AVAssetExportPresetMVHEVC1440x1440")
+	@(link_name="AVAssetExportPresetMVHEVC1440x1440")
 	AssetExportPresetMVHEVC1440x1440: ^NS.String
 
-	@(link_name = "AVAssetExportPresetMVHEVC4320x4320")
+	@(link_name="AVAssetExportPresetMVHEVC4320x4320")
 	AssetExportPresetMVHEVC4320x4320: ^NS.String
 
-	@(link_name = "AVAssetExportPresetMVHEVC7680x7680")
+	@(link_name="AVAssetExportPresetMVHEVC7680x7680")
 	AssetExportPresetMVHEVC7680x7680: ^NS.String
 
-	@(link_name = "AVAssetExportPresetAppleM4A")
+	@(link_name="AVAssetExportPresetAppleM4A")
 	AssetExportPresetAppleM4A: ^NS.String
 
-	@(link_name = "AVAssetExportPresetPassthrough")
+	@(link_name="AVAssetExportPresetPassthrough")
 	AssetExportPresetPassthrough: ^NS.String
 
-	@(link_name = "AVAssetExportPresetAppleProRes422LPCM")
+	@(link_name="AVAssetExportPresetAppleProRes422LPCM")
 	AssetExportPresetAppleProRes422LPCM: ^NS.String
 
-	@(link_name = "AVAssetExportPresetAppleProRes4444LPCM")
+	@(link_name="AVAssetExportPresetAppleProRes4444LPCM")
 	AssetExportPresetAppleProRes4444LPCM: ^NS.String
 
 	when ODIN_PLATFORM_SUBTARGET == .Default {
-		@(link_name = "AVAssetExportPresetAppleM4VCellular")
+		@(link_name="AVAssetExportPresetAppleM4VCellular")
 		AssetExportPresetAppleM4VCellular: ^NS.String
 
-		@(link_name = "AVAssetExportPresetAppleM4ViPod")
+		@(link_name="AVAssetExportPresetAppleM4ViPod")
 		AssetExportPresetAppleM4ViPod: ^NS.String
 
-		@(link_name = "AVAssetExportPresetAppleM4V480pSD")
+		@(link_name="AVAssetExportPresetAppleM4V480pSD")
 		AssetExportPresetAppleM4V480pSD: ^NS.String
 
-		@(link_name = "AVAssetExportPresetAppleM4VAppleTV")
+		@(link_name="AVAssetExportPresetAppleM4VAppleTV")
 		AssetExportPresetAppleM4VAppleTV: ^NS.String
 
-		@(link_name = "AVAssetExportPresetAppleM4VWiFi")
+		@(link_name="AVAssetExportPresetAppleM4VWiFi")
 		AssetExportPresetAppleM4VWiFi: ^NS.String
 
-		@(link_name = "AVAssetExportPresetAppleM4V720pHD")
+		@(link_name="AVAssetExportPresetAppleM4V720pHD")
 		AssetExportPresetAppleM4V720pHD: ^NS.String
 
-		@(link_name = "AVAssetExportPresetAppleM4V1080pHD")
+		@(link_name="AVAssetExportPresetAppleM4V1080pHD")
 		AssetExportPresetAppleM4V1080pHD: ^NS.String
 	}
 
-	@(link_name = "AVAssetImageGeneratorApertureModeCleanAperture")
+	@(link_name="AVAssetImageGeneratorApertureModeCleanAperture")
 	AssetImageGeneratorApertureModeCleanAperture: ^NS.String
 
-	@(link_name = "AVAssetImageGeneratorApertureModeProductionAperture")
+	@(link_name="AVAssetImageGeneratorApertureModeProductionAperture")
 	AssetImageGeneratorApertureModeProductionAperture: ^NS.String
 
-	@(link_name = "AVAssetImageGeneratorApertureModeEncodedPixels")
+	@(link_name="AVAssetImageGeneratorApertureModeEncodedPixels")
 	AssetImageGeneratorApertureModeEncodedPixels: ^NS.String
 
-	@(link_name = "AVAssetImageGeneratorDynamicRangePolicyForceSDR")
+	@(link_name="AVAssetImageGeneratorDynamicRangePolicyForceSDR")
 	AssetImageGeneratorDynamicRangePolicyForceSDR: ^NS.String
 
-	@(link_name = "AVAssetImageGeneratorDynamicRangePolicyMatchSource")
+	@(link_name="AVAssetImageGeneratorDynamicRangePolicyMatchSource")
 	AssetImageGeneratorDynamicRangePolicyMatchSource: ^NS.String
 
-	@(link_name = "AVVideoCompositionPerFrameHDRDisplayMetadataPolicyPropagate")
+	@(link_name="AVVideoCompositionPerFrameHDRDisplayMetadataPolicyPropagate")
 	VideoCompositionPerFrameHDRDisplayMetadataPolicyPropagate: ^NS.String
 
-	@(link_name = "AVVideoCompositionPerFrameHDRDisplayMetadataPolicyGenerate")
+	@(link_name="AVVideoCompositionPerFrameHDRDisplayMetadataPolicyGenerate")
 	VideoCompositionPerFrameHDRDisplayMetadataPolicyGenerate: ^NS.String
 
-	@(link_name = "AVAssetResourceLoadingRequestStreamingContentKeyRequestRequiresPersistentKey")
+	@(link_name="AVAssetResourceLoadingRequestStreamingContentKeyRequestRequiresPersistentKey")
 	AssetResourceLoadingRequestStreamingContentKeyRequestRequiresPersistentKey: ^NS.String
 
-	@(link_name = "AVTrackAssociationTypeAudioFallback")
+	@(link_name="AVTrackAssociationTypeAudioFallback")
 	TrackAssociationTypeAudioFallback: ^NS.String
 
-	@(link_name = "AVTrackAssociationTypeChapterList")
+	@(link_name="AVTrackAssociationTypeChapterList")
 	TrackAssociationTypeChapterList: ^NS.String
 
-	@(link_name = "AVTrackAssociationTypeForcedSubtitlesOnly")
+	@(link_name="AVTrackAssociationTypeForcedSubtitlesOnly")
 	TrackAssociationTypeForcedSubtitlesOnly: ^NS.String
 
-	@(link_name = "AVTrackAssociationTypeSelectionFollower")
+	@(link_name="AVTrackAssociationTypeSelectionFollower")
 	TrackAssociationTypeSelectionFollower: ^NS.String
 
-	@(link_name = "AVTrackAssociationTypeTimecode")
+	@(link_name="AVTrackAssociationTypeTimecode")
 	TrackAssociationTypeTimecode: ^NS.String
 
-	@(link_name = "AVTrackAssociationTypeMetadataReferent")
+	@(link_name="AVTrackAssociationTypeMetadataReferent")
 	TrackAssociationTypeMetadataReferent: ^NS.String
 
-	@(link_name = "AVTrackAssociationTypeRenderMetadataSource")
+	@(link_name="AVTrackAssociationTypeRenderMetadataSource")
 	TrackAssociationTypeRenderMetadataSource: ^NS.String
 
-	@(link_name = "AVAssetTrackTimeRangeDidChangeNotification")
+	@(link_name="AVAssetTrackTimeRangeDidChangeNotification")
 	AssetTrackTimeRangeDidChangeNotification: ^NS.String
 
-	@(link_name = "AVAssetTrackSegmentsDidChangeNotification")
+	@(link_name="AVAssetTrackSegmentsDidChangeNotification")
 	AssetTrackSegmentsDidChangeNotification: ^NS.String
 
-	@(link_name = "AVAssetTrackTrackAssociationsDidChangeNotification")
+	@(link_name="AVAssetTrackTrackAssociationsDidChangeNotification")
 	AssetTrackTrackAssociationsDidChangeNotification: ^NS.String
 
-	@(link_name = "AVAssetWriterInputMediaDataLocationInterleavedWithMainMediaData")
+	@(link_name="AVAssetWriterInputMediaDataLocationInterleavedWithMainMediaData")
 	AssetWriterInputMediaDataLocationInterleavedWithMainMediaData: ^NS.String
 
-	@(link_name = "AVAssetWriterInputMediaDataLocationBeforeMainMediaDataNotInterleaved")
+	@(link_name="AVAssetWriterInputMediaDataLocationBeforeMainMediaDataNotInterleaved")
 	AssetWriterInputMediaDataLocationBeforeMainMediaDataNotInterleaved: ^NS.String
 
-	@(link_name = "AVAssetWriterInputMediaDataLocationSparselyInterleavedWithMainMediaData")
+	@(link_name="AVAssetWriterInputMediaDataLocationSparselyInterleavedWithMainMediaData")
 	AssetWriterInputMediaDataLocationSparselyInterleavedWithMainMediaData: ^NS.String
 
-	@(link_name = "AVAssetPlaybackConfigurationOptionStereoVideo")
+	@(link_name="AVAssetPlaybackConfigurationOptionStereoVideo")
 	AssetPlaybackConfigurationOptionStereoVideo: ^NS.String
 
-	@(link_name = "AVAssetPlaybackConfigurationOptionStereoMultiviewVideo")
+	@(link_name="AVAssetPlaybackConfigurationOptionStereoMultiviewVideo")
 	AssetPlaybackConfigurationOptionStereoMultiviewVideo: ^NS.String
 
-	@(link_name = "AVAssetPlaybackConfigurationOptionSpatialVideo")
+	@(link_name="AVAssetPlaybackConfigurationOptionSpatialVideo")
 	AssetPlaybackConfigurationOptionSpatialVideo: ^NS.String
 
-	@(link_name = "AVAssetPlaybackConfigurationOptionNonRectilinearProjection")
+	@(link_name="AVAssetPlaybackConfigurationOptionNonRectilinearProjection")
 	AssetPlaybackConfigurationOptionNonRectilinearProjection: ^NS.String
 
-	@(link_name = "AVAssetPlaybackConfigurationOptionAppleImmersiveVideo")
+	@(link_name="AVAssetPlaybackConfigurationOptionAppleImmersiveVideo")
 	AssetPlaybackConfigurationOptionAppleImmersiveVideo: ^NS.String
 
-	@(link_name = "AVAssetDownloadTaskMinimumRequiredMediaBitrateKey")
+	@(link_name="AVAssetDownloadTaskMinimumRequiredMediaBitrateKey")
 	AssetDownloadTaskMinimumRequiredMediaBitrateKey: ^NS.String
 
-	@(link_name = "AVAssetDownloadTaskMinimumRequiredPresentationSizeKey")
+	@(link_name="AVAssetDownloadTaskMinimumRequiredPresentationSizeKey")
 	AssetDownloadTaskMinimumRequiredPresentationSizeKey: ^NS.String
 
-	@(link_name = "AVAssetDownloadTaskMediaSelectionKey")
+	@(link_name="AVAssetDownloadTaskMediaSelectionKey")
 	AssetDownloadTaskMediaSelectionKey: ^NS.String
 
-	@(link_name = "AVAssetDownloadTaskMediaSelectionPrefersMultichannelKey")
+	@(link_name="AVAssetDownloadTaskMediaSelectionPrefersMultichannelKey")
 	AssetDownloadTaskMediaSelectionPrefersMultichannelKey: ^NS.String
 
-	@(link_name = "AVAssetDownloadTaskPrefersLosslessAudioKey")
+	@(link_name="AVAssetDownloadTaskPrefersLosslessAudioKey")
 	AssetDownloadTaskPrefersLosslessAudioKey: ^NS.String
 
-	@(link_name = "AVAssetDownloadTaskPrefersHDRKey")
+	@(link_name="AVAssetDownloadTaskPrefersHDRKey")
 	AssetDownloadTaskPrefersHDRKey: ^NS.String
 
-	@(link_name = "AVAssetDownloadedAssetEvictionPriorityImportant")
+	@(link_name="AVAssetDownloadedAssetEvictionPriorityImportant")
 	AssetDownloadedAssetEvictionPriorityImportant: ^NS.String
 
-	@(link_name = "AVAssetDownloadedAssetEvictionPriorityDefault")
+	@(link_name="AVAssetDownloadedAssetEvictionPriorityDefault")
 	AssetDownloadedAssetEvictionPriorityDefault: ^NS.String
 
-	@(link_name = "AVCaptionMediaTypeKey")
+	@(link_name="AVCaptionMediaTypeKey")
 	CaptionMediaTypeKey: ^NS.String
 
-	@(link_name = "AVCaptionMediaSubTypeKey")
+	@(link_name="AVCaptionMediaSubTypeKey")
 	CaptionMediaSubTypeKey: ^NS.String
 
-	@(link_name = "AVCaptionTimeCodeFrameDurationKey")
+	@(link_name="AVCaptionTimeCodeFrameDurationKey")
 	CaptionTimeCodeFrameDurationKey: ^NS.String
 
-	@(link_name = "AVCaptionUseDropFrameTimeCodeKey")
+	@(link_name="AVCaptionUseDropFrameTimeCodeKey")
 	CaptionUseDropFrameTimeCodeKey: ^NS.String
 
-	@(link_name = "AVCaptionConversionWarningTypeExcessMediaData")
+	@(link_name="AVCaptionConversionWarningTypeExcessMediaData")
 	CaptionConversionWarningTypeExcessMediaData: ^NS.String
 
-	@(link_name = "AVCaptionConversionAdjustmentTypeTimeRange")
+	@(link_name="AVCaptionConversionAdjustmentTypeTimeRange")
 	CaptionConversionAdjustmentTypeTimeRange: ^NS.String
 
-	@(link_name = "AVFoundationErrorDomain")
+	@(link_name="AVFoundationErrorDomain")
 	FoundationErrorDomain: ^NS.String
 
-	@(link_name = "AVErrorDeviceKey")
+	@(link_name="AVErrorDeviceKey")
 	ErrorDeviceKey: ^NS.String
 
-	@(link_name = "AVErrorTimeKey")
+	@(link_name="AVErrorTimeKey")
 	ErrorTimeKey: ^NS.String
 
-	@(link_name = "AVErrorFileSizeKey")
+	@(link_name="AVErrorFileSizeKey")
 	ErrorFileSizeKey: ^NS.String
 
-	@(link_name = "AVErrorPIDKey")
+	@(link_name="AVErrorPIDKey")
 	ErrorPIDKey: ^NS.String
 
-	@(link_name = "AVErrorRecordingSuccessfullyFinishedKey")
+	@(link_name="AVErrorRecordingSuccessfullyFinishedKey")
 	ErrorRecordingSuccessfullyFinishedKey: ^NS.String
 
-	@(link_name = "AVErrorMediaTypeKey")
+	@(link_name="AVErrorMediaTypeKey")
 	ErrorMediaTypeKey: ^NS.String
 
-	@(link_name = "AVErrorMediaSubTypeKey")
+	@(link_name="AVErrorMediaSubTypeKey")
 	ErrorMediaSubTypeKey: ^NS.String
 
-	@(link_name = "AVErrorPresentationTimeStampKey")
+	@(link_name="AVErrorPresentationTimeStampKey")
 	ErrorPresentationTimeStampKey: ^NS.String
 
-	@(link_name = "AVErrorPersistentTrackIDKey")
+	@(link_name="AVErrorPersistentTrackIDKey")
 	ErrorPersistentTrackIDKey: ^NS.String
 
-	@(link_name = "AVErrorFileTypeKey")
+	@(link_name="AVErrorFileTypeKey")
 	ErrorFileTypeKey: ^NS.String
 
 	when ODIN_PLATFORM_SUBTARGET == .Default {
-		@(link_name = "AVErrorDiscontinuityFlagsKey")
+		@(link_name="AVErrorDiscontinuityFlagsKey")
 		ErrorDiscontinuityFlagsKey: ^NS.String
 	}
 
-	@(link_name = "AVMetadataCommonIdentifierTitle")
+	@(link_name="AVMetadataCommonIdentifierTitle")
 	MetadataCommonIdentifierTitle: ^NS.String
 
-	@(link_name = "AVMetadataCommonIdentifierCreator")
+	@(link_name="AVMetadataCommonIdentifierCreator")
 	MetadataCommonIdentifierCreator: ^NS.String
 
-	@(link_name = "AVMetadataCommonIdentifierSubject")
+	@(link_name="AVMetadataCommonIdentifierSubject")
 	MetadataCommonIdentifierSubject: ^NS.String
 
-	@(link_name = "AVMetadataCommonIdentifierDescription")
+	@(link_name="AVMetadataCommonIdentifierDescription")
 	MetadataCommonIdentifierDescription: ^NS.String
 
-	@(link_name = "AVMetadataCommonIdentifierPublisher")
+	@(link_name="AVMetadataCommonIdentifierPublisher")
 	MetadataCommonIdentifierPublisher: ^NS.String
 
-	@(link_name = "AVMetadataCommonIdentifierContributor")
+	@(link_name="AVMetadataCommonIdentifierContributor")
 	MetadataCommonIdentifierContributor: ^NS.String
 
-	@(link_name = "AVMetadataCommonIdentifierCreationDate")
+	@(link_name="AVMetadataCommonIdentifierCreationDate")
 	MetadataCommonIdentifierCreationDate: ^NS.String
 
-	@(link_name = "AVMetadataCommonIdentifierLastModifiedDate")
+	@(link_name="AVMetadataCommonIdentifierLastModifiedDate")
 	MetadataCommonIdentifierLastModifiedDate: ^NS.String
 
-	@(link_name = "AVMetadataCommonIdentifierType")
+	@(link_name="AVMetadataCommonIdentifierType")
 	MetadataCommonIdentifierType: ^NS.String
 
-	@(link_name = "AVMetadataCommonIdentifierFormat")
+	@(link_name="AVMetadataCommonIdentifierFormat")
 	MetadataCommonIdentifierFormat: ^NS.String
 
-	@(link_name = "AVMetadataCommonIdentifierAssetIdentifier")
+	@(link_name="AVMetadataCommonIdentifierAssetIdentifier")
 	MetadataCommonIdentifierAssetIdentifier: ^NS.String
 
-	@(link_name = "AVMetadataCommonIdentifierSource")
+	@(link_name="AVMetadataCommonIdentifierSource")
 	MetadataCommonIdentifierSource: ^NS.String
 
-	@(link_name = "AVMetadataCommonIdentifierLanguage")
+	@(link_name="AVMetadataCommonIdentifierLanguage")
 	MetadataCommonIdentifierLanguage: ^NS.String
 
-	@(link_name = "AVMetadataCommonIdentifierRelation")
+	@(link_name="AVMetadataCommonIdentifierRelation")
 	MetadataCommonIdentifierRelation: ^NS.String
 
-	@(link_name = "AVMetadataCommonIdentifierLocation")
+	@(link_name="AVMetadataCommonIdentifierLocation")
 	MetadataCommonIdentifierLocation: ^NS.String
 
-	@(link_name = "AVMetadataCommonIdentifierCopyrights")
+	@(link_name="AVMetadataCommonIdentifierCopyrights")
 	MetadataCommonIdentifierCopyrights: ^NS.String
 
-	@(link_name = "AVMetadataCommonIdentifierAlbumName")
+	@(link_name="AVMetadataCommonIdentifierAlbumName")
 	MetadataCommonIdentifierAlbumName: ^NS.String
 
-	@(link_name = "AVMetadataCommonIdentifierAuthor")
+	@(link_name="AVMetadataCommonIdentifierAuthor")
 	MetadataCommonIdentifierAuthor: ^NS.String
 
-	@(link_name = "AVMetadataCommonIdentifierArtist")
+	@(link_name="AVMetadataCommonIdentifierArtist")
 	MetadataCommonIdentifierArtist: ^NS.String
 
-	@(link_name = "AVMetadataCommonIdentifierArtwork")
+	@(link_name="AVMetadataCommonIdentifierArtwork")
 	MetadataCommonIdentifierArtwork: ^NS.String
 
-	@(link_name = "AVMetadataCommonIdentifierMake")
+	@(link_name="AVMetadataCommonIdentifierMake")
 	MetadataCommonIdentifierMake: ^NS.String
 
-	@(link_name = "AVMetadataCommonIdentifierModel")
+	@(link_name="AVMetadataCommonIdentifierModel")
 	MetadataCommonIdentifierModel: ^NS.String
 
-	@(link_name = "AVMetadataCommonIdentifierSoftware")
+	@(link_name="AVMetadataCommonIdentifierSoftware")
 	MetadataCommonIdentifierSoftware: ^NS.String
 
-	@(link_name = "AVMetadataCommonIdentifierAccessibilityDescription")
+	@(link_name="AVMetadataCommonIdentifierAccessibilityDescription")
 	MetadataCommonIdentifierAccessibilityDescription: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeUserDataAlbum")
+	@(link_name="AVMetadataIdentifierQuickTimeUserDataAlbum")
 	MetadataIdentifierQuickTimeUserDataAlbum: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeUserDataArranger")
+	@(link_name="AVMetadataIdentifierQuickTimeUserDataArranger")
 	MetadataIdentifierQuickTimeUserDataArranger: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeUserDataArtist")
+	@(link_name="AVMetadataIdentifierQuickTimeUserDataArtist")
 	MetadataIdentifierQuickTimeUserDataArtist: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeUserDataAuthor")
+	@(link_name="AVMetadataIdentifierQuickTimeUserDataAuthor")
 	MetadataIdentifierQuickTimeUserDataAuthor: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeUserDataChapter")
+	@(link_name="AVMetadataIdentifierQuickTimeUserDataChapter")
 	MetadataIdentifierQuickTimeUserDataChapter: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeUserDataComment")
+	@(link_name="AVMetadataIdentifierQuickTimeUserDataComment")
 	MetadataIdentifierQuickTimeUserDataComment: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeUserDataComposer")
+	@(link_name="AVMetadataIdentifierQuickTimeUserDataComposer")
 	MetadataIdentifierQuickTimeUserDataComposer: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeUserDataCopyright")
+	@(link_name="AVMetadataIdentifierQuickTimeUserDataCopyright")
 	MetadataIdentifierQuickTimeUserDataCopyright: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeUserDataCreationDate")
+	@(link_name="AVMetadataIdentifierQuickTimeUserDataCreationDate")
 	MetadataIdentifierQuickTimeUserDataCreationDate: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeUserDataDescription")
+	@(link_name="AVMetadataIdentifierQuickTimeUserDataDescription")
 	MetadataIdentifierQuickTimeUserDataDescription: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeUserDataDirector")
+	@(link_name="AVMetadataIdentifierQuickTimeUserDataDirector")
 	MetadataIdentifierQuickTimeUserDataDirector: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeUserDataDisclaimer")
+	@(link_name="AVMetadataIdentifierQuickTimeUserDataDisclaimer")
 	MetadataIdentifierQuickTimeUserDataDisclaimer: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeUserDataEncodedBy")
+	@(link_name="AVMetadataIdentifierQuickTimeUserDataEncodedBy")
 	MetadataIdentifierQuickTimeUserDataEncodedBy: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeUserDataFullName")
+	@(link_name="AVMetadataIdentifierQuickTimeUserDataFullName")
 	MetadataIdentifierQuickTimeUserDataFullName: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeUserDataGenre")
+	@(link_name="AVMetadataIdentifierQuickTimeUserDataGenre")
 	MetadataIdentifierQuickTimeUserDataGenre: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeUserDataHostComputer")
+	@(link_name="AVMetadataIdentifierQuickTimeUserDataHostComputer")
 	MetadataIdentifierQuickTimeUserDataHostComputer: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeUserDataInformation")
+	@(link_name="AVMetadataIdentifierQuickTimeUserDataInformation")
 	MetadataIdentifierQuickTimeUserDataInformation: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeUserDataKeywords")
+	@(link_name="AVMetadataIdentifierQuickTimeUserDataKeywords")
 	MetadataIdentifierQuickTimeUserDataKeywords: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeUserDataMake")
+	@(link_name="AVMetadataIdentifierQuickTimeUserDataMake")
 	MetadataIdentifierQuickTimeUserDataMake: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeUserDataModel")
+	@(link_name="AVMetadataIdentifierQuickTimeUserDataModel")
 	MetadataIdentifierQuickTimeUserDataModel: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeUserDataOriginalArtist")
+	@(link_name="AVMetadataIdentifierQuickTimeUserDataOriginalArtist")
 	MetadataIdentifierQuickTimeUserDataOriginalArtist: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeUserDataOriginalFormat")
+	@(link_name="AVMetadataIdentifierQuickTimeUserDataOriginalFormat")
 	MetadataIdentifierQuickTimeUserDataOriginalFormat: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeUserDataOriginalSource")
+	@(link_name="AVMetadataIdentifierQuickTimeUserDataOriginalSource")
 	MetadataIdentifierQuickTimeUserDataOriginalSource: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeUserDataPerformers")
+	@(link_name="AVMetadataIdentifierQuickTimeUserDataPerformers")
 	MetadataIdentifierQuickTimeUserDataPerformers: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeUserDataProducer")
+	@(link_name="AVMetadataIdentifierQuickTimeUserDataProducer")
 	MetadataIdentifierQuickTimeUserDataProducer: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeUserDataPublisher")
+	@(link_name="AVMetadataIdentifierQuickTimeUserDataPublisher")
 	MetadataIdentifierQuickTimeUserDataPublisher: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeUserDataProduct")
+	@(link_name="AVMetadataIdentifierQuickTimeUserDataProduct")
 	MetadataIdentifierQuickTimeUserDataProduct: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeUserDataSoftware")
+	@(link_name="AVMetadataIdentifierQuickTimeUserDataSoftware")
 	MetadataIdentifierQuickTimeUserDataSoftware: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeUserDataSpecialPlaybackRequirements")
+	@(link_name="AVMetadataIdentifierQuickTimeUserDataSpecialPlaybackRequirements")
 	MetadataIdentifierQuickTimeUserDataSpecialPlaybackRequirements: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeUserDataTrack")
+	@(link_name="AVMetadataIdentifierQuickTimeUserDataTrack")
 	MetadataIdentifierQuickTimeUserDataTrack: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeUserDataWarning")
+	@(link_name="AVMetadataIdentifierQuickTimeUserDataWarning")
 	MetadataIdentifierQuickTimeUserDataWarning: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeUserDataWriter")
+	@(link_name="AVMetadataIdentifierQuickTimeUserDataWriter")
 	MetadataIdentifierQuickTimeUserDataWriter: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeUserDataURLLink")
+	@(link_name="AVMetadataIdentifierQuickTimeUserDataURLLink")
 	MetadataIdentifierQuickTimeUserDataURLLink: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeUserDataLocationISO6709")
+	@(link_name="AVMetadataIdentifierQuickTimeUserDataLocationISO6709")
 	MetadataIdentifierQuickTimeUserDataLocationISO6709: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeUserDataTrackName")
+	@(link_name="AVMetadataIdentifierQuickTimeUserDataTrackName")
 	MetadataIdentifierQuickTimeUserDataTrackName: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeUserDataCredits")
+	@(link_name="AVMetadataIdentifierQuickTimeUserDataCredits")
 	MetadataIdentifierQuickTimeUserDataCredits: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeUserDataPhonogramRights")
+	@(link_name="AVMetadataIdentifierQuickTimeUserDataPhonogramRights")
 	MetadataIdentifierQuickTimeUserDataPhonogramRights: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeUserDataTaggedCharacteristic")
+	@(link_name="AVMetadataIdentifierQuickTimeUserDataTaggedCharacteristic")
 	MetadataIdentifierQuickTimeUserDataTaggedCharacteristic: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeUserDataAccessibilityDescription")
+	@(link_name="AVMetadataIdentifierQuickTimeUserDataAccessibilityDescription")
 	MetadataIdentifierQuickTimeUserDataAccessibilityDescription: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierISOUserDataCopyright")
+	@(link_name="AVMetadataIdentifierISOUserDataCopyright")
 	MetadataIdentifierISOUserDataCopyright: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierISOUserDataDate")
+	@(link_name="AVMetadataIdentifierISOUserDataDate")
 	MetadataIdentifierISOUserDataDate: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierISOUserDataTaggedCharacteristic")
+	@(link_name="AVMetadataIdentifierISOUserDataTaggedCharacteristic")
 	MetadataIdentifierISOUserDataTaggedCharacteristic: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierISOUserDataAccessibilityDescription")
+	@(link_name="AVMetadataIdentifierISOUserDataAccessibilityDescription")
 	MetadataIdentifierISOUserDataAccessibilityDescription: ^NS.String
 
-	@(link_name = "AVMetadataIdentifier3GPUserDataCopyright")
+	@(link_name="AVMetadataIdentifier3GPUserDataCopyright")
 	MetadataIdentifier3GPUserDataCopyright: ^NS.String
 
-	@(link_name = "AVMetadataIdentifier3GPUserDataAuthor")
+	@(link_name="AVMetadataIdentifier3GPUserDataAuthor")
 	MetadataIdentifier3GPUserDataAuthor: ^NS.String
 
-	@(link_name = "AVMetadataIdentifier3GPUserDataPerformer")
+	@(link_name="AVMetadataIdentifier3GPUserDataPerformer")
 	MetadataIdentifier3GPUserDataPerformer: ^NS.String
 
-	@(link_name = "AVMetadataIdentifier3GPUserDataGenre")
+	@(link_name="AVMetadataIdentifier3GPUserDataGenre")
 	MetadataIdentifier3GPUserDataGenre: ^NS.String
 
-	@(link_name = "AVMetadataIdentifier3GPUserDataRecordingYear")
+	@(link_name="AVMetadataIdentifier3GPUserDataRecordingYear")
 	MetadataIdentifier3GPUserDataRecordingYear: ^NS.String
 
-	@(link_name = "AVMetadataIdentifier3GPUserDataLocation")
+	@(link_name="AVMetadataIdentifier3GPUserDataLocation")
 	MetadataIdentifier3GPUserDataLocation: ^NS.String
 
-	@(link_name = "AVMetadataIdentifier3GPUserDataTitle")
+	@(link_name="AVMetadataIdentifier3GPUserDataTitle")
 	MetadataIdentifier3GPUserDataTitle: ^NS.String
 
-	@(link_name = "AVMetadataIdentifier3GPUserDataDescription")
+	@(link_name="AVMetadataIdentifier3GPUserDataDescription")
 	MetadataIdentifier3GPUserDataDescription: ^NS.String
 
-	@(link_name = "AVMetadataIdentifier3GPUserDataCollection")
+	@(link_name="AVMetadataIdentifier3GPUserDataCollection")
 	MetadataIdentifier3GPUserDataCollection: ^NS.String
 
-	@(link_name = "AVMetadataIdentifier3GPUserDataUserRating")
+	@(link_name="AVMetadataIdentifier3GPUserDataUserRating")
 	MetadataIdentifier3GPUserDataUserRating: ^NS.String
 
-	@(link_name = "AVMetadataIdentifier3GPUserDataThumbnail")
+	@(link_name="AVMetadataIdentifier3GPUserDataThumbnail")
 	MetadataIdentifier3GPUserDataThumbnail: ^NS.String
 
-	@(link_name = "AVMetadataIdentifier3GPUserDataAlbumAndTrack")
+	@(link_name="AVMetadataIdentifier3GPUserDataAlbumAndTrack")
 	MetadataIdentifier3GPUserDataAlbumAndTrack: ^NS.String
 
-	@(link_name = "AVMetadataIdentifier3GPUserDataKeywordList")
+	@(link_name="AVMetadataIdentifier3GPUserDataKeywordList")
 	MetadataIdentifier3GPUserDataKeywordList: ^NS.String
 
-	@(link_name = "AVMetadataIdentifier3GPUserDataMediaClassification")
+	@(link_name="AVMetadataIdentifier3GPUserDataMediaClassification")
 	MetadataIdentifier3GPUserDataMediaClassification: ^NS.String
 
-	@(link_name = "AVMetadataIdentifier3GPUserDataMediaRating")
+	@(link_name="AVMetadataIdentifier3GPUserDataMediaRating")
 	MetadataIdentifier3GPUserDataMediaRating: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataAuthor")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataAuthor")
 	MetadataIdentifierQuickTimeMetadataAuthor: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataComment")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataComment")
 	MetadataIdentifierQuickTimeMetadataComment: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataCopyright")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataCopyright")
 	MetadataIdentifierQuickTimeMetadataCopyright: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataCreationDate")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataCreationDate")
 	MetadataIdentifierQuickTimeMetadataCreationDate: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataDirector")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataDirector")
 	MetadataIdentifierQuickTimeMetadataDirector: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataDisplayName")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataDisplayName")
 	MetadataIdentifierQuickTimeMetadataDisplayName: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataInformation")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataInformation")
 	MetadataIdentifierQuickTimeMetadataInformation: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataKeywords")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataKeywords")
 	MetadataIdentifierQuickTimeMetadataKeywords: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataProducer")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataProducer")
 	MetadataIdentifierQuickTimeMetadataProducer: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataPublisher")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataPublisher")
 	MetadataIdentifierQuickTimeMetadataPublisher: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataAlbum")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataAlbum")
 	MetadataIdentifierQuickTimeMetadataAlbum: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataArtist")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataArtist")
 	MetadataIdentifierQuickTimeMetadataArtist: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataArtwork")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataArtwork")
 	MetadataIdentifierQuickTimeMetadataArtwork: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataDescription")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataDescription")
 	MetadataIdentifierQuickTimeMetadataDescription: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataSoftware")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataSoftware")
 	MetadataIdentifierQuickTimeMetadataSoftware: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataYear")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataYear")
 	MetadataIdentifierQuickTimeMetadataYear: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataGenre")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataGenre")
 	MetadataIdentifierQuickTimeMetadataGenre: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataiXML")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataiXML")
 	MetadataIdentifierQuickTimeMetadataiXML: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataLocationISO6709")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataLocationISO6709")
 	MetadataIdentifierQuickTimeMetadataLocationISO6709: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataMake")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataMake")
 	MetadataIdentifierQuickTimeMetadataMake: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataModel")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataModel")
 	MetadataIdentifierQuickTimeMetadataModel: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataArranger")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataArranger")
 	MetadataIdentifierQuickTimeMetadataArranger: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataEncodedBy")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataEncodedBy")
 	MetadataIdentifierQuickTimeMetadataEncodedBy: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataOriginalArtist")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataOriginalArtist")
 	MetadataIdentifierQuickTimeMetadataOriginalArtist: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataPerformer")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataPerformer")
 	MetadataIdentifierQuickTimeMetadataPerformer: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataComposer")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataComposer")
 	MetadataIdentifierQuickTimeMetadataComposer: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataCredits")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataCredits")
 	MetadataIdentifierQuickTimeMetadataCredits: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataPhonogramRights")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataPhonogramRights")
 	MetadataIdentifierQuickTimeMetadataPhonogramRights: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataCameraIdentifier")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataCameraIdentifier")
 	MetadataIdentifierQuickTimeMetadataCameraIdentifier: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataCameraFrameReadoutTime")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataCameraFrameReadoutTime")
 	MetadataIdentifierQuickTimeMetadataCameraFrameReadoutTime: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataTitle")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataTitle")
 	MetadataIdentifierQuickTimeMetadataTitle: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataCollectionUser")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataCollectionUser")
 	MetadataIdentifierQuickTimeMetadataCollectionUser: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataRatingUser")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataRatingUser")
 	MetadataIdentifierQuickTimeMetadataRatingUser: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataLocationName")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataLocationName")
 	MetadataIdentifierQuickTimeMetadataLocationName: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataLocationBody")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataLocationBody")
 	MetadataIdentifierQuickTimeMetadataLocationBody: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataLocationNote")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataLocationNote")
 	MetadataIdentifierQuickTimeMetadataLocationNote: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataLocationRole")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataLocationRole")
 	MetadataIdentifierQuickTimeMetadataLocationRole: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataLocationDate")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataLocationDate")
 	MetadataIdentifierQuickTimeMetadataLocationDate: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataDirectionFacing")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataDirectionFacing")
 	MetadataIdentifierQuickTimeMetadataDirectionFacing: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataDirectionMotion")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataDirectionMotion")
 	MetadataIdentifierQuickTimeMetadataDirectionMotion: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataPreferredAffineTransform")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataPreferredAffineTransform")
 	MetadataIdentifierQuickTimeMetadataPreferredAffineTransform: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataDetectedFace")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataDetectedFace")
 	MetadataIdentifierQuickTimeMetadataDetectedFace: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataDetectedHumanBody")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataDetectedHumanBody")
 	MetadataIdentifierQuickTimeMetadataDetectedHumanBody: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataDetectedCatBody")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataDetectedCatBody")
 	MetadataIdentifierQuickTimeMetadataDetectedCatBody: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataDetectedDogBody")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataDetectedDogBody")
 	MetadataIdentifierQuickTimeMetadataDetectedDogBody: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataDetectedSalientObject")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataDetectedSalientObject")
 	MetadataIdentifierQuickTimeMetadataDetectedSalientObject: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataVideoOrientation")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataVideoOrientation")
 	MetadataIdentifierQuickTimeMetadataVideoOrientation: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataContentIdentifier")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataContentIdentifier")
 	MetadataIdentifierQuickTimeMetadataContentIdentifier: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataAccessibilityDescription")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataAccessibilityDescription")
 	MetadataIdentifierQuickTimeMetadataAccessibilityDescription: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataIsMontage")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataIsMontage")
 	MetadataIdentifierQuickTimeMetadataIsMontage: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataFullFrameRatePlaybackIntent")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataFullFrameRatePlaybackIntent")
 	MetadataIdentifierQuickTimeMetadataFullFrameRatePlaybackIntent: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataCinematicVideoIntent")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataCinematicVideoIntent")
 	MetadataIdentifierQuickTimeMetadataCinematicVideoIntent: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataCameraISOSensitivity")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataCameraISOSensitivity")
 	MetadataIdentifierQuickTimeMetadataCameraISOSensitivity: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataCameraWhiteBalance")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataCameraWhiteBalance")
 	MetadataIdentifierQuickTimeMetadataCameraWhiteBalance: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataWhiteBalanceByCCTWhiteBalanceFactors")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataWhiteBalanceByCCTWhiteBalanceFactors")
 	MetadataIdentifierQuickTimeMetadataWhiteBalanceByCCTWhiteBalanceFactors: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataWhiteBalanceByCCTColorMatrices")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataWhiteBalanceByCCTColorMatrices")
 	MetadataIdentifierQuickTimeMetadataWhiteBalanceByCCTColorMatrices: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataCameraShutterSpeedAngle")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataCameraShutterSpeedAngle")
 	MetadataIdentifierQuickTimeMetadataCameraShutterSpeedAngle: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataCameraShutterSpeedTime")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataCameraShutterSpeedTime")
 	MetadataIdentifierQuickTimeMetadataCameraShutterSpeedTime: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataCameraLensIrisFNumber")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataCameraLensIrisFNumber")
 	MetadataIdentifierQuickTimeMetadataCameraLensIrisFNumber: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataCameraLensModel")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataCameraLensModel")
 	MetadataIdentifierQuickTimeMetadataCameraLensModel: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataCameraFocalLength35mmEquivalent")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataCameraFocalLength35mmEquivalent")
 	MetadataIdentifierQuickTimeMetadataCameraFocalLength35mmEquivalent: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataAutoLivePhoto")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataAutoLivePhoto")
 	MetadataIdentifierQuickTimeMetadataAutoLivePhoto: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataLivePhotoVitalityScore")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataLivePhotoVitalityScore")
 	MetadataIdentifierQuickTimeMetadataLivePhotoVitalityScore: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataLivePhotoVitalityScoringVersion")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataLivePhotoVitalityScoringVersion")
 	MetadataIdentifierQuickTimeMetadataLivePhotoVitalityScoringVersion: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataSpatialOverCaptureQualityScore")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataSpatialOverCaptureQualityScore")
 	MetadataIdentifierQuickTimeMetadataSpatialOverCaptureQualityScore: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataSpatialOverCaptureQualityScoringVersion")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataSpatialOverCaptureQualityScoringVersion")
 	MetadataIdentifierQuickTimeMetadataSpatialOverCaptureQualityScoringVersion: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataLocationHorizontalAccuracyInMeters")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataLocationHorizontalAccuracyInMeters")
 	MetadataIdentifierQuickTimeMetadataLocationHorizontalAccuracyInMeters: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataAIMEData")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataAIMEData")
 	MetadataIdentifierQuickTimeMetadataAIMEData: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierQuickTimeMetadataPresentationImmersiveMedia")
+	@(link_name="AVMetadataIdentifierQuickTimeMetadataPresentationImmersiveMedia")
 	MetadataIdentifierQuickTimeMetadataPresentationImmersiveMedia: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataAlbum")
+	@(link_name="AVMetadataIdentifieriTunesMetadataAlbum")
 	MetadataIdentifieriTunesMetadataAlbum: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataArtist")
+	@(link_name="AVMetadataIdentifieriTunesMetadataArtist")
 	MetadataIdentifieriTunesMetadataArtist: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataUserComment")
+	@(link_name="AVMetadataIdentifieriTunesMetadataUserComment")
 	MetadataIdentifieriTunesMetadataUserComment: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataCoverArt")
+	@(link_name="AVMetadataIdentifieriTunesMetadataCoverArt")
 	MetadataIdentifieriTunesMetadataCoverArt: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataCopyright")
+	@(link_name="AVMetadataIdentifieriTunesMetadataCopyright")
 	MetadataIdentifieriTunesMetadataCopyright: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataReleaseDate")
+	@(link_name="AVMetadataIdentifieriTunesMetadataReleaseDate")
 	MetadataIdentifieriTunesMetadataReleaseDate: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataEncodedBy")
+	@(link_name="AVMetadataIdentifieriTunesMetadataEncodedBy")
 	MetadataIdentifieriTunesMetadataEncodedBy: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataPredefinedGenre")
+	@(link_name="AVMetadataIdentifieriTunesMetadataPredefinedGenre")
 	MetadataIdentifieriTunesMetadataPredefinedGenre: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataUserGenre")
+	@(link_name="AVMetadataIdentifieriTunesMetadataUserGenre")
 	MetadataIdentifieriTunesMetadataUserGenre: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataSongName")
+	@(link_name="AVMetadataIdentifieriTunesMetadataSongName")
 	MetadataIdentifieriTunesMetadataSongName: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataTrackSubTitle")
+	@(link_name="AVMetadataIdentifieriTunesMetadataTrackSubTitle")
 	MetadataIdentifieriTunesMetadataTrackSubTitle: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataEncodingTool")
+	@(link_name="AVMetadataIdentifieriTunesMetadataEncodingTool")
 	MetadataIdentifieriTunesMetadataEncodingTool: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataComposer")
+	@(link_name="AVMetadataIdentifieriTunesMetadataComposer")
 	MetadataIdentifieriTunesMetadataComposer: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataAlbumArtist")
+	@(link_name="AVMetadataIdentifieriTunesMetadataAlbumArtist")
 	MetadataIdentifieriTunesMetadataAlbumArtist: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataAccountKind")
+	@(link_name="AVMetadataIdentifieriTunesMetadataAccountKind")
 	MetadataIdentifieriTunesMetadataAccountKind: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataAppleID")
+	@(link_name="AVMetadataIdentifieriTunesMetadataAppleID")
 	MetadataIdentifieriTunesMetadataAppleID: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataArtistID")
+	@(link_name="AVMetadataIdentifieriTunesMetadataArtistID")
 	MetadataIdentifieriTunesMetadataArtistID: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataSongID")
+	@(link_name="AVMetadataIdentifieriTunesMetadataSongID")
 	MetadataIdentifieriTunesMetadataSongID: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataDiscCompilation")
+	@(link_name="AVMetadataIdentifieriTunesMetadataDiscCompilation")
 	MetadataIdentifieriTunesMetadataDiscCompilation: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataDiscNumber")
+	@(link_name="AVMetadataIdentifieriTunesMetadataDiscNumber")
 	MetadataIdentifieriTunesMetadataDiscNumber: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataGenreID")
+	@(link_name="AVMetadataIdentifieriTunesMetadataGenreID")
 	MetadataIdentifieriTunesMetadataGenreID: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataGrouping")
+	@(link_name="AVMetadataIdentifieriTunesMetadataGrouping")
 	MetadataIdentifieriTunesMetadataGrouping: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataPlaylistID")
+	@(link_name="AVMetadataIdentifieriTunesMetadataPlaylistID")
 	MetadataIdentifieriTunesMetadataPlaylistID: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataContentRating")
+	@(link_name="AVMetadataIdentifieriTunesMetadataContentRating")
 	MetadataIdentifieriTunesMetadataContentRating: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataBeatsPerMin")
+	@(link_name="AVMetadataIdentifieriTunesMetadataBeatsPerMin")
 	MetadataIdentifieriTunesMetadataBeatsPerMin: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataTrackNumber")
+	@(link_name="AVMetadataIdentifieriTunesMetadataTrackNumber")
 	MetadataIdentifieriTunesMetadataTrackNumber: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataArtDirector")
+	@(link_name="AVMetadataIdentifieriTunesMetadataArtDirector")
 	MetadataIdentifieriTunesMetadataArtDirector: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataArranger")
+	@(link_name="AVMetadataIdentifieriTunesMetadataArranger")
 	MetadataIdentifieriTunesMetadataArranger: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataAuthor")
+	@(link_name="AVMetadataIdentifieriTunesMetadataAuthor")
 	MetadataIdentifieriTunesMetadataAuthor: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataLyrics")
+	@(link_name="AVMetadataIdentifieriTunesMetadataLyrics")
 	MetadataIdentifieriTunesMetadataLyrics: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataAcknowledgement")
+	@(link_name="AVMetadataIdentifieriTunesMetadataAcknowledgement")
 	MetadataIdentifieriTunesMetadataAcknowledgement: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataConductor")
+	@(link_name="AVMetadataIdentifieriTunesMetadataConductor")
 	MetadataIdentifieriTunesMetadataConductor: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataDescription")
+	@(link_name="AVMetadataIdentifieriTunesMetadataDescription")
 	MetadataIdentifieriTunesMetadataDescription: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataDirector")
+	@(link_name="AVMetadataIdentifieriTunesMetadataDirector")
 	MetadataIdentifieriTunesMetadataDirector: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataEQ")
+	@(link_name="AVMetadataIdentifieriTunesMetadataEQ")
 	MetadataIdentifieriTunesMetadataEQ: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataLinerNotes")
+	@(link_name="AVMetadataIdentifieriTunesMetadataLinerNotes")
 	MetadataIdentifieriTunesMetadataLinerNotes: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataRecordCompany")
+	@(link_name="AVMetadataIdentifieriTunesMetadataRecordCompany")
 	MetadataIdentifieriTunesMetadataRecordCompany: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataOriginalArtist")
+	@(link_name="AVMetadataIdentifieriTunesMetadataOriginalArtist")
 	MetadataIdentifieriTunesMetadataOriginalArtist: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataPhonogramRights")
+	@(link_name="AVMetadataIdentifieriTunesMetadataPhonogramRights")
 	MetadataIdentifieriTunesMetadataPhonogramRights: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataProducer")
+	@(link_name="AVMetadataIdentifieriTunesMetadataProducer")
 	MetadataIdentifieriTunesMetadataProducer: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataPerformer")
+	@(link_name="AVMetadataIdentifieriTunesMetadataPerformer")
 	MetadataIdentifieriTunesMetadataPerformer: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataPublisher")
+	@(link_name="AVMetadataIdentifieriTunesMetadataPublisher")
 	MetadataIdentifieriTunesMetadataPublisher: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataSoundEngineer")
+	@(link_name="AVMetadataIdentifieriTunesMetadataSoundEngineer")
 	MetadataIdentifieriTunesMetadataSoundEngineer: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataSoloist")
+	@(link_name="AVMetadataIdentifieriTunesMetadataSoloist")
 	MetadataIdentifieriTunesMetadataSoloist: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataCredits")
+	@(link_name="AVMetadataIdentifieriTunesMetadataCredits")
 	MetadataIdentifieriTunesMetadataCredits: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataThanks")
+	@(link_name="AVMetadataIdentifieriTunesMetadataThanks")
 	MetadataIdentifieriTunesMetadataThanks: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataOnlineExtras")
+	@(link_name="AVMetadataIdentifieriTunesMetadataOnlineExtras")
 	MetadataIdentifieriTunesMetadataOnlineExtras: ^NS.String
 
-	@(link_name = "AVMetadataIdentifieriTunesMetadataExecProducer")
+	@(link_name="AVMetadataIdentifieriTunesMetadataExecProducer")
 	MetadataIdentifieriTunesMetadataExecProducer: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataAudioEncryption")
+	@(link_name="AVMetadataIdentifierID3MetadataAudioEncryption")
 	MetadataIdentifierID3MetadataAudioEncryption: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataAttachedPicture")
+	@(link_name="AVMetadataIdentifierID3MetadataAttachedPicture")
 	MetadataIdentifierID3MetadataAttachedPicture: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataAudioSeekPointIndex")
+	@(link_name="AVMetadataIdentifierID3MetadataAudioSeekPointIndex")
 	MetadataIdentifierID3MetadataAudioSeekPointIndex: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataComments")
+	@(link_name="AVMetadataIdentifierID3MetadataComments")
 	MetadataIdentifierID3MetadataComments: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataCommercial")
+	@(link_name="AVMetadataIdentifierID3MetadataCommercial")
 	MetadataIdentifierID3MetadataCommercial: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataCommerical")
+	@(link_name="AVMetadataIdentifierID3MetadataCommerical")
 	MetadataIdentifierID3MetadataCommerical: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataEncryption")
+	@(link_name="AVMetadataIdentifierID3MetadataEncryption")
 	MetadataIdentifierID3MetadataEncryption: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataEqualization")
+	@(link_name="AVMetadataIdentifierID3MetadataEqualization")
 	MetadataIdentifierID3MetadataEqualization: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataEqualization2")
+	@(link_name="AVMetadataIdentifierID3MetadataEqualization2")
 	MetadataIdentifierID3MetadataEqualization2: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataEventTimingCodes")
+	@(link_name="AVMetadataIdentifierID3MetadataEventTimingCodes")
 	MetadataIdentifierID3MetadataEventTimingCodes: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataGeneralEncapsulatedObject")
+	@(link_name="AVMetadataIdentifierID3MetadataGeneralEncapsulatedObject")
 	MetadataIdentifierID3MetadataGeneralEncapsulatedObject: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataGroupIdentifier")
+	@(link_name="AVMetadataIdentifierID3MetadataGroupIdentifier")
 	MetadataIdentifierID3MetadataGroupIdentifier: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataInvolvedPeopleList_v23")
+	@(link_name="AVMetadataIdentifierID3MetadataInvolvedPeopleList_v23")
 	MetadataIdentifierID3MetadataInvolvedPeopleList_v23: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataLink")
+	@(link_name="AVMetadataIdentifierID3MetadataLink")
 	MetadataIdentifierID3MetadataLink: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataMusicCDIdentifier")
+	@(link_name="AVMetadataIdentifierID3MetadataMusicCDIdentifier")
 	MetadataIdentifierID3MetadataMusicCDIdentifier: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataMPEGLocationLookupTable")
+	@(link_name="AVMetadataIdentifierID3MetadataMPEGLocationLookupTable")
 	MetadataIdentifierID3MetadataMPEGLocationLookupTable: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataOwnership")
+	@(link_name="AVMetadataIdentifierID3MetadataOwnership")
 	MetadataIdentifierID3MetadataOwnership: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataPrivate")
+	@(link_name="AVMetadataIdentifierID3MetadataPrivate")
 	MetadataIdentifierID3MetadataPrivate: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataPlayCounter")
+	@(link_name="AVMetadataIdentifierID3MetadataPlayCounter")
 	MetadataIdentifierID3MetadataPlayCounter: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataPopularimeter")
+	@(link_name="AVMetadataIdentifierID3MetadataPopularimeter")
 	MetadataIdentifierID3MetadataPopularimeter: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataPositionSynchronization")
+	@(link_name="AVMetadataIdentifierID3MetadataPositionSynchronization")
 	MetadataIdentifierID3MetadataPositionSynchronization: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataRecommendedBufferSize")
+	@(link_name="AVMetadataIdentifierID3MetadataRecommendedBufferSize")
 	MetadataIdentifierID3MetadataRecommendedBufferSize: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataRelativeVolumeAdjustment")
+	@(link_name="AVMetadataIdentifierID3MetadataRelativeVolumeAdjustment")
 	MetadataIdentifierID3MetadataRelativeVolumeAdjustment: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataRelativeVolumeAdjustment2")
+	@(link_name="AVMetadataIdentifierID3MetadataRelativeVolumeAdjustment2")
 	MetadataIdentifierID3MetadataRelativeVolumeAdjustment2: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataReverb")
+	@(link_name="AVMetadataIdentifierID3MetadataReverb")
 	MetadataIdentifierID3MetadataReverb: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataSeek")
+	@(link_name="AVMetadataIdentifierID3MetadataSeek")
 	MetadataIdentifierID3MetadataSeek: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataSignature")
+	@(link_name="AVMetadataIdentifierID3MetadataSignature")
 	MetadataIdentifierID3MetadataSignature: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataSynchronizedLyric")
+	@(link_name="AVMetadataIdentifierID3MetadataSynchronizedLyric")
 	MetadataIdentifierID3MetadataSynchronizedLyric: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataSynchronizedTempoCodes")
+	@(link_name="AVMetadataIdentifierID3MetadataSynchronizedTempoCodes")
 	MetadataIdentifierID3MetadataSynchronizedTempoCodes: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataAlbumTitle")
+	@(link_name="AVMetadataIdentifierID3MetadataAlbumTitle")
 	MetadataIdentifierID3MetadataAlbumTitle: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataBeatsPerMinute")
+	@(link_name="AVMetadataIdentifierID3MetadataBeatsPerMinute")
 	MetadataIdentifierID3MetadataBeatsPerMinute: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataComposer")
+	@(link_name="AVMetadataIdentifierID3MetadataComposer")
 	MetadataIdentifierID3MetadataComposer: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataContentType")
+	@(link_name="AVMetadataIdentifierID3MetadataContentType")
 	MetadataIdentifierID3MetadataContentType: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataCopyright")
+	@(link_name="AVMetadataIdentifierID3MetadataCopyright")
 	MetadataIdentifierID3MetadataCopyright: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataDate")
+	@(link_name="AVMetadataIdentifierID3MetadataDate")
 	MetadataIdentifierID3MetadataDate: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataEncodingTime")
+	@(link_name="AVMetadataIdentifierID3MetadataEncodingTime")
 	MetadataIdentifierID3MetadataEncodingTime: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataPlaylistDelay")
+	@(link_name="AVMetadataIdentifierID3MetadataPlaylistDelay")
 	MetadataIdentifierID3MetadataPlaylistDelay: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataOriginalReleaseTime")
+	@(link_name="AVMetadataIdentifierID3MetadataOriginalReleaseTime")
 	MetadataIdentifierID3MetadataOriginalReleaseTime: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataRecordingTime")
+	@(link_name="AVMetadataIdentifierID3MetadataRecordingTime")
 	MetadataIdentifierID3MetadataRecordingTime: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataReleaseTime")
+	@(link_name="AVMetadataIdentifierID3MetadataReleaseTime")
 	MetadataIdentifierID3MetadataReleaseTime: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataTaggingTime")
+	@(link_name="AVMetadataIdentifierID3MetadataTaggingTime")
 	MetadataIdentifierID3MetadataTaggingTime: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataEncodedBy")
+	@(link_name="AVMetadataIdentifierID3MetadataEncodedBy")
 	MetadataIdentifierID3MetadataEncodedBy: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataLyricist")
+	@(link_name="AVMetadataIdentifierID3MetadataLyricist")
 	MetadataIdentifierID3MetadataLyricist: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataFileType")
+	@(link_name="AVMetadataIdentifierID3MetadataFileType")
 	MetadataIdentifierID3MetadataFileType: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataTime")
+	@(link_name="AVMetadataIdentifierID3MetadataTime")
 	MetadataIdentifierID3MetadataTime: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataInvolvedPeopleList_v24")
+	@(link_name="AVMetadataIdentifierID3MetadataInvolvedPeopleList_v24")
 	MetadataIdentifierID3MetadataInvolvedPeopleList_v24: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataContentGroupDescription")
+	@(link_name="AVMetadataIdentifierID3MetadataContentGroupDescription")
 	MetadataIdentifierID3MetadataContentGroupDescription: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataTitleDescription")
+	@(link_name="AVMetadataIdentifierID3MetadataTitleDescription")
 	MetadataIdentifierID3MetadataTitleDescription: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataSubTitle")
+	@(link_name="AVMetadataIdentifierID3MetadataSubTitle")
 	MetadataIdentifierID3MetadataSubTitle: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataInitialKey")
+	@(link_name="AVMetadataIdentifierID3MetadataInitialKey")
 	MetadataIdentifierID3MetadataInitialKey: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataLanguage")
+	@(link_name="AVMetadataIdentifierID3MetadataLanguage")
 	MetadataIdentifierID3MetadataLanguage: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataLength")
+	@(link_name="AVMetadataIdentifierID3MetadataLength")
 	MetadataIdentifierID3MetadataLength: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataMusicianCreditsList")
+	@(link_name="AVMetadataIdentifierID3MetadataMusicianCreditsList")
 	MetadataIdentifierID3MetadataMusicianCreditsList: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataMediaType")
+	@(link_name="AVMetadataIdentifierID3MetadataMediaType")
 	MetadataIdentifierID3MetadataMediaType: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataMood")
+	@(link_name="AVMetadataIdentifierID3MetadataMood")
 	MetadataIdentifierID3MetadataMood: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataOriginalAlbumTitle")
+	@(link_name="AVMetadataIdentifierID3MetadataOriginalAlbumTitle")
 	MetadataIdentifierID3MetadataOriginalAlbumTitle: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataOriginalFilename")
+	@(link_name="AVMetadataIdentifierID3MetadataOriginalFilename")
 	MetadataIdentifierID3MetadataOriginalFilename: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataOriginalLyricist")
+	@(link_name="AVMetadataIdentifierID3MetadataOriginalLyricist")
 	MetadataIdentifierID3MetadataOriginalLyricist: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataOriginalArtist")
+	@(link_name="AVMetadataIdentifierID3MetadataOriginalArtist")
 	MetadataIdentifierID3MetadataOriginalArtist: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataOriginalReleaseYear")
+	@(link_name="AVMetadataIdentifierID3MetadataOriginalReleaseYear")
 	MetadataIdentifierID3MetadataOriginalReleaseYear: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataFileOwner")
+	@(link_name="AVMetadataIdentifierID3MetadataFileOwner")
 	MetadataIdentifierID3MetadataFileOwner: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataLeadPerformer")
+	@(link_name="AVMetadataIdentifierID3MetadataLeadPerformer")
 	MetadataIdentifierID3MetadataLeadPerformer: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataBand")
+	@(link_name="AVMetadataIdentifierID3MetadataBand")
 	MetadataIdentifierID3MetadataBand: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataConductor")
+	@(link_name="AVMetadataIdentifierID3MetadataConductor")
 	MetadataIdentifierID3MetadataConductor: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataModifiedBy")
+	@(link_name="AVMetadataIdentifierID3MetadataModifiedBy")
 	MetadataIdentifierID3MetadataModifiedBy: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataPartOfASet")
+	@(link_name="AVMetadataIdentifierID3MetadataPartOfASet")
 	MetadataIdentifierID3MetadataPartOfASet: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataProducedNotice")
+	@(link_name="AVMetadataIdentifierID3MetadataProducedNotice")
 	MetadataIdentifierID3MetadataProducedNotice: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataPublisher")
+	@(link_name="AVMetadataIdentifierID3MetadataPublisher")
 	MetadataIdentifierID3MetadataPublisher: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataTrackNumber")
+	@(link_name="AVMetadataIdentifierID3MetadataTrackNumber")
 	MetadataIdentifierID3MetadataTrackNumber: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataRecordingDates")
+	@(link_name="AVMetadataIdentifierID3MetadataRecordingDates")
 	MetadataIdentifierID3MetadataRecordingDates: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataInternetRadioStationName")
+	@(link_name="AVMetadataIdentifierID3MetadataInternetRadioStationName")
 	MetadataIdentifierID3MetadataInternetRadioStationName: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataInternetRadioStationOwner")
+	@(link_name="AVMetadataIdentifierID3MetadataInternetRadioStationOwner")
 	MetadataIdentifierID3MetadataInternetRadioStationOwner: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataSize")
+	@(link_name="AVMetadataIdentifierID3MetadataSize")
 	MetadataIdentifierID3MetadataSize: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataAlbumSortOrder")
+	@(link_name="AVMetadataIdentifierID3MetadataAlbumSortOrder")
 	MetadataIdentifierID3MetadataAlbumSortOrder: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataPerformerSortOrder")
+	@(link_name="AVMetadataIdentifierID3MetadataPerformerSortOrder")
 	MetadataIdentifierID3MetadataPerformerSortOrder: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataTitleSortOrder")
+	@(link_name="AVMetadataIdentifierID3MetadataTitleSortOrder")
 	MetadataIdentifierID3MetadataTitleSortOrder: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataInternationalStandardRecordingCode")
+	@(link_name="AVMetadataIdentifierID3MetadataInternationalStandardRecordingCode")
 	MetadataIdentifierID3MetadataInternationalStandardRecordingCode: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataEncodedWith")
+	@(link_name="AVMetadataIdentifierID3MetadataEncodedWith")
 	MetadataIdentifierID3MetadataEncodedWith: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataSetSubtitle")
+	@(link_name="AVMetadataIdentifierID3MetadataSetSubtitle")
 	MetadataIdentifierID3MetadataSetSubtitle: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataYear")
+	@(link_name="AVMetadataIdentifierID3MetadataYear")
 	MetadataIdentifierID3MetadataYear: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataUserText")
+	@(link_name="AVMetadataIdentifierID3MetadataUserText")
 	MetadataIdentifierID3MetadataUserText: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataUniqueFileIdentifier")
+	@(link_name="AVMetadataIdentifierID3MetadataUniqueFileIdentifier")
 	MetadataIdentifierID3MetadataUniqueFileIdentifier: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataTermsOfUse")
+	@(link_name="AVMetadataIdentifierID3MetadataTermsOfUse")
 	MetadataIdentifierID3MetadataTermsOfUse: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataUnsynchronizedLyric")
+	@(link_name="AVMetadataIdentifierID3MetadataUnsynchronizedLyric")
 	MetadataIdentifierID3MetadataUnsynchronizedLyric: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataCommercialInformation")
+	@(link_name="AVMetadataIdentifierID3MetadataCommercialInformation")
 	MetadataIdentifierID3MetadataCommercialInformation: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataCopyrightInformation")
+	@(link_name="AVMetadataIdentifierID3MetadataCopyrightInformation")
 	MetadataIdentifierID3MetadataCopyrightInformation: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataOfficialAudioFileWebpage")
+	@(link_name="AVMetadataIdentifierID3MetadataOfficialAudioFileWebpage")
 	MetadataIdentifierID3MetadataOfficialAudioFileWebpage: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataOfficialArtistWebpage")
+	@(link_name="AVMetadataIdentifierID3MetadataOfficialArtistWebpage")
 	MetadataIdentifierID3MetadataOfficialArtistWebpage: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataOfficialAudioSourceWebpage")
+	@(link_name="AVMetadataIdentifierID3MetadataOfficialAudioSourceWebpage")
 	MetadataIdentifierID3MetadataOfficialAudioSourceWebpage: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataOfficialInternetRadioStationHomepage")
+	@(link_name="AVMetadataIdentifierID3MetadataOfficialInternetRadioStationHomepage")
 	MetadataIdentifierID3MetadataOfficialInternetRadioStationHomepage: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataPayment")
+	@(link_name="AVMetadataIdentifierID3MetadataPayment")
 	MetadataIdentifierID3MetadataPayment: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataOfficialPublisherWebpage")
+	@(link_name="AVMetadataIdentifierID3MetadataOfficialPublisherWebpage")
 	MetadataIdentifierID3MetadataOfficialPublisherWebpage: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierID3MetadataUserURL")
+	@(link_name="AVMetadataIdentifierID3MetadataUserURL")
 	MetadataIdentifierID3MetadataUserURL: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierIcyMetadataStreamTitle")
+	@(link_name="AVMetadataIdentifierIcyMetadataStreamTitle")
 	MetadataIdentifierIcyMetadataStreamTitle: ^NS.String
 
-	@(link_name = "AVMetadataIdentifierIcyMetadataStreamURL")
+	@(link_name="AVMetadataIdentifierIcyMetadataStreamURL")
 	MetadataIdentifierIcyMetadataStreamURL: ^NS.String
 
-	@(link_name = "AVFragmentedMovieTrackTimeRangeDidChangeNotification")
+	@(link_name="AVFragmentedMovieTrackTimeRangeDidChangeNotification")
 	FragmentedMovieTrackTimeRangeDidChangeNotification: ^NS.String
 
-	@(link_name = "AVFragmentedMovieTrackSegmentsDidChangeNotification")
+	@(link_name="AVFragmentedMovieTrackSegmentsDidChangeNotification")
 	FragmentedMovieTrackSegmentsDidChangeNotification: ^NS.String
 
-	@(link_name = "AVFragmentedMovieTrackTotalSampleDataLengthDidChangeNotification")
+	@(link_name="AVFragmentedMovieTrackTotalSampleDataLengthDidChangeNotification")
 	FragmentedMovieTrackTotalSampleDataLengthDidChangeNotification: ^NS.String
 
-	@(link_name = "AVMovieReferenceRestrictionsKey")
+	@(link_name="AVMovieReferenceRestrictionsKey")
 	MovieReferenceRestrictionsKey: ^NS.String
 
-	@(link_name = "AVMovieShouldSupportAliasDataReferencesKey")
+	@(link_name="AVMovieShouldSupportAliasDataReferencesKey")
 	MovieShouldSupportAliasDataReferencesKey: ^NS.String
 
-	@(link_name = "AVFragmentedMovieContainsMovieFragmentsDidChangeNotification")
+	@(link_name="AVFragmentedMovieContainsMovieFragmentsDidChangeNotification")
 	FragmentedMovieContainsMovieFragmentsDidChangeNotification: ^NS.String
 
-	@(link_name = "AVFragmentedMovieDurationDidChangeNotification")
+	@(link_name="AVFragmentedMovieDurationDidChangeNotification")
 	FragmentedMovieDurationDidChangeNotification: ^NS.String
 
-	@(link_name = "AVFragmentedMovieWasDefragmentedNotification")
+	@(link_name="AVFragmentedMovieWasDefragmentedNotification")
 	FragmentedMovieWasDefragmentedNotification: ^NS.String
 
-	@(link_name = "AVOutputSettingsPreset640x480")
+	@(link_name="AVOutputSettingsPreset640x480")
 	OutputSettingsPreset640x480: ^NS.String
 
-	@(link_name = "AVOutputSettingsPreset960x540")
+	@(link_name="AVOutputSettingsPreset960x540")
 	OutputSettingsPreset960x540: ^NS.String
 
-	@(link_name = "AVOutputSettingsPreset1280x720")
+	@(link_name="AVOutputSettingsPreset1280x720")
 	OutputSettingsPreset1280x720: ^NS.String
 
-	@(link_name = "AVOutputSettingsPreset1920x1080")
+	@(link_name="AVOutputSettingsPreset1920x1080")
 	OutputSettingsPreset1920x1080: ^NS.String
 
-	@(link_name = "AVOutputSettingsPreset3840x2160")
+	@(link_name="AVOutputSettingsPreset3840x2160")
 	OutputSettingsPreset3840x2160: ^NS.String
 
-	@(link_name = "AVOutputSettingsPresetHEVC1920x1080")
+	@(link_name="AVOutputSettingsPresetHEVC1920x1080")
 	OutputSettingsPresetHEVC1920x1080: ^NS.String
 
-	@(link_name = "AVOutputSettingsPresetHEVC1920x1080WithAlpha")
+	@(link_name="AVOutputSettingsPresetHEVC1920x1080WithAlpha")
 	OutputSettingsPresetHEVC1920x1080WithAlpha: ^NS.String
 
-	@(link_name = "AVOutputSettingsPresetHEVC3840x2160")
+	@(link_name="AVOutputSettingsPresetHEVC3840x2160")
 	OutputSettingsPresetHEVC3840x2160: ^NS.String
 
-	@(link_name = "AVOutputSettingsPresetHEVC3840x2160WithAlpha")
+	@(link_name="AVOutputSettingsPresetHEVC3840x2160WithAlpha")
 	OutputSettingsPresetHEVC3840x2160WithAlpha: ^NS.String
 
-	@(link_name = "AVOutputSettingsPresetHEVC4320x2160")
+	@(link_name="AVOutputSettingsPresetHEVC4320x2160")
 	OutputSettingsPresetHEVC4320x2160: ^NS.String
 
-	@(link_name = "AVOutputSettingsPresetHEVC7680x4320")
+	@(link_name="AVOutputSettingsPresetHEVC7680x4320")
 	OutputSettingsPresetHEVC7680x4320: ^NS.String
 
-	@(link_name = "AVOutputSettingsPresetMVHEVC960x960")
+	@(link_name="AVOutputSettingsPresetMVHEVC960x960")
 	OutputSettingsPresetMVHEVC960x960: ^NS.String
 
-	@(link_name = "AVOutputSettingsPresetMVHEVC1440x1440")
+	@(link_name="AVOutputSettingsPresetMVHEVC1440x1440")
 	OutputSettingsPresetMVHEVC1440x1440: ^NS.String
 
-	@(link_name = "AVOutputSettingsPresetMVHEVC4320x4320")
+	@(link_name="AVOutputSettingsPresetMVHEVC4320x4320")
 	OutputSettingsPresetMVHEVC4320x4320: ^NS.String
 
-	@(link_name = "AVOutputSettingsPresetMVHEVC7680x7680")
+	@(link_name="AVOutputSettingsPresetMVHEVC7680x7680")
 	OutputSettingsPresetMVHEVC7680x7680: ^NS.String
 
-	@(link_name = "AVPlayerRateDidChangeNotification")
+	@(link_name="AVPlayerRateDidChangeNotification")
 	PlayerRateDidChangeNotification: ^NS.String
 
-	@(link_name = "AVPlayerRateDidChangeReasonKey")
+	@(link_name="AVPlayerRateDidChangeReasonKey")
 	PlayerRateDidChangeReasonKey: ^NS.String
 
-	@(link_name = "AVPlayerRateDidChangeOriginatingParticipantKey")
+	@(link_name="AVPlayerRateDidChangeOriginatingParticipantKey")
 	PlayerRateDidChangeOriginatingParticipantKey: ^NS.String
 
-	@(link_name = "AVPlayerRateDidChangeReasonSetRateCalled")
+	@(link_name="AVPlayerRateDidChangeReasonSetRateCalled")
 	PlayerRateDidChangeReasonSetRateCalled: ^NS.String
 
-	@(link_name = "AVPlayerRateDidChangeReasonSetRateFailed")
+	@(link_name="AVPlayerRateDidChangeReasonSetRateFailed")
 	PlayerRateDidChangeReasonSetRateFailed: ^NS.String
 
-	@(link_name = "AVPlayerRateDidChangeReasonAudioSessionInterrupted")
+	@(link_name="AVPlayerRateDidChangeReasonAudioSessionInterrupted")
 	PlayerRateDidChangeReasonAudioSessionInterrupted: ^NS.String
 
-	@(link_name = "AVPlayerRateDidChangeReasonAppBackgrounded")
+	@(link_name="AVPlayerRateDidChangeReasonAppBackgrounded")
 	PlayerRateDidChangeReasonAppBackgrounded: ^NS.String
 
-	@(link_name = "AVPlayerRateDidChangeReasonPlayheadReachedLiveEdge")
+	@(link_name="AVPlayerRateDidChangeReasonPlayheadReachedLiveEdge")
 	PlayerRateDidChangeReasonPlayheadReachedLiveEdge: ^NS.String
 
-	@(link_name = "AVPlayerRateDidChangeReasonReversePlaybackReachedStartOfSeekableRange")
+	@(link_name="AVPlayerRateDidChangeReasonReversePlaybackReachedStartOfSeekableRange")
 	PlayerRateDidChangeReasonReversePlaybackReachedStartOfSeekableRange: ^NS.String
 
-	@(link_name = "AVPlayerWaitingToMinimizeStallsReason")
+	@(link_name="AVPlayerWaitingToMinimizeStallsReason")
 	PlayerWaitingToMinimizeStallsReason: ^NS.String
 
-	@(link_name = "AVPlayerWaitingWhileEvaluatingBufferingRateReason")
+	@(link_name="AVPlayerWaitingWhileEvaluatingBufferingRateReason")
 	PlayerWaitingWhileEvaluatingBufferingRateReason: ^NS.String
 
-	@(link_name = "AVPlayerWaitingWithNoItemToPlayReason")
+	@(link_name="AVPlayerWaitingWithNoItemToPlayReason")
 	PlayerWaitingWithNoItemToPlayReason: ^NS.String
 
-	@(link_name = "AVPlayerWaitingForCoordinatedPlaybackReason")
+	@(link_name="AVPlayerWaitingForCoordinatedPlaybackReason")
 	PlayerWaitingForCoordinatedPlaybackReason: ^NS.String
 
-	@(link_name = "AVPlayerAvailableHDRModesDidChangeNotification")
+	@(link_name="AVPlayerAvailableHDRModesDidChangeNotification")
 	PlayerAvailableHDRModesDidChangeNotification: ^NS.String
 
-	@(link_name = "AVPlayerEligibleForHDRPlaybackDidChangeNotification")
+	@(link_name="AVPlayerEligibleForHDRPlaybackDidChangeNotification")
 	PlayerEligibleForHDRPlaybackDidChangeNotification: ^NS.String
 
-	@(link_name = "AVCoordinatedPlaybackSuspensionReasonAudioSessionInterrupted")
+	@(link_name="AVCoordinatedPlaybackSuspensionReasonAudioSessionInterrupted")
 	CoordinatedPlaybackSuspensionReasonAudioSessionInterrupted: ^NS.String
 
-	@(link_name = "AVCoordinatedPlaybackSuspensionReasonStallRecovery")
+	@(link_name="AVCoordinatedPlaybackSuspensionReasonStallRecovery")
 	CoordinatedPlaybackSuspensionReasonStallRecovery: ^NS.String
 
-	@(link_name = "AVCoordinatedPlaybackSuspensionReasonPlayingInterstitial")
+	@(link_name="AVCoordinatedPlaybackSuspensionReasonPlayingInterstitial")
 	CoordinatedPlaybackSuspensionReasonPlayingInterstitial: ^NS.String
 
-	@(link_name = "AVCoordinatedPlaybackSuspensionReasonCoordinatedPlaybackNotPossible")
+	@(link_name="AVCoordinatedPlaybackSuspensionReasonCoordinatedPlaybackNotPossible")
 	CoordinatedPlaybackSuspensionReasonCoordinatedPlaybackNotPossible: ^NS.String
 
-	@(link_name = "AVCoordinatedPlaybackSuspensionReasonUserActionRequired")
+	@(link_name="AVCoordinatedPlaybackSuspensionReasonUserActionRequired")
 	CoordinatedPlaybackSuspensionReasonUserActionRequired: ^NS.String
 
-	@(link_name = "AVCoordinatedPlaybackSuspensionReasonUserIsChangingCurrentTime")
+	@(link_name="AVCoordinatedPlaybackSuspensionReasonUserIsChangingCurrentTime")
 	CoordinatedPlaybackSuspensionReasonUserIsChangingCurrentTime: ^NS.String
 
-	@(link_name = "AVPlaybackCoordinatorOtherParticipantsDidChangeNotification")
+	@(link_name="AVPlaybackCoordinatorOtherParticipantsDidChangeNotification")
 	PlaybackCoordinatorOtherParticipantsDidChangeNotification: ^NS.String
 
-	@(link_name = "AVPlaybackCoordinatorSuspensionReasonsDidChangeNotification")
+	@(link_name="AVPlaybackCoordinatorSuspensionReasonsDidChangeNotification")
 	PlaybackCoordinatorSuspensionReasonsDidChangeNotification: ^NS.String
 
-	@(link_name = "AVPlayerItemTimeJumpedNotification")
+	@(link_name="AVPlayerItemTimeJumpedNotification")
 	PlayerItemTimeJumpedNotification: ^NS.String
 
-	@(link_name = "AVPlayerItemDidPlayToEndTimeNotification")
+	@(link_name="AVPlayerItemDidPlayToEndTimeNotification")
 	PlayerItemDidPlayToEndTimeNotification: ^NS.String
 
-	@(link_name = "AVPlayerItemFailedToPlayToEndTimeNotification")
+	@(link_name="AVPlayerItemFailedToPlayToEndTimeNotification")
 	PlayerItemFailedToPlayToEndTimeNotification: ^NS.String
 
-	@(link_name = "AVPlayerItemPlaybackStalledNotification")
+	@(link_name="AVPlayerItemPlaybackStalledNotification")
 	PlayerItemPlaybackStalledNotification: ^NS.String
 
-	@(link_name = "AVPlayerItemNewAccessLogEntryNotification")
+	@(link_name="AVPlayerItemNewAccessLogEntryNotification")
 	PlayerItemNewAccessLogEntryNotification: ^NS.String
 
-	@(link_name = "AVPlayerItemNewErrorLogEntryNotification")
+	@(link_name="AVPlayerItemNewErrorLogEntryNotification")
 	PlayerItemNewErrorLogEntryNotification: ^NS.String
 
-	@(link_name = "AVPlayerItemRecommendedTimeOffsetFromLiveDidChangeNotification")
+	@(link_name="AVPlayerItemRecommendedTimeOffsetFromLiveDidChangeNotification")
 	PlayerItemRecommendedTimeOffsetFromLiveDidChangeNotification: ^NS.String
 
-	@(link_name = "AVPlayerItemMediaSelectionDidChangeNotification")
+	@(link_name="AVPlayerItemMediaSelectionDidChangeNotification")
 	PlayerItemMediaSelectionDidChangeNotification: ^NS.String
 
-	@(link_name = "AVPlayerItemFailedToPlayToEndTimeErrorKey")
+	@(link_name="AVPlayerItemFailedToPlayToEndTimeErrorKey")
 	PlayerItemFailedToPlayToEndTimeErrorKey: ^NS.String
 
-	@(link_name = "AVPlayerItemTimeJumpedOriginatingParticipantKey")
+	@(link_name="AVPlayerItemTimeJumpedOriginatingParticipantKey")
 	PlayerItemTimeJumpedOriginatingParticipantKey: ^NS.String
 
-	@(link_name = "AVPlayerItemLegibleOutputTextStylingResolutionDefault")
+	@(link_name="AVPlayerItemLegibleOutputTextStylingResolutionDefault")
 	PlayerItemLegibleOutputTextStylingResolutionDefault: ^NS.String
 
-	@(link_name = "AVPlayerItemLegibleOutputTextStylingResolutionSourceAndRulesOnly")
+	@(link_name="AVPlayerItemLegibleOutputTextStylingResolutionSourceAndRulesOnly")
 	PlayerItemLegibleOutputTextStylingResolutionSourceAndRulesOnly: ^NS.String
 
 	when ODIN_PLATFORM_SUBTARGET == .Default {
-		@(link_name = "AVPlayerItemTrackVideoFieldModeDeinterlaceFields")
+		@(link_name="AVPlayerItemTrackVideoFieldModeDeinterlaceFields")
 		PlayerItemTrackVideoFieldModeDeinterlaceFields: ^NS.String
 	}
 
-	@(link_name = "AVPlayerInterstitialEventNoCue")
+	@(link_name="AVPlayerInterstitialEventNoCue")
 	PlayerInterstitialEventNoCue: ^NS.String
 
-	@(link_name = "AVPlayerInterstitialEventJoinCue")
+	@(link_name="AVPlayerInterstitialEventJoinCue")
 	PlayerInterstitialEventJoinCue: ^NS.String
 
-	@(link_name = "AVPlayerInterstitialEventLeaveCue")
+	@(link_name="AVPlayerInterstitialEventLeaveCue")
 	PlayerInterstitialEventLeaveCue: ^NS.String
 
-	@(link_name = "AVPlayerInterstitialEventMonitorEventsDidChangeNotification")
+	@(link_name="AVPlayerInterstitialEventMonitorEventsDidChangeNotification")
 	PlayerInterstitialEventMonitorEventsDidChangeNotification: ^NS.String
 
-	@(link_name = "AVPlayerInterstitialEventMonitorCurrentEventDidChangeNotification")
+	@(link_name="AVPlayerInterstitialEventMonitorCurrentEventDidChangeNotification")
 	PlayerInterstitialEventMonitorCurrentEventDidChangeNotification: ^NS.String
 
-	@(link_name = "AVPlayerInterstitialEventMonitorAssetListResponseStatusDidChangeNotification")
+	@(link_name="AVPlayerInterstitialEventMonitorAssetListResponseStatusDidChangeNotification")
 	PlayerInterstitialEventMonitorAssetListResponseStatusDidChangeNotification: ^NS.String
 
-	@(link_name = "AVPlayerInterstitialEventMonitorAssetListResponseStatusDidChangeEventKey")
+	@(link_name="AVPlayerInterstitialEventMonitorAssetListResponseStatusDidChangeEventKey")
 	PlayerInterstitialEventMonitorAssetListResponseStatusDidChangeEventKey: ^NS.String
 
-	@(link_name = "AVPlayerInterstitialEventMonitorAssetListResponseStatusDidChangeStatusKey")
+	@(link_name="AVPlayerInterstitialEventMonitorAssetListResponseStatusDidChangeStatusKey")
 	PlayerInterstitialEventMonitorAssetListResponseStatusDidChangeStatusKey: ^NS.String
 
-	@(link_name = "AVPlayerInterstitialEventMonitorAssetListResponseStatusDidChangeErrorKey")
+	@(link_name="AVPlayerInterstitialEventMonitorAssetListResponseStatusDidChangeErrorKey")
 	PlayerInterstitialEventMonitorAssetListResponseStatusDidChangeErrorKey: ^NS.String
 
-	@(link_name = "AVPlayerInterstitialEventMonitorCurrentEventSkippableStateDidChangeNotification")
+	@(link_name="AVPlayerInterstitialEventMonitorCurrentEventSkippableStateDidChangeNotification")
 	PlayerInterstitialEventMonitorCurrentEventSkippableStateDidChangeNotification: ^NS.String
 
-	@(link_name = "AVPlayerInterstitialEventMonitorCurrentEventSkippableStateDidChangeEventKey")
+	@(link_name="AVPlayerInterstitialEventMonitorCurrentEventSkippableStateDidChangeEventKey")
 	PlayerInterstitialEventMonitorCurrentEventSkippableStateDidChangeEventKey: ^NS.String
 
-	@(link_name = "AVPlayerInterstitialEventMonitorCurrentEventSkippableStateDidChangeStateKey")
+	@(link_name="AVPlayerInterstitialEventMonitorCurrentEventSkippableStateDidChangeStateKey")
 	PlayerInterstitialEventMonitorCurrentEventSkippableStateDidChangeStateKey: ^NS.String
 
-	@(link_name = "AVPlayerInterstitialEventMonitorCurrentEventSkippableStateDidChangeSkipControlLabelKey")
+	@(link_name="AVPlayerInterstitialEventMonitorCurrentEventSkippableStateDidChangeSkipControlLabelKey")
 	PlayerInterstitialEventMonitorCurrentEventSkippableStateDidChangeSkipControlLabelKey: ^NS.String
 
-	@(link_name = "AVPlayerInterstitialEventMonitorCurrentEventSkippedNotification")
+	@(link_name="AVPlayerInterstitialEventMonitorCurrentEventSkippedNotification")
 	PlayerInterstitialEventMonitorCurrentEventSkippedNotification: ^NS.String
 
-	@(link_name = "AVPlayerInterstitialEventMonitorCurrentEventSkippedEventKey")
+	@(link_name="AVPlayerInterstitialEventMonitorCurrentEventSkippedEventKey")
 	PlayerInterstitialEventMonitorCurrentEventSkippedEventKey: ^NS.String
 
-	@(link_name = "AVPlayerInterstitialEventMonitorInterstitialEventWasUnscheduledNotification")
+	@(link_name="AVPlayerInterstitialEventMonitorInterstitialEventWasUnscheduledNotification")
 	PlayerInterstitialEventMonitorInterstitialEventWasUnscheduledNotification: ^NS.String
 
-	@(link_name = "AVPlayerInterstitialEventMonitorInterstitialEventWasUnscheduledEventKey")
+	@(link_name="AVPlayerInterstitialEventMonitorInterstitialEventWasUnscheduledEventKey")
 	PlayerInterstitialEventMonitorInterstitialEventWasUnscheduledEventKey: ^NS.String
 
-	@(link_name = "AVPlayerInterstitialEventMonitorInterstitialEventWasUnscheduledErrorKey")
+	@(link_name="AVPlayerInterstitialEventMonitorInterstitialEventWasUnscheduledErrorKey")
 	PlayerInterstitialEventMonitorInterstitialEventWasUnscheduledErrorKey: ^NS.String
 
-	@(link_name = "AVPlayerInterstitialEventMonitorInterstitialEventDidFinishNotification")
+	@(link_name="AVPlayerInterstitialEventMonitorInterstitialEventDidFinishNotification")
 	PlayerInterstitialEventMonitorInterstitialEventDidFinishNotification: ^NS.String
 
-	@(link_name = "AVPlayerInterstitialEventMonitorInterstitialEventDidFinishEventKey")
+	@(link_name="AVPlayerInterstitialEventMonitorInterstitialEventDidFinishEventKey")
 	PlayerInterstitialEventMonitorInterstitialEventDidFinishEventKey: ^NS.String
 
-	@(link_name = "AVPlayerInterstitialEventMonitorInterstitialEventDidFinishPlayoutTimeKey")
+	@(link_name="AVPlayerInterstitialEventMonitorInterstitialEventDidFinishPlayoutTimeKey")
 	PlayerInterstitialEventMonitorInterstitialEventDidFinishPlayoutTimeKey: ^NS.String
 
-	@(link_name = "AVPlayerInterstitialEventMonitorInterstitialEventDidFinishDidPlayEntireEventKey")
+	@(link_name="AVPlayerInterstitialEventMonitorInterstitialEventDidFinishDidPlayEntireEventKey")
 	PlayerInterstitialEventMonitorInterstitialEventDidFinishDidPlayEntireEventKey: ^NS.String
 
-	@(link_name = "AVPlayerInterstitialEventMonitorScheduleRequestCompletedNotification")
+	@(link_name="AVPlayerInterstitialEventMonitorScheduleRequestCompletedNotification")
 	PlayerInterstitialEventMonitorScheduleRequestCompletedNotification: ^NS.String
 
-	@(link_name = "AVPlayerInterstitialEventMonitorScheduleRequestIdentifierKey")
+	@(link_name="AVPlayerInterstitialEventMonitorScheduleRequestIdentifierKey")
 	PlayerInterstitialEventMonitorScheduleRequestIdentifierKey: ^NS.String
 
-	@(link_name = "AVPlayerInterstitialEventMonitorScheduleRequestResponseKey")
+	@(link_name="AVPlayerInterstitialEventMonitorScheduleRequestResponseKey")
 	PlayerInterstitialEventMonitorScheduleRequestResponseKey: ^NS.String
 
-	@(link_name = "AVPlayerInterstitialEventMonitorScheduleRequestErrorKey")
+	@(link_name="AVPlayerInterstitialEventMonitorScheduleRequestErrorKey")
 	PlayerInterstitialEventMonitorScheduleRequestErrorKey: ^NS.String
 
-	@(link_name = "AVPlayerWaitingDuringInterstitialEventReason")
+	@(link_name="AVPlayerWaitingDuringInterstitialEventReason")
 	PlayerWaitingDuringInterstitialEventReason: ^NS.String
 
-	@(link_name = "AVPlayerIntegratedTimelineSnapshotsOutOfSyncNotification")
+	@(link_name="AVPlayerIntegratedTimelineSnapshotsOutOfSyncNotification")
 	PlayerIntegratedTimelineSnapshotsOutOfSyncNotification: ^NS.String
 
-	@(link_name = "AVPlayerIntegratedTimelineSnapshotsOutOfSyncReasonKey")
+	@(link_name="AVPlayerIntegratedTimelineSnapshotsOutOfSyncReasonKey")
 	PlayerIntegratedTimelineSnapshotsOutOfSyncReasonKey: ^NS.String
 
-	@(link_name = "AVPlayerIntegratedTimelineSnapshotsOutOfSyncReasonSegmentsChanged")
+	@(link_name="AVPlayerIntegratedTimelineSnapshotsOutOfSyncReasonSegmentsChanged")
 	PlayerIntegratedTimelineSnapshotsOutOfSyncReasonSegmentsChanged: ^NS.String
 
-	@(link_name = "AVPlayerIntegratedTimelineSnapshotsOutOfSyncReasonCurrentSegmentChanged")
+	@(link_name="AVPlayerIntegratedTimelineSnapshotsOutOfSyncReasonCurrentSegmentChanged")
 	PlayerIntegratedTimelineSnapshotsOutOfSyncReasonCurrentSegmentChanged: ^NS.String
 
-	@(link_name = "AVPlayerIntegratedTimelineSnapshotsOutOfSyncReasonLoadedTimeRangesChanged")
+	@(link_name="AVPlayerIntegratedTimelineSnapshotsOutOfSyncReasonLoadedTimeRangesChanged")
 	PlayerIntegratedTimelineSnapshotsOutOfSyncReasonLoadedTimeRangesChanged: ^NS.String
 
-	@(link_name = "AVRouteDetectorMultipleRoutesDetectedDidChangeNotification")
+	@(link_name="AVRouteDetectorMultipleRoutesDetectedDidChangeNotification")
 	RouteDetectorMultipleRoutesDetectedDidChangeNotification: ^NS.String
 
-	@(link_name = "AVSampleBufferAudioRendererWasFlushedAutomaticallyNotification")
+	@(link_name="AVSampleBufferAudioRendererWasFlushedAutomaticallyNotification")
 	SampleBufferAudioRendererWasFlushedAutomaticallyNotification: ^NS.String
 
-	@(link_name = "AVSampleBufferAudioRendererOutputConfigurationDidChangeNotification")
+	@(link_name="AVSampleBufferAudioRendererOutputConfigurationDidChangeNotification")
 	SampleBufferAudioRendererOutputConfigurationDidChangeNotification: ^NS.String
 
-	@(link_name = "AVSampleBufferAudioRendererFlushTimeKey")
+	@(link_name="AVSampleBufferAudioRendererFlushTimeKey")
 	SampleBufferAudioRendererFlushTimeKey: ^NS.String
 
-	@(link_name = "AVSampleBufferDisplayLayerFailedToDecodeNotification")
+	@(link_name="AVSampleBufferDisplayLayerFailedToDecodeNotification")
 	SampleBufferDisplayLayerFailedToDecodeNotification: ^NS.String
 
-	@(link_name = "AVSampleBufferDisplayLayerFailedToDecodeNotificationErrorKey")
+	@(link_name="AVSampleBufferDisplayLayerFailedToDecodeNotificationErrorKey")
 	SampleBufferDisplayLayerFailedToDecodeNotificationErrorKey: ^NS.String
 
-	@(link_name = "AVSampleBufferDisplayLayerRequiresFlushToResumeDecodingDidChangeNotification")
+	@(link_name="AVSampleBufferDisplayLayerRequiresFlushToResumeDecodingDidChangeNotification")
 	SampleBufferDisplayLayerRequiresFlushToResumeDecodingDidChangeNotification: ^NS.String
 
-	@(link_name = "AVSampleBufferDisplayLayerOutputObscuredDueToInsufficientExternalProtectionDidChangeNotification")
+	@(link_name="AVSampleBufferDisplayLayerOutputObscuredDueToInsufficientExternalProtectionDidChangeNotification")
 	SampleBufferDisplayLayerOutputObscuredDueToInsufficientExternalProtectionDidChangeNotification: ^NS.String
 
-	@(link_name = "AVSampleBufferDisplayLayerReadyForDisplayDidChangeNotification")
+	@(link_name="AVSampleBufferDisplayLayerReadyForDisplayDidChangeNotification")
 	SampleBufferDisplayLayerReadyForDisplayDidChangeNotification: ^NS.String
 
-	@(link_name = "AVSampleBufferRenderSynchronizerRateDidChangeNotification")
+	@(link_name="AVSampleBufferRenderSynchronizerRateDidChangeNotification")
 	SampleBufferRenderSynchronizerRateDidChangeNotification: ^NS.String
 
-	@(link_name = "AVSampleBufferVideoRendererDidFailToDecodeNotification")
+	@(link_name="AVSampleBufferVideoRendererDidFailToDecodeNotification")
 	SampleBufferVideoRendererDidFailToDecodeNotification: ^NS.String
 
-	@(link_name = "AVSampleBufferVideoRendererDidFailToDecodeNotificationErrorKey")
+	@(link_name="AVSampleBufferVideoRendererDidFailToDecodeNotificationErrorKey")
 	SampleBufferVideoRendererDidFailToDecodeNotificationErrorKey: ^NS.String
 
-	@(link_name = "AVSampleBufferVideoRendererRequiresFlushToResumeDecodingDidChangeNotification")
+	@(link_name="AVSampleBufferVideoRendererRequiresFlushToResumeDecodingDidChangeNotification")
 	SampleBufferVideoRendererRequiresFlushToResumeDecodingDidChangeNotification: ^NS.String
 
-	@(link_name = "AVFormatIDKey")
+	@(link_name="AVFormatIDKey")
 	FormatIDKey: ^NS.String
 
-	@(link_name = "AVSampleRateKey")
+	@(link_name="AVSampleRateKey")
 	SampleRateKey: ^NS.String
 
-	@(link_name = "AVNumberOfChannelsKey")
+	@(link_name="AVNumberOfChannelsKey")
 	NumberOfChannelsKey: ^NS.String
 
-	@(link_name = "AVLinearPCMBitDepthKey")
+	@(link_name="AVLinearPCMBitDepthKey")
 	LinearPCMBitDepthKey: ^NS.String
 
-	@(link_name = "AVLinearPCMIsBigEndianKey")
+	@(link_name="AVLinearPCMIsBigEndianKey")
 	LinearPCMIsBigEndianKey: ^NS.String
 
-	@(link_name = "AVLinearPCMIsFloatKey")
+	@(link_name="AVLinearPCMIsFloatKey")
 	LinearPCMIsFloatKey: ^NS.String
 
-	@(link_name = "AVLinearPCMIsNonInterleaved")
+	@(link_name="AVLinearPCMIsNonInterleaved")
 	LinearPCMIsNonInterleaved: ^NS.String
 
-	@(link_name = "AVAudioFileTypeKey")
+	@(link_name="AVAudioFileTypeKey")
 	AudioFileTypeKey: ^NS.String
 
-	@(link_name = "AVEncoderAudioQualityKey")
+	@(link_name="AVEncoderAudioQualityKey")
 	EncoderAudioQualityKey: ^NS.String
 
-	@(link_name = "AVEncoderAudioQualityForVBRKey")
+	@(link_name="AVEncoderAudioQualityForVBRKey")
 	EncoderAudioQualityForVBRKey: ^NS.String
 
-	@(link_name = "AVEncoderBitRateKey")
+	@(link_name="AVEncoderBitRateKey")
 	EncoderBitRateKey: ^NS.String
 
-	@(link_name = "AVEncoderBitRatePerChannelKey")
+	@(link_name="AVEncoderBitRatePerChannelKey")
 	EncoderBitRatePerChannelKey: ^NS.String
 
-	@(link_name = "AVEncoderBitRateStrategyKey")
+	@(link_name="AVEncoderBitRateStrategyKey")
 	EncoderBitRateStrategyKey: ^NS.String
 
-	@(link_name = "AVEncoderBitDepthHintKey")
+	@(link_name="AVEncoderBitDepthHintKey")
 	EncoderBitDepthHintKey: ^NS.String
 
-	@(link_name = "AVEncoderDynamicRangeControlConfigurationKey")
+	@(link_name="AVEncoderDynamicRangeControlConfigurationKey")
 	EncoderDynamicRangeControlConfigurationKey: ^NS.String
 
-	@(link_name = "AVEncoderContentSourceKey")
+	@(link_name="AVEncoderContentSourceKey")
 	EncoderContentSourceKey: ^NS.String
 
-	@(link_name = "AVEncoderASPFrequencyKey")
+	@(link_name="AVEncoderASPFrequencyKey")
 	EncoderASPFrequencyKey: ^NS.String
 
-	@(link_name = "AVSampleRateConverterAlgorithmKey")
+	@(link_name="AVSampleRateConverterAlgorithmKey")
 	SampleRateConverterAlgorithmKey: ^NS.String
 
-	@(link_name = "AVSampleRateConverterAudioQualityKey")
+	@(link_name="AVSampleRateConverterAudioQualityKey")
 	SampleRateConverterAudioQualityKey: ^NS.String
 
-	@(link_name = "AVChannelLayoutKey")
+	@(link_name="AVChannelLayoutKey")
 	ChannelLayoutKey: ^NS.String
 
-	@(link_name = "AVAudioBitRateStrategy_Constant")
+	@(link_name="AVAudioBitRateStrategy_Constant")
 	AudioBitRateStrategy_Constant: ^NS.String
 
-	@(link_name = "AVAudioBitRateStrategy_LongTermAverage")
+	@(link_name="AVAudioBitRateStrategy_LongTermAverage")
 	AudioBitRateStrategy_LongTermAverage: ^NS.String
 
-	@(link_name = "AVAudioBitRateStrategy_VariableConstrained")
+	@(link_name="AVAudioBitRateStrategy_VariableConstrained")
 	AudioBitRateStrategy_VariableConstrained: ^NS.String
 
-	@(link_name = "AVAudioBitRateStrategy_Variable")
+	@(link_name="AVAudioBitRateStrategy_Variable")
 	AudioBitRateStrategy_Variable: ^NS.String
 
-	@(link_name = "AVSampleRateConverterAlgorithm_Normal")
+	@(link_name="AVSampleRateConverterAlgorithm_Normal")
 	SampleRateConverterAlgorithm_Normal: ^NS.String
 
-	@(link_name = "AVSampleRateConverterAlgorithm_Mastering")
+	@(link_name="AVSampleRateConverterAlgorithm_Mastering")
 	SampleRateConverterAlgorithm_Mastering: ^NS.String
 
-	@(link_name = "AVSampleRateConverterAlgorithm_MinimumPhase")
+	@(link_name="AVSampleRateConverterAlgorithm_MinimumPhase")
 	SampleRateConverterAlgorithm_MinimumPhase: ^NS.String
 
-	@(link_name = "AVAudioEngineConfigurationChangeNotification")
+	@(link_name="AVAudioEngineConfigurationChangeNotification")
 	AudioEngineConfigurationChangeNotification: ^NS.String
 
-	@(link_name = "AVAudioSessionPortContinuityMicrophone")
+	@(link_name="AVAudioSessionPortContinuityMicrophone")
 	AudioSessionPortContinuityMicrophone: ^NS.String
 
-	@(link_name = "AVAudioSessionPortLineIn")
+	@(link_name="AVAudioSessionPortLineIn")
 	AudioSessionPortLineIn: ^NS.String
 
-	@(link_name = "AVAudioSessionPortBuiltInMic")
+	@(link_name="AVAudioSessionPortBuiltInMic")
 	AudioSessionPortBuiltInMic: ^NS.String
 
-	@(link_name = "AVAudioSessionPortHeadsetMic")
+	@(link_name="AVAudioSessionPortHeadsetMic")
 	AudioSessionPortHeadsetMic: ^NS.String
 
-	@(link_name = "AVAudioSessionPortLineOut")
+	@(link_name="AVAudioSessionPortLineOut")
 	AudioSessionPortLineOut: ^NS.String
 
-	@(link_name = "AVAudioSessionPortHeadphones")
+	@(link_name="AVAudioSessionPortHeadphones")
 	AudioSessionPortHeadphones: ^NS.String
 
-	@(link_name = "AVAudioSessionPortBluetoothA2DP")
+	@(link_name="AVAudioSessionPortBluetoothA2DP")
 	AudioSessionPortBluetoothA2DP: ^NS.String
 
-	@(link_name = "AVAudioSessionPortBuiltInReceiver")
+	@(link_name="AVAudioSessionPortBuiltInReceiver")
 	AudioSessionPortBuiltInReceiver: ^NS.String
 
-	@(link_name = "AVAudioSessionPortBuiltInSpeaker")
+	@(link_name="AVAudioSessionPortBuiltInSpeaker")
 	AudioSessionPortBuiltInSpeaker: ^NS.String
 
-	@(link_name = "AVAudioSessionPortHDMI")
+	@(link_name="AVAudioSessionPortHDMI")
 	AudioSessionPortHDMI: ^NS.String
 
-	@(link_name = "AVAudioSessionPortAirPlay")
+	@(link_name="AVAudioSessionPortAirPlay")
 	AudioSessionPortAirPlay: ^NS.String
 
-	@(link_name = "AVAudioSessionPortBluetoothLE")
+	@(link_name="AVAudioSessionPortBluetoothLE")
 	AudioSessionPortBluetoothLE: ^NS.String
 
-	@(link_name = "AVAudioSessionPortBluetoothHFP")
+	@(link_name="AVAudioSessionPortBluetoothHFP")
 	AudioSessionPortBluetoothHFP: ^NS.String
 
-	@(link_name = "AVAudioSessionPortUSBAudio")
+	@(link_name="AVAudioSessionPortUSBAudio")
 	AudioSessionPortUSBAudio: ^NS.String
 
-	@(link_name = "AVAudioSessionPortCarAudio")
+	@(link_name="AVAudioSessionPortCarAudio")
 	AudioSessionPortCarAudio: ^NS.String
 
-	@(link_name = "AVAudioSessionPortVirtual")
+	@(link_name="AVAudioSessionPortVirtual")
 	AudioSessionPortVirtual: ^NS.String
 
-	@(link_name = "AVAudioSessionPortPCI")
+	@(link_name="AVAudioSessionPortPCI")
 	AudioSessionPortPCI: ^NS.String
 
-	@(link_name = "AVAudioSessionPortFireWire")
+	@(link_name="AVAudioSessionPortFireWire")
 	AudioSessionPortFireWire: ^NS.String
 
-	@(link_name = "AVAudioSessionPortDisplayPort")
+	@(link_name="AVAudioSessionPortDisplayPort")
 	AudioSessionPortDisplayPort: ^NS.String
 
-	@(link_name = "AVAudioSessionPortAVB")
+	@(link_name="AVAudioSessionPortAVB")
 	AudioSessionPortAVB: ^NS.String
 
-	@(link_name = "AVAudioSessionPortThunderbolt")
+	@(link_name="AVAudioSessionPortThunderbolt")
 	AudioSessionPortThunderbolt: ^NS.String
 
-	@(link_name = "AVAudioSessionCategoryAmbient")
+	@(link_name="AVAudioSessionCategoryAmbient")
 	AudioSessionCategoryAmbient: ^NS.String
 
-	@(link_name = "AVAudioSessionCategorySoloAmbient")
+	@(link_name="AVAudioSessionCategorySoloAmbient")
 	AudioSessionCategorySoloAmbient: ^NS.String
 
-	@(link_name = "AVAudioSessionCategoryPlayback")
+	@(link_name="AVAudioSessionCategoryPlayback")
 	AudioSessionCategoryPlayback: ^NS.String
 
-	@(link_name = "AVAudioSessionCategoryRecord")
+	@(link_name="AVAudioSessionCategoryRecord")
 	AudioSessionCategoryRecord: ^NS.String
 
-	@(link_name = "AVAudioSessionCategoryPlayAndRecord")
+	@(link_name="AVAudioSessionCategoryPlayAndRecord")
 	AudioSessionCategoryPlayAndRecord: ^NS.String
 
-	@(link_name = "AVAudioSessionCategoryAudioProcessing")
+	@(link_name="AVAudioSessionCategoryAudioProcessing")
 	AudioSessionCategoryAudioProcessing: ^NS.String
 
-	@(link_name = "AVAudioSessionCategoryMultiRoute")
+	@(link_name="AVAudioSessionCategoryMultiRoute")
 	AudioSessionCategoryMultiRoute: ^NS.String
 
-	@(link_name = "AVAudioSessionModeDefault")
+	@(link_name="AVAudioSessionModeDefault")
 	AudioSessionModeDefault: ^NS.String
 
-	@(link_name = "AVAudioSessionModeVoiceChat")
+	@(link_name="AVAudioSessionModeVoiceChat")
 	AudioSessionModeVoiceChat: ^NS.String
 
-	@(link_name = "AVAudioSessionModeGameChat")
+	@(link_name="AVAudioSessionModeGameChat")
 	AudioSessionModeGameChat: ^NS.String
 
-	@(link_name = "AVAudioSessionModeVideoRecording")
+	@(link_name="AVAudioSessionModeVideoRecording")
 	AudioSessionModeVideoRecording: ^NS.String
 
-	@(link_name = "AVAudioSessionModeMeasurement")
+	@(link_name="AVAudioSessionModeMeasurement")
 	AudioSessionModeMeasurement: ^NS.String
 
-	@(link_name = "AVAudioSessionModeMoviePlayback")
+	@(link_name="AVAudioSessionModeMoviePlayback")
 	AudioSessionModeMoviePlayback: ^NS.String
 
-	@(link_name = "AVAudioSessionModeVideoChat")
+	@(link_name="AVAudioSessionModeVideoChat")
 	AudioSessionModeVideoChat: ^NS.String
 
-	@(link_name = "AVAudioSessionModeSpokenAudio")
+	@(link_name="AVAudioSessionModeSpokenAudio")
 	AudioSessionModeSpokenAudio: ^NS.String
 
-	@(link_name = "AVAudioSessionModeVoicePrompt")
+	@(link_name="AVAudioSessionModeVoicePrompt")
 	AudioSessionModeVoicePrompt: ^NS.String
 
-	@(link_name = "AVAudioSessionModeShortFormVideo")
+	@(link_name="AVAudioSessionModeShortFormVideo")
 	AudioSessionModeShortFormVideo: ^NS.String
 
-	@(link_name = "AVAudioSessionModeDualRoute")
+	@(link_name="AVAudioSessionModeDualRoute")
 	AudioSessionModeDualRoute: ^NS.String
 
-	@(link_name = "AVAudioSessionInterruptionNotification")
+	@(link_name="AVAudioSessionInterruptionNotification")
 	AudioSessionInterruptionNotification: ^NS.String
 
-	@(link_name = "AVAudioSessionRouteChangeNotification")
+	@(link_name="AVAudioSessionRouteChangeNotification")
 	AudioSessionRouteChangeNotification: ^NS.String
 
-	@(link_name = "AVAudioSessionMediaServicesWereLostNotification")
+	@(link_name="AVAudioSessionMediaServicesWereLostNotification")
 	AudioSessionMediaServicesWereLostNotification: ^NS.String
 
-	@(link_name = "AVAudioSessionMediaServicesWereResetNotification")
+	@(link_name="AVAudioSessionMediaServicesWereResetNotification")
 	AudioSessionMediaServicesWereResetNotification: ^NS.String
 
-	@(link_name = "AVAudioSessionSilenceSecondaryAudioHintNotification")
+	@(link_name="AVAudioSessionSilenceSecondaryAudioHintNotification")
 	AudioSessionSilenceSecondaryAudioHintNotification: ^NS.String
 
-	@(link_name = "AVAudioSessionSpatialPlaybackCapabilitiesChangedNotification")
+	@(link_name="AVAudioSessionSpatialPlaybackCapabilitiesChangedNotification")
 	AudioSessionSpatialPlaybackCapabilitiesChangedNotification: ^NS.String
 
-	@(link_name = "AVAudioSessionRenderingModeChangeNotification")
+	@(link_name="AVAudioSessionRenderingModeChangeNotification")
 	AudioSessionRenderingModeChangeNotification: ^NS.String
 
-	@(link_name = "AVAudioSessionRenderingCapabilitiesChangeNotification")
+	@(link_name="AVAudioSessionRenderingCapabilitiesChangeNotification")
 	AudioSessionRenderingCapabilitiesChangeNotification: ^NS.String
 
-	@(link_name = "AVAudioSessionMicrophoneInjectionCapabilitiesChangeNotification")
+	@(link_name="AVAudioSessionMicrophoneInjectionCapabilitiesChangeNotification")
 	AudioSessionMicrophoneInjectionCapabilitiesChangeNotification: ^NS.String
 
-	@(link_name = "AVAudioSessionOutputMuteStateChangeNotification")
+	@(link_name="AVAudioSessionOutputMuteStateChangeNotification")
 	AudioSessionOutputMuteStateChangeNotification: ^NS.String
 
-	@(link_name = "AVAudioSessionMuteStateKey")
+	@(link_name="AVAudioSessionMuteStateKey")
 	AudioSessionMuteStateKey: ^NS.String
 
-	@(link_name = "AVAudioSessionUserIntentToUnmuteOutputNotification")
+	@(link_name="AVAudioSessionUserIntentToUnmuteOutputNotification")
 	AudioSessionUserIntentToUnmuteOutputNotification: ^NS.String
 
-	@(link_name = "AVAudioSessionSpatialAudioEnabledKey")
+	@(link_name="AVAudioSessionSpatialAudioEnabledKey")
 	AudioSessionSpatialAudioEnabledKey: ^NS.String
 
-	@(link_name = "AVAudioSessionInterruptionTypeKey")
+	@(link_name="AVAudioSessionInterruptionTypeKey")
 	AudioSessionInterruptionTypeKey: ^NS.String
 
-	@(link_name = "AVAudioSessionInterruptionOptionKey")
+	@(link_name="AVAudioSessionInterruptionOptionKey")
 	AudioSessionInterruptionOptionKey: ^NS.String
 
-	@(link_name = "AVAudioSessionInterruptionReasonKey")
+	@(link_name="AVAudioSessionInterruptionReasonKey")
 	AudioSessionInterruptionReasonKey: ^NS.String
 
-	@(link_name = "AVAudioSessionInterruptionWasSuspendedKey")
+	@(link_name="AVAudioSessionInterruptionWasSuspendedKey")
 	AudioSessionInterruptionWasSuspendedKey: ^NS.String
 
-	@(link_name = "AVAudioSessionRouteChangeReasonKey")
+	@(link_name="AVAudioSessionRouteChangeReasonKey")
 	AudioSessionRouteChangeReasonKey: ^NS.String
 
-	@(link_name = "AVAudioSessionRouteChangePreviousRouteKey")
+	@(link_name="AVAudioSessionRouteChangePreviousRouteKey")
 	AudioSessionRouteChangePreviousRouteKey: ^NS.String
 
-	@(link_name = "AVAudioSessionSilenceSecondaryAudioHintTypeKey")
+	@(link_name="AVAudioSessionSilenceSecondaryAudioHintTypeKey")
 	AudioSessionSilenceSecondaryAudioHintTypeKey: ^NS.String
 
-	@(link_name = "AVAudioSessionRenderingModeNewRenderingModeKey")
+	@(link_name="AVAudioSessionRenderingModeNewRenderingModeKey")
 	AudioSessionRenderingModeNewRenderingModeKey: ^NS.String
 
-	@(link_name = "AVAudioSessionMicrophoneInjectionIsAvailableKey")
+	@(link_name="AVAudioSessionMicrophoneInjectionIsAvailableKey")
 	AudioSessionMicrophoneInjectionIsAvailableKey: ^NS.String
 
-	@(link_name = "AVAudioSessionAvailableInputsChangeNotification")
+	@(link_name="AVAudioSessionAvailableInputsChangeNotification")
 	AudioSessionAvailableInputsChangeNotification: ^NS.String
 
-	@(link_name = "AVAudioSessionLocationUpper")
+	@(link_name="AVAudioSessionLocationUpper")
 	AudioSessionLocationUpper: ^NS.String
 
-	@(link_name = "AVAudioSessionLocationLower")
+	@(link_name="AVAudioSessionLocationLower")
 	AudioSessionLocationLower: ^NS.String
 
-	@(link_name = "AVAudioSessionOrientationTop")
+	@(link_name="AVAudioSessionOrientationTop")
 	AudioSessionOrientationTop: ^NS.String
 
-	@(link_name = "AVAudioSessionOrientationBottom")
+	@(link_name="AVAudioSessionOrientationBottom")
 	AudioSessionOrientationBottom: ^NS.String
 
-	@(link_name = "AVAudioSessionOrientationFront")
+	@(link_name="AVAudioSessionOrientationFront")
 	AudioSessionOrientationFront: ^NS.String
 
-	@(link_name = "AVAudioSessionOrientationBack")
+	@(link_name="AVAudioSessionOrientationBack")
 	AudioSessionOrientationBack: ^NS.String
 
-	@(link_name = "AVAudioSessionOrientationLeft")
+	@(link_name="AVAudioSessionOrientationLeft")
 	AudioSessionOrientationLeft: ^NS.String
 
-	@(link_name = "AVAudioSessionOrientationRight")
+	@(link_name="AVAudioSessionOrientationRight")
 	AudioSessionOrientationRight: ^NS.String
 
-	@(link_name = "AVAudioSessionPolarPatternOmnidirectional")
+	@(link_name="AVAudioSessionPolarPatternOmnidirectional")
 	AudioSessionPolarPatternOmnidirectional: ^NS.String
 
-	@(link_name = "AVAudioSessionPolarPatternCardioid")
+	@(link_name="AVAudioSessionPolarPatternCardioid")
 	AudioSessionPolarPatternCardioid: ^NS.String
 
-	@(link_name = "AVAudioSessionPolarPatternSubcardioid")
+	@(link_name="AVAudioSessionPolarPatternSubcardioid")
 	AudioSessionPolarPatternSubcardioid: ^NS.String
 
-	@(link_name = "AVAudioSessionPolarPatternStereo")
+	@(link_name="AVAudioSessionPolarPatternStereo")
 	AudioSessionPolarPatternStereo: ^NS.String
 
-	@(link_name = "AVAudioSequencerInfoDictionaryKeyAlbum")
+	@(link_name="AVAudioSequencerInfoDictionaryKeyAlbum")
 	AudioSequencerInfoDictionaryKeyAlbum: ^NS.String
 
-	@(link_name = "AVAudioSequencerInfoDictionaryKeyApproximateDurationInSeconds")
+	@(link_name="AVAudioSequencerInfoDictionaryKeyApproximateDurationInSeconds")
 	AudioSequencerInfoDictionaryKeyApproximateDurationInSeconds: ^NS.String
 
-	@(link_name = "AVAudioSequencerInfoDictionaryKeyArtist")
+	@(link_name="AVAudioSequencerInfoDictionaryKeyArtist")
 	AudioSequencerInfoDictionaryKeyArtist: ^NS.String
 
-	@(link_name = "AVAudioSequencerInfoDictionaryKeyChannelLayout")
+	@(link_name="AVAudioSequencerInfoDictionaryKeyChannelLayout")
 	AudioSequencerInfoDictionaryKeyChannelLayout: ^NS.String
 
-	@(link_name = "AVAudioSequencerInfoDictionaryKeyComments")
+	@(link_name="AVAudioSequencerInfoDictionaryKeyComments")
 	AudioSequencerInfoDictionaryKeyComments: ^NS.String
 
-	@(link_name = "AVAudioSequencerInfoDictionaryKeyComposer")
+	@(link_name="AVAudioSequencerInfoDictionaryKeyComposer")
 	AudioSequencerInfoDictionaryKeyComposer: ^NS.String
 
-	@(link_name = "AVAudioSequencerInfoDictionaryKeyCopyright")
+	@(link_name="AVAudioSequencerInfoDictionaryKeyCopyright")
 	AudioSequencerInfoDictionaryKeyCopyright: ^NS.String
 
-	@(link_name = "AVAudioSequencerInfoDictionaryKeyEncodingApplication")
+	@(link_name="AVAudioSequencerInfoDictionaryKeyEncodingApplication")
 	AudioSequencerInfoDictionaryKeyEncodingApplication: ^NS.String
 
-	@(link_name = "AVAudioSequencerInfoDictionaryKeyGenre")
+	@(link_name="AVAudioSequencerInfoDictionaryKeyGenre")
 	AudioSequencerInfoDictionaryKeyGenre: ^NS.String
 
-	@(link_name = "AVAudioSequencerInfoDictionaryKeyISRC")
+	@(link_name="AVAudioSequencerInfoDictionaryKeyISRC")
 	AudioSequencerInfoDictionaryKeyISRC: ^NS.String
 
-	@(link_name = "AVAudioSequencerInfoDictionaryKeyKeySignature")
+	@(link_name="AVAudioSequencerInfoDictionaryKeyKeySignature")
 	AudioSequencerInfoDictionaryKeyKeySignature: ^NS.String
 
-	@(link_name = "AVAudioSequencerInfoDictionaryKeyLyricist")
+	@(link_name="AVAudioSequencerInfoDictionaryKeyLyricist")
 	AudioSequencerInfoDictionaryKeyLyricist: ^NS.String
 
-	@(link_name = "AVAudioSequencerInfoDictionaryKeyNominalBitRate")
+	@(link_name="AVAudioSequencerInfoDictionaryKeyNominalBitRate")
 	AudioSequencerInfoDictionaryKeyNominalBitRate: ^NS.String
 
-	@(link_name = "AVAudioSequencerInfoDictionaryKeyRecordedDate")
+	@(link_name="AVAudioSequencerInfoDictionaryKeyRecordedDate")
 	AudioSequencerInfoDictionaryKeyRecordedDate: ^NS.String
 
-	@(link_name = "AVAudioSequencerInfoDictionaryKeySourceBitDepth")
+	@(link_name="AVAudioSequencerInfoDictionaryKeySourceBitDepth")
 	AudioSequencerInfoDictionaryKeySourceBitDepth: ^NS.String
 
-	@(link_name = "AVAudioSequencerInfoDictionaryKeySourceEncoder")
+	@(link_name="AVAudioSequencerInfoDictionaryKeySourceEncoder")
 	AudioSequencerInfoDictionaryKeySourceEncoder: ^NS.String
 
-	@(link_name = "AVAudioSequencerInfoDictionaryKeySubTitle")
+	@(link_name="AVAudioSequencerInfoDictionaryKeySubTitle")
 	AudioSequencerInfoDictionaryKeySubTitle: ^NS.String
 
-	@(link_name = "AVAudioSequencerInfoDictionaryKeyTempo")
+	@(link_name="AVAudioSequencerInfoDictionaryKeyTempo")
 	AudioSequencerInfoDictionaryKeyTempo: ^NS.String
 
-	@(link_name = "AVAudioSequencerInfoDictionaryKeyTimeSignature")
+	@(link_name="AVAudioSequencerInfoDictionaryKeyTimeSignature")
 	AudioSequencerInfoDictionaryKeyTimeSignature: ^NS.String
 
-	@(link_name = "AVAudioSequencerInfoDictionaryKeyTitle")
+	@(link_name="AVAudioSequencerInfoDictionaryKeyTitle")
 	AudioSequencerInfoDictionaryKeyTitle: ^NS.String
 
-	@(link_name = "AVAudioSequencerInfoDictionaryKeyTrackNumber")
+	@(link_name="AVAudioSequencerInfoDictionaryKeyTrackNumber")
 	AudioSequencerInfoDictionaryKeyTrackNumber: ^NS.String
 
-	@(link_name = "AVAudioSequencerInfoDictionaryKeyYear")
+	@(link_name="AVAudioSequencerInfoDictionaryKeyYear")
 	AudioSequencerInfoDictionaryKeyYear: ^NS.String
 
-	@(link_name = "AVAudioUnitTypeOutput")
+	@(link_name="AVAudioUnitTypeOutput")
 	AudioUnitTypeOutput: ^NS.String
 
-	@(link_name = "AVAudioUnitTypeMusicDevice")
+	@(link_name="AVAudioUnitTypeMusicDevice")
 	AudioUnitTypeMusicDevice: ^NS.String
 
-	@(link_name = "AVAudioUnitTypeMusicEffect")
+	@(link_name="AVAudioUnitTypeMusicEffect")
 	AudioUnitTypeMusicEffect: ^NS.String
 
-	@(link_name = "AVAudioUnitTypeFormatConverter")
+	@(link_name="AVAudioUnitTypeFormatConverter")
 	AudioUnitTypeFormatConverter: ^NS.String
 
-	@(link_name = "AVAudioUnitTypeEffect")
+	@(link_name="AVAudioUnitTypeEffect")
 	AudioUnitTypeEffect: ^NS.String
 
-	@(link_name = "AVAudioUnitTypeMixer")
+	@(link_name="AVAudioUnitTypeMixer")
 	AudioUnitTypeMixer: ^NS.String
 
-	@(link_name = "AVAudioUnitTypePanner")
+	@(link_name="AVAudioUnitTypePanner")
 	AudioUnitTypePanner: ^NS.String
 
-	@(link_name = "AVAudioUnitTypeGenerator")
+	@(link_name="AVAudioUnitTypeGenerator")
 	AudioUnitTypeGenerator: ^NS.String
 
-	@(link_name = "AVAudioUnitTypeOfflineEffect")
+	@(link_name="AVAudioUnitTypeOfflineEffect")
 	AudioUnitTypeOfflineEffect: ^NS.String
 
-	@(link_name = "AVAudioUnitTypeMIDIProcessor")
+	@(link_name="AVAudioUnitTypeMIDIProcessor")
 	AudioUnitTypeMIDIProcessor: ^NS.String
 
-	@(link_name = "AVAudioUnitManufacturerNameApple")
+	@(link_name="AVAudioUnitManufacturerNameApple")
 	AudioUnitManufacturerNameApple: ^NS.String
 
-	@(link_name = "AVAudioUnitComponentTagsDidChangeNotification")
+	@(link_name="AVAudioUnitComponentTagsDidChangeNotification")
 	AudioUnitComponentTagsDidChangeNotification: ^NS.String
 
-	@(link_name = "AVAudioUnitComponentManagerRegistrationsChangedNotification")
+	@(link_name="AVAudioUnitComponentManagerRegistrationsChangedNotification")
 	AudioUnitComponentManagerRegistrationsChangedNotification: ^NS.String
 
-	@(link_name = "AVExtendedNoteOnEventDefaultInstrument")
+	@(link_name="AVExtendedNoteOnEventDefaultInstrument")
 	ExtendedNoteOnEventDefaultInstrument: CF.UInt32
 
-	@(link_name = "AVSpeechUtteranceMinimumSpeechRate")
+	@(link_name="AVSpeechUtteranceMinimumSpeechRate")
 	SpeechUtteranceMinimumSpeechRate: cffi.float
 
-	@(link_name = "AVSpeechUtteranceMaximumSpeechRate")
+	@(link_name="AVSpeechUtteranceMaximumSpeechRate")
 	SpeechUtteranceMaximumSpeechRate: cffi.float
 
-	@(link_name = "AVSpeechUtteranceDefaultSpeechRate")
+	@(link_name="AVSpeechUtteranceDefaultSpeechRate")
 	SpeechUtteranceDefaultSpeechRate: cffi.float
 
-	@(link_name = "AVSpeechSynthesisVoiceIdentifierAlex")
+	@(link_name="AVSpeechSynthesisVoiceIdentifierAlex")
 	SpeechSynthesisVoiceIdentifierAlex: ^NS.String
 
-	@(link_name = "AVSpeechSynthesisIPANotationAttribute")
+	@(link_name="AVSpeechSynthesisIPANotationAttribute")
 	SpeechSynthesisIPANotationAttribute: ^NS.String
 
-	@(link_name = "AVSpeechSynthesisAvailableVoicesDidChangeNotification")
+	@(link_name="AVSpeechSynthesisAvailableVoicesDidChangeNotification")
 	SpeechSynthesisAvailableVoicesDidChangeNotification: ^NS.String
 
-	@(link_name = "AVAudioApplicationInputMuteStateChangeNotification")
+	@(link_name="AVAudioApplicationInputMuteStateChangeNotification")
 	AudioApplicationInputMuteStateChangeNotification: ^NS.String
 
-	@(link_name = "AVAudioApplicationMuteStateKey")
+	@(link_name="AVAudioApplicationMuteStateKey")
 	AudioApplicationMuteStateKey: ^NS.String
 
-	@(link_name = "AVCaptureSessionPresetPhoto")
+	@(link_name="AVCaptureSessionPresetPhoto")
 	CaptureSessionPresetPhoto: ^NS.String
 
-	@(link_name = "AVCaptureSessionPresetHigh")
+	@(link_name="AVCaptureSessionPresetHigh")
 	CaptureSessionPresetHigh: ^NS.String
 
-	@(link_name = "AVCaptureSessionPresetMedium")
+	@(link_name="AVCaptureSessionPresetMedium")
 	CaptureSessionPresetMedium: ^NS.String
 
-	@(link_name = "AVCaptureSessionPresetLow")
+	@(link_name="AVCaptureSessionPresetLow")
 	CaptureSessionPresetLow: ^NS.String
 
-	@(link_name = "AVCaptureSessionPreset320x240")
+	@(link_name="AVCaptureSessionPreset320x240")
 	CaptureSessionPreset320x240: ^NS.String
 
-	@(link_name = "AVCaptureSessionPreset352x288")
+	@(link_name="AVCaptureSessionPreset352x288")
 	CaptureSessionPreset352x288: ^NS.String
 
-	@(link_name = "AVCaptureSessionPreset640x480")
+	@(link_name="AVCaptureSessionPreset640x480")
 	CaptureSessionPreset640x480: ^NS.String
 
-	@(link_name = "AVCaptureSessionPreset960x540")
+	@(link_name="AVCaptureSessionPreset960x540")
 	CaptureSessionPreset960x540: ^NS.String
 
-	@(link_name = "AVCaptureSessionPreset1280x720")
+	@(link_name="AVCaptureSessionPreset1280x720")
 	CaptureSessionPreset1280x720: ^NS.String
 
-	@(link_name = "AVCaptureSessionPreset1920x1080")
+	@(link_name="AVCaptureSessionPreset1920x1080")
 	CaptureSessionPreset1920x1080: ^NS.String
 
-	@(link_name = "AVCaptureSessionPreset3840x2160")
+	@(link_name="AVCaptureSessionPreset3840x2160")
 	CaptureSessionPreset3840x2160: ^NS.String
 
-	@(link_name = "AVCaptureSessionPresetiFrame960x540")
+	@(link_name="AVCaptureSessionPresetiFrame960x540")
 	CaptureSessionPresetiFrame960x540: ^NS.String
 
-	@(link_name = "AVCaptureSessionPresetiFrame1280x720")
+	@(link_name="AVCaptureSessionPresetiFrame1280x720")
 	CaptureSessionPresetiFrame1280x720: ^NS.String
 
-	@(link_name = "AVCaptureSessionPresetInputPriority")
+	@(link_name="AVCaptureSessionPresetInputPriority")
 	CaptureSessionPresetInputPriority: ^NS.String
 
-	@(link_name = "AVCaptureReactionTypeThumbsUp")
+	@(link_name="AVCaptureReactionTypeThumbsUp")
 	CaptureReactionTypeThumbsUp: ^NS.String
 
-	@(link_name = "AVCaptureReactionTypeThumbsDown")
+	@(link_name="AVCaptureReactionTypeThumbsDown")
 	CaptureReactionTypeThumbsDown: ^NS.String
 
-	@(link_name = "AVCaptureReactionTypeBalloons")
+	@(link_name="AVCaptureReactionTypeBalloons")
 	CaptureReactionTypeBalloons: ^NS.String
 
-	@(link_name = "AVCaptureReactionTypeHeart")
+	@(link_name="AVCaptureReactionTypeHeart")
 	CaptureReactionTypeHeart: ^NS.String
 
-	@(link_name = "AVCaptureReactionTypeFireworks")
+	@(link_name="AVCaptureReactionTypeFireworks")
 	CaptureReactionTypeFireworks: ^NS.String
 
-	@(link_name = "AVCaptureReactionTypeRain")
+	@(link_name="AVCaptureReactionTypeRain")
 	CaptureReactionTypeRain: ^NS.String
 
-	@(link_name = "AVCaptureReactionTypeConfetti")
+	@(link_name="AVCaptureReactionTypeConfetti")
 	CaptureReactionTypeConfetti: ^NS.String
 
-	@(link_name = "AVCaptureReactionTypeLasers")
+	@(link_name="AVCaptureReactionTypeLasers")
 	CaptureReactionTypeLasers: ^NS.String
 
-	@(link_name = "AVCaptureDeviceWasConnectedNotification")
+	@(link_name="AVCaptureDeviceWasConnectedNotification")
 	CaptureDeviceWasConnectedNotification: ^NS.String
 
-	@(link_name = "AVCaptureDeviceWasDisconnectedNotification")
+	@(link_name="AVCaptureDeviceWasDisconnectedNotification")
 	CaptureDeviceWasDisconnectedNotification: ^NS.String
 
-	@(link_name = "AVCaptureDeviceSubjectAreaDidChangeNotification")
+	@(link_name="AVCaptureDeviceSubjectAreaDidChangeNotification")
 	CaptureDeviceSubjectAreaDidChangeNotification: ^NS.String
 
-	@(link_name = "AVCaptureDeviceTypeExternal")
+	@(link_name="AVCaptureDeviceTypeExternal")
 	CaptureDeviceTypeExternal: ^NS.String
 
-	@(link_name = "AVCaptureDeviceTypeMicrophone")
+	@(link_name="AVCaptureDeviceTypeMicrophone")
 	CaptureDeviceTypeMicrophone: ^NS.String
 
-	@(link_name = "AVCaptureDeviceTypeBuiltInWideAngleCamera")
+	@(link_name="AVCaptureDeviceTypeBuiltInWideAngleCamera")
 	CaptureDeviceTypeBuiltInWideAngleCamera: ^NS.String
 
-	@(link_name = "AVCaptureDeviceTypeBuiltInTelephotoCamera")
+	@(link_name="AVCaptureDeviceTypeBuiltInTelephotoCamera")
 	CaptureDeviceTypeBuiltInTelephotoCamera: ^NS.String
 
-	@(link_name = "AVCaptureDeviceTypeBuiltInUltraWideCamera")
+	@(link_name="AVCaptureDeviceTypeBuiltInUltraWideCamera")
 	CaptureDeviceTypeBuiltInUltraWideCamera: ^NS.String
 
-	@(link_name = "AVCaptureDeviceTypeBuiltInDualCamera")
+	@(link_name="AVCaptureDeviceTypeBuiltInDualCamera")
 	CaptureDeviceTypeBuiltInDualCamera: ^NS.String
 
-	@(link_name = "AVCaptureDeviceTypeBuiltInDualWideCamera")
+	@(link_name="AVCaptureDeviceTypeBuiltInDualWideCamera")
 	CaptureDeviceTypeBuiltInDualWideCamera: ^NS.String
 
-	@(link_name = "AVCaptureDeviceTypeBuiltInTripleCamera")
+	@(link_name="AVCaptureDeviceTypeBuiltInTripleCamera")
 	CaptureDeviceTypeBuiltInTripleCamera: ^NS.String
 
-	@(link_name = "AVCaptureDeviceTypeBuiltInTrueDepthCamera")
+	@(link_name="AVCaptureDeviceTypeBuiltInTrueDepthCamera")
 	CaptureDeviceTypeBuiltInTrueDepthCamera: ^NS.String
 
-	@(link_name = "AVCaptureDeviceTypeBuiltInLiDARDepthCamera")
+	@(link_name="AVCaptureDeviceTypeBuiltInLiDARDepthCamera")
 	CaptureDeviceTypeBuiltInLiDARDepthCamera: ^NS.String
 
-	@(link_name = "AVCaptureDeviceTypeContinuityCamera")
+	@(link_name="AVCaptureDeviceTypeContinuityCamera")
 	CaptureDeviceTypeContinuityCamera: ^NS.String
 
-	@(link_name = "AVCaptureDeviceTypeDeskViewCamera")
+	@(link_name="AVCaptureDeviceTypeDeskViewCamera")
 	CaptureDeviceTypeDeskViewCamera: ^NS.String
 
-	@(link_name = "AVCaptureDeviceTypeExternalUnknown")
+	@(link_name="AVCaptureDeviceTypeExternalUnknown")
 	CaptureDeviceTypeExternalUnknown: ^NS.String
 
-	@(link_name = "AVCaptureDeviceTypeBuiltInDuoCamera")
+	@(link_name="AVCaptureDeviceTypeBuiltInDuoCamera")
 	CaptureDeviceTypeBuiltInDuoCamera: ^NS.String
 
-	@(link_name = "AVCaptureDeviceTypeBuiltInMicrophone")
+	@(link_name="AVCaptureDeviceTypeBuiltInMicrophone")
 	CaptureDeviceTypeBuiltInMicrophone: ^NS.String
 
-	@(link_name = "AVCaptureMaxAvailableTorchLevel")
+	@(link_name="AVCaptureMaxAvailableTorchLevel")
 	CaptureMaxAvailableTorchLevel: cffi.float
 
-	@(link_name = "AVCaptureLensPositionCurrent")
+	@(link_name="AVCaptureLensPositionCurrent")
 	CaptureLensPositionCurrent: cffi.float
 
-	@(link_name = "AVCaptureExposureDurationCurrent")
+	@(link_name="AVCaptureExposureDurationCurrent")
 	CaptureExposureDurationCurrent: CM.Time
 
-	@(link_name = "AVCaptureISOCurrent")
+	@(link_name="AVCaptureISOCurrent")
 	CaptureISOCurrent: cffi.float
 
-	@(link_name = "AVCaptureExposureTargetBiasCurrent")
+	@(link_name="AVCaptureExposureTargetBiasCurrent")
 	CaptureExposureTargetBiasCurrent: cffi.float
 
-	@(link_name = "AVCaptureWhiteBalanceTemperatureAndTintValuesTungsten")
+	@(link_name="AVCaptureWhiteBalanceTemperatureAndTintValuesTungsten")
 	CaptureWhiteBalanceTemperatureAndTintValuesTungsten: CaptureWhiteBalanceTemperatureAndTintValues
 
-	@(link_name = "AVCaptureWhiteBalanceTemperatureAndTintValuesFluorescent")
+	@(link_name="AVCaptureWhiteBalanceTemperatureAndTintValuesFluorescent")
 	CaptureWhiteBalanceTemperatureAndTintValuesFluorescent: CaptureWhiteBalanceTemperatureAndTintValues
 
-	@(link_name = "AVCaptureWhiteBalanceTemperatureAndTintValuesDaylight")
+	@(link_name="AVCaptureWhiteBalanceTemperatureAndTintValuesDaylight")
 	CaptureWhiteBalanceTemperatureAndTintValuesDaylight: CaptureWhiteBalanceTemperatureAndTintValues
 
-	@(link_name = "AVCaptureWhiteBalanceTemperatureAndTintValuesCloudy")
+	@(link_name="AVCaptureWhiteBalanceTemperatureAndTintValuesCloudy")
 	CaptureWhiteBalanceTemperatureAndTintValuesCloudy: CaptureWhiteBalanceTemperatureAndTintValues
 
-	@(link_name = "AVCaptureWhiteBalanceTemperatureAndTintValuesShadow")
+	@(link_name="AVCaptureWhiteBalanceTemperatureAndTintValuesShadow")
 	CaptureWhiteBalanceTemperatureAndTintValuesShadow: CaptureWhiteBalanceTemperatureAndTintValues
 
-	@(link_name = "AVCaptureWhiteBalanceGainsCurrent")
+	@(link_name="AVCaptureWhiteBalanceGainsCurrent")
 	CaptureWhiteBalanceGainsCurrent: CaptureWhiteBalanceGains
 
-	@(link_name = "AVSpatialCaptureDiscomfortReasonNotEnoughLight")
+	@(link_name="AVSpatialCaptureDiscomfortReasonNotEnoughLight")
 	SpatialCaptureDiscomfortReasonNotEnoughLight: ^NS.String
 
-	@(link_name = "AVSpatialCaptureDiscomfortReasonSubjectTooClose")
+	@(link_name="AVSpatialCaptureDiscomfortReasonSubjectTooClose")
 	SpatialCaptureDiscomfortReasonSubjectTooClose: ^NS.String
 
-	@(link_name = "AVCaptureSceneMonitoringStatusNotEnoughLight")
+	@(link_name="AVCaptureSceneMonitoringStatusNotEnoughLight")
 	CaptureSceneMonitoringStatusNotEnoughLight: ^NS.String
 
-	@(link_name = "AVCaptureAspectRatio1x1")
+	@(link_name="AVCaptureAspectRatio1x1")
 	CaptureAspectRatio1x1: ^NS.String
 
-	@(link_name = "AVCaptureAspectRatio16x9")
+	@(link_name="AVCaptureAspectRatio16x9")
 	CaptureAspectRatio16x9: ^NS.String
 
-	@(link_name = "AVCaptureAspectRatio9x16")
+	@(link_name="AVCaptureAspectRatio9x16")
 	CaptureAspectRatio9x16: ^NS.String
 
-	@(link_name = "AVCaptureAspectRatio4x3")
+	@(link_name="AVCaptureAspectRatio4x3")
 	CaptureAspectRatio4x3: ^NS.String
 
-	@(link_name = "AVCaptureAspectRatio3x4")
+	@(link_name="AVCaptureAspectRatio3x4")
 	CaptureAspectRatio3x4: ^NS.String
 
-	@(link_name = "AVCaptureSessionRuntimeErrorNotification")
+	@(link_name="AVCaptureSessionRuntimeErrorNotification")
 	CaptureSessionRuntimeErrorNotification: ^NS.String
 
-	@(link_name = "AVCaptureSessionErrorKey")
+	@(link_name="AVCaptureSessionErrorKey")
 	CaptureSessionErrorKey: ^NS.String
 
-	@(link_name = "AVCaptureSessionDidStartRunningNotification")
+	@(link_name="AVCaptureSessionDidStartRunningNotification")
 	CaptureSessionDidStartRunningNotification: ^NS.String
 
-	@(link_name = "AVCaptureSessionDidStopRunningNotification")
+	@(link_name="AVCaptureSessionDidStopRunningNotification")
 	CaptureSessionDidStopRunningNotification: ^NS.String
 
-	@(link_name = "AVCaptureSessionWasInterruptedNotification")
+	@(link_name="AVCaptureSessionWasInterruptedNotification")
 	CaptureSessionWasInterruptedNotification: ^NS.String
 
-	@(link_name = "AVCaptureSessionInterruptionReasonKey")
+	@(link_name="AVCaptureSessionInterruptionReasonKey")
 	CaptureSessionInterruptionReasonKey: ^NS.String
 
-	@(link_name = "AVCaptureSessionInterruptionSystemPressureStateKey")
+	@(link_name="AVCaptureSessionInterruptionSystemPressureStateKey")
 	CaptureSessionInterruptionSystemPressureStateKey: ^NS.String
 
-	@(link_name = "AVCaptureSessionInterruptionEndedNotification")
+	@(link_name="AVCaptureSessionInterruptionEndedNotification")
 	CaptureSessionInterruptionEndedNotification: ^NS.String
 
-	@(link_name = "AVMetadataObjectTypeHumanBody")
+	@(link_name="AVMetadataObjectTypeHumanBody")
 	MetadataObjectTypeHumanBody: ^NS.String
 
-	@(link_name = "AVMetadataObjectTypeHumanFullBody")
+	@(link_name="AVMetadataObjectTypeHumanFullBody")
 	MetadataObjectTypeHumanFullBody: ^NS.String
 
-	@(link_name = "AVMetadataObjectTypeCatHead")
+	@(link_name="AVMetadataObjectTypeCatHead")
 	MetadataObjectTypeCatHead: ^NS.String
 
-	@(link_name = "AVMetadataObjectTypeCatBody")
+	@(link_name="AVMetadataObjectTypeCatBody")
 	MetadataObjectTypeCatBody: ^NS.String
 
-	@(link_name = "AVMetadataObjectTypeDogHead")
+	@(link_name="AVMetadataObjectTypeDogHead")
 	MetadataObjectTypeDogHead: ^NS.String
 
-	@(link_name = "AVMetadataObjectTypeDogBody")
+	@(link_name="AVMetadataObjectTypeDogBody")
 	MetadataObjectTypeDogBody: ^NS.String
 
-	@(link_name = "AVMetadataObjectTypeSalientObject")
+	@(link_name="AVMetadataObjectTypeSalientObject")
 	MetadataObjectTypeSalientObject: ^NS.String
 
-	@(link_name = "AVMetadataObjectTypeFace")
+	@(link_name="AVMetadataObjectTypeFace")
 	MetadataObjectTypeFace: ^NS.String
 
-	@(link_name = "AVMetadataObjectTypeUPCECode")
+	@(link_name="AVMetadataObjectTypeUPCECode")
 	MetadataObjectTypeUPCECode: ^NS.String
 
-	@(link_name = "AVMetadataObjectTypeCode39Code")
+	@(link_name="AVMetadataObjectTypeCode39Code")
 	MetadataObjectTypeCode39Code: ^NS.String
 
-	@(link_name = "AVMetadataObjectTypeCode39Mod43Code")
+	@(link_name="AVMetadataObjectTypeCode39Mod43Code")
 	MetadataObjectTypeCode39Mod43Code: ^NS.String
 
-	@(link_name = "AVMetadataObjectTypeEAN13Code")
+	@(link_name="AVMetadataObjectTypeEAN13Code")
 	MetadataObjectTypeEAN13Code: ^NS.String
 
-	@(link_name = "AVMetadataObjectTypeEAN8Code")
+	@(link_name="AVMetadataObjectTypeEAN8Code")
 	MetadataObjectTypeEAN8Code: ^NS.String
 
-	@(link_name = "AVMetadataObjectTypeCode93Code")
+	@(link_name="AVMetadataObjectTypeCode93Code")
 	MetadataObjectTypeCode93Code: ^NS.String
 
-	@(link_name = "AVMetadataObjectTypeCode128Code")
+	@(link_name="AVMetadataObjectTypeCode128Code")
 	MetadataObjectTypeCode128Code: ^NS.String
 
-	@(link_name = "AVMetadataObjectTypePDF417Code")
+	@(link_name="AVMetadataObjectTypePDF417Code")
 	MetadataObjectTypePDF417Code: ^NS.String
 
-	@(link_name = "AVMetadataObjectTypeQRCode")
+	@(link_name="AVMetadataObjectTypeQRCode")
 	MetadataObjectTypeQRCode: ^NS.String
 
-	@(link_name = "AVMetadataObjectTypeAztecCode")
+	@(link_name="AVMetadataObjectTypeAztecCode")
 	MetadataObjectTypeAztecCode: ^NS.String
 
-	@(link_name = "AVMetadataObjectTypeInterleaved2of5Code")
+	@(link_name="AVMetadataObjectTypeInterleaved2of5Code")
 	MetadataObjectTypeInterleaved2of5Code: ^NS.String
 
-	@(link_name = "AVMetadataObjectTypeITF14Code")
+	@(link_name="AVMetadataObjectTypeITF14Code")
 	MetadataObjectTypeITF14Code: ^NS.String
 
-	@(link_name = "AVMetadataObjectTypeDataMatrixCode")
+	@(link_name="AVMetadataObjectTypeDataMatrixCode")
 	MetadataObjectTypeDataMatrixCode: ^NS.String
 
-	@(link_name = "AVMetadataObjectTypeCodabarCode")
+	@(link_name="AVMetadataObjectTypeCodabarCode")
 	MetadataObjectTypeCodabarCode: ^NS.String
 
-	@(link_name = "AVMetadataObjectTypeGS1DataBarCode")
+	@(link_name="AVMetadataObjectTypeGS1DataBarCode")
 	MetadataObjectTypeGS1DataBarCode: ^NS.String
 
-	@(link_name = "AVMetadataObjectTypeGS1DataBarExpandedCode")
+	@(link_name="AVMetadataObjectTypeGS1DataBarExpandedCode")
 	MetadataObjectTypeGS1DataBarExpandedCode: ^NS.String
 
-	@(link_name = "AVMetadataObjectTypeGS1DataBarLimitedCode")
+	@(link_name="AVMetadataObjectTypeGS1DataBarLimitedCode")
 	MetadataObjectTypeGS1DataBarLimitedCode: ^NS.String
 
-	@(link_name = "AVMetadataObjectTypeMicroQRCode")
+	@(link_name="AVMetadataObjectTypeMicroQRCode")
 	MetadataObjectTypeMicroQRCode: ^NS.String
 
-	@(link_name = "AVMetadataObjectTypeMicroPDF417Code")
+	@(link_name="AVMetadataObjectTypeMicroPDF417Code")
 	MetadataObjectTypeMicroPDF417Code: ^NS.String
 
-	@(link_name = "AVSemanticSegmentationMatteTypeSkin")
+	@(link_name="AVSemanticSegmentationMatteTypeSkin")
 	SemanticSegmentationMatteTypeSkin: ^NS.String
 
-	@(link_name = "AVSemanticSegmentationMatteTypeHair")
+	@(link_name="AVSemanticSegmentationMatteTypeHair")
 	SemanticSegmentationMatteTypeHair: ^NS.String
 
-	@(link_name = "AVSemanticSegmentationMatteTypeTeeth")
+	@(link_name="AVSemanticSegmentationMatteTypeTeeth")
 	SemanticSegmentationMatteTypeTeeth: ^NS.String
 
-	@(link_name = "AVSemanticSegmentationMatteTypeGlasses")
+	@(link_name="AVSemanticSegmentationMatteTypeGlasses")
 	SemanticSegmentationMatteTypeGlasses: ^NS.String
 
-	@(link_name = "AVCaptureInputPortFormatDescriptionDidChangeNotification")
+	@(link_name="AVCaptureInputPortFormatDescriptionDidChangeNotification")
 	CaptureInputPortFormatDescriptionDidChangeNotification: ^NS.String
 
-	@(link_name = "AVCaptureSystemPressureLevelNominal")
+	@(link_name="AVCaptureSystemPressureLevelNominal")
 	CaptureSystemPressureLevelNominal: ^NS.String
 
-	@(link_name = "AVCaptureSystemPressureLevelFair")
+	@(link_name="AVCaptureSystemPressureLevelFair")
 	CaptureSystemPressureLevelFair: ^NS.String
 
-	@(link_name = "AVCaptureSystemPressureLevelSerious")
+	@(link_name="AVCaptureSystemPressureLevelSerious")
 	CaptureSystemPressureLevelSerious: ^NS.String
 
-	@(link_name = "AVCaptureSystemPressureLevelCritical")
+	@(link_name="AVCaptureSystemPressureLevelCritical")
 	CaptureSystemPressureLevelCritical: ^NS.String
 
-	@(link_name = "AVCaptureSystemPressureLevelShutdown")
+	@(link_name="AVCaptureSystemPressureLevelShutdown")
 	CaptureSystemPressureLevelShutdown: ^NS.String
 
-	@(link_name = "AVSampleBufferAttachContentKey")
+	@(link_name="AVSampleBufferAttachContentKey")
 	SampleBufferAttachContentKey :: proc(sbuf: CM.SampleBufferRef, contentKey: ^ContentKey, outError: ^^NS.Error) -> bool ---
 
-	@(link_name = "AVCaptionDimensionMake")
+	@(link_name="AVCaptionDimensionMake")
 	CaptionDimensionMake :: proc(value: CG.Float, units: CaptionUnitsType) -> CaptionDimension ---
 
-	@(link_name = "AVCaptionPointMake")
+	@(link_name="AVCaptionPointMake")
 	CaptionPointMake :: proc(x: CaptionDimension, y: CaptionDimension) -> CaptionPoint ---
 
-	@(link_name = "AVCaptionSizeMake")
+	@(link_name="AVCaptionSizeMake")
 	CaptionSizeMake :: proc(width: CaptionDimension, height: CaptionDimension) -> CaptionSize ---
 
-	@(link_name = "AVMakeRectWithAspectRatioInsideRect")
+	@(link_name="AVMakeRectWithAspectRatioInsideRect")
 	MakeRectWithAspectRatioInsideRect :: proc(aspectRatio: CG.Size, boundingRect: CG.Rect) -> CG.Rect ---
 
-	@(link_name = "AVCaptureReactionSystemImageNameForType")
+	@(link_name="AVCaptureReactionSystemImageNameForType")
 	CaptureReactionSystemImageNameForType :: proc(reactionType: CaptureReactionType) -> ^NS.String ---
 
-	@(link_name = "AVCaptureTimecodeCreateMetadataSampleBufferAssociatedWithPresentationTimeStamp")
+	@(link_name="AVCaptureTimecodeCreateMetadataSampleBufferAssociatedWithPresentationTimeStamp")
 	CaptureTimecodeCreateMetadataSampleBufferAssociatedWithPresentationTimeStamp :: proc(timecode: CaptureTimecode, presentationTimeStamp: CM.Time) -> CM.SampleBufferRef ---
 
-	@(link_name = "AVCaptureTimecodeCreateMetadataSampleBufferForDuration")
+	@(link_name="AVCaptureTimecodeCreateMetadataSampleBufferForDuration")
 	CaptureTimecodeCreateMetadataSampleBufferForDuration :: proc(timecode: CaptureTimecode, duration: CM.Time) -> CM.SampleBufferRef ---
 
-	@(link_name = "AVCaptureTimecodeAdvancedByFrames")
+	@(link_name="AVCaptureTimecodeAdvancedByFrames")
 	CaptureTimecodeAdvancedByFrames :: proc(timecode: CaptureTimecode, framesToAdd: cffi.int64_t) -> CaptureTimecode ---
 }
 
 
-AUDIOFORMAT_HAVE_CMFORMATDESCRIPTION :: 1
-AUDIONODE_HAVE_AUAUDIOUNIT :: 1
-AUDIOIONODE_HAVE_AUDIOUNIT :: 1
-AUDIOENGINE_HAVE_MUSICPLAYER :: 1
-AUDIOENGINE_HAVE_AUAUDIOUNIT :: 1
-AUDIOUNIT_HAVE_AUDIOUNIT :: 1
+
+AUDIOFORMAT_HAVE_CMFORMATDESCRIPTION   :: 1
+AUDIONODE_HAVE_AUAUDIOUNIT             :: 1
+AUDIOIONODE_HAVE_AUDIOUNIT             :: 1
+AUDIOENGINE_HAVE_MUSICPLAYER           :: 1
+AUDIOENGINE_HAVE_AUAUDIOUNIT           :: 1
+AUDIOUNIT_HAVE_AUDIOUNIT               :: 1
 AUDIOUNITCOMPONENT_HAVE_AUDIOCOMPONENT :: 1
-AudioSessionErrorInsufficientPriority :: 561017449
-AudioSessionInterruptionFlags_ShouldResume :: 1
+AudioSessionErrorInsufficientPriority                 :: 561017449
+AudioSessionInterruptionFlags_ShouldResume            :: 1
 AudioSessionSetActiveFlags_NotifyOthersOnDeactivation :: 1
 LayerVideoGravity :: ^NS.String
 AudioInteger :: cffi.long
@@ -3764,9 +3771,7 @@ VideoApertureMode :: ^NS.String
 AudioTimePitchAlgorithm :: ^NS.String
 AssetImageGeneratorApertureMode :: ^NS.String
 AssetImageGeneratorDynamicRangePolicy :: ^NS.String
-AssetImageGeneratorCompletionHandler :: ^Objc_Block(
-	proc "c" (requestedTime: CM.Time, image: CG.ImageRef, actualTime: CM.Time, result: AssetImageGeneratorResult, error: ^NS.Error),
-)
+AssetImageGeneratorCompletionHandler :: ^Objc_Block(proc "c" ( requestedTime: CM.Time, image: CG.ImageRef, actualTime: CM.Time, result: AssetImageGeneratorResult, error: ^NS.Error ))
 VideoCompositionPerFrameHDRDisplayMetadataPolicy :: ^NS.String
 TrackAssociationType :: ^NS.String
 AssetWriterInputMediaDataLocation :: ^NS.String
@@ -3791,31 +3796,27 @@ AudioNodeCompletionHandler :: ^Objc_Block(proc "c" ())
 AudioNodeBus :: NS.UInteger
 MusicTimeStamp :: cffi.double
 Audio3DVector :: Audio3DPoint
-AudioConverterInputBlock :: ^Objc_Block(proc "c" (inNumberOfPackets: AudioPacketCount, outStatus: ^AudioConverterInputStatus) -> ^AudioBuffer)
-AudioNodeTapBlock :: ^Objc_Block(proc "c" (buffer: ^AudioPCMBuffer, _when: ^AudioTime))
-AudioIONodeInputBlock :: ^Objc_Block(proc "c" (inNumberOfFrames: AudioFrameCount) -> ^AT.BufferList)
-AudioEngineManualRenderingBlock :: ^Objc_Block(
-	proc "c" (numberOfFrames: AudioFrameCount, outBuffer: ^AT.BufferList, outError: ^CF.OSStatus) -> AudioEngineManualRenderingStatus,
-)
+AudioConverterInputBlock :: ^Objc_Block(proc "c" ( inNumberOfPackets: AudioPacketCount, outStatus: ^AudioConverterInputStatus ) -> ^AudioBuffer)
+AudioNodeTapBlock :: ^Objc_Block(proc "c" ( buffer: ^AudioPCMBuffer, _when: ^AudioTime ))
+AudioIONodeInputBlock :: ^Objc_Block(proc "c" ( inNumberOfFrames: AudioFrameCount ) -> ^AT.BufferList)
+AudioEngineManualRenderingBlock :: ^Objc_Block(proc "c" ( numberOfFrames: AudioFrameCount, outBuffer: ^AT.BufferList, outError: ^CF.OSStatus ) -> AudioEngineManualRenderingStatus)
 AudioSessionPort :: ^NS.String
 AudioSessionCategory :: ^NS.String
 AudioSessionMode :: ^NS.String
 AudioSessionLocation :: ^NS.String
 AudioSessionOrientation :: ^NS.String
 AudioSessionPolarPattern :: ^NS.String
-AudioPlayerNodeCompletionHandler :: ^Objc_Block(proc "c" (callbackType: AudioPlayerNodeCompletionCallbackType))
+AudioPlayerNodeCompletionHandler :: ^Objc_Block(proc "c" ( callbackType: AudioPlayerNodeCompletionCallbackType ))
 BeatRange :: _AVBeatRange
 AudioSequencerInfoDictionaryKey :: ^NS.String
-AudioSequencerUserCallback :: ^Objc_Block(proc "c" (track: ^MusicTrack, userData: ^NS.Data, timeStamp: MusicTimeStamp))
-MusicEventEnumerationBlock :: ^Objc_Block(proc "c" (event: ^MusicEvent, timeStamp: ^MusicTimeStamp, removeEvent: ^bool))
-AudioSinkNodeReceiverBlock :: ^Objc_Block(proc "c" (timestamp: ^AT.TimeStamp, frameCount: AudioFrameCount, inputData: ^AT.BufferList) -> CF.OSStatus)
-AudioSourceNodeRenderBlock :: ^Objc_Block(
-	proc "c" (isSilence: ^bool, timestamp: ^AT.TimeStamp, frameCount: AudioFrameCount, outputData: ^AT.BufferList) -> CF.OSStatus,
-)
+AudioSequencerUserCallback :: ^Objc_Block(proc "c" ( track: ^MusicTrack, userData: ^NS.Data, timeStamp: MusicTimeStamp ))
+MusicEventEnumerationBlock :: ^Objc_Block(proc "c" ( event: ^MusicEvent, timeStamp: ^MusicTimeStamp, removeEvent: ^bool ))
+AudioSinkNodeReceiverBlock :: ^Objc_Block(proc "c" ( timestamp: ^AT.TimeStamp, frameCount: AudioFrameCount, inputData: ^AT.BufferList ) -> CF.OSStatus)
+AudioSourceNodeRenderBlock :: ^Objc_Block(proc "c" ( isSilence: ^bool, timestamp: ^AT.TimeStamp, frameCount: AudioFrameCount, outputData: ^AT.BufferList ) -> CF.OSStatus)
 MIDIPlayerCompletionHandler :: ^Objc_Block(proc "c" ())
-SpeechSynthesizerBufferCallback :: ^Objc_Block(proc "c" (buffer: ^AudioBuffer))
-SpeechSynthesizerMarkerCallback :: ^Objc_Block(proc "c" (markers: ^NS.Array))
-SpeechSynthesisProviderOutputBlock :: ^Objc_Block(proc "c" (markers: ^NS.Array, speechRequest: ^SpeechSynthesisProviderRequest))
+SpeechSynthesizerBufferCallback :: ^Objc_Block(proc "c" ( buffer: ^AudioBuffer ))
+SpeechSynthesizerMarkerCallback :: ^Objc_Block(proc "c" ( markers: ^NS.Array ))
+SpeechSynthesisProviderOutputBlock :: ^Objc_Block(proc "c" ( markers: ^NS.Array, speechRequest: ^SpeechSynthesisProviderRequest ))
 CaptureSessionPreset :: ^NS.String
 CaptureReactionType :: ^NS.String
 CaptureDeviceType :: ^NS.String
@@ -3875,7 +3876,7 @@ AssetReferenceRestriction :: enum cffi.ulong {
 	ForbidLocalReferenceToLocal  = 3,
 	DefaultPolicy                = 1,
 }
-AssetReferenceRestrictions :: bit_set[AssetReferenceRestriction;cffi.ulong]
+AssetReferenceRestrictions :: bit_set[AssetReferenceRestriction; cffi.ulong]
 AssetReferenceRestrictions_ForbidNone :: AssetReferenceRestrictions{}
 AssetReferenceRestrictions_ForbidAll :: transmute(AssetReferenceRestrictions)cffi.ulong(0xffff)
 
@@ -3972,7 +3973,7 @@ CaptionDecorationFlag :: enum cffi.ulong {
 	LineThrough = 1,
 	Overline    = 2,
 }
-CaptionDecoration :: bit_set[CaptionDecorationFlag;cffi.ulong]
+CaptionDecoration :: bit_set[CaptionDecorationFlag; cffi.ulong]
 CaptionDecoration_None :: CaptionDecoration{}
 
 CaptionTextCombine :: enum cffi.long {
@@ -4013,183 +4014,183 @@ CaptionConversionValidatorStatus :: enum cffi.long {
 
 when ODIN_PLATFORM_SUBTARGET == .Default {
 	Error :: enum cffi.long {
-		Unknown                                                                         = -11800,
-		OutOfMemory                                                                     = -11801,
-		SessionNotRunning                                                               = -11803,
-		DeviceAlreadyUsedByAnotherSession                                               = -11804,
-		NoDataCaptured                                                                  = -11805,
-		SessionConfigurationChanged                                                     = -11806,
-		DiskFull                                                                        = -11807,
-		DeviceWasDisconnected                                                           = -11808,
-		MediaChanged                                                                    = -11809,
-		MaximumDurationReached                                                          = -11810,
-		MaximumFileSizeReached                                                          = -11811,
-		MediaDiscontinuity                                                              = -11812,
-		MaximumNumberOfSamplesForFileFormatReached                                      = -11813,
-		DeviceNotConnected                                                              = -11814,
-		DeviceInUseByAnotherApplication                                                 = -11815,
-		DeviceLockedForConfigurationByAnotherProcess                                    = -11817,
-		ExportFailed                                                                    = -11820,
-		DecodeFailed                                                                    = -11821,
-		InvalidSourceMedia                                                              = -11822,
-		FileAlreadyExists                                                               = -11823,
-		CompositionTrackSegmentsNotContiguous                                           = -11824,
-		InvalidCompositionTrackSegmentDuration                                          = -11825,
-		InvalidCompositionTrackSegmentSourceStartTime                                   = -11826,
-		InvalidCompositionTrackSegmentSourceDuration                                    = -11827,
-		FileFormatNotRecognized                                                         = -11828,
-		FileFailedToParse                                                               = -11829,
-		MaximumStillImageCaptureRequestsExceeded                                        = -11830,
-		ContentIsProtected                                                              = -11831,
-		NoImageAtTime                                                                   = -11832,
-		DecoderNotFound                                                                 = -11833,
-		EncoderNotFound                                                                 = -11834,
-		ContentIsNotAuthorized                                                          = -11835,
-		ApplicationIsNotAuthorized                                                      = -11836,
-		OperationNotSupportedForAsset                                                   = -11838,
-		DecoderTemporarilyUnavailable                                                   = -11839,
-		EncoderTemporarilyUnavailable                                                   = -11840,
-		InvalidVideoComposition                                                         = -11841,
-		ReferenceForbiddenByReferencePolicy                                             = -11842,
-		InvalidOutputURLPathExtension                                                   = -11843,
-		ScreenCaptureFailed                                                             = -11844,
-		DisplayWasDisabled                                                              = -11845,
-		TorchLevelUnavailable                                                           = -11846,
-		IncompatibleAsset                                                               = -11848,
-		FailedToLoadMediaData                                                           = -11849,
-		ServerIncorrectlyConfigured                                                     = -11850,
-		ApplicationIsNotAuthorizedToUseDevice                                           = -11852,
-		FailedToParse                                                                   = -11853,
-		FileTypeDoesNotSupportSampleReferences                                          = -11854,
-		UndecodableMediaData                                                            = -11855,
-		AirPlayControllerRequiresInternet                                               = -11856,
-		AirPlayReceiverRequiresInternet                                                 = -11857,
-		VideoCompositorFailed                                                           = -11858,
-		RecordingAlreadyInProgress                                                      = -11859,
-		CreateContentKeyRequestFailed                                                   = -11860,
-		UnsupportedOutputSettings                                                       = -11861,
-		OperationNotAllowed                                                             = -11862,
-		ContentIsUnavailable                                                            = -11863,
-		FormatUnsupported                                                               = -11864,
-		MalformedDepth                                                                  = -11865,
-		ContentNotUpdated                                                               = -11866,
-		NoLongerPlayable                                                                = -11867,
-		NoCompatibleAlternatesForExternalDisplay                                        = -11868,
-		NoSourceTrack                                                                   = -11869,
-		ExternalPlaybackNotSupportedForAsset                                            = -11870,
-		OperationNotSupportedForPreset                                                  = -11871,
-		SessionHardwareCostOverage                                                      = -11872,
-		UnsupportedDeviceActiveFormat                                                   = -11873,
-		IncorrectlyConfigured                                                           = -11875,
-		SegmentStartedWithNonSyncSample                                                 = -11876,
-		RosettaNotInstalled                                                             = -11877,
-		OperationCancelled                                                              = -11878,
-		ContentKeyRequestCancelled                                                      = -11879,
-		InvalidSampleCursor                                                             = -11880,
-		FailedToLoadSampleData                                                          = -11881,
-		AirPlayReceiverTemporarilyUnavailable                                           = -11882,
-		EncodeFailed                                                                    = -11883,
-		SandboxExtensionDenied                                                          = -11884,
-		ToneMappingFailed                                                               = -11885,
-		MediaExtensionDisabled                                                          = -11886,
-		MediaExtensionConflict                                                          = -11887,
+		Unknown                          = -11800,
+		OutOfMemory                      = -11801,
+		SessionNotRunning                = -11803,
+		DeviceAlreadyUsedByAnotherSession = -11804,
+		NoDataCaptured                   = -11805,
+		SessionConfigurationChanged      = -11806,
+		DiskFull                         = -11807,
+		DeviceWasDisconnected            = -11808,
+		MediaChanged                     = -11809,
+		MaximumDurationReached           = -11810,
+		MaximumFileSizeReached           = -11811,
+		MediaDiscontinuity               = -11812,
+		MaximumNumberOfSamplesForFileFormatReached = -11813,
+		DeviceNotConnected               = -11814,
+		DeviceInUseByAnotherApplication  = -11815,
+		DeviceLockedForConfigurationByAnotherProcess = -11817,
+		ExportFailed                     = -11820,
+		DecodeFailed                     = -11821,
+		InvalidSourceMedia               = -11822,
+		FileAlreadyExists                = -11823,
+		CompositionTrackSegmentsNotContiguous = -11824,
+		InvalidCompositionTrackSegmentDuration = -11825,
+		InvalidCompositionTrackSegmentSourceStartTime = -11826,
+		InvalidCompositionTrackSegmentSourceDuration = -11827,
+		FileFormatNotRecognized          = -11828,
+		FileFailedToParse                = -11829,
+		MaximumStillImageCaptureRequestsExceeded = -11830,
+		ContentIsProtected               = -11831,
+		NoImageAtTime                    = -11832,
+		DecoderNotFound                  = -11833,
+		EncoderNotFound                  = -11834,
+		ContentIsNotAuthorized           = -11835,
+		ApplicationIsNotAuthorized       = -11836,
+		OperationNotSupportedForAsset    = -11838,
+		DecoderTemporarilyUnavailable    = -11839,
+		EncoderTemporarilyUnavailable    = -11840,
+		InvalidVideoComposition          = -11841,
+		ReferenceForbiddenByReferencePolicy = -11842,
+		InvalidOutputURLPathExtension    = -11843,
+		ScreenCaptureFailed              = -11844,
+		DisplayWasDisabled               = -11845,
+		TorchLevelUnavailable            = -11846,
+		IncompatibleAsset                = -11848,
+		FailedToLoadMediaData            = -11849,
+		ServerIncorrectlyConfigured      = -11850,
+		ApplicationIsNotAuthorizedToUseDevice = -11852,
+		FailedToParse                    = -11853,
+		FileTypeDoesNotSupportSampleReferences = -11854,
+		UndecodableMediaData             = -11855,
+		AirPlayControllerRequiresInternet = -11856,
+		AirPlayReceiverRequiresInternet  = -11857,
+		VideoCompositorFailed            = -11858,
+		RecordingAlreadyInProgress       = -11859,
+		CreateContentKeyRequestFailed    = -11860,
+		UnsupportedOutputSettings        = -11861,
+		OperationNotAllowed              = -11862,
+		ContentIsUnavailable             = -11863,
+		FormatUnsupported                = -11864,
+		MalformedDepth                   = -11865,
+		ContentNotUpdated                = -11866,
+		NoLongerPlayable                 = -11867,
+		NoCompatibleAlternatesForExternalDisplay = -11868,
+		NoSourceTrack                    = -11869,
+		ExternalPlaybackNotSupportedForAsset = -11870,
+		OperationNotSupportedForPreset   = -11871,
+		SessionHardwareCostOverage       = -11872,
+		UnsupportedDeviceActiveFormat    = -11873,
+		IncorrectlyConfigured            = -11875,
+		SegmentStartedWithNonSyncSample  = -11876,
+		RosettaNotInstalled              = -11877,
+		OperationCancelled               = -11878,
+		ContentKeyRequestCancelled       = -11879,
+		InvalidSampleCursor              = -11880,
+		FailedToLoadSampleData           = -11881,
+		AirPlayReceiverTemporarilyUnavailable = -11882,
+		EncodeFailed                     = -11883,
+		SandboxExtensionDenied           = -11884,
+		ToneMappingFailed                = -11885,
+		MediaExtensionDisabled           = -11886,
+		MediaExtensionConflict           = -11887,
 		ContentKeyRequestPlaybackDestinationDoesNotSupportDeviceIdentifierRandomization = -11888,
-		ContentKeyInvalid                                                               = -11889,
-		NoSmartFramingsEnabled                                                          = -11890,
-		AutoWhiteBalanceNotLocked                                                       = -11891,
-		FollowExternalSyncDeviceTimedOut                                                = -11892,
+		ContentKeyInvalid                = -11889,
+		NoSmartFramingsEnabled           = -11890,
+		AutoWhiteBalanceNotLocked        = -11891,
+		FollowExternalSyncDeviceTimedOut = -11892,
 	}
 } else when ODIN_PLATFORM_SUBTARGET_IOS {
 	Error :: enum cffi.long {
-		Unknown                                                                         = -11800,
-		OutOfMemory                                                                     = -11801,
-		SessionNotRunning                                                               = -11803,
-		DeviceAlreadyUsedByAnotherSession                                               = -11804,
-		NoDataCaptured                                                                  = -11805,
-		SessionConfigurationChanged                                                     = -11806,
-		DiskFull                                                                        = -11807,
-		DeviceWasDisconnected                                                           = -11808,
-		MediaChanged                                                                    = -11809,
-		MaximumDurationReached                                                          = -11810,
-		MaximumFileSizeReached                                                          = -11811,
-		MediaDiscontinuity                                                              = -11812,
-		MaximumNumberOfSamplesForFileFormatReached                                      = -11813,
-		DeviceNotConnected                                                              = -11814,
-		DeviceInUseByAnotherApplication                                                 = -11815,
-		DeviceLockedForConfigurationByAnotherProcess                                    = -11817,
-		SessionWasInterrupted                                                           = -11818,
-		MediaServicesWereReset                                                          = -11819,
-		ExportFailed                                                                    = -11820,
-		DecodeFailed                                                                    = -11821,
-		InvalidSourceMedia                                                              = -11822,
-		FileAlreadyExists                                                               = -11823,
-		CompositionTrackSegmentsNotContiguous                                           = -11824,
-		InvalidCompositionTrackSegmentDuration                                          = -11825,
-		InvalidCompositionTrackSegmentSourceStartTime                                   = -11826,
-		InvalidCompositionTrackSegmentSourceDuration                                    = -11827,
-		FileFormatNotRecognized                                                         = -11828,
-		FileFailedToParse                                                               = -11829,
-		MaximumStillImageCaptureRequestsExceeded                                        = -11830,
-		ContentIsProtected                                                              = -11831,
-		NoImageAtTime                                                                   = -11832,
-		DecoderNotFound                                                                 = -11833,
-		EncoderNotFound                                                                 = -11834,
-		ContentIsNotAuthorized                                                          = -11835,
-		ApplicationIsNotAuthorized                                                      = -11836,
-		DeviceIsNotAvailableInBackground                                                = -11837,
-		OperationNotSupportedForAsset                                                   = -11838,
-		DecoderTemporarilyUnavailable                                                   = -11839,
-		EncoderTemporarilyUnavailable                                                   = -11840,
-		InvalidVideoComposition                                                         = -11841,
-		ReferenceForbiddenByReferencePolicy                                             = -11842,
-		InvalidOutputURLPathExtension                                                   = -11843,
-		ScreenCaptureFailed                                                             = -11844,
-		DisplayWasDisabled                                                              = -11845,
-		TorchLevelUnavailable                                                           = -11846,
-		OperationInterrupted                                                            = -11847,
-		IncompatibleAsset                                                               = -11848,
-		FailedToLoadMediaData                                                           = -11849,
-		ServerIncorrectlyConfigured                                                     = -11850,
-		ApplicationIsNotAuthorizedToUseDevice                                           = -11852,
-		FailedToParse                                                                   = -11853,
-		FileTypeDoesNotSupportSampleReferences                                          = -11854,
-		UndecodableMediaData                                                            = -11855,
-		AirPlayControllerRequiresInternet                                               = -11856,
-		AirPlayReceiverRequiresInternet                                                 = -11857,
-		VideoCompositorFailed                                                           = -11858,
-		RecordingAlreadyInProgress                                                      = -11859,
-		CreateContentKeyRequestFailed                                                   = -11860,
-		UnsupportedOutputSettings                                                       = -11861,
-		OperationNotAllowed                                                             = -11862,
-		ContentIsUnavailable                                                            = -11863,
-		FormatUnsupported                                                               = -11864,
-		MalformedDepth                                                                  = -11865,
-		ContentNotUpdated                                                               = -11866,
-		NoLongerPlayable                                                                = -11867,
-		NoCompatibleAlternatesForExternalDisplay                                        = -11868,
-		NoSourceTrack                                                                   = -11869,
-		ExternalPlaybackNotSupportedForAsset                                            = -11870,
-		OperationNotSupportedForPreset                                                  = -11871,
-		SessionHardwareCostOverage                                                      = -11872,
-		UnsupportedDeviceActiveFormat                                                   = -11873,
-		IncorrectlyConfigured                                                           = -11875,
-		SegmentStartedWithNonSyncSample                                                 = -11876,
-		RosettaNotInstalled                                                             = -11877,
-		OperationCancelled                                                              = -11878,
-		ContentKeyRequestCancelled                                                      = -11879,
-		InvalidSampleCursor                                                             = -11880,
-		FailedToLoadSampleData                                                          = -11881,
-		AirPlayReceiverTemporarilyUnavailable                                           = -11882,
-		EncodeFailed                                                                    = -11883,
-		SandboxExtensionDenied                                                          = -11884,
-		ToneMappingFailed                                                               = -11885,
-		MediaExtensionDisabled                                                          = -11886,
-		MediaExtensionConflict                                                          = -11887,
+		Unknown                          = -11800,
+		OutOfMemory                      = -11801,
+		SessionNotRunning                = -11803,
+		DeviceAlreadyUsedByAnotherSession = -11804,
+		NoDataCaptured                   = -11805,
+		SessionConfigurationChanged      = -11806,
+		DiskFull                         = -11807,
+		DeviceWasDisconnected            = -11808,
+		MediaChanged                     = -11809,
+		MaximumDurationReached           = -11810,
+		MaximumFileSizeReached           = -11811,
+		MediaDiscontinuity               = -11812,
+		MaximumNumberOfSamplesForFileFormatReached = -11813,
+		DeviceNotConnected               = -11814,
+		DeviceInUseByAnotherApplication  = -11815,
+		DeviceLockedForConfigurationByAnotherProcess = -11817,
+		SessionWasInterrupted            = -11818,
+		MediaServicesWereReset           = -11819,
+		ExportFailed                     = -11820,
+		DecodeFailed                     = -11821,
+		InvalidSourceMedia               = -11822,
+		FileAlreadyExists                = -11823,
+		CompositionTrackSegmentsNotContiguous = -11824,
+		InvalidCompositionTrackSegmentDuration = -11825,
+		InvalidCompositionTrackSegmentSourceStartTime = -11826,
+		InvalidCompositionTrackSegmentSourceDuration = -11827,
+		FileFormatNotRecognized          = -11828,
+		FileFailedToParse                = -11829,
+		MaximumStillImageCaptureRequestsExceeded = -11830,
+		ContentIsProtected               = -11831,
+		NoImageAtTime                    = -11832,
+		DecoderNotFound                  = -11833,
+		EncoderNotFound                  = -11834,
+		ContentIsNotAuthorized           = -11835,
+		ApplicationIsNotAuthorized       = -11836,
+		DeviceIsNotAvailableInBackground = -11837,
+		OperationNotSupportedForAsset    = -11838,
+		DecoderTemporarilyUnavailable    = -11839,
+		EncoderTemporarilyUnavailable    = -11840,
+		InvalidVideoComposition          = -11841,
+		ReferenceForbiddenByReferencePolicy = -11842,
+		InvalidOutputURLPathExtension    = -11843,
+		ScreenCaptureFailed              = -11844,
+		DisplayWasDisabled               = -11845,
+		TorchLevelUnavailable            = -11846,
+		OperationInterrupted             = -11847,
+		IncompatibleAsset                = -11848,
+		FailedToLoadMediaData            = -11849,
+		ServerIncorrectlyConfigured      = -11850,
+		ApplicationIsNotAuthorizedToUseDevice = -11852,
+		FailedToParse                    = -11853,
+		FileTypeDoesNotSupportSampleReferences = -11854,
+		UndecodableMediaData             = -11855,
+		AirPlayControllerRequiresInternet = -11856,
+		AirPlayReceiverRequiresInternet  = -11857,
+		VideoCompositorFailed            = -11858,
+		RecordingAlreadyInProgress       = -11859,
+		CreateContentKeyRequestFailed    = -11860,
+		UnsupportedOutputSettings        = -11861,
+		OperationNotAllowed              = -11862,
+		ContentIsUnavailable             = -11863,
+		FormatUnsupported                = -11864,
+		MalformedDepth                   = -11865,
+		ContentNotUpdated                = -11866,
+		NoLongerPlayable                 = -11867,
+		NoCompatibleAlternatesForExternalDisplay = -11868,
+		NoSourceTrack                    = -11869,
+		ExternalPlaybackNotSupportedForAsset = -11870,
+		OperationNotSupportedForPreset   = -11871,
+		SessionHardwareCostOverage       = -11872,
+		UnsupportedDeviceActiveFormat    = -11873,
+		IncorrectlyConfigured            = -11875,
+		SegmentStartedWithNonSyncSample  = -11876,
+		RosettaNotInstalled              = -11877,
+		OperationCancelled               = -11878,
+		ContentKeyRequestCancelled       = -11879,
+		InvalidSampleCursor              = -11880,
+		FailedToLoadSampleData           = -11881,
+		AirPlayReceiverTemporarilyUnavailable = -11882,
+		EncodeFailed                     = -11883,
+		SandboxExtensionDenied           = -11884,
+		ToneMappingFailed                = -11885,
+		MediaExtensionDisabled           = -11886,
+		MediaExtensionConflict           = -11887,
 		ContentKeyRequestPlaybackDestinationDoesNotSupportDeviceIdentifierRandomization = -11888,
-		ContentKeyInvalid                                                               = -11889,
-		NoSmartFramingsEnabled                                                          = -11890,
-		AutoWhiteBalanceNotLocked                                                       = -11891,
-		FollowExternalSyncDeviceTimedOut                                                = -11892,
+		ContentKeyInvalid                = -11889,
+		NoSmartFramingsEnabled           = -11890,
+		AutoWhiteBalanceNotLocked        = -11891,
+		FollowExternalSyncDeviceTimedOut = -11892,
 	}
 }
 
@@ -4197,7 +4198,7 @@ MovieWritingOption :: enum cffi.ulong {
 	TruncateDestinationToMovieHeaderOnly = 0,
 }
 
-MovieWritingOptions :: bit_set[MovieWritingOption;cffi.ulong]
+MovieWritingOptions :: bit_set[MovieWritingOption; cffi.ulong]
 
 PlayerStatus :: enum cffi.long {
 	Unknown     = 0,
@@ -4222,7 +4223,7 @@ PlayerHDRModeFlag :: enum cffi.long {
 	HDR10       = 1,
 	DolbyVision = 2,
 }
-PlayerHDRMode :: bit_set[PlayerHDRModeFlag;cffi.long]
+PlayerHDRMode :: bit_set[PlayerHDRModeFlag; cffi.long]
 
 PlayerAudiovisualBackgroundPlaybackPolicy :: enum cffi.long {
 	Automatic           = 1,
@@ -4240,13 +4241,13 @@ DelegatingPlaybackCoordinatorRateChangeOption :: enum cffi.ulong {
 	OptionPlayImmediately = 0,
 }
 
-DelegatingPlaybackCoordinatorRateChangeOptions :: bit_set[DelegatingPlaybackCoordinatorRateChangeOption;cffi.ulong]
+DelegatingPlaybackCoordinatorRateChangeOptions :: bit_set[DelegatingPlaybackCoordinatorRateChangeOption; cffi.ulong]
 
 DelegatingPlaybackCoordinatorSeekOption :: enum cffi.ulong {
 	OptionResumeImmediately = 0,
 }
 
-DelegatingPlaybackCoordinatorSeekOptions :: bit_set[DelegatingPlaybackCoordinatorSeekOption;cffi.ulong]
+DelegatingPlaybackCoordinatorSeekOptions :: bit_set[DelegatingPlaybackCoordinatorSeekOption; cffi.ulong]
 
 PlayerItemStatus :: enum cffi.long {
 	Unknown     = 0,
@@ -4257,7 +4258,7 @@ PlayerItemStatus :: enum cffi.long {
 VariantPreference :: enum cffi.ulong {
 	ScalabilityToLosslessAudio = 0,
 }
-VariantPreferences :: bit_set[VariantPreference;cffi.ulong]
+VariantPreferences :: bit_set[VariantPreference; cffi.ulong]
 VariantPreferences_None :: VariantPreferences{}
 
 when ODIN_PLATFORM_SUBTARGET == .Default {
@@ -4288,7 +4289,7 @@ PlayerInterstitialEventRestriction :: enum cffi.ulong {
 	ConstrainsSeekingForwardInPrimaryContent      = 0,
 	RequiresPlaybackAtPreferredRateForAdvancement = 2,
 }
-PlayerInterstitialEventRestrictions :: bit_set[PlayerInterstitialEventRestriction;cffi.ulong]
+PlayerInterstitialEventRestrictions :: bit_set[PlayerInterstitialEventRestriction; cffi.ulong]
 PlayerInterstitialEventRestrictions_None :: PlayerInterstitialEventRestrictions{}
 PlayerInterstitialEventRestrictions_DefaultPolicy :: PlayerInterstitialEventRestrictions{}
 
@@ -4496,9 +4497,10 @@ AudioEnvironmentOutputType :: enum cffi.long {
 	ExternalSpeakers = 3,
 }
 
-AudioSessionActivationOption :: enum cffi.ulong {}
+AudioSessionActivationOption :: enum cffi.ulong {
+}
 
-AudioSessionActivationOptions :: bit_set[AudioSessionActivationOption;cffi.ulong]
+AudioSessionActivationOptions :: bit_set[AudioSessionActivationOption; cffi.ulong]
 
 AudioSessionPortOverride :: enum cffi.ulong {
 	None    = 0,
@@ -4517,19 +4519,19 @@ AudioSessionRouteChangeReason :: enum cffi.ulong {
 }
 
 AudioSessionCategoryOption :: enum cffi.ulong {
-	OptionMixWithOthers                       = 0,
-	OptionDuckOthers                          = 1,
-	OptionAllowBluetooth                      = 2,
-	OptionAllowBluetoothHFP                   = 2,
-	OptionDefaultToSpeaker                    = 3,
-	OptionAllowBluetoothA2DP                  = 5,
-	OptionAllowAirPlay                        = 6,
+	OptionMixWithOthers              = 0,
+	OptionDuckOthers                 = 1,
+	OptionAllowBluetooth             = 2,
+	OptionAllowBluetoothHFP          = 2,
+	OptionDefaultToSpeaker           = 3,
+	OptionAllowBluetoothA2DP         = 5,
+	OptionAllowAirPlay               = 6,
 	OptionOverrideMutedMicrophoneInterruption = 7,
-	OptionFarFieldInput                       = 18,
-	OptionBluetoothHighQualityRecording       = 19,
+	OptionFarFieldInput              = 18,
+	OptionBluetoothHighQualityRecording = 19,
 }
 
-AudioSessionCategoryOptions :: bit_set[AudioSessionCategoryOption;cffi.ulong]
+AudioSessionCategoryOptions :: bit_set[AudioSessionCategoryOption; cffi.ulong]
 
 AudioSessionInterruptionType :: enum cffi.ulong {
 	Began = 1,
@@ -4540,7 +4542,7 @@ AudioSessionInterruptionOption :: enum cffi.ulong {
 	ShouldResume = 0,
 }
 
-AudioSessionInterruptionOptions :: bit_set[AudioSessionInterruptionOption;cffi.ulong]
+AudioSessionInterruptionOptions :: bit_set[AudioSessionInterruptionOption; cffi.ulong]
 
 AudioSessionInterruptionReason :: enum cffi.ulong {
 	Default           = 0,
@@ -4553,7 +4555,7 @@ AudioSessionSetActiveOption :: enum cffi.ulong {
 	OptionNotifyOthersOnDeactivation = 0,
 }
 
-AudioSessionSetActiveOptions :: bit_set[AudioSessionSetActiveOption;cffi.ulong]
+AudioSessionSetActiveOptions :: bit_set[AudioSessionSetActiveOption; cffi.ulong]
 
 AudioSessionSilenceSecondaryAudioHintType :: enum cffi.ulong {
 	Begin = 1,
@@ -4613,7 +4615,7 @@ AudioPlayerNodeBufferOption :: enum cffi.ulong {
 	InterruptsAtLoop = 2,
 }
 
-AudioPlayerNodeBufferOptions :: bit_set[AudioPlayerNodeBufferOption;cffi.ulong]
+AudioPlayerNodeBufferOptions :: bit_set[AudioPlayerNodeBufferOption; cffi.ulong]
 
 AudioPlayerNodeCompletionCallbackType :: enum cffi.long {
 	DataConsumed   = 0,
@@ -4631,7 +4633,7 @@ MusicSequenceLoadOption :: enum cffi.ulong {
 	SMF_ChannelsToTracks = 0,
 }
 
-MusicSequenceLoadOptions :: bit_set[MusicSequenceLoadOption;cffi.ulong]
+MusicSequenceLoadOptions :: bit_set[MusicSequenceLoadOption; cffi.ulong]
 
 MusicTrackLoopCount :: enum cffi.long {
 	Forever = -1,
@@ -4755,7 +4757,7 @@ SpeechSynthesisVoiceTrait :: enum cffi.ulong {
 	IsNoveltyVoice  = 0,
 	IsPersonalVoice = 1,
 }
-SpeechSynthesisVoiceTraits :: bit_set[SpeechSynthesisVoiceTrait;cffi.ulong]
+SpeechSynthesisVoiceTraits :: bit_set[SpeechSynthesisVoiceTrait; cffi.ulong]
 SpeechSynthesisVoiceTraits_None :: SpeechSynthesisVoiceTraits{}
 
 AudioApplicationRecordPermission :: enum cffi.long {
@@ -4789,7 +4791,7 @@ CapturePrimaryConstituentDeviceRestrictedSwitchingBehaviorCondition :: enum cffi
 	FocusModeChanged    = 1,
 	ExposureModeChanged = 2,
 }
-CapturePrimaryConstituentDeviceRestrictedSwitchingBehaviorConditions :: bit_set[CapturePrimaryConstituentDeviceRestrictedSwitchingBehaviorCondition;cffi.ulong]
+CapturePrimaryConstituentDeviceRestrictedSwitchingBehaviorConditions :: bit_set[CapturePrimaryConstituentDeviceRestrictedSwitchingBehaviorCondition; cffi.ulong]
 CapturePrimaryConstituentDeviceRestrictedSwitchingBehaviorConditions_None :: CapturePrimaryConstituentDeviceRestrictedSwitchingBehaviorConditions{}
 
 CaptureFlashMode :: enum cffi.long {
@@ -4897,12 +4899,12 @@ CaptureCameraLensSmudgeDetectionStatus :: enum cffi.long {
 }
 
 CaptureSessionInterruptionReason :: enum cffi.long {
-	VideoDeviceNotAvailableInBackground               = 1,
-	AudioDeviceInUseByAnotherClient                   = 2,
-	VideoDeviceInUseByAnotherClient                   = 3,
+	VideoDeviceNotAvailableInBackground = 1,
+	AudioDeviceInUseByAnotherClient  = 2,
+	VideoDeviceInUseByAnotherClient  = 3,
 	VideoDeviceNotAvailableWithMultipleForegroundApps = 4,
-	VideoDeviceNotAvailableDueToSystemPressure        = 5,
-	SensitiveContentMitigationActivated               = 6,
+	VideoDeviceNotAvailableDueToSystemPressure = 5,
+	SensitiveContentMitigationActivated = 6,
 }
 
 CaptureVideoOrientation :: enum cffi.long {
@@ -4968,7 +4970,7 @@ CaptureSystemPressureFactor :: enum cffi.ulong {
 	DepthModuleTemperature = 2,
 	CameraTemperature      = 3,
 }
-CaptureSystemPressureFactors :: bit_set[CaptureSystemPressureFactor;cffi.ulong]
+CaptureSystemPressureFactors :: bit_set[CaptureSystemPressureFactor; cffi.ulong]
 CaptureSystemPressureFactors_None :: CaptureSystemPressureFactors{}
 
 CaptureTimecodeSourceType :: enum cffi.long {
@@ -5057,16 +5059,16 @@ SampleCursorSyncInfo :: struct #packed {
 
 SampleCursorDependencyInfo :: struct #packed {
 	sampleIndicatesWhetherItHasDependentSamples: bool,
-	sampleHasDependentSamples:                   bool,
-	sampleIndicatesWhetherItDependsOnOthers:     bool,
-	sampleDependsOnOthers:                       bool,
-	sampleIndicatesWhetherItHasRedundantCoding:  bool,
-	sampleHasRedundantCoding:                    bool,
+	sampleHasDependentSamples:       bool,
+	sampleIndicatesWhetherItDependsOnOthers: bool,
+	sampleDependsOnOthers:           bool,
+	sampleIndicatesWhetherItHasRedundantCoding: bool,
+	sampleHasRedundantCoding:        bool,
 }
 
 SampleCursorAudioDependencyInfo :: struct #align (8) {
 	audioSampleIsIndependentlyDecodable: bool,
-	audioSamplePacketRefreshCount:       NS.Integer,
+	audioSamplePacketRefreshCount:   NS.Integer,
 }
 
 SampleCursorStorageRange :: struct #align (8) {
@@ -5075,9 +5077,9 @@ SampleCursorStorageRange :: struct #align (8) {
 }
 
 SampleCursorChunkInfo :: struct #align (8) {
-	chunkSampleCount:                  cffi.int64_t,
-	chunkHasUniformSampleSizes:        bool,
-	chunkHasUniformSampleDurations:    bool,
+	chunkSampleCount:                cffi.int64_t,
+	chunkHasUniformSampleSizes:      bool,
+	chunkHasUniformSampleDurations:  bool,
 	chunkHasUniformFormatDescriptions: bool,
 }
 

@@ -4,18 +4,19 @@ package darwin_MetalKit
 // Hand-written helper for driving an `MTKView` with Odin procedures, without `@(objc_implement)`.
 
 import "base:intrinsics"
-import CG "core:sys/darwin/CoreGraphics"
+import CG   "core:sys/darwin/CoreGraphics"
 import ObjC "core:sys/darwin/ObjectiveC"
 
 OdinViewDelegate :: struct {
 	drawInMTKView:          proc "c" (self: ^OdinViewDelegate, view: ^View),
 	drawableSizeWillChange: proc "c" (self: ^OdinViewDelegate, view: ^View, size: CG.Size),
-	user_data:              rawptr,
+
+	user_data: rawptr,
 }
 
 // Makes `delegate` drive the view through an `MTKViewDelegate` object which the view keeps alive.
 // `delegate` itself is not copied, so it must stay valid while it is set.
-@(objc_type = View, objc_name = "setOdinDelegate")
+@(objc_type=View, objc_name="setOdinDelegate")
 View_setOdinDelegate :: proc "c" (self: ^View, delegate: ^OdinViewDelegate) {
 	obj: ^ViewDelegate
 	if delegate != nil {
@@ -31,7 +32,7 @@ View_setOdinDelegate :: proc "c" (self: ^View, delegate: ^OdinViewDelegate) {
 }
 
 // Returns the delegate set with `setOdinDelegate`, or nil if the view's delegate is something else.
-@(objc_type = View, objc_name = "odinDelegate")
+@(objc_type=View, objc_name="odinDelegate")
 View_odinDelegate :: proc "c" (self: ^View) -> ^OdinViewDelegate {
 	obj := (ObjC.id)(self->delegate())
 	if obj == nil || ObjC.object_getClass(obj) != odin_view_delegate_class() {
@@ -40,10 +41,10 @@ View_odinDelegate :: proc "c" (self: ^View) -> ^OdinViewDelegate {
 	return (^^OdinViewDelegate)(ObjC.object_getIndexedIvars(obj))^
 }
 
-@(private = "file")
+@(private="file")
 odin_view_delegate_key: u8
 
-@(private = "file")
+@(private="file")
 odin_view_delegate_class :: proc "c" () -> ObjC.Class {
 	draw :: proc "c" (self: ObjC.id, cmd: ObjC.SEL, view: ^View) {
 		del := (^^OdinViewDelegate)(ObjC.object_getIndexedIvars(self))^

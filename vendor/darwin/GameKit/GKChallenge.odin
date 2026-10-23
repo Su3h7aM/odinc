@@ -2,10 +2,10 @@
 #+build darwin
 package darwin_GameKit
 
-import "base:intrinsics"
 import NS "core:sys/darwin/Foundation"
+import "base:intrinsics"
 
-@(objc_class = "GKChallenge", objc_superclass = NS.Object)
+@(objc_class="GKChallenge", objc_superclass=NS.Object)
 Challenge :: struct {
 	using _: NS.Object,
 	using _: NS.Coding,
@@ -13,142 +13,138 @@ Challenge :: struct {
 }
 
 foreign lib {
-	@(objc_type = Challenge, objc_selector = "loadReceivedChallengesWithCompletionHandler:", objc_name = "loadReceivedChallengesWithCompletionHandler", objc_is_class_method = true)
-	Challenge_loadReceivedChallengesWithCompletionHandler :: proc(completionHandler: ^Objc_Block(proc "c" (challenges: ^NS.Array, error: ^NS.Error))) ---
+	@(objc_type=Challenge, objc_selector="loadReceivedChallengesWithCompletionHandler:", objc_name="loadReceivedChallengesWithCompletionHandler", objc_is_class_method=true)
+	Challenge_loadReceivedChallengesWithCompletionHandler :: proc(completionHandler: ^Objc_Block(proc "c" ( challenges: ^NS.Array, error: ^NS.Error ))) ---
 
-	@(objc_type = Challenge, objc_selector = "decline", objc_name = "decline")
+	@(objc_type=Challenge, objc_selector="decline", objc_name="decline")
 	Challenge_decline :: proc(self: ^Challenge) ---
 
-	@(objc_type = Challenge, objc_selector = "issuingPlayer", objc_name = "issuingPlayer")
+	@(objc_type=Challenge, objc_selector="issuingPlayer", objc_name="issuingPlayer")
 	Challenge_issuingPlayer :: proc(self: ^Challenge) -> ^Player ---
 
-	@(objc_type = Challenge, objc_selector = "receivingPlayer", objc_name = "receivingPlayer")
+	@(objc_type=Challenge, objc_selector="receivingPlayer", objc_name="receivingPlayer")
 	Challenge_receivingPlayer :: proc(self: ^Challenge) -> ^Player ---
 
-	@(objc_type = Challenge, objc_selector = "state", objc_name = "state")
+	@(objc_type=Challenge, objc_selector="state", objc_name="state")
 	Challenge_state :: proc(self: ^Challenge) -> ChallengeState ---
 
-	@(objc_type = Challenge, objc_selector = "issueDate", objc_name = "issueDate")
+	@(objc_type=Challenge, objc_selector="issueDate", objc_name="issueDate")
 	Challenge_issueDate :: proc(self: ^Challenge) -> ^NS.Date ---
 
-	@(objc_type = Challenge, objc_selector = "completionDate", objc_name = "completionDate")
+	@(objc_type=Challenge, objc_selector="completionDate", objc_name="completionDate")
 	Challenge_completionDate :: proc(self: ^Challenge) -> ^NS.Date ---
 
-	@(objc_type = Challenge, objc_selector = "message", objc_name = "message")
+	@(objc_type=Challenge, objc_selector="message", objc_name="message")
 	Challenge_message :: proc(self: ^Challenge) -> ^NS.String ---
 
-	@(objc_type = Challenge, objc_selector = "issuingPlayerID", objc_name = "issuingPlayerID")
+	@(objc_type=Challenge, objc_selector="issuingPlayerID", objc_name="issuingPlayerID")
 	Challenge_issuingPlayerID :: proc(self: ^Challenge) -> ^NS.String ---
 
-	@(objc_type = Challenge, objc_selector = "receivingPlayerID", objc_name = "receivingPlayerID")
+	@(objc_type=Challenge, objc_selector="receivingPlayerID", objc_name="receivingPlayerID")
 	Challenge_receivingPlayerID :: proc(self: ^Challenge) -> ^NS.String ---
 }
 
 
-@(objc_class = "GKChallengeDefinition", objc_superclass = NS.Object)
-ChallengeDefinition :: struct {
-	using _: NS.Object,
-}
+@(objc_class="GKChallengeDefinition", objc_superclass=NS.Object)
+ChallengeDefinition :: struct { using _: NS.Object}
 
 foreign lib {
-	@(objc_type = ChallengeDefinition, objc_selector = "loadImageWithCompletionHandler:", objc_name = "loadImageWithCompletionHandler")
-	ChallengeDefinition_loadImageWithCompletionHandler :: proc(self: ^ChallengeDefinition, completionHandler: ^Objc_Block(proc "c" (image: ^UI_Image, error: ^NS.Error))) ---
+	@(objc_type=ChallengeDefinition, objc_selector="loadImageWithCompletionHandler:", objc_name="loadImageWithCompletionHandler")
+	ChallengeDefinition_loadImageWithCompletionHandler :: proc(self: ^ChallengeDefinition, completionHandler: ^Objc_Block(proc "c" ( image: ^UI_Image, error: ^NS.Error ))) ---
 
-	@(objc_type = ChallengeDefinition, objc_selector = "identifier", objc_name = "identifier")
+	@(objc_type=ChallengeDefinition, objc_selector="identifier", objc_name="identifier")
 	ChallengeDefinition_identifier :: proc(self: ^ChallengeDefinition) -> ^NS.String ---
 
-	@(objc_type = ChallengeDefinition, objc_selector = "groupIdentifier", objc_name = "groupIdentifier")
+	@(objc_type=ChallengeDefinition, objc_selector="groupIdentifier", objc_name="groupIdentifier")
 	ChallengeDefinition_groupIdentifier :: proc(self: ^ChallengeDefinition) -> ^NS.String ---
 
-	@(objc_type = ChallengeDefinition, objc_selector = "title", objc_name = "title")
+	@(objc_type=ChallengeDefinition, objc_selector="title", objc_name="title")
 	ChallengeDefinition_title :: proc(self: ^ChallengeDefinition) -> ^NS.String ---
 
-	@(objc_type = ChallengeDefinition, objc_selector = "details", objc_name = "details")
+	@(objc_type=ChallengeDefinition, objc_selector="details", objc_name="details")
 	ChallengeDefinition_details :: proc(self: ^ChallengeDefinition) -> ^NS.String ---
 
-	@(objc_type = ChallengeDefinition, objc_selector = "durationOptions", objc_name = "durationOptions")
+	@(objc_type=ChallengeDefinition, objc_selector="durationOptions", objc_name="durationOptions")
 	ChallengeDefinition_durationOptions :: proc(self: ^ChallengeDefinition) -> ^NS.Array ---
 
-	@(objc_type = ChallengeDefinition, objc_selector = "isRepeatable", objc_name = "isRepeatable")
+	@(objc_type=ChallengeDefinition, objc_selector="isRepeatable", objc_name="isRepeatable")
 	ChallengeDefinition_isRepeatable :: proc(self: ^ChallengeDefinition) -> bool ---
 
-	@(objc_type = ChallengeDefinition, objc_selector = "leaderboard", objc_name = "leaderboard")
+	@(objc_type=ChallengeDefinition, objc_selector="leaderboard", objc_name="leaderboard")
 	ChallengeDefinition_leaderboard :: proc(self: ^ChallengeDefinition) -> ^Leaderboard ---
 
-	@(objc_type = ChallengeDefinition, objc_selector = "releaseState", objc_name = "releaseState")
+	@(objc_type=ChallengeDefinition, objc_selector="releaseState", objc_name="releaseState")
 	ChallengeDefinition_releaseState :: proc(self: ^ChallengeDefinition) -> ReleaseState ---
 
-	@(objc_type = ChallengeDefinition, objc_selector = "loadChallengeDefinitionsWithCompletionHandler:", objc_name = "loadChallengeDefinitionsWithCompletionHandler", objc_is_class_method = true)
-	ChallengeDefinition_loadChallengeDefinitionsWithCompletionHandler :: proc(completionHandler: ^Objc_Block(proc "c" (challengeDefinitions: ^NS.Array, error: ^NS.Error))) ---
+	@(objc_type=ChallengeDefinition, objc_selector="loadChallengeDefinitionsWithCompletionHandler:", objc_name="loadChallengeDefinitionsWithCompletionHandler", objc_is_class_method=true)
+	ChallengeDefinition_loadChallengeDefinitionsWithCompletionHandler :: proc(completionHandler: ^Objc_Block(proc "c" ( challengeDefinitions: ^NS.Array, error: ^NS.Error ))) ---
 
-	@(objc_type = ChallengeDefinition, objc_selector = "hasActiveChallengesWithCompletionHandler:", objc_name = "hasActiveChallengesWithCompletionHandler")
-	ChallengeDefinition_hasActiveChallengesWithCompletionHandler :: proc(self: ^ChallengeDefinition, completionHandler: ^Objc_Block(proc "c" (hasActiveChallenges: bool, error: ^NS.Error))) ---
+	@(objc_type=ChallengeDefinition, objc_selector="hasActiveChallengesWithCompletionHandler:", objc_name="hasActiveChallengesWithCompletionHandler")
+	ChallengeDefinition_hasActiveChallengesWithCompletionHandler :: proc(self: ^ChallengeDefinition, completionHandler: ^Objc_Block(proc "c" ( hasActiveChallenges: bool, error: ^NS.Error ))) ---
 }
 
 
-@(objc_class = "GKChallengeEventHandler", objc_superclass = NS.Object)
-ChallengeEventHandler :: struct {
-	using _: NS.Object,
-}
+@(objc_class="GKChallengeEventHandler", objc_superclass=NS.Object)
+ChallengeEventHandler :: struct { using _: NS.Object}
 
 foreign lib {
-	@(objc_type = ChallengeEventHandler, objc_selector = "challengeEventHandler", objc_name = "challengeEventHandler", objc_is_class_method = true)
+	@(objc_type=ChallengeEventHandler, objc_selector="challengeEventHandler", objc_name="challengeEventHandler", objc_is_class_method=true)
 	ChallengeEventHandler_challengeEventHandler :: proc() -> ^ChallengeEventHandler ---
 
-	@(objc_type = ChallengeEventHandler, objc_selector = "delegate", objc_name = "delegate")
+	@(objc_type=ChallengeEventHandler, objc_selector="delegate", objc_name="delegate")
 	ChallengeEventHandler_delegate :: proc(self: ^ChallengeEventHandler) -> ^ChallengeEventHandlerDelegate ---
 
-	@(objc_type = ChallengeEventHandler, objc_selector = "setDelegate:", objc_name = "setDelegate")
+	@(objc_type=ChallengeEventHandler, objc_selector="setDelegate:", objc_name="setDelegate")
 	ChallengeEventHandler_setDelegate :: proc(self: ^ChallengeEventHandler, delegate: ^ChallengeEventHandlerDelegate) ---
 }
 
 
-@(objc_class = "GKChallengeEventHandlerDelegate")
+@(objc_class="GKChallengeEventHandlerDelegate")
 ChallengeEventHandlerDelegate :: struct {
 	using _: intrinsics.objc_object,
 	using _: NS.ObjectProtocol,
 }
 
 foreign lib {
-	@(objc_type = ChallengeEventHandlerDelegate, objc_selector = "localPlayerDidSelectChallenge:", objc_name = "localPlayerDidSelectChallenge")
+	@(objc_type=ChallengeEventHandlerDelegate, objc_selector="localPlayerDidSelectChallenge:", objc_name="localPlayerDidSelectChallenge")
 	ChallengeEventHandlerDelegate_localPlayerDidSelectChallenge :: proc(self: ^ChallengeEventHandlerDelegate, challenge: ^Challenge) ---
 
-	@(objc_type = ChallengeEventHandlerDelegate, objc_selector = "shouldShowBannerForLocallyReceivedChallenge:", objc_name = "shouldShowBannerForLocallyReceivedChallenge")
+	@(objc_type=ChallengeEventHandlerDelegate, objc_selector="shouldShowBannerForLocallyReceivedChallenge:", objc_name="shouldShowBannerForLocallyReceivedChallenge")
 	ChallengeEventHandlerDelegate_shouldShowBannerForLocallyReceivedChallenge :: proc(self: ^ChallengeEventHandlerDelegate, challenge: ^Challenge) -> bool ---
 
-	@(objc_type = ChallengeEventHandlerDelegate, objc_selector = "localPlayerDidReceiveChallenge:", objc_name = "localPlayerDidReceiveChallenge")
+	@(objc_type=ChallengeEventHandlerDelegate, objc_selector="localPlayerDidReceiveChallenge:", objc_name="localPlayerDidReceiveChallenge")
 	ChallengeEventHandlerDelegate_localPlayerDidReceiveChallenge :: proc(self: ^ChallengeEventHandlerDelegate, challenge: ^Challenge) ---
 
-	@(objc_type = ChallengeEventHandlerDelegate, objc_selector = "shouldShowBannerForLocallyCompletedChallenge:", objc_name = "shouldShowBannerForLocallyCompletedChallenge")
+	@(objc_type=ChallengeEventHandlerDelegate, objc_selector="shouldShowBannerForLocallyCompletedChallenge:", objc_name="shouldShowBannerForLocallyCompletedChallenge")
 	ChallengeEventHandlerDelegate_shouldShowBannerForLocallyCompletedChallenge :: proc(self: ^ChallengeEventHandlerDelegate, challenge: ^Challenge) -> bool ---
 
-	@(objc_type = ChallengeEventHandlerDelegate, objc_selector = "localPlayerDidCompleteChallenge:", objc_name = "localPlayerDidCompleteChallenge")
+	@(objc_type=ChallengeEventHandlerDelegate, objc_selector="localPlayerDidCompleteChallenge:", objc_name="localPlayerDidCompleteChallenge")
 	ChallengeEventHandlerDelegate_localPlayerDidCompleteChallenge :: proc(self: ^ChallengeEventHandlerDelegate, challenge: ^Challenge) ---
 
-	@(objc_type = ChallengeEventHandlerDelegate, objc_selector = "shouldShowBannerForRemotelyCompletedChallenge:", objc_name = "shouldShowBannerForRemotelyCompletedChallenge")
+	@(objc_type=ChallengeEventHandlerDelegate, objc_selector="shouldShowBannerForRemotelyCompletedChallenge:", objc_name="shouldShowBannerForRemotelyCompletedChallenge")
 	ChallengeEventHandlerDelegate_shouldShowBannerForRemotelyCompletedChallenge :: proc(self: ^ChallengeEventHandlerDelegate, challenge: ^Challenge) -> bool ---
 
-	@(objc_type = ChallengeEventHandlerDelegate, objc_selector = "remotePlayerDidCompleteChallenge:", objc_name = "remotePlayerDidCompleteChallenge")
+	@(objc_type=ChallengeEventHandlerDelegate, objc_selector="remotePlayerDidCompleteChallenge:", objc_name="remotePlayerDidCompleteChallenge")
 	ChallengeEventHandlerDelegate_remotePlayerDidCompleteChallenge :: proc(self: ^ChallengeEventHandlerDelegate, challenge: ^Challenge) ---
 }
 
 
-@(objc_class = "GKChallengeListener")
+@(objc_class="GKChallengeListener")
 ChallengeListener :: struct {
 	using _: intrinsics.objc_object,
 	using _: NS.ObjectProtocol,
 }
 
 foreign lib {
-	@(objc_type = ChallengeListener, objc_selector = "player:wantsToPlayChallenge:", objc_name = "player_wantsToPlayChallenge")
+	@(objc_type=ChallengeListener, objc_selector="player:wantsToPlayChallenge:", objc_name="player_wantsToPlayChallenge")
 	ChallengeListener_player_wantsToPlayChallenge :: proc(self: ^ChallengeListener, player: ^Player, challenge: ^Challenge) ---
 
-	@(objc_type = ChallengeListener, objc_selector = "player:didReceiveChallenge:", objc_name = "player_didReceiveChallenge")
+	@(objc_type=ChallengeListener, objc_selector="player:didReceiveChallenge:", objc_name="player_didReceiveChallenge")
 	ChallengeListener_player_didReceiveChallenge :: proc(self: ^ChallengeListener, player: ^Player, challenge: ^Challenge) ---
 
-	@(objc_type = ChallengeListener, objc_selector = "player:didCompleteChallenge:issuedByFriend:", objc_name = "player_didCompleteChallenge_issuedByFriend")
+	@(objc_type=ChallengeListener, objc_selector="player:didCompleteChallenge:issuedByFriend:", objc_name="player_didCompleteChallenge_issuedByFriend")
 	ChallengeListener_player_didCompleteChallenge_issuedByFriend :: proc(self: ^ChallengeListener, player: ^Player, challenge: ^Challenge, friendPlayer: ^Player) ---
 
-	@(objc_type = ChallengeListener, objc_selector = "player:issuedChallengeWasCompleted:byFriend:", objc_name = "player_issuedChallengeWasCompleted_byFriend")
+	@(objc_type=ChallengeListener, objc_selector="player:issuedChallengeWasCompleted:byFriend:", objc_name="player_issuedChallengeWasCompleted_byFriend")
 	ChallengeListener_player_issuedChallengeWasCompleted_byFriend :: proc(self: ^ChallengeListener, player: ^Player, challenge: ^Challenge, friendPlayer: ^Player) ---
 }

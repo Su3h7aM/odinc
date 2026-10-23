@@ -2,11 +2,11 @@
 #+build darwin
 package darwin_GameKit
 
-import "base:intrinsics"
 import cffi "core:c"
 import NS "core:sys/darwin/Foundation"
+import "base:intrinsics"
 
-@(objc_class = "GKAchievement", objc_superclass = NS.Object)
+@(objc_class="GKAchievement", objc_superclass=NS.Object)
 Achievement :: struct {
 	using _: NS.Object,
 	using _: NS.Coding,
@@ -14,103 +14,102 @@ Achievement :: struct {
 }
 
 foreign lib {
-	@(objc_type = Achievement, objc_selector = "loadAchievementsWithCompletionHandler:", objc_name = "loadAchievementsWithCompletionHandler", objc_is_class_method = true)
-	Achievement_loadAchievementsWithCompletionHandler :: proc(completionHandler: ^Objc_Block(proc "c" (achievements: ^NS.Array, error: ^NS.Error))) ---
+	@(objc_type=Achievement, objc_selector="loadAchievementsWithCompletionHandler:", objc_name="loadAchievementsWithCompletionHandler", objc_is_class_method=true)
+	Achievement_loadAchievementsWithCompletionHandler :: proc(completionHandler: ^Objc_Block(proc "c" ( achievements: ^NS.Array, error: ^NS.Error ))) ---
 
-	@(objc_type = Achievement, objc_selector = "resetAchievementsWithCompletionHandler:", objc_name = "resetAchievementsWithCompletionHandler", objc_is_class_method = true)
-	Achievement_resetAchievementsWithCompletionHandler :: proc(completionHandler: ^Objc_Block(proc "c" (error: ^NS.Error))) ---
+	@(objc_type=Achievement, objc_selector="resetAchievementsWithCompletionHandler:", objc_name="resetAchievementsWithCompletionHandler", objc_is_class_method=true)
+	Achievement_resetAchievementsWithCompletionHandler :: proc(completionHandler: ^Objc_Block(proc "c" ( error: ^NS.Error ))) ---
 
-	@(objc_type = Achievement, objc_selector = "initWithIdentifier:", objc_name = "initWithIdentifier_")
+	@(objc_type=Achievement, objc_selector="initWithIdentifier:", objc_name="initWithIdentifier_")
 	Achievement_initWithIdentifier_ :: proc(self: ^Achievement, identifier: ^NS.String) -> instancetype ---
 
-	@(objc_type = Achievement, objc_selector = "initWithIdentifier:player:", objc_name = "initWithIdentifier_player")
+	@(objc_type=Achievement, objc_selector="initWithIdentifier:player:", objc_name="initWithIdentifier_player")
 	Achievement_initWithIdentifier_player :: proc(self: ^Achievement, identifier: ^NS.String, player: ^Player) -> instancetype ---
 
-	@(objc_type = Achievement, objc_selector = "reportAchievements:withCompletionHandler:", objc_name = "reportAchievements_withCompletionHandler", objc_is_class_method = true)
-	Achievement_reportAchievements_withCompletionHandler :: proc(achievements: ^NS.Array, completionHandler: ^Objc_Block(proc "c" (error: ^NS.Error))) ---
+	@(objc_type=Achievement, objc_selector="reportAchievements:withCompletionHandler:", objc_name="reportAchievements_withCompletionHandler", objc_is_class_method=true)
+	Achievement_reportAchievements_withCompletionHandler :: proc(achievements: ^NS.Array, completionHandler: ^Objc_Block(proc "c" ( error: ^NS.Error ))) ---
 
-	@(objc_type = Achievement, objc_selector = "identifier", objc_name = "identifier")
+	@(objc_type=Achievement, objc_selector="identifier", objc_name="identifier")
 	Achievement_identifier :: proc(self: ^Achievement) -> ^NS.String ---
 
-	@(objc_type = Achievement, objc_selector = "setIdentifier:", objc_name = "setIdentifier")
+	@(objc_type=Achievement, objc_selector="setIdentifier:", objc_name="setIdentifier")
 	Achievement_setIdentifier :: proc(self: ^Achievement, identifier: ^NS.String) ---
 
-	@(objc_type = Achievement, objc_selector = "percentComplete", objc_name = "percentComplete")
+	@(objc_type=Achievement, objc_selector="percentComplete", objc_name="percentComplete")
 	Achievement_percentComplete :: proc(self: ^Achievement) -> cffi.double ---
 
-	@(objc_type = Achievement, objc_selector = "setPercentComplete:", objc_name = "setPercentComplete")
+	@(objc_type=Achievement, objc_selector="setPercentComplete:", objc_name="setPercentComplete")
 	Achievement_setPercentComplete :: proc(self: ^Achievement, percentComplete: cffi.double) ---
 
-	@(objc_type = Achievement, objc_selector = "isCompleted", objc_name = "isCompleted")
+	@(objc_type=Achievement, objc_selector="isCompleted", objc_name="isCompleted")
 	Achievement_isCompleted :: proc(self: ^Achievement) -> bool ---
 
-	@(objc_type = Achievement, objc_selector = "lastReportedDate", objc_name = "lastReportedDate")
+	@(objc_type=Achievement, objc_selector="lastReportedDate", objc_name="lastReportedDate")
 	Achievement_lastReportedDate :: proc(self: ^Achievement) -> ^NS.Date ---
 
-	@(objc_type = Achievement, objc_selector = "showsCompletionBanner", objc_name = "showsCompletionBanner")
+	@(objc_type=Achievement, objc_selector="showsCompletionBanner", objc_name="showsCompletionBanner")
 	Achievement_showsCompletionBanner :: proc(self: ^Achievement) -> bool ---
 
-	@(objc_type = Achievement, objc_selector = "setShowsCompletionBanner:", objc_name = "setShowsCompletionBanner")
+	@(objc_type=Achievement, objc_selector="setShowsCompletionBanner:", objc_name="setShowsCompletionBanner")
 	Achievement_setShowsCompletionBanner :: proc(self: ^Achievement, showsCompletionBanner: bool) ---
 
-	@(objc_type = Achievement, objc_selector = "player", objc_name = "player")
+	@(objc_type=Achievement, objc_selector="player", objc_name="player")
 	Achievement_player :: proc(self: ^Achievement) -> ^Player ---
 
-	@(objc_type = Achievement, objc_selector = "reportAchievementWithCompletionHandler:", objc_name = "reportAchievementWithCompletionHandler")
-	Achievement_reportAchievementWithCompletionHandler :: proc(self: ^Achievement, completionHandler: ^Objc_Block(proc "c" (error: ^NS.Error))) ---
+	@(objc_type=Achievement, objc_selector="reportAchievementWithCompletionHandler:", objc_name="reportAchievementWithCompletionHandler")
+	Achievement_reportAchievementWithCompletionHandler :: proc(self: ^Achievement, completionHandler: ^Objc_Block(proc "c" ( error: ^NS.Error ))) ---
 
-	@(objc_type = Achievement, objc_selector = "isHidden", objc_name = "isHidden")
+	@(objc_type=Achievement, objc_selector="isHidden", objc_name="isHidden")
 	Achievement_isHidden :: proc(self: ^Achievement) -> bool ---
 
-	@(objc_type = Achievement, objc_selector = "initWithIdentifier:forPlayer:", objc_name = "initWithIdentifier_forPlayer")
+	@(objc_type=Achievement, objc_selector="initWithIdentifier:forPlayer:", objc_name="initWithIdentifier_forPlayer")
 	Achievement_initWithIdentifier_forPlayer :: proc(self: ^Achievement, identifier: ^NS.String, playerID: ^NS.String) -> instancetype ---
 
-	@(objc_type = Achievement, objc_selector = "playerID", objc_name = "playerID")
+	@(objc_type=Achievement, objc_selector="playerID", objc_name="playerID")
 	Achievement_playerID :: proc(self: ^Achievement) -> ^NS.String ---
 
-	@(objc_type = Achievement, objc_selector = "selectChallengeablePlayers:withCompletionHandler:", objc_name = "selectChallengeablePlayers")
-	Achievement_selectChallengeablePlayers :: proc(self: ^Achievement, players: ^NS.Array, completionHandler: ^Objc_Block(proc "c" (challengeablePlayers: ^NS.Array, error: ^NS.Error))) ---
+	@(objc_type=Achievement, objc_selector="selectChallengeablePlayers:withCompletionHandler:", objc_name="selectChallengeablePlayers")
+	Achievement_selectChallengeablePlayers :: proc(self: ^Achievement, players: ^NS.Array, completionHandler: ^Objc_Block(proc "c" ( challengeablePlayers: ^NS.Array, error: ^NS.Error ))) ---
 
-	@(objc_type = Achievement, objc_selector = "reportAchievements:withEligibleChallenges:withCompletionHandler:", objc_name = "reportAchievements_withEligibleChallenges_withCompletionHandler", objc_is_class_method = true)
-	Achievement_reportAchievements_withEligibleChallenges_withCompletionHandler :: proc(achievements: ^NS.Array, challenges: ^NS.Array, completionHandler: ^Objc_Block(proc "c" (error: ^NS.Error))) ---
+	@(objc_type=Achievement, objc_selector="reportAchievements:withEligibleChallenges:withCompletionHandler:", objc_name="reportAchievements_withEligibleChallenges_withCompletionHandler", objc_is_class_method=true)
+	Achievement_reportAchievements_withEligibleChallenges_withCompletionHandler :: proc(achievements: ^NS.Array, challenges: ^NS.Array, completionHandler: ^Objc_Block(proc "c" ( error: ^NS.Error ))) ---
 
-	@(objc_type = Achievement, objc_selector = "issueChallengeToPlayers:message:", objc_name = "issueChallengeToPlayers")
+	@(objc_type=Achievement, objc_selector="issueChallengeToPlayers:message:", objc_name="issueChallengeToPlayers")
 	Achievement_issueChallengeToPlayers :: proc(self: ^Achievement, playerIDs: ^NS.Array, message: ^NS.String) ---
 
-	@(objc_type = Achievement, objc_selector = "selectChallengeablePlayerIDs:withCompletionHandler:", objc_name = "selectChallengeablePlayerIDs")
-	Achievement_selectChallengeablePlayerIDs :: proc(self: ^Achievement, playerIDs: ^NS.Array, completionHandler: ^Objc_Block(proc "c" (challengeablePlayerIDs: ^NS.Array, error: ^NS.Error))) ---
+	@(objc_type=Achievement, objc_selector="selectChallengeablePlayerIDs:withCompletionHandler:", objc_name="selectChallengeablePlayerIDs")
+	Achievement_selectChallengeablePlayerIDs :: proc(self: ^Achievement, playerIDs: ^NS.Array, completionHandler: ^Objc_Block(proc "c" ( challengeablePlayerIDs: ^NS.Array, error: ^NS.Error ))) ---
 
-	@(objc_type = Achievement, objc_selector = "challengeComposeControllerWithPlayers:message:completionHandler:", objc_name = "challengeComposeControllerWithPlayers")
+	@(objc_type=Achievement, objc_selector="challengeComposeControllerWithPlayers:message:completionHandler:", objc_name="challengeComposeControllerWithPlayers")
 	Achievement_challengeComposeControllerWithPlayers :: proc(self: ^Achievement, playerIDs: ^NS.Array, message: ^NS.String, completionHandler: ChallengeComposeCompletionBlock) -> ^UI_ViewController ---
 }
 
 
-@(objc_type = Achievement, objc_name = "initWithIdentifier")
+
+@(objc_type=Achievement, objc_name="initWithIdentifier")
 Achievement_initWithIdentifier :: proc {
 	Achievement_initWithIdentifier_,
 	Achievement_initWithIdentifier_player,
 	Achievement_initWithIdentifier_forPlayer,
 }
 
-@(objc_type = Achievement, objc_name = "reportAchievements", objc_is_class_method = true)
+@(objc_type=Achievement, objc_name="reportAchievements", objc_is_class_method=true)
 Achievement_reportAchievements :: proc {
 	Achievement_reportAchievements_withCompletionHandler,
 	Achievement_reportAchievements_withEligibleChallenges_withCompletionHandler,
 }
 
 
-@(objc_class = "GKAchievementChallenge", objc_superclass = Challenge)
-AchievementChallenge :: struct {
-	using _: Challenge,
-}
+@(objc_class="GKAchievementChallenge", objc_superclass=Challenge)
+AchievementChallenge :: struct { using _: Challenge}
 
 foreign lib {
-	@(objc_type = AchievementChallenge, objc_selector = "achievement", objc_name = "achievement")
+	@(objc_type=AchievementChallenge, objc_selector="achievement", objc_name="achievement")
 	AchievementChallenge_achievement :: proc(self: ^AchievementChallenge) -> ^Achievement ---
 }
 
 
-@(objc_class = "GKAchievementDescription", objc_superclass = NS.Object)
+@(objc_class="GKAchievementDescription", objc_superclass=NS.Object)
 AchievementDescription :: struct {
 	using _: NS.Object,
 	using _: NS.Coding,
@@ -118,80 +117,78 @@ AchievementDescription :: struct {
 }
 
 foreign lib {
-	@(objc_type = AchievementDescription, objc_selector = "loadAchievementDescriptionsWithCompletionHandler:", objc_name = "loadAchievementDescriptionsWithCompletionHandler", objc_is_class_method = true)
-	AchievementDescription_loadAchievementDescriptionsWithCompletionHandler :: proc(completionHandler: ^Objc_Block(proc "c" (descriptions: ^NS.Array, error: ^NS.Error))) ---
+	@(objc_type=AchievementDescription, objc_selector="loadAchievementDescriptionsWithCompletionHandler:", objc_name="loadAchievementDescriptionsWithCompletionHandler", objc_is_class_method=true)
+	AchievementDescription_loadAchievementDescriptionsWithCompletionHandler :: proc(completionHandler: ^Objc_Block(proc "c" ( descriptions: ^NS.Array, error: ^NS.Error ))) ---
 
-	@(objc_type = AchievementDescription, objc_selector = "identifier", objc_name = "identifier")
+	@(objc_type=AchievementDescription, objc_selector="identifier", objc_name="identifier")
 	AchievementDescription_identifier :: proc(self: ^AchievementDescription) -> ^NS.String ---
 
-	@(objc_type = AchievementDescription, objc_selector = "groupIdentifier", objc_name = "groupIdentifier")
+	@(objc_type=AchievementDescription, objc_selector="groupIdentifier", objc_name="groupIdentifier")
 	AchievementDescription_groupIdentifier :: proc(self: ^AchievementDescription) -> ^NS.String ---
 
-	@(objc_type = AchievementDescription, objc_selector = "title", objc_name = "title")
+	@(objc_type=AchievementDescription, objc_selector="title", objc_name="title")
 	AchievementDescription_title :: proc(self: ^AchievementDescription) -> ^NS.String ---
 
-	@(objc_type = AchievementDescription, objc_selector = "achievedDescription", objc_name = "achievedDescription")
+	@(objc_type=AchievementDescription, objc_selector="achievedDescription", objc_name="achievedDescription")
 	AchievementDescription_achievedDescription :: proc(self: ^AchievementDescription) -> ^NS.String ---
 
-	@(objc_type = AchievementDescription, objc_selector = "unachievedDescription", objc_name = "unachievedDescription")
+	@(objc_type=AchievementDescription, objc_selector="unachievedDescription", objc_name="unachievedDescription")
 	AchievementDescription_unachievedDescription :: proc(self: ^AchievementDescription) -> ^NS.String ---
 
-	@(objc_type = AchievementDescription, objc_selector = "maximumPoints", objc_name = "maximumPoints")
+	@(objc_type=AchievementDescription, objc_selector="maximumPoints", objc_name="maximumPoints")
 	AchievementDescription_maximumPoints :: proc(self: ^AchievementDescription) -> NS.Integer ---
 
-	@(objc_type = AchievementDescription, objc_selector = "isHidden", objc_name = "isHidden")
+	@(objc_type=AchievementDescription, objc_selector="isHidden", objc_name="isHidden")
 	AchievementDescription_isHidden :: proc(self: ^AchievementDescription) -> bool ---
 
-	@(objc_type = AchievementDescription, objc_selector = "isReplayable", objc_name = "isReplayable")
+	@(objc_type=AchievementDescription, objc_selector="isReplayable", objc_name="isReplayable")
 	AchievementDescription_isReplayable :: proc(self: ^AchievementDescription) -> bool ---
 
-	@(objc_type = AchievementDescription, objc_selector = "rarityPercent", objc_name = "rarityPercent")
+	@(objc_type=AchievementDescription, objc_selector="rarityPercent", objc_name="rarityPercent")
 	AchievementDescription_rarityPercent :: proc(self: ^AchievementDescription) -> ^NS.Number ---
 
-	@(objc_type = AchievementDescription, objc_selector = "releaseState", objc_name = "releaseState")
+	@(objc_type=AchievementDescription, objc_selector="releaseState", objc_name="releaseState")
 	AchievementDescription_releaseState :: proc(self: ^AchievementDescription) -> ReleaseState ---
 
-	@(objc_type = AchievementDescription, objc_selector = "activityIdentifier", objc_name = "activityIdentifier")
+	@(objc_type=AchievementDescription, objc_selector="activityIdentifier", objc_name="activityIdentifier")
 	AchievementDescription_activityIdentifier :: proc(self: ^AchievementDescription) -> ^NS.String ---
 
-	@(objc_type = AchievementDescription, objc_selector = "activityProperties", objc_name = "activityProperties")
+	@(objc_type=AchievementDescription, objc_selector="activityProperties", objc_name="activityProperties")
 	AchievementDescription_activityProperties :: proc(self: ^AchievementDescription) -> ^NS.Dictionary ---
 
-	@(objc_type = AchievementDescription, objc_selector = "loadImageWithCompletionHandler:", objc_name = "loadImageWithCompletionHandler")
-	AchievementDescription_loadImageWithCompletionHandler :: proc(self: ^AchievementDescription, completionHandler: ^Objc_Block(proc "c" (image: ^UI_Image, error: ^NS.Error))) ---
+	@(objc_type=AchievementDescription, objc_selector="loadImageWithCompletionHandler:", objc_name="loadImageWithCompletionHandler")
+	AchievementDescription_loadImageWithCompletionHandler :: proc(self: ^AchievementDescription, completionHandler: ^Objc_Block(proc "c" ( image: ^UI_Image, error: ^NS.Error ))) ---
 
-	@(objc_type = AchievementDescription, objc_selector = "incompleteAchievementImage", objc_name = "incompleteAchievementImage", objc_is_class_method = true)
+	@(objc_type=AchievementDescription, objc_selector="incompleteAchievementImage", objc_name="incompleteAchievementImage", objc_is_class_method=true)
 	AchievementDescription_incompleteAchievementImage :: proc() -> ^UI_Image ---
 
-	@(objc_type = AchievementDescription, objc_selector = "placeholderCompletedAchievementImage", objc_name = "placeholderCompletedAchievementImage", objc_is_class_method = true)
+	@(objc_type=AchievementDescription, objc_selector="placeholderCompletedAchievementImage", objc_name="placeholderCompletedAchievementImage", objc_is_class_method=true)
 	AchievementDescription_placeholderCompletedAchievementImage :: proc() -> ^UI_Image ---
 
-	@(objc_type = AchievementDescription, objc_selector = "image", objc_name = "image")
+	@(objc_type=AchievementDescription, objc_selector="image", objc_name="image")
 	AchievementDescription_image :: proc(self: ^AchievementDescription) -> ^UI_Image ---
 }
 
 
-@(objc_class = "GKAchievementViewController", objc_superclass = GameCenterViewController)
-AchievementViewController :: struct {
-	using _: GameCenterViewController,
-}
+@(objc_class="GKAchievementViewController", objc_superclass=GameCenterViewController)
+AchievementViewController :: struct { using _: GameCenterViewController}
 
 foreign lib {
-	@(objc_type = AchievementViewController, objc_selector = "achievementDelegate", objc_name = "achievementDelegate")
+	@(objc_type=AchievementViewController, objc_selector="achievementDelegate", objc_name="achievementDelegate")
 	AchievementViewController_achievementDelegate :: proc(self: ^AchievementViewController) -> ^AchievementViewControllerDelegate ---
 
-	@(objc_type = AchievementViewController, objc_selector = "setAchievementDelegate:", objc_name = "setAchievementDelegate")
+	@(objc_type=AchievementViewController, objc_selector="setAchievementDelegate:", objc_name="setAchievementDelegate")
 	AchievementViewController_setAchievementDelegate :: proc(self: ^AchievementViewController, achievementDelegate: ^AchievementViewControllerDelegate) ---
 }
 
 
-@(objc_class = "GKAchievementViewControllerDelegate")
+@(objc_class="GKAchievementViewControllerDelegate")
 AchievementViewControllerDelegate :: struct {
 	using _: intrinsics.objc_object,
 	using _: NS.ObjectProtocol,
 }
 
 foreign lib {
-	@(objc_type = AchievementViewControllerDelegate, objc_selector = "achievementViewControllerDidFinish:", objc_name = "achievementViewControllerDidFinish")
+	@(objc_type=AchievementViewControllerDelegate, objc_selector="achievementViewControllerDidFinish:", objc_name="achievementViewControllerDidFinish")
 	AchievementViewControllerDelegate_achievementViewControllerDidFinish :: proc(self: ^AchievementViewControllerDelegate, viewController: ^AchievementViewController) ---
 }

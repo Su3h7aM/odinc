@@ -45,7 +45,7 @@ encode_pipeline_t :: struct {
 	 *
 	 * \ref EXR_ENCODE_PIPELINE_INITIALIZER
 	 */
-	pipe_size:                      c.size_t,
+	pipe_size: c.size_t,
 
 	/** The output channel information for this chunk.
 	 *
@@ -57,21 +57,21 @@ encode_pipeline_t :: struct {
 	 * Describes the channel information. This information is
 	 * allocated dynamically during exr_encoding_initialize().
 	 */
-	channels:                       [^]coding_channel_info_t,
-	channel_count:                  i16,
+	channels: [^]coding_channel_info_t,
+	channel_count: i16,
 
 	/** Encode flags to control the behavior. */
-	encode_flags:                   u16,
+	encode_flags: u16,
 
 	/** Copy of the parameters given to the initialize/update for convenience. */
-	part_index:                     c.int,
-	ctx:                            const_context_t,
-	chunk:                          chunk_info_t,
+	part_index: c.int,
+	ctx:        const_context_t,
+	chunk:      chunk_info_t,
 
 	/** Can be used by the user to pass custom context data through
 	 * the encode pipeline.
 	 */
-	encoding_user_data:             rawptr,
+	encoding_user_data: rawptr,
 
 	/** The packed buffer where individual channels have been put into here.
 	 *
@@ -81,10 +81,10 @@ encode_pipeline_t :: struct {
 	 * adopt the pointer and set it to `NULL` here. Be cognizant of any
 	 * custom allocators.
 	 */
-	packed_buffer:                  rawptr,
+	packed_buffer: rawptr,
 
 	/** Differing from the allocation size, the number of actual bytes */
-	packed_bytes:                   u64,
+	packed_bytes: u64,
 
 	/** Used when re-using the same encode pipeline struct to know if
 	 * chunk is changed size whether current buffer is large enough
@@ -95,7 +95,7 @@ encode_pipeline_t :: struct {
 	 * adopt the pointer and set it to `NULL` here. Be cognizant of any
 	 * custom allocators.
 	 */
-	packed_alloc_size:              c.size_t,
+	packed_alloc_size: c.size_t,
 
 	/** For deep data. NB: the members NOT const because we need to
 	 * temporarily swap it to xdr order and restore it (to avoid a
@@ -104,22 +104,22 @@ encode_pipeline_t :: struct {
 	 * Depending on the flag set above, will be treated either as a
 	 * cumulative list (n, n+m, n+m+o, ...), or an individual table
 	 * (n, m, o, ...). */
-	sample_count_table:             [^]i32,
+	sample_count_table: [^]i32,
 
 	/** Allocated table size (to avoid re-allocations). Number of
 	 * samples must always be width * height for the chunk.
 	 */
-	sample_count_alloc_size:        c.size_t,
+	sample_count_alloc_size: c.size_t,
 
 	/** Packed sample table (compressed, raw on disk representation)
 	 * for deep or other non-image data.
 	 */
-	packed_sample_count_table:      rawptr,
+	packed_sample_count_table: rawptr,
 
 	/** Number of bytes to write (actual size) for the
 	 * packed_sample_count_table.
 	 */
-	packed_sample_count_bytes:      c.size_t,
+	packed_sample_count_bytes: c.size_t,
 
 	/** Allocated size (to avoid re-allocations) for the
 	 * packed_sample_count_table.
@@ -135,7 +135,7 @@ encode_pipeline_t :: struct {
 	 * adopt the pointer and set it to `NULL` here. Be cognizant of any
 	 * custom allocators.
 	 */
-	compressed_buffer:              rawptr,
+	compressed_buffer: rawptr,
 
 	/** Must be filled in as the pipeline runs to inform the writing
 	 * software about the compressed size of the chunk (if it is an
@@ -146,7 +146,7 @@ encode_pipeline_t :: struct {
 	 * adopt the pointer and set it to zero here. Be cognizant of any
 	 * custom allocators.
 	 */
-	compressed_bytes:               c.size_t,
+	compressed_bytes: c.size_t,
 
 	/** Used when re-using the same encode pipeline struct to know if
 	 * chunk is changed size whether current buffer is large enough.
@@ -158,7 +158,7 @@ encode_pipeline_t :: struct {
 	 * adopt the pointer and set it to zero here. Be cognizant of any
 	 * custom allocators.
 	 */
-	compressed_alloc_size:          c.size_t,
+	compressed_alloc_size: c.size_t,
 
 	/** A scratch buffer for intermediate results.
 	 *
@@ -169,7 +169,7 @@ encode_pipeline_t :: struct {
 	 * adopt the pointer and set it to `NULL` here. Be cognizant of any
 	 * custom allocators.
 	 */
-	scratch_buffer_1:               rawptr,
+	scratch_buffer_1: rawptr,
 
 	/** Used when re-using the same encode pipeline struct to know if
 	 * chunk is changed size whether current buffer is large enough.
@@ -181,7 +181,7 @@ encode_pipeline_t :: struct {
 	 * adopt the pointer and set it to `NULL` here. Be cognizant of any
 	 * custom allocators.
 	 */
-	scratch_alloc_size_1:           c.size_t,
+	scratch_alloc_size_1: c.size_t,
 
 	/** Some compression routines may need a second scratch buffer.
 	 *
@@ -192,24 +192,24 @@ encode_pipeline_t :: struct {
 	 * adopt the pointer and set it to `NULL` here. Be cognizant of any
 	 * custom allocators.
 	 */
-	scratch_buffer_2:               rawptr,
+	scratch_buffer_2: rawptr,
 
 	/** Used when re-using the same encode pipeline struct to know if
 	 * chunk is changed size whether current buffer is large enough.
 	 */
-	scratch_alloc_size_2:           c.size_t,
+	scratch_alloc_size_2: c.size_t,
 
 	/** Enable a custom allocator for the different buffers (if
 	 * encoding on a GPU). If `NULL`, will use the allocator from the
 	 * context.
 	 */
-	alloc_fn:                       proc "c" (_: transcoding_pipeline_buffer_id_t, _: c.size_t) -> rawptr,
+	alloc_fn: proc "c" (transcoding_pipeline_buffer_id_t, c.size_t) -> rawptr,
 
 	/** Enable a custom allocator for the different buffers (if
 	 * encoding on a GPU). If `NULL`, will use the allocator from the
 	 * context.
 	 */
-	free_fn:                        proc "c" (_: transcoding_pipeline_buffer_id_t, _: rawptr),
+	free_fn: proc "c" (transcoding_pipeline_buffer_id_t, rawptr),
 
 	/** Function chosen based on the output layout of the channels of the part to
 	 * decompress data.
@@ -218,7 +218,7 @@ encode_pipeline_t :: struct {
 	 * compression on this part, this can be changed after
 	 * initialization.
 	 */
-	convert_and_pack_fn:            proc "c" (pipeline: ^encode_pipeline_t) -> result_t,
+	convert_and_pack_fn: proc "c" (pipeline: ^encode_pipeline_t) -> result_t,
 
 	/** Function chosen based on the compression type of the part to
 	 * compress data.
@@ -226,7 +226,7 @@ encode_pipeline_t :: struct {
 	 * If the user has a custom compression method for the compression
 	 * type on this part, this can be changed after initialization.
 	 */
-	compress_fn:                    proc "c" (pipeline: ^encode_pipeline_t) -> result_t,
+	compress_fn: proc "c" (pipeline: ^encode_pipeline_t) -> result_t,
 
 	/** This routine is used when waiting for other threads to finish
 	 * writing previous chunks such that this thread can write this
@@ -246,14 +246,14 @@ encode_pipeline_t :: struct {
 	 * It is up to the user to provide an appropriate routine if
 	 * performing multi-threaded writing.
 	 */
-	yield_until_ready_fn:           proc "c" (pipeline: ^encode_pipeline_t) -> result_t,
+	yield_until_ready_fn: proc "c" (pipeline: ^encode_pipeline_t) -> result_t,
 
 	/** Function chosen to write chunk data to the context.
 	 *
 	 * This is allowed to be overridden, but probably is not necessary
 	 * in most scenarios.
 	 */
-	write_fn:                       proc "c" (pipeline: ^encode_pipeline_t) -> result_t,
+	write_fn: proc "c" (pipeline: ^encode_pipeline_t) -> result_t,
 
 	/** Small stash of channel info values. This is faster than calling
 	 * malloc when the channel count in the part is small (RGBAZ),
@@ -261,15 +261,13 @@ encode_pipeline_t :: struct {
 	 * channels, it will allocate space for that, so do not rely on
 	 * this being used.
 	 */
-	_quick_chan_store:              [5]coding_channel_info_t,
+	_quick_chan_store: [5]coding_channel_info_t,
 }
 
-ENCODE_PIPELINE_INITIALIZER :: encode_pipeline_t {
-	pipe_size = size_of(encode_pipeline_t),
-}
+ENCODE_PIPELINE_INITIALIZER :: encode_pipeline_t{ pipe_size = size_of(encode_pipeline_t) }
 
 
-@(link_prefix = "exr_", default_calling_convention = "c")
+@(link_prefix="exr_", default_calling_convention="c")
 foreign lib {
 	/** Initialize the encoding pipeline structure with the channel info
 	 * for the specified part based on the chunk to be written.
@@ -278,7 +276,11 @@ foreign lib {
 	 * stage is desired, initialize the channel output information and
 	 * call exr_encoding_choose_default_routines().
 	 */
-	encoding_initialize :: proc(ctxt: const_context_t, part_index: c.int, cinfo: ^chunk_info_t, encode_pipe: ^encode_pipeline_t) -> result_t ---
+	encoding_initialize :: proc(
+		ctxt:        const_context_t,
+		part_index:  c.int,
+		cinfo:       ^chunk_info_t,
+		encode_pipe: ^encode_pipeline_t) -> result_t ---
 
 	/** Given an initialized encode pipeline, find an appropriate
 	 * function to shuffle and convert data into the defined channel
@@ -287,7 +289,10 @@ foreign lib {
 	 * Calling this is not required if a custom routine will be used, or
 	 * if just the raw decompressed data is desired.
 	 */
-	encoding_choose_default_routines :: proc(ctxt: const_context_t, part_index: c.int, encode_pipe: ^encode_pipeline_t) -> result_t ---
+	encoding_choose_default_routines :: proc(
+		ctxt:        const_context_t,
+		part_index:  c.int,
+		encode_pipe: ^encode_pipeline_t) -> result_t ---
 
 	/** Given a encode pipeline previously initialized, update it for the
 	 * new chunk to be written.
@@ -296,10 +301,17 @@ foreign lib {
 	 * malloc/free calls. Further, it allows the previous choices for
 	 * the various functions to be quickly re-used.
 	 */
-	encoding_update :: proc(ctxt: const_context_t, part_index: c.int, cinfo: ^chunk_info_t, encode_pipe: ^encode_pipeline_t) -> result_t ---
+	encoding_update :: proc(
+		ctxt:        const_context_t,
+		part_index:  c.int,
+		cinfo:       ^chunk_info_t,
+		encode_pipe: ^encode_pipeline_t) -> result_t ---
 
 	/** Execute the encoding pipeline. */
-	encoding_run :: proc(ctxt: const_context_t, part_index: c.int, encode_pipe: ^encode_pipeline_t) -> result_t ---
+	encoding_run :: proc(
+		ctxt:        const_context_t,
+		part_index:  c.int,
+		encode_pipe: ^encode_pipeline_t) -> result_t ---
 
 	/** Free any intermediate memory in the encoding pipeline.
 	 *

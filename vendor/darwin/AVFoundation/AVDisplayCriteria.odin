@@ -4,20 +4,18 @@ package darwin_AVFoundation
 
 import "base:intrinsics"
 import cffi "core:c"
-import NS "core:sys/darwin/Foundation"
 import CM "vendor:darwin/CoreMedia"
+import NS "core:sys/darwin/Foundation"
 
 _ :: cffi
 _ :: CM
 _ :: NS
 
 when ODIN_PLATFORM_SUBTARGET == .Default {
-	@(objc_class = "AVDisplayCriteria")
-	DisplayCriteria :: struct {
-		using _: intrinsics.objc_object,
-	}
+	@(objc_class="AVDisplayCriteria")
+	DisplayCriteria :: struct { using _: intrinsics.objc_object}
 } else when ODIN_PLATFORM_SUBTARGET_IOS {
-	@(objc_class = "AVDisplayCriteria", objc_superclass = NS.Object)
+	@(objc_class="AVDisplayCriteria", objc_superclass=NS.Object)
 	DisplayCriteria :: struct {
 		using _: NS.Object,
 		using _: NS.Copying,
@@ -26,13 +24,13 @@ when ODIN_PLATFORM_SUBTARGET == .Default {
 
 foreign lib {
 	when ODIN_PLATFORM_SUBTARGET_IOS {
-		@(objc_type = DisplayCriteria, objc_selector = "init", objc_name = "init")
+		@(objc_type=DisplayCriteria, objc_selector="init", objc_name="init")
 		DisplayCriteria_init :: proc(self: ^DisplayCriteria) -> instancetype ---
 
-		@(objc_type = DisplayCriteria, objc_selector = "new", objc_name = "new", objc_is_class_method = true)
+		@(objc_type=DisplayCriteria, objc_selector="new", objc_name="new", objc_is_class_method=true)
 		DisplayCriteria_new :: proc() -> ^DisplayCriteria ---
 
-		@(objc_type = DisplayCriteria, objc_selector = "initWithRefreshRate:formatDescription:", objc_name = "initWithRefreshRate")
+		@(objc_type=DisplayCriteria, objc_selector="initWithRefreshRate:formatDescription:", objc_name="initWithRefreshRate")
 		DisplayCriteria_initWithRefreshRate :: proc(self: ^DisplayCriteria, refreshRate: cffi.float, formatDescription: CM.FormatDescriptionRef) -> instancetype ---
 	}
 }

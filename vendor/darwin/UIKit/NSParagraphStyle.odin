@@ -6,7 +6,7 @@ import cffi "core:c"
 import CG "core:sys/darwin/CoreGraphics"
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class = "NSParagraphStyle", objc_superclass = NS.Object)
+@(objc_class="NSParagraphStyle", objc_superclass=NS.Object)
 NSParagraphStyle :: struct {
 	using _: NS.Object,
 	using _: NS.Copying,
@@ -14,200 +14,198 @@ NSParagraphStyle :: struct {
 	using _: NS.SecureCoding,
 }
 
-@(default_calling_convention = "c")
+@(default_calling_convention="c")
 foreign lib {
-	@(objc_type = NSParagraphStyle, objc_selector = "defaultWritingDirectionForLanguage:", objc_name = "defaultWritingDirectionForLanguage", objc_is_class_method = true)
+	@(objc_type=NSParagraphStyle, objc_selector="defaultWritingDirectionForLanguage:", objc_name="defaultWritingDirectionForLanguage", objc_is_class_method=true)
 	NSParagraphStyle_defaultWritingDirectionForLanguage :: proc(languageName: ^NS.String) -> NSWritingDirection ---
 
-	@(objc_type = NSParagraphStyle, objc_selector = "defaultParagraphStyle", objc_name = "defaultParagraphStyle", objc_is_class_method = true)
+	@(objc_type=NSParagraphStyle, objc_selector="defaultParagraphStyle", objc_name="defaultParagraphStyle", objc_is_class_method=true)
 	NSParagraphStyle_defaultParagraphStyle :: proc() -> ^NSParagraphStyle ---
 
-	@(objc_type = NSParagraphStyle, objc_selector = "lineSpacing", objc_name = "lineSpacing")
+	@(objc_type=NSParagraphStyle, objc_selector="lineSpacing", objc_name="lineSpacing")
 	NSParagraphStyle_lineSpacing :: proc(self: ^NSParagraphStyle) -> CG.Float ---
 
-	@(objc_type = NSParagraphStyle, objc_selector = "paragraphSpacing", objc_name = "paragraphSpacing")
+	@(objc_type=NSParagraphStyle, objc_selector="paragraphSpacing", objc_name="paragraphSpacing")
 	NSParagraphStyle_paragraphSpacing :: proc(self: ^NSParagraphStyle) -> CG.Float ---
 
-	@(objc_type = NSParagraphStyle, objc_selector = "headIndent", objc_name = "headIndent")
+	@(objc_type=NSParagraphStyle, objc_selector="headIndent", objc_name="headIndent")
 	NSParagraphStyle_headIndent :: proc(self: ^NSParagraphStyle) -> CG.Float ---
 
-	@(objc_type = NSParagraphStyle, objc_selector = "tailIndent", objc_name = "tailIndent")
+	@(objc_type=NSParagraphStyle, objc_selector="tailIndent", objc_name="tailIndent")
 	NSParagraphStyle_tailIndent :: proc(self: ^NSParagraphStyle) -> CG.Float ---
 
-	@(objc_type = NSParagraphStyle, objc_selector = "firstLineHeadIndent", objc_name = "firstLineHeadIndent")
+	@(objc_type=NSParagraphStyle, objc_selector="firstLineHeadIndent", objc_name="firstLineHeadIndent")
 	NSParagraphStyle_firstLineHeadIndent :: proc(self: ^NSParagraphStyle) -> CG.Float ---
 
-	@(objc_type = NSParagraphStyle, objc_selector = "minimumLineHeight", objc_name = "minimumLineHeight")
+	@(objc_type=NSParagraphStyle, objc_selector="minimumLineHeight", objc_name="minimumLineHeight")
 	NSParagraphStyle_minimumLineHeight :: proc(self: ^NSParagraphStyle) -> CG.Float ---
 
-	@(objc_type = NSParagraphStyle, objc_selector = "maximumLineHeight", objc_name = "maximumLineHeight")
+	@(objc_type=NSParagraphStyle, objc_selector="maximumLineHeight", objc_name="maximumLineHeight")
 	NSParagraphStyle_maximumLineHeight :: proc(self: ^NSParagraphStyle) -> CG.Float ---
 
-	@(objc_type = NSParagraphStyle, objc_selector = "lineBreakMode", objc_name = "lineBreakMode")
+	@(objc_type=NSParagraphStyle, objc_selector="lineBreakMode", objc_name="lineBreakMode")
 	NSParagraphStyle_lineBreakMode :: proc(self: ^NSParagraphStyle) -> NSLineBreakMode ---
 
-	@(objc_type = NSParagraphStyle, objc_selector = "baseWritingDirection", objc_name = "baseWritingDirection")
+	@(objc_type=NSParagraphStyle, objc_selector="baseWritingDirection", objc_name="baseWritingDirection")
 	NSParagraphStyle_baseWritingDirection :: proc(self: ^NSParagraphStyle) -> NSWritingDirection ---
 
-	@(objc_type = NSParagraphStyle, objc_selector = "lineHeightMultiple", objc_name = "lineHeightMultiple")
+	@(objc_type=NSParagraphStyle, objc_selector="lineHeightMultiple", objc_name="lineHeightMultiple")
 	NSParagraphStyle_lineHeightMultiple :: proc(self: ^NSParagraphStyle) -> CG.Float ---
 
-	@(objc_type = NSParagraphStyle, objc_selector = "paragraphSpacingBefore", objc_name = "paragraphSpacingBefore")
+	@(objc_type=NSParagraphStyle, objc_selector="paragraphSpacingBefore", objc_name="paragraphSpacingBefore")
 	NSParagraphStyle_paragraphSpacingBefore :: proc(self: ^NSParagraphStyle) -> CG.Float ---
 
-	@(objc_type = NSParagraphStyle, objc_selector = "hyphenationFactor", objc_name = "hyphenationFactor")
+	@(objc_type=NSParagraphStyle, objc_selector="hyphenationFactor", objc_name="hyphenationFactor")
 	NSParagraphStyle_hyphenationFactor :: proc(self: ^NSParagraphStyle) -> cffi.float ---
 
-	@(objc_type = NSParagraphStyle, objc_selector = "usesDefaultHyphenation", objc_name = "usesDefaultHyphenation")
+	@(objc_type=NSParagraphStyle, objc_selector="usesDefaultHyphenation", objc_name="usesDefaultHyphenation")
 	NSParagraphStyle_usesDefaultHyphenation :: proc(self: ^NSParagraphStyle) -> bool ---
 
-	@(objc_type = NSParagraphStyle, objc_selector = "tabStops", objc_name = "tabStops")
+	@(objc_type=NSParagraphStyle, objc_selector="tabStops", objc_name="tabStops")
 	NSParagraphStyle_tabStops :: proc(self: ^NSParagraphStyle) -> ^NS.Array ---
 
-	@(objc_type = NSParagraphStyle, objc_selector = "defaultTabInterval", objc_name = "defaultTabInterval")
+	@(objc_type=NSParagraphStyle, objc_selector="defaultTabInterval", objc_name="defaultTabInterval")
 	NSParagraphStyle_defaultTabInterval :: proc(self: ^NSParagraphStyle) -> CG.Float ---
 
-	@(objc_type = NSParagraphStyle, objc_selector = "textLists", objc_name = "textLists")
+	@(objc_type=NSParagraphStyle, objc_selector="textLists", objc_name="textLists")
 	NSParagraphStyle_textLists :: proc(self: ^NSParagraphStyle) -> ^NS.Array ---
 
-	@(objc_type = NSParagraphStyle, objc_selector = "allowsDefaultTighteningForTruncation", objc_name = "allowsDefaultTighteningForTruncation")
+	@(objc_type=NSParagraphStyle, objc_selector="allowsDefaultTighteningForTruncation", objc_name="allowsDefaultTighteningForTruncation")
 	NSParagraphStyle_allowsDefaultTighteningForTruncation :: proc(self: ^NSParagraphStyle) -> bool ---
 
-	@(objc_type = NSParagraphStyle, objc_selector = "lineBreakStrategy", objc_name = "lineBreakStrategy")
+	@(objc_type=NSParagraphStyle, objc_selector="lineBreakStrategy", objc_name="lineBreakStrategy")
 	NSParagraphStyle_lineBreakStrategy :: proc(self: ^NSParagraphStyle) -> NSLineBreakStrategy ---
 
-	@(objc_type = NSParagraphStyle, objc_selector = "alignment", objc_name = "alignment")
+	@(objc_type=NSParagraphStyle, objc_selector="alignment", objc_name="alignment")
 	NSParagraphStyle_alignment :: proc(self: ^NSParagraphStyle) -> NSTextAlignment ---
 }
 
 
-@(objc_class = "NSMutableParagraphStyle", objc_superclass = NSParagraphStyle)
-NSMutableParagraphStyle :: struct {
-	using _: NSParagraphStyle,
-}
+@(objc_class="NSMutableParagraphStyle", objc_superclass=NSParagraphStyle)
+NSMutableParagraphStyle :: struct { using _: NSParagraphStyle}
 
-@(default_calling_convention = "c")
+@(default_calling_convention="c")
 foreign lib {
-	@(objc_type = NSMutableParagraphStyle, objc_selector = "addTabStop:", objc_name = "addTabStop")
+	@(objc_type=NSMutableParagraphStyle, objc_selector="addTabStop:", objc_name="addTabStop")
 	NSMutableParagraphStyle_addTabStop :: proc(self: ^NSMutableParagraphStyle, anObject: ^NSTextTab) ---
 
-	@(objc_type = NSMutableParagraphStyle, objc_selector = "removeTabStop:", objc_name = "removeTabStop")
+	@(objc_type=NSMutableParagraphStyle, objc_selector="removeTabStop:", objc_name="removeTabStop")
 	NSMutableParagraphStyle_removeTabStop :: proc(self: ^NSMutableParagraphStyle, anObject: ^NSTextTab) ---
 
-	@(objc_type = NSMutableParagraphStyle, objc_selector = "setParagraphStyle:", objc_name = "setParagraphStyle")
+	@(objc_type=NSMutableParagraphStyle, objc_selector="setParagraphStyle:", objc_name="setParagraphStyle")
 	NSMutableParagraphStyle_setParagraphStyle :: proc(self: ^NSMutableParagraphStyle, obj: ^NSParagraphStyle) ---
 
-	@(objc_type = NSMutableParagraphStyle, objc_selector = "lineSpacing", objc_name = "lineSpacing")
+	@(objc_type=NSMutableParagraphStyle, objc_selector="lineSpacing", objc_name="lineSpacing")
 	NSMutableParagraphStyle_lineSpacing :: proc(self: ^NSMutableParagraphStyle) -> CG.Float ---
 
-	@(objc_type = NSMutableParagraphStyle, objc_selector = "setLineSpacing:", objc_name = "setLineSpacing")
+	@(objc_type=NSMutableParagraphStyle, objc_selector="setLineSpacing:", objc_name="setLineSpacing")
 	NSMutableParagraphStyle_setLineSpacing :: proc(self: ^NSMutableParagraphStyle, lineSpacing: CG.Float) ---
 
-	@(objc_type = NSMutableParagraphStyle, objc_selector = "paragraphSpacing", objc_name = "paragraphSpacing")
+	@(objc_type=NSMutableParagraphStyle, objc_selector="paragraphSpacing", objc_name="paragraphSpacing")
 	NSMutableParagraphStyle_paragraphSpacing :: proc(self: ^NSMutableParagraphStyle) -> CG.Float ---
 
-	@(objc_type = NSMutableParagraphStyle, objc_selector = "setParagraphSpacing:", objc_name = "setParagraphSpacing")
+	@(objc_type=NSMutableParagraphStyle, objc_selector="setParagraphSpacing:", objc_name="setParagraphSpacing")
 	NSMutableParagraphStyle_setParagraphSpacing :: proc(self: ^NSMutableParagraphStyle, paragraphSpacing: CG.Float) ---
 
-	@(objc_type = NSMutableParagraphStyle, objc_selector = "firstLineHeadIndent", objc_name = "firstLineHeadIndent")
+	@(objc_type=NSMutableParagraphStyle, objc_selector="firstLineHeadIndent", objc_name="firstLineHeadIndent")
 	NSMutableParagraphStyle_firstLineHeadIndent :: proc(self: ^NSMutableParagraphStyle) -> CG.Float ---
 
-	@(objc_type = NSMutableParagraphStyle, objc_selector = "setFirstLineHeadIndent:", objc_name = "setFirstLineHeadIndent")
+	@(objc_type=NSMutableParagraphStyle, objc_selector="setFirstLineHeadIndent:", objc_name="setFirstLineHeadIndent")
 	NSMutableParagraphStyle_setFirstLineHeadIndent :: proc(self: ^NSMutableParagraphStyle, firstLineHeadIndent: CG.Float) ---
 
-	@(objc_type = NSMutableParagraphStyle, objc_selector = "headIndent", objc_name = "headIndent")
+	@(objc_type=NSMutableParagraphStyle, objc_selector="headIndent", objc_name="headIndent")
 	NSMutableParagraphStyle_headIndent :: proc(self: ^NSMutableParagraphStyle) -> CG.Float ---
 
-	@(objc_type = NSMutableParagraphStyle, objc_selector = "setHeadIndent:", objc_name = "setHeadIndent")
+	@(objc_type=NSMutableParagraphStyle, objc_selector="setHeadIndent:", objc_name="setHeadIndent")
 	NSMutableParagraphStyle_setHeadIndent :: proc(self: ^NSMutableParagraphStyle, headIndent: CG.Float) ---
 
-	@(objc_type = NSMutableParagraphStyle, objc_selector = "tailIndent", objc_name = "tailIndent")
+	@(objc_type=NSMutableParagraphStyle, objc_selector="tailIndent", objc_name="tailIndent")
 	NSMutableParagraphStyle_tailIndent :: proc(self: ^NSMutableParagraphStyle) -> CG.Float ---
 
-	@(objc_type = NSMutableParagraphStyle, objc_selector = "setTailIndent:", objc_name = "setTailIndent")
+	@(objc_type=NSMutableParagraphStyle, objc_selector="setTailIndent:", objc_name="setTailIndent")
 	NSMutableParagraphStyle_setTailIndent :: proc(self: ^NSMutableParagraphStyle, tailIndent: CG.Float) ---
 
-	@(objc_type = NSMutableParagraphStyle, objc_selector = "lineBreakMode", objc_name = "lineBreakMode")
+	@(objc_type=NSMutableParagraphStyle, objc_selector="lineBreakMode", objc_name="lineBreakMode")
 	NSMutableParagraphStyle_lineBreakMode :: proc(self: ^NSMutableParagraphStyle) -> NSLineBreakMode ---
 
-	@(objc_type = NSMutableParagraphStyle, objc_selector = "setLineBreakMode:", objc_name = "setLineBreakMode")
+	@(objc_type=NSMutableParagraphStyle, objc_selector="setLineBreakMode:", objc_name="setLineBreakMode")
 	NSMutableParagraphStyle_setLineBreakMode :: proc(self: ^NSMutableParagraphStyle, lineBreakMode: NSLineBreakMode) ---
 
-	@(objc_type = NSMutableParagraphStyle, objc_selector = "minimumLineHeight", objc_name = "minimumLineHeight")
+	@(objc_type=NSMutableParagraphStyle, objc_selector="minimumLineHeight", objc_name="minimumLineHeight")
 	NSMutableParagraphStyle_minimumLineHeight :: proc(self: ^NSMutableParagraphStyle) -> CG.Float ---
 
-	@(objc_type = NSMutableParagraphStyle, objc_selector = "setMinimumLineHeight:", objc_name = "setMinimumLineHeight")
+	@(objc_type=NSMutableParagraphStyle, objc_selector="setMinimumLineHeight:", objc_name="setMinimumLineHeight")
 	NSMutableParagraphStyle_setMinimumLineHeight :: proc(self: ^NSMutableParagraphStyle, minimumLineHeight: CG.Float) ---
 
-	@(objc_type = NSMutableParagraphStyle, objc_selector = "maximumLineHeight", objc_name = "maximumLineHeight")
+	@(objc_type=NSMutableParagraphStyle, objc_selector="maximumLineHeight", objc_name="maximumLineHeight")
 	NSMutableParagraphStyle_maximumLineHeight :: proc(self: ^NSMutableParagraphStyle) -> CG.Float ---
 
-	@(objc_type = NSMutableParagraphStyle, objc_selector = "setMaximumLineHeight:", objc_name = "setMaximumLineHeight")
+	@(objc_type=NSMutableParagraphStyle, objc_selector="setMaximumLineHeight:", objc_name="setMaximumLineHeight")
 	NSMutableParagraphStyle_setMaximumLineHeight :: proc(self: ^NSMutableParagraphStyle, maximumLineHeight: CG.Float) ---
 
-	@(objc_type = NSMutableParagraphStyle, objc_selector = "baseWritingDirection", objc_name = "baseWritingDirection")
+	@(objc_type=NSMutableParagraphStyle, objc_selector="baseWritingDirection", objc_name="baseWritingDirection")
 	NSMutableParagraphStyle_baseWritingDirection :: proc(self: ^NSMutableParagraphStyle) -> NSWritingDirection ---
 
-	@(objc_type = NSMutableParagraphStyle, objc_selector = "setBaseWritingDirection:", objc_name = "setBaseWritingDirection")
+	@(objc_type=NSMutableParagraphStyle, objc_selector="setBaseWritingDirection:", objc_name="setBaseWritingDirection")
 	NSMutableParagraphStyle_setBaseWritingDirection :: proc(self: ^NSMutableParagraphStyle, baseWritingDirection: NSWritingDirection) ---
 
-	@(objc_type = NSMutableParagraphStyle, objc_selector = "lineHeightMultiple", objc_name = "lineHeightMultiple")
+	@(objc_type=NSMutableParagraphStyle, objc_selector="lineHeightMultiple", objc_name="lineHeightMultiple")
 	NSMutableParagraphStyle_lineHeightMultiple :: proc(self: ^NSMutableParagraphStyle) -> CG.Float ---
 
-	@(objc_type = NSMutableParagraphStyle, objc_selector = "setLineHeightMultiple:", objc_name = "setLineHeightMultiple")
+	@(objc_type=NSMutableParagraphStyle, objc_selector="setLineHeightMultiple:", objc_name="setLineHeightMultiple")
 	NSMutableParagraphStyle_setLineHeightMultiple :: proc(self: ^NSMutableParagraphStyle, lineHeightMultiple: CG.Float) ---
 
-	@(objc_type = NSMutableParagraphStyle, objc_selector = "paragraphSpacingBefore", objc_name = "paragraphSpacingBefore")
+	@(objc_type=NSMutableParagraphStyle, objc_selector="paragraphSpacingBefore", objc_name="paragraphSpacingBefore")
 	NSMutableParagraphStyle_paragraphSpacingBefore :: proc(self: ^NSMutableParagraphStyle) -> CG.Float ---
 
-	@(objc_type = NSMutableParagraphStyle, objc_selector = "setParagraphSpacingBefore:", objc_name = "setParagraphSpacingBefore")
+	@(objc_type=NSMutableParagraphStyle, objc_selector="setParagraphSpacingBefore:", objc_name="setParagraphSpacingBefore")
 	NSMutableParagraphStyle_setParagraphSpacingBefore :: proc(self: ^NSMutableParagraphStyle, paragraphSpacingBefore: CG.Float) ---
 
-	@(objc_type = NSMutableParagraphStyle, objc_selector = "hyphenationFactor", objc_name = "hyphenationFactor")
+	@(objc_type=NSMutableParagraphStyle, objc_selector="hyphenationFactor", objc_name="hyphenationFactor")
 	NSMutableParagraphStyle_hyphenationFactor :: proc(self: ^NSMutableParagraphStyle) -> cffi.float ---
 
-	@(objc_type = NSMutableParagraphStyle, objc_selector = "setHyphenationFactor:", objc_name = "setHyphenationFactor")
+	@(objc_type=NSMutableParagraphStyle, objc_selector="setHyphenationFactor:", objc_name="setHyphenationFactor")
 	NSMutableParagraphStyle_setHyphenationFactor :: proc(self: ^NSMutableParagraphStyle, hyphenationFactor: cffi.float) ---
 
-	@(objc_type = NSMutableParagraphStyle, objc_selector = "usesDefaultHyphenation", objc_name = "usesDefaultHyphenation")
+	@(objc_type=NSMutableParagraphStyle, objc_selector="usesDefaultHyphenation", objc_name="usesDefaultHyphenation")
 	NSMutableParagraphStyle_usesDefaultHyphenation :: proc(self: ^NSMutableParagraphStyle) -> bool ---
 
-	@(objc_type = NSMutableParagraphStyle, objc_selector = "setUsesDefaultHyphenation:", objc_name = "setUsesDefaultHyphenation")
+	@(objc_type=NSMutableParagraphStyle, objc_selector="setUsesDefaultHyphenation:", objc_name="setUsesDefaultHyphenation")
 	NSMutableParagraphStyle_setUsesDefaultHyphenation :: proc(self: ^NSMutableParagraphStyle, usesDefaultHyphenation: bool) ---
 
-	@(objc_type = NSMutableParagraphStyle, objc_selector = "tabStops", objc_name = "tabStops")
+	@(objc_type=NSMutableParagraphStyle, objc_selector="tabStops", objc_name="tabStops")
 	NSMutableParagraphStyle_tabStops :: proc(self: ^NSMutableParagraphStyle) -> ^NS.Array ---
 
-	@(objc_type = NSMutableParagraphStyle, objc_selector = "setTabStops:", objc_name = "setTabStops")
+	@(objc_type=NSMutableParagraphStyle, objc_selector="setTabStops:", objc_name="setTabStops")
 	NSMutableParagraphStyle_setTabStops :: proc(self: ^NSMutableParagraphStyle, tabStops: ^NS.Array) ---
 
-	@(objc_type = NSMutableParagraphStyle, objc_selector = "defaultTabInterval", objc_name = "defaultTabInterval")
+	@(objc_type=NSMutableParagraphStyle, objc_selector="defaultTabInterval", objc_name="defaultTabInterval")
 	NSMutableParagraphStyle_defaultTabInterval :: proc(self: ^NSMutableParagraphStyle) -> CG.Float ---
 
-	@(objc_type = NSMutableParagraphStyle, objc_selector = "setDefaultTabInterval:", objc_name = "setDefaultTabInterval")
+	@(objc_type=NSMutableParagraphStyle, objc_selector="setDefaultTabInterval:", objc_name="setDefaultTabInterval")
 	NSMutableParagraphStyle_setDefaultTabInterval :: proc(self: ^NSMutableParagraphStyle, defaultTabInterval: CG.Float) ---
 
-	@(objc_type = NSMutableParagraphStyle, objc_selector = "allowsDefaultTighteningForTruncation", objc_name = "allowsDefaultTighteningForTruncation")
+	@(objc_type=NSMutableParagraphStyle, objc_selector="allowsDefaultTighteningForTruncation", objc_name="allowsDefaultTighteningForTruncation")
 	NSMutableParagraphStyle_allowsDefaultTighteningForTruncation :: proc(self: ^NSMutableParagraphStyle) -> bool ---
 
-	@(objc_type = NSMutableParagraphStyle, objc_selector = "setAllowsDefaultTighteningForTruncation:", objc_name = "setAllowsDefaultTighteningForTruncation")
+	@(objc_type=NSMutableParagraphStyle, objc_selector="setAllowsDefaultTighteningForTruncation:", objc_name="setAllowsDefaultTighteningForTruncation")
 	NSMutableParagraphStyle_setAllowsDefaultTighteningForTruncation :: proc(self: ^NSMutableParagraphStyle, allowsDefaultTighteningForTruncation: bool) ---
 
-	@(objc_type = NSMutableParagraphStyle, objc_selector = "lineBreakStrategy", objc_name = "lineBreakStrategy")
+	@(objc_type=NSMutableParagraphStyle, objc_selector="lineBreakStrategy", objc_name="lineBreakStrategy")
 	NSMutableParagraphStyle_lineBreakStrategy :: proc(self: ^NSMutableParagraphStyle) -> NSLineBreakStrategy ---
 
-	@(objc_type = NSMutableParagraphStyle, objc_selector = "setLineBreakStrategy:", objc_name = "setLineBreakStrategy")
+	@(objc_type=NSMutableParagraphStyle, objc_selector="setLineBreakStrategy:", objc_name="setLineBreakStrategy")
 	NSMutableParagraphStyle_setLineBreakStrategy :: proc(self: ^NSMutableParagraphStyle, lineBreakStrategy: NSLineBreakStrategy) ---
 
-	@(objc_type = NSMutableParagraphStyle, objc_selector = "textLists", objc_name = "textLists")
+	@(objc_type=NSMutableParagraphStyle, objc_selector="textLists", objc_name="textLists")
 	NSMutableParagraphStyle_textLists :: proc(self: ^NSMutableParagraphStyle) -> ^NS.Array ---
 
-	@(objc_type = NSMutableParagraphStyle, objc_selector = "setTextLists:", objc_name = "setTextLists")
+	@(objc_type=NSMutableParagraphStyle, objc_selector="setTextLists:", objc_name="setTextLists")
 	NSMutableParagraphStyle_setTextLists :: proc(self: ^NSMutableParagraphStyle, textLists: ^NS.Array) ---
 
-	@(objc_type = NSMutableParagraphStyle, objc_selector = "alignment", objc_name = "alignment")
+	@(objc_type=NSMutableParagraphStyle, objc_selector="alignment", objc_name="alignment")
 	NSMutableParagraphStyle_alignment :: proc(self: ^NSMutableParagraphStyle) -> NSTextAlignment ---
 
-	@(objc_type = NSMutableParagraphStyle, objc_selector = "setAlignment:", objc_name = "setAlignment")
+	@(objc_type=NSMutableParagraphStyle, objc_selector="setAlignment:", objc_name="setAlignment")
 	NSMutableParagraphStyle_setAlignment :: proc(self: ^NSMutableParagraphStyle, alignment: NSTextAlignment) ---
 }

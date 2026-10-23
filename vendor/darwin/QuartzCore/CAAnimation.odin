@@ -2,13 +2,13 @@
 #+build darwin
 package darwin_QuartzCore
 
-import "base:intrinsics"
-import cffi "core:c"
-import CF "core:sys/darwin/CoreFoundation"
-import CG "core:sys/darwin/CoreGraphics"
 import NS "core:sys/darwin/Foundation"
+import "base:intrinsics"
+import CG "core:sys/darwin/CoreGraphics"
+import CF "core:sys/darwin/CoreFoundation"
+import cffi "core:c"
 
-@(objc_class = "CAAnimation", objc_superclass = NS.Object)
+@(objc_class="CAAnimation", objc_superclass=NS.Object)
 Animation :: struct {
 	using _: NS.Object,
 	using _: NS.SecureCoding,
@@ -18,276 +18,264 @@ Animation :: struct {
 }
 
 foreign lib {
-	@(objc_type = Animation, objc_selector = "animation", objc_name = "animation", objc_is_class_method = true)
+	@(objc_type=Animation, objc_selector="animation", objc_name="animation", objc_is_class_method=true)
 	Animation_animation :: proc() -> instancetype ---
 
-	@(objc_type = Animation, objc_selector = "defaultValueForKey:", objc_name = "defaultValueForKey", objc_is_class_method = true)
+	@(objc_type=Animation, objc_selector="defaultValueForKey:", objc_name="defaultValueForKey", objc_is_class_method=true)
 	Animation_defaultValueForKey :: proc(key: ^NS.String) -> id ---
 
-	@(objc_type = Animation, objc_selector = "shouldArchiveValueForKey:", objc_name = "shouldArchiveValueForKey")
+	@(objc_type=Animation, objc_selector="shouldArchiveValueForKey:", objc_name="shouldArchiveValueForKey")
 	Animation_shouldArchiveValueForKey :: proc(self: ^Animation, key: ^NS.String) -> bool ---
 
-	@(objc_type = Animation, objc_selector = "timingFunction", objc_name = "timingFunction")
+	@(objc_type=Animation, objc_selector="timingFunction", objc_name="timingFunction")
 	Animation_timingFunction :: proc(self: ^Animation) -> ^MediaTimingFunction ---
 
-	@(objc_type = Animation, objc_selector = "setTimingFunction:", objc_name = "setTimingFunction")
+	@(objc_type=Animation, objc_selector="setTimingFunction:", objc_name="setTimingFunction")
 	Animation_setTimingFunction :: proc(self: ^Animation, timingFunction: ^MediaTimingFunction) ---
 
-	@(objc_type = Animation, objc_selector = "delegate", objc_name = "delegate")
+	@(objc_type=Animation, objc_selector="delegate", objc_name="delegate")
 	Animation_delegate :: proc(self: ^Animation) -> ^AnimationDelegate ---
 
-	@(objc_type = Animation, objc_selector = "setDelegate:", objc_name = "setDelegate")
+	@(objc_type=Animation, objc_selector="setDelegate:", objc_name="setDelegate")
 	Animation_setDelegate :: proc(self: ^Animation, delegate: ^AnimationDelegate) ---
 
-	@(objc_type = Animation, objc_selector = "isRemovedOnCompletion", objc_name = "isRemovedOnCompletion")
+	@(objc_type=Animation, objc_selector="isRemovedOnCompletion", objc_name="isRemovedOnCompletion")
 	Animation_isRemovedOnCompletion :: proc(self: ^Animation) -> bool ---
 
-	@(objc_type = Animation, objc_selector = "setRemovedOnCompletion:", objc_name = "setRemovedOnCompletion")
+	@(objc_type=Animation, objc_selector="setRemovedOnCompletion:", objc_name="setRemovedOnCompletion")
 	Animation_setRemovedOnCompletion :: proc(self: ^Animation, removedOnCompletion: bool) ---
 
-	@(objc_type = Animation, objc_selector = "preferredFrameRateRange", objc_name = "preferredFrameRateRange")
+	@(objc_type=Animation, objc_selector="preferredFrameRateRange", objc_name="preferredFrameRateRange")
 	Animation_preferredFrameRateRange :: proc(self: ^Animation) -> FrameRateRange ---
 
-	@(objc_type = Animation, objc_selector = "setPreferredFrameRateRange:", objc_name = "setPreferredFrameRateRange")
+	@(objc_type=Animation, objc_selector="setPreferredFrameRateRange:", objc_name="setPreferredFrameRateRange")
 	Animation_setPreferredFrameRateRange :: proc(self: ^Animation, preferredFrameRateRange: FrameRateRange) ---
 }
 
 
-@(objc_class = "CAAnimationDelegate")
+@(objc_class="CAAnimationDelegate")
 AnimationDelegate :: struct {
 	using _: intrinsics.objc_object,
 	using _: NS.ObjectProtocol,
 }
 
 foreign lib {
-	@(objc_type = AnimationDelegate, objc_selector = "animationDidStart:", objc_name = "animationDidStart")
+	@(objc_type=AnimationDelegate, objc_selector="animationDidStart:", objc_name="animationDidStart")
 	AnimationDelegate_animationDidStart :: proc(self: ^AnimationDelegate, anim: ^Animation) ---
 
-	@(objc_type = AnimationDelegate, objc_selector = "animationDidStop:finished:", objc_name = "animationDidStop")
+	@(objc_type=AnimationDelegate, objc_selector="animationDidStop:finished:", objc_name="animationDidStop")
 	AnimationDelegate_animationDidStop :: proc(self: ^AnimationDelegate, anim: ^Animation, flag: bool) ---
 }
 
 
-@(objc_class = "CAAnimationGroup", objc_superclass = Animation)
-AnimationGroup :: struct {
-	using _: Animation,
-}
+@(objc_class="CAAnimationGroup", objc_superclass=Animation)
+AnimationGroup :: struct { using _: Animation}
 
 foreign lib {
-	@(objc_type = AnimationGroup, objc_selector = "animations", objc_name = "animations")
+	@(objc_type=AnimationGroup, objc_selector="animations", objc_name="animations")
 	AnimationGroup_animations :: proc(self: ^AnimationGroup) -> ^NS.Array ---
 
-	@(objc_type = AnimationGroup, objc_selector = "setAnimations:", objc_name = "setAnimations")
+	@(objc_type=AnimationGroup, objc_selector="setAnimations:", objc_name="setAnimations")
 	AnimationGroup_setAnimations :: proc(self: ^AnimationGroup, animations: ^NS.Array) ---
 }
 
 
-@(objc_class = "CAPropertyAnimation", objc_superclass = Animation)
-PropertyAnimation :: struct {
-	using _: Animation,
-}
+@(objc_class="CAPropertyAnimation", objc_superclass=Animation)
+PropertyAnimation :: struct { using _: Animation}
 
 foreign lib {
-	@(objc_type = PropertyAnimation, objc_selector = "animationWithKeyPath:", objc_name = "animationWithKeyPath", objc_is_class_method = true)
+	@(objc_type=PropertyAnimation, objc_selector="animationWithKeyPath:", objc_name="animationWithKeyPath", objc_is_class_method=true)
 	PropertyAnimation_animationWithKeyPath :: proc(path: ^NS.String) -> instancetype ---
 
-	@(objc_type = PropertyAnimation, objc_selector = "keyPath", objc_name = "keyPath")
+	@(objc_type=PropertyAnimation, objc_selector="keyPath", objc_name="keyPath")
 	PropertyAnimation_keyPath :: proc(self: ^PropertyAnimation) -> ^NS.String ---
 
-	@(objc_type = PropertyAnimation, objc_selector = "setKeyPath:", objc_name = "setKeyPath")
+	@(objc_type=PropertyAnimation, objc_selector="setKeyPath:", objc_name="setKeyPath")
 	PropertyAnimation_setKeyPath :: proc(self: ^PropertyAnimation, keyPath: ^NS.String) ---
 
-	@(objc_type = PropertyAnimation, objc_selector = "isAdditive", objc_name = "isAdditive")
+	@(objc_type=PropertyAnimation, objc_selector="isAdditive", objc_name="isAdditive")
 	PropertyAnimation_isAdditive :: proc(self: ^PropertyAnimation) -> bool ---
 
-	@(objc_type = PropertyAnimation, objc_selector = "setAdditive:", objc_name = "setAdditive")
+	@(objc_type=PropertyAnimation, objc_selector="setAdditive:", objc_name="setAdditive")
 	PropertyAnimation_setAdditive :: proc(self: ^PropertyAnimation, additive: bool) ---
 
-	@(objc_type = PropertyAnimation, objc_selector = "isCumulative", objc_name = "isCumulative")
+	@(objc_type=PropertyAnimation, objc_selector="isCumulative", objc_name="isCumulative")
 	PropertyAnimation_isCumulative :: proc(self: ^PropertyAnimation) -> bool ---
 
-	@(objc_type = PropertyAnimation, objc_selector = "setCumulative:", objc_name = "setCumulative")
+	@(objc_type=PropertyAnimation, objc_selector="setCumulative:", objc_name="setCumulative")
 	PropertyAnimation_setCumulative :: proc(self: ^PropertyAnimation, cumulative: bool) ---
 
-	@(objc_type = PropertyAnimation, objc_selector = "valueFunction", objc_name = "valueFunction")
+	@(objc_type=PropertyAnimation, objc_selector="valueFunction", objc_name="valueFunction")
 	PropertyAnimation_valueFunction :: proc(self: ^PropertyAnimation) -> ^ValueFunction ---
 
-	@(objc_type = PropertyAnimation, objc_selector = "setValueFunction:", objc_name = "setValueFunction")
+	@(objc_type=PropertyAnimation, objc_selector="setValueFunction:", objc_name="setValueFunction")
 	PropertyAnimation_setValueFunction :: proc(self: ^PropertyAnimation, valueFunction: ^ValueFunction) ---
 }
 
 
-@(objc_class = "CABasicAnimation", objc_superclass = PropertyAnimation)
-BasicAnimation :: struct {
-	using _: PropertyAnimation,
-}
+@(objc_class="CABasicAnimation", objc_superclass=PropertyAnimation)
+BasicAnimation :: struct { using _: PropertyAnimation}
 
 foreign lib {
-	@(objc_type = BasicAnimation, objc_selector = "fromValue", objc_name = "fromValue")
+	@(objc_type=BasicAnimation, objc_selector="fromValue", objc_name="fromValue")
 	BasicAnimation_fromValue :: proc(self: ^BasicAnimation) -> id ---
 
-	@(objc_type = BasicAnimation, objc_selector = "setFromValue:", objc_name = "setFromValue")
+	@(objc_type=BasicAnimation, objc_selector="setFromValue:", objc_name="setFromValue")
 	BasicAnimation_setFromValue :: proc(self: ^BasicAnimation, fromValue: id) ---
 
-	@(objc_type = BasicAnimation, objc_selector = "toValue", objc_name = "toValue")
+	@(objc_type=BasicAnimation, objc_selector="toValue", objc_name="toValue")
 	BasicAnimation_toValue :: proc(self: ^BasicAnimation) -> id ---
 
-	@(objc_type = BasicAnimation, objc_selector = "setToValue:", objc_name = "setToValue")
+	@(objc_type=BasicAnimation, objc_selector="setToValue:", objc_name="setToValue")
 	BasicAnimation_setToValue :: proc(self: ^BasicAnimation, toValue: id) ---
 
-	@(objc_type = BasicAnimation, objc_selector = "byValue", objc_name = "byValue")
+	@(objc_type=BasicAnimation, objc_selector="byValue", objc_name="byValue")
 	BasicAnimation_byValue :: proc(self: ^BasicAnimation) -> id ---
 
-	@(objc_type = BasicAnimation, objc_selector = "setByValue:", objc_name = "setByValue")
+	@(objc_type=BasicAnimation, objc_selector="setByValue:", objc_name="setByValue")
 	BasicAnimation_setByValue :: proc(self: ^BasicAnimation, byValue: id) ---
 }
 
 
-@(objc_class = "CAKeyframeAnimation", objc_superclass = PropertyAnimation)
-KeyframeAnimation :: struct {
-	using _: PropertyAnimation,
-}
+@(objc_class="CAKeyframeAnimation", objc_superclass=PropertyAnimation)
+KeyframeAnimation :: struct { using _: PropertyAnimation}
 
 foreign lib {
-	@(objc_type = KeyframeAnimation, objc_selector = "values", objc_name = "values")
+	@(objc_type=KeyframeAnimation, objc_selector="values", objc_name="values")
 	KeyframeAnimation_values :: proc(self: ^KeyframeAnimation) -> ^NS.Array ---
 
-	@(objc_type = KeyframeAnimation, objc_selector = "setValues:", objc_name = "setValues")
+	@(objc_type=KeyframeAnimation, objc_selector="setValues:", objc_name="setValues")
 	KeyframeAnimation_setValues :: proc(self: ^KeyframeAnimation, values: ^NS.Array) ---
 
-	@(objc_type = KeyframeAnimation, objc_selector = "path", objc_name = "path")
+	@(objc_type=KeyframeAnimation, objc_selector="path", objc_name="path")
 	KeyframeAnimation_path :: proc(self: ^KeyframeAnimation) -> CG.PathRef ---
 
-	@(objc_type = KeyframeAnimation, objc_selector = "setPath:", objc_name = "setPath")
+	@(objc_type=KeyframeAnimation, objc_selector="setPath:", objc_name="setPath")
 	KeyframeAnimation_setPath :: proc(self: ^KeyframeAnimation, path: CG.PathRef) ---
 
-	@(objc_type = KeyframeAnimation, objc_selector = "keyTimes", objc_name = "keyTimes")
+	@(objc_type=KeyframeAnimation, objc_selector="keyTimes", objc_name="keyTimes")
 	KeyframeAnimation_keyTimes :: proc(self: ^KeyframeAnimation) -> ^NS.Array ---
 
-	@(objc_type = KeyframeAnimation, objc_selector = "setKeyTimes:", objc_name = "setKeyTimes")
+	@(objc_type=KeyframeAnimation, objc_selector="setKeyTimes:", objc_name="setKeyTimes")
 	KeyframeAnimation_setKeyTimes :: proc(self: ^KeyframeAnimation, keyTimes: ^NS.Array) ---
 
-	@(objc_type = KeyframeAnimation, objc_selector = "timingFunctions", objc_name = "timingFunctions")
+	@(objc_type=KeyframeAnimation, objc_selector="timingFunctions", objc_name="timingFunctions")
 	KeyframeAnimation_timingFunctions :: proc(self: ^KeyframeAnimation) -> ^NS.Array ---
 
-	@(objc_type = KeyframeAnimation, objc_selector = "setTimingFunctions:", objc_name = "setTimingFunctions")
+	@(objc_type=KeyframeAnimation, objc_selector="setTimingFunctions:", objc_name="setTimingFunctions")
 	KeyframeAnimation_setTimingFunctions :: proc(self: ^KeyframeAnimation, timingFunctions: ^NS.Array) ---
 
-	@(objc_type = KeyframeAnimation, objc_selector = "calculationMode", objc_name = "calculationMode")
+	@(objc_type=KeyframeAnimation, objc_selector="calculationMode", objc_name="calculationMode")
 	KeyframeAnimation_calculationMode :: proc(self: ^KeyframeAnimation) -> ^NS.String ---
 
-	@(objc_type = KeyframeAnimation, objc_selector = "setCalculationMode:", objc_name = "setCalculationMode")
+	@(objc_type=KeyframeAnimation, objc_selector="setCalculationMode:", objc_name="setCalculationMode")
 	KeyframeAnimation_setCalculationMode :: proc(self: ^KeyframeAnimation, calculationMode: ^NS.String) ---
 
-	@(objc_type = KeyframeAnimation, objc_selector = "tensionValues", objc_name = "tensionValues")
+	@(objc_type=KeyframeAnimation, objc_selector="tensionValues", objc_name="tensionValues")
 	KeyframeAnimation_tensionValues :: proc(self: ^KeyframeAnimation) -> ^NS.Array ---
 
-	@(objc_type = KeyframeAnimation, objc_selector = "setTensionValues:", objc_name = "setTensionValues")
+	@(objc_type=KeyframeAnimation, objc_selector="setTensionValues:", objc_name="setTensionValues")
 	KeyframeAnimation_setTensionValues :: proc(self: ^KeyframeAnimation, tensionValues: ^NS.Array) ---
 
-	@(objc_type = KeyframeAnimation, objc_selector = "continuityValues", objc_name = "continuityValues")
+	@(objc_type=KeyframeAnimation, objc_selector="continuityValues", objc_name="continuityValues")
 	KeyframeAnimation_continuityValues :: proc(self: ^KeyframeAnimation) -> ^NS.Array ---
 
-	@(objc_type = KeyframeAnimation, objc_selector = "setContinuityValues:", objc_name = "setContinuityValues")
+	@(objc_type=KeyframeAnimation, objc_selector="setContinuityValues:", objc_name="setContinuityValues")
 	KeyframeAnimation_setContinuityValues :: proc(self: ^KeyframeAnimation, continuityValues: ^NS.Array) ---
 
-	@(objc_type = KeyframeAnimation, objc_selector = "biasValues", objc_name = "biasValues")
+	@(objc_type=KeyframeAnimation, objc_selector="biasValues", objc_name="biasValues")
 	KeyframeAnimation_biasValues :: proc(self: ^KeyframeAnimation) -> ^NS.Array ---
 
-	@(objc_type = KeyframeAnimation, objc_selector = "setBiasValues:", objc_name = "setBiasValues")
+	@(objc_type=KeyframeAnimation, objc_selector="setBiasValues:", objc_name="setBiasValues")
 	KeyframeAnimation_setBiasValues :: proc(self: ^KeyframeAnimation, biasValues: ^NS.Array) ---
 
-	@(objc_type = KeyframeAnimation, objc_selector = "rotationMode", objc_name = "rotationMode")
+	@(objc_type=KeyframeAnimation, objc_selector="rotationMode", objc_name="rotationMode")
 	KeyframeAnimation_rotationMode :: proc(self: ^KeyframeAnimation) -> ^NS.String ---
 
-	@(objc_type = KeyframeAnimation, objc_selector = "setRotationMode:", objc_name = "setRotationMode")
+	@(objc_type=KeyframeAnimation, objc_selector="setRotationMode:", objc_name="setRotationMode")
 	KeyframeAnimation_setRotationMode :: proc(self: ^KeyframeAnimation, rotationMode: ^NS.String) ---
 }
 
 
-@(objc_class = "CASpringAnimation", objc_superclass = BasicAnimation)
-SpringAnimation :: struct {
-	using _: BasicAnimation,
-}
+@(objc_class="CASpringAnimation", objc_superclass=BasicAnimation)
+SpringAnimation :: struct { using _: BasicAnimation}
 
 foreign lib {
-	@(objc_type = SpringAnimation, objc_selector = "initWithPerceptualDuration:bounce:", objc_name = "initWithPerceptualDuration")
+	@(objc_type=SpringAnimation, objc_selector="initWithPerceptualDuration:bounce:", objc_name="initWithPerceptualDuration")
 	SpringAnimation_initWithPerceptualDuration :: proc(self: ^SpringAnimation, perceptualDuration: CF.TimeInterval, bounce: CG.Float) -> instancetype ---
 
-	@(objc_type = SpringAnimation, objc_selector = "mass", objc_name = "mass")
+	@(objc_type=SpringAnimation, objc_selector="mass", objc_name="mass")
 	SpringAnimation_mass :: proc(self: ^SpringAnimation) -> CG.Float ---
 
-	@(objc_type = SpringAnimation, objc_selector = "setMass:", objc_name = "setMass")
+	@(objc_type=SpringAnimation, objc_selector="setMass:", objc_name="setMass")
 	SpringAnimation_setMass :: proc(self: ^SpringAnimation, mass: CG.Float) ---
 
-	@(objc_type = SpringAnimation, objc_selector = "stiffness", objc_name = "stiffness")
+	@(objc_type=SpringAnimation, objc_selector="stiffness", objc_name="stiffness")
 	SpringAnimation_stiffness :: proc(self: ^SpringAnimation) -> CG.Float ---
 
-	@(objc_type = SpringAnimation, objc_selector = "setStiffness:", objc_name = "setStiffness")
+	@(objc_type=SpringAnimation, objc_selector="setStiffness:", objc_name="setStiffness")
 	SpringAnimation_setStiffness :: proc(self: ^SpringAnimation, stiffness: CG.Float) ---
 
-	@(objc_type = SpringAnimation, objc_selector = "damping", objc_name = "damping")
+	@(objc_type=SpringAnimation, objc_selector="damping", objc_name="damping")
 	SpringAnimation_damping :: proc(self: ^SpringAnimation) -> CG.Float ---
 
-	@(objc_type = SpringAnimation, objc_selector = "setDamping:", objc_name = "setDamping")
+	@(objc_type=SpringAnimation, objc_selector="setDamping:", objc_name="setDamping")
 	SpringAnimation_setDamping :: proc(self: ^SpringAnimation, damping: CG.Float) ---
 
-	@(objc_type = SpringAnimation, objc_selector = "initialVelocity", objc_name = "initialVelocity")
+	@(objc_type=SpringAnimation, objc_selector="initialVelocity", objc_name="initialVelocity")
 	SpringAnimation_initialVelocity :: proc(self: ^SpringAnimation) -> CG.Float ---
 
-	@(objc_type = SpringAnimation, objc_selector = "setInitialVelocity:", objc_name = "setInitialVelocity")
+	@(objc_type=SpringAnimation, objc_selector="setInitialVelocity:", objc_name="setInitialVelocity")
 	SpringAnimation_setInitialVelocity :: proc(self: ^SpringAnimation, initialVelocity: CG.Float) ---
 
-	@(objc_type = SpringAnimation, objc_selector = "allowsOverdamping", objc_name = "allowsOverdamping")
+	@(objc_type=SpringAnimation, objc_selector="allowsOverdamping", objc_name="allowsOverdamping")
 	SpringAnimation_allowsOverdamping :: proc(self: ^SpringAnimation) -> bool ---
 
-	@(objc_type = SpringAnimation, objc_selector = "setAllowsOverdamping:", objc_name = "setAllowsOverdamping")
+	@(objc_type=SpringAnimation, objc_selector="setAllowsOverdamping:", objc_name="setAllowsOverdamping")
 	SpringAnimation_setAllowsOverdamping :: proc(self: ^SpringAnimation, allowsOverdamping: bool) ---
 
-	@(objc_type = SpringAnimation, objc_selector = "settlingDuration", objc_name = "settlingDuration")
+	@(objc_type=SpringAnimation, objc_selector="settlingDuration", objc_name="settlingDuration")
 	SpringAnimation_settlingDuration :: proc(self: ^SpringAnimation) -> CF.TimeInterval ---
 
-	@(objc_type = SpringAnimation, objc_selector = "perceptualDuration", objc_name = "perceptualDuration")
+	@(objc_type=SpringAnimation, objc_selector="perceptualDuration", objc_name="perceptualDuration")
 	SpringAnimation_perceptualDuration :: proc(self: ^SpringAnimation) -> CF.TimeInterval ---
 
-	@(objc_type = SpringAnimation, objc_selector = "bounce", objc_name = "bounce")
+	@(objc_type=SpringAnimation, objc_selector="bounce", objc_name="bounce")
 	SpringAnimation_bounce :: proc(self: ^SpringAnimation) -> CG.Float ---
 }
 
 
-@(objc_class = "CATransition", objc_superclass = Animation)
-Transition :: struct {
-	using _: Animation,
-}
+@(objc_class="CATransition", objc_superclass=Animation)
+Transition :: struct { using _: Animation}
 
 foreign lib {
-	@(objc_type = Transition, objc_selector = "type", objc_name = "type")
+	@(objc_type=Transition, objc_selector="type", objc_name="type")
 	Transition_type :: proc(self: ^Transition) -> ^NS.String ---
 
-	@(objc_type = Transition, objc_selector = "setType:", objc_name = "setType")
+	@(objc_type=Transition, objc_selector="setType:", objc_name="setType")
 	Transition_setType :: proc(self: ^Transition, type: ^NS.String) ---
 
-	@(objc_type = Transition, objc_selector = "subtype", objc_name = "subtype")
+	@(objc_type=Transition, objc_selector="subtype", objc_name="subtype")
 	Transition_subtype :: proc(self: ^Transition) -> ^NS.String ---
 
-	@(objc_type = Transition, objc_selector = "setSubtype:", objc_name = "setSubtype")
+	@(objc_type=Transition, objc_selector="setSubtype:", objc_name="setSubtype")
 	Transition_setSubtype :: proc(self: ^Transition, subtype: ^NS.String) ---
 
-	@(objc_type = Transition, objc_selector = "startProgress", objc_name = "startProgress")
+	@(objc_type=Transition, objc_selector="startProgress", objc_name="startProgress")
 	Transition_startProgress :: proc(self: ^Transition) -> cffi.float ---
 
-	@(objc_type = Transition, objc_selector = "setStartProgress:", objc_name = "setStartProgress")
+	@(objc_type=Transition, objc_selector="setStartProgress:", objc_name="setStartProgress")
 	Transition_setStartProgress :: proc(self: ^Transition, startProgress: cffi.float) ---
 
-	@(objc_type = Transition, objc_selector = "endProgress", objc_name = "endProgress")
+	@(objc_type=Transition, objc_selector="endProgress", objc_name="endProgress")
 	Transition_endProgress :: proc(self: ^Transition) -> cffi.float ---
 
-	@(objc_type = Transition, objc_selector = "setEndProgress:", objc_name = "setEndProgress")
+	@(objc_type=Transition, objc_selector="setEndProgress:", objc_name="setEndProgress")
 	Transition_setEndProgress :: proc(self: ^Transition, endProgress: cffi.float) ---
 
-	@(objc_type = Transition, objc_selector = "filter", objc_name = "filter")
+	@(objc_type=Transition, objc_selector="filter", objc_name="filter")
 	Transition_filter :: proc(self: ^Transition) -> id ---
 
-	@(objc_type = Transition, objc_selector = "setFilter:", objc_name = "setFilter")
+	@(objc_type=Transition, objc_selector="setFilter:", objc_name="setFilter")
 	Transition_setFilter :: proc(self: ^Transition, filter: id) ---
 }

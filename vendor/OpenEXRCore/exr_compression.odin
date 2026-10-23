@@ -2,7 +2,7 @@ package vendor_openexr
 
 import "core:c"
 
-@(link_prefix = "exr_", default_calling_convention = "c")
+@(link_prefix="exr_", default_calling_convention="c")
 foreign lib {
 	/** Computes a buffer that will be large enough to hold the compressed
 	 * data. This may include some extra padding for headers / scratch */
@@ -13,16 +13,37 @@ foreign lib {
 	 * If the level is -1, will use the default compression set to the library
 	 * \ref set_default_zip_compression_level
 	 * data. This may include some extra padding for headers / scratch */
-	compress_buffer :: proc(ctxt: const_context_t, level: c.int, in_: rawptr, in_bytes: c.size_t, out: rawptr, out_bytes_avail: c.size_t, actual_out: ^c.size_t) -> result_t ---
+	compress_buffer :: proc(
+			ctxt:            const_context_t,
+			level:           c.int,
+			in_:             rawptr,
+			in_bytes:        c.size_t,
+			out:             rawptr,
+			out_bytes_avail: c.size_t,
+			actual_out:      ^c.size_t) -> result_t ---
 
 	/** Decompresses a buffer using a zlib style compression. */
-	uncompress_buffer :: proc(ctxt: const_context_t, in_: rawptr, in_bytes: c.size_t, out: rawptr, out_bytes_avail: c.size_t, actual_out: ^c.size_t) -> result_t ---
+	uncompress_buffer :: proc(
+			ctxt:            const_context_t,
+			in_:             rawptr,
+			in_bytes:        c.size_t,
+			out:             rawptr,
+			out_bytes_avail: c.size_t,
+			actual_out:      ^c.size_t) -> result_t ---
 
 	/** Apply simple run length encoding and put in the output buffer. */
-	rle_compress_buffer :: proc(in_bytes: c.size_t, in_: rawptr, out: rawptr, out_bytes_avail: c.size_t) -> c.size_t ---
+	rle_compress_buffer :: proc(
+			in_bytes:        c.size_t,
+			in_:             rawptr,
+			out:             rawptr,
+			out_bytes_avail: c.size_t) -> c.size_t ---
 
 	/** Decode run length encoding and put in the output buffer. */
-	rle_uncompress_buffer :: proc(in_bytes: c.size_t, max_len: c.size_t, in_: rawptr, out: rawptr) -> c.size_t ---
+	rle_uncompress_buffer :: proc(
+			in_bytes: c.size_t,
+			max_len:  c.size_t,
+			in_:      rawptr,
+			out:      rawptr) -> c.size_t ---
 
 	/** Routine to query the lines required per chunk to compress with the
 	 * specified method.

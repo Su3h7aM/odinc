@@ -6,19 +6,19 @@ import "base:intrinsics"
 import CG "core:sys/darwin/CoreGraphics"
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class = "CALayoutManager")
+@(objc_class="CALayoutManager")
 LayoutManager :: struct {
 	using _: intrinsics.objc_object,
 	using _: NS.ObjectProtocol,
 }
 
 foreign lib {
-	@(objc_type = LayoutManager, objc_selector = "preferredSizeOfLayer:", objc_name = "preferredSizeOfLayer")
+	@(objc_type=LayoutManager, objc_selector="preferredSizeOfLayer:", objc_name="preferredSizeOfLayer")
 	LayoutManager_preferredSizeOfLayer :: proc(self: ^LayoutManager, layer: ^Layer) -> CG.Size ---
 
-	@(objc_type = LayoutManager, objc_selector = "invalidateLayoutOfLayer:", objc_name = "invalidateLayoutOfLayer")
+	@(objc_type=LayoutManager, objc_selector="invalidateLayoutOfLayer:", objc_name="invalidateLayoutOfLayer")
 	LayoutManager_invalidateLayoutOfLayer :: proc(self: ^LayoutManager, layer: ^Layer) ---
 
-	@(objc_type = LayoutManager, objc_selector = "layoutSublayersOfLayer:", objc_name = "layoutSublayersOfLayer")
+	@(objc_type=LayoutManager, objc_selector="layoutSublayersOfLayer:", objc_name="layoutSublayersOfLayer")
 	LayoutManager_layoutSublayersOfLayer :: proc(self: ^LayoutManager, layer: ^Layer) ---
 }

@@ -6,33 +6,27 @@ package ENet
 // {
 import "core:c"
 
-@(private = "file")
-FD_SETSIZE :: 1024
+@(private="file") FD_SETSIZE :: 1024
 
-@(private = "file")
-fd_set :: struct {
+@(private="file") fd_set :: struct {
 	fds_bits: [FD_SETSIZE / 8 / size_of(c.long)]c.ulong,
 }
 
-@(private = "file")
-FD_ZERO :: #force_inline proc "contextless" (s: ^fd_set) {
+@(private="file") FD_ZERO :: #force_inline proc "contextless" (s: ^fd_set) {
 	for i := size_of(fd_set) / size_of(c.long); i != 0; i -= 1 {
 		s.fds_bits[i] = 0
 	}
 }
 
-@(private = "file")
-FD_SET :: #force_inline proc "contextless" (d: i32, s: ^fd_set) {
+@(private="file") FD_SET :: #force_inline proc "contextless" (d: i32, s: ^fd_set) {
 	s.fds_bits[d / (8 * size_of(c.long))] |= c.ulong(1) << (c.ulong(d) % (8 * size_of(c.ulong)))
 }
 
-@(private = "file")
-FD_CLR :: #force_inline proc "contextless" (d: i32, s: ^fd_set) {
+@(private="file") FD_CLR :: #force_inline proc "contextless" (d: i32, s: ^fd_set) {
 	s.fds_bits[d / (8 * size_of(c.long))] &~= c.ulong(1) << (c.ulong(d) % (8 * size_of(c.ulong)))
 }
 
-@(private = "file")
-FD_ISSET :: #force_inline proc "contextless" (d: i32, s: ^fd_set) -> bool {
+@(private="file") FD_ISSET :: #force_inline proc "contextless" (d: i32, s: ^fd_set) -> bool {
 	return (s.fds_bits[d / (8 * size_of(c.long))] & c.ulong(1) << (c.ulong(d) % (8 * size_of(c.ulong)))) != 0
 }
 // }

@@ -6,161 +6,167 @@ import "base:intrinsics"
 import cffi "core:c"
 import NS "core:sys/darwin/Foundation"
 
-id :: ^intrinsics.objc_object
-SEL :: ^intrinsics.objc_selector
-Class :: ^intrinsics.objc_class
-IMP :: rawptr
-Protocol :: distinct id
-instancetype :: intrinsics.objc_instancetype
+id            :: ^intrinsics.objc_object
+SEL           :: ^intrinsics.objc_selector
+Class         :: ^intrinsics.objc_class
+IMP           :: rawptr
+Protocol      :: distinct id
+instancetype  :: intrinsics.objc_instancetype
 
 @(export)
-foreign import lib "system:CoreHaptics.framework"
+foreign import lib {
+	"system:CoreHaptics.framework",
+}
 
 
-AVAudioSession :: struct {}
+
+
+AVAudioSession           :: struct {}
 CASpatialAudioExperience :: struct {}
 
 
+
 foreign lib {
-	@(link_name = "CHHapticEventParameterIDHapticIntensity")
+	@(link_name="CHHapticEventParameterIDHapticIntensity")
 	HapticEventParameterIDHapticIntensity: ^NS.String
 
-	@(link_name = "CHHapticEventParameterIDHapticSharpness")
+	@(link_name="CHHapticEventParameterIDHapticSharpness")
 	HapticEventParameterIDHapticSharpness: ^NS.String
 
-	@(link_name = "CHHapticEventParameterIDAttackTime")
+	@(link_name="CHHapticEventParameterIDAttackTime")
 	HapticEventParameterIDAttackTime: ^NS.String
 
-	@(link_name = "CHHapticEventParameterIDDecayTime")
+	@(link_name="CHHapticEventParameterIDDecayTime")
 	HapticEventParameterIDDecayTime: ^NS.String
 
-	@(link_name = "CHHapticEventParameterIDReleaseTime")
+	@(link_name="CHHapticEventParameterIDReleaseTime")
 	HapticEventParameterIDReleaseTime: ^NS.String
 
-	@(link_name = "CHHapticEventParameterIDSustained")
+	@(link_name="CHHapticEventParameterIDSustained")
 	HapticEventParameterIDSustained: ^NS.String
 
-	@(link_name = "CHHapticEventParameterIDAudioVolume")
+	@(link_name="CHHapticEventParameterIDAudioVolume")
 	HapticEventParameterIDAudioVolume: ^NS.String
 
-	@(link_name = "CHHapticEventParameterIDAudioPitch")
+	@(link_name="CHHapticEventParameterIDAudioPitch")
 	HapticEventParameterIDAudioPitch: ^NS.String
 
-	@(link_name = "CHHapticEventParameterIDAudioPan")
+	@(link_name="CHHapticEventParameterIDAudioPan")
 	HapticEventParameterIDAudioPan: ^NS.String
 
-	@(link_name = "CHHapticEventParameterIDAudioBrightness")
+	@(link_name="CHHapticEventParameterIDAudioBrightness")
 	HapticEventParameterIDAudioBrightness: ^NS.String
 
-	@(link_name = "CHHapticDynamicParameterIDHapticIntensityControl")
+	@(link_name="CHHapticDynamicParameterIDHapticIntensityControl")
 	HapticDynamicParameterIDHapticIntensityControl: ^NS.String
 
-	@(link_name = "CHHapticDynamicParameterIDHapticSharpnessControl")
+	@(link_name="CHHapticDynamicParameterIDHapticSharpnessControl")
 	HapticDynamicParameterIDHapticSharpnessControl: ^NS.String
 
-	@(link_name = "CHHapticDynamicParameterIDHapticAttackTimeControl")
+	@(link_name="CHHapticDynamicParameterIDHapticAttackTimeControl")
 	HapticDynamicParameterIDHapticAttackTimeControl: ^NS.String
 
-	@(link_name = "CHHapticDynamicParameterIDHapticDecayTimeControl")
+	@(link_name="CHHapticDynamicParameterIDHapticDecayTimeControl")
 	HapticDynamicParameterIDHapticDecayTimeControl: ^NS.String
 
-	@(link_name = "CHHapticDynamicParameterIDHapticReleaseTimeControl")
+	@(link_name="CHHapticDynamicParameterIDHapticReleaseTimeControl")
 	HapticDynamicParameterIDHapticReleaseTimeControl: ^NS.String
 
-	@(link_name = "CHHapticDynamicParameterIDAudioVolumeControl")
+	@(link_name="CHHapticDynamicParameterIDAudioVolumeControl")
 	HapticDynamicParameterIDAudioVolumeControl: ^NS.String
 
-	@(link_name = "CHHapticDynamicParameterIDAudioPanControl")
+	@(link_name="CHHapticDynamicParameterIDAudioPanControl")
 	HapticDynamicParameterIDAudioPanControl: ^NS.String
 
-	@(link_name = "CHHapticDynamicParameterIDAudioBrightnessControl")
+	@(link_name="CHHapticDynamicParameterIDAudioBrightnessControl")
 	HapticDynamicParameterIDAudioBrightnessControl: ^NS.String
 
-	@(link_name = "CHHapticDynamicParameterIDAudioPitchControl")
+	@(link_name="CHHapticDynamicParameterIDAudioPitchControl")
 	HapticDynamicParameterIDAudioPitchControl: ^NS.String
 
-	@(link_name = "CHHapticDynamicParameterIDAudioAttackTimeControl")
+	@(link_name="CHHapticDynamicParameterIDAudioAttackTimeControl")
 	HapticDynamicParameterIDAudioAttackTimeControl: ^NS.String
 
-	@(link_name = "CHHapticDynamicParameterIDAudioDecayTimeControl")
+	@(link_name="CHHapticDynamicParameterIDAudioDecayTimeControl")
 	HapticDynamicParameterIDAudioDecayTimeControl: ^NS.String
 
-	@(link_name = "CHHapticDynamicParameterIDAudioReleaseTimeControl")
+	@(link_name="CHHapticDynamicParameterIDAudioReleaseTimeControl")
 	HapticDynamicParameterIDAudioReleaseTimeControl: ^NS.String
 
-	@(link_name = "CHHapticEventTypeHapticTransient")
+	@(link_name="CHHapticEventTypeHapticTransient")
 	HapticEventTypeHapticTransient: ^NS.String
 
-	@(link_name = "CHHapticEventTypeHapticContinuous")
+	@(link_name="CHHapticEventTypeHapticContinuous")
 	HapticEventTypeHapticContinuous: ^NS.String
 
-	@(link_name = "CHHapticEventTypeAudioContinuous")
+	@(link_name="CHHapticEventTypeAudioContinuous")
 	HapticEventTypeAudioContinuous: ^NS.String
 
-	@(link_name = "CHHapticEventTypeAudioCustom")
+	@(link_name="CHHapticEventTypeAudioCustom")
 	HapticEventTypeAudioCustom: ^NS.String
 
-	@(link_name = "CHHapticAudioResourceKeyUseVolumeEnvelope")
+	@(link_name="CHHapticAudioResourceKeyUseVolumeEnvelope")
 	HapticAudioResourceKeyUseVolumeEnvelope: ^NS.String
 
-	@(link_name = "CHHapticAudioResourceKeyLoopEnabled")
+	@(link_name="CHHapticAudioResourceKeyLoopEnabled")
 	HapticAudioResourceKeyLoopEnabled: ^NS.String
 
-	@(link_name = "CHHapticPatternKeyVersion")
+	@(link_name="CHHapticPatternKeyVersion")
 	HapticPatternKeyVersion: ^NS.String
 
-	@(link_name = "CHHapticPatternKeyPattern")
+	@(link_name="CHHapticPatternKeyPattern")
 	HapticPatternKeyPattern: ^NS.String
 
-	@(link_name = "CHHapticPatternKeyEvent")
+	@(link_name="CHHapticPatternKeyEvent")
 	HapticPatternKeyEvent: ^NS.String
 
-	@(link_name = "CHHapticPatternKeyEventType")
+	@(link_name="CHHapticPatternKeyEventType")
 	HapticPatternKeyEventType: ^NS.String
 
-	@(link_name = "CHHapticPatternKeyTime")
+	@(link_name="CHHapticPatternKeyTime")
 	HapticPatternKeyTime: ^NS.String
 
-	@(link_name = "CHHapticPatternKeyEventDuration")
+	@(link_name="CHHapticPatternKeyEventDuration")
 	HapticPatternKeyEventDuration: ^NS.String
 
-	@(link_name = "CHHapticPatternKeyEventWaveformPath")
+	@(link_name="CHHapticPatternKeyEventWaveformPath")
 	HapticPatternKeyEventWaveformPath: ^NS.String
 
-	@(link_name = "CHHapticPatternKeyEventParameters")
+	@(link_name="CHHapticPatternKeyEventParameters")
 	HapticPatternKeyEventParameters: ^NS.String
 
-	@(link_name = "CHHapticPatternKeyEventWaveformUseVolumeEnvelope")
+	@(link_name="CHHapticPatternKeyEventWaveformUseVolumeEnvelope")
 	HapticPatternKeyEventWaveformUseVolumeEnvelope: ^NS.String
 
-	@(link_name = "CHHapticPatternKeyEventWaveformLoopEnabled")
+	@(link_name="CHHapticPatternKeyEventWaveformLoopEnabled")
 	HapticPatternKeyEventWaveformLoopEnabled: ^NS.String
 
-	@(link_name = "CHHapticPatternKeyParameter")
+	@(link_name="CHHapticPatternKeyParameter")
 	HapticPatternKeyParameter: ^NS.String
 
-	@(link_name = "CHHapticPatternKeyParameterID")
+	@(link_name="CHHapticPatternKeyParameterID")
 	HapticPatternKeyParameterID: ^NS.String
 
-	@(link_name = "CHHapticPatternKeyParameterValue")
+	@(link_name="CHHapticPatternKeyParameterValue")
 	HapticPatternKeyParameterValue: ^NS.String
 
-	@(link_name = "CHHapticPatternKeyParameterCurve")
+	@(link_name="CHHapticPatternKeyParameterCurve")
 	HapticPatternKeyParameterCurve: ^NS.String
 
-	@(link_name = "CHHapticPatternKeyParameterCurveControlPoints")
+	@(link_name="CHHapticPatternKeyParameterCurveControlPoints")
 	HapticPatternKeyParameterCurveControlPoints: ^NS.String
 }
+
 
 
 HapticEventParameterID :: distinct ^NS.String
 HapticDynamicParameterID :: distinct ^NS.String
 HapticEventType :: distinct ^NS.String
 HapticAudioResourceID :: distinct NS.UInteger
-HapticAdvancedPatternPlayerCompletionHandler :: ^Objc_Block(proc "c" (error: ^NS.Error))
-HapticCompletionHandler :: ^Objc_Block(proc "c" (error: ^NS.Error))
-HapticEngineFinishedHandler :: ^Objc_Block(proc "c" (error: ^NS.Error) -> HapticEngineFinishedAction)
-HapticEngineStoppedHandler :: ^Objc_Block(proc "c" (stoppedReason: HapticEngineStoppedReason))
+HapticAdvancedPatternPlayerCompletionHandler :: ^Objc_Block(proc "c" ( error: ^NS.Error ))
+HapticCompletionHandler :: ^Objc_Block(proc "c" ( error: ^NS.Error ))
+HapticEngineFinishedHandler :: ^Objc_Block(proc "c" ( error: ^NS.Error ) -> HapticEngineFinishedAction)
+HapticEngineStoppedHandler :: ^Objc_Block(proc "c" ( stoppedReason: HapticEngineStoppedReason ))
 HapticEngineResetHandler :: ^Objc_Block(proc "c" ())
 HapticAudioResourceKey :: distinct ^NS.String
 HapticPatternKey :: distinct ^NS.String

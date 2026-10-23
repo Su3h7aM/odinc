@@ -53,7 +53,7 @@ decode_pipeline_t :: struct {
 	 *
 	 * \ref EXR_DECODE_PIPELINE_INITIALIZER
 	 */
-	pipe_size:                      c.size_t,
+	pipe_size: c.size_t,
 
 	/** The output channel information for this chunk.
 	 *
@@ -66,37 +66,37 @@ decode_pipeline_t :: struct {
 	 * Describes the channel information. This information is
 	 * allocated dynamically during exr_decoding_initialize().
 	 */
-	channels:                       [^]coding_channel_info_t,
-	channel_count:                  i16,
+	channels:      [^]coding_channel_info_t,
+	channel_count: i16,
 
 	/** Decode flags to control the behavior. */
-	decode_flags:                   u16,
+	decode_flags: u16,
 
 	/** Copy of the parameters given to the initialize/update for
 	 * convenience.
 	 */
-	part_index:                     c.int,
-	ctx:                            const_context_t,
-	chunk:                          chunk_info_t,
+	part_index: c.int,
+	ctx: const_context_t,
+	chunk: chunk_info_t,
 
 	/** How many lines of the chunk to skip filling, assumes the
 	 * pointer is at the beginning of data (i.e. includes this
 	 * skip so does not need to be adjusted
 	 */
-	user_line_begin_skip:           i32,
+	user_line_begin_skip: i32,
 
 	/** How many lines of the chunk to ignore at the end, assumes the
 	 * output is meant to be N lines smaller
 	 */
-	user_line_end_ignore:           i32,
+	user_line_end_ignore: i32,
 
 	/** How many bytes were actually decoded when items compressed */
-	bytes_decompressed:             u64,
+	bytes_decompressed: u64,
 
 	/** Can be used by the user to pass custom context data through
 	 * the decode pipeline.
 	 */
-	decoding_user_data:             rawptr,
+	decoding_user_data: rawptr,
 
 	/** The (compressed) buffer.
 	 *
@@ -106,12 +106,12 @@ decode_pipeline_t :: struct {
 	 * adopt the pointer and set it to `NULL` here. Be cognizant of any
 	 * custom allocators.
 	 */
-	packed_buffer:                  rawptr,
+	packed_buffer: rawptr,
 
 	/** Used when re-using the same decode pipeline struct to know if
 	 * chunk is changed size whether current buffer is large enough.
 	 */
-	packed_alloc_size:              c.size_t,
+	packed_alloc_size: c.size_t,
 
 	/** The decompressed buffer (unpacked_size from the chunk block
 	 * info), but still packed into storage order, only needed for
@@ -124,12 +124,12 @@ decode_pipeline_t :: struct {
 	 * adopt the pointer and set it to `NULL` here. Be cognizant of any
 	 * custom allocators.
 	 */
-	unpacked_buffer:                rawptr,
+	unpacked_buffer: rawptr,
 
 	/** Used when re-using the same decode pipeline struct to know if
 	 * chunk is changed size whether current buffer is large enough.
 	 */
-	unpacked_alloc_size:            c.size_t,
+	unpacked_alloc_size: c.size_t,
 
 	/** For deep or other non-image data: packed sample table
 	 * (compressed, raw on disk representation).
@@ -145,8 +145,8 @@ decode_pipeline_t :: struct {
 	 * contain the total count of samples, so the table will be n+1
 	 * samples in size.
 	 */
-	sample_count_table:             [^]i32,
-	sample_count_alloc_size:        c.size_t,
+	sample_count_table:      [^]i32,
+	sample_count_alloc_size: c.size_t,
 
 	/** A scratch buffer of unpacked_size for intermediate results.
 	 *
@@ -157,12 +157,12 @@ decode_pipeline_t :: struct {
 	 * adopt the pointer and set it to `NULL` here. Be cognizant of any
 	 * custom allocators.
 	 */
-	scratch_buffer_1:               rawptr,
+	scratch_buffer_1: rawptr,
 
 	/** Used when re-using the same decode pipeline struct to know if
 	 * chunk is changed size whether current buffer is large enough.
 	 */
-	scratch_alloc_size_1:           c.size_t,
+	scratch_alloc_size_1: c.size_t,
 
 	/** Some decompression routines may need a second scratch buffer (zlib).
 	 *
@@ -173,24 +173,24 @@ decode_pipeline_t :: struct {
 	 * adopt the pointer and set it to `NULL` here. Be cognizant of any
 	 * custom allocators.
 	 */
-	scratch_buffer_2:               rawptr,
+	scratch_buffer_2: rawptr,
 
 	/** Used when re-using the same decode pipeline struct to know if
 	 * chunk is changed size whether current buffer is large enough.
 	 */
-	scratch_alloc_size_2:           c.size_t,
+	scratch_alloc_size_2: c.size_t,
 
 	/** Enable a custom allocator for the different buffers (if
 	 * decoding on a GPU). If `NULL`, will use the allocator from the
 	 * context.
 	 */
-	alloc_fn:                       proc "c" (_: transcoding_pipeline_buffer_id_t, _: c.size_t) -> rawptr,
+	alloc_fn: proc "c" (transcoding_pipeline_buffer_id_t, c.size_t) -> rawptr,
 
 	/** Enable a custom allocator for the different buffers (if
 	 * decoding on a GPU). If `NULL`, will use the allocator from the
 	 * context.
 	 */
-	free_fn:                        proc "c" (_: transcoding_pipeline_buffer_id_t, _: rawptr),
+	free_fn: proc "c" (transcoding_pipeline_buffer_id_t, rawptr),
 
 	/** Function chosen to read chunk data from the context.
 	 *
@@ -206,7 +206,7 @@ decode_pipeline_t :: struct {
 	 * This is allowed to be overridden, but probably is not necessary
 	 * in most scenarios.
 	 */
-	read_fn:                        proc "c" (pipeline: ^decode_pipeline_t) -> result_t,
+	read_fn: proc "c" (pipeline: ^decode_pipeline_t) -> result_t,
 
 	/** Function chosen based on the compression type of the part to
 	 * decompress data.
@@ -218,7 +218,7 @@ decode_pipeline_t :: struct {
 	 * If only compressed data is desired, then assign this to `NULL`
 	 * after initialization.
 	 */
-	decompress_fn:                  proc "c" (pipeline: ^decode_pipeline_t) -> result_t,
+	decompress_fn: proc "c" (pipeline: ^decode_pipeline_t) -> result_t,
 
 	/** Function which can be provided if you have bespoke handling for
 	 * non-image data and need to re-allocate the data to handle the
@@ -227,7 +227,7 @@ decode_pipeline_t :: struct {
 	 * If left `NULL`, will assume the memory pointed to by the channel
 	 * pointers is sufficient.
 	 */
-	realloc_nonimage_data_fn:       proc "c" (pipeline: ^decode_pipeline_t) -> result_t,
+	realloc_nonimage_data_fn: proc "c" (pipeline: ^decode_pipeline_t) -> result_t,
 
 	/** Function chosen based on the output layout of the channels of the part to
 	 * decompress data.
@@ -239,7 +239,7 @@ decode_pipeline_t :: struct {
 	 * If only compressed data is desired, then leave or assign this
 	 * to `NULL` after initialization.
 	 */
-	unpack_and_convert_fn:          proc "c" (pipeline: ^decode_pipeline_t) -> result_t,
+	unpack_and_convert_fn: proc "c" (pipeline: ^decode_pipeline_t) -> result_t,
 
 	/** Small stash of channel info values. This is faster than calling
 	 * malloc when the channel count in the part is small (RGBAZ),
@@ -247,15 +247,13 @@ decode_pipeline_t :: struct {
 	 * channels, it will allocate space for that, so do not rely on
 	 * this being used.
 	 */
-	_quick_chan_store:              [5]coding_channel_info_t,
+	_quick_chan_store: [5]coding_channel_info_t,
 }
 
-DECODE_PIPELINE_INITIALIZER :: decode_pipeline_t {
-	pipe_size = size_of(decode_pipeline_t),
-}
+DECODE_PIPELINE_INITIALIZER :: decode_pipeline_t{ pipe_size = size_of(decode_pipeline_t) }
 
 
-@(link_prefix = "exr_", default_calling_convention = "c")
+@(link_prefix="exr_", default_calling_convention="c")
 foreign lib {
 	/** Initialize the decoding pipeline structure with the channel info
 	 * for the specified part, and the first block to be read.
@@ -264,7 +262,11 @@ foreign lib {
 	 * stage is desired, initialize the channel output information and
 	 * call exr_decoding_choose_default_routines().
 	 */
-	decoding_initialize :: proc(ctxt: const_context_t, part_index: c.int, cinfo: ^chunk_info_t, decode: ^decode_pipeline_t) -> result_t ---
+	decoding_initialize :: proc(
+		ctxt:       const_context_t,
+		part_index: c.int,
+		cinfo:      ^chunk_info_t,
+		decode:     ^decode_pipeline_t) -> result_t ---
 
 	/** Given an initialized decode pipeline, find appropriate functions
 	 * to read and shuffle/convert data into the defined channel outputs.
@@ -274,7 +276,8 @@ foreign lib {
 	 * it is probably easier to just read the chunk directly using
 	 * exr_read_chunk().
 	 */
-	decoding_choose_default_routines :: proc(ctxt: const_context_t, part_index: c.int, decode: ^decode_pipeline_t) -> result_t ---
+	decoding_choose_default_routines :: proc(
+		ctxt: const_context_t, part_index: c.int, decode: ^decode_pipeline_t) -> result_t ---
 
 	/** Given a decode pipeline previously initialized, update it for the
 	 * new chunk to be read.
@@ -283,10 +286,15 @@ foreign lib {
 	 * malloc/free calls. Further, it allows the previous choices for
 	 * the various functions to be quickly re-used.
 	 */
-	decoding_update :: proc(ctxt: const_context_t, part_index: c.int, cinfo: ^chunk_info_t, decode: ^decode_pipeline_t) -> result_t ---
+	decoding_update :: proc(
+		ctxt:       const_context_t,
+		part_index: c.int,
+		cinfo:      ^chunk_info_t,
+		decode:     ^decode_pipeline_t) -> result_t ---
 
 	/** Execute the decoding pipeline. */
-	decoding_run :: proc(ctxt: const_context_t, part_index: c.int, decode: ^decode_pipeline_t) -> result_t ---
+	decoding_run :: proc(
+		ctxt: const_context_t, part_index: c.int, decode: ^decode_pipeline_t) -> result_t ---
 
 	/** Free any intermediate memory in the decoding pipeline.
 	 *

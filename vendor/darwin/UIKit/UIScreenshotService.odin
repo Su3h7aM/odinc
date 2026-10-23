@@ -2,42 +2,40 @@
 #+build darwin:ios
 package darwin_UIKit
 
+import NS "core:sys/darwin/Foundation"
 import "base:intrinsics"
 import CG "core:sys/darwin/CoreGraphics"
-import NS "core:sys/darwin/Foundation"
 
-@(objc_class = "UIScreenshotService", objc_superclass = NS.Object)
-ScreenshotService :: struct {
-	using _: NS.Object,
-}
+@(objc_class="UIScreenshotService", objc_superclass=NS.Object)
+ScreenshotService :: struct { using _: NS.Object}
 
-@(default_calling_convention = "c")
+@(default_calling_convention="c")
 foreign lib {
-	@(objc_type = ScreenshotService, objc_selector = "init", objc_name = "init")
+	@(objc_type=ScreenshotService, objc_selector="init", objc_name="init")
 	ScreenshotService_init :: proc(self: ^ScreenshotService) -> instancetype ---
 
-	@(objc_type = ScreenshotService, objc_selector = "new", objc_name = "new", objc_is_class_method = true)
+	@(objc_type=ScreenshotService, objc_selector="new", objc_name="new", objc_is_class_method=true)
 	ScreenshotService_new :: proc() -> ^ScreenshotService ---
 
-	@(objc_type = ScreenshotService, objc_selector = "delegate", objc_name = "delegate")
+	@(objc_type=ScreenshotService, objc_selector="delegate", objc_name="delegate")
 	ScreenshotService_delegate :: proc(self: ^ScreenshotService) -> ^ScreenshotServiceDelegate ---
 
-	@(objc_type = ScreenshotService, objc_selector = "setDelegate:", objc_name = "setDelegate")
+	@(objc_type=ScreenshotService, objc_selector="setDelegate:", objc_name="setDelegate")
 	ScreenshotService_setDelegate :: proc(self: ^ScreenshotService, delegate: ^ScreenshotServiceDelegate) ---
 
-	@(objc_type = ScreenshotService, objc_selector = "windowScene", objc_name = "windowScene")
+	@(objc_type=ScreenshotService, objc_selector="windowScene", objc_name="windowScene")
 	ScreenshotService_windowScene :: proc(self: ^ScreenshotService) -> ^WindowScene ---
 }
 
 
-@(objc_class = "UIScreenshotServiceDelegate")
+@(objc_class="UIScreenshotServiceDelegate")
 ScreenshotServiceDelegate :: struct {
 	using _: intrinsics.objc_object,
 	using _: NS.ObjectProtocol,
 }
 
-@(default_calling_convention = "c")
+@(default_calling_convention="c")
 foreign lib {
-	@(objc_type = ScreenshotServiceDelegate, objc_selector = "screenshotService:generatePDFRepresentationWithCompletion:", objc_name = "screenshotService")
-	ScreenshotServiceDelegate_screenshotService :: proc(self: ^ScreenshotServiceDelegate, screenshotService: ^ScreenshotService, completionHandler: ^Objc_Block(proc "c" (PDFData: ^NS.Data, indexOfCurrentPage: NS.Integer, rectInCurrentPage: CG.Rect))) ---
+	@(objc_type=ScreenshotServiceDelegate, objc_selector="screenshotService:generatePDFRepresentationWithCompletion:", objc_name="screenshotService")
+	ScreenshotServiceDelegate_screenshotService :: proc(self: ^ScreenshotServiceDelegate, screenshotService: ^ScreenshotService, completionHandler: ^Objc_Block(proc "c" ( PDFData: ^NS.Data, indexOfCurrentPage: NS.Integer, rectInCurrentPage: CG.Rect ))) ---
 }

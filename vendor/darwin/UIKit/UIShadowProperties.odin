@@ -5,42 +5,42 @@ package darwin_UIKit
 import CG "core:sys/darwin/CoreGraphics"
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class = "UIShadowProperties", objc_superclass = NS.Object)
+@(objc_class="UIShadowProperties", objc_superclass=NS.Object)
 ShadowProperties :: struct {
 	using _: NS.Object,
 	using _: NS.Copying,
 	using _: NS.SecureCoding,
 }
 
-@(default_calling_convention = "c")
+@(default_calling_convention="c")
 foreign lib {
-	@(objc_type = ShadowProperties, objc_selector = "color", objc_name = "color")
+	@(objc_type=ShadowProperties, objc_selector="color", objc_name="color")
 	ShadowProperties_color :: proc(self: ^ShadowProperties) -> ^Color ---
 
-	@(objc_type = ShadowProperties, objc_selector = "setColor:", objc_name = "setColor")
+	@(objc_type=ShadowProperties, objc_selector="setColor:", objc_name="setColor")
 	ShadowProperties_setColor :: proc(self: ^ShadowProperties, color: ^Color) ---
 
-	@(objc_type = ShadowProperties, objc_selector = "opacity", objc_name = "opacity")
+	@(objc_type=ShadowProperties, objc_selector="opacity", objc_name="opacity")
 	ShadowProperties_opacity :: proc(self: ^ShadowProperties) -> CG.Float ---
 
-	@(objc_type = ShadowProperties, objc_selector = "setOpacity:", objc_name = "setOpacity")
+	@(objc_type=ShadowProperties, objc_selector="setOpacity:", objc_name="setOpacity")
 	ShadowProperties_setOpacity :: proc(self: ^ShadowProperties, opacity: CG.Float) ---
 
-	@(objc_type = ShadowProperties, objc_selector = "radius", objc_name = "radius")
+	@(objc_type=ShadowProperties, objc_selector="radius", objc_name="radius")
 	ShadowProperties_radius :: proc(self: ^ShadowProperties) -> CG.Float ---
 
-	@(objc_type = ShadowProperties, objc_selector = "setRadius:", objc_name = "setRadius")
+	@(objc_type=ShadowProperties, objc_selector="setRadius:", objc_name="setRadius")
 	ShadowProperties_setRadius :: proc(self: ^ShadowProperties, radius: CG.Float) ---
 
-	@(objc_type = ShadowProperties, objc_selector = "offset", objc_name = "offset")
+	@(objc_type=ShadowProperties, objc_selector="offset", objc_name="offset")
 	ShadowProperties_offset :: proc(self: ^ShadowProperties) -> CG.Size ---
 
-	@(objc_type = ShadowProperties, objc_selector = "setOffset:", objc_name = "setOffset")
+	@(objc_type=ShadowProperties, objc_selector="setOffset:", objc_name="setOffset")
 	ShadowProperties_setOffset :: proc(self: ^ShadowProperties, offset: CG.Size) ---
 
-	@(objc_type = ShadowProperties, objc_selector = "path", objc_name = "path")
+	@(objc_type=ShadowProperties, objc_selector="path", objc_name="path")
 	ShadowProperties_path :: proc(self: ^ShadowProperties) -> ^BezierPath ---
 
-	@(objc_type = ShadowProperties, objc_selector = "setPath:", objc_name = "setPath")
+	@(objc_type=ShadowProperties, objc_selector="setPath:", objc_name="setPath")
 	ShadowProperties_setPath :: proc(self: ^ShadowProperties, path: ^BezierPath) ---
 }

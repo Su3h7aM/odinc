@@ -38,10 +38,10 @@ ContactId :: struct {
 
 /// Use these to make your identifiers null.
 /// You may also use zero initialization to get null.
-nullWorldId :: WorldId{}
-nullBodyId :: BodyId{}
-nullShapeId :: ShapeId{}
-nullJointId :: JointId{}
+nullWorldId   :: WorldId{}
+nullBodyId    :: BodyId{}
+nullShapeId   :: ShapeId{}
+nullJointId   :: JointId{}
 nullContactId :: ContactId{}
 
 /// Macro to determine if any id is null.
@@ -122,8 +122,8 @@ StoreContactId :: #force_inline proc "c" (id: ContactId) -> (values: [3]u32) {
 /// Load a contact id from three uint32 values.
 @(require_results)
 LoadContactId :: #force_inline proc "c" (values: [3]u32) -> (id: ContactId) {
-	id.index1 = i32(values[0])
-	id.world0 = u16(values[1])
+	id.index1     = i32(values[0])
+	id.world0     = u16(values[1])
 	id.generation = u32(values[2])
 	return
 }

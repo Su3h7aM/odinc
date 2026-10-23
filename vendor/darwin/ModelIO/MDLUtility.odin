@@ -4,12 +4,10 @@ package darwin_ModelIO
 
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class = "MDLUtility", objc_superclass = NS.Object)
-Utility :: struct {
-	using _: NS.Object,
-}
+@(objc_class="MDLUtility", objc_superclass=NS.Object)
+Utility :: struct { using _: NS.Object}
 
 foreign lib {
-	@(objc_type = Utility, objc_selector = "convertToUSDZ:writeToURL:", objc_name = "convertToUSDZ", objc_is_class_method = true)
+	@(objc_type=Utility, objc_selector="convertToUSDZ:writeToURL:", objc_name="convertToUSDZ", objc_is_class_method=true)
 	Utility_convertToUSDZ :: proc(inputURL: ^NS.URL, outputURL: ^NS.URL) ---
 }

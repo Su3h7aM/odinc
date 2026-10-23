@@ -4,7 +4,7 @@ package darwin_GameKit
 
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class = "GKEntity", objc_superclass = NS.Object)
+@(objc_class="GKEntity", objc_superclass=NS.Object)
 Entity :: struct {
 	using _: NS.Object,
 	using _: NS.Copying,
@@ -12,24 +12,24 @@ Entity :: struct {
 }
 
 foreign lib {
-	@(objc_type = Entity, objc_selector = "entity", objc_name = "entity", objc_is_class_method = true)
+	@(objc_type=Entity, objc_selector="entity", objc_name="entity", objc_is_class_method=true)
 	Entity_entity :: proc() -> instancetype ---
 
-	@(objc_type = Entity, objc_selector = "init", objc_name = "init")
+	@(objc_type=Entity, objc_selector="init", objc_name="init")
 	Entity_init :: proc(self: ^Entity) -> instancetype ---
 
-	@(objc_type = Entity, objc_selector = "updateWithDeltaTime:", objc_name = "updateWithDeltaTime")
+	@(objc_type=Entity, objc_selector="updateWithDeltaTime:", objc_name="updateWithDeltaTime")
 	Entity_updateWithDeltaTime :: proc(self: ^Entity, seconds: NS.TimeInterval) ---
 
-	@(objc_type = Entity, objc_selector = "addComponent:", objc_name = "addComponent")
+	@(objc_type=Entity, objc_selector="addComponent:", objc_name="addComponent")
 	Entity_addComponent :: proc(self: ^Entity, component: ^Component) ---
 
-	@(objc_type = Entity, objc_selector = "removeComponentForClass:", objc_name = "removeComponentForClass")
+	@(objc_type=Entity, objc_selector="removeComponentForClass:", objc_name="removeComponentForClass")
 	Entity_removeComponentForClass :: proc(self: ^Entity, componentClass: Class) ---
 
-	@(objc_type = Entity, objc_selector = "componentForClass:", objc_name = "componentForClass")
+	@(objc_type=Entity, objc_selector="componentForClass:", objc_name="componentForClass")
 	Entity_componentForClass :: proc(self: ^Entity, componentClass: Class) -> ^Component ---
 
-	@(objc_type = Entity, objc_selector = "components", objc_name = "components")
+	@(objc_type=Entity, objc_selector="components", objc_name="components")
 	Entity_components :: proc(self: ^Entity) -> ^NS.Array ---
 }

@@ -4,27 +4,25 @@ package darwin_EventKit
 
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class = "EKSource", objc_superclass = Object)
-Source :: struct {
-	using _: Object,
-}
+@(objc_class="EKSource", objc_superclass=Object)
+Source :: struct { using _: Object}
 
 foreign lib {
-	@(objc_type = Source, objc_selector = "calendarsForEntityType:", objc_name = "calendarsForEntityType")
+	@(objc_type=Source, objc_selector="calendarsForEntityType:", objc_name="calendarsForEntityType")
 	Source_calendarsForEntityType :: proc(self: ^Source, entityType: EntityType) -> ^NS.Set ---
 
-	@(objc_type = Source, objc_selector = "sourceIdentifier", objc_name = "sourceIdentifier")
+	@(objc_type=Source, objc_selector="sourceIdentifier", objc_name="sourceIdentifier")
 	Source_sourceIdentifier :: proc(self: ^Source) -> ^NS.String ---
 
-	@(objc_type = Source, objc_selector = "sourceType", objc_name = "sourceType")
+	@(objc_type=Source, objc_selector="sourceType", objc_name="sourceType")
 	Source_sourceType :: proc(self: ^Source) -> SourceType ---
 
-	@(objc_type = Source, objc_selector = "title", objc_name = "title")
+	@(objc_type=Source, objc_selector="title", objc_name="title")
 	Source_title :: proc(self: ^Source) -> ^NS.String ---
 
-	@(objc_type = Source, objc_selector = "calendars", objc_name = "calendars")
+	@(objc_type=Source, objc_selector="calendars", objc_name="calendars")
 	Source_calendars :: proc(self: ^Source) -> ^NS.Set ---
 
-	@(objc_type = Source, objc_selector = "isDelegate", objc_name = "isDelegate")
+	@(objc_type=Source, objc_selector="isDelegate", objc_name="isDelegate")
 	Source_isDelegate :: proc(self: ^Source) -> bool ---
 }

@@ -6,56 +6,56 @@ import "base:intrinsics"
 import cffi "core:c"
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class = "GCAxisElement")
+@(objc_class="GCAxisElement")
 AxisElement :: struct {
 	using _: intrinsics.objc_object,
 	using _: PhysicalInputElement,
 }
 
 foreign lib {
-	@(objc_type = AxisElement, objc_selector = "absoluteInput", objc_name = "absoluteInput")
+	@(objc_type=AxisElement, objc_selector="absoluteInput", objc_name="absoluteInput")
 	AxisElement_absoluteInput :: proc(self: ^AxisElement) -> ^AxisInput ---
 
-	@(objc_type = AxisElement, objc_selector = "relativeInput", objc_name = "relativeInput")
+	@(objc_type=AxisElement, objc_selector="relativeInput", objc_name="relativeInput")
 	AxisElement_relativeInput :: proc(self: ^AxisElement) -> ^RelativeInput ---
 }
 
 
-@(objc_class = "GCAxisElementName")
+@(objc_class="GCAxisElementName")
 AxisElementName :: struct {
 	using _: intrinsics.objc_object,
 	using _: PhysicalInputElementName,
 }
 
 
-@(objc_class = "GCAxisInput")
+@(objc_class="GCAxisInput")
 AxisInput :: struct {
 	using _: intrinsics.objc_object,
 	using _: NS.ObjectProtocol,
 }
 
 foreign lib {
-	@(objc_type = AxisInput, objc_selector = "valueDidChangeHandler", objc_name = "valueDidChangeHandler")
+	@(objc_type=AxisInput, objc_selector="valueDidChangeHandler", objc_name="valueDidChangeHandler")
 	AxisInput_valueDidChangeHandler :: proc(self: ^AxisInput) -> ^Objc_Block(proc "c" ()) ---
 
-	@(objc_type = AxisInput, objc_selector = "setValueDidChangeHandler:", objc_name = "setValueDidChangeHandler")
+	@(objc_type=AxisInput, objc_selector="setValueDidChangeHandler:", objc_name="setValueDidChangeHandler")
 	AxisInput_setValueDidChangeHandler :: proc(self: ^AxisInput, valueDidChangeHandler: ^Objc_Block(proc "c" ())) ---
 
-	@(objc_type = AxisInput, objc_selector = "value", objc_name = "value")
+	@(objc_type=AxisInput, objc_selector="value", objc_name="value")
 	AxisInput_value :: proc(self: ^AxisInput) -> cffi.float ---
 
-	@(objc_type = AxisInput, objc_selector = "isAnalog", objc_name = "isAnalog")
+	@(objc_type=AxisInput, objc_selector="isAnalog", objc_name="isAnalog")
 	AxisInput_isAnalog :: proc(self: ^AxisInput) -> bool ---
 
-	@(objc_type = AxisInput, objc_selector = "canWrap", objc_name = "canWrap")
+	@(objc_type=AxisInput, objc_selector="canWrap", objc_name="canWrap")
 	AxisInput_canWrap :: proc(self: ^AxisInput) -> bool ---
 
-	@(objc_type = AxisInput, objc_selector = "lastValueTimestamp", objc_name = "lastValueTimestamp")
+	@(objc_type=AxisInput, objc_selector="lastValueTimestamp", objc_name="lastValueTimestamp")
 	AxisInput_lastValueTimestamp :: proc(self: ^AxisInput) -> NS.TimeInterval ---
 
-	@(objc_type = AxisInput, objc_selector = "lastValueLatency", objc_name = "lastValueLatency")
+	@(objc_type=AxisInput, objc_selector="lastValueLatency", objc_name="lastValueLatency")
 	AxisInput_lastValueLatency :: proc(self: ^AxisInput) -> NS.TimeInterval ---
 
-	@(objc_type = AxisInput, objc_selector = "sources", objc_name = "sources")
+	@(objc_type=AxisInput, objc_selector="sources", objc_name="sources")
 	AxisInput_sources :: proc(self: ^AxisInput) -> ^NS.Set ---
 }

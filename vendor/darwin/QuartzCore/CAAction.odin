@@ -5,12 +5,10 @@ package darwin_QuartzCore
 import "base:intrinsics"
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class = "CAAction")
-Action :: struct {
-	using _: intrinsics.objc_object,
-}
+@(objc_class="CAAction")
+Action :: struct { using _: intrinsics.objc_object}
 
 foreign lib {
-	@(objc_type = Action, objc_selector = "runActionForKey:object:arguments:", objc_name = "runActionForKey")
+	@(objc_type=Action, objc_selector="runActionForKey:object:arguments:", objc_name="runActionForKey")
 	Action_runActionForKey :: proc(self: ^Action, event: ^NS.String, anObject: id, dict: ^NS.Dictionary) ---
 }

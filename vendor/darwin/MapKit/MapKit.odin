@@ -5,376 +5,382 @@ package darwin_MapKit
 import "base:intrinsics"
 import cffi "core:c"
 import CG "core:sys/darwin/CoreGraphics"
-import NS "core:sys/darwin/Foundation"
 import CL "vendor:darwin/CoreLocation"
+import NS "core:sys/darwin/Foundation"
 
-id :: ^intrinsics.objc_object
-SEL :: ^intrinsics.objc_selector
-Class :: ^intrinsics.objc_class
-IMP :: rawptr
-Protocol :: distinct id
-instancetype :: intrinsics.objc_instancetype
+id            :: ^intrinsics.objc_object
+SEL           :: ^intrinsics.objc_selector
+Class         :: ^intrinsics.objc_class
+IMP           :: rawptr
+Protocol      :: distinct id
+instancetype  :: intrinsics.objc_instancetype
 
 @(export, require)
-foreign import lib "system:MapKit.framework"
+foreign import lib {
+	"system:MapKit.framework",
+}
+
+
 
 
 CNPostalAddress :: NS.Object
 
 
+
 foreign lib {
-	@(link_name = "MKErrorDomain")
+	@(link_name="MKErrorDomain")
 	ErrorDomain: ^NS.String
 
-	@(link_name = "MKMapSizeWorld")
+	@(link_name="MKMapSizeWorld")
 	MapSizeWorld: MapSize
 
-	@(link_name = "MKMapRectWorld")
+	@(link_name="MKMapRectWorld")
 	MapRectWorld: MapRect
 
-	@(link_name = "MKMapRectNull")
+	@(link_name="MKMapRectNull")
 	MapRectNull: MapRect
 
-	@(link_name = "MKPointOfInterestCategoryAnimalService")
+	@(link_name="MKPointOfInterestCategoryAnimalService")
 	PointOfInterestCategoryAnimalService: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryAirport")
+	@(link_name="MKPointOfInterestCategoryAirport")
 	PointOfInterestCategoryAirport: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryAmusementPark")
+	@(link_name="MKPointOfInterestCategoryAmusementPark")
 	PointOfInterestCategoryAmusementPark: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryAquarium")
+	@(link_name="MKPointOfInterestCategoryAquarium")
 	PointOfInterestCategoryAquarium: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryATM")
+	@(link_name="MKPointOfInterestCategoryATM")
 	PointOfInterestCategoryATM: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryAutomotiveRepair")
+	@(link_name="MKPointOfInterestCategoryAutomotiveRepair")
 	PointOfInterestCategoryAutomotiveRepair: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryBakery")
+	@(link_name="MKPointOfInterestCategoryBakery")
 	PointOfInterestCategoryBakery: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryBank")
+	@(link_name="MKPointOfInterestCategoryBank")
 	PointOfInterestCategoryBank: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryBaseball")
+	@(link_name="MKPointOfInterestCategoryBaseball")
 	PointOfInterestCategoryBaseball: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryBasketball")
+	@(link_name="MKPointOfInterestCategoryBasketball")
 	PointOfInterestCategoryBasketball: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryBeach")
+	@(link_name="MKPointOfInterestCategoryBeach")
 	PointOfInterestCategoryBeach: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryBeauty")
+	@(link_name="MKPointOfInterestCategoryBeauty")
 	PointOfInterestCategoryBeauty: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryBowling")
+	@(link_name="MKPointOfInterestCategoryBowling")
 	PointOfInterestCategoryBowling: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryBrewery")
+	@(link_name="MKPointOfInterestCategoryBrewery")
 	PointOfInterestCategoryBrewery: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryCafe")
+	@(link_name="MKPointOfInterestCategoryCafe")
 	PointOfInterestCategoryCafe: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryCampground")
+	@(link_name="MKPointOfInterestCategoryCampground")
 	PointOfInterestCategoryCampground: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryCarRental")
+	@(link_name="MKPointOfInterestCategoryCarRental")
 	PointOfInterestCategoryCarRental: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryCastle")
+	@(link_name="MKPointOfInterestCategoryCastle")
 	PointOfInterestCategoryCastle: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryConventionCenter")
+	@(link_name="MKPointOfInterestCategoryConventionCenter")
 	PointOfInterestCategoryConventionCenter: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryDistillery")
+	@(link_name="MKPointOfInterestCategoryDistillery")
 	PointOfInterestCategoryDistillery: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryEVCharger")
+	@(link_name="MKPointOfInterestCategoryEVCharger")
 	PointOfInterestCategoryEVCharger: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryFairground")
+	@(link_name="MKPointOfInterestCategoryFairground")
 	PointOfInterestCategoryFairground: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryFireStation")
+	@(link_name="MKPointOfInterestCategoryFireStation")
 	PointOfInterestCategoryFireStation: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryFishing")
+	@(link_name="MKPointOfInterestCategoryFishing")
 	PointOfInterestCategoryFishing: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryFitnessCenter")
+	@(link_name="MKPointOfInterestCategoryFitnessCenter")
 	PointOfInterestCategoryFitnessCenter: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryFoodMarket")
+	@(link_name="MKPointOfInterestCategoryFoodMarket")
 	PointOfInterestCategoryFoodMarket: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryFortress")
+	@(link_name="MKPointOfInterestCategoryFortress")
 	PointOfInterestCategoryFortress: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryGasStation")
+	@(link_name="MKPointOfInterestCategoryGasStation")
 	PointOfInterestCategoryGasStation: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryGolf")
+	@(link_name="MKPointOfInterestCategoryGolf")
 	PointOfInterestCategoryGolf: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryGoKart")
+	@(link_name="MKPointOfInterestCategoryGoKart")
 	PointOfInterestCategoryGoKart: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryHiking")
+	@(link_name="MKPointOfInterestCategoryHiking")
 	PointOfInterestCategoryHiking: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryHospital")
+	@(link_name="MKPointOfInterestCategoryHospital")
 	PointOfInterestCategoryHospital: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryHotel")
+	@(link_name="MKPointOfInterestCategoryHotel")
 	PointOfInterestCategoryHotel: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryKayaking")
+	@(link_name="MKPointOfInterestCategoryKayaking")
 	PointOfInterestCategoryKayaking: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryLandmark")
+	@(link_name="MKPointOfInterestCategoryLandmark")
 	PointOfInterestCategoryLandmark: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryLaundry")
+	@(link_name="MKPointOfInterestCategoryLaundry")
 	PointOfInterestCategoryLaundry: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryLibrary")
+	@(link_name="MKPointOfInterestCategoryLibrary")
 	PointOfInterestCategoryLibrary: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryMailbox")
+	@(link_name="MKPointOfInterestCategoryMailbox")
 	PointOfInterestCategoryMailbox: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryMarina")
+	@(link_name="MKPointOfInterestCategoryMarina")
 	PointOfInterestCategoryMarina: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryMiniGolf")
+	@(link_name="MKPointOfInterestCategoryMiniGolf")
 	PointOfInterestCategoryMiniGolf: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryMovieTheater")
+	@(link_name="MKPointOfInterestCategoryMovieTheater")
 	PointOfInterestCategoryMovieTheater: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryMuseum")
+	@(link_name="MKPointOfInterestCategoryMuseum")
 	PointOfInterestCategoryMuseum: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryMusicVenue")
+	@(link_name="MKPointOfInterestCategoryMusicVenue")
 	PointOfInterestCategoryMusicVenue: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryNationalMonument")
+	@(link_name="MKPointOfInterestCategoryNationalMonument")
 	PointOfInterestCategoryNationalMonument: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryNationalPark")
+	@(link_name="MKPointOfInterestCategoryNationalPark")
 	PointOfInterestCategoryNationalPark: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryNightlife")
+	@(link_name="MKPointOfInterestCategoryNightlife")
 	PointOfInterestCategoryNightlife: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryPark")
+	@(link_name="MKPointOfInterestCategoryPark")
 	PointOfInterestCategoryPark: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryParking")
+	@(link_name="MKPointOfInterestCategoryParking")
 	PointOfInterestCategoryParking: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryPharmacy")
+	@(link_name="MKPointOfInterestCategoryPharmacy")
 	PointOfInterestCategoryPharmacy: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryPlanetarium")
+	@(link_name="MKPointOfInterestCategoryPlanetarium")
 	PointOfInterestCategoryPlanetarium: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryPolice")
+	@(link_name="MKPointOfInterestCategoryPolice")
 	PointOfInterestCategoryPolice: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryPostOffice")
+	@(link_name="MKPointOfInterestCategoryPostOffice")
 	PointOfInterestCategoryPostOffice: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryPublicTransport")
+	@(link_name="MKPointOfInterestCategoryPublicTransport")
 	PointOfInterestCategoryPublicTransport: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryRestaurant")
+	@(link_name="MKPointOfInterestCategoryRestaurant")
 	PointOfInterestCategoryRestaurant: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryRestroom")
+	@(link_name="MKPointOfInterestCategoryRestroom")
 	PointOfInterestCategoryRestroom: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryRockClimbing")
+	@(link_name="MKPointOfInterestCategoryRockClimbing")
 	PointOfInterestCategoryRockClimbing: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryRVPark")
+	@(link_name="MKPointOfInterestCategoryRVPark")
 	PointOfInterestCategoryRVPark: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategorySchool")
+	@(link_name="MKPointOfInterestCategorySchool")
 	PointOfInterestCategorySchool: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategorySkatePark")
+	@(link_name="MKPointOfInterestCategorySkatePark")
 	PointOfInterestCategorySkatePark: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategorySkating")
+	@(link_name="MKPointOfInterestCategorySkating")
 	PointOfInterestCategorySkating: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategorySkiing")
+	@(link_name="MKPointOfInterestCategorySkiing")
 	PointOfInterestCategorySkiing: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategorySoccer")
+	@(link_name="MKPointOfInterestCategorySoccer")
 	PointOfInterestCategorySoccer: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategorySpa")
+	@(link_name="MKPointOfInterestCategorySpa")
 	PointOfInterestCategorySpa: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryStadium")
+	@(link_name="MKPointOfInterestCategoryStadium")
 	PointOfInterestCategoryStadium: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryStore")
+	@(link_name="MKPointOfInterestCategoryStore")
 	PointOfInterestCategoryStore: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategorySurfing")
+	@(link_name="MKPointOfInterestCategorySurfing")
 	PointOfInterestCategorySurfing: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategorySwimming")
+	@(link_name="MKPointOfInterestCategorySwimming")
 	PointOfInterestCategorySwimming: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryTennis")
+	@(link_name="MKPointOfInterestCategoryTennis")
 	PointOfInterestCategoryTennis: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryTheater")
+	@(link_name="MKPointOfInterestCategoryTheater")
 	PointOfInterestCategoryTheater: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryUniversity")
+	@(link_name="MKPointOfInterestCategoryUniversity")
 	PointOfInterestCategoryUniversity: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryWinery")
+	@(link_name="MKPointOfInterestCategoryWinery")
 	PointOfInterestCategoryWinery: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryVolleyball")
+	@(link_name="MKPointOfInterestCategoryVolleyball")
 	PointOfInterestCategoryVolleyball: ^NS.String
 
-	@(link_name = "MKPointOfInterestCategoryZoo")
+	@(link_name="MKPointOfInterestCategoryZoo")
 	PointOfInterestCategoryZoo: ^NS.String
 
-	@(link_name = "MKLaunchOptionsDirectionsModeKey")
+	@(link_name="MKLaunchOptionsDirectionsModeKey")
 	LaunchOptionsDirectionsModeKey: ^NS.String
 
-	@(link_name = "MKLaunchOptionsMapTypeKey")
+	@(link_name="MKLaunchOptionsMapTypeKey")
 	LaunchOptionsMapTypeKey: ^NS.String
 
-	@(link_name = "MKLaunchOptionsShowsTrafficKey")
+	@(link_name="MKLaunchOptionsShowsTrafficKey")
 	LaunchOptionsShowsTrafficKey: ^NS.String
 
-	@(link_name = "MKLaunchOptionsDirectionsModeDefault")
+	@(link_name="MKLaunchOptionsDirectionsModeDefault")
 	LaunchOptionsDirectionsModeDefault: ^NS.String
 
-	@(link_name = "MKLaunchOptionsDirectionsModeDriving")
+	@(link_name="MKLaunchOptionsDirectionsModeDriving")
 	LaunchOptionsDirectionsModeDriving: ^NS.String
 
-	@(link_name = "MKLaunchOptionsDirectionsModeWalking")
+	@(link_name="MKLaunchOptionsDirectionsModeWalking")
 	LaunchOptionsDirectionsModeWalking: ^NS.String
 
-	@(link_name = "MKLaunchOptionsDirectionsModeTransit")
+	@(link_name="MKLaunchOptionsDirectionsModeTransit")
 	LaunchOptionsDirectionsModeTransit: ^NS.String
 
-	@(link_name = "MKLaunchOptionsDirectionsModeCycling")
+	@(link_name="MKLaunchOptionsDirectionsModeCycling")
 	LaunchOptionsDirectionsModeCycling: ^NS.String
 
-	@(link_name = "MKLaunchOptionsMapCenterKey")
+	@(link_name="MKLaunchOptionsMapCenterKey")
 	LaunchOptionsMapCenterKey: ^NS.String
 
-	@(link_name = "MKLaunchOptionsMapSpanKey")
+	@(link_name="MKLaunchOptionsMapSpanKey")
 	LaunchOptionsMapSpanKey: ^NS.String
 
-	@(link_name = "MKLaunchOptionsCameraKey")
+	@(link_name="MKLaunchOptionsCameraKey")
 	LaunchOptionsCameraKey: ^NS.String
 
-	@(link_name = "MKMapItemTypeIdentifier")
+	@(link_name="MKMapItemTypeIdentifier")
 	MapItemTypeIdentifier: ^NS.String
 
-	@(link_name = "MKPointsOfInterestRequestMaxRadius")
+	@(link_name="MKPointsOfInterestRequestMaxRadius")
 	PointsOfInterestRequestMaxRadius: CL.LocationDistance
 
-	@(link_name = "MKAnnotationCalloutInfoDidChangeNotification")
+	@(link_name="MKAnnotationCalloutInfoDidChangeNotification")
 	AnnotationCalloutInfoDidChangeNotification: ^NS.String
 
-	@(link_name = "MKMapViewDefaultAnnotationViewReuseIdentifier")
+	@(link_name="MKMapViewDefaultAnnotationViewReuseIdentifier")
 	MapViewDefaultAnnotationViewReuseIdentifier: ^NS.String
 
-	@(link_name = "MKMapViewDefaultClusterAnnotationViewReuseIdentifier")
+	@(link_name="MKMapViewDefaultClusterAnnotationViewReuseIdentifier")
 	MapViewDefaultClusterAnnotationViewReuseIdentifier: ^NS.String
 
-	@(link_name = "MKMapCameraZoomDefault")
+	@(link_name="MKMapCameraZoomDefault")
 	MapCameraZoomDefault: CL.LocationDistance
 
-	@(link_name = "MKCoordinateRegionMakeWithDistance")
+	@(link_name="MKCoordinateRegionMakeWithDistance")
 	CoordinateRegionMakeWithDistance :: proc(centerCoordinate: CL.LocationCoordinate2D, latitudinalMeters: CL.LocationDistance, longitudinalMeters: CL.LocationDistance) -> CoordinateRegion ---
 
-	@(link_name = "MKMapPointForCoordinate")
+	@(link_name="MKMapPointForCoordinate")
 	MapPointForCoordinate :: proc(coordinate: CL.LocationCoordinate2D) -> MapPoint ---
 
-	@(link_name = "MKCoordinateForMapPoint")
+	@(link_name="MKCoordinateForMapPoint")
 	CoordinateForMapPoint :: proc(mapPoint: MapPoint) -> CL.LocationCoordinate2D ---
 
-	@(link_name = "MKMetersPerMapPointAtLatitude")
+	@(link_name="MKMetersPerMapPointAtLatitude")
 	MetersPerMapPointAtLatitude :: proc(latitude: CL.LocationDegrees) -> CL.LocationDistance ---
 
-	@(link_name = "MKMapPointsPerMeterAtLatitude")
+	@(link_name="MKMapPointsPerMeterAtLatitude")
 	MapPointsPerMeterAtLatitude :: proc(latitude: CL.LocationDegrees) -> cffi.double ---
 
-	@(link_name = "MKMetersBetweenMapPoints")
+	@(link_name="MKMetersBetweenMapPoints")
 	MetersBetweenMapPoints :: proc(a: MapPoint, b: MapPoint) -> CL.LocationDistance ---
 
-	@(link_name = "MKMapRectUnion")
+	@(link_name="MKMapRectUnion")
 	MapRectUnion :: proc(rect1: MapRect, rect2: MapRect) -> MapRect ---
 
-	@(link_name = "MKMapRectIntersection")
+	@(link_name="MKMapRectIntersection")
 	MapRectIntersection :: proc(rect1: MapRect, rect2: MapRect) -> MapRect ---
 
-	@(link_name = "MKMapRectInset")
+	@(link_name="MKMapRectInset")
 	MapRectInset :: proc(rect: MapRect, dx: cffi.double, dy: cffi.double) -> MapRect ---
 
-	@(link_name = "MKMapRectOffset")
+	@(link_name="MKMapRectOffset")
 	MapRectOffset :: proc(rect: MapRect, dx: cffi.double, dy: cffi.double) -> MapRect ---
 
-	@(link_name = "MKMapRectDivide")
+	@(link_name="MKMapRectDivide")
 	MapRectDivide :: proc(rect: MapRect, slice: ^MapRect, remainder: ^MapRect, amount: cffi.double, edge: CG.RectEdge) ---
 
-	@(link_name = "MKMapRectContainsPoint")
+	@(link_name="MKMapRectContainsPoint")
 	MapRectContainsPoint :: proc(rect: MapRect, point: MapPoint) -> bool ---
 
-	@(link_name = "MKMapRectContainsRect")
+	@(link_name="MKMapRectContainsRect")
 	MapRectContainsRect :: proc(rect1: MapRect, rect2: MapRect) -> bool ---
 
-	@(link_name = "MKMapRectIntersectsRect")
+	@(link_name="MKMapRectIntersectsRect")
 	MapRectIntersectsRect :: proc(rect1: MapRect, rect2: MapRect) -> bool ---
 
-	@(link_name = "MKCoordinateRegionForMapRect")
+	@(link_name="MKCoordinateRegionForMapRect")
 	CoordinateRegionForMapRect :: proc(rect: MapRect) -> CoordinateRegion ---
 
-	@(link_name = "MKMapRectSpans180thMeridian")
+	@(link_name="MKMapRectSpans180thMeridian")
 	MapRectSpans180thMeridian :: proc(rect: MapRect) -> bool ---
 
-	@(link_name = "MKMapRectRemainder")
+	@(link_name="MKMapRectRemainder")
 	MapRectRemainder :: proc(rect: MapRect) -> MapRect ---
 
-	@(link_name = "MKRoadWidthAtZoomScale")
+	@(link_name="MKRoadWidthAtZoomScale")
 	RoadWidthAtZoomScale :: proc(zoomScale: ZoomScale) -> CG.Float ---
 }
 
 
-FeatureDisplayPriorityRequired :: 1000.000000
-FeatureDisplayPriorityDefaultHigh :: 750.000000
-FeatureDisplayPriorityDefaultLow :: 250.000000
-AnnotationViewZPriorityMax :: 1000.000000
-AnnotationViewZPriorityDefaultSelected :: 1000.000000
+
+FeatureDisplayPriorityRequired           :: 1000.000000
+FeatureDisplayPriorityDefaultHigh        :: 750.000000
+FeatureDisplayPriorityDefaultLow         :: 250.000000
+AnnotationViewZPriorityMax               :: 1000.000000
+AnnotationViewZPriorityDefaultSelected   :: 1000.000000
 AnnotationViewZPriorityDefaultUnselected :: 500.000000
-AnnotationViewZPriorityMin :: 0.000000
+AnnotationViewZPriorityMin               :: 0.000000
 ZoomScale :: distinct CG.Float
-DirectionsHandler :: ^Objc_Block(proc "c" (response: ^DirectionsResponse, error: ^NS.Error))
-ETAHandler :: ^Objc_Block(proc "c" (response: ^ETAResponse, error: ^NS.Error))
-LocalSearchCompletionHandler :: ^Objc_Block(proc "c" (response: ^LocalSearchResponse, error: ^NS.Error))
+DirectionsHandler :: ^Objc_Block(proc "c" ( response: ^DirectionsResponse, error: ^NS.Error ))
+ETAHandler :: ^Objc_Block(proc "c" ( response: ^ETAResponse, error: ^NS.Error ))
+LocalSearchCompletionHandler :: ^Objc_Block(proc "c" ( response: ^LocalSearchResponse, error: ^NS.Error ))
 FeatureDisplayPriority :: distinct cffi.float
 AnnotationViewZPriority :: distinct cffi.float
-MapSnapshotCompletionHandler :: ^Objc_Block(proc "c" (snapshot: ^MapSnapshot, error: ^NS.Error))
+MapSnapshotCompletionHandler :: ^Objc_Block(proc "c" ( snapshot: ^MapSnapshot, error: ^NS.Error ))
 
 AddressRepresentationsContextStyle :: enum cffi.long {
 	Automatic = 0,
@@ -391,7 +397,7 @@ AddressFilterOption :: enum cffi.ulong {
 	PostalCode            = 5,
 }
 
-AddressFilterOptions :: bit_set[AddressFilterOption;cffi.ulong]
+AddressFilterOptions :: bit_set[AddressFilterOption; cffi.ulong]
 
 MapType :: enum cffi.ulong {
 	Standard         = 0,
@@ -428,7 +434,7 @@ DirectionsTransportTypeFlag :: enum cffi.ulong {
 	Transit    = 2,
 	Cycling    = 3,
 }
-DirectionsTransportType :: bit_set[DirectionsTransportTypeFlag;cffi.ulong]
+DirectionsTransportType :: bit_set[DirectionsTransportTypeFlag; cffi.ulong]
 DirectionsTransportType_Any :: transmute(DirectionsTransportType)cffi.ulong(0xfffffff)
 
 DirectionsRoutePreference :: enum cffi.long {
@@ -454,7 +460,7 @@ LocalSearchResultTypeFlag :: enum cffi.ulong {
 	PointOfInterest = 1,
 	PhysicalFeature = 2,
 }
-LocalSearchResultType :: bit_set[LocalSearchResultTypeFlag;cffi.ulong]
+LocalSearchResultType :: bit_set[LocalSearchResultTypeFlag; cffi.ulong]
 
 SearchCompletionFilterType :: enum cffi.long {
 	LocationsAndQueries = 0,
@@ -467,7 +473,7 @@ LocalSearchCompleterResultTypeFlag :: enum cffi.ulong {
 	Query           = 2,
 	PhysicalFeature = 3,
 }
-LocalSearchCompleterResultType :: bit_set[LocalSearchCompleterResultTypeFlag;cffi.ulong]
+LocalSearchCompleterResultType :: bit_set[LocalSearchCompleterResultTypeFlag; cffi.ulong]
 
 MapElevationStyle :: enum cffi.long {
 	Flat      = 0,
@@ -539,7 +545,7 @@ LookAroundBadgePosition :: enum cffi.long {
 }
 
 when ODIN_PLATFORM_SUBTARGET_IOS {
-	MapFeatureOptions :: bit_set[MapFeatureOption;cffi.long]
+	MapFeatureOptions :: bit_set[MapFeatureOption; cffi.long]
 
 	ScaleViewAlignment :: enum cffi.long {
 		Leading  = 0,

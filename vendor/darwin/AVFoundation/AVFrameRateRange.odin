@@ -2,38 +2,34 @@
 #+build darwin
 package darwin_AVFoundation
 
-import "base:intrinsics"
 import cffi "core:c"
-import NS "core:sys/darwin/Foundation"
 import CM "vendor:darwin/CoreMedia"
+import NS "core:sys/darwin/Foundation"
+import "base:intrinsics"
 
-@(objc_class = "AVFrameRateRange", objc_superclass = NS.Object)
-FrameRateRange :: struct {
-	using _: NS.Object,
-}
+@(objc_class="AVFrameRateRange", objc_superclass=NS.Object)
+FrameRateRange :: struct { using _: NS.Object}
 
 foreign lib {
-	@(objc_type = FrameRateRange, objc_selector = "init", objc_name = "init")
+	@(objc_type=FrameRateRange, objc_selector="init", objc_name="init")
 	FrameRateRange_init :: proc(self: ^FrameRateRange) -> instancetype ---
 
-	@(objc_type = FrameRateRange, objc_selector = "new", objc_name = "new", objc_is_class_method = true)
+	@(objc_type=FrameRateRange, objc_selector="new", objc_name="new", objc_is_class_method=true)
 	FrameRateRange_new :: proc() -> ^FrameRateRange ---
 
-	@(objc_type = FrameRateRange, objc_selector = "minFrameRate", objc_name = "minFrameRate")
+	@(objc_type=FrameRateRange, objc_selector="minFrameRate", objc_name="minFrameRate")
 	FrameRateRange_minFrameRate :: proc(self: ^FrameRateRange) -> cffi.double ---
 
-	@(objc_type = FrameRateRange, objc_selector = "maxFrameRate", objc_name = "maxFrameRate")
+	@(objc_type=FrameRateRange, objc_selector="maxFrameRate", objc_name="maxFrameRate")
 	FrameRateRange_maxFrameRate :: proc(self: ^FrameRateRange) -> cffi.double ---
 
-	@(objc_type = FrameRateRange, objc_selector = "maxFrameDuration", objc_name = "maxFrameDuration")
+	@(objc_type=FrameRateRange, objc_selector="maxFrameDuration", objc_name="maxFrameDuration")
 	FrameRateRange_maxFrameDuration :: proc(self: ^FrameRateRange) -> CM.Time ---
 
-	@(objc_type = FrameRateRange, objc_selector = "minFrameDuration", objc_name = "minFrameDuration")
+	@(objc_type=FrameRateRange, objc_selector="minFrameDuration", objc_name="minFrameDuration")
 	FrameRateRange_minFrameDuration :: proc(self: ^FrameRateRange) -> CM.Time ---
 }
 
 
-@(objc_class = "AVFrameRateRangeInternal")
-FrameRateRangeInternal :: struct {
-	using _: intrinsics.objc_object,
-}
+@(objc_class="AVFrameRateRangeInternal")
+FrameRateRangeInternal :: struct { using _: intrinsics.objc_object}

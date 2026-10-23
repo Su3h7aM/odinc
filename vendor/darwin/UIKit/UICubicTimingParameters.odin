@@ -5,32 +5,32 @@ package darwin_UIKit
 import CG "core:sys/darwin/CoreGraphics"
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class = "UICubicTimingParameters", objc_superclass = NS.Object)
+@(objc_class="UICubicTimingParameters", objc_superclass=NS.Object)
 CubicTimingParameters :: struct {
 	using _: NS.Object,
 	using _: TimingCurveProvider,
 }
 
-@(default_calling_convention = "c")
+@(default_calling_convention="c")
 foreign lib {
-	@(objc_type = CubicTimingParameters, objc_selector = "init", objc_name = "init")
+	@(objc_type=CubicTimingParameters, objc_selector="init", objc_name="init")
 	CubicTimingParameters_init :: proc(self: ^CubicTimingParameters) -> instancetype ---
 
-	@(objc_type = CubicTimingParameters, objc_selector = "initWithCoder:", objc_name = "initWithCoder")
+	@(objc_type=CubicTimingParameters, objc_selector="initWithCoder:", objc_name="initWithCoder")
 	CubicTimingParameters_initWithCoder :: proc(self: ^CubicTimingParameters, coder: ^NS.Coder) -> instancetype ---
 
-	@(objc_type = CubicTimingParameters, objc_selector = "initWithAnimationCurve:", objc_name = "initWithAnimationCurve")
+	@(objc_type=CubicTimingParameters, objc_selector="initWithAnimationCurve:", objc_name="initWithAnimationCurve")
 	CubicTimingParameters_initWithAnimationCurve :: proc(self: ^CubicTimingParameters, curve: ViewAnimationCurve) -> instancetype ---
 
-	@(objc_type = CubicTimingParameters, objc_selector = "initWithControlPoint1:controlPoint2:", objc_name = "initWithControlPoint1")
+	@(objc_type=CubicTimingParameters, objc_selector="initWithControlPoint1:controlPoint2:", objc_name="initWithControlPoint1")
 	CubicTimingParameters_initWithControlPoint1 :: proc(self: ^CubicTimingParameters, point1: CG.Point, point2: CG.Point) -> instancetype ---
 
-	@(objc_type = CubicTimingParameters, objc_selector = "animationCurve", objc_name = "animationCurve")
+	@(objc_type=CubicTimingParameters, objc_selector="animationCurve", objc_name="animationCurve")
 	CubicTimingParameters_animationCurve :: proc(self: ^CubicTimingParameters) -> ViewAnimationCurve ---
 
-	@(objc_type = CubicTimingParameters, objc_selector = "controlPoint1", objc_name = "controlPoint1")
+	@(objc_type=CubicTimingParameters, objc_selector="controlPoint1", objc_name="controlPoint1")
 	CubicTimingParameters_controlPoint1 :: proc(self: ^CubicTimingParameters) -> CG.Point ---
 
-	@(objc_type = CubicTimingParameters, objc_selector = "controlPoint2", objc_name = "controlPoint2")
+	@(objc_type=CubicTimingParameters, objc_selector="controlPoint2", objc_name="controlPoint2")
 	CubicTimingParameters_controlPoint2 :: proc(self: ^CubicTimingParameters) -> CG.Point ---
 }

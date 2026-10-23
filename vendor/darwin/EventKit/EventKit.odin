@@ -7,39 +7,45 @@ import cffi "core:c"
 import CF "core:sys/darwin/CoreFoundation"
 import NS "core:sys/darwin/Foundation"
 
-id :: ^intrinsics.objc_object
-SEL :: ^intrinsics.objc_selector
-Class :: ^intrinsics.objc_class
-IMP :: rawptr
-Protocol :: distinct id
-instancetype :: intrinsics.objc_instancetype
+id            :: ^intrinsics.objc_object
+SEL           :: ^intrinsics.objc_selector
+Class         :: ^intrinsics.objc_class
+IMP           :: rawptr
+Protocol      :: distinct id
+instancetype  :: intrinsics.objc_instancetype
 
 @(export, require)
-foreign import lib "system:EventKit.framework"
-
-
-ABAddressBook :: NS.Object
-ABPerson :: NS.Object
-
-ABAddressBookRef :: CF.TypeRef
-when ODIN_PLATFORM_SUBTARGET_IOS {
-	ABRecordRef :: CF.TypeRef
-} else {
-	ABRecordRef :: rawptr
+foreign import lib {
+	"system:EventKit.framework",
 }
 
 
+
+
+ABAddressBook:: NS.Object
+ABPerson::      NS.Object
+
+ABAddressBookRef :: CF.TypeRef
+when ODIN_PLATFORM_SUBTARGET_IOS {
+	ABRecordRef      :: CF.TypeRef
+} else {
+	ABRecordRef      :: rawptr
+}
+
+
+
 foreign lib {
-	@(link_name = "EKEventStoreChangedNotification")
+	@(link_name="EKEventStoreChangedNotification")
 	EventStoreChangedNotification: ^NS.String
 
-	@(link_name = "EKErrorDomain")
+	@(link_name="EKErrorDomain")
 	ErrorDomain: ^NS.String
 }
 
 
-EventSearchCallback :: ^Objc_Block(proc "c" (event: ^Event, stop: ^bool))
-EventStoreRequestAccessCompletionHandler :: ^Objc_Block(proc "c" (granted: bool, error: ^NS.Error))
+
+EventSearchCallback :: ^Objc_Block(proc "c" ( event: ^Event, stop: ^bool ))
+EventStoreRequestAccessCompletionHandler :: ^Objc_Block(proc "c" ( granted: bool, error: ^NS.Error ))
 VirtualConferenceRoomTypeIdentifier :: ^NS.String
 
 AuthorizationStatus :: enum cffi.long {
@@ -129,7 +135,7 @@ CalendarEventAvailabilityMask :: enum cffi.ulong {
 	Unavailable = 3,
 }
 
-CalendarEventAvailabilityMasks :: bit_set[CalendarEventAvailabilityMask;cffi.ulong]
+CalendarEventAvailabilityMasks :: bit_set[CalendarEventAvailabilityMask; cffi.ulong]
 
 SourceType :: enum cffi.long {
 	Local      = 0,
@@ -150,7 +156,7 @@ EntityMask :: enum cffi.ulong {
 	Reminder = 1,
 }
 
-EntityMasks :: bit_set[EntityMask;cffi.ulong]
+EntityMasks :: bit_set[EntityMask; cffi.ulong]
 
 AlarmProximity :: enum cffi.long {
 	None  = 0,
@@ -178,44 +184,44 @@ Span :: enum cffi.long {
 }
 
 ErrorCode :: enum cffi.long {
-	EventNotMutable                      = 0,
-	NoCalendar                           = 1,
-	NoStartDate                          = 2,
-	NoEndDate                            = 3,
-	DatesInverted                        = 4,
-	InternalFailure                      = 5,
-	CalendarReadOnly                     = 6,
-	DurationGreaterThanRecurrence        = 7,
-	AlarmGreaterThanRecurrence           = 8,
-	StartDateTooFarInFuture              = 9,
+	EventNotMutable                  = 0,
+	NoCalendar                       = 1,
+	NoStartDate                      = 2,
+	NoEndDate                        = 3,
+	DatesInverted                    = 4,
+	InternalFailure                  = 5,
+	CalendarReadOnly                 = 6,
+	DurationGreaterThanRecurrence    = 7,
+	AlarmGreaterThanRecurrence       = 8,
+	StartDateTooFarInFuture          = 9,
 	StartDateCollidesWithOtherOccurrence = 10,
-	ObjectBelongsToDifferentStore        = 11,
-	InvitesCannotBeMoved                 = 12,
-	InvalidSpan                          = 13,
-	CalendarHasNoSource                  = 14,
-	CalendarSourceCannotBeModified       = 15,
-	CalendarIsImmutable                  = 16,
-	SourceDoesNotAllowCalendarAddDelete  = 17,
-	RecurringReminderRequiresDueDate     = 18,
-	StructuredLocationsNotSupported      = 19,
-	ReminderLocationsNotSupported        = 20,
-	AlarmProximityNotSupported           = 21,
-	CalendarDoesNotAllowEvents           = 22,
-	CalendarDoesNotAllowReminders        = 23,
-	SourceDoesNotAllowReminders          = 24,
-	SourceDoesNotAllowEvents             = 25,
-	PriorityIsInvalid                    = 26,
-	InvalidEntityType                    = 27,
-	ProcedureAlarmsNotMutable            = 28,
-	EventStoreNotAuthorized              = 29,
-	OSNotSupported                       = 30,
-	InvalidInviteReplyCalendar           = 31,
-	NotificationsCollectionFlagNotSet    = 32,
-	SourceMismatch                       = 33,
-	NotificationCollectionMismatch       = 34,
-	NotificationSavedWithoutCollection   = 35,
-	ReminderAlarmContainsEmailOrUrl      = 36,
-	Last                                 = 37,
+	ObjectBelongsToDifferentStore    = 11,
+	InvitesCannotBeMoved             = 12,
+	InvalidSpan                      = 13,
+	CalendarHasNoSource              = 14,
+	CalendarSourceCannotBeModified   = 15,
+	CalendarIsImmutable              = 16,
+	SourceDoesNotAllowCalendarAddDelete = 17,
+	RecurringReminderRequiresDueDate = 18,
+	StructuredLocationsNotSupported  = 19,
+	ReminderLocationsNotSupported    = 20,
+	AlarmProximityNotSupported       = 21,
+	CalendarDoesNotAllowEvents       = 22,
+	CalendarDoesNotAllowReminders    = 23,
+	SourceDoesNotAllowReminders      = 24,
+	SourceDoesNotAllowEvents         = 25,
+	PriorityIsInvalid                = 26,
+	InvalidEntityType                = 27,
+	ProcedureAlarmsNotMutable        = 28,
+	EventStoreNotAuthorized          = 29,
+	OSNotSupported                   = 30,
+	InvalidInviteReplyCalendar       = 31,
+	NotificationsCollectionFlagNotSet = 32,
+	SourceMismatch                   = 33,
+	NotificationCollectionMismatch   = 34,
+	NotificationSavedWithoutCollection = 35,
+	ReminderAlarmContainsEmailOrUrl  = 36,
+	Last                             = 37,
 }
 
 EventAvailability :: enum cffi.long {

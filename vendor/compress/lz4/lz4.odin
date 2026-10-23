@@ -2,41 +2,41 @@
 package vendor_compress_lz4
 
 when ODIN_OS == .Windows {
-	@(extra_linker_flags = "/NODEFAULTLIB:libcmt")
-	foreign import lib {"lib/liblz4_static.lib", "system:ucrt.lib"}
+	@(extra_linker_flags="/NODEFAULTLIB:libcmt")
+	foreign import lib { "lib/liblz4_static.lib", "system:ucrt.lib" }
 } else {
 	foreign import lib "system:lz4"
 }
 
 import "core:c"
 
-VERSION_MAJOR :: 1 /* for breaking interface changes  */
-VERSION_MINOR :: 10 /* for new (non-breaking) interface capabilities */
-VERSION_RELEASE :: 0 /* for tweaks, bug-fixes, or development */
+VERSION_MAJOR   ::  1    /* for breaking interface changes  */
+VERSION_MINOR   :: 10    /* for new (non-breaking) interface capabilities */
+VERSION_RELEASE ::  0    /* for tweaks, bug-fixes, or development */
 
-VERSION_NUMBER :: VERSION_MAJOR * 100 * 100 + VERSION_MINOR * 100 + VERSION_RELEASE
+VERSION_NUMBER  :: VERSION_MAJOR *100*100 + VERSION_MINOR *100 + VERSION_RELEASE
 
-MEMORY_USAGE_MIN :: 10
+MEMORY_USAGE_MIN     :: 10
 MEMORY_USAGE_DEFAULT :: 14
-MEMORY_USAGE_MAX :: 20
+MEMORY_USAGE_MAX     :: 20
 
 MEMORY_USAGE :: MEMORY_USAGE_DEFAULT
 
-MAX_INPUT_SIZE :: 0x7E000000 /* 2_113_929_216 bytes */
+MAX_INPUT_SIZE :: 0x7E000000   /* 2_113_929_216 bytes */
 
 
 COMPRESSBOUND :: #force_inline proc "c" (isize: c.int) -> c.int {
-	return u32(isize) > MAX_INPUT_SIZE ? 0 : isize + (isize / 255) + 16
+	return u32(isize) > MAX_INPUT_SIZE ? 0 : isize + (isize/255) + 16
 }
 
 
 DECODER_RING_BUFFER_SIZE :: #force_inline proc "c" (maxBlockSize: c.int) -> c.int {
-	return 65536 + 14 + maxBlockSize /* for static allocation; maxBlockSize presumed valid */
+	return 65536 + 14 + maxBlockSize  /* for static allocation; maxBlockSize presumed valid */
 }
 
-@(default_calling_convention = "c", link_prefix = "LZ4_")
+@(default_calling_convention="c", link_prefix="LZ4_")
 foreign lib {
-	versionNumber :: proc() -> c.int --- /**< library version number; useful to check dll version; requires v1.3.0+ */
+	versionNumber :: proc() -> c.int ---   /**< library version number; useful to check dll version; requires v1.3.0+ */
 	versionString :: proc() -> cstring --- /**< library version string; useful to check dll version; requires v1.7.5+ */
 
 	/*! LZ4_compress_default() :
@@ -102,7 +102,7 @@ foreign lib {
 	 *  Then, provide this buffer as `void* state` to compression function.
 	 */
 	sizeofState :: proc() -> c.int ---
-	compress_fast_extState :: proc(state: rawptr, src, dst: [^]byte, srcSize, dstCapacity: c.int, acceleration: c.int) -> c.int ---
+	compress_fast_extState :: proc (state: rawptr, src, dst: [^]byte, srcSize, dstCapacity: c.int, acceleration: c.int) -> c.int ---
 
 
 	/*! LZ4_compress_destSize() :
@@ -166,11 +166,11 @@ foreign lib {
 	 *           then targetOutputSize **MUST** be <= block's decompressed size.
 	 *           Otherwise, *silent corruption will occur*.
 	 */
-	decompress_safe_partial :: proc(src, dst: [^]byte, srcSize, targetOutputSize, dstCapacity: c.int) -> c.int ---
+	decompress_safe_partial :: proc (src, dst: [^]byte, srcSize, targetOutputSize, dstCapacity: c.int) -> c.int ---
 
 
 	createStream :: proc() -> ^stream_t ---
-	freeStream :: proc(streamPtr: ^stream_t) -> c.int ---
+	freeStream   :: proc(streamPtr: ^stream_t) -> c.int ---
 
 	/*! LZ4_resetStream_fast() : v1.9.0+
 	 *  Use this to prepare an LZ4_stream_t for a new chain of dependent blocks
@@ -289,7 +289,7 @@ foreign lib {
 
 
 	createStreamDecode :: proc() -> ^streamDecode_t ---
-	freeStreamDecode :: proc(LZ4_stream: ^streamDecode_t) -> c.int ---
+	freeStreamDecode   :: proc(LZ4_stream: ^streamDecode_t) -> c.int ---
 
 	/*! LZ4_setStreamDecode() :
 	 *  An LZ4_streamDecode_t context can be allocated once and re-used multiple times.
@@ -375,7 +375,7 @@ foreign lib {
 }
 
 
-STREAM_MINSIZE :: (1 << MEMORY_USAGE) + 32 /* static size, for inter-version compatibility */
+STREAM_MINSIZE :: (1 << MEMORY_USAGE) + 32  /* static size, for inter-version compatibility */
 
 stream_t :: struct #raw_union {
 	minStateSize:      [STREAM_MINSIZE]byte,
@@ -383,9 +383,9 @@ stream_t :: struct #raw_union {
 }
 
 
-HASHLOG :: MEMORY_USAGE - 2
+HASHLOG       :: MEMORY_USAGE-2
 HASHTABLESIZE :: 1 << MEMORY_USAGE
-HASH_SIZE_U32 :: 1 << HASHLOG /* required as macro for static allocation */
+HASH_SIZE_U32 :: 1 << HASHLOG      /* required as macro for static allocation */
 
 stream_t_internal :: struct {
 	hashTable:     [HASH_SIZE_U32]u32,
@@ -412,16 +412,17 @@ streamDecode_t_internal :: struct {
 }
 
 
+
 ///////////////////
 // lz4hc
 
-CLEVEL_MIN :: 2
-CLEVEL_DEFAULT :: 9
+CLEVEL_MIN     ::  2
+CLEVEL_DEFAULT ::  9
 CLEVEL_OPT_MIN :: 10
-CLEVEL_MAX :: 12
+CLEVEL_MAX     :: 12
 
 
-@(default_calling_convention = "c", link_prefix = "LZ4_")
+@(default_calling_convention="c", link_prefix="LZ4_")
 foreign lib {
 	/*! LZ4_compress_HC() :
 	 *  Compress data from `src` into `dst`, using the powerful but slower "HC" algorithm.
@@ -464,8 +465,8 @@ foreign lib {
 	createStreamHC :: proc() -> ^streamHC_t ---
 	freeStreamHC :: proc(streamHCPtr: ^streamHC_t) -> c.int ---
 
-	resetStreamHC_fast :: proc(streamHCPtr: ^streamHC_t, compressionLevel: c.int) --- /* v1.9.0+ */
-	loadDictHC :: proc(streamHCPtr: ^streamHC_t, dictionary: [^]byte, dictSize: c.int) -> c.int ---
+	resetStreamHC_fast :: proc(streamHCPtr: ^streamHC_t, compressionLevel: c.int) ---   /* v1.9.0+ */
+	loadDictHC         :: proc(streamHCPtr: ^streamHC_t, dictionary: [^]byte, dictSize: c.int) -> c.int ---
 
 	compress_HC_continue :: proc(streamHCPtr: ^streamHC_t, src, dst: [^]byte, srcSize, maxDstSize: c.int) -> c.int ---
 
@@ -479,7 +480,7 @@ foreign lib {
 	 * `srcSizePtr` : on success, *srcSizePtr will be updated to indicate how much bytes were read from `src`.
 	 *           Note that this function may not consume the entire input.
 	 */
-	compress_HC_continue_destSize :: proc(LZ4_streamHCPtr: ^streamHC_t, src, dst: [^]byte, srcSizePtr: ^c.int, targetDstSize: c.int) -> c.int ---
+	compress_HC_continue_destSize:: proc(LZ4_streamHCPtr: ^streamHC_t, src, dst: [^]byte, srcSizePtr: ^c.int, targetDstSize: c.int) -> c.int ---
 
 	saveDictHC :: proc(streamHCPtr: ^streamHC_t, safeBuffer: [^]byte, maxDictSize: c.int) -> c.int ---
 
@@ -512,27 +513,27 @@ foreign lib {
 
 
 HC_DICTIONARY_LOGSIZE :: 16
-HC_MAXD :: 1 << HC_DICTIONARY_LOGSIZE
-HC_MAXD_MASK :: HC_MAXD - 1
+HC_MAXD               :: 1<<HC_DICTIONARY_LOGSIZE
+HC_MAXD_MASK          :: HC_MAXD - 1
 
-HC_HASH_LOG :: 15
-HC_HASHTABLESIZE :: 1 << HC_HASH_LOG
-HC_HASH_MASK :: HC_HASHTABLESIZE - 1
+HC_HASH_LOG           :: 15
+HC_HASHTABLESIZE      :: 1 << HC_HASH_LOG
+HC_HASH_MASK          :: HC_HASHTABLESIZE - 1
 
 
 streamHC_internal_t :: struct {
 	hashTable:        [HC_HASHTABLESIZE]u32,
 	chainTable:       [HC_MAXD]u16,
-	end:              [^]byte, /* next block here to continue on current prefix */
-	prefixStart:      [^]byte, /* Indexes relative to this position */
-	dictStart:        [^]byte, /* alternate reference for extDict */
-	dictLimit:        u32, /* below that point, need extDict */
-	lowLimit:         u32, /* below that point, no more history */
-	nextToUpdate:     u32, /* index from which to continue dictionary update */
+	end:              [^]byte,  /* next block here to continue on current prefix */
+	prefixStart:      [^]byte,  /* Indexes relative to this position */
+	dictStart:        [^]byte,  /* alternate reference for extDict */
+	dictLimit:        u32,      /* below that point, need extDict */
+	lowLimit:         u32,      /* below that point, no more history */
+	nextToUpdate:     u32,      /* index from which to continue dictionary update */
 	compressionLevel: c.short,
-	favorDecSpeed:    i8, /* favor decompression speed if this flag set,
+	favorDecSpeed:    i8,       /* favor decompression speed if this flag set,
 	                               otherwise, favor compression ratio */
-	dirty:            i8, /* stream has to be fully reset if this flag is set */
+	dirty:            i8,       /* stream has to be fully reset if this flag is set */
 	dictCtx:          ^streamHC_internal_t,
 }
 

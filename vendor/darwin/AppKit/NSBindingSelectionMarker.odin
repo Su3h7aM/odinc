@@ -4,29 +4,29 @@ package darwin_AppKit
 
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class = "NSBindingSelectionMarker", objc_superclass = NS.Object)
+@(objc_class="NSBindingSelectionMarker", objc_superclass=NS.Object)
 BindingSelectionMarker :: struct {
 	using _: NS.Object,
 	using _: NS.Copying,
 }
 
-@(default_calling_convention = "c")
+@(default_calling_convention="c")
 foreign lib {
-	@(objc_type = BindingSelectionMarker, objc_selector = "init", objc_name = "init")
+	@(objc_type=BindingSelectionMarker, objc_selector="init", objc_name="init")
 	BindingSelectionMarker_init :: proc(self: ^BindingSelectionMarker) -> instancetype ---
 
-	@(objc_type = BindingSelectionMarker, objc_selector = "setDefaultPlaceholder:forMarker:onClass:withBinding:", objc_name = "setDefaultPlaceholder", objc_is_class_method = true)
+	@(objc_type=BindingSelectionMarker, objc_selector="setDefaultPlaceholder:forMarker:onClass:withBinding:", objc_name="setDefaultPlaceholder", objc_is_class_method=true)
 	BindingSelectionMarker_setDefaultPlaceholder :: proc(placeholder: id, marker: ^BindingSelectionMarker, objectClass: Class, binding: ^NS.String) ---
 
-	@(objc_type = BindingSelectionMarker, objc_selector = "defaultPlaceholderForMarker:onClass:withBinding:", objc_name = "defaultPlaceholderForMarker", objc_is_class_method = true)
+	@(objc_type=BindingSelectionMarker, objc_selector="defaultPlaceholderForMarker:onClass:withBinding:", objc_name="defaultPlaceholderForMarker", objc_is_class_method=true)
 	BindingSelectionMarker_defaultPlaceholderForMarker :: proc(marker: ^BindingSelectionMarker, objectClass: Class, binding: ^NS.String) -> id ---
 
-	@(objc_type = BindingSelectionMarker, objc_selector = "multipleValuesSelectionMarker", objc_name = "multipleValuesSelectionMarker", objc_is_class_method = true)
+	@(objc_type=BindingSelectionMarker, objc_selector="multipleValuesSelectionMarker", objc_name="multipleValuesSelectionMarker", objc_is_class_method=true)
 	BindingSelectionMarker_multipleValuesSelectionMarker :: proc() -> ^BindingSelectionMarker ---
 
-	@(objc_type = BindingSelectionMarker, objc_selector = "noSelectionMarker", objc_name = "noSelectionMarker", objc_is_class_method = true)
+	@(objc_type=BindingSelectionMarker, objc_selector="noSelectionMarker", objc_name="noSelectionMarker", objc_is_class_method=true)
 	BindingSelectionMarker_noSelectionMarker :: proc() -> ^BindingSelectionMarker ---
 
-	@(objc_type = BindingSelectionMarker, objc_selector = "notApplicableSelectionMarker", objc_name = "notApplicableSelectionMarker", objc_is_class_method = true)
+	@(objc_type=BindingSelectionMarker, objc_selector="notApplicableSelectionMarker", objc_name="notApplicableSelectionMarker", objc_is_class_method=true)
 	BindingSelectionMarker_notApplicableSelectionMarker :: proc() -> ^BindingSelectionMarker ---
 }
