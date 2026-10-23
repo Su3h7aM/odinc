@@ -268,7 +268,7 @@ expression_declaration :: proc(resolver: ^Resolver, id: Entity_Id, user_data: ra
 			}
 			demoted := entity_get(resolver.scopes, id)
 			demoted.kind = .Variable
-			demoted.flags += {.Immutable}
+			demoted.flags += {.Immutable, .Demoted_Constant}
 			demoted.data = Variable_Data {
 				storage     = .Global,
 				initializer = declaration.value,

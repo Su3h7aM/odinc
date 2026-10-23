@@ -410,6 +410,7 @@ expression_procedure_declaration :: proc(
 	if syntax.node_payload(checker.type_checker.files[declaration.type.file].ast, declaration.type.node, syntax.Proc_Type).generic {
 		procedure := &entity_get(resolver.scopes, id).data.(Procedure_Data)
 		procedure.generic = true
+		check_atomic_attributes(checker, id, declaration.identifier.node, declaration.type.node, 0) or_return
 		return expression_generic_default_validation(checker, id, declaration, scope)
 	}
 	signature := type_expression(checker.type_checker, declaration.type.file, scope, declaration.type.node, true) or_return
@@ -424,6 +425,8 @@ expression_procedure_declaration :: proc(
 	procedure.convention = descriptor.convention
 	procedure.variadic_index = procedure_variadic_index(checker.type_checker.files[declaration.type.file], declaration.type.node)
 	entity.type = signature
+	check_atomic_attributes(checker, id, declaration.identifier.node, declaration.type.node, signature) or_return
+	entity = entity_get(resolver.scopes, id)
 	_, is_init := declaration_attribute(checker, entity^, "init") or_return
 	_, is_fini := declaration_attribute(checker, entity^, "fini") or_return
 	if is_init || is_fini {

@@ -637,6 +637,7 @@ expression_new_instance :: proc(
 			state = .Resolving,
 			data = Procedure_Data {
 				definition = definition,
+				atomic = definition_procedure.atomic,
 				poly_arguments = poly_types,
 				poly_constants = poly_constants,
 				body = definition_procedure.body,

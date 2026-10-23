@@ -480,6 +480,9 @@ Entity_Flag :: enum u8 {
 	Test,
 	Used,
 	In_When,
+	Rodata,
+	// A file-scope `::` binding of a composite literal, kept as an immutable global; the official checker classifies it Addressing_Constant.
+	Demoted_Constant,
 }
 Entity_Flags :: bit_set[Entity_Flag;u64]
 
@@ -635,6 +638,7 @@ Procedure_Data :: struct {
 	assigns_context:     bool,
 	poly_arguments:      []types.Type_Id,
 	poly_constants:      []Const_Id,
+	atomic:              Atomic_Attributes,
 }
 Entity_Data :: union {
 	Variable_Data,

@@ -101,13 +101,13 @@ intrinsic_argument_count :: proc(shape: Intrinsic_Shape) -> int {
 	return 0
 }
 
-// The `intrinsics.Atomic_Memory_Order` type, or 0 when the intrinsics package does not declare it.
-@(private = "file")
-atomic_order_type :: proc(checker: ^Expression_Checker) -> (order: types.Type_Id, err: Resolve_Error) {
+// A type declared by the intrinsics package, or 0 when it does not declare it.
+@(private = "package")
+intrinsics_type :: proc(checker: ^Expression_Checker, name: string) -> (type: types.Type_Id, err: Resolve_Error) {
 	resolver := checker.type_checker.resolver
 	for intrinsics_package in checker.packages {
 		if intrinsics_package.kind != .Intrinsics { continue }
-		entity := scope_lookup_current(resolver.scopes, intrinsics_package.scope, "Atomic_Memory_Order")
+		entity := scope_lookup_current(resolver.scopes, intrinsics_package.scope, name)
 		if entity == 0 { return 0, nil }
 		state, resolve_error := resolve_entity(resolver, entity)
 		if resolve_error != nil { return 0, resolve_error }
@@ -134,6 +134,9 @@ expression_intrinsic_call :: proc(
 	err: Resolve_Error,
 ) {
 	shape := intrinsic_shape(kind)
+	is_atomic, atomic_writes := atomic_operation(kind)
+	builtin_name := ""
+	if is_atomic { builtin_name = intrinsic_call_name(checker, view, node) }
 	value_count := intrinsic_argument_count(shape)
 	order_count := intrinsic_order_count(kind)
 	if ellipsis || len(arguments) != value_count + order_count {
@@ -142,7 +145,7 @@ expression_intrinsic_call :: proc(
 	store := checker.type_checker.store
 	order_type := types.Type_Id(0)
 	if order_count > 0 {
-		order_type = atomic_order_type(checker) or_return
+		order_type = intrinsics_type(checker, "Atomic_Memory_Order") or_return
 		if order_type == 0 { return expression_unsupported(checker, view, scope, node, "Atomic_Order_Type") }
 	}
 	allocator := mem.dynamic_arena_allocator(&checker.arena)
@@ -236,6 +239,9 @@ expression_intrinsic_call :: proc(
 			if index == 0 {
 				valid = descriptor.kind == .Pointer
 				if valid { element = descriptor.elem }
+				if is_atomic && valid && !(atomic_pointer_argument(checker, view, scope, argument, builtin_name, element, atomic_writes) or_return) {
+					return expression_poison(scope), nil
+				}
 			} else {
 				valid = value.type == element
 			}
@@ -279,4 +285,12 @@ expression_intrinsic_call :: proc(
 		info.mode = .Optional_Ok
 	}
 	return info, nil
+}
+
+@(private = "file")
+intrinsic_call_name :: proc(checker: ^Expression_Checker, view: View_Id, node: syntax.Node_Index) -> string {
+	file := checker.type_checker.files[checker.views[view].file]
+	callee := syntax.node_payload(file.ast, node, syntax.Call_Expr).expr
+	if file.ast.nodes[callee].kind == .Selector_Expr { callee = syntax.node_payload(file.ast, callee, syntax.Selector_Expr).field }
+	return expression_text(file, callee)
 }

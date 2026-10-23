@@ -4,8 +4,143 @@ import "core:os"
 import "core:path/filepath"
 import "core:strings"
 import "core:testing"
+import "oc:analysis"
 import "oc:check"
 import "oc:syntax"
+
+@(test)
+disabled_escape_analysis_checks_return_storage_without_lowering :: proc(t: ^testing.T) {
+	root, _ := filepath.join({#directory, "..", ".."}, context.temp_allocator)
+	directory, directory_error := os.make_directory_temp("", "driver-unsafe-return-*", context.temp_allocator)
+	if !testing.expect_value(t, directory_error, nil) { return }
+	defer os.remove_all(directory)
+	main_path, _ := filepath.join({directory, "main.odin"}, context.temp_allocator)
+	data_path, _ := filepath.join({directory, "data.txt"}, context.temp_allocator)
+	if !testing.expect_value(t, os.write_entire_file(data_path, []byte{'x'}), nil) { return }
+	source := `package main
+Holder :: struct { p: ^int }
+E :: enum { A, B }
+literal :: proc() -> []int { return []int{1} }
+local :: proc() -> ^int { x := 1; return &x }
+compound :: proc() -> ^Holder { return &Holder{} }
+indexed :: proc() -> ^int { x: [2]int; return &x[0] }
+enumerated :: proc() -> ^int { x: [E]int; return &x[.A] }
+matrix_value :: proc() -> ^f32 { x: matrix[2, 3]f32; return &x[ 0,1 ] }
+slice_local :: proc() -> []int { x: [2]int; return x[:] }
+slice_compound :: proc() -> []int { x := 1; return []int{x}[:] }
+DATA :: []int{1}
+constant_slice :: proc() -> []int { return DATA }
+nested :: proc() -> Holder { x := 1; return Holder{p = &x} }
+identity :: proc() -> []int { x: [2]int; return ([]int)(x[:]) }
+empty :: proc() -> []int { return []int{} }
+nil_value :: proc() -> []int { return nil }
+nil_cast :: proc() -> []int { return ([]int)(nil) }
+loaded :: proc() -> []u8 { return #load("data.txt") }
+safe_cast :: proc() -> rawptr { x := 1; return rawptr(&x) }
+safe_transmute :: proc() -> ^int { x := 1; return transmute(^int)&x }
+global: int
+global_address :: proc() -> ^int { return &global }
+static_address :: proc() -> ^int { @(static) x := 1; return &x }
+range_address :: proc() -> ^int { xs: [1]int; for &x in xs { return &x }; return nil }
+switch_address :: proc(x: union {int, bool}) -> ^int {
+ y := x
+ switch &v in y { case int: return &v; case bool: return nil }
+ return nil
+}
+when false { inactive :: proc() -> ^int { x := 1; return &x } }
+main :: proc() {}
+`
+	if !testing.expect_value(t, os.write_entire_file(main_path, transmute([]byte)source), nil) { return }
+	for disabled in ([2]bool{false, true}) {
+		session, error := check_program(root, main_path, context.allocator, false, parse_options = {no_analysis = {.Escape} if disabled else {}})
+		defer session_destroy(session)
+		if !testing.expect_value(t, error, Driver_Error.Check_Failed if disabled else .None) { continue }
+		testing.expect(t, len(session.analysis_result.procedures) > 1 && len(session.analysis_result.events) > 1)
+		if !disabled {
+			testing.expect_value(t, len(session.analysis_result.diagnostics), 0)
+			continue
+		}
+		testing.expect_value(t, len(session.analysis_result.diagnostics), 11)
+		log := strings.builder_make()
+		write_diagnostics(session, strings.to_writer(&log))
+		text := strings.to_string(log)
+		for expected in ([]string{"a compound literal of a slice ('[]int{1}')", "the address of a local variable ('&x')", "the address of a compound literal ('&Holder{}')", "the address of an indexed variable ('&x[0]') of type ('[2]int')", "the address of an indexed variable ('&x[.A]') of type ('[E]int')", "the address of an indexed variable ('&x[0, 1]') of type ('matrix[2, 3]f32')", "a slice of a local variable ('x[:]')", "a slice of a compound literal ('[]int{x}[:]')", "a compound literal of a slice ('DATA')", "Note: A constant slice value will use the memory of the current stack frame", "the address of a local variable ('Holder{p = &x}')", "a slice of a local variable ('([]int)(x[:])')"}) { testing.expect(t, strings.contains(text, expected), text) }
+		strings.builder_destroy(&log)
+	}
+}
+
+@(test)
+analysis_policy_and_diagnostics_use_the_common_check_path :: proc(t: ^testing.T) {
+	root, _ := filepath.join({#directory, "..", ".."}, context.temp_allocator)
+	directory, directory_error := os.make_directory_temp("", "driver-analysis-*", context.temp_allocator)
+	if !testing.expect_value(t, directory_error, nil) { return }
+	defer os.remove_all(directory)
+	main_path, _ := filepath.join({directory, "main.odin"}, context.temp_allocator)
+	for row in ([]struct {
+			tags:  string,
+			flags: syntax.Analysis_Flags,
+		}{{"", {}}, {"#+analysis escape\n", {.Escape}}, {"#+analysis\n#+analysis !escape\n", {.Atomic}}, {"#+analysis atomic\n#+analysis !atomic escape\n", {.Escape}}, {"#+analysis\n", syntax.ANALYSIS_ALL}}) {
+		source := strings.concatenate({row.tags, "package main\nmain :: proc() {}\n"}, context.temp_allocator) or_else ""
+		if !testing.expect_value(t, os.write_entire_file(main_path, transmute([]byte)source), nil) { return }
+		session, error := check_program(root, main_path, context.allocator, false, parse_options = {no_analysis = syntax.ANALYSIS_ALL})
+		defer session_destroy(session)
+		if !testing.expect_value(t, error, .None) { continue }
+		testing.expect_value(t, session.analysis_result.enabled, row.flags)
+		testing.expect_value(t, len(session.analysis_result.diagnostics), 0)
+		main_file: check.File_Id
+		for file, index in session.program.files {
+			if file.path == main_path {
+				main_file = check.File_Id(index)
+				testing.expect_value(t, file.ast.analysis, row.flags)
+			}
+		}
+		if !testing.expect(t, main_file != 0) { continue }
+		diagnostics := [?]analysis.Diagnostic {
+			{severity = .Warning, source = {file = main_file}, reason = "analysis warning"},
+			{severity = .Error, source = {file = main_file}, reason = "analysis error"},
+		}
+		session.analysis_result.diagnostics = diagnostics[:]
+		session.check_options.ignore_warnings = true
+		log := strings.builder_make()
+		write_diagnostics(session, strings.to_writer(&log))
+		testing.expect(t, session_has_errors(session))
+		testing.expect(t, !strings.contains(strings.to_string(log), "analysis warning"))
+		testing.expect(t, strings.contains(strings.to_string(log), "Error: analysis error"))
+		strings.builder_destroy(&log)
+		session.analysis_result.diagnostics = nil
+	}
+	for row in ([]struct {
+			tag, text: string,
+		}{{"#+analysisx", "Expected a space after #+analysis"}, {"#+analysis\tescape", "Expected a space after #+analysis"}, {"#+analysis !", "Expected an analysis name after '!'"}, {"#+analysis unknown", "Invalid analysis name: unknown\n\tExpected one of the following\n\tescape\n\tatomic"}, {"#+vet nil-deref", "Invalid vet flag name: nil-deref"}, {"#+vet uninitialized", "Invalid vet flag name: uninitialized"}, {"#+vet atomic-access", "Invalid vet flag name: atomic-access"}}) {
+		source := strings.concatenate({row.tag, "\npackage main\n"}, context.temp_allocator) or_else ""
+		ast: syntax.Ast
+		syntax.ast_init(&ast)
+		defer syntax.ast_destroy(&ast)
+		parser: syntax.Parser
+		syntax.parser_init(&parser, &ast, transmute([]byte)source)
+		defer syntax.parser_destroy(&parser)
+		syntax.parse_file(&parser)
+		if testing.expect_value(t, len(parser.errors), 1) {
+			testing.expect(t, strings.has_prefix(syntax.parse_error_text(parser.errors[0]), row.text), syntax.parse_error_text(parser.errors[0]))
+		}
+	}
+	for name in ([]string{"check", "build", "run", "test"}) {
+		command, error := parse_command_arguments(name, []string{".", "--no-escape-analysis", "--no-atomic-analysis"})
+		defer delete(command.collections)
+		defer delete(command.options.defines)
+		testing.expect_value(t, error, "")
+		testing.expect_value(t, command.options.parse_options.no_analysis, syntax.ANALYSIS_ALL)
+	}
+	for row in ([]struct {
+			arguments: []string,
+			message:   string,
+		}{{{".", "--vet-nil-deref"}, "Unable to find any flag named `vet-nil-deref`."}, {{".", "--vet-uninitialized"}, "Unable to find any flag named `vet-uninitialized`."}, {{".", "--vet-atomic-access"}, "Unable to find any flag named `vet-atomic-access`."}, {{".", "--no-escape-analysis", "--vet-nil-deref"}, "Unable to find any flag named `vet-nil-deref`."}, {{".", "--no-escape-analysis", "--vet-uninitialized"}, "Unable to find any flag named `vet-uninitialized`."}, {{".", "--no-atomic-analysis", "--vet-atomic-access"}, "Unable to find any flag named `vet-atomic-access`."}}) {
+		command, error := parse_command_arguments("check", row.arguments)
+		defer delete(command.collections)
+		defer delete(command.options.defines)
+		testing.expect_value(t, error, row.message)
+	}
+}
 
 @(test)
 check_command_warning_controls_and_anonymous_type_diagnostics :: proc(t: ^testing.T) {

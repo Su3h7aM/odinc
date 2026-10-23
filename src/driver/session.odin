@@ -5,6 +5,7 @@ import "core:os"
 import "core:path/filepath"
 import "core:slice"
 import "core:strings"
+import "oc:analysis"
 import "oc:check"
 import "oc:syntax"
 import "oc:types"
@@ -89,6 +90,7 @@ Session :: struct {
 	cyclic_import:       Maybe(check.Source_Span),
 	program_files:       [dynamic]check.File,
 	program:             check.Checked_Program,
+	analysis_result:     analysis.Result,
 	main_scope:          check.Scope_Id,
 	no_entry_point:      bool,
 	parse_options:       syntax.Parse_Options,
@@ -212,6 +214,7 @@ any_external_library_used :: proc(session: ^Session, libraries: []check.Entity_I
 session_destroy :: proc(session: ^Session) {
 	if session == nil { return }
 	allocator := session.allocator
+	analysis.destroy(&session.analysis_result)
 	if session.stage >= .Expression_Checker { check.expression_checker_destroy(&session.checker) }
 	if session.stage >= .Type_Checker { check.type_checker_destroy(&session.type_checker) }
 	if session.stage >= .Resolver { check.resolver_destroy(&session.resolver) }
@@ -351,6 +354,10 @@ check_session :: proc(
 	}
 	session.program.files = session.program_files[:]
 	if check.expression_checker_publish_procedures(&session.checker, &session.program) != nil { return .Allocation_Failed }
+	result, analysis_error := analysis.run(&session.program, {no_entry_point = session.no_entry_point, test = session.test_options != nil}, session.allocator)
+	session.analysis_result = result
+	if analysis_error != nil { return .Allocation_Failed }
+	if session_has_errors(session) { return .Check_Failed }
 	return .None
 }
 

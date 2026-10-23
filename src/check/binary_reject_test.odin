@@ -522,3 +522,13 @@ main :: proc "contextless" () {
 	_, ok := check_procedure_source(t, source, .Invalid_Operand, intrinsic_names = {"outer_product"})
 	testing.expect(t, ok)
 }
+
+@(test)
+futex_parameter_without_futex_is_rejected :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(`package sample
+@(futex_parameter = "word")
+main :: proc(word: ^u32) {}
+`)
+	_, ok := check_procedure_source(t, source, .Atomic, "@(futex_parameter) can only be used with @(futex)", 1)
+	testing.expect(t, ok)
+}

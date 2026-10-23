@@ -37,6 +37,8 @@ Command_Flags :: struct {
 	lifetime_markers:          bool,
 	show_timings:              bool,
 	disallow_do:               bool,
+	no_escape_analysis:        bool,
+	no_atomic_analysis:        bool,
 	vet_tabs:                  bool,
 	vet_style:                 bool,
 	vet_semicolon:             bool,
@@ -66,6 +68,8 @@ Check_Command_Flags :: struct {
 	lifetime_markers:          bool,
 	show_timings:              bool,
 	disallow_do:               bool,
+	no_escape_analysis:        bool,
+	no_atomic_analysis:        bool,
 	vet_tabs:                  bool,
 	vet_style:                 bool,
 	vet_semicolon:             bool,
@@ -131,6 +135,8 @@ parse_command_arguments :: proc(name: string, args: []string, allocator := conte
 		model.define = check_flags.define
 		command.no_entry_point = check_flags.no_entry_point
 		model.disallow_do = check_flags.disallow_do
+		model.no_escape_analysis = check_flags.no_escape_analysis
+		model.no_atomic_analysis = check_flags.no_atomic_analysis
 		model.vet_tabs = check_flags.vet_tabs
 		model.vet_style = check_flags.vet_style
 		model.vet_semicolon = check_flags.vet_semicolon
@@ -180,6 +186,8 @@ parse_command_arguments :: proc(name: string, args: []string, allocator := conte
 		vet_packages = vet_packages,
 		strict_style = model.strict_style,
 	}
+	if model.no_escape_analysis { command.options.parse_options.no_analysis += {.Escape} }
+	if model.no_atomic_analysis { command.options.parse_options.no_analysis += {.Atomic} }
 	if command.path == "" { return command, fmt.tprintf("usage: odinc %s <file-or-directory> [options] [-- arguments]", name) }
 	if model.sanitize != "" { return command, "odinc test: sanitizers are not supported" }
 	if model.thread_count < 1 { return command, "--thread-count expects a positive integer" }

@@ -16,6 +16,14 @@ e :: Point{x=1,y=2}
 f :: cast(f32)i
 g :: .Red
 h :: p^
+i :: m[1,2]
+j :: struct #packed {a,b:int,c:f32}
+k :: enum u8 {A,B=2}
+l :: proc(x:int,y:^T)->(r:int)
+m :: x if c else y
+n :: union #no_nil {int,f32}
+o :: bit_field u8 {a:u8|4}
+p :: proc() -> !
 `,
 	)
 	ast: syntax.Ast
@@ -31,12 +39,38 @@ h :: p^
 		source = source,
 		ast    = &ast,
 	}
-	expected := [?]string{"1 + 2", `f(x.y, -z, "s")`, "xs[1:n]", "(a + b) * c", "Point{x = 1, y = 2}", "cast(f32)i", ".Red", "p^"}
+	expected := [?]string {
+		"1 + 2",
+		`f(x.y, -z, "s")`,
+		"xs[1:n]",
+		"(a + b) * c",
+		"Point{x = 1, y = 2}",
+		"cast(f32)i",
+		".Red",
+		"p^",
+		"m[1, 2]",
+		"struct #packed {a, b: int, c: f32}",
+		"enum u8 {A, B = 2}",
+		"proc(x: int, y: ^T) -> (r: int)",
+		"x if c else y",
+		"union #no_nil {int, f32}",
+		"bit_field u8 {a: u8 | 4}",
+		"proc()",
+	}
 	declarations := syntax.node_list(&ast, syntax.node_payload(&ast, ast.root, syntax.File).decls)
 	if !testing.expect_value(t, len(declarations), len(expected)) { return }
 	for declaration, index in declarations {
 		values := syntax.node_list(&ast, syntax.node_payload(&ast, declaration, syntax.Value_Decl).values)
 		text := expression_to_string(&file, values[0])
 		testing.expectf(t, text == expected[index], "expected %q, got %q", expected[index], text)
+	}
+	abbreviated := [?]struct {
+		index: int,
+		text:  string,
+	}{{4, "Point{...}"}, {9, "struct #packed {...}"}, {10, "enum u8 {...}"}, {13, "union #no_nil {...}"}, {14, "bit_field  {...}"}}
+	for entry in abbreviated {
+		values := syntax.node_list(&ast, syntax.node_payload(&ast, declarations[entry.index], syntax.Value_Decl).values)
+		text := render_expression(&ast, source, values[0], shorthand = true)
+		testing.expectf(t, text == entry.text, "expected %q, got %q", entry.text, text)
 	}
 }

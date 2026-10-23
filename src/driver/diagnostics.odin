@@ -48,7 +48,6 @@ write_diagnostics :: proc(session: ^Session, writer: io.Writer) {
 		write_diagnostic(session, writer, diagnostic.kind, "", diagnostic.source)
 	}
 	for diagnostic in session.checker.diagnostics {
-		if diagnostic.severity == .Warning && session.check_options.ignore_warnings { continue }
 		reason := diagnostic.reason
 		if diagnostic.kind == .Conversion && diagnostic.conversion != .None {
 			if reason == "" {
@@ -58,16 +57,32 @@ write_diagnostics :: proc(session: ^Session, writer: io.Writer) {
 			}
 		}
 		if diagnostic.severity == .Warning || diagnostic.kind in check.Message_Diagnostics {
-			file := session.files[diagnostic.source.file]
-			line, column := syntax.line_col(file.lines, diagnostic.source.start)
-			severity := "Warning" if diagnostic.severity == .Warning && !session.check_options.warnings_as_errors else "Error"
 			// The official parser reports the deprecated imports, so its messages carry the syntax prefix.
 			prefix := "Syntax " if diagnostic.kind == .Deprecated else ""
-			fmt.wprintfln(writer, "%s(%d:%d) %s%s: %s", file.display_path, line, column, prefix, severity, reason)
+			write_message_diagnostic(session, writer, diagnostic.source, diagnostic.severity, reason, prefix)
 			continue
 		}
 		write_diagnostic(session, writer, diagnostic.kind, reason, diagnostic.source)
 	}
+	for diagnostic in session.analysis_result.diagnostics {
+		write_message_diagnostic(session, writer, diagnostic.source, diagnostic.severity, diagnostic.reason)
+	}
+}
+
+@(private = "file")
+write_message_diagnostic :: proc(
+	session: ^Session,
+	writer: io.Writer,
+	source: check.Source_Span,
+	severity: check.Diagnostic_Severity,
+	reason: string,
+	prefix: string = "",
+) {
+	if severity == .Warning && session.check_options.ignore_warnings { return }
+	file := session.files[source.file]
+	line, column := syntax.line_col(file.lines, source.start)
+	label := "Warning" if severity == .Warning && !session.check_options.warnings_as_errors else "Error"
+	fmt.wprintfln(writer, "%s(%d:%d) %s%s: %s", file.display_path, line, column, prefix, label, reason)
 }
 
 // Writes one line per lowering error as `path:line:column: lower code feature`.
@@ -115,6 +130,9 @@ write_diagnostic :: proc(session: ^Session, writer: io.Writer, kind: any, reason
 session_has_errors :: proc(session: ^Session) -> bool {
 	if len(session.collection.diagnostics) + len(session.type_checker.diagnostics) + len(session.resolver.diagnostics) != 0 { return true }
 	for diagnostic in session.checker.diagnostics {
+		if diagnostic.severity == .Error || session.check_options.warnings_as_errors { return true }
+	}
+	for diagnostic in session.analysis_result.diagnostics {
 		if diagnostic.severity == .Error || session.check_options.warnings_as_errors { return true }
 	}
 	return false

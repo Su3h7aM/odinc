@@ -15,7 +15,7 @@ Check_Options :: struct {
 	complete_package:   Package_Id,
 }
 
-Message_Diagnostics :: bit_set[Expression_Diagnostic_Kind]{.Shadowing, .Unused, .Large_Local, .Unneeded_Cast, .Deprecated, .Explicit_Allocator}
+Message_Diagnostics :: bit_set[Expression_Diagnostic_Kind]{.Shadowing, .Unused, .Large_Local, .Unneeded_Cast, .Deprecated, .Explicit_Allocator, .Atomic}
 
 Diagnostic_Severity :: enum u8 {
 	Error,
@@ -27,6 +27,7 @@ Expression_Diagnostic_Kind :: enum u8 {
 	Shadowing,
 	Unused,
 	Explicit_Allocator,
+	Atomic,
 	Unneeded_Cast,
 	Deprecated,
 	Large_Local,
@@ -262,6 +263,7 @@ check_expression :: proc(
 	scope: Scope_Id,
 	node: syntax.Node_Index,
 	hint: types.Type_Id = 0,
+	convert_to_hint := true,
 ) -> (
 	info: Expression_Info,
 	err: Resolve_Error,
@@ -530,6 +532,10 @@ check_expression :: proc(
 	}
 	if hint != 0 && info.state != .Invalid && info.mode == .Type && types.get(checker.type_checker.store, hint).kind == .Type_Id {
 		info = expression_typeid_value(checker, scope, info.type) or_return
+	}
+	if !convert_to_hint {
+		expression_store(checker, view, node, info)
+		return info, nil
 	}
 	if hint != 0 && info.state != .Invalid && info.type != hint && info.mode != .Constant && expression_converts_implicitly(checker, hint, info.type) {
 		if info.mode == .Type && types.get(checker.type_checker.store, hint).kind != .Type_Id {

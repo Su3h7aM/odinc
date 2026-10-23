@@ -622,6 +622,8 @@ collect_attributes :: proc(
 				flags += {.Export}
 			case "require":
 				flags += {.Required}
+			case "rodata":
+				flags += {.Rodata}
 			case "deferred",
 			     "deferred_none",
 			     "deferred_in",

@@ -1,7 +1,6 @@
 package types
 
 import "base:runtime"
-import "core:reflect"
 import "core:strings"
 
 // Type_Id is a stable index into Store.types. Zero denotes no type; TYPE_POISON
@@ -832,7 +831,7 @@ write_type_text :: proc(builder: ^strings.Builder, store: ^Store, id: Type_Id) {
 		strings.write_string(builder, descriptor.name)
 		return
 	}
-	#partial switch descriptor.kind {
+	switch descriptor.kind {
 	case .Bool:
 		if descriptor.count == 0 { strings.write_string(builder, "bool") } else {
 			strings.write_byte(builder, 'b')
@@ -867,6 +866,33 @@ write_type_text :: proc(builder: ^strings.Builder, store: ^Store, id: Type_Id) {
 		strings.write_string(builder, "any")
 	case .Type_Id:
 		strings.write_string(builder, "typeid")
+	case .Rune:
+		strings.write_string(builder, "rune")
+	case .Invalid:
+		strings.write_string(builder, "<no type>")
+	case .Poison:
+		strings.write_string(builder, "invalid type")
+	case .Named:
+		strings.write_string(builder, "<named type>")
+	case .Untyped_Bool:
+		strings.write_string(builder, "untyped bool")
+	case .Untyped_Integer:
+		strings.write_string(builder, "untyped integer")
+	case .Untyped_Rune:
+		strings.write_string(builder, "untyped rune")
+	case .Untyped_Float:
+		strings.write_string(builder, "untyped float")
+	case .Untyped_Complex:
+		strings.write_string(builder, "untyped complex")
+	case .Untyped_Quaternion:
+		strings.write_string(builder, "untyped quaternion")
+	case .Untyped_String:
+		strings.write_string(builder, "untyped string")
+	case .Untyped_Nil:
+		strings.write_string(builder, "untyped nil")
+	case .Soa_Pointer:
+		strings.write_string(builder, "#soa ^")
+		write_type_text(builder, store, descriptor.elem)
 	case .Pointer:
 		strings.write_byte(builder, '^')
 		write_type_text(builder, store, descriptor.elem)
@@ -882,6 +908,30 @@ write_type_text :: proc(builder: ^strings.Builder, store: ^Store, id: Type_Id) {
 	case .Array:
 		strings.write_byte(builder, '[')
 		strings.write_i64(builder, descriptor.count)
+		strings.write_byte(builder, ']')
+		write_type_text(builder, store, descriptor.elem)
+	case .Enumerated_Array:
+		if descriptor.sparse { strings.write_string(builder, "#sparse") }
+		strings.write_byte(builder, '[')
+		write_type_text(builder, store, descriptor.index)
+		strings.write_byte(builder, ']')
+		write_type_text(builder, store, descriptor.elem)
+	case .Fixed_Capacity_Array:
+		strings.write_string(builder, "[dynamic; ")
+		strings.write_i64(builder, descriptor.count)
+		strings.write_byte(builder, ']')
+		write_type_text(builder, store, descriptor.elem)
+	case .Simd_Vector:
+		strings.write_string(builder, "#simd[")
+		strings.write_i64(builder, descriptor.count)
+		strings.write_byte(builder, ']')
+		write_type_text(builder, store, descriptor.elem)
+	case .Matrix:
+		if descriptor.row_major { strings.write_string(builder, "#row_major ") }
+		strings.write_string(builder, "matrix[")
+		strings.write_i64(builder, descriptor.count)
+		strings.write_string(builder, ", ")
+		strings.write_i64(builder, descriptor.upper_bound)
 		strings.write_byte(builder, ']')
 		write_type_text(builder, store, descriptor.elem)
 	case .Struct:
@@ -941,7 +991,7 @@ write_type_text :: proc(builder: ^strings.Builder, store: ^Store, id: Type_Id) {
 		strings.write_string(builder, "bit_set[")
 		if descriptor.elem == TYPE_NONE {
 			strings.write_string(builder, "<unresolved>")
-		} else if get(store, core_type(store, descriptor.elem)).kind == .Enum {
+		} else if get(store, resolve_named(store, descriptor.elem)).kind == .Enum {
 			write_type_text(builder, store, descriptor.elem)
 		} else {
 			strings.write_i64(builder, descriptor.lower_bound)
@@ -985,8 +1035,24 @@ write_type_text :: proc(builder: ^strings.Builder, store: ^Store, id: Type_Id) {
 		write_type_text(builder, store, descriptor.index)
 		strings.write_byte(builder, ']')
 		write_type_text(builder, store, descriptor.elem)
-	case:
-		strings.write_string(builder, reflect.enum_string(descriptor.kind))
+	case .Tuple:
+		for field, index in descriptor.fields {
+			if index != 0 { strings.write_string(builder, ", ") }
+			write_type_text(builder, store, field.type)
+		}
+	case .Bit_Field:
+		strings.write_string(builder, "bit_field ")
+		write_type_text(builder, store, descriptor.backing)
+		strings.write_string(builder, " {")
+		for field, index in descriptor.fields {
+			if index != 0 { strings.write_string(builder, ", ") }
+			strings.write_string(builder, field.name)
+			strings.write_string(builder, ": ")
+			write_type_text(builder, store, field.type)
+			strings.write_string(builder, " | ")
+			strings.write_i64(builder, i64(descriptor.bit_sizes[index]))
+		}
+		strings.write_string(builder, " }")
 	}
 }
 

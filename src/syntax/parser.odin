@@ -57,6 +57,9 @@ Parse_Error_Kind :: enum u8 {
 	Expected_Space_After_Vet,
 	Expected_Vet_Flag_Name,
 	Invalid_Vet_Flag,
+	Expected_Space_After_Analysis,
+	Expected_Analysis_Name,
+	Invalid_Analysis_Name,
 	// Conflicting_Feature_Flags is more than one integer-division-by-zero flag
 	// on one #+feature line.
 	Conflicting_Feature_Flags,
@@ -87,6 +90,7 @@ Parse_Options :: struct {
 	vet:          Vet_Flags,
 	vet_packages: []string,
 	strict_style: bool,
+	no_analysis:  Analysis_Flags,
 }
 
 Parser :: struct {
@@ -145,6 +149,12 @@ parse_error_text :: proc(err: Parse_Error) -> string {
 		return "Expected a vet flag name after '!'"
 	case .Invalid_Vet_Flag:
 		return fmt.tprintf("Invalid vet flag name: %s\n\tExpected one of the following\n%s", err.detail, VET_FLAG_NAMES)
+	case .Expected_Space_After_Analysis:
+		return "Expected a space after #+analysis"
+	case .Expected_Analysis_Name:
+		return "Expected an analysis name after '!'"
+	case .Invalid_Analysis_Name:
+		return fmt.tprintf("Invalid analysis name: %s\n\tExpected one of the following\n\tescape\n\tatomic", err.detail)
 	case .Trailing_Comma_Before_Closer:
 		return fmt.tprintf("No need for a trailing comma followed by a %s on the same line", closer_text(err.expected))
 	}
@@ -434,6 +444,7 @@ parse_file :: proc(p: ^Parser) -> Node_Index {
 	tags := make([dynamic]Node_Index, 0, 4, p.allocator)
 	defer delete(tags)
 	p.vet = p.options.vet
+	p.ast.analysis = ANALYSIS_ALL - p.options.no_analysis
 	tagged := false
 	for p.curr.kind != .Package && p.curr.kind != .EOF {
 		start := p.curr.start
@@ -450,6 +461,8 @@ parse_file :: proc(p: ^Parser) -> Node_Index {
 		} else if strings.has_prefix(text, "#+vet") {
 			apply_vet_tag(p, start, text)
 			tagged = true
+		} else if strings.has_prefix(text, "#+analysis") {
+			apply_analysis_tag(p, start, text)
 		}
 		expect_semicolon(p, 0)
 	}

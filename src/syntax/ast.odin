@@ -45,6 +45,7 @@ Ast :: struct {
 	allocation_error: mem.Allocator_Error,
 	// The vet flags of the file, after `#+vet` tags and `-vet-packages`.
 	vet:              Vet_Flags,
+	analysis:         Analysis_Flags,
 }
 
 ast_init :: proc(ast: ^Ast, allocator := context.allocator) {
