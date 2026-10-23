@@ -1,5 +1,6 @@
 package check
 
+import "core:strings"
 import "core:testing"
 
 // A fixed `#soa[N]T` literal lists element values row by row, like an array
@@ -22,4 +23,33 @@ main :: proc() {
 	procedure, ok := check_procedure_source(t, source, diagnostic_count = 0)
 	if !ok { return }
 	testing.expect(t, procedure.body_state == .Complete)
+}
+@(test)
+soa_non_fixed_literals_accept_only_zero_initialization :: proc(t: ^testing.T) {
+	cases := [?]struct {
+		body, reason: string,
+	} {
+		{
+			`slice: S = {}; values: D = {}; slice = S{}; values = D{}; other := #soa[dynamic]V{}; zero_slice :: S{}; zero_dynamic :: D{}; _, _, _, _, _ = slice, values, other, zero_slice, zero_dynamic`,
+			"",
+		},
+		{`_ = #soa[]V{{1, 2}}`, "#soa slices are not supported for compound literals"},
+		{`_ = #soa[dynamic]V{{1, 2}}`, "#soa dynamic arrays are not supported for compound literals"},
+		{`_ = S{{1, 2}}`, "#soa slices and dynamic arrays are not supported for compound literals"},
+		{`_ = D{{1, 2}}`, "#soa slices and dynamic arrays are not supported for compound literals"},
+		{`slice: S = {{1, 2}}; _ = slice`, "#soa slices and dynamic arrays are not supported for compound literals"},
+		{`values: D = {{1, 2}}; _ = values`, "#soa slices and dynamic arrays are not supported for compound literals"},
+	}
+	for example in cases {
+		source, allocation_error := strings.concatenate(
+			{"package sample\nV :: struct {a, b: int}\nS :: #soa[]V\nD :: #soa[dynamic]V\nmain :: proc() { ", example.body, "\n}\n"},
+			context.allocator,
+		)
+		if !testing.expect_value(t, allocation_error, nil) { continue }
+		defer delete(source, context.allocator)
+		kind := Expression_Diagnostic_Kind.Invalid_Operand if example.reason != "" else .None
+		count := 1 if example.reason != "" else 0
+		procedure, ok := check_procedure_source(t, transmute([]byte)source, expected_kind = kind, expected_reason = example.reason, diagnostic_count = count)
+		if ok && example.reason == "" { testing.expect(t, procedure.body_state == .Complete) }
+	}
 }

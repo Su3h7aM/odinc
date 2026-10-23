@@ -85,20 +85,34 @@ expression_composite :: proc(
 	descriptor := types.get(store, owner)^
 	if descriptor.kind == .Bit_Set { return expression_composite_bit_set(checker, view, scope, node, type) }
 	if descriptor.kind == .Slice { return expression_slice_literal(checker, view, file_id, scope, node, type, descriptor.elem) }
-	if descriptor.kind == .Struct && descriptor.soa != .None {
-		if descriptor.soa != .Fixed {
-			return expression_unsupported(checker, view, scope, node, "Composite_Soa_Non_Fixed")
-		}
-		return expression_composite_soa_fixed(checker, view, file_id, scope, node, type)
-	}
-	is_array := descriptor.kind == .Array || descriptor.kind == .Enumerated_Array || descriptor.kind == .Simd_Vector
-	is_matrix := descriptor.kind == .Matrix
 	if len(syntax.node_list(file.ast, literal.elems)) == 0 && expression_zero_fill_supported(checker, store, type) {
 		zero, zero_error := expression_zero_fill_constants(checker, store, type)
 		if zero_error == nil {
 			return Expression_Info{type = type, constant = zero, mode = .Constant, scope = scope, state = .Checked}, nil
 		}
 	}
+	if descriptor.kind == .Struct && descriptor.soa != .None {
+		if descriptor.soa != .Fixed {
+			reason := "#soa slices and dynamic arrays are not supported for compound literals"
+			if literal.type != 0 {
+				literal_type := type_unparen(file, literal.type)
+				#partial switch file.ast.nodes[literal_type].kind {
+				case .Array_Type:
+					if syntax.node_payload(file.ast, literal_type, syntax.Array_Type).tag != 0 {
+						reason = "#soa slices are not supported for compound literals"
+					}
+				case .Dynamic_Array_Type:
+					if syntax.node_payload(file.ast, literal_type, syntax.Dynamic_Array_Type).tag != 0 {
+						reason = "#soa dynamic arrays are not supported for compound literals"
+					}
+				}
+			}
+			return expression_failure(checker, view, scope, node, .Invalid_Operand, reason)
+		}
+		return expression_composite_soa_fixed(checker, view, file_id, scope, node, type)
+	}
+	is_array := descriptor.kind == .Array || descriptor.kind == .Enumerated_Array || descriptor.kind == .Simd_Vector
+	is_matrix := descriptor.kind == .Matrix
 	if descriptor.kind == .Union && len(syntax.node_list(file.ast, literal.elems)) == 0 {
 		plan := Plan_Id(len(checker.plans))
 		append(&checker.plans, Plan(Aggregate_Plan{type = type})) or_return
