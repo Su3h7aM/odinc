@@ -1,6 +1,7 @@
 package lower
 
 import "core:mem/virtual"
+import "core:slice"
 import "core:testing"
 import "oc:check"
 import "oc:ir"
@@ -146,6 +147,39 @@ type_info_struct_enum_and_procedure_entries_reference_their_members :: proc(t: ^
 		testing.expect_value(t, image[string_union_offset + string_flag_offset], u8(index == 1 || index == 3))
 		testing.expect_value(t, image[string_union_offset + string_encoding_offset], u8(index >= 2))
 	}
+}
+
+@(test)
+identical_type_info_images_share_one_global :: proc(t: ^testing.T) {
+	module: ir.Module
+	if !testing.expect_value(t, ir.module_init(&module), nil) { return }
+	defer ir.module_destroy(&module)
+	writer := Type_Info_Writer {
+		module    = &module,
+		allocator = virtual.arena_allocator(&module.arena),
+	}
+	bytes := []byte{1, 2, 3, 0, 0, 0, 0, 0}
+	first, first_error := add_image(&writer, Type_Info_Image{bytes = slice.clone(bytes, writer.allocator) or_else panic("fixture allocation failed")}, 8)
+	if !testing.expect_value(t, first_error, nil) { return }
+	second, second_error := add_image(&writer, Type_Info_Image{bytes = slice.clone(bytes, writer.allocator) or_else panic("fixture allocation failed")}, 8)
+	if !testing.expect_value(t, second_error, nil) { return }
+	other_alignment, alignment_error := add_image(
+		&writer,
+		Type_Info_Image{bytes = slice.clone(bytes, writer.allocator) or_else panic("fixture allocation failed")},
+		4,
+	)
+	if !testing.expect_value(t, alignment_error, nil) { return }
+	reloc_image := Type_Info_Image {
+		bytes = slice.clone(bytes, writer.allocator) or_else panic("fixture allocation failed"),
+	}
+	if _, append_error := append(&reloc_image.relocs, ir.Data_Reloc{offset = 0, target = {.Global, 7}}); !testing.expect_value(t, append_error, nil) { return }
+	relocated, relocated_error := add_image(&writer, reloc_image, 8)
+	if !testing.expect_value(t, relocated_error, nil) { return }
+	// Identical bytes, alignment and relocations share one global; equal bytes alone do not.
+	testing.expect_value(t, second, first)
+	testing.expect(t, other_alignment != first, "a different alignment is a different image")
+	testing.expect(t, relocated != first, "a different relocation list is a different image")
+	testing.expect_value(t, len(module.globals), 3)
 }
 
 @(test)

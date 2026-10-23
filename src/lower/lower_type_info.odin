@@ -2,6 +2,7 @@ package lower
 
 import "base:runtime"
 import "core:fmt"
+import "core:mem"
 import "core:mem/virtual"
 import "core:strings"
 import "oc:check"
@@ -40,6 +41,8 @@ Type_Info_Writer :: struct {
 	tag_size:        i64,
 	image_count:     int,
 	names_in_use:    map[string]struct{},
+	// Content key of every image already appended, so equal arrays and strings share one global.
+	images:          map[string]int,
 }
 
 // Bytes and relocations of one global under construction. `base` is where the current struct starts in `bytes`.
@@ -92,6 +95,7 @@ fill_type_info :: proc(
 		tag_size        = union_layout.tag_size,
 	}
 	writer.names_in_use = module_symbol_names(module, allocator)
+	writer.images = make(map[string]int, allocator)
 	for entry in requirements.type_info {
 		name := generated_global_name(&writer, "entry", u64(entry.slot))
 		append(&module.globals, ir.Global{name = name, size = u32(size), align = u32(alignment), anonymous = true}) or_return
@@ -499,16 +503,47 @@ make_image :: proc(writer: ^Type_Info_Writer, struct_type: types.Type_Id) -> (im
 	return image, nil
 }
 
-// Appends the image as a global and returns its index.
+// Appends the image as a global and returns its index. A finished image is never written again, so one with the same
+// alignment, bytes and relocations shares the global already appended: type-info arrays repeat the same element
+// tables and names for every type that mentions them.
 @(private)
 add_image :: proc(writer: ^Type_Info_Writer, image: Type_Info_Image, align: u32) -> (index: int, err: runtime.Allocator_Error) {
+	key := image_key(writer, image, align) or_return
+	if existing, found := writer.images[key]; found { return existing, nil }
 	name := generated_global_name(writer, "data", u64(writer.image_count))
 	writer.image_count += 1
 	append(
 		&writer.module.globals,
 		ir.Global{name = name, size = u32(len(image.bytes)), align = align, bytes = image.bytes, relocs = image.relocs[:], anonymous = true},
 	) or_return
-	return len(writer.module.globals) - 1, nil
+	index = len(writer.module.globals) - 1
+	writer.images[key] = index
+	return index, nil
+}
+
+// The alignment, bytes and relocation list of an image as one map key.
+@(private)
+image_key :: proc(writer: ^Type_Info_Writer, image: Type_Info_Image, align: u32) -> (key: string, err: runtime.Allocator_Error) {
+	bytes := make([dynamic]byte, 0, len(image.bytes) + 32 * len(image.relocs) + 16, writer.allocator) or_return
+	append_key_integer(&bytes, u64(align)) or_return
+	append_key_integer(&bytes, u64(len(image.bytes))) or_return
+	append(&bytes, ..image.bytes) or_return
+	append_key_integer(&bytes, u64(len(image.relocs))) or_return
+	for reloc in image.relocs {
+		space := reloc.target.space
+		append_key_integer(&bytes, u64(space)) or_return
+		append_key_integer(&bytes, u64(reloc.offset)) or_return
+		append_key_integer(&bytes, u64(reloc.target.index)) or_return
+		append_key_integer(&bytes, u64(reloc.addend)) or_return
+	}
+	return string(bytes[:]), nil
+}
+
+@(private)
+append_key_integer :: proc(bytes: ^[dynamic]byte, value: u64) -> runtime.Allocator_Error {
+	value := value
+	_, err := append(bytes, ..mem.ptr_to_bytes(&value))
+	return err
 }
 
 @(private)
