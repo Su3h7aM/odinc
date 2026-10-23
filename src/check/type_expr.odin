@@ -178,6 +178,8 @@ Type_Checker :: struct {
 	declarations:             map[Entity_Id]Collected_Declaration,
 	synced:                   int,
 	enum_members:             map[types.Type_Id][]Enum_Member,
+	// While the members of an enum are evaluated, untyped constants convert to the enum through its backing integer (in_enum_type).
+	in_enum_type:             bool,
 	field_flags:              map[types.Type_Id][]syntax.Field_Flags,
 	nominals:                 [dynamic]Nominal_Type,
 	layouts_checked:          int,
@@ -1062,6 +1064,8 @@ enum_descriptor :: proc(
 		}
 	}
 	nodes := syntax.node_list(file.ast, record.fields)
+	checker.in_enum_type = true
+	defer checker.in_enum_type = false
 	members = make([]Enum_Member, len(nodes), checker.arena_allocator) or_return
 	count := 0
 	next, lower, upper := i128(0), i128(0), i128(0)

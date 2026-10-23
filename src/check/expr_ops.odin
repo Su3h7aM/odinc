@@ -116,6 +116,7 @@ Binary_Operand_Class :: struct {
 	left_kind:                   types.Kind,
 	right_kind:                  types.Kind,
 	integer:                     bool,
+	bitwise_integer:             bool,
 	boolean:                     bool,
 	enum_pair:                   bool,
 	type_id_pair:                bool,
@@ -304,6 +305,18 @@ binary_operand_class :: proc(
 		conversion_integer(left_kind) && conversion_untyped(right_kind) && operand_assignable(checker, view, binary.right, operands.right, operands.left.type)
 	integer ||=
 		conversion_integer(right_kind) && conversion_untyped(left_kind) && operand_assignable(checker, view, binary.left, operands.left, operands.right.type)
+	// Official check_binary_op gates `&`, `|` and `~` on core_type, which unwraps an enum to its backing integer.
+	left_core_kind := types.get(store, conversion_core_type(store, operands.left.type)).kind
+	right_core_kind := types.get(store, conversion_core_type(store, operands.right.type)).kind
+	bitwise_integer := conversion_integer(left_core_kind) && conversion_integer(right_core_kind)
+	bitwise_integer ||=
+		conversion_integer(left_core_kind) &&
+		conversion_untyped(right_kind) &&
+		operand_assignable(checker, view, binary.right, operands.right, operands.left.type)
+	bitwise_integer ||=
+		conversion_integer(right_core_kind) &&
+		conversion_untyped(left_kind) &&
+		operand_assignable(checker, view, binary.left, operands.left, operands.right.type)
 	boolean := conversion_boolean(left_kind) && conversion_boolean(right_kind)
 	enum_pair := left_kind == .Enum && right_kind == .Enum
 	type_id_pair := left_kind == .Type_Id && right_kind == .Type_Id
@@ -483,6 +496,7 @@ binary_operand_class :: proc(
 			left_kind = left_kind,
 			right_kind = right_kind,
 			integer = integer,
+			bitwise_integer = bitwise_integer,
 			boolean = boolean,
 			enum_pair = enum_pair,
 			type_id_pair = type_id_pair,
@@ -572,6 +586,7 @@ expression_binary_validate :: proc(
 		if classification.operator != .And_Not { array_bitwise ||= classification.array_boolean }
 		valid =
 			classification.integer ||
+			classification.bitwise_integer ||
 			classification.boolean ||
 			array_bitwise ||
 			classification.bit_set_pair ||
@@ -963,7 +978,7 @@ integer_operand_hint :: proc(checker: ^Expression_Checker, hint: types.Type_Id) 
 	return 0
 }
 
-@(private = "file")
+@(private = "package")
 expression_has_runtime_shift :: proc(
 	checker: ^Expression_Checker,
 	view: View_Id,

@@ -143,7 +143,7 @@ declaration_line :: proc(checker: ^Expression_Checker, entity: ^Entity) -> u32 {
 
 @(private = "file")
 check_unused_import :: proc(checker: ^Expression_Checker, entity: ^Entity, flags: syntax.Vet_Flags, first: int) -> Resolve_Error {
-	if .Unused_Imports not_in flags || .Used in entity.flags || .Export in entity.flags { return nil }
+	if .Unused_Imports not_in flags || .Used in entity.flags || entity.flags & {.Export, .Required} != {} { return nil }
 	if library, is_library := entity.data.(Library_Data); is_library && library.used { return nil }
 	reason := fmt.aprintf("'%s' declared but not used", entity.name, allocator = mem.dynamic_arena_allocator(&checker.arena))
 	return report_vet(checker, first, .Unused, .Error, entity, reason)

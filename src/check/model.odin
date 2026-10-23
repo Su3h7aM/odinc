@@ -588,8 +588,10 @@ Library_Path :: struct {
 	name:   string,
 }
 Library_Data :: struct {
-	paths: []Library_Path,
-	used:  bool,
+	paths:       []Library_Path,
+	// Path expressions that are not string literals, until check_library_paths evaluates them into `paths`.
+	expressions: []syntax.Node_Index,
+	used:        bool,
 }
 Label_Data :: struct {
 	target: Node_Ref,

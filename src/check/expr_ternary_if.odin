@@ -23,7 +23,12 @@ expression_ternary_if :: proc(
 	if !conversion_boolean(types.get(store, conversion_base_type(store, condition.type)).kind) {
 		return expression_failure(checker, view, scope, ternary.cond, .Invalid_Operand)
 	}
-	x := check_expression(checker, view, scope, ternary.x, hint) or_return
+	x_hint := hint
+	if hint == 0 && (expression_has_runtime_shift(checker, view, scope, file, ternary.x) or_return) {
+		sibling := check_expression(checker, view, scope, ternary.y) or_return
+		if sibling.state != .Invalid && !conversion_untyped(types.get(store, sibling.type).kind) { x_hint = sibling.type }
+	}
+	x := check_expression(checker, view, scope, ternary.x, x_hint) or_return
 	if x.state == .Invalid { return expression_poison(scope), nil }
 	y_hint := hint
 	if y_hint == 0 && !conversion_untyped(types.get(store, x.type).kind) { y_hint = x.type }

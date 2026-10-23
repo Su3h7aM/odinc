@@ -1,5 +1,7 @@
 package types
 
+import sysinfo "core:sys/info"
+
 X86_Feature :: enum {
 	X87,
 	Cx8,
@@ -159,12 +161,34 @@ x86_level_spelling :: proc(level: X86_Level) -> string {
 }
 
 parse_x86_level :: proc(spelling: string) -> (level: X86_Level, ok: bool) {
+	if spelling == "native" { return native_x86_level(), true }
 	for candidate in X86_Level {
 		if X86_LEVEL_SPELLINGS[candidate] == spelling {
 			return candidate, true
 		}
 	}
 	return .V1, false
+}
+
+native_x86_level :: proc() -> X86_Level {
+	when ODIN_ARCH == .amd64 {
+		features := sysinfo.cpu_features()
+		maximum_leaf, _, _, _ := sysinfo.cpuid(0, 0)
+		maximum_extended_leaf, _, _, _ := sysinfo.cpuid(0x80000000, 0)
+		if maximum_leaf < 1 || maximum_extended_leaf < 0x80000001 { return .V1 }
+		_, _, basic, _ := sysinfo.cpuid(1, 0)
+		_, _, extended, _ := sysinfo.cpuid(0x80000001, 0)
+		level_two := sysinfo.CPU_Features{.sse3, .ssse3, .sse41, .sse42, .popcnt}
+		if features & level_two != level_two || basic & (1 << 13) == 0 || extended & 1 == 0 { return .V1 }
+		level_three := sysinfo.CPU_Features{.avx, .avx2, .bmi1, .bmi2, .fma, .os_xsave}
+		level_three_basic :: u32((1 << 22) | (1 << 26) | (1 << 29))
+		if features & level_three != level_three || basic & level_three_basic != level_three_basic || extended & (1 << 5) == 0 { return .V2 }
+		level_four := sysinfo.CPU_Features{.avx512f, .avx512bw, .avx512cd, .avx512dq, .avx512vl}
+		if features & level_four != level_four { return .V3 }
+		return .V4
+	} else {
+		return .V1
+	}
 }
 
 x86_level_features :: proc(level: X86_Level) -> X86_Features {

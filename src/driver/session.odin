@@ -326,6 +326,7 @@ check_session :: proc(
 		if error := validate_test_signatures(session, main_package); error != .None { return error }
 	}
 
+	if check.check_library_paths(&session.checker) != nil { return .Allocation_Failed }
 	libraries: []check.Entity_Id
 	if session.stop_at_external { libraries = library_entities(session, context.temp_allocator) }
 	for declaration in session.collection.declarations {

@@ -5,6 +5,7 @@ import "core:path/filepath"
 import "core:strings"
 import "core:testing"
 import "oc:syntax"
+import "oc:types"
 
 @(test)
 test_command_flag_syntax :: proc(t: ^testing.T) {
@@ -24,6 +25,11 @@ test_command_flag_syntax :: proc(t: ^testing.T) {
 	defer delete(command.collections)
 	testing.expect_value(t, error, "")
 	testing.expect(t, command.run && len(command.run_arguments) == 2 && command.run_arguments[0] == "a" && command.run_arguments[1] == "--output=b")
+	native, native_error := parse_command_arguments("test", []string{"testdata", "--mcpu", "native"})
+	defer delete(native.options.defines)
+	defer delete(native.collections)
+	testing.expect_value(t, native_error, "")
+	testing.expect_value(t, native.options.microarch, types.native_x86_level())
 	build, build_error := parse_command_arguments(
 		"build",
 		[]string {
@@ -57,7 +63,7 @@ test_command_bad_flags :: proc(t: ^testing.T) {
 	for row in ([]struct {
 			arguments: []string,
 			message:   string,
-		}{{{"testdata", "--unknown"}, "Unable to find any flag named `unknown`."}, {{"testdata", "--output"}, "Expected a value for `output` but none was given."}, {{"testdata", "--build-mode", "test"}, "Unable to find any flag named `build-mode`."}, {{"testdata", "-x", "tests"}, "Unable to find any short flag named `x`."}, {{"testdata", "--mcpu", "x86-64"}, "--mcpu expects one of: x86_64_v1, x86_64_v2, x86_64_v3, x86_64_v4"}}) {
+		}{{{"testdata", "--unknown"}, "Unable to find any flag named `unknown`."}, {{"testdata", "--output"}, "Expected a value for `output` but none was given."}, {{"testdata", "--build-mode", "test"}, "Unable to find any flag named `build-mode`."}, {{"testdata", "-x", "tests"}, "Unable to find any short flag named `x`."}, {{"testdata", "--mcpu", "x86-64"}, "--mcpu expects one of: x86_64_v1, x86_64_v2, x86_64_v3, x86_64_v4, native"}}) {
 		command, error := parse_command_arguments("test", row.arguments)
 		delete(command.options.defines)
 		delete(command.collections)

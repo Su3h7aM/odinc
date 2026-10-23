@@ -829,6 +829,14 @@ expression_conversion :: proc(
 	err: Resolve_Error,
 ) {
 	if info.state == .Invalid || target == types.TYPE_POISON { return expression_poison(scope), nil }
+	if checker.type_checker.in_enum_type && kind == .Assignment {
+		store := checker.type_checker.store
+		if conversion_untyped(types.get(store, info.type).kind) && types.get(store, conversion_base_type(store, target)).kind == .Enum {
+			converted = expression_conversion(checker, view, scope, node, source, info, conversion_core_type(store, target), kind) or_return
+			if converted.state != .Invalid { converted.type = target }
+			return converted, nil
+		}
+	}
 	if kind == .Assignment && info.mode == .Constant && expression_untyped_to_any(checker, info.type, target) {
 		typed := expression_conversion(
 			checker,

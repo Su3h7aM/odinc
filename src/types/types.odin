@@ -767,17 +767,18 @@ fields_layout :: proc(
 		s, a := layout_internal(store, field.type, config, depth + 1)
 		max_size, max_align = max(max_size, s), max(max_align, a)
 	}
+	if raw_union {
+		if packed { max_align = 1 }
+		if min_field_align > 0 { max_align = max(max_align, min_field_align) }
+		if max_field_align != 0 { max_align = min(max_align, max_field_align) }
+		if custom_align > 0 { max_align = custom_align }
+		return align_up(max_size, max_align), max_align
+	}
 	if packed {
 		packed_alignment := i64(1)
 		if custom_align > 0 { packed_alignment = custom_align }
 		packed_size := sum_field_sizes(store, fields, config)
 		return align_up(packed_size, packed_alignment), packed_alignment
-	}
-	if raw_union {
-		if min_field_align > 0 { max_align = max(max_align, min_field_align) }
-		if max_field_align != 0 { max_align = min(max_align, max_field_align) }
-		if custom_align > 0 { max_align = custom_align }
-		return align_up(max_size, max_align), max_align
 	}
 	offset := i64(0)
 	for field in fields {

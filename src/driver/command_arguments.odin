@@ -172,7 +172,7 @@ parse_command_arguments :: proc(name: string, args: []string, allocator := conte
 	if model.sanitize != "" { return command, "odinc test: sanitizers are not supported" }
 	if model.thread_count < 1 { return command, "--thread-count expects a positive integer" }
 	level, valid := types.parse_x86_level(model.mcpu)
-	if !valid { return command, "--mcpu expects one of: x86_64_v1, x86_64_v2, x86_64_v3, x86_64_v4" }
+	if !valid { return command, "--mcpu expects one of: x86_64_v1, x86_64_v2, x86_64_v3, x86_64_v4, native" }
 	command.options.microarch = level
 	if model.opt != "" {
 		if model.opt != "speed" { return command, "--opt expects speed" }

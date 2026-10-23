@@ -100,6 +100,7 @@ layout_matches_target :: proc(t: ^testing.T) {
 	id_struct := intern(&store, Type{kind = .Struct, fields = fields})
 	id_packed := intern(&store, Type{kind = .Struct, fields = fields, packed = true})
 	id_raw_union := intern(&store, Type{kind = .Struct, fields = fields, raw_union = true})
+	id_packed_raw_union := intern(&store, Type{kind = .Struct, fields = fields, raw_union = true, packed = true})
 	id_field_cap := intern(&store, Type{kind = .Struct, fields = fields, min_field_align = 4, max_field_align = 4})
 	custom_fields := []Type_Field{{name = "a", type = id_u64}, {name = "b", type = id_u64}, {name = "c", type = id_u64}, {name = "d", type = id_u64}}
 	id_custom_align := intern(&store, Type{kind = .Struct, fields = custom_fields, custom_align = 16})
@@ -142,6 +143,13 @@ layout_matches_target :: proc(t: ^testing.T) {
 					a: u8,
 					b: u64,
 				}), align_of(struct #packed {
+					a: u8,
+					b: u64,
+				})},
+		{id_packed_raw_union, size_of(struct #packed #raw_union {
+					a: u8,
+					b: u64,
+				}), align_of(struct #packed #raw_union {
 					a: u8,
 					b: u64,
 				})},

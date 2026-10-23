@@ -97,6 +97,7 @@ collection_destroy :: proc(collection: ^Collection) {
 				delete(path.name, collection.allocator)
 			}
 			delete(library.paths, collection.allocator)
+			delete(library.expressions, collection.allocator)
 		}
 	}
 	delete(collection.declarations)
@@ -192,44 +193,51 @@ collect_library_data :: proc(
 	err: runtime.Allocator_Error,
 ) {
 	paths := make([dynamic]Library_Path, collection.allocator) or_return
+	expressions := make([dynamic]syntax.Node_Index, collection.allocator) or_return
 	for node in syntax.node_list(file.ast, fullpaths) {
-		valid := file.ast.nodes[node].kind == .Basic_Lit
-		if valid {
+		literal := file.ast.nodes[node].kind == .Basic_Lit
+		if literal {
 			kind := syntax.node_payload(file.ast, node, syntax.Basic_Lit).kind
-			valid = kind == .String || kind == .Raw_String
+			literal = kind == .String || kind == .Raw_String
 		}
-		text: string
-		allocated: bool
-		if valid {
-			text, allocated, valid = strconv.unquote_string(collection_node_text(file, node), collection.allocator)
+		// Any other path is a constant expression, evaluated once the checker exists (check_library_paths).
+		if !literal {
+			append(&expressions, node) or_return
+			continue
 		}
-		library := Library_Path {
-			name = text,
-		}
-		if valid {
-			if colon := strings.index_byte(text, ':'); colon >= 0 {
-				library = Library_Path {
-					system = text[:colon] == "system",
-					name   = text[colon + 1:],
-				}
-				valid = library.system
-			}
-			valid = valid && len(library.name) > 0
-		}
+		text, allocated, valid := strconv.unquote_string(collection_node_text(file, node), collection.allocator)
+		library: Library_Path
+		if valid { library, valid = library_path_from_text(file, text, collection.allocator) or_return }
+		if allocated { delete(text, collection.allocator) }
 		if !valid {
-			if allocated { delete(text, collection.allocator) }
 			collection_report(collection, file, id, node, .Invalid_Foreign_Library) or_return
 			continue
 		}
-		if library.system || filepath.is_abs(library.name) {
-			library.name = strings.clone(library.name, collection.allocator) or_return
-		} else {
-			library.name = filepath.join({filepath.dir(file.path), library.name}, collection.allocator) or_return
-		}
-		if allocated { delete(text, collection.allocator) }
 		append(&paths, library) or_return
 	}
-	return Library_Data{paths = paths[:]}, nil
+	if len(expressions) == 0 { delete(expressions) }
+	return Library_Data{paths = paths[:], expressions = expressions[:]}, nil
+}
+
+// `system:name` names a system library; any other path is relative to the importing file unless absolute. The name is
+// allocated with `allocator`.
+@(private = "package")
+library_path_from_text :: proc(file: ^File, text: string, allocator: runtime.Allocator) -> (library: Library_Path, valid: bool, err: runtime.Allocator_Error) {
+	library.name = text
+	if colon := strings.index_byte(text, ':'); colon >= 0 {
+		library = Library_Path {
+			system = text[:colon] == "system",
+			name   = text[colon + 1:],
+		}
+		if !library.system { return {}, false, nil }
+	}
+	if len(library.name) == 0 { return {}, false, nil }
+	if library.system || filepath.is_abs(library.name) {
+		library.name = strings.clone(library.name, allocator) or_return
+	} else {
+		library.name = filepath.join({filepath.dir(file.path), library.name}, allocator) or_return
+	}
+	return library, true, nil
 }
 
 // C3 supplies the resolved package name, or the decoded library name, after loading/evaluation.
@@ -256,6 +264,7 @@ collect_import_name :: proc(collection: ^Collection, file: ^File, pending_index:
 			package_id = package_id,
 		}
 		if import_decl.is_using { flags += {.Using} }
+		if collection_has_attribute(file.ast, file.source, import_decl.attributes, "require") { flags += {.Required} }
 	} else {
 		import_decl := syntax.node_payload(file.ast, declaration, syntax.Foreign_Import_Decl)
 		identifier = import_decl.name
@@ -637,7 +646,7 @@ collect_attributes :: proc(
 	return
 }
 
-@(private = "file")
+@(private = "package")
 collection_report :: proc(
 	collection: ^Collection,
 	file: ^File,
