@@ -19,9 +19,11 @@ lower_type_assertion :: proc(state: ^Procedure_State, node: syntax.Node_Index, p
 	}
 	subject, subject_ok := lower_type_switch_subject(state, node, source_type, source_value)
 	if !subject_ok { return }
-	ok = lower_type_switch_test(state, node, subject, plan.target_type)
+	if plan.comma_ok || plan.policy != .Disabled {
+		ok = lower_type_switch_test(state, node, subject, plan.target_type)
+	}
 	if state.failed || state.job.function.error != nil { return }
-	if !plan.comma_ok { lower_check(state, ok) }
+	if !plan.comma_ok && plan.policy != .Disabled { lower_check(state, ok) }
 	function := state.job.function
 	if source_descriptor.kind == .Any { source_value = lower_load_word(state, source_value, .Ptr) } else { source_value = subject.address }
 	if plan.comma_ok {
@@ -101,9 +103,11 @@ lower_type_assertion_pointer :: proc(state: ^Procedure_State, node: syntax.Node_
 	}
 	subject, subject_ok := lower_type_switch_subject(state, node, source_type, source_value)
 	if !subject_ok { return }
-	ok = lower_type_switch_test(state, node, subject, plan.target_type)
+	if plan.comma_ok || plan.policy != .Disabled {
+		ok = lower_type_switch_test(state, node, subject, plan.target_type)
+	}
 	if state.failed || state.job.function.error != nil { return }
-	if !plan.comma_ok { lower_check(state, ok) }
+	if !plan.comma_ok && plan.policy != .Disabled { lower_check(state, ok) }
 	address = subject.address
 	if source_descriptor.kind == .Any { address = lower_load_word(state, source_value, .Ptr) }
 	if plan.comma_ok { address = ir.select(state.job.function, ok, address, ir.const_int(state.job.function, .Ptr, 0)) }

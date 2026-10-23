@@ -215,8 +215,8 @@ expression_simd_call :: proc(
 			return expression_failure(checker, view, scope, arguments[1], .Invalid_Operand)
 		}
 		if position.mode == .Constant &&
-		   checker.unchecked_depth == 0 &&
-		   checker.type_checker.files[checker.views[view].file].policy.bounds_check != .Disabled {
+		   checker.bounds_check_policy != .Disabled &&
+		   (checker.bounds_check_policy == .Enabled || checker.type_checker.files[checker.views[view].file].policy.bounds_check != .Disabled) {
 			integer := constant_pool_get(checker.constants, position.constant).value.(big.Int)
 			index, index_error := big.int_get_i64(&integer)
 			if index_error != nil || index < 0 || index >= vector.count {
@@ -244,8 +244,8 @@ expression_simd_call :: proc(
 			return expression_failure(checker, view, scope, arguments[1], .Invalid_Operand)
 		}
 		if position.mode == .Constant &&
-		   checker.unchecked_depth == 0 &&
-		   checker.type_checker.files[checker.views[view].file].policy.bounds_check != .Disabled {
+		   checker.bounds_check_policy != .Disabled &&
+		   (checker.bounds_check_policy == .Enabled || checker.type_checker.files[checker.views[view].file].policy.bounds_check != .Disabled) {
 			integer := constant_pool_get(checker.constants, position.constant).value.(big.Int)
 			index, index_error := big.int_get_i64(&integer)
 			if index_error != nil || index < 0 || index >= vector.count {

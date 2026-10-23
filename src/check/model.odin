@@ -972,6 +972,7 @@ Type_Switch_Plan :: struct {
 	clauses:      []Type_Switch_Clause,
 }
 Type_Assertion_Plan :: struct {
+	policy:      Check_Policy,
 	source:      Operand,
 	source_type: types.Type_Id,
 	target_type: types.Type_Id,

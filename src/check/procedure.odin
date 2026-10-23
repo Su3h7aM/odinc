@@ -465,13 +465,21 @@ expression_procedure_body :: proc(checker: ^Expression_Checker, resolver: ^Resol
 	outer_control := checker.control
 	checker.control = make([dynamic]Control_Frame, outer_control.allocator) or_return
 	outer_defer_depth := checker.defer_depth
-	outer_unchecked_depth := checker.unchecked_depth
-	checker.defer_depth, checker.unchecked_depth = 0, 0
+	outer_bounds_check_policy := checker.bounds_check_policy
+	outer_type_assert_policy := checker.type_assert_policy
+	checker.defer_depth, checker.bounds_check_policy = 0, .Unspecified
+	checker.type_assert_policy = .Unspecified
+	proc_type := syntax.node_payload(checker.type_checker.files[signature.file].ast, signature.node, syntax.Proc_Type)
+	if .No_Bounds_Check in proc_type.tags { checker.bounds_check_policy = .Disabled }
+	if .Bounds_Check in proc_type.tags { checker.bounds_check_policy = .Enabled }
+	if .No_Type_Assert in proc_type.tags { checker.type_assert_policy = .Disabled }
+	if .Type_Assert in proc_type.tags { checker.type_assert_policy = .Enabled }
 	defer {
 		delete(checker.control)
 		checker.control = outer_control
 		checker.defer_depth = outer_defer_depth
-		checker.unchecked_depth = outer_unchecked_depth
+		checker.bounds_check_policy = outer_bounds_check_policy
+		checker.type_assert_policy = outer_type_assert_policy
 	}
 	expression_signature_bindings(checker, resolver, id, signature, procedure_scope) or_return
 	diagnostics_before := len(checker.diagnostics)
@@ -841,12 +849,19 @@ call_callee_has_deferred_attribute :: proc(checker: ^Expression_Checker, view: V
 expression_statement :: proc(checker: ^Expression_Checker, view: View_Id, file_id: File_Id, scope: Scope_Id, node: syntax.Node_Index) -> Resolve_Error {
 	file := checker.type_checker.files[file_id]
 	// As check_stmt in the official compiler: a statement's #no_bounds_check or #bounds_check applies to the whole statement.
-	unchecked_depth := checker.unchecked_depth
-	defer checker.unchecked_depth = unchecked_depth
+	bounds_check_policy := checker.bounds_check_policy
+	defer checker.bounds_check_policy = bounds_check_policy
 	if .No_Bounds_Check in file.ast.nodes[node].flags {
-		checker.unchecked_depth += 1
+		checker.bounds_check_policy = .Disabled
 	} else if .Bounds_Check in file.ast.nodes[node].flags {
-		checker.unchecked_depth = 0
+		checker.bounds_check_policy = .Enabled
+	}
+	type_assert_policy := checker.type_assert_policy
+	defer checker.type_assert_policy = type_assert_policy
+	if .No_Type_Assert in file.ast.nodes[node].flags {
+		checker.type_assert_policy = .Disabled
+	} else if .Type_Assert in file.ast.nodes[node].flags {
+		checker.type_assert_policy = .Enabled
 	}
 	#partial switch file.ast.nodes[node].kind {
 	case .Empty_Stmt:

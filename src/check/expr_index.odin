@@ -122,8 +122,9 @@ expression_index :: proc(
 	operands := make([]Operand, 2, allocator) or_return
 	operands[0] = Operand(Expression_Ref{view, access.expr})
 	operands[1] = Operand(Expression_Ref{view, access.index})
-	policy := Check_Policy.Disabled if checker.unchecked_depth > 0 || statically_checked else Check_Policy.Enabled
-	if checker.type_checker.files[file_id].policy.bounds_check == .Disabled || is_multi_pointer { policy = .Disabled }
+	policy := Check_Policy.Disabled if checker.bounds_check_policy == .Disabled || statically_checked else Check_Policy.Enabled
+	if checker.bounds_check_policy != .Enabled && checker.type_checker.files[file_id].policy.bounds_check == .Disabled ||
+	   is_multi_pointer { policy = .Disabled }
 	plan := Plan_Id(len(checker.plans))
 	append(&checker.plans, Plan(Bounds_Plan{kind = .Index, operands = operands, policy = policy})) or_return
 	return Expression_Info{type = element_type, mode = mode, plan = plan, scope = scope, state = .Checked}, nil
@@ -196,8 +197,8 @@ expression_slice :: proc(
 		}
 		operands[index + 1] = Operand(Expression_Ref{view, bound})
 	}
-	policy := Check_Policy.Disabled if checker.unchecked_depth > 0 else Check_Policy.Enabled
-	if file.policy.bounds_check == .Disabled { policy = .Disabled }
+	policy := Check_Policy.Disabled if checker.bounds_check_policy == .Disabled else Check_Policy.Enabled
+	if checker.bounds_check_policy != .Enabled && file.policy.bounds_check == .Disabled { policy = .Disabled }
 	plan := Plan_Id(len(checker.plans))
 	append(&checker.plans, Plan(Bounds_Plan{kind = .Slice, operands = operands, policy = policy})) or_return
 	// ptr[low:] is ptr + low and keeps the multi-pointer type; ptr[low:high] yields a slice.
@@ -301,8 +302,8 @@ soa_place_field :: proc(store: ^types.Store, plan: Place_Plan, soa: types.Type_I
 // policy, or once the index is proven in range at compile time.
 @(private = "package")
 soa_index_policy :: proc(checker: ^Expression_Checker, file_id: File_Id, static_ok: bool) -> Check_Policy {
-	if checker.unchecked_depth > 0 || static_ok { return .Disabled }
-	if checker.type_checker.files[file_id].policy.bounds_check == .Disabled { return .Disabled }
+	if checker.bounds_check_policy == .Disabled || static_ok { return .Disabled }
+	if checker.bounds_check_policy != .Enabled && checker.type_checker.files[file_id].policy.bounds_check == .Disabled { return .Disabled }
 	return .Enabled
 }
 
@@ -558,8 +559,8 @@ expression_soa_slice :: proc(
 		}
 		operands[index + 1] = Operand(Expression_Ref{view, bound})
 	}
-	policy := Check_Policy.Disabled if checker.unchecked_depth > 0 else Check_Policy.Enabled
-	if file.policy.bounds_check == .Disabled { policy = .Disabled }
+	policy := Check_Policy.Disabled if checker.bounds_check_policy == .Disabled else Check_Policy.Enabled
+	if checker.bounds_check_policy != .Enabled && file.policy.bounds_check == .Disabled { policy = .Disabled }
 	plan := Plan_Id(len(checker.plans))
 	append(&checker.plans, Plan(Bounds_Plan{kind = .Soa, operands = operands, policy = policy})) or_return
 	_ = soa

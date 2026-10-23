@@ -164,6 +164,8 @@ dump_node :: proc(ast: ^Ast, source: []byte, builder: ^strings.Builder, index: N
 Proc_Tag :: enum u8 {
 	Bounds_Check,
 	No_Bounds_Check,
+	Type_Assert,
+	No_Type_Assert,
 	Optional_Ok,
 	Optional_Allocator_Error,
 }

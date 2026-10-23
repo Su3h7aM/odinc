@@ -73,6 +73,7 @@ expression_type_assertion :: proc(
 				target_type = target,
 				variant = variant,
 				comma_ok = false,
+				policy = .Disabled if checker.type_assert_policy == .Disabled || (checker.type_assert_policy != .Enabled && file.policy.type_assert == .Disabled) else .Enabled,
 			},
 		),
 	) or_return

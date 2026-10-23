@@ -385,6 +385,10 @@ parse_proc_tags :: proc(p: ^Parser) -> Proc_Tags {
 			tags += {.Bounds_Check}
 		case "#no_bounds_check":
 			tags += {.No_Bounds_Check}
+		case "#type_assert":
+			tags += {.Type_Assert}
+		case "#no_type_assert":
+			tags += {.No_Type_Assert}
 		case "#optional_ok":
 			tags += {.Optional_Ok}
 		case "#optional_allocator_error":
@@ -392,6 +396,9 @@ parse_proc_tags :: proc(p: ^Parser) -> Proc_Tags {
 		}
 	}
 	if .Bounds_Check in tags && .No_Bounds_Check in tags {
+		report(p, .Illegal_Directive_Combination, p.curr.start)
+	}
+	if .Type_Assert in tags && .No_Type_Assert in tags {
 		report(p, .Illegal_Directive_Combination, p.curr.start)
 	}
 	return tags

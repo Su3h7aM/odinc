@@ -81,9 +81,9 @@ expression_matrix_index :: proc(
 	column, column_constant, column_failed := matrix_index_operand(checker, view, scope, access.column_index, descriptor.upper_bound) or_return
 	if column_failed { return expression_poison(scope), nil }
 	mode := Addressing_Mode.Variable if base.mode == .Variable else .Value
-	policy := Check_Policy.Enabled if checker.unchecked_depth == 0 else Check_Policy.Disabled
+	policy := Check_Policy.Enabled if checker.bounds_check_policy != .Disabled else Check_Policy.Disabled
 	if row_constant && column_constant { policy = .Disabled }
-	if checker.type_checker.files[file_id].policy.bounds_check == .Disabled { policy = .Disabled }
+	if checker.bounds_check_policy != .Enabled && checker.type_checker.files[file_id].policy.bounds_check == .Disabled { policy = .Disabled }
 	plan := Plan_Id(len(checker.plans))
 	append(&checker.plans, Plan(Matrix_Index_Plan{base = Operand(Expression_Ref{view, access.expr}), row = row, column = column, policy = policy})) or_return
 	return Expression_Info{type = descriptor.elem, mode = mode, plan = plan, scope = scope, state = .Checked}, nil
@@ -428,8 +428,8 @@ expression_matrix_vector :: proc(
 	}
 	mode := Addressing_Mode.Variable if base.mode == .Variable else .Value
 	vector_type := types.intern(store, types.Type{kind = .Array, elem = descriptor.elem, count = vector_length})
-	policy := Check_Policy.Disabled if checker.unchecked_depth > 0 || statically_checked else Check_Policy.Enabled
-	if checker.type_checker.files[file_id].policy.bounds_check == .Disabled { policy = .Disabled }
+	policy := Check_Policy.Disabled if checker.bounds_check_policy == .Disabled || statically_checked else Check_Policy.Enabled
+	if checker.bounds_check_policy != .Enabled && checker.type_checker.files[file_id].policy.bounds_check == .Disabled { policy = .Disabled }
 	plan := Plan_Id(len(checker.plans))
 	append(
 		&checker.plans,

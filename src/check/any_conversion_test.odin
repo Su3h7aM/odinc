@@ -21,6 +21,20 @@ main :: proc "contextless" () {
 give :: proc "contextless" (value: int) -> any {
 	return value
 }
+unchecked :: proc "contextless" (boxed: any, values: []int, index: int) #no_bounds_check #no_type_assert {
+	value := boxed.(int)
+	item := values[index]
+	#type_assert checked := boxed.(int)
+	#bounds_check checked_item := values[index]
+	value_again := boxed.(int)
+	item_again := values[index]
+	#no_bounds_check #no_type_assert {
+		nested :: proc "contextless" (boxed: any, values: []int, index: int) #bounds_check #type_assert {
+			value := boxed.(int)
+			item := values[index]
+		}
+	}
+}
 `,
 	)
 	ast: syntax.Ast
@@ -86,6 +100,20 @@ give :: proc "contextless" (value: int) -> any {
 	program: Checked_Program
 	expression_checker_publish(&checker, &program)
 	program.files = []File{{}, file}
+	disabled_assertions, enabled_assertions := 0, 0
+	disabled_bounds, enabled_bounds := 0, 0
+	for plan in program.plan_table {
+		#partial switch value in plan {
+		case Type_Assertion_Plan:
+			if value.policy == .Disabled { disabled_assertions += 1 } else { enabled_assertions += 1 }
+		case Bounds_Plan:
+			if value.policy == .Disabled { disabled_bounds += 1 } else { enabled_bounds += 1 }
+		}
+	}
+	testing.expect_value(t, disabled_assertions, 2)
+	testing.expect_value(t, enabled_assertions, 4)
+	testing.expect_value(t, disabled_bounds, 2)
+	testing.expect_value(t, enabled_bounds, 2)
 	boxing_count := 0
 	for plan in program.plan_table {
 		if conversion, is_conversion := plan.(Conversion_Plan); is_conversion && conversion.kind == .Box { boxing_count += 1 }
