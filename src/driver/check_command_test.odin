@@ -4,6 +4,7 @@ import "core:os"
 import "core:path/filepath"
 import "core:strings"
 import "core:testing"
+import "oc:check"
 
 @(test)
 check_command_checks_without_building :: proc(t: ^testing.T) {
@@ -49,5 +50,27 @@ check_directory_keeps_vet_semicolon_diagnostics :: proc(t: ^testing.T) {
 		} else {
 			testing.expect_value(t, strings.to_string(log), "")
 		}
+	}
+}
+
+@(test)
+check_command_reports_when_shadowing_and_deprecated_imports :: proc(t: ^testing.T) {
+	root, _ := filepath.join({#directory, "..", ".."}, context.temp_allocator)
+	directory, directory_error := os.make_directory_temp("", "driver-check-when-*", context.temp_allocator)
+	if !testing.expect_value(t, directory_error, nil) { return }
+	defer os.remove_all(directory)
+	main_path, _ := filepath.join({directory, "main.odin"}, context.temp_allocator)
+	for row in ([]struct {
+			source:  string,
+			options: check.Check_Options,
+			error:   Driver_Error,
+			text:    string,
+		}{{"package main\nwhen true {\n\tlen :: 1\n}\nmain :: proc() {}\n", {vet_when_shadowing = true}, .Check_Failed, "Declaration of 'len' within a global 'when' shadows the builtin 'len'"}, {"package main\nwhen true {\n\tlen :: 1\n}\nmain :: proc() {}\n", {}, .None, ""}, {"package main\nimport \"core:runtime\"\nmain :: proc() {}\n", {vet_deprecated = true}, .Check_Failed, "Error: import \"core:runtime\" has been deprecated in favour of \"base:runtime\""}, {"package main\nimport \"core:runtime\"\nmain :: proc() {}\n", {}, .None, "Warning: import \"core:runtime\" has been deprecated in favour of \"base:runtime\""}}) {
+		if !testing.expect_value(t, os.write_entire_file(main_path, transmute([]byte)row.source), nil) { return }
+		log := strings.builder_make()
+		error := check_file(root, main_path, strings.to_writer(&log), context.allocator, false, nil, nil, check_options = row.options)
+		testing.expect_value(t, error, row.error)
+		testing.expect(t, strings.contains(strings.to_string(log), row.text), strings.to_string(log))
+		strings.builder_destroy(&log)
 	}
 }

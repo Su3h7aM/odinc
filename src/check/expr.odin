@@ -12,11 +12,12 @@ Check_Options :: struct {
 	vet_using_stmt, vet_using_param:          bool,
 	vet_unused_variables, vet_unused_imports: bool,
 	vet_shadowing, vet_cast:                  bool,
+	vet_deprecated, vet_when_shadowing:       bool,
 	vet_package:                              Package_Id,
 	warnings_as_errors:                       bool,
 }
 
-Message_Diagnostics :: bit_set[Expression_Diagnostic_Kind]{.Shadowing, .Unused, .Large_Local, .Unneeded_Cast}
+Message_Diagnostics :: bit_set[Expression_Diagnostic_Kind]{.Shadowing, .Unused, .Large_Local, .Unneeded_Cast, .Deprecated}
 
 Diagnostic_Severity :: enum u8 {
 	Error,
@@ -28,6 +29,7 @@ Expression_Diagnostic_Kind :: enum u8 {
 	Shadowing,
 	Unused,
 	Unneeded_Cast,
+	Deprecated,
 	Large_Local,
 	Unsupported,
 	Undeclared_Name,

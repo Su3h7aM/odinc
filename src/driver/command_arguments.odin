@@ -47,6 +47,8 @@ Command_Flags :: struct {
 	vet_unused_imports:        bool,
 	vet_shadowing:             bool,
 	vet_cast:                  bool,
+	vet:                       bool,
+	vet_when_shadowing:        bool,
 	warnings_as_errors:        bool,
 	strict_style:              bool,
 }
@@ -71,6 +73,8 @@ Check_Command_Flags :: struct {
 	vet_unused_imports:        bool,
 	vet_shadowing:             bool,
 	vet_cast:                  bool,
+	vet:                       bool,
+	vet_when_shadowing:        bool,
 	warnings_as_errors:        bool,
 	strict_style:              bool,
 }
@@ -131,6 +135,8 @@ parse_command_arguments :: proc(name: string, args: []string, allocator := conte
 		model.vet_unused_imports = check_flags.vet_unused_imports
 		model.vet_shadowing = check_flags.vet_shadowing
 		model.vet_cast = check_flags.vet_cast
+		model.vet = check_flags.vet
+		model.vet_when_shadowing = check_flags.vet_when_shadowing
 		model.warnings_as_errors = check_flags.warnings_as_errors
 		model.strict_style = check_flags.strict_style
 	} else {
@@ -144,13 +150,16 @@ parse_command_arguments :: proc(name: string, args: []string, allocator := conte
 	command.keep_executable = model.keep_executable
 	command.options.all_packages = model.all_packages
 	command.options.thread_count = model.thread_count
+	// Follows VetFlag_All in the official build_settings.cpp: --vet leaves out using-param, style, semicolon and tabs.
 	command.options.check_options = check.Check_Options {
-		vet_using_stmt       = model.vet_using_stmt,
+		vet_using_stmt       = model.vet || model.vet_using_stmt,
 		vet_using_param      = model.vet_using_param,
-		vet_unused_variables = model.vet_unused || model.vet_unused_variables,
-		vet_unused_imports   = model.vet_unused || model.vet_unused_imports,
-		vet_shadowing        = model.vet_shadowing,
-		vet_cast             = model.vet_cast,
+		vet_unused_variables = model.vet || model.vet_unused || model.vet_unused_variables,
+		vet_unused_imports   = model.vet || model.vet_unused || model.vet_unused_imports,
+		vet_shadowing        = model.vet || model.vet_shadowing,
+		vet_cast             = model.vet || model.vet_cast,
+		vet_deprecated       = model.vet,
+		vet_when_shadowing   = model.vet || model.vet_when_shadowing,
 		warnings_as_errors   = model.warnings_as_errors,
 	}
 	command.options.parse_options = syntax.Parse_Options {

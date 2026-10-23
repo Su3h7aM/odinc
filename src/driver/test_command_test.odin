@@ -119,7 +119,7 @@ test_command_input_kind :: proc(t: ^testing.T) {
 	testing.expect(t, strings.contains(validate_command_input(&command, ""), "regular .odin file"))
 	command.path = "/__odinc_missing_input__/main.odin"
 	testing.expect(t, strings.contains(validate_command_input(&command, ""), "could not be found or accessed"))
-	for name in ([]string{"file", "vet"}) {
+	for name in ([]string{"file", "vet-deprecated"}) {
 		arguments := []string{#directory, strings.concatenate({"--", name}, context.temp_allocator) or_else ""}
 		parsed, error := parse_command_arguments("build", arguments)
 		delete(parsed.options.defines)
@@ -209,4 +209,24 @@ vet_options_reach_every_checking_command :: proc(t: ^testing.T) {
 			command.options.parse_options.vet_semicolon,
 		)
 	}
+}
+
+@(test)
+vet_flag_enables_exactly_the_official_vet_set :: proc(t: ^testing.T) {
+	command, error := parse_command_arguments("check", []string{"testdata", "--vet"})
+	defer delete(command.options.defines)
+	defer delete(command.collections)
+	testing.expect_value(t, error, "")
+	options := command.options.check_options
+	testing.expect(
+		t,
+		options.vet_using_stmt &&
+		options.vet_unused_variables &&
+		options.vet_unused_imports &&
+		options.vet_shadowing &&
+		options.vet_cast &&
+		options.vet_deprecated &&
+		options.vet_when_shadowing,
+	)
+	testing.expect(t, !options.vet_using_param && !command.options.parse_options.vet_style && !command.options.parse_options.vet_semicolon)
 }

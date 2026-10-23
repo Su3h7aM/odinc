@@ -60,7 +60,9 @@ write_diagnostics :: proc(session: ^Session, writer: io.Writer) {
 			file := session.files[diagnostic.source.file]
 			line, column := syntax.line_col(file.lines, diagnostic.source.start)
 			severity := "Warning" if diagnostic.severity == .Warning && !session.check_options.warnings_as_errors else "Error"
-			fmt.wprintfln(writer, "%s(%d:%d) %s: %s", file.display_path, line, column, severity, reason)
+			// The official parser reports the deprecated imports, so its messages carry the syntax prefix.
+			prefix := "Syntax " if diagnostic.kind == .Deprecated else ""
+			fmt.wprintfln(writer, "%s(%d:%d) %s%s: %s", file.display_path, line, column, prefix, severity, reason)
 			continue
 		}
 		write_diagnostic(session, writer, diagnostic.kind, reason, diagnostic.source)

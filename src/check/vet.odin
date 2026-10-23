@@ -3,6 +3,7 @@ package check
 import "core:fmt"
 import "core:mem"
 import "core:slice"
+import "core:strings"
 import "oc:syntax"
 import "oc:types"
 
@@ -24,6 +25,8 @@ check_vet :: proc(checker: ^Expression_Checker, errors_found: bool) -> Resolve_E
 			if !errors_found { check_unused_import(checker, &entity, first) or_return }
 		}
 	}
+	check_when_shadowing(checker, first) or_return
+	check_deprecated_imports(checker, first) or_return
 	slice.sort_by(checker.diagnostics[first:], proc(a, b: Expression_Diagnostic) -> bool {
 		if a.source.file != b.source.file { return a.source.file < b.source.file }
 		return a.source.start < b.source.start
@@ -133,6 +136,80 @@ check_unused_import :: proc(checker: ^Expression_Checker, entity: ^Entity, first
 	return report_vet(checker, first, .Unused, .Error, entity, reason)
 }
 
+// A name declared inside a global `when` that hides a package-level or builtin name, as the official
+// check_vet_when_shadowing finds it. A name kept in the package scope can only hide a builtin; a file-private one hides
+// package-level declarations.
+@(private = "file")
+check_when_shadowing :: proc(checker: ^Expression_Checker, first: int) -> Resolve_Error {
+	if !checker.options.vet_when_shadowing { return nil }
+	scopes := checker.type_checker.resolver.scopes
+	for &entity, index in scopes.entities {
+		if .In_When not_in entity.flags || entity.kind == .Import_Name || entity.declaration.file == 0 { continue }
+		if !vetted_file(checker, entity.declaration.file) { continue }
+		file_scope := scope_get(scopes, entity.scope)
+		outer := file_scope.parent
+		if file_scope.lookup[entity.name] != Entity_Id(index) { outer = scope_get(scopes, outer).parent }
+		shadowed_id, found_scope := scope_find(scopes, outer, entity.name)
+		shadowed := entity_get(scopes, shadowed_id)
+		if shadowed == nil || shadowed_id == Entity_Id(index) { continue }
+		allocator := mem.dynamic_arena_allocator(&checker.arena)
+		reason: string
+		if scope_get(scopes, found_scope).kind == .Universal || shadowed.declaration.file == 0 {
+			reason = fmt.aprintf("Declaration of '%s' within a global 'when' shadows the builtin '%s'", entity.name, entity.name, allocator = allocator)
+		} else {
+			other := checker.type_checker.files[shadowed.declaration.file]
+			line, column := syntax.line_col(other.lines, shadowed.order.offset)
+			reason = fmt.aprintf(
+				"Declaration of '%s' within a global 'when' shadows the declaration at %s(%d:%d)",
+				entity.name,
+				other.display_path,
+				line,
+				column,
+				allocator = allocator,
+			)
+		}
+		start := entity.order.offset
+		report_at(checker, first, .Shadowing, .Error, {entity.declaration.file, start, start + u32(len(entity.name))}, reason) or_return
+	}
+	return nil
+}
+
+// `import "core:runtime"`, `core:intrinsics` and `core:builtin` name base packages. The official parser always warns,
+// and with the deprecated vet the same text is an error.
+@(private = "file")
+check_deprecated_imports :: proc(checker: ^Expression_Checker, first: int) -> Resolve_Error {
+	for pending in checker.type_checker.collection.pending {
+		file := checker.type_checker.files[pending.declaration.file]
+		#partial switch pending.kind {
+		case .Import:
+			path := syntax.node_payload(file.ast, pending.declaration.node, syntax.Import_Decl).relpath
+			report_deprecated_import(checker, first, pending.declaration, path) or_return
+		case .Foreign_Import:
+			paths := syntax.node_payload(file.ast, pending.declaration.node, syntax.Foreign_Import_Decl).fullpaths
+			for path in syntax.node_list(file.ast, paths) { report_deprecated_import(checker, first, pending.declaration, path) or_return }
+		}
+	}
+	return nil
+}
+
+@(private = "file")
+report_deprecated_import :: proc(checker: ^Expression_Checker, first: int, declaration: Node_Ref, path: syntax.Node_Index) -> Resolve_Error {
+	file := checker.type_checker.files[declaration.file]
+	text := strings.trim(expression_text(file, path), "\"")
+	if !strings.has_prefix(text, "core:") { return nil }
+	name := text[len("core:"):]
+	if !strings.has_prefix(name, "runtime") && !strings.has_prefix(name, "intrinsics") && !strings.has_prefix(name, "builtin") { return nil }
+	severity := Diagnostic_Severity.Error if checker.options.vet_deprecated && vetted_file(checker, declaration.file) else .Warning
+	reason := fmt.aprintf(
+		"import \"core:%s\" has been deprecated in favour of \"base:%s\"",
+		name,
+		name,
+		allocator = mem.dynamic_arena_allocator(&checker.arena),
+	)
+	span := file.ast.nodes[declaration.node]
+	return report_at(checker, first, .Deprecated, severity, {declaration.file, span.start, span.end}, reason)
+}
+
 // Generic instances check one body several times, so a finding at an already reported place is dropped.
 @(private = "file")
 report_vet :: proc(
@@ -150,7 +227,18 @@ report_vet :: proc(
 		node = import_decl.name if import_decl.name != 0 else import_decl.relpath
 	}
 	span := file.ast.nodes[node]
-	source := Source_Span{entity.declaration.file, span.start, span.end}
+	return report_at(checker, first, kind, severity, {entity.declaration.file, span.start, span.end}, reason)
+}
+
+@(private = "file")
+report_at :: proc(
+	checker: ^Expression_Checker,
+	first: int,
+	kind: Expression_Diagnostic_Kind,
+	severity: Diagnostic_Severity,
+	source: Source_Span,
+	reason: string,
+) -> Resolve_Error {
 	for existing in checker.diagnostics[first:] {
 		if existing.kind == kind && existing.source == source { return nil }
 	}

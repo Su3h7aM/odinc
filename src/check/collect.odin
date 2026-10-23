@@ -143,6 +143,8 @@ collect_when_arm :: proc(collection: ^Collection, file: ^File, pending_index: in
 			) or_return
 		} else {
 			body := syntax.node_payload(file.ast, selected, syntax.Block_Stmt)
+			first_entity := len(collection.scopes.entities)
+			defer for &entity in collection.scopes.entities[first_entity:] { entity.flags += {.In_When} }
 			collect_declarations(
 				collection,
 				file,
