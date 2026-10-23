@@ -9,6 +9,61 @@ import "oc:check"
 import "oc:syntax"
 
 @(test)
+escape_return_certainty_preserves_source_reads_and_object_fields :: proc(t: ^testing.T) {
+	root, _ := filepath.join({#directory, "..", ".."}, context.temp_allocator)
+	directory, directory_error := os.make_directory_temp("", "driver-escape-values-*", context.temp_allocator)
+	if !testing.expect_value(t, directory_error, nil) { return }
+	defer os.remove_all(directory)
+	main_path, _ := filepath.join({directory, "main.odin"}, context.temp_allocator)
+	source := `package main
+Holder :: struct { pointer: ^int }
+direct :: proc() -> ^int { local := 1; return &local }
+copied :: proc() -> ^int { local := 1; pointer := &local; return pointer }
+aggregate :: proc() -> Holder { local := 1; return Holder{pointer = &local} }
+field :: proc() -> ^int { local := 1; holder := Holder{pointer = &local}; return holder.pointer }
+cleared :: proc() -> Holder { local := 1; holder := Holder{pointer = &local}; holder.pointer = nil; return holder }
+boxed :: proc() -> any { return 1 }
+boxed_copy :: proc() -> any { value: any = 1; return value }
+boxed_parameter :: proc(parameter: int) -> any { return parameter }
+variadic :: proc(arguments: ..int) -> []int { return arguments }
+variadic_any :: proc(arguments: ..any) -> any { return arguments[0] }
+empty :: proc() -> []int { return []int{} }
+nil_slice :: proc() -> []int { return ([]int)(nil) }
+parenthesized_empty :: proc() -> []int { return ([]int{}) }
+alias_clear :: proc() -> ^int { local := 1; pointer := &local; alias := &pointer; alias^ = nil; return pointer }
+raw :: proc() -> ^int { local := 1; return (^int)(rawptr(&local)) }
+integer :: proc() -> ^int { local := 1; return (^int)(uintptr(&local)) }
+transmuted :: proc() -> ^int { local := 1; return transmute(^int)&local }
+constant_any_call :: proc() -> any { return any(1) }
+constant_any_cast :: proc() -> any { return cast(any)1 }
+constant_any_auto :: proc() -> any { return auto_cast 1 }
+constant_any_parens :: proc() -> any { return (any(1)) }
+constant_any_declaration :: proc() -> any { value: any = any(1); return value }
+constant_any_assignment :: proc() -> any { value: any; value = any(1); return value }
+CONSTANT_SLICE :: []int{1}
+constant_any_named :: proc() -> any { return any(CONSTANT_SLICE) }
+implicit_any_call :: proc() -> any { return int(1) }
+implicit_any_cast :: proc() -> any { return cast(int)1 }
+main :: proc() {}
+`
+	if !testing.expect_value(t, os.write_entire_file(main_path, transmute([]byte)source), nil) { return }
+	session, error := check_program(root, main_path, context.allocator, false)
+	defer session_destroy(session)
+	if !testing.expect_value(t, error, .Check_Failed) { return }
+	errors, warnings: int
+	for diagnostic in session.analysis_result.diagnostics {
+		if diagnostic.severity == .Error { errors += 1 } else { warnings += 1 }
+	}
+	testing.expect_value(t, errors, 7)
+	testing.expect_value(t, warnings, 5)
+	log := strings.builder_make()
+	defer strings.builder_destroy(&log)
+	write_diagnostics(session, strings.to_writer(&log))
+	text := strings.to_string(log)
+	for expected in ([]string{"return '&local' from a procedure, as it refers to the stack memory of the local variable 'local'", "return 'pointer' from a procedure, as it may refer to the stack memory of the local variable 'local'", "return '1' from a procedure, as it refers to the stack memory of a temporary value", "return 'parameter' from a procedure, as it refers to the stack memory of a temporary value", "the variadic parameter 'arguments', which only lives for the duration of the call", "Suggestion: If this is intended, make it explicit with a conversion to 'rawptr' or 'uintptr', or a 'transmute'"}) { testing.expect(t, strings.contains(text, expected), text) }
+}
+
+@(test)
 disabled_escape_analysis_checks_return_storage_without_lowering :: proc(t: ^testing.T) {
 	root, _ := filepath.join({#directory, "..", ".."}, context.temp_allocator)
 	directory, directory_error := os.make_directory_temp("", "driver-unsafe-return-*", context.temp_allocator)
@@ -51,22 +106,16 @@ when false { inactive :: proc() -> ^int { x := 1; return &x } }
 main :: proc() {}
 `
 	if !testing.expect_value(t, os.write_entire_file(main_path, transmute([]byte)source), nil) { return }
-	for disabled in ([2]bool{false, true}) {
-		session, error := check_program(root, main_path, context.allocator, false, parse_options = {no_analysis = {.Escape} if disabled else {}})
-		defer session_destroy(session)
-		if !testing.expect_value(t, error, Driver_Error.Check_Failed if disabled else .None) { continue }
-		testing.expect(t, len(session.analysis_result.procedures) > 1 && len(session.analysis_result.events) > 1)
-		if !disabled {
-			testing.expect_value(t, len(session.analysis_result.diagnostics), 0)
-			continue
-		}
-		testing.expect_value(t, len(session.analysis_result.diagnostics), 11)
-		log := strings.builder_make()
-		write_diagnostics(session, strings.to_writer(&log))
-		text := strings.to_string(log)
-		for expected in ([]string{"a compound literal of a slice ('[]int{1}')", "the address of a local variable ('&x')", "the address of a compound literal ('&Holder{}')", "the address of an indexed variable ('&x[0]') of type ('[2]int')", "the address of an indexed variable ('&x[.A]') of type ('[E]int')", "the address of an indexed variable ('&x[0, 1]') of type ('matrix[2, 3]f32')", "a slice of a local variable ('x[:]')", "a slice of a compound literal ('[]int{x}[:]')", "a compound literal of a slice ('DATA')", "Note: A constant slice value will use the memory of the current stack frame", "the address of a local variable ('Holder{p = &x}')", "a slice of a local variable ('([]int)(x[:])')"}) { testing.expect(t, strings.contains(text, expected), text) }
-		strings.builder_destroy(&log)
-	}
+	session, error := check_program(root, main_path, context.allocator, false, parse_options = {no_analysis = {.Escape}})
+	defer session_destroy(session)
+	if !testing.expect_value(t, error, Driver_Error.Check_Failed) { return }
+	testing.expect(t, len(session.analysis_result.procedures) > 1 && len(session.analysis_result.events) > 1)
+	testing.expect_value(t, len(session.analysis_result.diagnostics), 11)
+	log := strings.builder_make()
+	write_diagnostics(session, strings.to_writer(&log))
+	text := strings.to_string(log)
+	for expected in ([]string{"a compound literal of a slice ('[]int{1}')", "the address of a local variable ('&x')", "the address of a compound literal ('&Holder{}')", "the address of an indexed variable ('&x[0]') of type ('[2]int')", "the address of an indexed variable ('&x[.A]') of type ('[E]int')", "the address of an indexed variable ('&x[0, 1]') of type ('matrix[2, 3]f32')", "a slice of a local variable ('x[:]')", "a slice of a compound literal ('[]int{x}[:]')", "a compound literal of a slice ('DATA')", "Note: A constant slice value will use the memory of the current stack frame", "the address of a local variable ('Holder{p = &x}')", "a slice of a local variable ('([]int)(x[:])')"}) { testing.expect(t, strings.contains(text, expected), text) }
+	strings.builder_destroy(&log)
 }
 
 @(test)
@@ -111,7 +160,7 @@ analysis_policy_and_diagnostics_use_the_common_check_path :: proc(t: ^testing.T)
 	}
 	for row in ([]struct {
 			tag, text: string,
-		}{{"#+analysisx", "Expected a space after #+analysis"}, {"#+analysis\tescape", "Expected a space after #+analysis"}, {"#+analysis !", "Expected an analysis name after '!'"}, {"#+analysis unknown", "Invalid analysis name: unknown\n\tExpected one of the following\n\tescape\n\tatomic"}, {"#+vet nil-deref", "Invalid vet flag name: nil-deref"}, {"#+vet uninitialized", "Invalid vet flag name: uninitialized"}, {"#+vet atomic-access", "Invalid vet flag name: atomic-access"}}) {
+		}{{"#+analysisx", "Expected a space after #+analysis"}, {"#+analysis\tescape", "Expected a space after #+analysis"}, {"#+analysis !", "Expected an analysis name after '!'"}, {"#+analysis unknown", "Invalid analysis name: unknown\n\tExpected one of the following\n\tescape\n\tatomic"}, {"#+vet nil-deref", "Invalid vet flag name: nil-deref"}, {"#+vet uninitialized", "Invalid vet flag name: uninitialized"}}) {
 		source := strings.concatenate({row.tag, "\npackage main\n"}, context.temp_allocator) or_else ""
 		ast: syntax.Ast
 		syntax.ast_init(&ast)
@@ -124,17 +173,26 @@ analysis_policy_and_diagnostics_use_the_common_check_path :: proc(t: ^testing.T)
 			testing.expect(t, strings.has_prefix(syntax.parse_error_text(parser.errors[0]), row.text), syntax.parse_error_text(parser.errors[0]))
 		}
 	}
+	atomic_flags, atomic_tag_error, _ := syntax.parse_vet_tag(" atomic-access", {})
+	testing.expect_value(t, atomic_tag_error, .None)
+	testing.expect_value(t, atomic_flags, syntax.Vet_Flags{.Atomic_Access})
 	for name in ([]string{"check", "build", "run", "test"}) {
 		command, error := parse_command_arguments(name, []string{".", "--no-escape-analysis", "--no-atomic-analysis"})
 		defer delete(command.collections)
 		defer delete(command.options.defines)
 		testing.expect_value(t, error, "")
 		testing.expect_value(t, command.options.parse_options.no_analysis, syntax.ANALYSIS_ALL)
+		atomic_command, atomic_error := parse_command_arguments(name, []string{".", "--vet-atomic-access"})
+		defer delete(atomic_command.collections)
+		defer delete(atomic_command.options.defines)
+		testing.expect_value(t, atomic_error, "")
+		testing.expect_value(t, atomic_command.options.parse_options.vet, syntax.Vet_Flags{.Atomic_Access})
+		testing.expect(t, .Atomic_Access not_in syntax.VET_ALL)
 	}
 	for row in ([]struct {
 			arguments: []string,
 			message:   string,
-		}{{{".", "--vet-nil-deref"}, "Unable to find any flag named `vet-nil-deref`."}, {{".", "--vet-uninitialized"}, "Unable to find any flag named `vet-uninitialized`."}, {{".", "--vet-atomic-access"}, "Unable to find any flag named `vet-atomic-access`."}, {{".", "--no-escape-analysis", "--vet-nil-deref"}, "Unable to find any flag named `vet-nil-deref`."}, {{".", "--no-escape-analysis", "--vet-uninitialized"}, "Unable to find any flag named `vet-uninitialized`."}, {{".", "--no-atomic-analysis", "--vet-atomic-access"}, "Unable to find any flag named `vet-atomic-access`."}}) {
+		}{{{".", "--vet-nil-deref"}, "Unable to find any flag named `vet-nil-deref`."}, {{".", "--vet-uninitialized"}, "Unable to find any flag named `vet-uninitialized`."}, {{".", "--no-escape-analysis", "--vet-nil-deref"}, "Unable to find any flag named `vet-nil-deref`."}, {{".", "--no-escape-analysis", "--vet-uninitialized"}, "Unable to find any flag named `vet-uninitialized`."}, {{".", "--no-atomic-analysis", "--vet-atomic-access"}, "--vet-atomic-access cannot be used with --no-atomic-analysis, as it is part of it"}, {{".", "--vet-atomic-access", "--no-atomic-analysis"}, "--vet-atomic-access cannot be used with --no-atomic-analysis, as it is part of it"}}) {
 		command, error := parse_command_arguments("check", row.arguments)
 		defer delete(command.collections)
 		defer delete(command.options.defines)
@@ -197,7 +255,8 @@ main :: proc() {
 		command, error := parse_command_arguments("check", arguments)
 		defer delete(command.collections)
 		defer delete(command.options.defines)
-		expected := "-warnings-as-errors cannot be used with -ignore-warnings" if index == 0 else "-ignore-warnings cannot be used with -warnings-as-errors"
+		expected :=
+			"--warnings-as-errors cannot be used with --ignore-warnings" if index == 0 else "--ignore-warnings cannot be used with --warnings-as-errors"
 		testing.expect_value(t, error, expected)
 	}
 }
@@ -329,7 +388,7 @@ check_command_handles_local_foreign_blocks_explicit_allocators_and_excluded_pack
 			vet:    syntax.Vet_Flags,
 			error:  Driver_Error,
 			text:   string,
-		}{{"package main\nforeign import libc \"system:c\"\nmain :: proc() {\n\tforeign libc {\n\t\tputs :: proc(text: cstring) -> i32 ---\n\t}\n\t_ = puts(\"\")\n}\n", {}, .None, ""}, {"package main\nimport \"excluded\"\nmain :: proc() {}\n", {}, .None, ""}, {"#+vet explicit-allocators\npackage main\nmake_value :: proc(allocator := context.allocator) {}\nmain :: proc() {\n\tmake_value()\n\tmake_value(context.allocator)\n}\n", {}, .Check_Failed, "Error: Parameter 'allocator' of type 'Allocator' must be explicitly provided in procedure call"}, {"package main\nmake_value :: proc(allocator := context.allocator) {}\nmain :: proc() { make_value() }\n", {}, .None, ""}}) {
+		}{{"package main\nforeign import libc \"system:c\"\nmain :: proc() {\n\tforeign libc {\n\t\tputs :: proc(text: cstring) -> i32 ---\n\t}\n\t_ = puts(\"\")\n}\n", {}, .None, ""}, {"package main\nimport \"excluded\"\nmain :: proc() {}\n", {}, .None, ""}, {"package main\nforeign import libc \"system:c\"\nforeign libc {\n\tputs :: proc(text: cstring) -> i32 ---\n\twhen true {  }\n}\nmain :: proc() { _ = puts(\"\") }\n", {}, .None, ""}, {"#+vet explicit-allocators\npackage main\nmake_value :: proc(allocator := context.allocator) {}\nmain :: proc() {\n\tmake_value()\n\tmake_value(context.allocator)\n}\n", {}, .Check_Failed, "Error: Parameter 'allocator' of type 'Allocator' must be explicitly provided in procedure call"}, {"package main\nmake_value :: proc(allocator := context.allocator) {}\nmain :: proc() { make_value() }\n", {}, .None, ""}}) {
 		if !testing.expect_value(t, os.write_entire_file(main_path, transmute([]byte)row.source), nil) { return }
 		log := strings.builder_make()
 		error := check_file(root, main_path, strings.to_writer(&log), context.allocator, false, nil, nil, parse_options = {vet = row.vet})

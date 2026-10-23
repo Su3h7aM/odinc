@@ -480,7 +480,7 @@ poly_bind_deferred :: proc(match: ^Poly_Match, deferred: []Untyped_Pattern) -> (
 	return true, nil
 }
 
-@(private = "file")
+@(private = "package")
 same_elements :: proc(left, right: []$T) -> bool {
 	if len(left) != len(right) { return false }
 	for type, index in left {
@@ -586,6 +586,39 @@ expression_new_instance :: proc(
 	info: Expression_Info,
 	err: Resolve_Error,
 ) {
+	instance, failure, created := expression_create_instance(
+		checker,
+		view,
+		scope,
+		node,
+		definition,
+		declaration,
+		poly_names,
+		poly_types,
+		poly_constants,
+	) or_return
+	if !created { return failure, nil }
+	return expression_instance_call(checker, view, file_id, scope, node, instance, arguments, spread)
+}
+
+// Checks a new instance of a generic procedure for the bound names. `failure` is the row to publish when it cannot be made.
+@(private = "package")
+expression_create_instance :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	scope: Scope_Id,
+	node: syntax.Node_Index,
+	definition: Entity_Id,
+	declaration: Collected_Declaration,
+	poly_names: []string,
+	poly_types: []types.Type_Id,
+	poly_constants: []Const_Id,
+) -> (
+	result: Entity_Id,
+	failure: Expression_Info,
+	created: bool,
+	err: Resolve_Error,
+) {
 	resolver := checker.type_checker.resolver
 	scopes := resolver.scopes
 	definition_entity := entity_get(scopes, definition)
@@ -595,9 +628,9 @@ expression_new_instance :: proc(
 	definition_declaration := definition_entity.declaration
 	arena := mem.dynamic_arena_allocator(&checker.arena)
 	type_scope, scope_error := scope_create(scopes, definition_entity.scope, .Block, definition)
-	if scope_error != nil { return {}, binding_resolve_error(scope_error) }
+	if scope_error != nil { return 0, {}, false, binding_resolve_error(scope_error) }
 	signature_scope, signature_scope_error := scope_create(scopes, definition_entity.scope, .Block, definition)
-	if signature_scope_error != nil { return {}, binding_resolve_error(signature_scope_error) }
+	if signature_scope_error != nil { return 0, {}, false, binding_resolve_error(signature_scope_error) }
 	file := checker.type_checker.files[declaration.type.file]
 	poly_declarations := make([]Instance_Poly_Name, len(poly_names), arena) or_return
 	for name, index in poly_names {
@@ -621,9 +654,9 @@ expression_new_instance :: proc(
 			bound_entity.kind, bound_entity.constant = .Constant, poly_constants[index]
 		}
 		bound, bound_error := entity_create(scopes, bound_entity)
-		if bound_error != nil { return {}, binding_resolve_error(bound_error) }
+		if bound_error != nil { return 0, {}, false, binding_resolve_error(bound_error) }
 		_, insert_error := scope_insert(scopes, type_scope, bound)
-		if insert_error != nil { return {}, binding_resolve_error(insert_error) }
+		if insert_error != nil { return 0, {}, false, binding_resolve_error(insert_error) }
 	}
 	name := fmt.aprintf("%s[%v|%v]", definition_name, poly_types, poly_constants, allocator = arena)
 	instance, create_error := entity_create(
@@ -646,7 +679,7 @@ expression_new_instance :: proc(
 			},
 		},
 	)
-	if create_error != nil { return {}, binding_resolve_error(create_error) }
+	if create_error != nil { return 0, {}, false, binding_resolve_error(create_error) }
 	instance_key := instance_index_key(checker.type_checker.store, definition, poly_types, poly_constants)
 	instance_index_insert(&resolver.instances, resolver.allocator, instance_key, instance) or_return
 	procedure := &entity_get(scopes, instance).data.(Procedure_Data)
@@ -665,8 +698,8 @@ expression_new_instance :: proc(
 	checker.type_checker.instance_poly = outer_poly_names
 	checker.active_instance = outer_instance
 	checker.type_checker.instantiating = outer_instantiating
-	if signature_error != nil { return {}, signature_error }
-	if signature == types.TYPE_POISON { return expression_poison(scope), nil }
+	if signature_error != nil { return 0, {}, false, signature_error }
+	if signature == types.TYPE_POISON { return 0, expression_poison(scope), false, nil }
 	descriptor := types.get(checker.type_checker.store, signature)
 	entity := entity_get(scopes, instance)
 	entity.type = signature
@@ -683,15 +716,16 @@ expression_new_instance :: proc(
 		valid, body_error = expression_procedure_body(checker, resolver, instance, declaration.type)
 	}
 	checker.active_instance = outer_instance
-	if body_error != nil { return {}, body_error }
+	if body_error != nil { return 0, {}, false, body_error }
 	entity_get(scopes, instance).state = .Resolved if valid else .Invalid
 	if !valid || resolver.body_pause_depth == 0 && entity_get(scopes, instance).data.(Procedure_Data).body_state != .Complete {
 		if !valid && definition_procedure.where_clauses.count != 0 {
-			return expression_failure(checker, view, scope, node, .Invalid_Operand, "at caller location")
+			failure, err = expression_failure(checker, view, scope, node, .Invalid_Operand, "at caller location")
+			return 0, failure, false, err
 		}
-		return expression_poison(scope), nil
+		return 0, expression_poison(scope), false, nil
 	}
-	return expression_instance_call(checker, view, file_id, scope, node, instance, arguments, spread)
+	return instance, {}, true, nil
 }
 
 @(private = "file")

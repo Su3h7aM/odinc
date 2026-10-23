@@ -55,6 +55,10 @@ global_constant_image :: proc(
 		write_little_endian(bytes, bits, 0)
 	case check.Pointer_Value:
 		write_little_endian(bytes, u64(value), 0)
+	case types.Type_Id:
+		id, found := check.typeid_runtime_id(program, value)
+		if !found { return nil, nil, false, nil }
+		write_little_endian(bytes, id, 0)
 	case check.Nil_Value, check.Uninitialized_Value:
 	case check.Aggregate_Value:
 		relocations := make([dynamic]ir.Data_Reloc, allocator) or_return

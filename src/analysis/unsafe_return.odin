@@ -139,7 +139,7 @@ unsafe_return :: proc(
 		} else if ast.nodes[base].kind == .Comp_Lit {
 			report_unsafe_return(run, original, "a slice of a compound literal") or_return
 		}
-	} else if descriptor.kind == .Slice && upstream_constant(run.program, info) {
+	} else if descriptor.kind == .Slice && upstream_constant(run.program, original, info) {
 		original_node := unparen(ast, original.node)
 		if ast.nodes[original_node].kind == .Call_Expr {
 			callee := syntax.node_payload(ast, original_node, syntax.Call_Expr).expr
@@ -161,15 +161,12 @@ unsafe_return :: proc(
 	return nil
 }
 
-@(private = "file")
-upstream_constant :: proc(program: ^check.Checked_Program, info: check.Expression_Info) -> bool {
-	if info.mode == .Constant {
-		if constant := check.constant(program, info.constant); constant != nil {
-			if _, nil_value := constant.value.(check.Nil_Value); nil_value { return false }
-		}
-		return true
+@(private = "package")
+upstream_constant :: proc(program: ^check.Checked_Program, expression: check.Expression_Ref, info: check.Expression_Info) -> bool {
+	if constant := check.constant(program, info.constant); constant != nil {
+		if _, nil_value := constant.value.(check.Nil_Value); nil_value { return false }
 	}
-	return (info.mode == .Immutable_Value || info.mode == .Variable) && info.entity != 0 && .Demoted_Constant in program.entities[info.entity].flags
+	return check.addressing_constant(program, expression.view, expression.node)
 }
 
 @(private = "file")

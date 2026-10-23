@@ -39,6 +39,7 @@ Command_Flags :: struct {
 	disallow_do:               bool,
 	no_escape_analysis:        bool,
 	no_atomic_analysis:        bool,
+	vet_atomic_access:         bool,
 	vet_tabs:                  bool,
 	vet_style:                 bool,
 	vet_semicolon:             bool,
@@ -70,6 +71,7 @@ Check_Command_Flags :: struct {
 	disallow_do:               bool,
 	no_escape_analysis:        bool,
 	no_atomic_analysis:        bool,
+	vet_atomic_access:         bool,
 	vet_tabs:                  bool,
 	vet_style:                 bool,
 	vet_semicolon:             bool,
@@ -137,6 +139,7 @@ parse_command_arguments :: proc(name: string, args: []string, allocator := conte
 		model.disallow_do = check_flags.disallow_do
 		model.no_escape_analysis = check_flags.no_escape_analysis
 		model.no_atomic_analysis = check_flags.no_atomic_analysis
+		model.vet_atomic_access = check_flags.vet_atomic_access
 		model.vet_tabs = check_flags.vet_tabs
 		model.vet_style = check_flags.vet_style
 		model.vet_semicolon = check_flags.vet_semicolon
@@ -158,12 +161,14 @@ parse_command_arguments :: proc(name: string, args: []string, allocator := conte
 		command.help, error = parse_command_flag_model(&model, args, allocator)
 	}
 	if command.help || error != "" { return }
+	if model.no_atomic_analysis &&
+	   model.vet_atomic_access { return command, "--vet-atomic-access cannot be used with --no-atomic-analysis, as it is part of it" }
 	if model.ignore_warnings && model.warnings_as_errors {
 		for argument in args {
 			if argument == "--ignore-warnings" ||
-			   strings.has_prefix(argument, "--ignore-warnings=") { return command, "-warnings-as-errors cannot be used with -ignore-warnings" }
+			   strings.has_prefix(argument, "--ignore-warnings=") { return command, "--warnings-as-errors cannot be used with --ignore-warnings" }
 			if argument == "--warnings-as-errors" ||
-			   strings.has_prefix(argument, "--warnings-as-errors=") { return command, "-ignore-warnings cannot be used with -warnings-as-errors" }
+			   strings.has_prefix(argument, "--warnings-as-errors=") { return command, "--ignore-warnings cannot be used with --warnings-as-errors" }
 		}
 	}
 
@@ -272,6 +277,7 @@ vet_flags_from_command :: proc(model: Command_Flags) -> (flags: syntax.Vet_Flags
 	if model.vet_style { flags += {.Style} }
 	if model.vet_semicolon { flags += {.Semicolon} }
 	if model.vet_cast { flags += {.Cast} }
+	if model.vet_atomic_access { flags += {.Atomic_Access} }
 	if model.vet_tabs { flags += {.Tabs} }
 	if model.vet_when_shadowing { flags += {.When_Shadowing} }
 	return

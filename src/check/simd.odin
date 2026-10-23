@@ -33,7 +33,9 @@ simd_array_type :: proc(
 		type_report(checker, file_id, file, array.tag, .Unsupported_Type_Expression) or_return
 		return types.TYPE_POISON, nil
 	}
-	count, count_valid := array_count(checker, file_id, scope, array.len) or_return
+	length := type_unparen(file, array.len)
+	for file.ast.nodes[length].kind == .Poly_Type { length = type_unparen(file, syntax.node_payload(file.ast, length, syntax.Poly_Type).type) }
+	count, count_valid := array_count(checker, file_id, scope, length) or_return
 	elem := type_expression(checker, file_id, scope, array.elem, true) or_return
 	if !count_valid || elem == types.TYPE_POISON { return types.TYPE_POISON, nil }
 	if count < 1 || (count & (count - 1)) != 0 || count > SIMD_ELEMENT_COUNT_MAX {

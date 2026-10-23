@@ -769,6 +769,7 @@ Conversion_Plan :: struct {
 	path:               []Member_Step,
 	// A `.Box` of an addressable operand refers to the variable itself, as official Odin does.
 	source_addressable: bool,
+	explicit_box:       bool,
 }
 Place_Plan :: struct {
 	root:                 Operand,

@@ -114,7 +114,24 @@ Evidence:
 
 Upstream report: none. Searched issues and PRs for "rexcode", "operand-size prefix", "encoder 66h", "x86 encoder prefix", "16-bit encoder", "mem16", "has_gpr16" — the only rexcode encoder issue is #7586 (wasm text output), and the encoder PRs since #6839 (`core:rexcode`) touch other areas. The nearest prior art is the narrow-width work that produced `test_narrow_widths.odin` and the `opsize_16` flag (CBW/CWD/MOVSW/…), which fixed the register and operand-less cases but not the memory-only ones.
 
+## 4. The store/load reversal warning picks its reported site by heap address
+
+The atomics analysis warns `'%s' is stored and then '%s' loaded, while the reverse is done at %s, so both loads may read what was there before` once per pair of locations. Which of the two directions is reported, and so which line the warning points at, is chosen by comparing the addresses of the two location entities in the compiler's heap.
+
+Evidence:
+
+- `src/check_atomics.cpp:728-748`: `check_atomic_store_load_cmp` orders the store/load pairs by `cast(uintptr)x->store->location` and then `cast(uintptr)x->load->location`, i.e. by `Entity *` value.
+- `src/check_atomics.cpp:1753`: `if (cast(uintptr)x.store->location > cast(uintptr)x.load->location) continue;` drops one direction of each pair by the same pointer order, so the kept direction depends on allocation order.
+- The final report sort (`check_atomic_report_cmp`, `:750-758`) orders by source position, but it runs after the direction was chosen and cannot restore a stable site.
+
+Entity addresses depend on allocation order, which changes with the checker's parallel scheduling and the allocator, so the same program can report the warning at either site. The warning count is stable; only its position is not. This is from the source; a varying run was not observed.
+
+Our compiler: the pair and its direction are ordered by the declaration's source position (file, offset), then the entity, and for struct fields the type and field index (`atomic_location_key` in `src/analysis/atomic_model.odin`). The report can therefore name the other site of the pair than a given upstream run.
+
+Upstream report: not searched yet.
+
 ## Not bugs (recorded so nobody re-investigates)
+
 
 - **`ADD`/`CMP` `m16, imm8` picking `81 /0 iw` over `83 /0 ib`** (`encoder.odin` form-match order, `encode_tables.odin:112` before `:115`, and the same for `CMP`): INTENDED. The SDM lists both `81 /0 iw` and `83 /0 ib` as valid `ADD r/m16, imm8` encodings, so the emitted bytes are architecturally correct, only 3 bytes longer than the shortest form. It is a code-size opportunity, not a wrong encoding; our compiler should prefer `83` but must not call upstream's output incorrect.
 - **`Process_State.exit_code` holding the signal number**: INTENDED as documented (`core/os/process.odin:497-500` says so explicitly). Only the missing signal field and the `success` comment are wrong, as covered in section 2.

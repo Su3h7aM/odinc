@@ -68,6 +68,16 @@ expression_address :: proc(
 	// Variables, map elements, composite literals and type assertions are addressable (check_expr.cpp:3105-3135, check_is_not_addressable).
 	is_addressable := target.mode == .Variable || target.mode == .Map_Index || is_composite_literal || expression_assertion_addressable(checker, target)
 	if !is_addressable { return expression_unsupported(checker, view, scope, node, "Address_Mode") }
+	if root, direct := expression_parameter_root(checker, view, scope, file, operand) or_return; root {
+		text := expression_text(file, operand)
+		reason := fmt.aprintf(
+			"Cannot take the pointer address of '%s' which is a procedure parameter",
+			text,
+			allocator = mem.dynamic_arena_allocator(&checker.arena),
+		)
+		if !direct { reason = fmt.aprintf("Cannot take the pointer address of '%s'", text, allocator = mem.dynamic_arena_allocator(&checker.arena)) }
+		return expression_failure(checker, view, scope, node, .Invalid_Operand, reason)
+	}
 	pointer := types.intern(checker.type_checker.store, types.Type{kind = .Pointer, elem = target.type})
 	if target.mode == .Map_Index || target.mode == .Optional_Ok {
 		plan := Plan_Id(len(checker.plans))
@@ -335,4 +345,52 @@ struct_field_index :: proc(fields: []types.Type_Field, name: string) -> int {
 		if field.name == name { return index }
 	}
 	return -1
+}
+
+// Whether an operand is a parameter, or is within one by fields and array elements; parameters are not addressable (check_expr.cpp:3225).
+@(private = "file")
+expression_parameter_root :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	scope: Scope_Id,
+	file: ^File,
+	operand: syntax.Node_Index,
+) -> (
+	within, direct: bool,
+	err: Resolve_Error,
+) {
+	store := checker.type_checker.store
+	current := type_unparen(file, operand)
+	for {
+		#partial switch file.ast.nodes[current].kind {
+		case .Selector_Expr:
+			if selector_names_package(checker, scope, file, current) { return false, false, nil }
+			base := check_expression(checker, view, scope, syntax.node_payload(file.ast, current, syntax.Selector_Expr).expr) or_return
+			if base.mode == .Type { return false, false, nil }
+			if types.get(store, types.resolve_named(store, base.type)).kind == .Pointer { return false, false, nil }
+			current = type_unparen(file, syntax.node_payload(file.ast, current, syntax.Selector_Expr).expr)
+		case .Index_Expr:
+			indexed := syntax.node_payload(file.ast, current, syntax.Index_Expr).expr
+			base := check_expression(checker, view, scope, indexed) or_return
+			kind := types.get(store, types.resolve_named(store, base.type)).kind
+			if kind != .Array && kind != .Enumerated_Array && kind != .Fixed_Capacity_Array { return false, false, nil }
+			current = type_unparen(file, indexed)
+		case .Ident:
+			info := check_expression(checker, view, scope, current) or_return
+			if info.entity == 0 || .Parameter not_in entity_get(checker.type_checker.resolver.scopes, info.entity).flags { return false, false, nil }
+			return true, current == type_unparen(file, operand), nil
+		case:
+			return false, false, nil
+		}
+	}
+}
+
+// A `package.name` selector, decided from the scope so the package name is not evaluated as a value.
+@(private = "package")
+selector_names_package :: proc(checker: ^Expression_Checker, scope: Scope_Id, file: ^File, selector: syntax.Node_Index) -> bool {
+	base := syntax.node_payload(file.ast, selector, syntax.Selector_Expr).expr
+	if file.ast.nodes[base].kind != .Ident { return false }
+	scopes := checker.type_checker.resolver.scopes
+	found, _ := scope_find(scopes, scope, expression_text(file, base))
+	return found != 0 && entity_get(scopes, found).kind == .Import_Name
 }

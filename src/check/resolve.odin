@@ -2,6 +2,7 @@ package check
 
 import "base:runtime"
 import "core:mem"
+import "core:slice"
 import "oc:types"
 
 Resolver_Failure :: enum u8 {
@@ -120,8 +121,12 @@ resolve_entity_signature :: proc(resolver: ^Resolver, id: Entity_Id, need: Resol
 		resolver_poison(resolver, id)
 		return .Invalid, nil
 	case .Resolving:
-		if need == .Type_Identity && entity.kind == .Type_Name && entity.type != 0 && entity.type != types.TYPE_POISON {
-			return .Resolving, nil
+		if need == .Type_Identity && entity.kind == .Type_Name {
+			if entity.type == 0 && resolver.check_declaration != nil && slice.count(resolver.stack[:], id) == 1 {
+				if err = resolver_reevaluate_alias(resolver, id); err != nil { return .Invalid, err }
+				entity = entity_get(resolver.scopes, id)
+			}
+			if entity.type != 0 && entity.type != types.TYPE_POISON { return .Resolving, nil }
 		}
 		state = .Invalid
 		resolver_report_cycle(resolver, id) or_return
@@ -144,6 +149,37 @@ resolve_entity_signature :: proc(resolver: ^Resolver, id: Entity_Id, need: Resol
 	entity.state = .Resolved
 	resolver_use_foreign_library(resolver, entity)
 	return .Resolved, nil
+}
+
+Resolution_Snapshot :: struct {
+	id:       Entity_Id,
+	state:    Resolution_State,
+	type:     types.Type_Id,
+	constant: Const_Id,
+}
+
+// An alias still being evaluated has no identity yet; evaluating it once more yields the type it names. A cyclic alias
+// fails that attempt, which leaves the active declarations and diagnostics as they were, so the cycle is reported once.
+@(private = "file")
+resolver_reevaluate_alias :: proc(resolver: ^Resolver, id: Entity_Id) -> Resolve_Error {
+	snapshots := make([]Resolution_Snapshot, len(resolver.stack), context.temp_allocator) or_return
+	for active, index in resolver.stack {
+		entity := entity_get(resolver.scopes, active)
+		snapshots[index] = {active, entity.state, entity.type, entity.constant}
+	}
+	diagnostics, poisoned := len(resolver.diagnostics), len(resolver.poisoned)
+	append(&resolver.stack, id) or_return
+	_, err := resolver.check_declaration(resolver, id, resolver.user_data)
+	assert(pop(&resolver.stack) == id)
+	if err != nil { return err }
+	if entity := entity_get(resolver.scopes, id); entity.type != 0 && entity.type != types.TYPE_POISON { return nil }
+	for snapshot in snapshots {
+		entity := entity_get(resolver.scopes, snapshot.id)
+		entity.state, entity.type, entity.constant = snapshot.state, snapshot.type, snapshot.constant
+	}
+	resize(&resolver.diagnostics, diagnostics)
+	resize(&resolver.poisoned, poisoned)
+	return nil
 }
 
 // A foreign entity uses the library its foreign block names, found from its scope outward, as the fork's init_entity_foreign_library does.

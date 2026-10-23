@@ -116,3 +116,33 @@ main :: proc "contextless" () {
 	_, ok := check_procedure_source(t, source, .Unsupported, "Generic_Call_Pattern")
 	testing.expect(t, ok)
 }
+
+// A `#simd[$N]$E` pattern matches a vector and binds its lane count; constant arrays compare, untyped constants convert to
+// `any`, and a procedure taking a pointer to an offset-zero subtype is assignable to one taking the pointer to the base.
+@(test)
+generic_simd_pattern_constant_aggregates_any_and_subtype_procedures_check :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(
+		`package sample
+IFoo :: struct { foo: proc(self: ^IFoo) -> int }
+Foo :: struct { using vt: IFoo }
+Pair :: [2]int
+Id :: struct { type: typeid }
+#assert(Pair{0 = 1, 1 = 2} == {1 = 2, 0 = 1})
+apply :: proc "contextless" (how: proc "contextless" (a: []int), what: []int) { how(what) }
+gen :: proc "contextless" (a: $T/[]$E) {}
+#assert(#hash("a", "crc32") == 3904355907)
+lanes :: proc "contextless" (v: #simd[$N]$E) -> [N]E { return transmute([N]E)v }
+main :: proc "contextless" (v: #simd[4]f32, w: []int) {
+	a := lanes(v)
+	apply(gen, w)
+	data :: Id{int}
+	_ = data.type
+	b, c := any(1), cast(any)2.5
+	d: proc(self: ^IFoo) -> int = proc(self: ^Foo) -> int { return 0 }
+	_, _, _, _ = a, b, c, d
+}
+`,
+	)
+	_, ok := check_procedure_source(t, source, .None, "", 0)
+	testing.expect(t, ok)
+}

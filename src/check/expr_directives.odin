@@ -121,7 +121,14 @@ expression_procedure_directive :: proc(
 	err: Resolve_Error,
 ) {
 	file := checker.type_checker.files[checker.views[view].file]
-	if expression_text(file, node) != "#procedure" { return expression_unsupported(checker, view, scope, node, "Expression_Kind") }
+	name := expression_text(file, node)
+	switch name {
+	case "#file", "#line", "#directory", "#location":
+		return expression_source_directive(checker, view, scope, node, name, nil)
+	case "#procedure":
+	case:
+		return expression_unsupported(checker, view, scope, node, "Expression_Kind")
+	}
 	scopes := checker.type_checker.resolver.scopes
 	for current := scope; current != 0; current = scope_get(scopes, current).parent {
 		binding := scope_get(scopes, current)

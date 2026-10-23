@@ -399,6 +399,14 @@ check_expression :: proc(
 					info = expression_assert(checker, view, scope, node, arguments) or_return
 					expression_store(checker, view, node, info)
 					return info, nil
+				case "#hash":
+					info = expression_hash_directive(checker, view, scope, node, arguments) or_return
+					expression_store(checker, view, node, info)
+					return info, nil
+				case "#location":
+					info = expression_source_directive(checker, view, scope, node, "#location", arguments) or_return
+					expression_store(checker, view, node, info)
+					return info, nil
 				case "#panic":
 					info = expression_panic(checker, view, scope, node, arguments) or_return
 					expression_store(checker, view, node, info)
@@ -434,7 +442,7 @@ check_expression :: proc(
 				}
 				break
 			}
-			callee := expression_callee(checker, view, file_id, scope, call.expr) or_return
+			callee := expression_single_value(expression_callee(checker, view, file_id, scope, call.expr) or_return)
 			arguments := syntax.node_list(file.ast, call.args)
 			if callee.state == .Invalid {
 				for argument in arguments {
@@ -526,6 +534,14 @@ check_expression :: proc(
 		case:
 			return expression_unsupported(checker, view, scope, node, "Expression_Kind")
 		}
+	}
+	if hint != 0 &&
+	   info.state != .Invalid &&
+	   info.mode == .Value &&
+	   info.type == types.TYPE_NONE &&
+	   info.entity != 0 &&
+	   is_generic_procedure(checker, info.entity) {
+		info = expression_generic_value(checker, view, file_id, scope, node, info, hint) or_return
 	}
 	if failed, reported, missing_error := expression_missing_type(checker, view, scope, node, info); reported || missing_error != nil {
 		return failed, missing_error

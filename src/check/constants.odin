@@ -155,6 +155,21 @@ constant_pool_intern_variant :: proc(pool: ^Constant_Pool, type: types.Type_Id, 
 	return id, nil
 }
 
+// A typeid value keeps the type it names; its runtime id is assigned with the type information.
+@(require_results)
+constant_pool_intern_type :: proc(pool: ^Constant_Pool, value: types.Type_Id, type: types.Type_Id) -> (id: Const_Id, err: Constant_Error) {
+	if !constant_pool_ready(pool) { return 0, Constant_Pool_Error.Uninitialized }
+	value_buffer: [11]byte
+	value_text := strconv.write_bits(value_buffer[:], u64(value), 10, false, 32, strconv.digits, {})
+	key := constant_pool_simple_key(pool, "t:", type, value_text) or_return
+	if existing, found := pool.keys[key]; found { return existing, nil }
+	if u64(len(pool.values)) > u64(max(u32)) { return 0, Constant_Pool_Error.Handle_Limit }
+	id = Const_Id(len(pool.values))
+	append(&pool.values, Constant{type = type, value = value}) or_return
+	pool.keys[key] = id
+	return id, nil
+}
+
 // Aggregates are not deduplicated: each composite literal is its own immutable value.
 @(require_results)
 constant_pool_intern_aggregate :: proc(pool: ^Constant_Pool, type: types.Type_Id, elements: []Const_Id) -> (id: Const_Id, err: Constant_Error) {

@@ -581,6 +581,18 @@ constant_compare_operator :: proc(
 		}
 		if operator == .Not_Eq { equal = !equal }
 		return constant_pool_intern_bool(pool, equal, bool_type)
+	case Aggregate_Value:
+		right_value, ok := right.value.(Aggregate_Value)
+		if !ok || len(left_value.elements) != len(right_value.elements) { return 0, Constant_Operation_Error_Kind.Invalid_Operand }
+		if operator != .Eq && operator != .Not_Eq { return 0, Constant_Operation_Error_Kind.Unsupported_Constant_Op }
+		equal := true
+		for element, index in left_value.elements {
+			equal_id, compare_error := constant_compare_operator(pool, .Eq, element, right_value.elements[index])
+			if compare_error != nil { return 0, compare_error }
+			equal &&= constant_pool_get(pool, equal_id).value.(bool)
+		}
+		if operator == .Not_Eq { equal = !equal }
+		return constant_pool_intern_bool(pool, equal, bool_type)
 	case:
 		return 0, Constant_Operation_Error_Kind.Invalid_Operand
 	}

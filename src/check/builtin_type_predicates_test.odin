@@ -225,14 +225,10 @@ Point :: struct { x, y: f32 }
 
 @(test)
 deferred_type_predicates_stay_unsupported :: proc(t: ^testing.T) {
-	specialization := transmute([]byte)string("package sample\nmain :: proc() { _ = type_is_specialization_of(int, int) }\n")
-	_, specialization_ok := check_procedure_source(
-		t,
-		specialization,
-		.Unsupported,
-		"type_is_specialization_of",
-		intrinsic_names = []string{"type_is_specialization_of"},
+	specialization := transmute([]byte)string(
+		"package sample\nFoo :: struct($T: typeid) { x: T }\nmain :: proc() {\n\t#assert(type_is_specialization_of(Foo(int), Foo))\n\t#assert(!type_is_specialization_of(Foo, Foo))\n\t#assert(!type_is_specialization_of(Foo(int), Foo(int)))\n\t#assert(!type_is_specialization_of(i32, Foo))\n}\n",
 	)
+	_, specialization_ok := check_procedure_source(t, specialization, .None, "", 0, intrinsic_names = []string{"type_is_specialization_of"})
 	testing.expect(t, specialization_ok)
 	specialized := transmute([]byte)string("package sample\nmain :: proc() { _ = type_is_specialized_polymorphic_record(int) }\n")
 	_, specialized_ok := check_procedure_source(

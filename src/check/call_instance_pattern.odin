@@ -157,6 +157,9 @@ poly_match_pattern :: proc(match: ^Poly_Match, pattern: syntax.Node_Index, argum
 		return poly_match_soa(match, file, array.tag, .Dynamic, 0, array.elem, argument)
 	case .Array_Type:
 		array := syntax.node_payload(file.ast, pattern, syntax.Array_Type)
+		if array.tag != 0 && array.len != 0 && expression_text(file, array.tag) == "#simd" {
+			return poly_match_array(match, .Simd_Vector, array.len, array.elem, argument)
+		}
 		if array.tag == 0 {
 			if array.len == 0 { return poly_match_element(match, .Slice, array.elem, argument) }
 			return poly_match_array(match, .Array, array.len, array.elem, argument)

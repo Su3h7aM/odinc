@@ -41,6 +41,8 @@ Event :: struct {
 @(private = "package")
 Run :: struct {
 	program:         ^check.Checked_Program,
+	enabled:         syntax.Analysis_Flags,
+	graph:           Graph,
 	allocator:       runtime.Allocator,
 	procedures:      [dynamic]Procedure,
 	events:          [dynamic]Event,

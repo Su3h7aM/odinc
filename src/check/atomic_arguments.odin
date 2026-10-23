@@ -87,6 +87,7 @@ atomic_pointer_argument :: proc(
 		base: syntax.Node_Index
 		#partial switch file.ast.nodes[current].kind {
 		case .Selector_Expr:
+			if selector_names_package(checker, scope, file, current) { break }
 			base = syntax.node_payload(file.ast, current, syntax.Selector_Expr).expr
 		case .Index_Expr:
 			index := syntax.node_payload(file.ast, current, syntax.Index_Expr)
@@ -293,8 +294,8 @@ atomic_rodata_root :: proc(
 		#partial switch file.ast.nodes[current].kind {
 		case .Selector_Expr:
 			selector := syntax.node_payload(file.ast, current, syntax.Selector_Expr)
+			if selector_names_package(checker, scope, file, current) { break loop }
 			base := check_expression(checker, view, scope, selector.expr) or_return
-			if base.entity != 0 && entity_get(scopes, base.entity).kind == .Import_Name { break loop }
 			if types.get(store, types.resolve_named(store, base.type)).kind == .Pointer { break loop }
 			current = atomic_unparen(file, selector.expr)
 		case .Index_Expr:

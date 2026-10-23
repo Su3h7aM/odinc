@@ -33,6 +33,23 @@ expression_argument :: proc(
 ) {
 	file := checker.type_checker.files[checker.views[view].file]
 	if expression_argument_needs_hint(file, node) { return check_expression(checker, view, scope, node, target) }
+	if reference := type_unparen(file, node); file.ast.nodes[reference].kind == .Ident || file.ast.nodes[reference].kind == .Selector_Expr {
+		entity := type_name_entity(checker.type_checker, file, scope, reference)
+		span := Source_Span{checker.views[view].file, file.ast.nodes[node].start, file.ast.nodes[node].end}
+		if entity != 0 && (expression_resolved_generic_procedure(checker, entity, span) or_return) {
+			generic := Expression_Info {
+				mode   = .Value,
+				entity = entity,
+				scope  = scope,
+				state  = .Checked,
+			}
+			info = expression_generic_value(checker, view, checker.views[view].file, scope, node, generic, target) or_return
+			if info.type != types.TYPE_NONE {
+				expression_store(checker, view, node, info)
+				return info, nil
+			}
+		}
+	}
 	#partial switch file.ast.nodes[node].kind {
 	case .Call_Expr:
 		if is_type_of_call(file, node) { break }
@@ -87,4 +104,18 @@ expression_any_integer_source :: proc(checker: ^Expression_Checker, info: Expres
 	source_kind := types.get(store, types.resolve_named(store, info.type)).kind
 	target_kind := types.get(store, types.resolve_named(store, target)).kind
 	return target_kind == .Integer && (source_kind == .Integer || source_kind == .Enum)
+}
+
+// Whether a name is a generic procedure; its declaration is resolved first, since the generic flag is set by that.
+@(private = "file")
+expression_resolved_generic_procedure :: proc(checker: ^Expression_Checker, entity: Entity_Id, source: Source_Span) -> (generic: bool, err: Resolve_Error) {
+	scopes := checker.type_checker.resolver.scopes
+	if entity_get(scopes, entity).kind != .Procedure { return false, nil }
+	state: Resolution_State
+	if len(checker.type_checker.resolver.stack) == 0 {
+		state = resolve_entity(checker.type_checker.resolver, entity) or_return
+	} else {
+		state = resolve_dependency(checker.type_checker.resolver, Dependency{entity = entity, kind = .Constant, source = source}) or_return
+	}
+	return state != .Invalid && is_generic_procedure(checker, entity), nil
 }

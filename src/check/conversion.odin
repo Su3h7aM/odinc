@@ -93,10 +93,30 @@ check_conversion :: proc(
 		return result, .None, nil
 	}
 	if kind != .Assignment && kind != .Cast { return Conversion_Result{reason = "Conversion_Kind"}, .Unsupported, nil }
+	if untyped && src.kind != .Untyped_Nil && dst.kind == .Any {
+		typed, typed_diagnostic, typed_error := check_conversion(
+			pool,
+			store,
+			source,
+			info,
+			types.default_type_of_untyped(store, info.type),
+			.Assignment,
+			config,
+		)
+		if typed_diagnostic != .None || typed_error != nil { return {}, typed_diagnostic, typed_error }
+		boxed_source := source
+		if typed.info.mode == .Constant { boxed_source = Operand(typed.info.constant) }
+		boxed, boxed_diagnostic, boxed_error := check_conversion(pool, store, boxed_source, typed.info, target, .Assignment, config)
+		boxed.plan.explicit_box = kind == .Cast && boxed.plan.kind == .Box
+		return boxed, boxed_diagnostic, boxed_error
+	}
 	if kind == .Cast {
 		assigned, assignment_diagnostic, assignment_error := check_conversion(pool, store, source, info, target, .Assignment, config)
 		if assignment_error != nil { return {}, .None, assignment_error }
-		if assignment_diagnostic == .None { return assigned, .None, nil }
+		if assignment_diagnostic == .None {
+			assigned.plan.explicit_box = assigned.plan.kind == .Box
+			return assigned, .None, nil
+		}
 		if core_source.kind == .Simd_Vector && core_target.kind == .Simd_Vector {
 			if core_source.count != core_target.count { return {}, .Not_Castable, nil }
 			element := Expression_Info {
@@ -145,6 +165,7 @@ check_conversion :: proc(
 	}
 	if kind == .Assignment && !untyped && dst.kind == .Any && src.kind != .Any {
 		result.plan.kind = .Box
+		result.plan.explicit_box = false
 		result.plan.source_addressable = info.mode == .Variable
 		return result, .None, nil
 	}
@@ -219,7 +240,7 @@ check_conversion :: proc(
 		}
 	}
 	if kind == .Assignment && !untyped {
-		allowed ||= conversion_procedure_assignment(store, info.type, target)
+		allowed ||= conversion_procedure_assignment(store, info.type, target, config)
 		allowed ||= info.mode == .Constant && src.kind == .String && dst.kind == .CString
 		allowed ||= conversion_implicit_raw_pointer(store, info.type, target)
 		allowed ||= conversion_implicit_pointer(store, info.type, target)
@@ -461,7 +482,7 @@ conversion_base_type :: proc(store: ^types.Store, id: types.Type_Id) -> types.Ty
 	return types.TYPE_POISON
 }
 
-conversion_procedure_assignment :: proc(store: ^types.Store, source, target: types.Type_Id) -> bool {
+conversion_procedure_assignment :: proc(store: ^types.Store, source, target: types.Type_Id, config: Conversion_Config) -> bool {
 	source_type := types.get(store, conversion_base_type(store, source))
 	target_type := types.get(store, conversion_base_type(store, target))
 	if source_type.kind != .Procedure || target_type.kind != .Procedure { return false }
@@ -475,12 +496,47 @@ conversion_procedure_assignment :: proc(store: ^types.Store, source, target: typ
 		return false
 	}
 	for index in 0 ..< len(source_type.params) {
-		if !types.are_identical(store, source_type.params[index], target_type.params[index]) { return false }
+		if !types.are_identical(store, source_type.params[index], target_type.params[index]) &&
+		   !conversion_offset_zero_pointer(store, source_type.params[index], target_type.params[index], config) {
+			return false
+		}
 	}
 	for index in 0 ..< len(source_type.results) {
 		if !types.are_identical(store, source_type.results[index], target_type.results[index]) { return false }
 	}
 	return true
+}
+
+// Official check_is_assignable_to_using_offset_zero_subtype: a pointer to a struct whose `using` field of the target's
+// element type, possibly nested or in a raw_union, shares the struct's address.
+conversion_offset_zero_pointer :: proc(store: ^types.Store, source, target: types.Type_Id, config: Conversion_Config) -> bool {
+	source_type := types.get(store, source)
+	target_type := types.get(store, target)
+	if source_type.kind != .Pointer || target_type.kind != .Pointer || config.field_flags == nil { return false }
+	return conversion_offset_zero_subtype(store, config.field_flags^, source_type.elem, target_type.elem, config.layout)
+}
+
+@(private = "file")
+conversion_offset_zero_subtype :: proc(
+	store: ^types.Store,
+	flags: map[types.Type_Id][]syntax.Field_Flags,
+	source, target: types.Type_Id,
+	layout: types.Layout_Config,
+	depth := 0,
+) -> bool {
+	owner := types.resolve_named(store, source)
+	descriptor := types.get(store, owner)
+	if descriptor.kind != .Struct || depth >= len(store.types) { return false }
+	field_flags := flags[owner]
+	for field, index in descriptor.fields {
+		if index >= len(field_flags) || (.Using not_in field_flags[index] && .Subtype not_in field_flags[index]) { continue }
+		offset, offset_error := types.field_offset(store, owner, index, layout)
+		if offset_error != .None || offset != 0 { return false }
+		if types.are_identical(store, field.type, target) || conversion_offset_zero_subtype(store, flags, field.type, target, layout, depth + 1) {
+			return true
+		}
+	}
+	return false
 }
 
 // Matches official core_type: named, enum and bit_field types unwrap to their underlying type.

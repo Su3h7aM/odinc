@@ -620,8 +620,8 @@ expression_signature_bindings :: proc(
 				return nil
 			}
 			names := syntax.node_list(file.ast, field.names)
-			parameter_flags: Entity_Flags = {.Used}
-			if .Using in field.flags { parameter_flags += {.Using, .Parameter, .Immutable} }
+			parameter_flags: Entity_Flags = {.Used, .Parameter}
+			if .Using in field.flags { parameter_flags += {.Using, .Immutable} }
 			if .C_Vararg in field.flags { parameter_flags += {.C_Variadic} }
 			if .Any_Int in field.flags { parameter_flags += {.Any_Integer} }
 			if .No_Broadcast in field.flags { parameter_flags += {.No_Broadcast} }

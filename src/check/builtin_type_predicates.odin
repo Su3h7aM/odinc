@@ -24,6 +24,8 @@ expression_type_predicate :: proc(
 	#partial switch kind {
 	case .Type_Is_Subtype_Of, .Type_Is_Superset_Of, .Type_Is_Variant_Of:
 		return expression_type_relation(checker, view, scope, node, kind, arguments, ellipsis)
+	case .Type_Is_Specialization_Of:
+		return expression_type_specialization(checker, view, scope, node, arguments, ellipsis)
 	}
 	if len(arguments) != 1 || ellipsis { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
 	operand := type_query_operand(checker, view, scope, arguments[0]) or_return
@@ -43,8 +45,71 @@ expression_type_predicate :: proc(
 	return expression_type_bool(checker, view, scope, node, type_predicate(store, kind, operand.type))
 }
 
-// Whether a builtin kind is answered by expression_type_predicate. The two polymorphic-record predicates and
-// type_is_specialization_of are deliberately absent: with no polymorphic-record representation in src/types they keep
+// `type_is_specialization_of(T, Template)`: T is an instance of the generic record Template. A concrete type, or the
+// template itself, is not a specialization.
+@(private = "file")
+expression_type_specialization :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	scope: Scope_Id,
+	node: syntax.Node_Index,
+	arguments: []syntax.Node_Index,
+	ellipsis: bool,
+) -> (
+	info: Expression_Info,
+	err: Resolve_Error,
+) {
+	if len(arguments) != 2 || ellipsis { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
+	file_id := checker.views[view].file
+	file := checker.type_checker.files[file_id]
+	templates: [2]Entity_Id
+	for argument, index in arguments {
+		templates[index] = expression_record_template(checker, file_id, file, scope, argument) or_return
+	}
+	result := false
+	instance_type := types.TYPE_NONE
+	if templates[0] == 0 {
+		operand := type_query_operand(checker, view, scope, arguments[0]) or_return
+		if operand.state == .Invalid { return expression_poison(scope), nil }
+		if operand.mode != .Type { return expression_failure(checker, view, scope, arguments[0], .Invalid_Operand) }
+		instance_type = operand.type
+	}
+	if templates[1] == 0 {
+		operand := type_query_operand(checker, view, scope, arguments[1]) or_return
+		if operand.state == .Invalid { return expression_poison(scope), nil }
+		if operand.mode != .Type { return expression_failure(checker, view, scope, arguments[1], .Invalid_Operand) }
+	} else if instance_type != types.TYPE_NONE {
+		for instance in checker.type_checker.record_instances {
+			result ||= instance.definition == templates[1] && instance.type == instance_type
+		}
+	}
+	return expression_type_bool(checker, view, scope, node, result)
+}
+
+// The generic record a bare type name refers to, or zero.
+@(private = "file")
+expression_record_template :: proc(
+	checker: ^Expression_Checker,
+	file_id: File_Id,
+	file: ^File,
+	scope: Scope_Id,
+	node: syntax.Node_Index,
+) -> (
+	template: Entity_Id,
+	err: Resolve_Error,
+) {
+	unparen := type_unparen(file, node)
+	if kind := file.ast.nodes[unparen].kind; kind != .Ident && kind != .Selector_Expr { return 0, nil }
+	definition := type_name_entity(checker.type_checker, file, scope, unparen)
+	if definition == 0 { return 0, nil }
+	if kind := entity_get(checker.type_checker.resolver.scopes, definition).kind; kind != .Type_Name && kind != .Constant { return 0, nil }
+	state := resolve_type_dependency(checker.type_checker, definition, type_node_span(file_id, file, unparen), .Name) or_return
+	if _, generic := checker.type_checker.generic_records[definition]; state != .Invalid && generic { return definition, nil }
+	return 0, nil
+}
+
+// Whether a builtin kind is answered by expression_type_predicate. The two polymorphic-record parameter queries are
+// deliberately absent: with no polymorphic-record representation in src/types they keep
 // falling through to Unsupported instead of silently answering false.
 @(private = "package")
 builtin_type_predicate_kind :: proc(kind: Builtin_Kind) -> bool {
@@ -73,6 +138,7 @@ builtin_type_predicate_kind :: proc(kind: Builtin_Kind) -> bool {
 	     .Type_Is_Sliceable,
 	     .Type_Is_String,
 	     .Type_Is_String16,
+	     .Type_Is_Specialization_Of,
 	     .Type_Is_Subtype_Of,
 	     .Type_Is_Superset_Of,
 	     .Type_Is_Typeid,

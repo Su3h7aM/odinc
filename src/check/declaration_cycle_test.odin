@@ -19,6 +19,11 @@ Index :: enum { First, Second }
 Index_Array :: [Index]string
 Parenthesized_Index_Array :: [(Index)]string
 Qualified_Index_Array :: [other.Index]string
+Node_Pointer :: ^Node
+Node :: struct { next: Node_Pointer }
+Arena :: struct { last: ^Allocation }
+Base_Allocation :: struct { previous: ^Allocation }
+Allocation :: Base_Allocation
 `,
 	)
 	ast: syntax.Ast
@@ -82,7 +87,7 @@ Qualified_Index_Array :: [other.Index]string
 	_, other_index_insert_error := scope_insert(&store, other_package_scope, other_index_id)
 	if !testing.expect(t, index_error == nil && index_state == .Resolved && other_index_error == nil && other_index_insert_error == nil) { return }
 
-	for name in ([]string{"Tool_Execute", "Tool_Context", "Background_Jobs", "Tool_Job", "Tool_Execute_Union", "Index_Array", "Parenthesized_Index_Array", "Qualified_Index_Array"}) {
+	for name in ([]string{"Tool_Execute", "Tool_Context", "Background_Jobs", "Tool_Job", "Tool_Execute_Union", "Index_Array", "Parenthesized_Index_Array", "Qualified_Index_Array", "Node_Pointer", "Node", "Arena", "Base_Allocation", "Allocation"}) {
 		id := scope_lookup_current(&store, package_scope, name)
 		state, resolve_error := resolve_entity(&resolver, id)
 		if !testing.expectf(

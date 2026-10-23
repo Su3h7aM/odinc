@@ -354,7 +354,15 @@ check_session :: proc(
 	}
 	session.program.files = session.program_files[:]
 	if check.expression_checker_publish_procedures(&session.checker, &session.program) != nil { return .Allocation_Failed }
-	result, analysis_error := analysis.run(&session.program, {no_entry_point = session.no_entry_point, test = session.test_options != nil}, session.allocator)
+	result, analysis_error := analysis.run(
+		&session.program,
+		{
+			no_entry_point = session.no_entry_point,
+			test = session.test_options != nil,
+			entry_point = check.scope_lookup_current(&session.scopes, session.main_scope, "main"),
+		},
+		session.allocator,
+	)
 	session.analysis_result = result
 	if analysis_error != nil { return .Allocation_Failed }
 	if session_has_errors(session) { return .Check_Failed }
@@ -456,6 +464,13 @@ bind_whens :: proc(session: ^Session) -> Driver_Error {
 		first_unresolved := -1
 		for index := 0; index < len(session.collection.pending); index += 1 {
 			pending := session.collection.pending[index]
+			if pending.kind == .Foreign_Block && !pending.handled {
+				if check.collect_foreign_block(&session.collection, session.files[pending.declaration.file], index, pending.visibility) != nil {
+					return .Check_Failed
+				}
+				progressed = true
+				continue
+			}
 			if pending.handled || pending.kind != .When { continue }
 			mark := diagnostic_mark(session)
 			condition, ok, evaluate_error := evaluate_when(session, pending)

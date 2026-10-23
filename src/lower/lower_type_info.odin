@@ -832,13 +832,7 @@ lower_type_info_of :: proc(state: ^Procedure_State, node: syntax.Node_Index, pla
 
 @(private)
 lower_runtime_typeid :: proc(state: ^Procedure_State, node: syntax.Node_Index, type: types.Type_Id) -> ir.Node_Id {
-	requirements := check.runtime_requirements(state.job.program)
-	representative := type
-	if int(type) < len(requirements.type_info_representatives) { representative = requirements.type_info_representatives[type] }
-	for entry in requirements.type_info {
-		if entry.type == representative {
-			return ir.const_int(state.job.function, .I64, i64(entry.runtime_id))
-		}
-	}
-	return lower_fail(state, node, .Expression)
+	id, found := check.typeid_runtime_id(state.job.program, type)
+	if !found { return lower_fail(state, node, .Expression) }
+	return ir.const_int(state.job.function, .I64, i64(id))
 }

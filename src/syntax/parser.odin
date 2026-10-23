@@ -161,7 +161,7 @@ parse_error_text :: proc(err: Parse_Error) -> string {
 	return ""
 }
 
-VET_FLAG_NAMES :: "\tunused\n\tunused-variables\n\tunused-imports\n\tunused-procedures\n\tshadowing\n\tusing-stmt\n\tusing-param\n\tstyle\n\tsemicolon\n\tdeprecated\n\tcast\n\ttabs\n\texplicit-allocators\n\twhen-shadowing"
+VET_FLAG_NAMES :: "\tunused\n\tunused-variables\n\tunused-imports\n\tunused-procedures\n\tshadowing\n\tusing-stmt\n\tusing-param\n\tstyle\n\tsemicolon\n\tdeprecated\n\tcast\n\ttabs\n\texplicit-allocators\n\twhen-shadowing\n\tatomic-access"
 
 closer_text :: proc(kind: Token_Kind) -> string {
 	#partial switch kind {

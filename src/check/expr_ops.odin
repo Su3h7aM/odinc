@@ -837,6 +837,15 @@ expression_binary_result :: proc(
 	return expression_binary_constant(checker, view, scope, node, operands, classification, info)
 }
 
+// Typeid constants are equal when their types share a runtime type id, as the type information deduplicates them.
+@(private = "file")
+expression_typeid_equality :: proc(checker: ^Expression_Checker, operands: ^Binary_Operands) -> (equal: bool, is_typeid: bool) {
+	left, left_ok := constant_pool_get(checker.constants, operands.left.constant).value.(types.Type_Id)
+	right, right_ok := constant_pool_get(checker.constants, operands.right.constant).value.(types.Type_Id)
+	if !left_ok || !right_ok { return false, false }
+	return types.are_identical_unique_tuples(checker.type_checker.store, left, right), true
+}
+
 @(private = "file")
 expression_binary_constant :: proc(
 	checker: ^Expression_Checker,
@@ -862,6 +871,9 @@ expression_binary_constant :: proc(
 			if (classification.operator == .Lt || classification.operator == .Gt || classification.operator == .Lt_Eq || classification.operator == .Gt_Eq) &&
 			   classification.left_kind == .Bit_Set {
 				constant, failure = expression_bit_set_ordering(checker, classification.operator, operands.left, operands.right, info.type)
+			} else if equal, is_typeid := expression_typeid_equality(checker, operands);
+			   is_typeid && (comparison_operator == .Eq || comparison_operator == .Not_Eq) {
+				constant, failure = constant_pool_intern_bool(checker.constants, equal == (comparison_operator == .Eq), info.type)
 			} else {
 				constant, failure = constant_compare_operator(
 					checker.constants,

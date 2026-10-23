@@ -120,6 +120,16 @@ expression_typeid_of :: proc(
 	return expression_typeid_value(checker, scope, operand.type)
 }
 
+// The runtime id of a type's typeid, once its type information is recorded.
+typeid_runtime_id :: proc(program: ^Checked_Program, type: types.Type_Id) -> (id: u64, found: bool) {
+	representative := type
+	if int(type) < len(program.runtime.type_info_representatives) { representative = program.runtime.type_info_representatives[type] }
+	for entry in program.runtime.type_info {
+		if entry.type == representative { return entry.runtime_id, true }
+	}
+	return 0, false
+}
+
 // The value of `typeid_of(type)`: a type used where a `typeid` is expected takes this value too.
 @(private = "package")
 expression_typeid_value :: proc(checker: ^Expression_Checker, scope: Scope_Id, type: types.Type_Id) -> (info: Expression_Info, err: Resolve_Error) {
@@ -127,7 +137,9 @@ expression_typeid_value :: proc(checker: ^Expression_Checker, scope: Scope_Id, t
 	plan := Plan_Id(len(checker.plans))
 	append(&checker.plans, Plan(Typeid_Plan{type = type})) or_return
 	typeid_type := types.intern(checker.type_checker.store, types.Type{kind = .Type_Id})
-	return Expression_Info{type = typeid_type, mode = .Value, plan = plan, scope = scope, state = .Checked}, nil
+	constant, constant_error := constant_pool_intern_type(checker.constants, type, typeid_type)
+	if constant_error != nil { return expression_poison(scope), nil }
+	return Expression_Info{type = typeid_type, mode = .Constant, constant = constant, plan = plan, scope = scope, state = .Checked}, nil
 }
 
 // A type whose runtime type info is needed: its typeid is used or it is converted to `any`.

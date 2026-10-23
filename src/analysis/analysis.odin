@@ -7,6 +7,7 @@ import "oc:syntax"
 
 Options :: struct {
 	no_entry_point, test: bool,
+	entry_point:          check.Entity_Id,
 }
 
 Diagnostic :: struct {
@@ -21,6 +22,7 @@ Result :: struct {
 	enabled:     syntax.Analysis_Flags,
 	procedures:  []Procedure,
 	events:      []Event,
+	graph:       Graph,
 	arena:       ^mem.Dynamic_Arena,
 	allocator:   runtime.Allocator,
 }
@@ -36,13 +38,20 @@ run :: proc(program: ^check.Checked_Program, options: Options, allocator := cont
 	arena_allocator := mem.dynamic_arena_allocator(result.arena)
 	run := Run {
 		program     = program,
+		enabled     = result.enabled,
 		allocator   = arena_allocator,
 		procedures  = make([dynamic]Procedure, 0, arena_allocator) or_return,
 		events      = make([dynamic]Event, 0, arena_allocator) or_return,
 		diagnostics = make([dynamic]Diagnostic, 0, arena_allocator) or_return,
 	}
 	inventory(&run) or_return
+	if .Atomic in run.enabled {
+		graph := call_graph_build(&run) or_return
+		atomics_run(&run, &graph) or_return
+	}
 	check_unsafe_returns(&run) or_return
+	check_escape_returns(&run, options) or_return
+	result.graph = run.graph
 	result.procedures = run.procedures[:]
 	result.events = run.events[:]
 	result.diagnostics = run.diagnostics[:]

@@ -18,6 +18,7 @@ Vet_Flag :: enum u8 {
 	Tabs,
 	When_Shadowing,
 	Explicit_Allocators,
+	Atomic_Access,
 }
 
 Vet_Flags :: bit_set[Vet_Flag;u16]
@@ -58,6 +59,8 @@ vet_flags_from_name :: proc(name: string) -> (flags: Vet_Flags, ok: bool) {
 		return {.When_Shadowing}, true
 	case "explicit-allocators":
 		return {.Explicit_Allocators}, true
+	case "atomic-access":
+		return {.Atomic_Access}, true
 	}
 	return {}, false
 }

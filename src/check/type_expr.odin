@@ -35,6 +35,7 @@ Type_Diagnostic_Kind :: enum u8 {
 	Invalid_Record_Arguments,
 	Unsatisfied_Where_Clause,
 	Invalid_Optional_Result,
+	Invalid_No_Nil_Union,
 	Non_Contiguous_Enum_Index,
 	Invalid_Matrix_Count,
 	Invalid_Matrix_Element,
@@ -261,7 +262,7 @@ type_declaration :: proc(checker: ^Type_Checker, id: Entity_Id) -> (handled, val
 	}
 	if record_poly_params(file, record) != 0 {
 		checker.generic_records[id] = Node_Ref{file_id, record}
-		return true, true, nil
+		return true, union_no_nil_valid(checker, file_id, file, record) or_return, nil
 	}
 	#partial switch file.ast.nodes[definition].kind {
 	case .Struct_Type:
@@ -990,7 +991,7 @@ union_descriptor :: proc(
 	err: Resolve_Error,
 ) {
 	record := syntax.node_payload(file.ast, node, syntax.Union_Type)
-	valid = true
+	valid = union_no_nil_valid(checker, file_id, file, node) or_return
 	if record.poly_params != 0 && checker.record_instance == 0 || record.poly_params == 0 && record.where_clauses.count != 0 {
 		type_report(checker, file_id, file, node, .Unsupported_Type_Expression) or_return
 		valid = false
@@ -1033,6 +1034,16 @@ union_descriptor :: proc(
 	align_valid: bool
 	descriptor.custom_align, align_valid = alignment_expression(checker, file_id, file, scope, record.align) or_return
 	return descriptor, valid && align_valid, nil
+}
+
+// A `#no_nil` union needs two variants, since a single one has no tag to distinguish it.
+@(private = "file")
+union_no_nil_valid :: proc(checker: ^Type_Checker, file_id: File_Id, file: ^File, node: syntax.Node_Index) -> (valid: bool, err: Resolve_Error) {
+	if file.ast.nodes[node].kind != .Union_Type { return true, nil }
+	record := syntax.node_payload(file.ast, node, syntax.Union_Type)
+	if record.kind != .No_Nil || record.variants.count >= 2 { return true, nil }
+	type_report(checker, file_id, file, node, .Invalid_No_Nil_Union) or_return
+	return false, nil
 }
 
 @(private = "file")

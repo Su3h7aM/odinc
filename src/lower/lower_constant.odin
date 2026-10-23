@@ -97,6 +97,8 @@ lower_constant :: proc(state: ^Procedure_State, id: check.Const_Id, target: type
 		return lower_float_constant(state, check.Float_Value{bits = transmute(u64)rounded, width = 64}, type, scalar)
 	case check.Pointer_Value:
 		return ir.const_int(function, .Ptr, i64(value))
+	case types.Type_Id:
+		return lower_runtime_typeid(state, state.job.procedure.body.node, value)
 	case check.Nil_Value:
 		return ir.const_int(function, scalar, 0)
 	case check.Uninitialized_Value:
