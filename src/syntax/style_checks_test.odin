@@ -1,5 +1,6 @@
 package syntax
 
+import "core:strings"
 import "core:testing"
 
 @(private = "file")
@@ -70,7 +71,8 @@ vet_tags_and_packages_decide_the_flags_of_a_file :: proc(t: ^testing.T) {
 			source: string,
 			flags:  Vet_Flags,
 			errors: int,
-		}{{"package sample\n", {.Shadowing, .Cast}, 0}, {"package other\n", {}, 0}, {"#+vet !cast unused-imports\npackage other\n", {.Shadowing, .Unused_Imports}, 0}, {"#+vet\npackage other\n", {.Shadowing, .Cast} + VET_ALL, 0}, {"#+vet unknown\npackage sample\n", {.Shadowing, .Cast}, 1}, {"#+vetx\npackage sample\n", {.Shadowing, .Cast}, 1}}) {
+			text:   string,
+		}{{"package sample\n", {.Shadowing, .Cast}, 0, ""}, {"package other\n", {}, 0, ""}, {"#+vet !cast unused-imports\npackage other\n", {.Shadowing, .Unused_Imports}, 0, ""}, {"#+vet\npackage other\n", {.Shadowing, .Cast} + VET_ALL, 0, ""}, {"#+vet unknown\npackage sample\n", {.Shadowing, .Cast}, 1, "Invalid vet flag name: unknown"}, {"#+vetx\npackage sample\n", {.Shadowing, .Cast}, 1, ""}}) {
 		ast: Ast
 		ast_init(&ast, context.allocator)
 		defer ast_destroy(&ast)
@@ -81,5 +83,8 @@ vet_tags_and_packages_decide_the_flags_of_a_file :: proc(t: ^testing.T) {
 		parse_file(&parser)
 		testing.expect_value(t, ast.vet, row.flags)
 		testing.expect_value(t, len(parser.errors), row.errors)
+		if row.text != "" && len(parser.errors) == 1 {
+			testing.expect(t, strings.has_prefix(parse_error_text(parser.errors[0]), row.text), parse_error_text(parser.errors[0]))
+		}
 	}
 }

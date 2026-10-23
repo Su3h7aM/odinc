@@ -14,7 +14,7 @@ Check_Options :: struct {
 	complete_package:   Package_Id,
 }
 
-Message_Diagnostics :: bit_set[Expression_Diagnostic_Kind]{.Shadowing, .Unused, .Large_Local, .Unneeded_Cast, .Deprecated}
+Message_Diagnostics :: bit_set[Expression_Diagnostic_Kind]{.Shadowing, .Unused, .Large_Local, .Unneeded_Cast, .Deprecated, .Explicit_Allocator}
 
 Diagnostic_Severity :: enum u8 {
 	Error,
@@ -25,6 +25,7 @@ Expression_Diagnostic_Kind :: enum u8 {
 	None,
 	Shadowing,
 	Unused,
+	Explicit_Allocator,
 	Unneeded_Cast,
 	Deprecated,
 	Large_Local,

@@ -193,6 +193,7 @@ expression_call_default_argument :: proc(
 		argument.conversion = default_argument.conversion
 	case .Declaration:
 		source := default_argument.value.(Expression_Ref)
+		if vet_implicit_allocator(checker, view, node, source, parameter) or_return { return {}, false, nil }
 		evaluated := expression_default_argument(checker, source.view, default_argument.declaration_scope, source.node, default_argument.target_type) or_return
 		if evaluated.kind == .Invalid { return {}, false, nil }
 		assert(evaluated.kind == .Constant || evaluated.kind == .Value)

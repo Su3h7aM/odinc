@@ -195,6 +195,7 @@ expression_predeclare_constants :: proc(
 	file := checker.type_checker.files[file_id]
 	scopes := checker.type_checker.resolver.scopes
 	for statement in statements {
+		if file.ast.nodes[statement].kind == .Foreign_Block_Decl { expression_predeclare_foreign_block(checker, view, file_id, scope, statement) or_return }
 		if file.ast.nodes[statement].kind != .Value_Decl { continue }
 		declaration := syntax.node_payload(file.ast, statement, syntax.Value_Decl)
 		if declaration.is_mutable || declaration.type != 0 { continue }
@@ -231,6 +232,76 @@ expression_predeclare_constants :: proc(
 				entity     = constant,
 				identifier = {file_id, name_node},
 				value      = {file_id, values[index]},
+			}
+		}
+	}
+	return nil
+}
+
+// A `foreign` block inside a procedure declares its bodyless procedures in the local scope, like the package-level
+// block does in collect_value_declaration. They resolve on first use.
+@(private = "file")
+expression_predeclare_foreign_block :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	file_id: File_Id,
+	scope: Scope_Id,
+	block_node: syntax.Node_Index,
+) -> Resolve_Error {
+	file := checker.type_checker.files[file_id]
+	scopes := checker.type_checker.resolver.scopes
+	block := syntax.node_payload(file.ast, block_node, syntax.Foreign_Block_Decl)
+	library := expression_text(file, block.foreign_library)
+	for statement in syntax.node_list(file.ast, syntax.node_payload(file.ast, block.body, syntax.Block_Stmt).stmts) {
+		if file.ast.nodes[statement].kind != .Value_Decl { continue }
+		declaration := syntax.node_payload(file.ast, statement, syntax.Value_Decl)
+		names := syntax.node_list(file.ast, declaration.names)
+		values := syntax.node_list(file.ast, declaration.values)
+		if declaration.is_mutable || len(names) != len(values) {
+			expression_unsupported(checker, view, scope, statement, "Local_Foreign_Declaration") or_return
+			return nil
+		}
+		for name_node, index in names {
+			literal_node := type_unparen(file, values[index])
+			if file.ast.nodes[literal_node].kind != .Proc_Lit {
+				expression_unsupported(checker, view, scope, name_node, "Local_Foreign_Declaration") or_return
+				return nil
+			}
+			literal := syntax.node_payload(file.ast, literal_node, syntax.Proc_Lit)
+			link_name, link_error := collection_link_name(checker.type_checker.collection, file, file_id, name_node, declaration.attributes, block.attributes)
+			if link_error != nil { return binding_resolve_error(link_error) }
+			procedure, create_error := entity_create(
+				scopes,
+				Entity {
+					name = expression_text(file, name_node),
+					kind = .Procedure,
+					flags = {.Foreign},
+					scope = scope,
+					package_id = file.package_id,
+					declaration = {file_id, statement},
+					order = Source_Order{offset = file.ast.nodes[name_node].start},
+					state = .Unresolved,
+					data = Procedure_Data {
+						source_name = expression_text(file, name_node),
+						body = {file_id, literal.body},
+						where_clauses = literal.where_clauses,
+					},
+					foreign_library = library,
+					link_name = link_name,
+				},
+			)
+			if create_error != nil { return binding_resolve_error(create_error) }
+			previous, insert_error := scope_insert(scopes, scope, procedure)
+			if insert_error != nil { return binding_resolve_error(insert_error) }
+			if previous != 0 {
+				expression_unsupported(checker, view, scope, name_node, "Local_Constant_Duplicate") or_return
+				return nil
+			}
+			checker.type_checker.declarations[procedure] = Collected_Declaration {
+				entity     = procedure,
+				identifier = {file_id, name_node},
+				type       = {file_id, literal.type},
+				value      = {file_id, literal_node},
 			}
 		}
 	}

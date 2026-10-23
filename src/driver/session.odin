@@ -597,7 +597,7 @@ load_package :: proc(
 	}
 	defer os.file_info_slice_delete(infos, session.allocator)
 	slice.sort_by(infos, proc(a, b: os.File_Info) -> bool { return a.name < b.name })
-	loaded := 0
+	loaded, excluded := 0, 0
 	parse_failed := false
 	for info in infos {
 		if info.type == .Directory || !strings.has_suffix(info.name, ".odin") { continue }
@@ -609,6 +609,7 @@ load_package :: proc(
 		hardcoded := session.packages[package_id].kind == .Intrinsics
 		if !hardcoded && target_source_excluded(info.name, string(source), session.test_options != nil) {
 			delete(source, session.allocator)
+			excluded += 1
 			continue
 		}
 		file_id, load_error := load_source(session, info.fullpath, source, package_id, package_scope)
@@ -626,7 +627,7 @@ load_package :: proc(
 		}
 		if check.collect_file(&session.collection, session.files[file_id], file_id, order) != nil { return .Check_Failed }
 	}
-	if loaded == 0 {
+	if loaded == 0 && excluded == 0 {
 		if parse_failed { return .Parse_Failed }
 		return .Import_Failed
 	}

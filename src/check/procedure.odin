@@ -855,7 +855,7 @@ expression_statement :: proc(checker: ^Expression_Checker, view: View_Id, file_i
 		checker.type_assert_policy = .Enabled
 	}
 	#partial switch file.ast.nodes[node].kind {
-	case .Empty_Stmt:
+	case .Empty_Stmt, .Foreign_Block_Decl:
 		return nil
 	case .Value_Decl:
 		return expression_local_declaration(checker, view, file_id, scope, node)

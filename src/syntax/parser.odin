@@ -76,6 +76,8 @@ Parse_Error :: struct {
 	kind:     Parse_Error_Kind,
 	offset:   u32,
 	expected: Token_Kind,
+	// A name from the source that the text of the error quotes.
+	detail:   string,
 }
 
 // Parser must not move after `parser_init`: the tokenizer keeps a pointer to `lex_errors`.
@@ -142,12 +144,14 @@ parse_error_text :: proc(err: Parse_Error) -> string {
 	case .Expected_Vet_Flag_Name:
 		return "Expected a vet flag name after '!'"
 	case .Invalid_Vet_Flag:
-		return "Invalid vet flag name"
+		return fmt.tprintf("Invalid vet flag name: %s\n\tExpected one of the following\n%s", err.detail, VET_FLAG_NAMES)
 	case .Trailing_Comma_Before_Closer:
 		return fmt.tprintf("No need for a trailing comma followed by a %s on the same line", closer_text(err.expected))
 	}
 	return ""
 }
+
+VET_FLAG_NAMES :: "\tunused\n\tunused-variables\n\tunused-imports\n\tunused-procedures\n\tshadowing\n\tusing-stmt\n\tusing-param\n\tstyle\n\tsemicolon\n\tdeprecated\n\tcast\n\ttabs\n\texplicit-allocators\n\twhen-shadowing"
 
 closer_text :: proc(kind: Token_Kind) -> string {
 	#partial switch kind {
@@ -411,7 +415,7 @@ validate_feature_tag :: proc(p: ^Parser, start: u32, text: string) {
 
 // apply_vet_tag applies a `#+vet` tag to the vet flags of the file, as the official parse_vet_tag does.
 apply_vet_tag :: proc(p: ^Parser, start: u32, text: string) {
-	flags, err := parse_vet_tag(text[len("#+vet"):], p.vet)
+	flags, err, invalid_name := parse_vet_tag(text[len("#+vet"):], p.vet)
 	switch err {
 	case .None:
 	case .Expected_Space:
@@ -420,6 +424,7 @@ apply_vet_tag :: proc(p: ^Parser, start: u32, text: string) {
 		report(p, .Expected_Vet_Flag_Name, start)
 	case .Invalid_Flag:
 		report(p, .Invalid_Vet_Flag, start)
+		p.errors[len(p.errors) - 1].detail = invalid_name
 	}
 	p.vet = flags
 }

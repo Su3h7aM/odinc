@@ -705,7 +705,7 @@ collection_link_part :: proc(
 
 // The symbol name from the link attributes, as the official handle_link_name: `link_name` replaces the name, and
 // `link_prefix` and `link_suffix` wrap the bare name. "" keeps the default name.
-@(private = "file")
+@(private = "package")
 collection_link_name :: proc(
 	collection: ^Collection,
 	file: ^File,

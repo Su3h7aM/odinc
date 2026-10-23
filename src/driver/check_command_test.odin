@@ -116,3 +116,29 @@ check_command_reports_unused_procedures_and_ignores_type_switch_variables :: pro
 		strings.builder_destroy(&log)
 	}
 }
+
+@(test)
+check_command_handles_local_foreign_blocks_explicit_allocators_and_excluded_packages :: proc(t: ^testing.T) {
+	root, _ := filepath.join({#directory, "..", ".."}, context.temp_allocator)
+	directory, directory_error := os.make_directory_temp("", "driver-check-foreign-*", context.temp_allocator)
+	if !testing.expect_value(t, directory_error, nil) { return }
+	defer os.remove_all(directory)
+	main_path, _ := filepath.join({directory, "main.odin"}, context.temp_allocator)
+	package_directory, _ := filepath.join({directory, "excluded"}, context.temp_allocator)
+	if !testing.expect_value(t, os.make_directory(package_directory), nil) { return }
+	excluded_path, _ := filepath.join({package_directory, "excluded.odin"}, context.temp_allocator)
+	if !testing.expect_value(t, os.write_entire_file(excluded_path, transmute([]byte)string("#+build darwin\npackage excluded\n")), nil) { return }
+	for row in ([]struct {
+			source: string,
+			vet:    syntax.Vet_Flags,
+			error:  Driver_Error,
+			text:   string,
+		}{{"package main\nforeign import libc \"system:c\"\nmain :: proc() {\n\tforeign libc {\n\t\tputs :: proc(text: cstring) -> i32 ---\n\t}\n\t_ = puts(\"\")\n}\n", {}, .None, ""}, {"package main\nimport \"excluded\"\nmain :: proc() {}\n", {}, .None, ""}, {"#+vet explicit-allocators\npackage main\nmake_value :: proc(allocator := context.allocator) {}\nmain :: proc() {\n\tmake_value()\n\tmake_value(context.allocator)\n}\n", {}, .Check_Failed, "Error: Parameter 'allocator' of type 'Allocator' must be explicitly provided in procedure call"}, {"package main\nmake_value :: proc(allocator := context.allocator) {}\nmain :: proc() { make_value() }\n", {}, .None, ""}}) {
+		if !testing.expect_value(t, os.write_entire_file(main_path, transmute([]byte)row.source), nil) { return }
+		log := strings.builder_make()
+		error := check_file(root, main_path, strings.to_writer(&log), context.allocator, false, nil, nil, parse_options = {vet = row.vet})
+		testing.expect_value(t, error, row.error)
+		testing.expect(t, strings.contains(strings.to_string(log), row.text), strings.to_string(log))
+		strings.builder_destroy(&log)
+	}
+}

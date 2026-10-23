@@ -280,3 +280,38 @@ report_at :: proc(
 	append(&checker.diagnostics, Expression_Diagnostic{kind = kind, severity = severity, source = source, reason = reason}) or_return
 	return nil
 }
+
+// With `#+vet explicit-allocators`, a call may not leave out a parameter whose default is `context.allocator` or
+// `context.temp_allocator` (the official check in check_expr.cpp, ast_file_vet_explicit_allocators). Reports the call
+// and returns true when the default is such an allocator.
+@(private = "package")
+vet_implicit_allocator :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	call: syntax.Node_Index,
+	default_value: Expression_Ref,
+	parameter: Entity_Id,
+) -> (
+	rejected: bool,
+	err: Resolve_Error,
+) {
+	caller := checker.views[view].file
+	if .Explicit_Allocators not_in file_vet(checker, caller) { return false, nil }
+	declaring := checker.type_checker.files[checker.views[default_value.view].file]
+	if declaring.ast.nodes[default_value.node].kind != .Selector_Expr { return false, nil }
+	selector := syntax.node_payload(declaring.ast, default_value.node, syntax.Selector_Expr)
+	if declaring.ast.nodes[selector.expr].kind != .Implicit || expression_text(declaring, selector.expr) != "context" { return false, nil }
+	field := expression_text(declaring, selector.field)
+	if field != "allocator" && field != "temp_allocator" { return false, nil }
+	entity := entity_get(checker.type_checker.resolver.scopes, parameter)
+	allocator := mem.dynamic_arena_allocator(&checker.arena)
+	reason := fmt.aprintf(
+		"Parameter '%s' of type '%s' must be explicitly provided in procedure call",
+		entity.name,
+		types.type_text(checker.type_checker.store, entity.type, allocator),
+		allocator = allocator,
+	)
+	span := checker.type_checker.files[caller].ast.nodes[call]
+	append(&checker.diagnostics, Expression_Diagnostic{kind = .Explicit_Allocator, source = {caller, span.start, span.end}, reason = reason}) or_return
+	return true, nil
+}

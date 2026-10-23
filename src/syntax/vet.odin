@@ -17,6 +17,7 @@ Vet_Flag :: enum u8 {
 	Cast,
 	Tabs,
 	When_Shadowing,
+	Explicit_Allocators,
 }
 
 Vet_Flags :: bit_set[Vet_Flag;u16]
@@ -55,6 +56,8 @@ vet_flags_from_name :: proc(name: string) -> (flags: Vet_Flags, ok: bool) {
 		return {.Tabs}, true
 	case "when-shadowing":
 		return {.When_Shadowing}, true
+	case "explicit-allocators":
+		return {.Explicit_Allocators}, true
 	}
 	return {}, false
 }
@@ -68,13 +71,13 @@ Vet_Tag_Error :: enum u8 {
 
 // Applies the body of a `#+vet` tag (the text after `#+vet`) to `base`, as parse_vet_tag does: a bare tag adds
 // everything in VET_ALL, a name adds its flags and `!name` removes them. Parsing stops at the first error.
-parse_vet_tag :: proc(body: string, base: Vet_Flags) -> (flags: Vet_Flags, err: Vet_Tag_Error) {
+parse_vet_tag :: proc(body: string, base: Vet_Flags) -> (flags: Vet_Flags, err: Vet_Tag_Error, invalid_name: string) {
 	flags = base
 	if len(body) > 0 && body[0] != ' ' && body[0] != '\t' {
-		return flags, .Expected_Space if strings.trim_space(body) != "" else .None
+		return flags, .Expected_Space if strings.trim_space(body) != "" else .None, ""
 	}
 	rest := strings.trim_space(body)
-	if len(rest) == 0 { return flags + VET_ALL, .None }
+	if len(rest) == 0 { return flags + VET_ALL, .None, "" }
 	for len(strings.trim_space(rest)) > 0 {
 		name: string
 		name, rest = next_flag_name(rest, false)
@@ -83,13 +86,13 @@ parse_vet_tag :: proc(body: string, base: Vet_Flags) -> (flags: Vet_Flags, err: 
 		notted := name[0] == '!'
 		if notted {
 			name = name[1:]
-			if len(name) == 0 { return flags, .Expected_Flag_Name }
+			if len(name) == 0 { return flags, .Expected_Flag_Name, "" }
 		}
 		named, found := vet_flags_from_name(name)
-		if !found { return flags, .Invalid_Flag }
+		if !found { return flags, .Invalid_Flag, name }
 		flags = flags - named if notted else flags + named
 	}
-	return flags, .None
+	return flags, .None, ""
 }
 
 // The flags of a file with no `#+vet` tag: those of the command line, but only in the packages `-vet-packages` names.
