@@ -104,7 +104,6 @@ call_sequence_builds_a_verified_program :: proc(t: ^testing.T) {
 
 	function: Machine_Function
 	testing.expect_value(t, machine_function_init(&function, "caller"), nil)
-	defer machine_function_destroy(&function)
 	block, _ := add_block(&function)
 	params, start_err := lower_start(&function, block, caller, caller_assignment, allocator)
 	testing.expect_value(t, start_err, nil)

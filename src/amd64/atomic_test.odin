@@ -15,7 +15,6 @@ atomic_encodings_preserve_width_lock_and_retry :: proc(t: ^testing.T) {
 		for mnemonic in mnemonics {
 			function: Machine_Function
 			if !testing.expect_value(t, machine_function_init(&function, "atomic"), nil) { return }
-			defer machine_function_destroy(&function)
 			block, _ := add_block(&function)
 			address, _ := new_vreg(&function, .Int)
 			accumulator, _ := new_vreg(&function, .Int)
@@ -94,7 +93,6 @@ bitwise_atomic_preserves_inputs_from_scratch_registers :: proc(t: ^testing.T) {
 		atomic := ir.add_node(input, .Atomic_Rmw, .Tuple, {entry.control, entry.memory, address_node, value_node}, {access = {order = .Seq_Cst, rmw = .And}})
 		function: Machine_Function
 		if !testing.expect_value(t, machine_function_init(&function, "atomic"), nil) { return }
-		defer machine_function_destroy(&function)
 		block, _ := add_block(&function)
 		address, _ := new_vreg(&function, .Int)
 		value, _ := new_vreg(&function, .Int)

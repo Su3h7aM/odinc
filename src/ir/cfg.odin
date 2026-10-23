@@ -1,7 +1,6 @@
 package ir
 
 import "base:runtime"
-import "core:mem/virtual"
 import "core:slice"
 
 Block_Id :: distinct u32
@@ -107,13 +106,17 @@ block_of_node :: proc(cfg: Cfg, fn: ^Function, id: Node_Id) -> Block_Id {
 }
 
 // Derives the control skeleton from the graph's control nodes: blocks in reverse post-order,
-// idoms, depths and loops. `uses` must be a table of `fn`.
-build_control_skeleton :: proc(fn: ^Function, allocator: runtime.Allocator, uses: Use_Table) -> (cfg: Cfg, err: runtime.Allocator_Error) {
-	scratch: virtual.Arena
-	virtual.arena_init_growing(&scratch) or_return
-	defer virtual.arena_destroy(&scratch)
-	temp := virtual.arena_allocator(&scratch)
-
+// idoms, depths and loops. `uses` must be a table of `fn`. The caller owns the result, allocated
+// with `allocator`; `temp` holds working storage the caller releases.
+build_control_skeleton :: proc(
+	fn: ^Function,
+	allocator: runtime.Allocator,
+	uses: Use_Table,
+	temp: runtime.Allocator,
+) -> (
+	cfg: Cfg,
+	err: runtime.Allocator_Error,
+) {
 	node_count := len(fn.nodes)
 	entry := entry_head(fn, uses)
 	if entry == NODE_NONE {

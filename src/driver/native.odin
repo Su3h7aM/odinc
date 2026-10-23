@@ -627,6 +627,7 @@ native_function :: proc(
 	}
 	defer virtual.arena_free_all(&native_scratch)
 	scratch := virtual.arena_allocator(&native_scratch)
+	runtime.DEFAULT_TEMP_ALLOCATOR_TEMP_GUARD()
 
 	schedule, sched_err := sched.order(function, scratch)
 	if sched_err != nil { return {}, sched_err }
@@ -635,7 +636,6 @@ native_function :: proc(
 	machine: amd64.Machine_Function
 	select_err := amd64.select_function(&machine, function, &schedule, plan, microarch)
 	if select_err.kind != .None { return {}, Select_Failed{select_err} }
-	defer amd64.machine_function_destroy(&machine)
 
 	program, program_err := amd64.build_program(&machine, scratch)
 	if program_err != nil { return {}, program_err }

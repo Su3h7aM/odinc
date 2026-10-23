@@ -7,7 +7,6 @@ import "oc:regalloc"
 memory_misc_instruction_bytes :: proc(t: ^testing.T) {
 	function: Machine_Function
 	if !testing.expect_value(t, machine_function_init(&function, "memory_misc"), nil) { return }
-	defer machine_function_destroy(&function)
 	block, block_error := add_block(&function)
 	if !testing.expect_value(t, block_error, nil) { return }
 	testing.expect_value(t, emit(&function, block, .PAUSE, 0), nil)

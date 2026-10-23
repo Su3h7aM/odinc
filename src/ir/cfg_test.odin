@@ -47,7 +47,7 @@ cfg_dominators_of_diamond :: proc(t: ^testing.T) {
 	uses, uses_err := uses_build(fn, context.allocator)
 	testing.expect_value(t, uses_err, nil)
 	defer use_table_destroy(&uses, context.allocator)
-	cfg, err := build_control_skeleton(fn, context.allocator, uses)
+	cfg, err := build_control_skeleton(fn, context.allocator, uses, context.temp_allocator)
 	testing.expect_value(t, err, nil)
 	defer cfg_destroy(&cfg, context.allocator)
 
@@ -95,7 +95,7 @@ cfg_loops_of_nested_loop :: proc(t: ^testing.T) {
 	uses, uses_err := uses_build(fn, context.allocator)
 	testing.expect_value(t, uses_err, nil)
 	defer use_table_destroy(&uses, context.allocator)
-	cfg, err := build_control_skeleton(fn, context.allocator, uses)
+	cfg, err := build_control_skeleton(fn, context.allocator, uses, context.temp_allocator)
 	testing.expect_value(t, err, nil)
 	defer cfg_destroy(&cfg, context.allocator)
 
@@ -138,7 +138,7 @@ cfg_loop_without_exit :: proc(t: ^testing.T) {
 	uses, uses_err := uses_build(fn, context.allocator)
 	testing.expect_value(t, uses_err, nil)
 	defer use_table_destroy(&uses, context.allocator)
-	cfg, err := build_control_skeleton(fn, context.allocator, uses)
+	cfg, err := build_control_skeleton(fn, context.allocator, uses, context.temp_allocator)
 	testing.expect_value(t, err, nil)
 	defer cfg_destroy(&cfg, context.allocator)
 

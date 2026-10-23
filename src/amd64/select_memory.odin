@@ -250,11 +250,13 @@ select_memory :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Status {
 		return emit(output, selector.block, .MOVZX if width < 4 else .MOV, width, destination, address)
 	case .Store:
 		address := select_address(selector, inputs[2]) or_return
-		value := select_value(selector, inputs[3]) or_return
 		if mnemonic, width, is_float := float_move(input.nodes.type[inputs[3]]); is_float {
+			value := select_value(selector, inputs[3]) or_return
 			emit(output, selector.block, mnemonic, width, address, value) or_return
 		} else {
-			emit(output, selector.block, .MOV, select_width(input.nodes.type[inputs[3]]), address, value) or_return
+			value_width := select_width(input.nodes.type[inputs[3]])
+			source := store_source(selector, inputs[3], address, value_width) or_return
+			emit(output, selector.block, .MOV, value_width, address, source) or_return
 		}
 		if input.nodes.data[node].access.order == .Seq_Cst { return emit(output, selector.block, .MFENCE, 0) }
 		return nil
@@ -262,6 +264,18 @@ select_memory :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Status {
 		return select_copy_set(selector, node)
 	}
 	return select_failure(selector)
+}
+
+// A stored constant is an immediate, except at a RIP-relative address: verify_machine rejects
+// a RIP-relative operand in an instruction that also has an immediate.
+@(private)
+store_source :: proc(selector: ^Selector, node: ir.Node_Id, address: Memory_Ref, width: u8) -> (source: Machine_Operand, err: Select_Status) {
+	_, is_symbol := address.base.(Symbol_Target)
+	if !is_symbol {
+		if immediate, ok := immediate_operand(selector.input, node, width); ok { return immediate, nil }
+	}
+	value := select_value(selector, node) or_return
+	return value, nil
 }
 
 @(private)

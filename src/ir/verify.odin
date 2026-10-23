@@ -1,7 +1,6 @@
 package ir
 
 import "base:runtime"
-import "core:mem/virtual"
 import "core:slice"
 
 Verifier :: struct {
@@ -24,14 +23,12 @@ Verifier :: struct {
 // through edges. With `module` set, symbol indices are range-checked too. The caller frees the
 // returned slice with `allocator`.
 verify :: proc(fn: ^Function, allocator: runtime.Allocator, module: ^Module = nil) -> (errors: []Verify_Error, err: runtime.Allocator_Error) {
-	scratch: virtual.Arena
-	virtual.arena_init_growing(&scratch) or_return
-	defer virtual.arena_destroy(&scratch)
+	runtime.DEFAULT_TEMP_ALLOCATOR_TEMP_GUARD()
 
 	v := Verifier {
 		fn      = fn,
 		module  = module,
-		scratch = virtual.arena_allocator(&scratch),
+		scratch = context.temp_allocator,
 	}
 	v.errors = make([dynamic]Verify_Error, allocator) or_return
 
@@ -519,7 +516,8 @@ check_control :: proc(v: ^Verifier) {
 		}
 	}
 
-	cfg, err := build_control_skeleton(fn, v.scratch, v.uses)
+	// Built into the temp allocator and freed by the guard in `verify`.
+	cfg, err := build_control_skeleton(fn, v.scratch, v.uses, v.scratch)
 	if err != nil {
 		v.failure = err
 		return

@@ -57,8 +57,12 @@ select_integer :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Status {
 	case .Shl, .Shr, .Sar:
 		return select_shift(selector, node)
 	}
-	first := select_value(selector, inputs[0]) or_return
-	second := select_value(selector, inputs[1]) or_return
+	left, right := inputs[0], inputs[1]
+	is_commutative := kind == .Add || kind == .Mul || kind == .And || kind == .Or || kind == .Xor
+	if is_commutative && input.nodes.kind[left] == .Const_Int && input.nodes.kind[right] != .Const_Int {
+		left, right = right, left
+	}
+	first := select_value(selector, left) or_return
 	mnemonics := #partial [ir.Node_Kind]x86.Mnemonic {
 		.Add = .ADD,
 		.Sub = .SUB,
@@ -67,6 +71,10 @@ select_integer :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Status {
 		.Or  = .OR,
 		.Xor = .XOR,
 	}
+	if immediate, ok := immediate_operand(input, right, width); ok {
+		return emit(output, selector.block, mnemonics[kind], width, destination, first, immediate)
+	}
+	second := select_value(selector, right) or_return
 	return emit(output, selector.block, mnemonics[kind], width, destination, first, second)
 }
 
@@ -74,9 +82,49 @@ select_integer :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Status {
 select_integer_flags :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Status {
 	input := selector.input
 	inputs := ir.node_inputs(input, node)
+	width := select_width(input.nodes.type[inputs[0]])
 	first := select_value(selector, inputs[0]) or_return
+	if input.nodes.kind[inputs[1]] == .Const_Int {
+		return emit_compare_value(selector, width, first, input.nodes.data[inputs[1]].int_value)
+	}
 	second := select_value(selector, inputs[1]) or_return
-	return emit(selector.output, selector.block, .CMP, select_width(input.nodes.type[inputs[0]]), first, second)
+	return emit(selector.output, selector.block, .CMP, width, first, second)
+}
+
+// Whether `value` can be the immediate of an instruction whose operands are `width` bytes: the
+// encoder keeps the low `width` bytes, and an 8-byte operand sign-extends its imm32.
+@(private)
+fits_immediate :: proc(value: i64, width: u8) -> bool {
+	switch width {
+	case 1:
+		return -128 <= value && value <= 255
+	case 2:
+		return -32768 <= value && value <= 65535
+	case 4:
+		return -2147483648 <= value && value <= 4294967295
+	case 8:
+		return -2147483648 <= value && value <= 2147483647
+	}
+	return false
+}
+
+@(private)
+immediate_operand :: proc(input: ^ir.Function, node: ir.Node_Id, width: u8) -> (immediate: Immediate, ok: bool) {
+	if input.nodes.kind[node] != .Const_Int { return }
+	value := input.nodes.data[node].int_value
+	if !fits_immediate(value, width) { return }
+	return Immediate(value), true
+}
+
+// Comparing with zero tests the register: TEST sets the same flags as CMP with 0 for every condition code.
+@(private)
+emit_compare_value :: proc(selector: ^Selector, width: u8, first: Vreg, value: i64) -> Select_Status {
+	output, block := selector.output, selector.block
+	if value == 0 { return emit(output, block, .TEST, width, first, first) }
+	if fits_immediate(value, width) { return emit(output, block, .CMP, width, first, Immediate(value)) }
+	constant := new_vreg(output, .Int) or_return
+	emit(output, block, .MOVABS if width == 8 else .MOV, max(4, width), constant, Immediate(value)) or_return
+	return emit(output, block, .CMP, width, first, constant)
 }
 
 @(private)
@@ -103,8 +151,6 @@ select_shift :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Status {
 	width := select_width(input.nodes.type[node])
 	bits := i64(width) * 8
 	first := select_extended(selector, inputs[0], kind == .Sar) or_return
-	count := select_extended(selector, inputs[1], false) or_return
-	count_width := max(4, select_width(input.nodes.type[inputs[1]]))
 	mnemonics := #partial [ir.Node_Kind]x86.Mnemonic {
 		.Shl = .SHL,
 		.Shr = .SHR,
@@ -118,6 +164,8 @@ select_shift :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Status {
 		if kind == .Sar { return emit(output, selector.block, .SAR, max(4, width), destination, first, Immediate(bits - 1)) }
 		return emit(output, selector.block, .MOV, 4, destination, Immediate(0))
 	}
+	count := select_extended(selector, inputs[1], false) or_return
+	count_width := max(4, select_width(input.nodes.type[inputs[1]]))
 	shift_count := new_vreg(output, .Int) or_return
 	if kind == .Sar {
 		limit := new_vreg(output, .Int) or_return
@@ -133,7 +181,7 @@ select_shift :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Status {
 	if kind != .Sar {
 		zero := new_vreg(output, .Int) or_return
 		emit(output, selector.block, .MOV, 4, zero, Immediate(0)) or_return
-		emit(output, selector.block, .CMP, count_width, count, Immediate(bits)) or_return
+		emit_compare_value(selector, count_width, count, bits) or_return
 		emit(output, selector.block, .CMOVAE, max(4, width), destination, shifted, zero) or_return
 	}
 	return nil
@@ -164,18 +212,16 @@ select_division :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Status 
 	output.blocks[trap].cold = true
 	emit(output, trap, .UD2, 0) or_return
 	compute := add_block(output) or_return
-	emit(output, selector.block, .CMP, width, second, Immediate(0)) or_return
+	emit_compare_value(selector, width, second, 0) or_return
 	select_split(selector, .JE, trap, compute) or_return
 	selector.block = compute
 	if kind == .SDiv {
-		minimum := new_vreg(output, .Int) or_return
 		minimum_value := i64(-1) << (u32(select_width(input.nodes.type[node])) * 8 - 1)
-		emit(output, selector.block, .MOVABS if width == 8 else .MOV, width, minimum, Immediate(minimum_value)) or_return
 		is_minimum := new_vreg(output, .Int) or_return
 		is_negative_one := new_vreg(output, .Int) or_return
-		emit(output, selector.block, .CMP, width, first, minimum) or_return
+		emit_compare_value(selector, width, first, minimum_value) or_return
 		emit(output, selector.block, .SETE, 1, is_minimum) or_return
-		emit(output, selector.block, .CMP, width, second, Immediate(-1)) or_return
+		emit_compare_value(selector, width, second, -1) or_return
 		emit(output, selector.block, .SETE, 1, is_negative_one) or_return
 		both := new_vreg(output, .Int) or_return
 		emit(output, selector.block, .AND, 1, both, is_minimum, is_negative_one) or_return
@@ -188,7 +234,7 @@ select_division :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Status 
 		one := new_vreg(output, .Int) or_return
 		safe := new_vreg(output, .Int) or_return
 		emit(output, selector.block, .MOV, width, one, Immediate(1)) or_return
-		emit(output, selector.block, .CMP, width, second, Immediate(-1)) or_return
+		emit_compare_value(selector, width, second, -1) or_return
 		emit(output, selector.block, .CMOVE, width, safe, second, one) or_return
 		second = safe
 	}

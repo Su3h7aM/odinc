@@ -1,7 +1,6 @@
 package ir
 
 import "base:runtime"
-import "core:mem/virtual"
 import "core:slice"
 
 // Control-flow construction for `lower` (section 5). The builder tracks the current control
@@ -29,13 +28,15 @@ Jump_Target :: struct {
 
 // Never copy or move a `Builder`; use `builder_make`.
 Builder :: struct {
-	fn:         ^Function,
-	control:    Node_Id,
-	values:     [dynamic]Node_Id,
-	targets:    [dynamic]Jump_Target,
-	open_loops: int,
-	scratch:    virtual.Arena,
-	allocator:  runtime.Allocator,
+	fn:           ^Function,
+	control:      Node_Id,
+	values:       [dynamic]Node_Id,
+	targets:      [dynamic]Jump_Target,
+	open_loops:   int,
+	scratch:      runtime.Allocator,
+	// Temp data must not outlive the builder: `builder_destroy` rewinds it. Destroy builders in reverse order of creation.
+	scratch_mark: runtime.Arena_Temp,
+	allocator:    runtime.Allocator,
 }
 
 // The arms of an `If` (0 true, 1 false) or a `Switch` (case k, then default), with the
@@ -59,21 +60,21 @@ builder_make :: proc(allocator: runtime.Allocator, fn: ^Function, entry: Start_N
 	}
 	b.fn = fn
 	b.allocator = allocator
-	virtual.arena_init_growing(&b.scratch) or_return
+	b.scratch_mark = runtime.default_temp_allocator_temp_begin()
+	b.scratch = context.temp_allocator
 	defer if err != nil {
-		virtual.arena_destroy(&b.scratch)
+		runtime.default_temp_allocator_temp_end(b.scratch_mark)
 	}
 
-	scratch := virtual.arena_allocator(&b.scratch)
-	b.values = make([dynamic]Node_Id, 0, 16, scratch) or_return
-	b.targets = make([dynamic]Jump_Target, scratch) or_return
+	b.values = make([dynamic]Node_Id, 0, 16, b.scratch) or_return
+	b.targets = make([dynamic]Jump_Target, b.scratch) or_return
 	append(&b.values, entry.memory) or_return
 	b.control = entry.control
 	return b, nil
 }
 
 builder_destroy :: proc(b: ^Builder) {
-	virtual.arena_destroy(&b.scratch)
+	runtime.default_temp_allocator_temp_end(b.scratch_mark)
 	free(b, b.allocator)
 }
 
@@ -117,7 +118,7 @@ jump_target_make :: proc(b: ^Builder) -> Jump_Target_Id {
 	if b.fn.error != nil {
 		return 0
 	}
-	scratch := virtual.arena_allocator(&b.scratch)
+	scratch := b.scratch
 	target := Jump_Target {
 		variable_count = u32(len(b.values)),
 	}
@@ -177,7 +178,7 @@ seal_target :: proc(b: ^Builder, id: Jump_Target_Id) -> (reachable: bool) {
 	}
 
 	merge := region(b.fn, target.heads[:])
-	inputs, err := make([]Node_Id, 1 + exit_count, virtual.arena_allocator(&b.scratch))
+	inputs, err := make([]Node_Id, 1 + exit_count, b.scratch)
 	if err != nil {
 		b.fn.error = err
 		return false
@@ -228,7 +229,7 @@ branch_switch :: proc(b: ^Builder, value: Node_Id, cases: []i64) -> Branch_Point
 		return {}
 	}
 	split := add_node(b.fn, .Switch, .Tuple, {b.control, value}, {index = table})
-	heads, err := make([]Node_Id, len(cases) + 1, virtual.arena_allocator(&b.scratch))
+	heads, err := make([]Node_Id, len(cases) + 1, b.scratch)
 	if err != nil {
 		b.fn.error = err
 		return {}
@@ -260,7 +261,7 @@ loop_begin :: proc(b: ^Builder, assigned: []Variable) -> Loop_State {
 		return {}
 	}
 	assert(b.control != NODE_NONE)
-	scratch := virtual.arena_allocator(&b.scratch)
+	scratch := b.scratch
 	variables, variables_err := make([]Variable, 1 + len(assigned), scratch)
 	phis, phis_err := make([]Node_Id, 1 + len(assigned), scratch)
 	if variables_err != nil || phis_err != nil {
@@ -306,7 +307,7 @@ loop_end :: proc(b: ^Builder, state: Loop_State) {
 @(private = "file")
 loop_collapse :: proc(b: ^Builder, state: Loop_State) {
 	fn := b.fn
-	replacement, err := make([]Node_Id, len(fn.nodes), virtual.arena_allocator(&b.scratch))
+	replacement, err := make([]Node_Id, len(fn.nodes), b.scratch)
 	if err != nil {
 		fn.error = err
 		return
@@ -359,7 +360,7 @@ emit_unreachable :: proc(b: ^Builder) {
 
 @(private = "file")
 branch_point_make :: proc(b: ^Builder, heads: []Node_Id) -> Branch_Point {
-	scratch := virtual.arena_allocator(&b.scratch)
+	scratch := b.scratch
 	cloned_heads, heads_err := slice.clone(heads, scratch)
 	values, values_err := slice.clone(b.values[:], scratch)
 	if heads_err != nil || values_err != nil {

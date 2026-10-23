@@ -51,7 +51,6 @@ emitted_add_links_and_exits_with_seven :: proc(t: ^testing.T) {
 
 	function: Machine_Function
 	testing.expect_value(t, machine_function_init(&function, "add"), nil)
-	defer machine_function_destroy(&function)
 	block, _ := add_block(&function)
 	params, start_err := lower_start(&function, block, signature, assignment, allocator)
 	testing.expect_value(t, start_err, nil)
@@ -124,7 +123,6 @@ expect_emitted_shift :: proc(t: ^testing.T, width: u8, count: i64, imm8_opcode: 
 
 	function: Machine_Function
 	testing.expect_value(t, machine_function_init(&function, "shift"), nil)
-	defer machine_function_destroy(&function)
 	block, _ := add_block(&function)
 	params, start_err := lower_start(&function, block, signature, assignment, allocator)
 	testing.expect_value(t, start_err, nil)
@@ -158,7 +156,6 @@ expect_emitted_shift :: proc(t: ^testing.T, width: u8, count: i64, imm8_opcode: 
 emitted_indexed_load_and_store_with_spilled_operands :: proc(t: ^testing.T) {
 	function: Machine_Function
 	if !testing.expect_value(t, machine_function_init(&function, "indexed_spills"), nil) { return }
-	defer machine_function_destroy(&function)
 	block, block_error := add_block(&function)
 	if !testing.expect_value(t, block_error, nil) { return }
 	base, base_error := new_vreg(&function, .Int)
@@ -217,7 +214,6 @@ emitted_epilogue_restores_stack_pointer_moved_by_the_body :: proc(t: ^testing.T)
 
 	function: Machine_Function
 	testing.expect_value(t, machine_function_init(&function, "moves_stack"), nil)
-	defer machine_function_destroy(&function)
 	block, _ := add_block(&function)
 	params, start_err := lower_start(&function, block, signature, assignment, allocator)
 	testing.expect_value(t, start_err, nil)

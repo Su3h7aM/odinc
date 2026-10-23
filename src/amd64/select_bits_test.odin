@@ -26,7 +26,6 @@ selected_population_count_is_one_popcnt :: proc(t: ^testing.T) {
 	selection_err := select_function(&machine, function, &schedule, {convention = .C}, .V2)
 	testing.expect_value(t, selection_err, Select_Error{})
 	if selection_err.kind != .None { return }
-	defer machine_function_destroy(&machine)
 	popcnt_count := 0
 	for block in machine.blocks {
 		for instruction in block.instructions {
@@ -58,7 +57,6 @@ selected_population_count_falls_back_without_popcnt :: proc(t: ^testing.T) {
 	selection_err := select_function(&machine, function, &schedule, {convention = .C}, .V1)
 	testing.expect_value(t, selection_err, Select_Error{})
 	if selection_err.kind != .None { return }
-	defer machine_function_destroy(&machine)
 	popcnt_count, multiply_count := 0, 0
 	for block in machine.blocks {
 		for instruction in block.instructions {

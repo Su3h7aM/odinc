@@ -14,7 +14,6 @@ package regalloc
 
 import "base:intrinsics"
 import "base:runtime"
-import "core:mem/virtual"
 import "core:slice"
 
 Pos :: distinct u32
@@ -387,12 +386,8 @@ liveness :: proc(live: ^Liveness, program: ^Program, allocator := context.alloca
 	vreg_count := len(program.classes)
 	block_count := len(program.blocks)
 
-	scratch: virtual.Arena
-	if virtual.arena_init_growing(&scratch) != nil {
-		return Error{kind = .Out_Of_Memory}
-	}
-	defer virtual.arena_destroy(&scratch)
-	scratch_allocator := virtual.arena_allocator(&scratch)
+	runtime.DEFAULT_TEMP_ALLOCATOR_TEMP_GUARD()
+	scratch_allocator := context.temp_allocator
 
 	intervals, intervals_err := make([]Interval, vreg_count, allocator)
 	starts, starts_err := make([]Pos, block_count, allocator)

@@ -2,7 +2,6 @@ package sched
 
 import "base:runtime"
 import "core:container/priority_queue"
-import "core:mem/virtual"
 import "core:slice"
 import ir "oc:ir"
 
@@ -37,16 +36,14 @@ order :: proc(fn: ^ir.Function, allocator: runtime.Allocator) -> (schedule: Sche
 	defer if err != nil {
 		schedule_destroy(&schedule, allocator)
 	}
-	scratch: virtual.Arena
-	virtual.arena_init_growing(&scratch) or_return
-	defer virtual.arena_destroy(&scratch)
-	temp := virtual.arena_allocator(&scratch)
+	runtime.DEFAULT_TEMP_ALLOCATOR_TEMP_GUARD()
+	temp := context.temp_allocator
 
 	node_count := len(fn.nodes)
 	schedule.placement = make([]ir.Block_Id, node_count, allocator) or_return
 	slice.fill(schedule.placement, ir.BLOCK_NONE)
 	uses := ir.uses_build(fn, temp) or_return
-	schedule.cfg = ir.build_control_skeleton(fn, allocator, uses) or_return
+	schedule.cfg = ir.build_control_skeleton(fn, allocator, uses, temp) or_return
 	if len(schedule.cfg.heads) == 0 {
 		return
 	}

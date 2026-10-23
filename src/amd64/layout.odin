@@ -1,17 +1,14 @@
 package amd64
 
 import "base:runtime"
-import "core:mem/virtual"
 
 // Renumbers the blocks of `function` so a block's successor follows it where possible, which lets
 // the emitter fall through instead of jumping. The entry stays first and cold blocks go last.
 // Selection numbers blocks in schedule order, so a block it splits off or an edge block it adds
 // would otherwise sit far from the block it continues.
 layout_blocks :: proc(function: ^Machine_Function) -> runtime.Allocator_Error {
-	scratch: virtual.Arena
-	virtual.arena_init_growing(&scratch) or_return
-	defer virtual.arena_destroy(&scratch)
-	temp := virtual.arena_allocator(&scratch)
+	runtime.DEFAULT_TEMP_ALLOCATOR_TEMP_GUARD()
+	temp := context.temp_allocator
 
 	count := len(function.blocks)
 	order := make([dynamic]u32, 0, count, temp) or_return

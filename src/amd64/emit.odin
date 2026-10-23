@@ -2,7 +2,6 @@ package amd64
 
 import "base:runtime"
 import "core:mem"
-import "core:mem/virtual"
 import x86 "core:rexcode/isa/x86"
 import "oc:elf"
 import "oc:ir"
@@ -91,10 +90,8 @@ emit_function :: proc(
 	atom: link.Atom,
 	err: Emit_Error,
 ) {
-	scratch: virtual.Arena
-	virtual.arena_init_growing(&scratch) or_return
-	defer virtual.arena_destroy(&scratch)
-	context.allocator = virtual.arena_allocator(&scratch)
+	runtime.DEFAULT_TEMP_ALLOCATOR_TEMP_GUARD()
+	context.allocator = context.temp_allocator
 
 	emitter := Emitter {
 		function = function,

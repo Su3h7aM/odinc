@@ -2,7 +2,6 @@ package amd64
 
 import "base:runtime"
 import "core:fmt"
-import "core:mem/virtual"
 import x86 "core:rexcode/isa/x86"
 import "core:strings"
 import "oc:ir"
@@ -163,34 +162,25 @@ Frame_Slot :: struct {
 	align: u32,
 }
 
-// A Machine_Function owns everything it references in its arena, so it must not be
-// moved after `machine_function_init`.
+// A Machine_Function allocates everything it references from the temp allocator in effect at
+// `machine_function_init`, so it lives until the enclosing temp guard ends.
 Machine_Function :: struct {
 	name:           string,
 	blocks:         [dynamic]Machine_Block,
 	vreg_classes:   [dynamic]Register_Class,
 	frame_slots:    [dynamic]Frame_Slot,
 	outgoing_bytes: u32,
-	arena:          virtual.Arena,
+	allocator:      runtime.Allocator,
 }
 
 machine_function_init :: proc(function: ^Machine_Function, name: string) -> (err: runtime.Allocator_Error) {
 	function^ = {}
-	virtual.arena_init_growing(&function.arena) or_return
-	defer if err != nil {
-		virtual.arena_destroy(&function.arena)
-	}
-	allocator := virtual.arena_allocator(&function.arena)
-	function.name = strings.clone(name, allocator) or_return
-	function.blocks = make([dynamic]Machine_Block, allocator) or_return
-	function.vreg_classes = make([dynamic]Register_Class, allocator) or_return
-	function.frame_slots = make([dynamic]Frame_Slot, allocator) or_return
+	function.allocator = context.temp_allocator
+	function.name = strings.clone(name, function.allocator) or_return
+	function.blocks = make([dynamic]Machine_Block, function.allocator) or_return
+	function.vreg_classes = make([dynamic]Register_Class, function.allocator) or_return
+	function.frame_slots = make([dynamic]Frame_Slot, function.allocator) or_return
 	return nil
-}
-
-machine_function_destroy :: proc(function: ^Machine_Function) {
-	virtual.arena_destroy(&function.arena)
-	function^ = {}
 }
 
 new_vreg :: proc(function: ^Machine_Function, class: Register_Class) -> (Vreg, runtime.Allocator_Error) {
@@ -207,21 +197,19 @@ add_frame_slot :: proc(function: ^Machine_Function, size, align: u32) -> (index:
 }
 
 add_block :: proc(function: ^Machine_Function) -> (index: u32, err: runtime.Allocator_Error) {
-	allocator := virtual.arena_allocator(&function.arena)
 	block := Machine_Block {
-		instructions = make([dynamic]Machine_Instruction, allocator) or_return,
-		successors   = make([dynamic]u32, allocator) or_return,
+		instructions = make([dynamic]Machine_Instruction, function.allocator) or_return,
+		successors   = make([dynamic]u32, function.allocator) or_return,
 	}
 	index = u32(len(function.blocks))
 	append(&function.blocks, block) or_return
 	return index, nil
 }
 
-// Appends `instruction` to `block`; its operand slice is copied into the function's arena.
+// Appends `instruction` to `block`; its operand slice is copied into the function's allocator.
 emit_instruction :: proc(function: ^Machine_Function, block: u32, instruction: Machine_Instruction) -> runtime.Allocator_Error {
-	allocator := virtual.arena_allocator(&function.arena)
 	stored := instruction
-	stored.operands = make([]Machine_Operand, len(instruction.operands), allocator) or_return
+	stored.operands = make([]Machine_Operand, len(instruction.operands), function.allocator) or_return
 	copy(stored.operands, instruction.operands)
 	_, err := append(&function.blocks[block].instructions, stored)
 	return err

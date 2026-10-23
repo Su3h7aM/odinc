@@ -77,8 +77,23 @@ selected_integer_boundaries :: proc(t: ^testing.T) {
 	for c in constant_shifts { selected_integer_check(t, c, true) }
 }
 
+@(test)
+selected_integer_immediates :: proc(t: ^testing.T) {
+	cases := []Integer_Boundary_Case {
+		{.Add, .I64, 1, 0xFFFFFFFF, 0x100000000},
+		{.Sub, .I64, 5, 5, 0},
+		{.And, .I64, -1, 0xFFFFFFFF, 0xFFFFFFFF},
+		{.Or, .I16, 0x1200, 0x34, 0x1234},
+		{.Xor, .I8, 0x0f, -128, -113},
+		{.Mul, .I64, 3, -5, -15},
+		{.Mul, .I32, 7, 0x10000, 0x70000},
+		{.Add, .I32, 0x7fffffff, 1, -2147483648},
+	}
+	for c in cases { selected_integer_check(t, c, true) }
+}
+
 @(private)
-selected_integer_check :: proc(t: ^testing.T, c: Integer_Boundary_Case, constant_count: bool) {
+selected_integer_check :: proc(t: ^testing.T, c: Integer_Boundary_Case, constant_second: bool) {
 	function, make_err := ir.function_make(context.allocator, 0, "_start", 0)
 	testing.expect_value(t, make_err, nil)
 	if make_err != nil { return }
@@ -101,7 +116,7 @@ selected_integer_check :: proc(t: ^testing.T, c: Integer_Boundary_Case, constant
 	case .Clz, .Ctz, .Popcnt, .Bswap:
 		value = ir.unary(function, c.kind, first)
 	case:
-		if !constant_count { second = ir.binary(function, .Or, second, ir.const_int(function, c.type, 0)) }
+		if !constant_second { second = ir.binary(function, .Or, second, ir.const_int(function, c.type, 0)) }
 		value = ir.binary(function, c.kind, first, second)
 	}
 	correct := ir.compare(function, .Eq, value, ir.const_int(function, result_type, c.want))
@@ -123,7 +138,6 @@ selected_test_run :: proc(t: ^testing.T, function: ^ir.Function, expected: int, 
 	selection_err := select_function(&machine, function, &schedule, {convention = .C}, .V1)
 	testing.expect_value(t, selection_err, Select_Error{})
 	if selection_err.kind != .None { return }
-	defer machine_function_destroy(&machine)
 	testing.expect_value(t, verify_machine(&machine), Verify_Error{})
 	arena: virtual.Arena
 	testing.expect_value(t, virtual.arena_init_growing(&arena), nil)
@@ -193,7 +207,6 @@ selected_test_callee :: proc(t: ^testing.T, function: ^ir.Function, plan := type
 	selection_err := select_function(&machine, function, &schedule, chosen, .V1)
 	testing.expect_value(t, selection_err, Select_Error{})
 	if selection_err.kind != .None { return {} }
-	defer machine_function_destroy(&machine)
 	testing.expect_value(t, verify_machine(&machine), Verify_Error{})
 	arena: virtual.Arena
 	testing.expect_value(t, virtual.arena_init_growing(&arena), nil)
@@ -365,7 +378,6 @@ selected_loop_exits_with_fifty_five :: proc(t: ^testing.T) {
 	selection_err := select_function(&machine, function, &schedule, {convention = .C}, .V1)
 	testing.expect_value(t, selection_err, Select_Error{})
 	if selection_err.kind != .None { return }
-	defer machine_function_destroy(&machine)
 	testing.expect_value(t, verify_machine(&machine), Verify_Error{})
 	arena: virtual.Arena
 	testing.expect_value(t, virtual.arena_init_growing(&arena), nil)
@@ -440,7 +452,6 @@ selected_address_materializes_only_value_uses :: proc(t: ^testing.T) {
 	selection_err := select_function(&machine, function, &schedule, {convention = .C}, .V1)
 	testing.expect_value(t, selection_err, Select_Error{})
 	if selection_err.kind != .None { return }
-	defer machine_function_destroy(&machine)
 	leas := 0
 	for block in machine.blocks {
 		for instruction in block.instructions { if instruction.mnemonic == .LEA { leas += 1 } }

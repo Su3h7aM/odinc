@@ -2,7 +2,6 @@ package amd64
 
 import "base:runtime"
 import "core:mem"
-import "core:mem/virtual"
 import x86 "core:rexcode/isa/x86"
 import "oc:ir"
 import "oc:regalloc"
@@ -30,8 +29,8 @@ Select_Error :: struct {
 	node: ir.Node_Id,
 }
 
-// Borrows verified IR, its schedule and ABI plan. Initializes output on success;
-// destroy it with machine_function_destroy. Failures identify the offending node.
+// Borrows verified IR, its schedule and ABI plan. Initializes output on success; its memory
+// comes from the temp allocator. Failures identify the offending node.
 select_function :: proc(
 	output: ^Machine_Function,
 	input: ^ir.Function,
@@ -91,11 +90,7 @@ select_function_impl :: proc(
 	err: Select_Status,
 ) {
 	machine_function_init(output, input.name) or_return
-	defer if err != nil { machine_function_destroy(output) }
-	arena: virtual.Arena
-	virtual.arena_init_growing(&arena) or_return
-	defer virtual.arena_destroy(&arena)
-	allocator := virtual.arena_allocator(&arena)
+	allocator := context.temp_allocator
 	selector := Selector {
 		input         = input,
 		output        = output,
@@ -155,7 +150,7 @@ select_function_impl :: proc(
 			output.blocks[index].depth = u8(min(block.depth, 255))
 			output.blocks[index].cold = block.cold
 			append(&output.blocks[index].successors, selector.blocks[successor]) or_return
-			output.blocks[index].edge_moves = make([][]regalloc.Move, 1, virtual.arena_allocator(&output.arena)) or_return
+			output.blocks[index].edge_moves = make([][]regalloc.Move, 1, output.allocator) or_return
 		}
 	}
 	for index in 1 ..< len(input.nodes) {
@@ -189,7 +184,7 @@ select_function_impl :: proc(
 			if input.nodes.kind[head] == .Loop || input.nodes.kind[head] == .Region {
 				for predecessor, predecessor_index in predecessors {
 					if schedule.cfg.block_of[predecessor] != block.id { continue }
-					moves := make([dynamic]regalloc.Move, virtual.arena_allocator(&output.arena)) or_return
+					moves := make([dynamic]regalloc.Move, output.allocator) or_return
 					for node in selector.nodes_of[successor] {
 						if input.nodes.kind[node] != .Phi || input.nodes.type[node] == .Memory { continue }
 						selector.current = node

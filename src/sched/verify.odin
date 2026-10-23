@@ -1,7 +1,6 @@
 package sched
 
 import "base:runtime"
-import "core:mem/virtual"
 import ir "oc:ir"
 
 Schedule_Code :: enum u8 {
@@ -22,10 +21,8 @@ Schedule_Error :: struct {
 // predecessor block matching the value's input slot. Rematerialized values are not placed and
 // are materialized at each use, so they are exempt. The caller frees the returned slice.
 verify :: proc(fn: ^ir.Function, schedule: Schedule, allocator: runtime.Allocator) -> (errors: []Schedule_Error, err: runtime.Allocator_Error) {
-	scratch: virtual.Arena
-	virtual.arena_init_growing(&scratch) or_return
-	defer virtual.arena_destroy(&scratch)
-	temp := virtual.arena_allocator(&scratch)
+	runtime.DEFAULT_TEMP_ALLOCATOR_TEMP_GUARD()
+	temp := context.temp_allocator
 
 	found := make([dynamic]Schedule_Error, allocator) or_return
 	defer if err != nil {

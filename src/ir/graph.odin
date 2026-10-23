@@ -106,6 +106,7 @@ function_make :: proc(allocator: runtime.Allocator, id: Function_Id, name: strin
 		allocator = allocator,
 	}
 	virtual.arena_init_growing(&fn.arena) or_return
+	fn.arena.default_commit_size = fn.arena.curr_block.reserved
 	defer if err != nil {
 		virtual.arena_destroy(&fn.arena)
 	}

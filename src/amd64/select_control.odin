@@ -33,9 +33,7 @@ select_exit :: proc(selector: ^Selector, block: ir.Block_Id) -> Select_Status {
 		value := select_value(selector, inputs[1]) or_return
 		width := select_width(input.nodes.type[inputs[1]])
 		for case_value, case_index in cases {
-			constant := new_vreg(output, .Int) or_return
-			emit(output, selector.block, .MOVABS if width == 8 else .MOV, max(4, width), constant, Immediate(case_value)) or_return
-			emit(output, selector.block, .CMP, width, value, constant) or_return
+			emit_compare_value(selector, width, value, case_value) or_return
 			next := add_block(output) or_return
 			select_split(selector, .JE, edges[case_index], next) or_return
 			selector.block = next
