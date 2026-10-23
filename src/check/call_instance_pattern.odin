@@ -147,7 +147,7 @@ poly_match_pattern :: proc(match: ^Poly_Match, pattern: syntax.Node_Index, argum
 		}
 		if poly.specialization == 0 { return true, nil }
 		matched = poly_match_pattern(match, poly.specialization, argument) or_return
-		if matched || argument == types.TYPE_NONE || poly_pattern_has_poly(file, poly.specialization) { return matched, nil }
+		if matched || poly_pattern_has_poly(file, poly.specialization) { return matched, nil }
 		store := match.checker.type_checker.store
 		record := types.get(store, underlying_type(store, argument)).kind
 		if record != .Struct && record != .Union { return false, nil }

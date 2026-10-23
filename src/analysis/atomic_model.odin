@@ -181,11 +181,16 @@ atomic_text :: proc(a: ^Atomics, site: Site) -> string {
 	return check.render_expression(atomic_ast(a, site.view), atomic_source(a, site.view), site.node, a.allocator)
 }
 
-// Source order across files, as the official token_pos_cmp.
+// Matches token_pos_cmp, including positions in different files.
 atomic_before :: proc(a: ^Atomics, x, y: Site) -> bool {
 	fx, fy := atomic_file(a, x.view), atomic_file(a, y.view)
-	if fx != fy { return fx < fy }
-	return atomic_ast(a, x.view).nodes[x.node].start < atomic_ast(a, y.view).nodes[y.node].start
+	offset_x, offset_y := atomic_ast(a, x.view).nodes[x.node].start, atomic_ast(a, y.view).nodes[y.node].start
+	if offset_x != offset_y { return offset_x < offset_y }
+	line_x, column_x := syntax.line_col(a.program.files[fx].lines, offset_x)
+	line_y, column_y := syntax.line_col(a.program.files[fy].lines, offset_y)
+	if line_x != line_y { return line_x < line_y }
+	if column_x != column_y { return column_x < column_y }
+	return fx != fy && a.program.files[fx].path < a.program.files[fy].path
 }
 
 atomic_same_place :: proc(a: ^Atomics, x, y: Site) -> bool {

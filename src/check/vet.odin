@@ -62,7 +62,17 @@ check_local_variable :: proc(
 	if !is_variable || variable.storage != .Local { return nil }
 	if scope := scope_get(scopes, entity.scope); scope == nil || scope.kind != .Block && scope.kind != .Procedure { return nil }
 	allocator := mem.dynamic_arena_allocator(&checker.arena)
-	unused := flags & syntax.VET_UNUSED != {} && !errors_found
+	unused := flags & syntax.VET_UNUSED != {} && entity.state == .Resolved
+	if unused && errors_found {
+		for current := entity.scope; current != 0; current = scope_get(scopes, current).parent {
+			owner := scope_get(scopes, current).owner
+			if owner == 0 { continue }
+			if procedure, is_procedure := entity_get(scopes, owner).data.(Procedure_Data); is_procedure && procedure.body_state == .Invalid {
+				unused = false
+				break
+			}
+		}
+	}
 	unused &&= .Used not_in entity.flags && entity.flags & {.Parameter, .Result, .Using, .Field} == {}
 	shadowed: ^Entity
 	if flags & {.Shadowing, .Using_Stmt, .Using_Param} != {} { shadowed = find_shadowed(checker, scopes, entity) }
