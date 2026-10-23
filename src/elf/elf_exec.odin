@@ -455,12 +455,28 @@ program_flags_mask :: proc(flags: Program_Flags) -> u32 {
 	return transmute(u32)(flags)
 }
 
+// gABI 7.2: PHDR and INTERP precede LOAD entries, which are ordered by p_vaddr.
+@(private = "file")
+program_header_precedes :: proc(first, second: Program_Header) -> bool {
+	first_type, second_type := u32(first.p_type), u32(second.p_type)
+	if first_type == PT_PHDR || second_type == PT_PHDR {
+		return first_type == PT_PHDR && second_type != PT_PHDR
+	}
+	if first_type == PT_INTERP || second_type == PT_INTERP {
+		return first_type == PT_INTERP && second_type != PT_INTERP
+	}
+	if first_type == PT_LOAD || second_type == PT_LOAD {
+		if first_type != second_type { return first_type == PT_LOAD }
+		return u64(first.p_vaddr) < u64(second.p_vaddr)
+	}
+	return false
+}
+
 /*
-	Serializes the builder into the bytes of a complete static ET_EXEC
-	x86-64 Linux executable: the ELF header, PT_LOAD program headers for
-	the segments in `vaddr` order with file offsets congruent to `vaddr`
-	(mod alignment, at least one page), and a non-executable PT_GNU_STACK
-	last.  No program interpreter, no dynamic linking, no section headers.
+	Serializes the builder into the bytes of a complete ET_EXEC
+	x86-64 Linux executable. PT_PHDR and PT_INTERP precede PT_LOAD headers,
+	which follow `vaddr` order with file offsets congruent to `vaddr`
+	(mod alignment, at least one page). A non-executable PT_GNU_STACK is last.
 
 	`object` is exactly one allocation; the caller owns it and must
 	`delete` it with the allocator given here.
@@ -624,6 +640,7 @@ executable_write :: proc(builder: ^Executable_Builder, allocator := context.allo
 		&segment_headers,
 		Program_Header{p_type = u32le(PT_GNU_STACK), p_flags = u32le(program_flags_mask(Program_Flags{.PF_W, .PF_R})), p_align = u64le(16)},
 	)
+	slice.stable_sort_by(segment_headers[:], program_header_precedes)
 
 	symbol_tail := executable_build_symbol_tail(builder, file_offsets, cursor, allocator) or_return
 	defer free_dynamic(symbol_tail.bytes)
@@ -641,15 +658,13 @@ executable_write :: proc(builder: ^Executable_Builder, allocator := context.allo
 		header_position += PROGRAM_HEADER_SIZE
 	}
 
-	sorted_position := 0
 	for segment_index in order {
 		segment := builder.segments[segment_index]
 		if len(segment.data) > 0 {
-			file_offset := u64(segment_headers[sorted_position].p_offset)
+			file_offset := file_offsets[segment_index]
 			end_offset := file_offset + u64(len(segment.data))
 			copy(object[int(file_offset):int(end_offset)], segment.data[:])
 		}
-		sorted_position += 1
 	}
 
 	blit(

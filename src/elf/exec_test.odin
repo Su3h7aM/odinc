@@ -87,3 +87,54 @@ executable_runs_and_exits_42 :: proc(t: ^testing.T) {
 bytes_at :: proc "contextless" (data: []byte, offset: int, length: int) -> []byte {
 	return data[offset:offset + length]
 }
+
+@(test)
+executable_program_headers_follow_load_address_order :: proc(t: ^testing.T) {
+	for dynamic_program in ([2]bool{false, true}) {
+		builder := executable_builder_init()
+		defer executable_builder_destroy(&builder)
+		data: [16]byte
+		data[8] = 0x5a
+		interpreter := [?]byte{'/', 'l', 'o', 'a', 'd', 'e', 'r', 0}
+		_, data_error := executable_add_segment(&builder, 0x403000, data[:], 0, {.PF_R, .PF_W}, PAGE_SIZE)
+		_, text_error := executable_add_segment(&builder, 0x401000, exit_group_42_bytes, 0, {.PF_R, .PF_X}, PAGE_SIZE)
+		_, rodata_error := executable_add_segment(&builder, 0x402000, interpreter[:], 0, {.PF_R}, PAGE_SIZE)
+		if !testing.expect(t, data_error == nil && text_error == nil && rodata_error == nil, "segments must be accepted in any insertion order") { continue }
+		executable_set_entry(&builder, 0x401000)
+		executable_load_headers(&builder, 0x400000)
+		if dynamic_program {
+			executable_set_interpreter(&builder, 0x402000, u64(len(interpreter)))
+			executable_set_dynamic(&builder, 0x403000, u64(len(data)))
+		}
+		image, write_error := executable_write(&builder)
+		if !testing.expect_value(t, write_error, nil) { continue }
+		defer delete(image)
+		header := slice.reinterpret([]File_Header, image)[0]
+		headers := slice.reinterpret([]Program_Header, image[int(header.e_phoff):])[:int(header.e_phnum)]
+		load_count := 0
+		previous_address, previous_offset: u64
+		for program_header in headers {
+			kind := u32(program_header.p_type)
+			if kind == PT_PHDR || kind == PT_INTERP {
+				testing.expect(t, load_count == 0, "PHDR and INTERP must precede every LOAD")
+			}
+			if kind != PT_LOAD { continue }
+			address, offset := u64(program_header.p_vaddr), u64(program_header.p_offset)
+			testing.expect(t, load_count == 0 || address >= previous_address, "LOAD headers must be in ascending virtual-address order")
+			testing.expect(t, load_count == 0 || offset >= previous_offset, "segment file layout must follow address order")
+			testing.expect_value(t, offset % PAGE_SIZE, address % PAGE_SIZE)
+			previous_address, previous_offset = address, offset
+			load_count += 1
+			for segment in builder.segments {
+				if segment.vaddr == address {
+					testing.expect(
+						t,
+						bytes.equal(bytes_at(image, int(offset), len(segment.data)), segment.data[:]),
+						"header ordering must preserve each segment's bytes",
+					)
+				}
+			}
+		}
+		testing.expect(t, load_count == 4, "three payload mappings and the header mapping")
+	}
+}
