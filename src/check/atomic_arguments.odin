@@ -146,7 +146,7 @@ atomic_pointer_argument :: proc(
 @(private = "file")
 atomic_valid_kind :: proc(kind: types.Kind) -> bool {
 	#partial switch kind {
-	case .Pointer, .Multi_Pointer, .CString, .CString16, .Procedure, .Bit_Set, .Bool, .Integer, .Float, .Rune:
+	case .Pointer, .Raw_Pointer, .Multi_Pointer, .CString, .CString16, .Procedure, .Bit_Set, .Bool, .Integer, .Float, .Rune:
 		return true
 	}
 	return false
