@@ -36,7 +36,8 @@ lower_slice_backing :: proc(state: ^Procedure_State, node: syntax.Node_Index, ba
 	if layout.error != .None || layout.size > i64(max(u32)) { return lower_fail(state, node, .Expression) }
 	index := len(module.globals)
 	name := fmt.aprintf("__odinc_internal_slice_backing_%d", index, allocator = virtual.arena_allocator(&module.arena))
-	if _, error := append(&module.globals, ir.Global{name = name, size = u32(layout.size), align = u32(layout.align), mutable = true}); error != nil {
+	if _, error := append(&module.globals, ir.Global{name = name, size = u32(layout.size), align = u32(layout.align), mutable = true, anonymous = true});
+	   error != nil {
 		state.job.allocation_error = error
 		state.failed = true
 		return 0

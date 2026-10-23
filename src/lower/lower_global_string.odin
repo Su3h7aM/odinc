@@ -42,7 +42,7 @@ global_string_blob :: proc(module: ^ir.Module, text: string) -> (index: u32, err
 	blob_bytes := make([]byte, len(text), module_allocator) or_return
 	copy(blob_bytes, text)
 	name := fmt.aprintf("__odinc_internal_string_%d", index, allocator = module_allocator)
-	append(&module.globals, ir.Global{name = name, size = u32(len(text)), align = 1, bytes = blob_bytes}) or_return
+	append(&module.globals, ir.Global{name = name, size = u32(len(text)), align = 1, bytes = blob_bytes, anonymous = true}) or_return
 	return index, nil
 }
 
@@ -75,6 +75,6 @@ global_cstring_blob :: proc(module: ^ir.Module, text: string) -> (index: u32, er
 	blob_bytes := make([]byte, len(text) + 1, module_allocator) or_return
 	copy(blob_bytes, transmute([]byte)text)
 	name := fmt.aprintf("__odinc_internal_cstring_%d", index, allocator = module_allocator)
-	append(&module.globals, ir.Global{name = name, size = u32(len(blob_bytes)), align = 1, bytes = blob_bytes}) or_return
+	append(&module.globals, ir.Global{name = name, size = u32(len(blob_bytes)), align = 1, bytes = blob_bytes, anonymous = true}) or_return
 	return index, nil
 }

@@ -32,7 +32,10 @@ aggregate_storage :: proc(state: ^Procedure_State, layout: Type_Layout) -> ir.No
 	}
 	index := len(module.globals)
 	name := fmt.aprintf("__odinc_internal_aggregate_%d", index, allocator = virtual.arena_allocator(&module.arena))
-	if _, error := append(&module.globals, ir.Global{name = name, size = u32(max(layout.size, 1)), align = u32(layout.align), mutable = true}); error != nil {
+	if _, error := append(
+		&module.globals,
+		ir.Global{name = name, size = u32(max(layout.size, 1)), align = u32(layout.align), mutable = true, anonymous = true},
+	); error != nil {
 		state.job.allocation_error = error
 		state.failed = true
 		return 0

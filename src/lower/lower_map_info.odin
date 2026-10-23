@@ -23,6 +23,7 @@ fill_map_cell_info :: proc(program: ^check.Checked_Program, module: ^ir.Module, 
 		global.size = MAP_CELL_INFO_SIZE
 		global.align = 8
 		global.mutable = false
+		global.anonymous = true
 		global.bytes = make([]byte, MAP_CELL_INFO_SIZE, allocator) or_return
 		write_scalar(global.bytes, 0, u64(entry.size_of_type), 8)
 		write_scalar(global.bytes, 8, u64(entry.align_of_type), 8)
@@ -52,6 +53,7 @@ fill_map_info :: proc(program: ^check.Checked_Program, module: ^ir.Module, symbo
 		global.size = MAP_INFO_SIZE
 		global.align = 8
 		global.mutable = false
+		global.anonymous = true
 		global.bytes = make([]byte, MAP_INFO_SIZE, allocator) or_return
 		global.relocs = make([]ir.Data_Reloc, 4, allocator) or_return
 		global.relocs[0] = {

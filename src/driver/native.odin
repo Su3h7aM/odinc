@@ -362,7 +362,7 @@ build_symbol_table :: proc(
 	}
 	for global, index in module.globals {
 		table.symbols[layout.global_base + index] = link.Symbol {
-			name    = global.name,
+			name    = global_name(global),
 			atom    = u32(layout.global_base + index),
 			binding = symbol_binding(global.linkage),
 		}
@@ -518,6 +518,13 @@ symbol_binding :: proc(linkage: ir.Linkage) -> link.Binding {
 		return .Weak
 	}
 	unreachable()
+}
+
+// Generated storage is addressed by relocation through its atom, so an empty name keeps it out of `.symtab` and
+// `.strtab` while leaving every user and foreign symbol named as before.
+@(private = "file")
+global_name :: proc(global: ir.Global) -> string {
+	return "" if global.anonymous else global.name
 }
 
 @(private = "file")

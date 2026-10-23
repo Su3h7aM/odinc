@@ -76,14 +76,17 @@ Data_Reloc :: struct {
 }
 
 Global :: struct {
-	name:    string,
-	linkage: Linkage,
-	size:    u32,
-	align:   u32,
-	mutable: bool,
-	tls:     bool,
-	bytes:   []byte,
-	relocs:  []Data_Reloc,
+	name:      string,
+	linkage:   Linkage,
+	size:      u32,
+	align:     u32,
+	mutable:   bool,
+	tls:       bool,
+	bytes:     []byte,
+	relocs:    []Data_Reloc,
+	// Compiler-generated storage that no program text names. It needs an address, which relocations reach through
+	// its atom, but no symbol: the name only labelled the compiler's own output.
+	anonymous: bool,
 }
 
 Data_Blob :: struct {

@@ -94,7 +94,7 @@ fill_type_info :: proc(
 	writer.names_in_use = module_symbol_names(module, allocator)
 	for entry in requirements.type_info {
 		name := generated_global_name(&writer, "entry", u64(entry.slot))
-		append(&module.globals, ir.Global{name = name, size = u32(size), align = u32(alignment)}) or_return
+		append(&module.globals, ir.Global{name = name, size = u32(size), align = u32(alignment), anonymous = true}) or_return
 	}
 	for index in 0 ..< len(requirements.type_info) {
 		image, supported := type_info_image(&writer, index) or_return
@@ -125,13 +125,15 @@ fill_type_table :: proc(writer: ^Type_Info_Writer) -> runtime.Allocator_Error {
 			bytes = sentinel.bytes,
 			size = u32(len(sentinel.bytes)),
 			align = u32(writer.module.globals[writer.first].align),
+			anonymous = true,
 		},
 	) or_return
 	count := len(writer.entries)
 	table := ir.Global {
-		name  = generated_global_name(writer, "table", 0),
-		size  = u32(8 * (count + 1)),
-		align = 8,
+		name      = generated_global_name(writer, "table", 0),
+		size      = u32(8 * (count + 1)),
+		align     = 8,
+		anonymous = true,
 	}
 	table.bytes = make([]byte, 8 * (count + 1), writer.allocator) or_return
 	table.relocs = make([]ir.Data_Reloc, count + 1, writer.allocator) or_return
@@ -504,7 +506,7 @@ add_image :: proc(writer: ^Type_Info_Writer, image: Type_Info_Image, align: u32)
 	writer.image_count += 1
 	append(
 		&writer.module.globals,
-		ir.Global{name = name, size = u32(len(image.bytes)), align = align, bytes = image.bytes, relocs = image.relocs[:]},
+		ir.Global{name = name, size = u32(len(image.bytes)), align = align, bytes = image.bytes, relocs = image.relocs[:], anonymous = true},
 	) or_return
 	return len(writer.module.globals) - 1, nil
 }
