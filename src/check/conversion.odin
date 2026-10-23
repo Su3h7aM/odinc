@@ -199,7 +199,7 @@ check_conversion :: proc(
 		allowed ||= conversion_integer(src.kind) && conversion_float(dst.kind)
 		allowed ||= conversion_float(src.kind) && conversion_integer(dst.kind)
 		allowed ||= src.kind == .Untyped_Nil && conversion_nilable(dst)
-		allowed ||= src.kind == .Untyped_String && (dst.kind == .String || dst.kind == .CString)
+		allowed ||= src.kind == .Untyped_String && (dst.kind == .String || dst.kind == .CString || dst.kind == .String16 || dst.kind == .CString16)
 		allowed ||=
 			(conversion_integer(src.kind) || conversion_float(src.kind) || src.kind == .Untyped_Complex) && (dst.kind == .Complex || dst.kind == .Quaternion)
 		allowed ||= (src.kind == .Untyped_Complex || src.kind == .Untyped_Quaternion) && dst.kind == .Quaternion
@@ -245,9 +245,13 @@ check_conversion :: proc(
 		allowed ||= conversion_implicit_raw_pointer(store, info.type, target)
 		allowed ||= conversion_implicit_pointer(store, info.type, target)
 		allowed ||= simd_broadcast_allowed(dst, info.type)
-		allowed ||= array_broadcast_allowed(dst, info.type)
 		allowed ||= matrix_scalar_allowed(dst, info.type)
 		allowed ||= matrix_vector_allowed(dst, src)
+		if !allowed && dst.kind == .Array {
+			_, element_diagnostic, element_error := check_conversion(pool, store, source, info, dst.elem, .Assignment, config)
+			if element_error != nil { return {}, .None, element_error }
+			allowed = element_diagnostic == .None
+		}
 	}
 	if kind == .Cast {
 		allowed ||= types.are_identical(store, conversion_core_type(store, info.type), conversion_core_type(store, target))
@@ -274,6 +278,16 @@ check_conversion :: proc(
 			core_source.kind == .String && conversion_code_unit_slice(store, core_target, 1)
 		allowed ||= conversion_code_unit_slice(store, core_source, 2) && core_target.kind == .String16
 		allowed ||= info.type == config.uintptr && conversion_pointer(core_target.kind) || conversion_pointer(core_source.kind) && target == config.uintptr
+		if !allowed && core_source.kind == .Array && core_target.kind == .Array && core_source.count == core_target.count {
+			element := Expression_Info {
+				type  = core_source.elem,
+				mode  = .Value,
+				state = .Checked,
+			}
+			_, element_diagnostic, element_error := check_conversion(pool, store, Operand(nil), element, core_target.elem, .Cast, config)
+			if element_error != nil { return {}, .None, element_error }
+			allowed = element_diagnostic == .None
+		}
 		// Official check_is_castable_to: rawptr <-> procedure, both directions.
 		allowed ||= core_source.kind == .Raw_Pointer && core_target.kind == .Procedure || core_source.kind == .Procedure && core_target.kind == .Raw_Pointer
 	}
@@ -287,9 +301,21 @@ check_conversion :: proc(
 		}
 		return result, .None, nil
 	}
-	if kind == .Assignment && info.mode != .Constant && array_broadcast_allowed(dst, info.type) {
-		result.plan.kind = .Broadcast
-		return result, .None, nil
+	if kind == .Assignment && !untyped && dst.kind == .Array {
+		element, element_diagnostic, element_error := check_conversion(pool, store, source, info, dst.elem, .Assignment, config)
+		if element_error != nil { return {}, .None, element_error }
+		if element_diagnostic == .None {
+			if info.mode == .Constant && element.info.mode == .Constant && element.info.constant != 0 {
+				lanes := make([]Const_Id, int(dst.count), context.temp_allocator) or_return
+				defer delete(lanes, context.temp_allocator)
+				for &lane in lanes { lane = element.info.constant }
+				result.info.mode = .Constant
+				result.info.constant, err = constant_pool_intern_aggregate(pool, target, lanes)
+				return result, .None, err
+			}
+			result.plan.kind = .Broadcast
+			return result, .None, nil
+		}
 	}
 	// Official array programming converts an untyped scalar to the array type when it converts to the element type.
 	if kind == .Assignment && untyped && dst.kind == .Array && (conversion_integer(src.kind) || conversion_float(src.kind) || conversion_boolean(src.kind)) {
@@ -401,7 +427,7 @@ check_conversion :: proc(
 		}
 		if (src.kind == .Untyped_String ||
 			   (core_source.kind == .String || core_source.kind == .CString) && (kind == .Cast || dst.kind == .CString || core_target.kind == .String)) &&
-		   (dst.kind == .String || dst.kind == .CString) {
+		   (dst.kind == .String || dst.kind == .CString || dst.kind == .String16 || dst.kind == .CString16) {
 			text, is_text := constant_pool_get(pool, info.constant).value.(string)
 			if !is_text { return {}, .Invalid_Value, nil }
 			constant, string_error := constant_pool_intern_string(pool, text, target)
@@ -571,9 +597,6 @@ conversion_boolean :: proc(kind: types.Kind) -> bool {
 }
 
 // Official array programming: a typed scalar assigned to an array fills every element.
-array_broadcast_allowed :: proc(target: types.Type, source: types.Type_Id) -> bool {
-	return target.kind == .Array && target.elem == source
-}
 
 // Official scalar initialization: a scalar of the element type converts to a square matrix.
 matrix_scalar_allowed :: proc(target: types.Type, source: types.Type_Id) -> bool {
@@ -650,27 +673,40 @@ conversion_untyped_union_variant :: proc(
 ) {
 	union_descriptor := types.get(store, conversion_base_type(store, target))^
 	matched: Conversion_Result
+	matched_variant: types.Type_Id
 	matches := 0
 	default_type := types.default_type_of_untyped(store, info.type)
 	default_matched: Conversion_Result
+	default_variant: types.Type_Id
 	default_matches := 0
 	for variant in union_descriptor.variants {
 		if types.get(store, conversion_base_type(store, variant)).kind == .Union { continue }
 		candidate, candidate_diagnostic, candidate_err := check_conversion(pool, store, source, info, variant, .Assignment, config)
 		if candidate_err != nil { return {}, .None, candidate_err }
 		if candidate_diagnostic != .None { continue }
-		matched = candidate
+		matched, matched_variant = candidate, variant
 		matches += 1
 		if conversion_base_type(store, variant) == default_type {
-			default_matched = candidate
+			default_matched, default_variant = candidate, variant
 			default_matches += 1
 		}
 	}
 	if matches != 1 {
 		if default_matches != 1 { return {}, .Not_Assignable, nil }
-		matched = default_matched
+		matched, matched_variant = default_matched, default_variant
 	}
-	if matched.info.mode != .Constant { return Conversion_Result{reason = "Conversion_Untyped_Value"}, .Unsupported, nil }
+	if matched.info.mode != .Constant {
+		element, is_constant := matched.plan.source.(Const_Id)
+		variant := types.get(store, conversion_base_type(store, matched_variant))
+		if matched.plan.kind != .Broadcast || !is_constant || variant.kind != .Array {
+			return Conversion_Result{reason = "Conversion_Untyped_Value"}, .Unsupported, nil
+		}
+		lanes := make([]Const_Id, int(variant.count), context.temp_allocator) or_return
+		defer delete(lanes, context.temp_allocator)
+		for &lane in lanes { lane = element }
+		matched.info.mode = .Constant
+		matched.info.constant = constant_pool_intern_aggregate(pool, matched_variant, lanes) or_return
+	}
 	result.info = Expression_Info {
 		type  = target,
 		mode  = .Value,

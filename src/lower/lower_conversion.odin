@@ -77,6 +77,9 @@ lower_conversion_value :: proc(
 	if lower_type(state, source_id).kind == .Matrix && lower_type(state, plan.target).kind == .Matrix {
 		return lower_matrix_cast(state, node, source_id, plan.target, value)
 	}
+	if plan.kind == .Cast && source_kind == .Array && target_kind == .Array && source_id != plan.target {
+		return lower_array_cast(state, plan, node, source_id, value)
+	}
 	if lower_complex_kind(state, source_id) && lower_complex_kind(state, plan.target) {
 		return lower_complex_conversion(state, node, value, source_id, plan.target)
 	}
@@ -283,4 +286,37 @@ lower_same_layout_conversion :: proc(
 	copy := ir.stack_slot(state.job.function, state.entry_control, u32(target_layout.size), u32(target_layout.align))
 	lower_store(state, copy, address, plan.target)
 	return copy
+}
+
+// An array cast converts each element like a scalar cast.
+@(private)
+lower_array_cast :: proc(
+	state: ^Procedure_State,
+	plan: check.Conversion_Plan,
+	node: syntax.Node_Index,
+	source_id: types.Type_Id,
+	value: ir.Node_Id,
+) -> ir.Node_Id {
+	function := state.job.function
+	source := lower_type(state, source_id)
+	target := lower_type(state, plan.target)
+	if state.failed { return 0 }
+	source_layout, target_layout := state.job.layouts[source.elem], state.job.layouts[target.elem]
+	layout := state.job.layouts[plan.target]
+	if source.count != target.count || source_layout.error != .None || target_layout.error != .None || layout.error != .None || layout.size > i64(max(u32)) {
+		return lower_fail(state, node, .Conversion)
+	}
+	slot := ir.stack_slot(function, state.entry_control, u32(max(layout.size, 1)), u32(layout.align))
+	element_plan := plan
+	element_plan.target = target.elem
+	element_plan.path = nil
+	for index in 0 ..< source.count {
+		element := lower_load(state, ir.ptr_offset(function, value, index * source_layout.size), source.elem)
+		if state.failed { return 0 }
+		converted := lower_conversion_value(state, element_plan, node, source.elem, element)
+		if state.failed { return 0 }
+		lower_store(state, ir.ptr_offset(function, slot, index * target_layout.size), converted, target.elem)
+		if state.failed { return 0 }
+	}
+	return slot
 }

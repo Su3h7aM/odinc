@@ -149,6 +149,10 @@ entry :: proc "contextless" (v: #simd[4]f32, w: []int) {
 	m := matrix[2, 2]f32{}
 	k := Index(1)
 	e: ^Expr
+	row := [2]int{1, 2}
+	grid: [2][2]int = row
+	constant_grid: [2]Pair : Pair{3, 4}
+	_, _ = cast([2][2]i64)grid, constant_grid
 	_, _, _, _ = matrix_dimension(m), m[k, k], transpose(m), pointer_of(e)
 }
 `,
