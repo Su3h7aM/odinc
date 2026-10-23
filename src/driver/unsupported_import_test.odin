@@ -15,7 +15,7 @@ unsupported_import_is_located_and_fails_the_build :: proc(t: ^testing.T) {
 	testing.expect_value(t, len(image), 0)
 	testing.expect(
 		t,
-		strings.contains(strings.to_string(builder), "main.odin:3:8: unsupported import \"core:no_such_package\"\n"),
+		strings.contains(strings.to_string(builder), "main.odin(3:8) Error: unsupported import \"core:no_such_package\" "),
 		"diagnostic must locate the import path",
 	)
 }

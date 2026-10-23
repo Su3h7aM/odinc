@@ -210,9 +210,14 @@ write_test_signature_error :: proc(session: ^Session, writer: io.Writer) {
 	file := session.files[entity.declaration.file]
 	declaration := syntax.node_payload(file.ast, entity.declaration.node, syntax.Value_Decl)
 	position := file.ast.nodes[entity.declaration.node].start
+	position_end := position
 	for name in syntax.node_list(file.ast, declaration.names) {
 		span := file.ast.nodes[name]
-		if string(file.source[span.start:span.end]) == entity.name { position = span.start; break }
+		if string(file.source[span.start:span.end]) == entity.name {
+			position = span.start
+			position_end = span.end
+			break
+		}
 	}
 	got := "non-procedure"
 	for value in syntax.node_list(file.ast, declaration.values) {
@@ -222,6 +227,7 @@ write_test_signature_error :: proc(session: ^Session, writer: io.Writer) {
 		got = strings.trim_space(string(file.source[span.start:span.end]))
 		break
 	}
-	line, column := syntax.line_col(file.lines, position)
-	fmt.wprintfln(writer, "%s(%d:%d) Error: Testing procedures must have a signature type of proc(^testing.T), got %s", file.display_path, line, column, got)
+	text := fmt.tprintf("Testing procedures must have a signature type of proc(^testing.T), got %s", got)
+	diagnostic := source_diagnostic(session, {file = entity.declaration.file, start = position, end = position_end}, text)
+	write_diagnostics(session, writer, []Output_Diagnostic{diagnostic})
 }

@@ -28,7 +28,7 @@ main :: proc() {
 
 @(test)
 type_merge_rejects_non_unions_and_mismatched_kinds :: proc(t: ^testing.T) {
-	for source in ([]string{"package sample\nmain :: proc() { T :: type_merge(int, union { bool }) }\n", "package sample\nmain :: proc() { T :: type_merge(union { int }, union #no_nil { bool }) }\n"}) {
+	for source in ([]string{"package sample\nmain :: proc() { T :: type_merge(int, union { bool }) }\n", "package sample\nmain :: proc() { T :: type_merge(union { int }, union #no_nil { bool, f32 }) }\n"}) {
 		_, ok := check_procedure_source(t, transmute([]byte)source, intrinsic_names = {"type_merge"}, expected_kind = .Invalid_Operand, diagnostic_count = 1)
 		testing.expect(t, ok)
 	}

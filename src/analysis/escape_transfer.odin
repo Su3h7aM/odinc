@@ -192,9 +192,16 @@ escape_report_return :: proc(escape: ^Escape, expression: check.Expression_Ref, 
 		allocator = escape.run.allocator,
 	)
 	span := file.ast.nodes[expression.node]
-	append(
-		&escape.run.diagnostics,
-		Diagnostic{severity = .Error if definite else .Warning, source = {file_id, span.start, span.end}, reason = reason},
-	) or_return
+	start, end := span.start, span.start
+	if span.end > span.start && int(span.start) < len(file.source) {
+		limit := min(int(span.end), len(file.source))
+		tokenizer := syntax.init(file.source[span.start:limit])
+		token := syntax.next(&tokenizer)
+		if token.end > token.start {
+			start = span.start + token.start
+			end = span.start + token.end
+		}
+	}
+	append(&escape.run.diagnostics, Diagnostic{severity = .Error if definite else .Warning, source = {file_id, start, end}, reason = reason}) or_return
 	return nil
 }

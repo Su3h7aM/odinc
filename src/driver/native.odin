@@ -101,7 +101,6 @@ build_file :: proc(
 	defer if session != nil { session_destroy(session) }
 	if driver_err == .Check_Failed || driver_err == .Unsupported_Import || driver_err == .Parse_Failed || driver_err == .Import_Cycle {
 		write_diagnostics(session, log)
-		fmt.wprintfln(log, "check stage failed: %v", driver_err)
 	}
 	if driver_err != .None {
 		if driver_err != .Check_Failed && driver_err != .Unsupported_Import && driver_err != .Parse_Failed && driver_err != .Import_Cycle {

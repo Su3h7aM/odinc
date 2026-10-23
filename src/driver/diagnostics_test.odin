@@ -47,12 +47,16 @@ checker_conversion_error_prints_code_and_reason :: proc(t: ^testing.T) {
 	append(
 		&session.checker.diagnostics,
 		check.Expression_Diagnostic{kind = .Conversion, conversion = .Not_Assignable, source = {file = 1}},
-		check.Expression_Diagnostic{kind = .Conversion, conversion = .Unsupported, reason = "details", source = {file = 1}},
+		check.Expression_Diagnostic{kind = .Conversion, conversion = .Unsupported, reason = "details", source = {file = 1, start = 1}},
 	)
 	builder: strings.Builder
 	strings.builder_init(&builder, context.temp_allocator)
 	write_diagnostics(&session, strings.to_writer(&builder))
-	testing.expect_value(t, strings.to_string(builder), "sample.odin:1:1: Conversion Not_Assignable\nsample.odin:1:1: Conversion Unsupported details\n")
+	testing.expect_value(
+		t,
+		strings.to_string(builder),
+		"sample.odin(1:1) Error: Conversion Not_Assignable \n\t( empty line ) \nsample.odin(1:2) Error: Conversion Unsupported details \n\t( empty line ) \n",
+	)
 }
 
 @(test)
@@ -71,7 +75,7 @@ checker_warnings_print_and_only_fail_when_promoted :: proc(t: ^testing.T) {
 		builder: strings.Builder
 		strings.builder_init(&builder, context.temp_allocator)
 		write_diagnostics(&session, strings.to_writer(&builder))
-		expected := "sample.odin(1:1) Error: details\n" if promoted else "sample.odin(1:1) Warning: details\n"
+		expected := "sample.odin(1:1) Error: details \n\t( empty line ) \n" if promoted else "sample.odin(1:1) Warning: details \n\t( empty line ) \n"
 		testing.expect_value(t, strings.to_string(builder), expected)
 	}
 }

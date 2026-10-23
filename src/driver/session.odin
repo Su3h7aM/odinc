@@ -1,6 +1,7 @@
 package driver
 
 import "base:runtime"
+import "core:fmt"
 import "core:os"
 import "core:path/filepath"
 import "core:slice"
@@ -53,6 +54,8 @@ Import_Edge_Record :: struct {
 // A syntax error with an official message, located at its line and column in path.
 Syntax_Diagnostic :: struct {
 	path:   string,
+	source: []byte,
+	offset: u32,
 	line:   u32,
 	column: u32,
 	text:   string,
@@ -526,6 +529,7 @@ diagnostic_rollback :: proc(session: ^Session, mark: Diagnostic_Mark) {
 
 Unresolved_When :: struct {
 	set:          bool,
+	source:       check.Source_Span,
 	display_path: string,
 	line, column: u32,
 	reason:       check.Resolve_Error,
@@ -536,11 +540,12 @@ record_unresolved_when :: proc(session: ^Session, pending: check.Pending_Declara
 	file := session.files[pending.declaration.file]
 	line, column := syntax.line_col(file.lines, file.ast.nodes[pending.declaration.node].start)
 	session.unresolved_when = Unresolved_When {
-		set          = true,
+		set = true,
+		source = {file = pending.declaration.file, start = file.ast.nodes[pending.declaration.node].start},
 		display_path = file.display_path,
-		line         = line,
-		column       = column,
-		reason       = reason,
+		line = line,
+		column = column,
+		reason = reason,
 	}
 }
 
@@ -774,7 +779,9 @@ load_source :: proc(
 	Driver_Error,
 ) {
 	if error := push(&session.sources, source); error != .None { return 0, error }
-	ast, has_errors, parse_error := parse_source(session, path, source)
+	// The intrinsics package is injected by the compiler. Upstream stops after its reserved package name and does not report parse errors from its body.
+	report := session.packages[package_id].kind != .Intrinsics
+	ast, has_errors, parse_error := parse_source(session, path, source, report)
 	if ast != nil {
 		if error := push(&session.asts, ast); error != .None { return 0, error }
 	}
@@ -786,7 +793,7 @@ load_source :: proc(
 
 // Parses source into a new ast that refers to source, so the caller keeps source alive.
 @(private = "file")
-parse_source :: proc(session: ^Session, path: string, source: []byte) -> (ast: ^syntax.Ast, has_errors: bool, err: Driver_Error) {
+parse_source :: proc(session: ^Session, path: string, source: []byte, report: bool) -> (ast: ^syntax.Ast, has_errors: bool, err: Driver_Error) {
 	allocated, allocation_error := new(syntax.Ast, session.allocator)
 	if allocation_error != nil { return nil, false, .Allocation_Failed }
 	syntax.ast_init(allocated, session.allocator)
@@ -797,9 +804,22 @@ parse_source :: proc(session: ^Session, path: string, source: []byte) -> (ast: ^
 	syntax.parse_file(&parser)
 	for parse_error in parser.errors {
 		text := syntax.parse_error_text(parse_error)
-		if text == "" { continue }
-		if record_error := record_syntax_diagnostic(session, path, source, parse_error.offset, text); record_error != .None {
-			return allocated, true, record_error
+		if text == "" {
+			text = fmt.tprint(parse_error.kind)
+			if parse_error.expected != .Invalid { text = fmt.tprintf("%s %v", text, parse_error.expected) }
+			if parse_error.detail != "" { text = fmt.tprintf("%s %s", text, parse_error.detail) }
+		}
+		if report {
+			if record_error := record_syntax_diagnostic(session, path, source, parse_error.offset, text); record_error != .None {
+				return allocated, true, record_error
+			}
+		}
+	}
+	for lexical_error in parser.lex_errors {
+		if report {
+			if record_error := record_syntax_diagnostic(session, path, source, lexical_error.offset, fmt.tprint(lexical_error.kind)); record_error != .None {
+				return allocated, true, record_error
+			}
 		}
 	}
 	return allocated, len(parser.errors) + len(parser.lex_errors) != 0, .None
@@ -815,7 +835,10 @@ record_syntax_diagnostic :: proc(session: ^Session, path: string, source: []byte
 	if path_error != .None { return path_error }
 	owned_text, text_error := own(session, text)
 	if text_error != .None { return text_error }
-	return push(&session.syntax_diagnostics, Syntax_Diagnostic{path = owned_path, line = line, column = column, text = owned_text})
+	return push(
+		&session.syntax_diagnostics,
+		Syntax_Diagnostic{path = owned_path, source = source, offset = offset, line = line, column = column, text = owned_text},
+	)
 }
 
 @(private = "file")

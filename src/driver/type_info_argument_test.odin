@@ -17,7 +17,7 @@ type_info_value_passed_to_typeid_is_rejected_with_official_text :: proc(t: ^test
 		t,
 		strings.contains(
 			strings.to_string(builder),
-			"main.odin:6:11: Conversion Cannot assign value 'type_info_of(int)' of type '^Type_Info' to 'typeid' in a procedure argument\n",
+			"main.odin(6:11) Error: Conversion Cannot assign value 'type_info_of(int)' of type '^Type_Info' to 'typeid' in a procedure argument ",
 		),
 		strings.to_string(builder),
 	)
