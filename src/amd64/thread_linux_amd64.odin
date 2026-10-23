@@ -66,6 +66,8 @@ encode_branch_atom :: proc(
 	branches: []Pending_Branch,
 	targets: []int,
 	allocator: runtime.Allocator,
+	outermost_first: Maybe(int) = nil,
+	leaf: bool = false,
 ) -> (
 	atom: link.Atom,
 	err: Emit_Error,
@@ -91,11 +93,18 @@ encode_branch_atom :: proc(
 	bytes := make([]byte, int(byte_count), allocator) or_return
 	defer if atom.bytes == nil { delete(bytes, allocator) }
 	copy(bytes, buffer[:byte_count])
+	unwind: []byte
+	if first, has_outermost := outermost_first.?; has_outermost {
+		unwind = emit_outermost_unwind(u32(definitions[first]), allocator) or_return
+	} else if leaf {
+		unwind = make([]byte, 1, allocator) or_return // DW_CFA_nop keeps the CIE leaf rules.
+	}
 	atom = link.Atom {
 		section = .Text,
 		align   = 16,
 		bytes   = bytes,
 		size    = u64(len(bytes)),
+		unwind  = unwind,
 	}
 	return atom, nil
 }
@@ -148,7 +157,7 @@ emit_linux_clone :: proc(allocator: runtime.Allocator) -> (atom: link.Atom, err:
 	append(&instructions, x86.inst_mov_r32_imm32(.EAX, 60)) or_return
 	append(&instructions, x86.inst_syscall_none()) or_return
 	append(&instructions, x86.inst_ud2_none()) or_return
-	return encode_branch_atom(instructions[:], branches[:], targets[:], allocator)
+	return encode_branch_atom(instructions[:], branches[:], targets[:], allocator, outermost_first = targets[child])
 }
 
 // Emits `_odin_linux_tls_layout`: read one PT_TLS program header into the six
@@ -221,5 +230,5 @@ emit_linux_tls_layout :: proc(allocator: runtime.Allocator) -> (atom: link.Atom,
 	bind_branch(&targets, fail, instructions[:])
 	append(&instructions, x86.inst_xor_r32_r32(.EAX, .EAX)) or_return
 	append(&instructions, x86.inst_ret_none()) or_return
-	return encode_branch_atom(instructions[:], branches[:], targets[:], allocator)
+	return encode_branch_atom(instructions[:], branches[:], targets[:], allocator, leaf = true)
 }

@@ -68,3 +68,14 @@ emit_frame_unwind :: proc(layout: Frame_Layout, offsets: []u32, has_return: bool
 	copy(bytes, instructions[:])
 	return
 }
+@(private)
+emit_outermost_unwind :: proc(offset: u32, allocator: mem.Allocator) -> (bytes: []byte, err: runtime.Allocator_Error) {
+	instructions := make([dynamic]byte, 0, 0, context.temp_allocator) or_return
+	defer delete(instructions)
+	previous: u32
+	unwind_advance(&instructions, &previous, offset) or_return
+	append(&instructions, 0x07, 16) or_return // DW_CFA_undefined rip: there is no caller.
+	bytes = make([]byte, len(instructions), allocator) or_return
+	copy(bytes, instructions[:])
+	return
+}

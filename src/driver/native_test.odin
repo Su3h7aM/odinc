@@ -277,8 +277,7 @@ startup_initializes_runtime_args_header_before_global_initializer :: proc(t: ^te
 		context.allocator,
 	)
 	if !testing.expect_value(t, err, nil) { return }
-	defer delete(atom.bytes, context.allocator)
-	defer delete(atom.relocs, context.allocator)
+	defer amd64.atom_destroy(&atom, context.allocator)
 	data_offset, length_offset, init_offset := -1, -1, -1
 	for relocation in atom.relocs {
 		if relocation.symbol == 4 && relocation.addend == -4 { data_offset = int(relocation.offset) }

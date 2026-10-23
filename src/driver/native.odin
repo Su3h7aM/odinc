@@ -70,7 +70,7 @@ Build_Error :: union {
 @(private = "file")
 STARTUP_SLOT_COUNT :: 3
 
-// The Linux thread control block: the self pointer at 0 and the stack guard at 0x28, as base/runtime/tls_linux_no_crt_amd64.asm lays it out.
+// Linux x86-64 thread control block: the self pointer at the thread pointer (x86-64 TLS ABI) and the stack guard at 0x28, where compiled code reads it (glibc and musl agree on that offset).
 @(private = "file")
 TCB_SIZE :: 48
 

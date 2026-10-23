@@ -226,12 +226,14 @@ emit_linux_entry :: proc(symbols: Linux_Entry_Symbols, microarch: types.X86_Leve
 			addend = target.addend,
 		}
 	}
+	unwind := emit_outermost_unwind(0, allocator) or_return
 	atom = link.Atom {
 		section = .Text,
 		align   = 16,
 		bytes   = bytes,
 		size    = u64(len(bytes)),
 		relocs  = link_relocations,
+		unwind  = unwind,
 	}
 	return atom, nil
 }

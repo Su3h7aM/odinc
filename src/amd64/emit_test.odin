@@ -241,3 +241,28 @@ emitted_epilogue_restores_stack_pointer_moved_by_the_body :: proc(t: ^testing.T)
 		atom.bytes,
 	)
 }
+@(test)
+handwritten_entry_unwind_terminates_at_stack_roots :: proc(t: ^testing.T) {
+	entry, entry_err := emit_linux_entry({}, .V1, context.allocator)
+	if !testing.expect_value(t, entry_err, nil) { return }
+	defer atom_destroy(&entry, context.allocator)
+	testing.expect(t, slice.equal(entry.unwind, []byte{0x07, 16}), "process entry has no caller")
+
+	clone, clone_err := emit_linux_clone(context.allocator)
+	if !testing.expect_value(t, clone_err, nil) { return }
+	defer atom_destroy(&clone, context.allocator)
+	child_offset := -1
+	for instruction, index in clone.bytes {
+		if instruction == 0xc3 {
+			child_offset = index + 1
+			break
+		}
+	}
+	if !testing.expect(t, child_offset > 0 && child_offset < 64, "clone child follows the parent ret") { return }
+	testing.expect(t, slice.equal(clone.unwind, []byte{0x40 | byte(child_offset), 0x07, 16}), "clone preserves parent leaf rules and stops at child entry")
+
+	tls, tls_err := emit_linux_tls_layout(context.allocator)
+	if !testing.expect_value(t, tls_err, nil) { return }
+	defer atom_destroy(&tls, context.allocator)
+	testing.expect(t, slice.equal(tls.unwind, []byte{0}), "TLS layout helper retains the CIE leaf rules")
+}
