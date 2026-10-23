@@ -80,17 +80,7 @@ expression_checker_publish_globals :: proc(checker: ^Expression_Checker, program
 	return expression_checker_publish_startup(checker, program)
 }
 
-@(private = "file")
+@(private)
 expression_stored_info :: proc(checker: ^Expression_Checker, view: View_Id, node: syntax.Node_Index) -> Expression_Info {
-	rows := checker.views[view].nodes
-	index := int(node - checker.views[view].first_node)
-	return Expression_Info {
-		type = rows.types[index],
-		constant = rows.constants[index],
-		mode = rows.modes[index],
-		entity = rows.entities[index],
-		plan = rows.plans[index],
-		scope = rows.scopes[index],
-		state = rows.states[index],
-	}
+	return typed_view_info(&checker.views[view], node)
 }

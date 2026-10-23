@@ -201,6 +201,22 @@ main :: proc "contextless" () {
 	testing.expectf(t, len(fixture.checker.diagnostics) == 0, "diagnostics %v", fixture.checker.diagnostics)
 	recursive_instance_resolved(t, &fixture, "countdown")
 	recursive_calls_checked(t, &fixture)
+	for view, view_index in fixture.checker.views {
+		if view.instance == 0 { continue }
+		testing.expect(t, view.first_node > 0 && len(view.nodes.types) < len(fixture.ast.nodes), "instance rows must exclude unrelated file declarations")
+		for node, node_index in fixture.ast.nodes {
+			if node.kind != .Basic_Lit { continue }
+			index := syntax.Node_Index(node_index)
+			if index >= view.first_node && int(index - view.first_node) < len(view.nodes.types) { continue }
+			view_id := View_Id(view_index)
+			mark := expression_speculation_begin(&fixture.checker)
+			expression_store(&fixture.checker, view_id, index, Expression_Info{state = .Checked})
+			testing.expect(t, expression_stored_info(&fixture.checker, view_id, index).state == .Checked, "external rows must be readable")
+			expression_speculation_end(&fixture.checker, mark)
+			testing.expect(t, expression_stored_info(&fixture.checker, view_id, index).state == .Unseen, "external rows must roll back with dense rows")
+			break
+		}
+	}
 }
 
 // A two-instance cycle through two generics: put calls expand, expand calls put.

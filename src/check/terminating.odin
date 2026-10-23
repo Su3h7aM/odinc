@@ -29,9 +29,7 @@ statement_diverges :: proc(checker: ^Expression_Checker, view: View_Id, file: ^F
 		expression = syntax.node_payload(file.ast, expression, syntax.Paren_Expr).expr
 	}
 	if file.ast.nodes[expression].kind != .Call_Expr { return false }
-	rows := checker.views[view].nodes
-	row := int(expression - checker.views[view].first_node)
-	plan_id := rows.plans[row]
+	plan_id := expression_stored_info(checker, view, expression).plan
 	if plan_id == 0 { return false }
 	store := checker.type_checker.store
 	#partial switch plan in checker.plans[plan_id] {
@@ -42,7 +40,7 @@ statement_diverges :: proc(checker: ^Expression_Checker, view: View_Id, file: ^F
 		}
 	case Call_Plan:
 		callee := syntax.node_payload(file.ast, expression, syntax.Call_Expr).expr
-		type := rows.types[int(callee - checker.views[view].first_node)]
+		type := expression_stored_info(checker, view, callee).type
 		if type == 0 && plan.entity != 0 { type = entity_get(checker.type_checker.resolver.scopes, plan.entity).type }
 		if type == 0 { return false }
 		descriptor := types.get(store, types.resolve_named(store, type))
@@ -79,8 +77,7 @@ statement_terminates :: proc(checker: ^Expression_Checker, view: View_Id, file: 
 		)
 	case .When_Stmt:
 		statement := syntax.node_payload(ast, node, syntax.When_Stmt)
-		rows := checker.views[view].nodes
-		if statement.body != 0 && rows.states[int(statement.body - checker.views[view].first_node)] == .Inactive {
+		if statement.body != 0 && expression_stored_info(checker, view, statement.body).state == .Inactive {
 			return statement_terminates(checker, view, file, statement.else_stmt, label)
 		}
 		return statement_terminates(checker, view, file, statement.body, label)

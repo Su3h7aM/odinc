@@ -752,12 +752,7 @@ expression_deferred_tail_check :: proc(
 // Whether a call expression diverges: a diverging callee or a diverging builtin.
 @(private = "file")
 expression_is_diverging_call :: proc(checker: ^Expression_Checker, view: View_Id, node: syntax.Node_Index) -> bool {
-	rows := checker.views[view].nodes
-	first := checker.views[view].first_node
-	if node < first { return false }
-	index := int(node - first)
-	if index < 0 || index >= len(rows.plans) { return false }
-	plan := rows.plans[index]
+	plan := expression_stored_info(checker, view, node).plan
 	if plan == 0 { return false }
 	#partial switch specific in checker.plans[plan] {
 	case Builtin_Plan:
@@ -817,12 +812,7 @@ expression_has_deferred_call :: proc(checker: ^Expression_Checker, view: View_Id
 
 @(private = "file")
 call_callee_has_deferred_attribute :: proc(checker: ^Expression_Checker, view: View_Id, node: syntax.Node_Index) -> bool {
-	rows := checker.views[view].nodes
-	first := checker.views[view].first_node
-	if node < first { return false }
-	index := int(node - first)
-	if index < 0 || index >= len(rows.plans) { return false }
-	plan := rows.plans[index]
+	plan := expression_stored_info(checker, view, node).plan
 	if plan == 0 { return false }
 	call, is_call := checker.plans[plan].(Call_Plan)
 	if !is_call || call.entity == 0 { return false }

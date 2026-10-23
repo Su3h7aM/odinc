@@ -94,8 +94,7 @@ expression_assertion_addressable :: proc(checker: ^Expression_Checker, target: E
 	if source_kind != .Union { return false }
 	source, is_expression := assertion.source.(Expression_Ref)
 	if !is_expression { return false }
-	source_view := checker.views[source.view]
-	return source_view.nodes.modes[int(source.node - source_view.first_node)] == .Variable
+	return expression_stored_info(checker, source.view, source.node).mode == .Variable
 }
 
 // A selector on an import name reads a member of the imported package scope; otherwise it names a struct field.

@@ -95,9 +95,7 @@ default_compound_is_constant :: proc(checker: ^Expression_Checker, view: View_Id
 
 @(private = "file")
 default_element_is_constant :: proc(checker: ^Expression_Checker, view: View_Id, file: ^File, node: syntax.Node_Index) -> bool {
-	rows := checker.views[view].nodes
-	first := checker.views[view].first_node
-	if node >= first && int(node - first) < len(rows.constants) && rows.constants[node - first] != 0 { return true }
+	if expression_stored_info(checker, view, node).constant != 0 { return true }
 	return default_compound_is_constant(checker, view, file, node)
 }
 

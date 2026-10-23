@@ -675,6 +675,8 @@ Typed_View :: struct {
 	origin:     Source_Span,
 	first_node: syntax.Node_Index,
 	nodes:      Typed_Nodes,
+	// References checked outside an instance's declaration.
+	extra_rows: map[syntax.Node_Index]Expression_Info,
 }
 Expression_Info :: struct {
 	type:     types.Type_Id,
@@ -1115,13 +1117,21 @@ Checked_Program :: struct {
 expression_info :: proc(program: ^Checked_Program, view: View_Id, node: syntax.Node_Index) -> (info: Expression_Info, ok: bool) #optional_ok {
 	if program == nil || node == 0 { return }
 	typed := table_entry(program.typed_views, view)
-	if typed == nil || node < typed.first_node { return }
+	if typed == nil { return }
+	return typed_view_info(typed, node)
+}
+
+@(private)
+typed_view_info :: proc(typed: ^Typed_View, node: syntax.Node_Index) -> (info: Expression_Info, ok: bool) #optional_ok {
+	if node == 0 { return }
+	if node < typed.first_node || int(node - typed.first_node) >= len(typed.nodes.types) {
+		return typed.extra_rows[node]
+	}
 	index := int(node - typed.first_node)
 	nodes := typed.nodes
 	count := len(nodes.types)
 	assert(len(nodes.constants) == count && len(nodes.modes) == count && len(nodes.entities) == count)
 	assert(len(nodes.plans) == count && len(nodes.scopes) == count && len(nodes.states) == count)
-	if index < 0 || index >= count { return }
 	return Expression_Info {
 			nodes.types[index],
 			nodes.constants[index],
@@ -1132,6 +1142,18 @@ expression_info :: proc(program: ^Checked_Program, view: View_Id, node: syntax.N
 			nodes.states[index],
 		},
 		true
+}
+
+@(private)
+typed_view_store :: proc(typed: ^Typed_View, node: syntax.Node_Index, info: Expression_Info) {
+	if node < typed.first_node || int(node - typed.first_node) >= len(typed.nodes.types) {
+		typed.extra_rows[node] = info
+		return
+	}
+	index := int(node - typed.first_node)
+	rows := typed.nodes
+	rows.types[index], rows.constants[index], rows.modes[index], rows.entities[index] = info.type, info.constant, info.mode, info.entity
+	rows.plans[index], rows.scopes[index], rows.states[index] = info.plan, info.scope, info.state
 }
 
 procedures :: proc(program: ^Checked_Program) -> []Checked_Procedure {

@@ -193,12 +193,14 @@ expression_file_view :: proc(checker: ^Expression_Checker, file: File_Id) -> (vi
 		if found, ok := checker.view_lookup[View_Key{file = file, instance = instance}]; ok { return found, nil }
 	}
 	assert(file != 0 && int(file) < len(checker.type_checker.files))
-	count := len(checker.type_checker.files[file].ast.nodes)
+	first, count := expression_view_span(checker, file, instance)
 	allocator := virtual.arena_allocator(&checker.view_arena)
 	typed := Typed_View {
-		file     = file,
-		instance = instance,
+		file       = file,
+		instance   = instance,
+		first_node = first,
 	}
+	typed.extra_rows.allocator = allocator
 	typed.nodes.types = make([]types.Type_Id, count, allocator) or_return
 	typed.nodes.constants = make([]Const_Id, count, allocator) or_return
 	typed.nodes.modes = make([]Addressing_Mode, count, allocator) or_return
@@ -210,6 +212,25 @@ expression_file_view :: proc(checker: ^Expression_Checker, file: File_Id) -> (vi
 	append(&checker.views, typed) or_return
 	checker.view_lookup[View_Key{file = file, instance = instance}] = view
 	return view, nil
+}
+
+@(private = "file")
+expression_view_span :: proc(checker: ^Expression_Checker, file: File_Id, instance: Instance_Id) -> (first: syntax.Node_Index, count: int) {
+	ast := checker.type_checker.files[file].ast
+	if instance == 0 { return 0, len(ast.nodes) }
+	entity := entity_get(checker.type_checker.resolver.scopes, Entity_Id(instance))
+	if entity == nil || entity.declaration.node == 0 { return 0, len(ast.nodes) }
+	if entity.declaration.file != file { return 0, 0 }
+	declaration := ast.nodes[entity.declaration.node]
+	first = entity.declaration.node
+	last := entity.declaration.node
+	for node, index in ast.nodes[1:] {
+		if node.start >= declaration.start && node.end <= declaration.end {
+			first = min(first, syntax.Node_Index(index + 1))
+			last = max(last, syntax.Node_Index(index + 1))
+		}
+	}
+	return first, int(last - first) + 1
 }
 
 @(require_results)
@@ -227,10 +248,7 @@ check_expression :: proc(
 	file_id := checker.views[view].file
 	file := checker.type_checker.files[file_id]
 	assert(node != 0 && int(node) < len(file.ast.nodes))
-	// publish overwrites every field read below, so skip zeroing this wide record.
-	program: Checked_Program = ---
-	expression_checker_publish(checker, &program)
-	info = expression_info(&program, view, node)
+	info = expression_stored_info(checker, view, node)
 	if info.state == .Unseen {
 		info = Expression_Info {
 			scope = scope,
@@ -592,20 +610,23 @@ expression_any_boxed :: proc(conversions: []Plan_Id) -> bool {
 }
 
 expression_store :: proc(checker: ^Expression_Checker, view: View_Id, node: syntax.Node_Index, info: Expression_Info) {
-	rows := checker.views[view].nodes
-	index := int(node - checker.views[view].first_node)
-	rows.types[index], rows.constants[index], rows.modes[index], rows.entities[index] = info.type, info.constant, info.mode, info.entity
-	rows.plans[index], rows.scopes[index], rows.states[index] = info.plan, info.scope, info.state
+	typed_view_store(&checker.views[view], node, info)
 	if info.state == .Invalid { _, _ = append(&checker.invalid_rows, Invalid_Row{view, node}) }
 	if checker.speculation_depth > 0 { _, _ = append(&checker.stored_rows, Expression_Ref{view, node}) }
+}
+
+@(private = "file")
+expression_reset_row :: proc(checker: ^Expression_Checker, view: View_Id, node: syntax.Node_Index) {
+	info := expression_stored_info(checker, view, node)
+	info.state = .Unseen
+	typed_view_store(&checker.views[view], node, info)
 }
 
 // Attempts that fail for now (see expression_boolean_evaluator) reset the rows they stored as invalid.
 @(private = "package")
 expression_rollback_invalid_rows :: proc(checker: ^Expression_Checker, mark: int) {
 	for row in checker.invalid_rows[mark:] {
-		rows := checker.views[row.view].nodes
-		rows.states[int(row.node - checker.views[row.view].first_node)] = .Unseen
+		expression_reset_row(checker, row.view, row.node)
 	}
 	resize(&checker.invalid_rows, mark)
 }
@@ -632,8 +653,7 @@ expression_speculation_begin :: proc(checker: ^Expression_Checker) -> Speculatio
 expression_speculation_end :: proc(checker: ^Expression_Checker, mark: Speculation) {
 	type_checker := checker.type_checker
 	for row in checker.stored_rows[mark.stored_rows:] {
-		rows := checker.views[row.view].nodes
-		rows.states[int(row.node - checker.views[row.view].first_node)] = .Unseen
+		expression_reset_row(checker, row.view, row.node)
 	}
 	resize(&checker.stored_rows, mark.stored_rows)
 	expression_rollback_invalid_rows(checker, mark.invalid_rows)

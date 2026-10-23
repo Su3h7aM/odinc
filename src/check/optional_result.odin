@@ -34,10 +34,7 @@ expression_optional_result :: proc(checker: ^Expression_Checker, info: Expressio
 	} else {
 		callee, is_expression := call.callee.(Expression_Ref)
 		if !is_expression { return info }
-		callee_view := checker.views[callee.view]
-		index := int(callee.node - callee_view.first_node)
-		if index < 0 || index >= len(callee_view.nodes.types) { return info }
-		signature = callee_view.nodes.types[index]
+		signature = expression_stored_info(checker, callee.view, callee.node).type
 	}
 	signature = types.resolve_named(checker.type_checker.store, signature)
 	if signature == types.TYPE_NONE || signature == types.TYPE_POISON { return info }
