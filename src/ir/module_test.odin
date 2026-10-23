@@ -11,6 +11,7 @@ blob_merge_is_deterministic_and_merges_only_equal_blobs :: proc(t: ^testing.T) {
 
 	merged: [2]Module
 	merged_symbols: [2][][]Symbol_Ref
+	addresses: [2]Node_Id
 	for &module, run in merged {
 		init_err := module_init(&module)
 		testing.expect(t, init_err == nil, "module_init failed")
@@ -34,6 +35,7 @@ blob_merge_is_deterministic_and_merges_only_equal_blobs :: proc(t: ^testing.T) {
 			Data_Blob{bytes = zeros, align = 8, relocs = {{target = {.Global, 0}}}},
 			Data_Blob{bytes = zeros, align = 8, relocs = {{target = {.Local_Blob, 0}}}},
 		)
+		addresses[run] = symbol_addr(function_0, Symbol_Ref{space = .Local_Blob, index = 0})
 
 		symbols, err := blob_merge(&module)
 		testing.expect(t, err == nil, "blob_merge failed")
@@ -42,6 +44,8 @@ blob_merge_is_deterministic_and_merges_only_equal_blobs :: proc(t: ^testing.T) {
 	defer module_destroy(&merged[0])
 	defer module_destroy(&merged[1])
 
+	testing.expect_value(t, merged[0].functions[0].nodes.data[addresses[0]].symbol, Symbol_Ref{.Global, 1})
+	testing.expect_value(t, len(merged[0].functions[0].blobs), 0)
 	for blobs, function_index in merged_symbols[0] {
 		for symbol, blob_index in blobs {
 			testing.expect_value(t, symbol.space, Symbol_Space.Global)

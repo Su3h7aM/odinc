@@ -129,11 +129,11 @@ module_destroy :: proc(module: ^Module) {
 	module^ = {}
 }
 
-// Returns, per function in index order, the global that holds each of its `blobs`. Blobs with equal
-// bytes, alignment and relocations (same offsets, targets and addends; a `Local_Blob` target counts
-// as equal only within its own function) share one global, appended to `module.globals` in
-// first-occurrence order. Relocations of the new globals are rewritten to their final targets.
-// Results and globals are allocated in `module.arena`.
+// Replaces the blobs of every function with globals. Blobs with equal bytes, alignment and relocations (same
+// offsets, targets and addends; a `Local_Blob` target counts as equal only within its own function) share one
+// global, appended to `module.globals` in first-occurrence order. Relocations and `Symbol_Addr` nodes that name
+// a blob are rewritten to its global, and each function's blobs are cleared. Returns, per function in index
+// order, the global that holds each of its former blobs. Results and globals are allocated in `module.arena`.
 blob_merge :: proc(module: ^Module) -> (blob_symbols: [][]Symbol_Ref, err: runtime.Allocator_Error) {
 	scratch: virtual.Arena
 	virtual.arena_init_growing(&scratch) or_return
@@ -183,7 +183,22 @@ blob_merge :: proc(module: ^Module) -> (blob_symbols: [][]Symbol_Ref, err: runti
 			}
 		}
 	}
+	for function, function_index in module.functions {
+		retarget_blob_addresses(function, blob_symbols[function_index])
+		clear(&function.blobs)
+	}
 	return blob_symbols, nil
+}
+
+@(private = "file")
+retarget_blob_addresses :: proc(function: ^Function, blob_symbols: []Symbol_Ref) {
+	for index in 1 ..< len(function.nodes) {
+		if function.nodes.kind[index] != .Symbol_Addr { continue }
+		symbol := function.nodes.data[index].symbol
+		if symbol.space == .Local_Blob {
+			function.nodes.data[index].symbol = blob_symbols[symbol.index]
+		}
+	}
 }
 
 @(private = "file")
