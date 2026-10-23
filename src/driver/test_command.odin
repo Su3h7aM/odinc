@@ -16,7 +16,7 @@ Test_Options :: struct {
 	optimization_mode: check.Optimization_Mode,
 	thread_count:      int,
 	microarch:         types.X86_Level,
-	disallow_do:       bool,
+	parse_options:     syntax.Parse_Options,
 }
 
 build_tests :: proc(
@@ -34,7 +34,7 @@ build_tests :: proc(
 	session.allocator = allocator
 	test_options := options
 	session.test_options = &test_options
-	session.disallow_do = options.disallow_do
+	session.parse_options = options.parse_options
 	defer session_destroy(session)
 	file_error: File_Error
 	defer file_error_destroy(&file_error, allocator)

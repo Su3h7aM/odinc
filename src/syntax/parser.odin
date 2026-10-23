@@ -5,6 +5,7 @@
 // a token or stops at a closing token or EOF.
 package syntax
 
+import "core:fmt"
 import "core:mem"
 import "core:strings"
 import "core:unicode/utf8"
@@ -58,6 +59,10 @@ Parse_Error_Kind :: enum u8 {
 	// space after it, e.g. #+featurex.
 	Expected_Space_After_Feature,
 	Disallowed_Do,
+	Tabs_Required,
+	Strict_Brace_Style,
+	Unneeded_Semicolon,
+	Trailing_Comma_Before_Closer,
 	Out_Of_Memory,
 }
 
@@ -69,6 +74,13 @@ Parse_Error :: struct {
 }
 
 // Parser must not move after `parser_init`: the tokenizer keeps a pointer to `lex_errors`.
+Parse_Options :: struct {
+	disallow_do:  bool,
+	vet_tabs:     bool,
+	vet_style:    bool,
+	strict_style: bool,
+}
+
 Parser :: struct {
 	ast:              ^Ast,
 	tokenizer:        Tokenizer,
@@ -83,7 +95,7 @@ Parser :: struct {
 	allow_in_expr:    bool,
 	allow_type:       bool,
 	in_foreign_block: bool,
-	disallow_do:      bool,
+	options:          Parse_Options,
 }
 
 parser_init :: proc(p: ^Parser, ast: ^Ast, source: []byte, allocator := context.allocator) {
@@ -107,9 +119,30 @@ report :: proc(p: ^Parser, kind: Parse_Error_Kind, offset: u32, expected := Toke
 }
 
 // The official text of a parse error that has one; empty for the rest.
-parse_error_text :: proc(kind: Parse_Error_Kind) -> string {
-	if kind == .Disallowed_Do { return "'do' has been disallowed" }
+parse_error_text :: proc(err: Parse_Error) -> string {
+	#partial switch err.kind {
+	case .Disallowed_Do:
+		return "'do' has been disallowed"
+	case .Tabs_Required:
+		return "With '-vet-tabs', tabs must be used for indentation"
+	case .Strict_Brace_Style:
+		return "With '-strict-style' the attached brace style (1TBS) is enforced"
+	case .Unneeded_Semicolon:
+		return "Found unneeded semicolon"
+	case .Trailing_Comma_Before_Closer:
+		return fmt.tprintf("No need for a trailing comma followed by a %s on the same line", closer_text(err.expected))
+	}
 	return ""
+}
+
+closer_text :: proc(kind: Token_Kind) -> string {
+	#partial switch kind {
+	case .Close_Brace:
+		return "}"
+	case .Close_Paren:
+		return ")"
+	}
+	return "]"
 }
 
 push :: proc(p: ^Parser, list: ^$L/[dynamic]$E, value: E) {
@@ -137,7 +170,50 @@ expect_closing :: proc(p: ^Parser, kind: Token_Kind) -> Token {
 	if is_inserted_semicolon(p.curr) && peek_token(p, 0).kind == kind {
 		advance_token(p)
 	}
+	check_trailing_comma(p, kind)
 	return expect_token(p, kind)
+}
+
+check_trailing_comma :: proc(p: ^Parser, closing: Token_Kind) {
+	if p.options.vet_style && p.curr.kind == closing && p.prev.kind == .Comma && !newline_before(p, p.curr) {
+		report(p, .Trailing_Comma_Before_Closer, p.prev.start, closing)
+	}
+}
+
+enforce_tab_indentation :: proc(p: ^Parser) {
+	if !p.options.vet_tabs || !newline_before(p, p.curr) { return }
+	line_start := p.curr.start
+	for line_start > 0 && p.tokenizer.source[line_start - 1] != '\n' { line_start -= 1 }
+	for offset in line_start ..< p.curr.start {
+		switch p.tokenizer.source[offset] {
+		case '/':
+			return
+		case ' ':
+			report(p, .Tabs_Required, p.curr.start)
+			return
+		}
+	}
+}
+
+skip_possible_newline_before_brace :: proc(p: ^Parser, ignore_strict_style := false) {
+	if !is_inserted_semicolon(p.curr) { return }
+	next := peek_token(p, 0)
+	if p.options.strict_style &&
+	   !ignore_strict_style &&
+	   (next.kind == .Open_Brace || next.kind == .Else) &&
+	   strings.count(string(p.tokenizer.source[p.prev.end:next.start]), "\n") == 1 {
+		report(p, .Strict_Brace_Style, next.start)
+	}
+	advance_token(p)
+}
+
+check_unneeded_semicolon :: proc(p: ^Parser) {
+	semicolon := p.curr
+	if !p.options.strict_style || semicolon.kind != .Semicolon || is_inserted_semicolon(semicolon) { return }
+	next := peek_token(p, 0)
+	if newline_between(p, semicolon.end, next.start) || next.kind == .EOF || next.kind == .Close_Brace || next.kind == .Close_Paren {
+		report(p, .Unneeded_Semicolon, semicolon.start)
+	}
 }
 
 allow_token :: proc(p: ^Parser, kind: Token_Kind) -> bool {

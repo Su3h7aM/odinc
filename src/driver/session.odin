@@ -91,7 +91,7 @@ Session :: struct {
 	program:             check.Checked_Program,
 	main_scope:          check.Scope_Id,
 	no_entry_point:      bool,
-	disallow_do:         bool,
+	parse_options:       syntax.Parse_Options,
 	test_options:        ^Test_Options,
 	test_entry:          check.Entity_Id,
 	test_entry_file:     check.File_Id,
@@ -109,15 +109,15 @@ check_program :: proc(
 	defines: map[string]string = nil,
 	level: types.X86_Level = .V1,
 	file_error: ^File_Error = nil,
-	disallow_do: bool = false,
+	parse_options: syntax.Parse_Options = {},
 ) -> (
 	session: ^Session,
 	err: Driver_Error,
 ) {
-	session, err = check_program_profile(odin_root, main_path, allocator, no_entry_point, user_collections, defines, false, level, file_error, disallow_do)
+	session, err = check_program_profile(odin_root, main_path, allocator, no_entry_point, user_collections, defines, false, level, file_error, parse_options)
 	if session == nil || !session_uses_external_library(session) { return session, err }
 	session_destroy(session)
-	return check_program_profile(odin_root, main_path, allocator, no_entry_point, user_collections, defines, true, level, file_error, disallow_do)
+	return check_program_profile(odin_root, main_path, allocator, no_entry_point, user_collections, defines, true, level, file_error, parse_options)
 }
 
 // Owned profile first (no libc); a used external library makes check_program recheck with the managed profile.
@@ -131,7 +131,7 @@ check_program_profile :: proc(
 	managed_libc: bool,
 	level: types.X86_Level = .V1,
 	file_error: ^File_Error = nil,
-	disallow_do: bool = false,
+	parse_options: syntax.Parse_Options = {},
 ) -> (
 	session: ^Session,
 	err: Driver_Error,
@@ -144,7 +144,7 @@ check_program_profile :: proc(
 	session.no_entry_point = no_entry_point
 	session.managed_libc = managed_libc
 	session.stop_at_external = !managed_libc
-	session.disallow_do = disallow_do
+	session.parse_options = parse_options
 	err = check_session(session, odin_root, main_path, user_collections, level, file_error)
 	if err != nil && err != .Check_Failed && err != .Unsupported_Import && err != .Parse_Failed && err != .Import_Cycle && err != .External_Library_Used {
 		session_destroy(session)
@@ -734,10 +734,10 @@ parse_source :: proc(session: ^Session, path: string, source: []byte) -> (ast: ^
 	parser: syntax.Parser
 	syntax.parser_init(&parser, allocated, source, session.allocator)
 	defer syntax.parser_destroy(&parser)
-	parser.disallow_do = session.disallow_do
+	parser.options = session.parse_options
 	syntax.parse_file(&parser)
 	for parse_error in parser.errors {
-		text := syntax.parse_error_text(parse_error.kind)
+		text := syntax.parse_error_text(parse_error)
 		if text == "" { continue }
 		if record_error := record_syntax_diagnostic(session, path, source, parse_error.offset, text); record_error != .None {
 			return allocated, true, record_error
@@ -754,7 +754,9 @@ record_syntax_diagnostic :: proc(session: ^Session, path: string, source: []byte
 	line, column := syntax.line_col(table, offset)
 	owned_path, path_error := own(session, path)
 	if path_error != .None { return path_error }
-	return push(&session.syntax_diagnostics, Syntax_Diagnostic{path = owned_path, line = line, column = column, text = text})
+	owned_text, text_error := own(session, text)
+	if text_error != .None { return text_error }
+	return push(&session.syntax_diagnostics, Syntax_Diagnostic{path = owned_path, line = line, column = column, text = owned_text})
 }
 
 @(private = "file")

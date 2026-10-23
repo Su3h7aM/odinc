@@ -292,6 +292,9 @@ parse_field_list :: proc(p: ^Parser, closing: Token_Kind, allowed_flags: Field_F
 	allow_poly_names := .Typeid_Token in allowed_flags
 
 	for p.curr.kind != closing && p.curr.kind != .Colon && p.curr.kind != .EOF {
+		if closing == .Close_Brace {
+			enforce_tab_indentation(p)
+		}
 		prefix_flags := parse_field_prefixes(p)
 		param := parse_var_type(p, allowed_flags & {.Typeid_Token, .Ellipsis})
 		if p.ast.nodes[param].kind == .Ellipsis {
@@ -804,6 +807,7 @@ parse_union_type :: proc(p: ^Parser) -> Node_Index {
 	variants := make([dynamic]Node_Index, 0, 4, p.allocator)
 	defer delete(variants)
 	for p.curr.kind != .Close_Brace && p.curr.kind != .EOF {
+		enforce_tab_indentation(p)
 		variant := parse_type(p)
 		if p.ast.nodes[variant].kind != .Bad_Expr {
 			push(p, &variants, variant)
@@ -897,6 +901,7 @@ parse_bit_field_type :: proc(p: ^Parser) -> Node_Index {
 	fields := make([dynamic]Node_Index, 0, 4, p.allocator)
 	defer delete(fields)
 	for p.curr.kind != .Close_Brace && p.curr.kind != .EOF {
+		enforce_tab_indentation(p)
 		name := parse_ident(p)
 		expect_token(p, .Colon)
 		type := parse_type(p)

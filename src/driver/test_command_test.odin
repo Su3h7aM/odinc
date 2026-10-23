@@ -7,7 +7,7 @@ import "core:testing"
 
 @(test)
 test_command_flag_syntax :: proc(t: ^testing.T) {
-	for arguments in ([][]string{{"testdata", "--all-packages", "--output", "tests", "--define", "COUNT=3", "--collection", "custom=somewhere", "--keep-executable"}, {"--all-packages", "--output", "tests", "--define", "COUNT=3", "--collection", "custom=somewhere", "--keep-executable", "testdata"}}) {
+	for arguments in ([][]string{{"testdata", "--all-packages", "--output", "tests", "--define", "COUNT=3", "--collection", "custom=somewhere", "--keep-executable"}, {"--all-packages", "--output", "tests", "--define", "COUNT=3", "--collection", "custom=somewhere", "--keep-executable", "testdata"}, {"--all-packages", "testdata", "--output=tests", "-d", "COUNT=3", "-c", "custom=somewhere", "-k"}}) {
 		command, error := parse_command_arguments("test", arguments)
 		defer delete(command.options.defines)
 		defer delete(command.collections)
@@ -25,12 +25,31 @@ test_command_flag_syntax :: proc(t: ^testing.T) {
 	testing.expect(t, command.run && len(command.run_arguments) == 2 && command.run_arguments[0] == "a" && command.run_arguments[1] == "--output=b")
 	build, build_error := parse_command_arguments(
 		"build",
-		[]string{"testdata", "--disallow-do", "--show-timings", "--lifetime-markers", "--ignore-unused-defineables", "--mcpu", "x86_64_v2"},
+		[]string {
+			"testdata",
+			"--disallow-do",
+			"--show-timings",
+			"--lifetime-markers",
+			"--ignore-unused-defineables",
+			"--vet-tabs",
+			"--vet-style",
+			"--strict-style",
+			"--mcpu",
+			"x86_64_v2",
+		},
 	)
 	defer delete(build.options.defines)
 	defer delete(build.collections)
 	testing.expect_value(t, build_error, "")
-	testing.expect(t, build.options.disallow_do && build.options.microarch == .V2 && !build.test_mode)
+	testing.expect(
+		t,
+		build.options.parse_options.disallow_do &&
+		build.options.parse_options.vet_tabs &&
+		build.options.parse_options.vet_style &&
+		build.options.parse_options.strict_style &&
+		build.options.microarch == .V2 &&
+		!build.test_mode,
+	)
 }
 
 @(test)
@@ -38,7 +57,7 @@ test_command_bad_flags :: proc(t: ^testing.T) {
 	for row in ([]struct {
 			arguments: []string,
 			message:   string,
-		}{{{"testdata", "--unknown"}, "Unable to find any flag named `unknown`."}, {{"testdata", "--output"}, "Expected a value for `output` but none was given."}, {{"testdata", "--build-mode", "test"}, "Unable to find any flag named `build-mode`."}, {{"testdata", "-o", "tests"}, "Unable to find any short flag named `o`."}, {{"testdata", "--output=tests"}, "use `--output value`, not `--output=tests`"}, {{"testdata", "--mcpu", "x86-64"}, "--mcpu expects one of: x86_64_v1, x86_64_v2, x86_64_v3, x86_64_v4"}}) {
+		}{{{"testdata", "--unknown"}, "Unable to find any flag named `unknown`."}, {{"testdata", "--output"}, "Expected a value for `output` but none was given."}, {{"testdata", "--build-mode", "test"}, "Unable to find any flag named `build-mode`."}, {{"testdata", "-x", "tests"}, "Unable to find any short flag named `x`."}, {{"testdata", "--mcpu", "x86-64"}, "--mcpu expects one of: x86_64_v1, x86_64_v2, x86_64_v3, x86_64_v4"}}) {
 		command, error := parse_command_arguments("test", row.arguments)
 		delete(command.options.defines)
 		delete(command.collections)
@@ -100,7 +119,7 @@ test_command_input_kind :: proc(t: ^testing.T) {
 	testing.expect(t, strings.contains(validate_command_input(&command, ""), "regular .odin file"))
 	command.path = "/__odinc_missing_input__/main.odin"
 	testing.expect(t, strings.contains(validate_command_input(&command, ""), "could not be found or accessed"))
-	for name in ([]string{"file", "vet", "strict-style", "vet-tabs"}) {
+	for name in ([]string{"file", "vet"}) {
 		arguments := []string{#directory, strings.concatenate({"--", name}, context.temp_allocator) or_else ""}
 		parsed, error := parse_command_arguments("build", arguments)
 		delete(parsed.options.defines)
@@ -116,7 +135,7 @@ test_check_command_flags :: proc(t: ^testing.T) {
 		defer delete(command.collections)
 		testing.expect_value(t, error, "")
 		testing.expect(t, command.check_only && command.no_entry_point && !command.run && !command.test_mode)
-		testing.expect(t, command.options.disallow_do)
+		testing.expect(t, command.options.parse_options.disallow_do)
 		testing.expect_value(t, command.path, "source.odin")
 		testing.expect_value(t, command.options.defines["COUNT"], "3")
 		testing.expect(t, len(command.collections) == 1 && command.collections[0] == Collection{"custom", "somewhere"})

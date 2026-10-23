@@ -15,11 +15,20 @@ check_file :: proc(
 	no_entry_point: bool,
 	collections: []Collection,
 	defines: map[string]string,
-	disallow_do: bool = false,
+	parse_options: syntax.Parse_Options = {},
 ) -> Driver_Error {
 	file_error: File_Error
 	defer file_error_destroy(&file_error, allocator)
-	session, error := check_program(odin_root, main_path, allocator, no_entry_point, collections, defines, file_error = &file_error, disallow_do = disallow_do)
+	session, error := check_program(
+		odin_root,
+		main_path,
+		allocator,
+		no_entry_point,
+		collections,
+		defines,
+		file_error = &file_error,
+		parse_options = parse_options,
+	)
 	defer session_destroy(session)
 	if error != .None {
 		if session != nil { write_diagnostics(session, writer) }

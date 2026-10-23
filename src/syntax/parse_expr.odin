@@ -223,6 +223,7 @@ expect_closing_token :: proc(p: ^Parser, closing: Token_Kind) -> Token {
 		advance_token(p)
 	}
 	if p.curr.kind == closing {
+		check_trailing_comma(p, closing)
 		return advance_token(p)
 	}
 	report(p, .Expected_Token, p.curr.start, closing)

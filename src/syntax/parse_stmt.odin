@@ -80,6 +80,7 @@ fix_advance_to_next_stmt :: proc(p: ^Parser) {
 // expect_semicolon reports a missing `;` unless the position allows it. Every caller has consumed
 // at least one token, so the statement loops always make progress.
 expect_semicolon :: proc(p: ^Parser, node: Node_Index) -> bool {
+	check_unneeded_semicolon(p)
 	if allow_token(p, .Semicolon) {
 		return true
 	}
@@ -105,6 +106,7 @@ parse_stmt_list :: proc(p: ^Parser) -> Node_Range {
 	stmts := make([dynamic]Node_Index, 0, 8, p.allocator)
 	defer delete(stmts)
 	for p.curr.kind != .Case && p.curr.kind != .Close_Brace && p.curr.kind != .EOF {
+		enforce_tab_indentation(p)
 		stmt := parse_stmt(p)
 		if p.ast.nodes[stmt].kind == .Empty_Stmt {
 			continue
@@ -121,7 +123,7 @@ parse_stmt_list :: proc(p: ^Parser) -> Node_Range {
 }
 
 parse_block_stmt :: proc(p: ^Parser, is_when: bool) -> Node_Index {
-	skip_possible_newline(p)
+	skip_possible_newline_before_brace(p)
 	if !is_when && p.proc_depth == 0 {
 		report(p, .File_Scope_Statement, p.curr.start)
 	}
@@ -131,7 +133,7 @@ parse_block_stmt :: proc(p: ^Parser, is_when: bool) -> Node_Index {
 // parse_do_body parses the statement after `do`, which must start on the line of the header.
 parse_do_body :: proc(p: ^Parser, header_end: u32) -> Node_Index {
 	body := convert_stmt_to_body(p, parse_stmt(p))
-	if p.disallow_do {
+	if p.options.disallow_do {
 		report(p, .Disallowed_Do, p.ast.nodes[body].start)
 	} else if newline_between(p, header_end, p.ast.nodes[body].start) {
 		report(p, .Misplaced_Do_Body, p.ast.nodes[body].start)
@@ -200,7 +202,7 @@ parse_when_stmt :: proc(p: ^Parser) -> Node_Index {
 
 	body := parse_control_body(p, p.prev.end, true)
 
-	skip_possible_newline(p)
+	skip_possible_newline_before_brace(p, !newline_between(p, when_tok.start, p.ast.nodes[body].end))
 	else_stmt: Node_Index
 	if p.curr.kind == .Else {
 		else_tok := expect_token(p, .Else)
@@ -251,7 +253,7 @@ parse_if_stmt :: proc(p: ^Parser) -> Node_Index {
 
 	else_pos: u32
 	else_stmt: Node_Index
-	skip_possible_newline(p)
+	skip_possible_newline_before_brace(p, !newline_between(p, if_tok.start, p.ast.nodes[body].end))
 	if p.curr.kind == .Else {
 		else_tok := expect_token(p, .Else)
 		else_pos = else_tok.start

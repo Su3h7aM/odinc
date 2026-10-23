@@ -17,7 +17,7 @@ main :: proc() {
 		parser: Parser
 		parser_init(&parser, &ast, source)
 		defer parser_destroy(&parser)
-		parser.disallow_do = disallow
+		parser.options.disallow_do = disallow
 		parse_file(&parser)
 		if !disallow {
 			testing.expect_value(t, len(parser.errors), 0)

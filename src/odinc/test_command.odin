@@ -11,11 +11,13 @@ compile_command :: proc(name: string, args: []string) -> int {
 	if argument_error != "" { fmt.eprintln(argument_error); return 1 }
 	if command.help {
 		if command.check_only {
-			fmt.println("usage: odinc check <file-or-directory> [--collection name=path] [--define NAME=value] [--no-entry-point] [--disallow-do]")
+			fmt.println(
+				"usage: odinc check <file-or-directory> [--collection/-c name=path] [--define/-d NAME=value] [--no-entry-point] [--disallow-do] [--vet-tabs] [--vet-style] [--strict-style]",
+			)
 			return 0
 		}
 		fmt.printfln(
-			"usage: odinc %s <file-or-directory> [--output path] [--collection name=path] [--define NAME=value] [--keep-executable] [--disallow-do] [-- arguments]",
+			"usage: odinc %s <file-or-directory> [--output/-o path] [--collection/-c name=path] [--define/-d NAME=value] [--keep-executable/-k] [--disallow-do] [--vet-tabs] [--vet-style] [--strict-style] [-- arguments]",
 			name,
 		)
 		return 0
@@ -35,7 +37,7 @@ compile_command :: proc(name: string, args: []string) -> int {
 			   command.no_entry_point,
 			   command.collections[:],
 			   command.options.defines,
-			   command.options.disallow_do,
+			   command.options.parse_options,
 		   ) !=
 		   .None { return 1 }
 		return 0
@@ -66,7 +68,7 @@ build_command_image :: proc(root: string, command: driver.Command_Arguments) -> 
 			command.collections[:],
 			command.options.defines,
 			command.options.microarch,
-			command.options.disallow_do,
+			command.options.parse_options,
 		)
 	}
 	if error != nil { return 1 }
