@@ -825,6 +825,8 @@ Call_Plan :: struct {
 	results:      []types.Type_Id,
 	context_plan: Plan_Id,
 	variadic:     bool,
+	// The callee has @(disabled): the call is dropped.
+	disabled:     bool,
 	// Deferred procedure of the callee; 0 when the callee declares none.
 	// Backfilled after checking so lowering finds the call-site defer.
 	deferred:     Entity_Id,

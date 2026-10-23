@@ -84,6 +84,7 @@ expression_backfill_deferred_calls :: proc(checker: ^Expression_Checker) {
 				results = call.results,
 				context_plan = call.context_plan,
 				variadic = call.variadic,
+				disabled = call.disabled,
 				deferred = target,
 			},
 		)

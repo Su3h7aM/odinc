@@ -156,7 +156,16 @@ expression_call :: proc(
 	plan := Plan_Id(len(checker.plans))
 	append(
 		&checker.plans,
-		Plan(Call_Plan{callee = Operand(callee.entity), entity = callee.entity, arguments = call_arguments, results = results, variadic = packed}),
+		Plan(
+			Call_Plan {
+				callee = Operand(callee.entity),
+				entity = callee.entity,
+				arguments = call_arguments,
+				results = results,
+				variadic = packed,
+				disabled = .Disabled in entity_get(checker.type_checker.resolver.scopes, callee.entity).flags,
+			},
+		),
 	) or_return
 	info = Expression_Info {
 		scope = scope,

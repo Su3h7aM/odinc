@@ -117,6 +117,8 @@ main :: proc "contextless" () {
 	testing.expect(t, ok)
 }
 
+// A procedure binds a constant parameter by identity.
+// A disabled generic procedure is neither instantiated with a body nor called.
 // Matrix patterns bind dimensions, matrices index by any integer and transpose, and `$T/^Base` accepts a subtype pointer.
 // A `#simd[$N]$E` pattern matches a vector and binds its lane count; constant arrays compare, untyped constants convert to
 // `any`, and a procedure taking a pointer to an offset-zero subtype is assignable to one taking the pointer to the base.
@@ -136,6 +138,10 @@ lanes :: proc "contextless" (v: #simd[$N]$E) -> [N]E { return transmute([N]E)v }
 Node :: struct { id: int }
 Expr :: struct { using node: Node, e: int }
 Index :: distinct i32
+double :: proc "contextless" (value: int) -> int { return value * 2 }
+call_with :: proc "contextless" ($f: proc "contextless" (int) -> int) -> int { return f(1) }
+@(disabled = true)
+disabled_generic :: proc "contextless" (value: $T) { undeclared_name(value) }
 matrix_dimension :: proc "contextless" (m: matrix[$N, N]$E) -> int { return N }
 pointer_of :: proc "contextless" (node: $T/^Node) -> typeid { return T }
 entry :: proc "contextless" (v: #simd[4]f32, w: []int) {
@@ -149,6 +155,8 @@ entry :: proc "contextless" (v: #simd[4]f32, w: []int) {
 	m := matrix[2, 2]f32{}
 	k := Index(1)
 	e: ^Expr
+	disabled_generic(1)
+	_ = call_with(double)
 	row := [2]int{1, 2}
 	grid: [2][2]int = row
 	constant_grid: [2]Pair : Pair{3, 4}

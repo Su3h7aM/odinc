@@ -85,6 +85,7 @@ direct_call_callee :: proc(state: ^Procedure_State, plan: check.Call_Plan) -> bo
 // are read through lower_call_results. An #optional_ok call used as a single value yields its first result.
 @(private)
 lower_call :: proc(state: ^Procedure_State, node: syntax.Node_Index, info: check.Expression_Info, plan: check.Call_Plan) -> ir.Node_Id {
+	if plan.disabled { return 0 }
 	single: [1]ir.Node_Id
 	values := single[:]
 	count := len(plan.results)
@@ -107,6 +108,7 @@ lower_call :: proc(state: ^Procedure_State, node: syntax.Node_Index, info: check
 // or in registers. Split results go through stack slots.
 @(private)
 lower_call_results :: proc(state: ^Procedure_State, node: syntax.Node_Index, info: check.Expression_Info, plan: check.Call_Plan, values: []ir.Node_Id) {
+	if plan.disabled { return }
 	if plan.context_plan != 0 { lower_fail(state, node, .Context); return }
 	declaration, valid := call_declaration(state, node, plan)
 	if !valid { return }

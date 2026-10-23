@@ -2,6 +2,7 @@ package check
 
 import "base:runtime"
 import "core:fmt"
+import "core:math/big"
 import "core:mem"
 import "core:strings"
 import "oc:syntax"
@@ -143,7 +144,38 @@ expression_generic_call :: proc(
 				}
 				argument := generic_call_argument(checker, view, scope, slot, expansions, argument_hint) or_return
 				if argument.state == .Invalid { return expression_poison(scope), nil }
-				if argument.mode != .Constant { return expression_unsupported(checker, view, scope, node, "Generic_Call_Constant_Parameter") }
+				procedure_entity := Entity_Id(0)
+				if argument.mode != .Constant { procedure_entity = expression_procedure_argument(checker, view, scope, slot.value) }
+				procedure_argument := procedure_entity != 0
+				if argument.mode != .Constant && !procedure_argument {
+					return expression_unsupported(checker, view, scope, node, "Generic_Call_Constant_Parameter")
+				}
+				if procedure_argument {
+					store := checker.type_checker.store
+					if constant_type_name != "" {
+						constant_type = argument.type
+						bound := poly_bind(store, &bindings, constant_type_name, constant_type, 0) or_return
+						if !bound { return expression_unsupported(checker, view, scope, node, "Generic_Call_Type_Conflict") }
+					} else if !types.are_identical(store, argument.type, constant_type) {
+						return expression_unsupported(checker, view, scope, node, "Generic_Call_Type_Conflict")
+					}
+					identity: big.Int
+					defer big.destroy(&identity)
+					if set_error := big.set(&identity, int(procedure_entity)); set_error != nil {
+						expression_constant_failure(checker, file_id, node, set_error) or_return
+						return expression_poison(scope), nil
+					}
+					key, key_error := constant_pool_intern_integer(checker.constants, &identity, constant_type)
+					if key_error != nil {
+						expression_constant_failure(checker, file_id, node, key_error) or_return
+						return expression_poison(scope), nil
+					}
+					poly_name := expression_text(file, syntax.node_payload(file.ast, name, syntax.Poly_Type).type)
+					if !(poly_bind(store, &bindings, poly_name, constant_type, key) or_return) {
+						return expression_unsupported(checker, view, scope, node, "Generic_Call_Type_Conflict")
+					}
+					continue
+				}
 				if constant_type_name != "" {
 					constant_type = types.default_type_of_untyped(checker.type_checker.store, argument.type)
 					bound := poly_bind(checker.type_checker.store, &bindings, constant_type_name, constant_type, 0) or_return
@@ -625,6 +657,7 @@ expression_create_instance :: proc(
 	definition_procedure := definition_entity.data.(Procedure_Data)
 	definition_package_id := definition_entity.package_id
 	definition_name := definition_entity.name
+	definition_disabled := .Disabled in definition_entity.flags
 	definition_declaration := definition_entity.declaration
 	arena := mem.dynamic_arena_allocator(&checker.arena)
 	type_scope, scope_error := scope_create(scopes, definition_entity.scope, .Block, definition)
@@ -642,6 +675,14 @@ expression_create_instance :: proc(
 		}
 	}
 	for name, index in poly_names {
+		if poly_constants[index] != 0 &&
+		   types.get(checker.type_checker.store, types.resolve_named(checker.type_checker.store, poly_types[index])).kind == .Procedure {
+			identity := constant_pool_get(checker.constants, poly_constants[index]).value.(big.Int)
+			procedure_id, _ := big.int_get_i64(&identity)
+			_, insert_error := scope_insert_with_name(scopes, type_scope, name, Entity_Id(procedure_id))
+			if insert_error != nil { return 0, {}, false, binding_resolve_error(insert_error) }
+			continue
+		}
 		bound_entity := Entity {
 			name       = name,
 			kind       = .Type_Name,
@@ -667,13 +708,14 @@ expression_create_instance :: proc(
 			scope = type_scope,
 			package_id = definition_package_id,
 			declaration = definition_declaration,
+			flags = {.Disabled} if definition_disabled else {},
 			state = .Resolving,
 			data = Procedure_Data {
 				definition = definition,
 				atomic = definition_procedure.atomic,
 				poly_arguments = poly_types,
 				poly_constants = poly_constants,
-				body = definition_procedure.body,
+				body = definition_procedure.body if !definition_disabled else {},
 				where_clauses = definition_procedure.where_clauses,
 				body_state = .Unchecked,
 			},
@@ -710,7 +752,7 @@ expression_create_instance :: proc(
 	checker.active_instance = Instance_Id(instance)
 	valid: bool
 	body_error: Resolve_Error
-	if resolver.body_pause_depth > 0 {
+	if resolver.body_pause_depth > 0 && !definition_disabled {
 		valid, body_error = expression_queue_instance_body(checker, resolver, instance, declaration)
 	} else {
 		valid, body_error = expression_procedure_body(checker, resolver, instance, declaration.type)
@@ -718,7 +760,7 @@ expression_create_instance :: proc(
 	checker.active_instance = outer_instance
 	if body_error != nil { return 0, {}, false, body_error }
 	entity_get(scopes, instance).state = .Resolved if valid else .Invalid
-	if !valid || resolver.body_pause_depth == 0 && entity_get(scopes, instance).data.(Procedure_Data).body_state != .Complete {
+	if !valid || !definition_disabled && resolver.body_pause_depth == 0 && entity_get(scopes, instance).data.(Procedure_Data).body_state != .Complete {
 		if !valid && definition_procedure.where_clauses.count != 0 {
 			failure, err = expression_failure(checker, view, scope, node, .Invalid_Operand, "at caller location")
 			return 0, failure, false, err
@@ -764,4 +806,27 @@ expression_instance_call :: proc(
 		state  = .Checked,
 	}
 	return expression_call(checker, view, file_id, scope, node, callee, arguments, spread)
+}
+
+// The non-generic procedure that an argument of a constant parameter names, which is bound by identity.
+// A local procedure constant aliases the literal it was declared with.
+@(private = "file")
+expression_procedure_argument :: proc(checker: ^Expression_Checker, view: View_Id, scope: Scope_Id, node: syntax.Node_Index) -> Entity_Id {
+	file := checker.type_checker.files[checker.views[view].file]
+	target := type_unparen(file, node)
+	if file.ast.nodes[target].kind == .Proc_Lit { return expression_procedure_entity(checker, expression_stored_info(checker, view, target).entity) }
+	entity_id := type_name_entity(checker.type_checker, file, scope, target)
+	if entity_id == 0 { return 0 }
+	entity := entity_get(checker.type_checker.resolver.scopes, entity_id)
+	if entity.kind == .Constant { return expression_procedure_entity(checker, entity.alias) }
+	return expression_procedure_entity(checker, entity_id)
+}
+
+@(private = "file")
+expression_procedure_entity :: proc(checker: ^Expression_Checker, id: Entity_Id) -> Entity_Id {
+	if id == 0 { return 0 }
+	entity := entity_get(checker.type_checker.resolver.scopes, id)
+	procedure, is_procedure := entity.data.(Procedure_Data)
+	if entity.kind != .Procedure || !is_procedure || procedure.generic { return 0 }
+	return id
 }

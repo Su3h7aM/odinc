@@ -115,6 +115,21 @@ check_atomic_attributes :: proc(
 					}
 				case .Silent:
 				}
+			case "disabled":
+				if value == 0 {
+					atomic_report(checker, declaration.file, element, "Expected a boolean value for 'disabled'") or_return
+					break
+				}
+				disabled := check_expression(checker, view, scope, value) or_return
+				if disabled.state == .Invalid { break }
+				flag, is_flag := false, false
+				if disabled.mode == .Constant &&
+				   disabled.constant != 0 { flag, is_flag = constant_pool_get(checker.constants, disabled.constant).value.(bool) }
+				if !is_flag {
+					atomic_report(checker, declaration.file, element, "Expected a boolean value for 'disabled'") or_return
+					break
+				}
+				if flag { entity_get(scopes, id).flags += {.Disabled} }
 			case "futex_parameter":
 				text, found := attribute_string_value(checker, view, scope, value) or_return
 				if found {
