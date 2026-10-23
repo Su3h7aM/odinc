@@ -26,8 +26,8 @@ import "core:slice"
 
 COST_SCALE :: 1024
 COST_INFINITE :: max(u64)
-NO_HINT :: max(u32)
 NO_EDGE :: -1
+NO_LINK :: -1
 
 Occupied :: struct {
 	first: Pos,
@@ -49,6 +49,11 @@ Fixed_Requirement :: struct {
 	register: Register,
 }
 
+Hint_Link :: struct {
+	partner: Vreg,
+	next:    int,
+}
+
 Scan :: struct {
 	program:        ^Program,
 	live:           ^Liveness,
@@ -56,7 +61,8 @@ Scan :: struct {
 	occupancy:      [Register_Class][REGISTER_LIMIT][dynamic]Occupied,
 	edges:          [dynamic]Reuse_Edge,
 	edge_head:      []int,
-	hint:           []u32,
+	hint_links:     [dynamic]Hint_Link,
+	hint_head:      []int,
 	fixed:          []Fixed_Requirement,
 	reuse_locked:   []bool,
 	conflict_seen:  []u32,
@@ -82,19 +88,19 @@ allocate :: proc(program: ^Program, allocator := context.allocator) -> (result: 
 	}
 	scan.location, _ = make([]Location, vreg_count, allocator)
 	scan.edge_head, _ = make([]int, vreg_count, allocator)
-	scan.hint, _ = make([]u32, vreg_count, allocator)
+	scan.hint_head, _ = make([]int, vreg_count, allocator)
 	scan.fixed, _ = make([]Fixed_Requirement, vreg_count, allocator)
 	scan.reuse_locked, _ = make([]bool, vreg_count, allocator)
 	scan.conflict_seen, _ = make([]u32, vreg_count, allocator)
 	defer scan_destroy(&scan, allocator)
 	if vreg_count > 0 &&
-	   (scan.location == nil || scan.edge_head == nil || scan.hint == nil || scan.fixed == nil || scan.reuse_locked == nil || scan.conflict_seen == nil) {
+	   (scan.location == nil || scan.edge_head == nil || scan.hint_head == nil || scan.fixed == nil || scan.reuse_locked == nil || scan.conflict_seen == nil) {
 		delete(scan.location, allocator)
 		return {}, Error{kind = .Out_Of_Memory}
 	}
 	for vreg in 0 ..< vreg_count {
 		scan.edge_head[vreg] = NO_EDGE
-		scan.hint[vreg] = NO_HINT
+		scan.hint_head[vreg] = NO_LINK
 	}
 
 	if err = scan_prepare(&scan); err.kind != .None {
@@ -160,7 +166,8 @@ scan_destroy :: proc(scan: ^Scan, allocator := context.allocator) {
 	}
 	delete(scan.edges)
 	delete(scan.edge_head, allocator)
-	delete(scan.hint, allocator)
+	delete(scan.hint_links)
+	delete(scan.hint_head, allocator)
 	delete(scan.fixed, allocator)
 	delete(scan.reuse_locked, allocator)
 	delete(scan.conflict_seen, allocator)
@@ -220,22 +227,28 @@ sort_live_order :: proc(live: ^Liveness, order: []Vreg, allocator := context.all
 // scan_prepare collects fixed requirements, coalescing hints and reuse edges.
 scan_prepare :: proc(scan: ^Scan) -> Error {
 	program := scan.program
-	set_hint :: proc(scan: ^Scan, a, b: Vreg) {
+	link_hint :: proc(scan: ^Scan, vreg, partner: Vreg) -> bool {
+		link := Hint_Link {
+			partner = partner,
+			next    = scan.hint_head[vreg],
+		}
+		scan.hint_head[vreg] = len(scan.hint_links)
+		_, append_err := append(&scan.hint_links, link)
+		return append_err == nil
+	}
+	set_hint :: proc(scan: ^Scan, a, b: Vreg) -> bool {
 		if scan.program.classes[a] != scan.program.classes[b] {
-			return
+			return true
 		}
-		if scan.hint[a] == NO_HINT {
-			scan.hint[a] = u32(b)
-		}
-		if scan.hint[b] == NO_HINT {
-			scan.hint[b] = u32(a)
-		}
+		return link_hint(scan, a, b) && link_hint(scan, b, a)
 	}
 
 	for block, block_index in program.blocks {
 		for moves in block.edge_moves {
 			for move in moves {
-				set_hint(scan, move.source, move.destination)
+				if !set_hint(scan, move.source, move.destination) {
+					return Error{kind = .Out_Of_Memory}
+				}
 			}
 		}
 		for instruction, index in block.instructions {
@@ -268,11 +281,15 @@ scan_prepare :: proc(scan: ^Scan) -> Error {
 					if _, append_err := append(&scan.edges, edge); append_err != nil {
 						return Error{kind = .Out_Of_Memory}
 					}
-					set_hint(scan, operand.vreg, input)
+					if !set_hint(scan, operand.vreg, input) {
+						return Error{kind = .Out_Of_Memory}
+					}
 				}
 			}
 			if instruction.is_move && len(instruction.operands) == 2 {
-				set_hint(scan, instruction.operands[0].vreg, instruction.operands[1].vreg)
+				if !set_hint(scan, instruction.operands[0].vreg, instruction.operands[1].vreg) {
+					return Error{kind = .Out_Of_Memory}
+				}
 			}
 		}
 	}
@@ -385,8 +402,8 @@ preference_order :: proc(scan: ^Scan, vreg: Vreg, allowed: Register_Set, order: 
 		}
 	}
 
-	if partner := scan.hint[vreg]; partner != NO_HINT {
-		if register, ok := scan.location[partner].(Register); ok {
+	for link_index := scan.hint_head[vreg]; link_index != NO_LINK; link_index = scan.hint_links[link_index].next {
+		if register, ok := scan.location[scan.hint_links[link_index].partner].(Register); ok {
 			offer(int(register), allowed, &seen, order, &count)
 		}
 	}
@@ -397,15 +414,14 @@ preference_order :: proc(scan: ^Scan, vreg: Vreg, allowed: Register_Set, order: 
 	}
 	callee := allowed & scan.program.callee_saved[interval.class]
 	caller := allowed - callee
-	first, second := caller, callee
+	tiers := [2]Register_Set{caller, callee}
 	if interval.crosses_call {
-		first, second = callee, caller
+		tiers = {callee, caller}
 	}
-	for register in first {
-		offer(register, allowed, &seen, order, &count)
-	}
-	for register in second {
-		offer(register, allowed, &seen, order, &count)
+	for tier in tiers {
+		for register in tier {
+			offer(register, allowed, &seen, order, &count)
+		}
 	}
 	return count
 }

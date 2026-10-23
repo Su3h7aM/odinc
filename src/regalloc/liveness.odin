@@ -297,8 +297,10 @@ bits_remove_vreg :: proc "contextless" (global_index: []i32, bits: []u64, vreg: 
 }
 
 // live_out_of_block fills flow.out with the union over the successors of the
-// successor's live-in, minus the edge's destinations, plus its sources.
-live_out_of_block :: proc(flow: ^Dataflow, block_index: int) {
+// successor's live-in, minus the edge's destinations, plus its sources when
+// `with_sources`; the intervals leave them out because the edge copy reads a
+// source before the destination is written, so the two may share a register.
+live_out_of_block :: proc(flow: ^Dataflow, block_index: int, with_sources: bool) {
 	for &word in flow.out {
 		word = 0
 	}
@@ -319,8 +321,10 @@ live_out_of_block :: proc(flow: ^Dataflow, block_index: int) {
 		for move in moves {
 			bits_remove_vreg(flow.global_index, flow.edge, move.destination)
 		}
-		for move in moves {
-			bits_add_vreg(flow.global_index, flow.edge, move.source)
+		if with_sources {
+			for move in moves {
+				bits_add_vreg(flow.global_index, flow.edge, move.source)
+			}
 		}
 		for word, word_index in flow.edge {
 			flow.out[word_index] |= word
@@ -358,7 +362,7 @@ solve_live_in :: proc(flow: ^Dataflow) {
 		top -= 1
 		block := int(flow.queue[top])
 		flow.queued[block] = false
-		live_out_of_block(flow, block)
+		live_out_of_block(flow, block, true)
 		if !update_live_in(flow, block) {
 			continue
 		}
@@ -430,7 +434,7 @@ liveness :: proc(live: ^Liveness, program: ^Program, allocator := context.alloca
 		last := block_last_pos(program, starts, block_index)
 		weight := loop_weight(block.depth)
 
-		live_out_of_block(&flow, block_index)
+		live_out_of_block(&flow, block_index, false)
 		for word, word_index in flow.out {
 			for bits := word; bits != 0; bits &= bits - 1 {
 				global := word_index * BITS_PER_WORD + int(intrinsics.count_trailing_zeros(bits))
