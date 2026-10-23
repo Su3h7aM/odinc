@@ -623,10 +623,8 @@ memory to the operating system.
 `prev_segment` and `next_segment` are used to add the Segment into linked
 lists, whether on a thread's heap or in the orphanage.
 
-NOTE: `next_segment` is accessed with atomics only when engaging with the
-orphanage, as that is the only time it should change in a parallel situation.
-For all other cases, the thread which owns the Segment is the only one to read
-this field.
+`next_segment` is always accessed atomically. Owned-list accesses are relaxed;
+orphanage accesses synchronize publication and adoption.
 
 
 `may_return` is a flag that is set to true after all Slabs have been used
@@ -669,7 +667,7 @@ Heap_Segment :: struct {
 	size: int,
 
 	prev_segment: ^Heap_Segment,
-	next_segment: ^Heap_Segment,
+	next_segment: ^Heap_Segment, // atomic
 
 	may_return: bool,
 	is_clean: bool,
@@ -872,7 +870,7 @@ between them, so the whole class is its evidence.
 */
 @(require_results)
 heap_segments_are_being_filled :: proc "contextless" (class: Heap_Slab_Class, bin_size: int) -> (held, mapped: int) {
-	for segment := local_heap.segments; segment != nil; segment = segment.next_segment {
+	for segment := local_heap.segments; segment != nil; segment = intrinsics.atomic_load_explicit(&segment.next_segment, .Relaxed) {
 		if segment.slab_size_class != class {
 			continue
 		}
@@ -1516,7 +1514,7 @@ heap_merge_remote_frees :: proc "contextless" (merged: ^int = nil) {
 	for segment := local_heap.segments; segment != nil; /**/ {
 		// Merging a Slab's frees can give its last bins back, and with them the
 		// whole Segment, so the next Segment is read before that happens.
-		next_segment := segment.next_segment
+		next_segment := intrinsics.atomic_load_explicit(&segment.next_segment, .Relaxed)
 		merge_segment_remote_frees(segment, merged)
 		segment = next_segment
 	}
@@ -1588,7 +1586,7 @@ up at all, so steady churn pays nothing for this.
 */
 @(no_sanitize_address)
 heap_purge_empty_segments :: proc "contextless" () {
-	for segment := local_heap.segments; segment != nil; segment = segment.next_segment {
+	for segment := local_heap.segments; segment != nil; segment = intrinsics.atomic_load_explicit(&segment.next_segment, .Relaxed) {
 		if segment.allocated_bins == 0 {
 			heap_purge_segment(segment)
 		}
@@ -1825,7 +1823,7 @@ heap_add_segment :: proc "contextless" (segment: ^Heap_Segment) {
 
 	intrinsics.atomic_store_explicit(&segment.owner, get_current_thread_id(), .Release)
 	intrinsics.atomic_store_explicit(&segment.heap, local_heap, .Release)
-	segment.next_segment = local_heap.segments
+	intrinsics.atomic_store_explicit(&segment.next_segment, local_heap.segments, .Relaxed)
 	if local_heap.segments != nil {
 		local_heap.segments.prev_segment = segment
 	}
@@ -1844,17 +1842,18 @@ Remove `segment` from the heap.
 heap_remove_segment :: proc "contextless" (segment: ^Heap_Segment) {
 	intrinsics.atomic_store_explicit(&segment.owner, 0, .Release)
 	intrinsics.atomic_store_explicit(&segment.heap, nil, .Release)
+	next := intrinsics.atomic_load_explicit(&segment.next_segment, .Relaxed)
 	if segment == local_heap.segments {
-		local_heap.segments = segment.next_segment
+		local_heap.segments = next
 	}
 	if segment.prev_segment != nil {
-		segment.prev_segment.next_segment = segment.next_segment
+		intrinsics.atomic_store_explicit(&segment.prev_segment.next_segment, next, .Relaxed)
 	}
-	if segment.next_segment != nil {
-		segment.next_segment.prev_segment = segment.prev_segment
+	if next != nil {
+		next.prev_segment = segment.prev_segment
 	}
 	segment.prev_segment = nil
-	segment.next_segment = nil
+	intrinsics.atomic_store_explicit(&segment.next_segment, nil, .Relaxed)
 
 	when ODIN_HEAP_DEBUG_LEVEL >= .Statistics {
 		local_heap.current_memory -= segment.size
@@ -2103,7 +2102,7 @@ when VIRTUAL_MEMORY_SUPPORTED {
 		heap_merge_remote_frees()
 
 		for segment := local_heap.segments; segment != nil; /**/ {
-			next_segment := segment.next_segment
+			next_segment := intrinsics.atomic_load_explicit(&segment.next_segment, .Relaxed)
 
 			// A segment which holds no bins at all is one the next thread to adopt
 			// it has no use for the pages of until it does, so they are given back

@@ -16,7 +16,7 @@ compact_local_heap :: proc "contextless" () {
 	heap_merge_remote_frees()
 
 	for segment := local_heap.segments; segment != nil; /**/ {
-		next := segment.next_segment
+		next := intrinsics.atomic_load_explicit(&segment.next_segment, .Relaxed)
 
 		segment_will_free_itself := segment.may_return
 		free_slabs := segment.free_slabs
@@ -79,7 +79,7 @@ heap_release_empty_orphans :: proc "contextless" () {
 
 	// Now walk the list of segments and release them.
 	for segment != nil {
-		next := segment.next_segment
+		next := intrinsics.atomic_load_explicit(&segment.next_segment, .Relaxed)
 		assert_contextless(segment.free_slabs == len(segment.slabs), "The heap allocator found a segment in the orphanage that should have been empty.")
 		free_virtual_memory(segment, segment.size)
 		segment = next

@@ -83,7 +83,7 @@ get_local_heap_info :: proc "contextless" () -> (info: Heap_Info) {
 	// off its rank's list so that no allocation can find it, so those lists do
 	// not hold every Slab the heap has and cannot be used to account for its
 	// memory.
-	for segment := local_heap.segments; segment != nil; segment = segment.next_segment {
+	for segment := local_heap.segments; segment != nil; segment = intrinsics.atomic_load_explicit(&segment.next_segment, .Relaxed) {
 		assert_contextless(intrinsics.atomic_load_explicit(&segment.owner, .Acquire) == get_current_thread_id(), "A segment has been found in this thread's heap that does not belong to it.")
 		assert_contextless(intrinsics.atomic_load_explicit(&segment.heap, .Acquire) == local_heap, "A segment has been found in this heap that has not been assigned to it.")
 
