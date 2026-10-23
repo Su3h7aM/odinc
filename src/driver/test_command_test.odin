@@ -183,7 +183,16 @@ vet_options_reach_every_checking_command :: proc(t: ^testing.T) {
 	for name in ([]string{"build", "run", "test", "check"}) {
 		command, error := parse_command_arguments(
 			name,
-			[]string{"testdata", "--vet-using-stmt", "--vet-using-param", "--vet-semicolon", "--vet-unused", "--warnings-as-errors"},
+			[]string {
+				"testdata",
+				"--vet-using-stmt",
+				"--vet-using-param",
+				"--vet-semicolon",
+				"--vet-unused",
+				"--vet-shadowing",
+				"--vet-cast",
+				"--warnings-as-errors",
+			},
 		)
 		defer delete(command.options.defines)
 		defer delete(command.collections)
@@ -192,6 +201,8 @@ vet_options_reach_every_checking_command :: proc(t: ^testing.T) {
 			t,
 			command.options.check_options.vet_using_stmt &&
 			command.options.check_options.vet_using_param &&
+			command.options.check_options.vet_shadowing &&
+			command.options.check_options.vet_cast &&
 			command.options.check_options.vet_unused_variables &&
 			command.options.check_options.vet_unused_imports &&
 			command.options.check_options.warnings_as_errors &&

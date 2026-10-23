@@ -64,7 +64,7 @@ using_vets_only_report_same_type_shadowing_from_using :: proc(t: ^testing.T) {
 			transmute([]byte)string(
 				"#+feature using-stmt\npackage sample\nPoint :: struct { x: int }\nf :: proc() { x := 1; point := Point{}; { using point }; _ = x }\n",
 			),
-			.Using_Shadowing,
+			.Shadowing,
 			"Declaration of 'x' from 'using' shadows declaration at line 4",
 			diagnostic_count = 1,
 			procedure_name = "f",

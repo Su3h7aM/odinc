@@ -86,6 +86,7 @@ check_procedure_source :: proc(
 	defer expression_checker_destroy(&checker)
 	checker.packages = []Package{{}, {kind = package_kind, name = package_name, scope = package_scope}}
 	checker.options = check_options
+	checker.options.vet_package = 1
 	checker.defines = defines
 	checker.target_features = types.x86_features_list(types.x86_level_features(microarch), context.allocator)
 	checker.microarch = microarch
@@ -108,7 +109,7 @@ check_procedure_source :: proc(
 				   checker.diagnostics,
 			   ) { return {}, false }
 	}
-	if !testing.expect(t, check_vet(&checker, 1, false) == nil) { return {}, false }
+	if !testing.expect(t, check_vet(&checker, false) == nil) { return {}, false }
 	if expected_kind != .None {
 		reported := false
 		for diagnostic in checker.diagnostics { reported ||= diagnostic.kind == expected_kind && diagnostic.reason == expected_reason }

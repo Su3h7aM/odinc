@@ -574,6 +574,7 @@ Variable_Data :: struct {
 	storage:          Storage_Kind,
 	initializer:      Node_Ref,
 	initializer_view: View_Id,
+	value:            Node_Ref,
 }
 Procedure_Group_Data :: struct {
 	members: []Entity_Id,

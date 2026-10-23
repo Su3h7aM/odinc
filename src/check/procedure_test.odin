@@ -236,3 +236,54 @@ unused_vet_reports_unread_locals_and_large_locals_warn :: proc(t: ^testing.T) {
 	)
 	testing.expect(t, warned)
 }
+
+@(test)
+shadowing_vet_reports_hidden_variables_but_not_intentional_redeclaration :: proc(t: ^testing.T) {
+	// Official check_vet_shadowing: same type and file, earlier declaration; `x := x` is exempt.
+	shadow := transmute([]byte)string("package sample\nf :: proc() {\n\tx := 1\n\t{\n\t\tx := 2\n\t\t_ = x\n\t}\n\t_ = x\n}\n")
+	_, ok := check_procedure_source(
+		t,
+		shadow,
+		.Shadowing,
+		"Declaration of 'x' shadows declaration at line 3",
+		diagnostic_count = 1,
+		procedure_name = "f",
+		check_options = {vet_shadowing = true},
+	)
+	testing.expect(t, ok)
+	redeclared := transmute([]byte)string("package sample\nf :: proc() {\n\tx := 1\n\t{\n\t\tx := x\n\t\t_ = x\n\t}\n\t_ = x\n}\n")
+	_, exempt := check_procedure_source(t, redeclared, diagnostic_count = 0, procedure_name = "f", check_options = {vet_shadowing = true})
+	testing.expect(t, exempt)
+}
+
+@(test)
+cast_vet_reports_identical_casts_and_integer_transmutes :: proc(t: ^testing.T) {
+	options := Check_Options {
+		vet_cast = true,
+	}
+	identical := transmute([]byte)string("package sample\nf :: proc(a: int) { _ = cast(int)a }\n")
+	_, ok := check_procedure_source(
+		t,
+		identical,
+		.Unneeded_Cast,
+		"Unneeded cast of 'a' to identical type 'int'",
+		diagnostic_count = 1,
+		procedure_name = "f",
+		check_options = options,
+	)
+	testing.expect(t, ok)
+	transmuted := transmute([]byte)string("package sample\nf :: proc(a: int) { _ = transmute(i64)a }\n")
+	_, integers := check_procedure_source(
+		t,
+		transmuted,
+		.Unneeded_Cast,
+		"Use of 'transmute' where 'cast' would be preferred since both are integers of the same endianness, from 'int' to 'i64'",
+		diagnostic_count = 1,
+		procedure_name = "f",
+		check_options = options,
+	)
+	testing.expect(t, integers)
+	converted := transmute([]byte)string("package sample\nf :: proc(a: int) { _ = cast(i64)a }\n")
+	_, silent := check_procedure_source(t, converted, diagnostic_count = 0, procedure_name = "f", check_options = options)
+	testing.expect(t, silent)
+}

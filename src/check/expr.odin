@@ -11,10 +11,12 @@ import "oc:types"
 Check_Options :: struct {
 	vet_using_stmt, vet_using_param:          bool,
 	vet_unused_variables, vet_unused_imports: bool,
+	vet_shadowing, vet_cast:                  bool,
+	vet_package:                              Package_Id,
 	warnings_as_errors:                       bool,
 }
 
-Message_Diagnostics :: bit_set[Expression_Diagnostic_Kind]{.Using_Shadowing, .Unused, .Large_Local}
+Message_Diagnostics :: bit_set[Expression_Diagnostic_Kind]{.Shadowing, .Unused, .Large_Local, .Unneeded_Cast}
 
 Diagnostic_Severity :: enum u8 {
 	Error,
@@ -23,8 +25,9 @@ Diagnostic_Severity :: enum u8 {
 
 Expression_Diagnostic_Kind :: enum u8 {
 	None,
-	Using_Shadowing,
+	Shadowing,
 	Unused,
+	Unneeded_Cast,
 	Large_Local,
 	Unsupported,
 	Undeclared_Name,
@@ -356,6 +359,18 @@ check_expression :: proc(
 				target,
 				kind,
 			) or_return
+			if info.state != .Invalid {
+				vet_conversion(
+					checker,
+					view,
+					node,
+					conversion.expr,
+					kind,
+					expression_value_operand(checker, view, conversion.expr, operand),
+					expression_single_value(operand),
+					target,
+				) or_return
+			}
 		case .Call_Expr:
 			call := syntax.node_payload(file.ast, node, syntax.Call_Expr)
 			if file.ast.nodes[call.expr].kind == .Basic_Directive {

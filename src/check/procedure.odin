@@ -1032,10 +1032,12 @@ local_variable_data :: proc(
 	name_count, index: int,
 ) -> Variable_Data {
 	file := checker.type_checker.files[file_id]
-	if !collection_has_attribute(file.ast, file.source, attributes, "static") { return Variable_Data{storage = .Local} }
 	data := Variable_Data {
-		storage = .Global,
+		storage = .Local,
 	}
+	if len(values) == name_count { data.value = Node_Ref{file_id, values[index]} }
+	if !collection_has_attribute(file.ast, file.source, attributes, "static") { return data }
+	data.storage = .Global
 	if len(values) == name_count {
 		data.initializer = Node_Ref{file_id, values[index]}
 		data.initializer_view = view
