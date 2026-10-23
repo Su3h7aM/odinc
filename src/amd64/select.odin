@@ -62,6 +62,8 @@ Selector :: struct {
 	allocator:     mem.Allocator,
 	values:        []Vreg,
 	materialized:  []bool,
+	use_counts:    []u32,
+	fused:         []bool,
 	address_parts: []Address_Parts,
 	address_ready: []bool,
 	tuples:        [][]Vreg,
@@ -166,6 +168,7 @@ select_function_impl :: proc(
 	}
 	selector.params = lower_start(output, 0, selector.signature, selector.assignment, allocator) or_return
 	cover_addresses(&selector) or_return
+	fuse_branch_conditions(&selector) or_return
 	for block in schedule.blocks {
 		if selector.resolved[block.id] != block.id { continue }
 		selector.block = selector.blocks[block.id]
@@ -352,6 +355,7 @@ select_value :: proc(selector: ^Selector, node: ir.Node_Id) -> (value: Vreg, err
 select_node :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Status {
 	input := selector.input
 	kind := input.nodes.kind[node]
+	if selector.fused[node] { return nil }
 	#partial switch kind {
 	case .Start, .Stop, .Region, .Loop, .Phi, .If, .Switch, .Return, .Unreachable, .Trap:
 		return nil

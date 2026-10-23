@@ -155,10 +155,11 @@ select_float_neg :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Status
 	return emit(selector.output, selector.block, .XORPS, 16, selector.values[node], value, mask)
 }
 
-// `FEq` is ordered (NaN compares false). `FNe` is true when unordered.
+// Sets the flags for a float compare. `FEq`/`FNe` compare first with second; `FLt`/`FLe` compare
+// second with first, so "above" and "above or equal" are false when unordered (NaN sets CF).
 @(private)
-select_float_compare :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Status {
-	input, output := selector.input, selector.output
+select_float_flags :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Status {
+	input := selector.input
 	kind := input.nodes.kind[node]
 	inputs := ir.node_inputs(input, node)
 	operand_type := input.nodes.type[inputs[0]]
@@ -169,9 +170,18 @@ select_float_compare :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_St
 	first := select_value(selector, inputs[0]) or_return
 	second := select_value(selector, inputs[1]) or_return
 	compare: x86.Mnemonic = .UCOMISS if operand_type == .F32 else .UCOMISD
+	if kind == .FEq || kind == .FNe { return emit(selector.output, selector.block, compare, width, first, second) }
+	return emit(selector.output, selector.block, compare, width, second, first)
+}
+
+// `FEq` is ordered (NaN compares false). `FNe` is true when unordered.
+@(private)
+select_float_compare :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Status {
+	output := selector.output
+	kind := selector.input.nodes.kind[node]
 	destination := selector.values[node]
+	select_float_flags(selector, node) or_return
 	if kind == .FEq || kind == .FNe {
-		emit(output, selector.block, compare, width, first, second) or_return
 		left := new_vreg(output, .Int) or_return
 		right := new_vreg(output, .Int) or_return
 		combined := new_vreg(output, .Int) or_return
@@ -180,8 +190,6 @@ select_float_compare :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_St
 		emit(output, selector.block, .AND if kind == .FEq else .OR, 1, combined, left, right) or_return
 		return emit(output, selector.block, .MOVZX, 1, destination, combined)
 	}
-	// `ucomis second, first` then above/above-or-equal: NaN sets CF, so both are false.
-	emit(output, selector.block, compare, width, second, first) or_return
 	flag := new_vreg(output, .Int) or_return
 	emit(output, selector.block, .SETA if kind == .FLt else .SETAE, 1, flag) or_return
 	return emit(output, selector.block, .MOVZX, 1, destination, flag)

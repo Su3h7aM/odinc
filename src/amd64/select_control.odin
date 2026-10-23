@@ -1,5 +1,6 @@
 package amd64
 
+import x86 "core:rexcode/isa/x86"
 import "oc:ir"
 import "oc:regalloc"
 
@@ -16,6 +17,11 @@ select_exit :: proc(selector: ^Selector, block: ir.Block_Id) -> Select_Status {
 	#partial switch input.nodes.kind[exit] {
 	case .If:
 		if len(edges) != 2 { return select_failure(selector, .Malformed_Input) }
+		if compare, inverted := find_branch_compare(selector, block, inputs[1]); compare != ir.NODE_NONE {
+			taken, other := edges[0], edges[1]
+			if inverted { taken, other = other, taken }
+			return select_compare_branch(selector, compare, taken, other)
+		}
 		condition := select_value(selector, inputs[1]) or_return
 		emit(output, selector.block, .TEST, 1, condition, condition) or_return
 		return select_split(selector, .JNE, edges[0], edges[1])
@@ -44,6 +50,92 @@ select_exit :: proc(selector: ^Selector, block: ir.Block_Id) -> Select_Status {
 		return emit(output, selector.block, .UD2, 0)
 	}
 	return select_failure(selector)
+}
+
+@(private = "file")
+is_negation :: proc(input: ^ir.Function, node: ir.Node_Id) -> bool {
+	if input.nodes.kind[node] != .Xor || input.nodes.type[node] != .Bool { return false }
+	one := ir.node_input(input, node, 1)
+	return input.nodes.kind[one] == .Const_Int && input.nodes.data[one].int_value == 1
+}
+
+// A compare reaches the branch through flags only when the branch is its sole consumer, directly or
+// through single-use negations, and it is scheduled in the branching block.
+@(private = "file")
+find_branch_compare :: proc(selector: ^Selector, block: ir.Block_Id, condition: ir.Node_Id) -> (compare: ir.Node_Id, inverted: bool) {
+	input := selector.input
+	node := condition
+	for {
+		if node == ir.NODE_NONE || selector.use_counts[node] != 1 || selector.schedule.placement[node] != block { return ir.NODE_NONE, false }
+		#partial switch input.nodes.kind[node] {
+		case .Eq, .Ne, .SLt, .SLe, .ULt, .ULe, .FEq, .FNe, .FLt, .FLe:
+			return node, inverted
+		case .Xor:
+			if !is_negation(input, node) { return ir.NODE_NONE, false }
+			inverted = !inverted
+			node = ir.node_input(input, node, 0)
+		case:
+			return ir.NODE_NONE, false
+		}
+	}
+}
+
+// Counts every input slot, so a node is fusable into its branch only when `use_counts` is 1.
+// Marks the compares and negations that `select_exit` folds into the branch as `fused`.
+@(private)
+fuse_branch_conditions :: proc(selector: ^Selector) -> Select_Status {
+	input, schedule := selector.input, selector.schedule
+	selector.use_counts = make([]u32, len(input.nodes), selector.allocator) or_return
+	selector.fused = make([]bool, len(input.nodes), selector.allocator) or_return
+	for node in 1 ..< len(input.nodes) {
+		for operand in ir.node_inputs(input, ir.Node_Id(node)) {
+			if operand != ir.NODE_NONE { selector.use_counts[operand] += 1 }
+		}
+	}
+	for block in schedule.blocks {
+		exit := schedule.cfg.exits[block.id]
+		if exit == ir.NODE_NONE || input.nodes.kind[exit] != .If { continue }
+		condition := ir.node_input(input, exit, 1)
+		compare, _ := find_branch_compare(selector, block.id, condition)
+		if compare == ir.NODE_NONE { continue }
+		for node := condition;; node = ir.node_input(input, node, 0) {
+			selector.fused[node] = true
+			if node == compare { break }
+		}
+	}
+	return nil
+}
+
+@(private = "file")
+select_compare_branch :: proc(selector: ^Selector, compare: ir.Node_Id, taken, other: u32) -> Select_Status {
+	output := selector.output
+	kind := selector.input.nodes.kind[compare]
+	#partial switch kind {
+	case .FEq, .FNe:
+		select_float_flags(selector, compare) or_return
+		append(&output.blocks[selector.block].successors, taken, other) or_return
+		if kind == .FEq {
+			emit(output, selector.block, .JP, 0, Block_Ref(other)) or_return
+			emit(output, selector.block, .JE, 0, Block_Ref(taken)) or_return
+		} else {
+			emit(output, selector.block, .JP, 0, Block_Ref(taken)) or_return
+			emit(output, selector.block, .JNE, 0, Block_Ref(taken)) or_return
+		}
+		return emit(output, selector.block, .JMP, 0, Block_Ref(other))
+	case .FLt, .FLe:
+		select_float_flags(selector, compare) or_return
+		return select_split(selector, .JA if kind == .FLt else .JAE, taken, other)
+	}
+	select_integer_flags(selector, compare) or_return
+	jumps := #partial [ir.Node_Kind]x86.Mnemonic {
+		.Eq  = .JE,
+		.Ne  = .JNE,
+		.SLt = .JL,
+		.SLe = .JLE,
+		.ULt = .JB,
+		.ULe = .JBE,
+	}
+	return select_split(selector, jumps[kind], taken, other)
 }
 
 @(private)

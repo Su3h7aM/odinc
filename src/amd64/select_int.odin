@@ -42,8 +42,6 @@ select_integer :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Status {
 		emit(output, selector.block, .TEST, 1, condition, condition) or_return
 		return emit(output, selector.block, .CMOVNE, width, destination, if_false, if_true)
 	case .Eq, .Ne, .SLt, .SLe, .ULt, .ULe:
-		first := select_value(selector, inputs[0]) or_return
-		second := select_value(selector, inputs[1]) or_return
 		byte := new_vreg(output, .Int) or_return
 		mnemonics := #partial [ir.Node_Kind]x86.Mnemonic {
 			.Eq  = .SETE,
@@ -53,7 +51,7 @@ select_integer :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Status {
 			.ULt = .SETB,
 			.ULe = .SETBE,
 		}
-		emit(output, selector.block, .CMP, select_width(input.nodes.type[inputs[0]]), first, second) or_return
+		select_integer_flags(selector, node) or_return
 		emit(output, selector.block, mnemonics[kind], 1, byte) or_return
 		return emit(output, selector.block, .MOVZX, 1, destination, byte)
 	case .Shl, .Shr, .Sar:
@@ -70,6 +68,15 @@ select_integer :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Status {
 		.Xor = .XOR,
 	}
 	return emit(output, selector.block, mnemonics[kind], width, destination, first, second)
+}
+
+@(private)
+select_integer_flags :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Status {
+	input := selector.input
+	inputs := ir.node_inputs(input, node)
+	first := select_value(selector, inputs[0]) or_return
+	second := select_value(selector, inputs[1]) or_return
+	return emit(selector.output, selector.block, .CMP, select_width(input.nodes.type[inputs[0]]), first, second)
 }
 
 @(private)

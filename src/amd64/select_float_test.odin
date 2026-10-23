@@ -7,6 +7,7 @@ import "oc:types"
 @(test)
 selected_float_arithmetic_compare_convert_and_call :: proc(t: ^testing.T) {
 	selected_float_loop_exits_with_fifty_five(t)
+	selected_branches_on_flags_keep_nan_and_negation_semantics(t)
 	selected_float_program(t)
 }
 
@@ -74,6 +75,63 @@ selected_float_loop_exits_with_fifty_five :: proc(t: ^testing.T) {
 	ir.unreachable(function, builder.control, memory)
 	testing.expect_value(t, ir.builder_finish(builder), nil)
 	selected_test_run(t, function, 55)
+}
+
+@(private)
+selected_branches_on_flags_keep_nan_and_negation_semantics :: proc(t: ^testing.T) {
+	function, make_err := ir.function_make(context.allocator, 0, "_start", 0)
+	testing.expect_value(t, make_err, nil)
+	if make_err != nil { return }
+	defer ir.function_destroy(function)
+	ir.add_signature(function, ir.Signature{cc = .C})
+	entry := ir.start(function)
+	builder, builder_err := ir.builder_make(context.allocator, function, entry)
+	testing.expect_value(t, builder_err, nil)
+	if builder_err != nil { return }
+	defer ir.builder_destroy(builder)
+	one, two := float64(function, 1), float64(function, 2)
+	nan := ir.const_float(function, .F64, 0x7ff8_0000_0000_0000)
+	minus_one := ir.const_int(function, .I64, -1)
+	zero := ir.const_int(function, .I64, 0)
+	conditions := [?]ir.Node_Id {
+		ir.compare(function, .FEq, one, one),
+		bool_not(function, ir.compare(function, .FEq, nan, nan)),
+		bool_not(function, ir.compare(function, .FEq, nan, one)),
+		ir.compare(function, .FNe, nan, nan),
+		bool_not(function, ir.compare(function, .FNe, one, one)),
+		ir.compare(function, .FLt, one, two),
+		bool_not(function, ir.compare(function, .FLt, nan, one)),
+		bool_not(function, ir.compare(function, .FLe, two, one)),
+		bool_not(function, ir.compare(function, .FLe, one, nan)),
+		ir.compare(function, .ULt, zero, minus_one),
+		bool_not(function, ir.compare(function, .SLt, zero, minus_one)),
+		bool_not(function, bool_not(function, ir.compare(function, .SLe, minus_one, zero))),
+	}
+	fail_target := ir.jump_target_make(builder)
+	for condition in conditions {
+		branch := ir.branch_if(builder, condition)
+		ir.enter_arm(builder, branch, 1)
+		ir.jump_to(builder, fail_target)
+		ir.enter_arm(builder, branch, 0)
+	}
+	exit_with_status(function, builder, 0)
+	testing.expect(t, ir.seal_target(builder, fail_target))
+	exit_with_status(function, builder, 1)
+	testing.expect_value(t, ir.builder_finish(builder), nil)
+	selected_test_run(t, function, 0)
+}
+
+@(private)
+exit_with_status :: proc(function: ^ir.Function, builder: ^ir.Builder, status: i64) {
+	exit_call := ir.add_node(
+		function,
+		.Syscall,
+		.Tuple,
+		{builder.control, ir.variable_get(builder, ir.MEMORY_VARIABLE), ir.const_int(function, .I64, 231), ir.const_int(function, .I64, status)},
+	)
+	memory := ir.add_node(function, .Proj, .Memory, {exit_call}, {index = 0})
+	ir.variable_set(builder, ir.MEMORY_VARIABLE, memory)
+	ir.emit_unreachable(builder)
 }
 
 @(private)
