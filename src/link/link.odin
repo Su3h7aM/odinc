@@ -27,6 +27,7 @@ Atom :: struct {
 	bytes:     []byte,
 	size:      u64, // size > len(bytes) only for Bss and Tbss
 	relocs:    []Relocation,
+	unwind:    []byte, // DWARF CFI instructions, borrowed with bytes.
 	discarded: bool,
 }
 
@@ -244,6 +245,13 @@ link_with :: proc(inputs: []Input, needed: []string, provided: map[string]bool, 
 	configure_dynamic_program(&builder, layout, fixups, needed)
 	add_symbol_table(&builder, inputs, atom_addresses, choices) or_return
 
+	for input, input_index in inputs {
+		for atom, atom_index in input.atoms {
+			if atom.discarded || len(atom.unwind) == 0 { continue }
+			elf.executable_add_unwind(&builder, atom_addresses[input_index][atom_index], atom.size, atom.unwind) or_return
+		}
+	}
+	elf.executable_build_unwind(&builder) or_return
 	object, write_err := elf.executable_write(&builder, allocator)
 	if write_err != nil { return nil, write_err }
 	return object, nil

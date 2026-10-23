@@ -57,20 +57,21 @@ Pending_Store :: struct {
 
 @(private = "file")
 Emitter :: struct {
-	function:       ^Machine_Function,
-	result:         ^regalloc.Result,
-	layout:         Frame_Layout,
-	symbols:        Symbol_Indices,
-	instructions:   [dynamic]x86.Instruction,
-	block_first:    []u32,
-	externals:      [dynamic]External_Reference,
-	branches:       [dynamic]Branch,
-	local_branches: [dynamic]Branch,
-	scratch_taken:  [Register_Class]int,
-	stores:         [4]Pending_Store,
-	store_count:    int,
-	epilogue_first: u32,
-	has_return:     bool,
+	function:            ^Machine_Function,
+	result:              ^regalloc.Result,
+	layout:              Frame_Layout,
+	symbols:             Symbol_Indices,
+	instructions:        [dynamic]x86.Instruction,
+	block_first:         []u32,
+	externals:           [dynamic]External_Reference,
+	branches:            [dynamic]Branch,
+	local_branches:      [dynamic]Branch,
+	scratch_taken:       [Register_Class]int,
+	stores:              [4]Pending_Store,
+	store_count:         int,
+	epilogue_first:      u32,
+	has_return:          bool,
+	instruction_offsets: []u32,
 }
 
 // Emits `function` as one text atom. `result` is the allocation of `build_program(function)`.
@@ -149,12 +150,19 @@ emit_function :: proc(
 			addend = external.addend,
 		}
 	}
-	return link.Atom{section = .Text, align = 16, bytes = bytes, size = u64(len(bytes)), relocs = relocations}, nil
+	unwind, unwind_err := emit_frame_unwind(emitter.layout, emitter.instruction_offsets, emitter.has_return, allocator)
+	if unwind_err != nil {
+		delete(bytes, allocator)
+		delete(relocations, allocator)
+		return {}, unwind_err
+	}
+	return link.Atom{section = .Text, align = 16, bytes = bytes, size = u64(len(bytes)), relocs = relocations, unwind = unwind}, nil
 }
 
 atom_destroy :: proc(atom: ^link.Atom, allocator: mem.Allocator) {
 	delete(atom.bytes, allocator)
 	delete(atom.relocs, allocator)
+	delete(atom.unwind, allocator)
 	atom^ = {}
 }
 
@@ -216,6 +224,11 @@ relax_and_encode :: proc(emitter: ^Emitter) -> (code: []byte, unresolved: []x86.
 	if !ok || len(errors) > 0 {
 		return nil, nil, Emit_Failure.Encoding_Failed
 	}
+	emitter.instruction_offsets = make([]u32, instruction_count + 1) or_return
+	for index in 0 ..< instruction_count {
+		emitter.instruction_offsets[index] = u32(label_defs[instruction_label_base + index])
+	}
+	emitter.instruction_offsets[instruction_count] = byte_count
 	return buffer[:byte_count], relocations[:], nil
 }
 

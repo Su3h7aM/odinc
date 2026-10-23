@@ -70,6 +70,8 @@ emitted_add_links_and_exits_with_seven :: proc(t: ^testing.T) {
 	defer atom_destroy(&atom, context.allocator)
 	testing.expect(t, len(atom.bytes) >= 6 && atom.bytes[0] == 0x55 && atom.bytes[len(atom.bytes) - 1] == 0xc3, "framed function")
 	testing.expect_value(t, len(atom.relocs), 0)
+	expected_unwind := [?]byte{0x41, 0x0e, 16, 0x86, 2, 0x43, 0x0d, 6, 0x40 | byte(len(atom.bytes) - 5), 0x0c, 7, 8, 0xc6}
+	testing.expect(t, slice.equal(atom.unwind, expected_unwind[:]), "CFI must follow encoded prologue and shared epilogue offsets")
 
 	start_code := [?]byte{0xbf, 3, 0, 0, 0, 0xbe, 4, 0, 0, 0, 0xe8, 0, 0, 0, 0, 0x89, 0xc7, 0xb8, 231, 0, 0, 0, 0x0f, 0x05}
 	start_relocs := []link.Relocation{{offset = 11, symbol = 1, kind = .R_X86_64_PLT32, addend = -4}}

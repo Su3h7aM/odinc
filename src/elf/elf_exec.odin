@@ -28,6 +28,7 @@ PT_DYNAMIC :: 0x00000002
 PT_INTERP :: 0x00000003
 PT_PHDR :: 0x00000006
 PT_GNU_STACK :: 0x6474e551
+PT_GNU_EH_FRAME :: 0x6474e550
 PT_TLS :: 0x00000007
 
 /*
@@ -74,16 +75,20 @@ Executable_Segment :: struct {
 	see `executable_set_entry`.
 */
 Executable_Builder :: struct {
-	allocator:           mem.Allocator,
-	entry:               u64,
-	segments:            [dynamic]Executable_Segment,
-	load_headers:        bool,
-	loaded_header_vaddr: u64,
-	interpreter_vaddr:   u64,
-	interpreter_size:    u64,
-	dynamic_vaddr:       u64,
-	dynamic_size:        u64,
-	symbols:             [dynamic]Executable_Symbol,
+	allocator:            mem.Allocator,
+	entry:                u64,
+	segments:             [dynamic]Executable_Segment,
+	load_headers:         bool,
+	loaded_header_vaddr:  u64,
+	interpreter_vaddr:    u64,
+	interpreter_size:     u64,
+	dynamic_vaddr:        u64,
+	dynamic_size:         u64,
+	symbols:              [dynamic]Executable_Symbol,
+	unwind:               [dynamic]Unwind_Record,
+	unwind_segment:       Segment_Handle,
+	unwind_frame_size:    u64,
+	unwind_header_offset: u64,
 }
 
 /*
@@ -137,7 +142,7 @@ executable_build_symbol_tail :: proc(
 	tail: Symbol_Tail,
 	err: runtime.Allocator_Error,
 ) {
-	if len(builder.symbols) == 0 {
+	if len(builder.symbols) == 0 && builder.unwind_segment == 0 {
 		return
 	}
 
@@ -167,7 +172,12 @@ executable_build_symbol_tail :: proc(
 			flags += {.SHF_EXECINSTR}
 			name = ".text"
 		}
+		is_unwind := builder.unwind_segment == Segment_Handle(index + 1)
 		filesz := u64(len(segment.data))
+		if is_unwind {
+			name = ".eh_frame"
+			filesz = builder.unwind_frame_size
+		}
 		memsz := segment_memory_size(segment)
 		if filesz > 0 {
 			section_of_segment[index] = u16(len(section_headers))
@@ -185,7 +195,22 @@ executable_build_symbol_tail :: proc(
 				},
 			) or_return
 		}
-		if memsz > filesz {
+		if is_unwind {
+			header_name := intern_string(&shstrtab, ".eh_frame_hdr") or_return
+			append(
+				&section_headers,
+				Section_Header {
+					sh_name = u32le(u32(header_name)),
+					sh_type = .SHT_PROGBITS,
+					sh_flags = u64le(section_flags_mask({.SHF_ALLOC})),
+					sh_addr = u64le(segment.vaddr + builder.unwind_header_offset),
+					sh_offset = u64le(file_offsets[index] + builder.unwind_header_offset),
+					sh_size = u64le(u64(len(segment.data)) - builder.unwind_header_offset),
+					sh_addralign = 8,
+				},
+			) or_return
+		}
+		if !is_unwind && memsz > filesz {
 			bss_section_of_segment[index] = u16(len(section_headers))
 			bss_name_offset := intern_string(&shstrtab, ".bss") or_return
 			append(
@@ -334,6 +359,7 @@ executable_builder_destroy :: proc(builder: ^Executable_Builder) {
 	}
 	free_dynamic(builder.segments)
 	free_dynamic(builder.symbols)
+	free_dynamic(builder.unwind)
 }
 
 /*
@@ -461,6 +487,7 @@ executable_write :: proc(builder: ^Executable_Builder, allocator := context.allo
 	// File offsets congruent to `vaddr` (mod alignment, at least one
 	// page), packed after header and program header table.
 	program_header_count := len(builder.segments) + 1
+	if builder.unwind_segment != 0 { program_header_count += 1 }
 	if builder.load_headers {
 		program_header_count += 2
 	}
@@ -566,6 +593,26 @@ executable_write :: proc(builder: ^Executable_Builder, allocator := context.allo
 				p_paddr = u64le(builder.dynamic_vaddr),
 				p_filesz = u64le(builder.dynamic_size),
 				p_memsz = u64le(builder.dynamic_size),
+				p_align = 8,
+			},
+		)
+	}
+
+	if builder.unwind_segment != 0 {
+		index := int(builder.unwind_segment) - 1
+		segment := builder.segments[index]
+		address := segment.vaddr + builder.unwind_header_offset
+		size := u64(len(segment.data)) - builder.unwind_header_offset
+		append(
+			&segment_headers,
+			Program_Header {
+				p_type = PT_GNU_EH_FRAME,
+				p_flags = u32le(program_flags_mask({.PF_R})),
+				p_offset = u64le(file_offsets[index] + builder.unwind_header_offset),
+				p_vaddr = u64le(address),
+				p_paddr = u64le(address),
+				p_filesz = u64le(size),
+				p_memsz = u64le(size),
 				p_align = 8,
 			},
 		)
