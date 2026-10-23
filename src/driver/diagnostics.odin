@@ -59,7 +59,10 @@ write_diagnostics :: proc(session: ^Session, writer: io.Writer, extra: []Output_
 	}
 	if collect_kind_diagnostics(session, &diagnostics, session.collection.diagnostics[:], scratch) != nil { return }
 	if collect_kind_diagnostics(session, &diagnostics, session.resolver.diagnostics[:], scratch) != nil { return }
-	if collect_kind_diagnostics(session, &diagnostics, session.type_checker.diagnostics[:], scratch) != nil { return }
+	for diagnostic in session.type_checker.diagnostics {
+		text := diagnostic.reason if diagnostic.reason != "" else fmt.aprint(diagnostic.kind, allocator = scratch)
+		if _, err := append(&diagnostics, source_diagnostic(session, diagnostic.source, text)); err != nil { return }
+	}
 	for diagnostic in session.checker.diagnostics {
 		if diagnostic.severity == .Warning && session.check_options.ignore_warnings { continue }
 		reason := diagnostic.reason

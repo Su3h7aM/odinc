@@ -59,7 +59,14 @@ expression_defer_assignment :: proc(
 		   file.source[file.ast.nodes[target].start] == '_' { continue }
 		destination := check_expression(checker, view, scope, target) or_return
 		if assigns_named_result_in_defer(checker, destination, assignment.op.kind) {
-			expression_unsupported(checker, view, scope, target, "Assign_Deferred_Result") or_return
+			expression_failure(
+				checker,
+				view,
+				scope,
+				target,
+				.Message,
+				"Assignments to named return values within 'defer' will not affect the value that is returned",
+			) or_return
 		}
 	}
 	return nil

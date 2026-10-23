@@ -21,5 +21,11 @@ multiple :: proc() -> (a, b: int) {
 main :: proc() {}
 `,
 	)
-	_, _ = check_procedure_source(t, source, .Unsupported, "Assign_Deferred_Result", diagnostic_count = 4)
+	_, _ = check_procedure_source(
+		t,
+		source,
+		.Message,
+		"Assignments to named return values within 'defer' will not affect the value that is returned",
+		diagnostic_count = 4,
+	)
 }

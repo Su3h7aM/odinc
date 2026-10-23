@@ -538,7 +538,7 @@ expression_procedure_termination :: proc(checker: ^Expression_Checker, view: Vie
 	return err
 }
 
-// Official check_proc_decl: the entry point of the main package cannot use a custom calling convention.
+// Official check_proc_decl: the entry point has no parameters or results and uses the Odin calling convention.
 @(private = "file")
 expression_main_convention :: proc(checker: ^Expression_Checker, view: View_Id, id: Entity_Id, body: Node_Ref) -> Resolve_Error {
 	if checker.no_entry_point { return nil }
@@ -546,10 +546,26 @@ expression_main_convention :: proc(checker: ^Expression_Checker, view: View_Id, 
 	entity := entity_get(scopes, id)
 	procedure := entity.data.(Procedure_Data)
 	scope_kind := scope_get(scopes, entity.scope).kind
-	if procedure.source_name != "main" || procedure.convention == .Odin || scope_kind != .Package && scope_kind != .File { return nil }
+	if procedure.source_name != "main" || scope_kind != .Package && scope_kind != .File { return nil }
 	package_index := int(entity.package_id)
 	if package_index <= 0 || package_index >= len(checker.packages) { return nil }
-	if checker.packages[package_index].kind == .Runtime || checker.packages[package_index].name != "main" { return nil }
+	if checker.packages[package_index].kind == .Runtime { return nil }
+	store := checker.type_checker.store
+	if procedure.signature != 0 {
+		descriptor := types.get(store, procedure.signature)
+		if len(descriptor.params) != 0 || len(descriptor.results) != 0 {
+			allocator := checker.type_checker.arena_allocator
+			reason := fmt.aprintf(
+				"Procedure type of 'main' was expected to be 'proc()', got %s",
+				types.type_text(store, procedure.signature, allocator),
+				allocator = allocator,
+			)
+			start := entity.order.offset
+			source := Source_Span{entity.declaration.file, start, start + u32(len(entity.name))}
+			append(&checker.diagnostics, Expression_Diagnostic{kind = .Message, source = source, reason = reason}) or_return
+		}
+	}
+	if procedure.convention == .Odin || checker.packages[package_index].name != "main" { return nil }
 	_, err := expression_failure(checker, view, entity.scope, body.node, .Main_Calling_Convention)
 	return err
 }

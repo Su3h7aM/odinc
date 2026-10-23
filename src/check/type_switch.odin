@@ -1,5 +1,6 @@
 package check
 
+import "core:fmt"
 import "core:mem"
 import "oc:syntax"
 import "oc:types"
@@ -48,9 +49,21 @@ expression_type_switch :: proc(checker: ^Expression_Checker, view: View_Id, file
 		expression_failure(checker, view, scope, node, .Invalid_Operand) or_return
 		return nil
 	}
-	if is_reference && descriptor.kind == .Union && subject.mode != .Variable && !subject_is_pointer {
-		expression_failure(checker, view, scope, name_node, .Invalid_Operand) or_return
-		return nil
+	if is_reference && descriptor.kind == .Union && !subject_is_pointer {
+		addressable := subject.mode == .Variable
+		if addressable {
+			parameter, _ := expression_parameter_root(checker, view, scope, file, rhs[0]) or_return
+			addressable = !parameter
+		}
+		if !addressable {
+			reason := fmt.aprintf(
+				"The element variable '%s' cannot be made addressable",
+				expression_text(file, name_node),
+				allocator = mem.dynamic_arena_allocator(&checker.arena),
+			)
+			expression_failure(checker, view, scope, name_node, .Message, reason) or_return
+			return nil
+		}
 	}
 
 	name := expression_text(file, name_node)

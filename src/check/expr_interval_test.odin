@@ -36,3 +36,17 @@ table :: proc "contextless" () -> [4]int { return [4]int{3 ..< 1 = 1} }
 	_, ok := check_procedure_source(t, source, .Invalid_Operand, "", 1, "table")
 	testing.expect(t, ok)
 }
+
+@(test)
+switch_rejects_duplicate_constant_cases :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(`package sample
+main :: proc() {
+	value := false
+	switch value {
+	case false:
+	case false:
+	}
+}
+`)
+	_, _ = check_procedure_source(t, source, .Message, "Duplicate case 'false'\n\tprevious case at (5:7)", diagnostic_count = 1)
+}

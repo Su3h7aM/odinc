@@ -3,7 +3,9 @@ package check
 // Rebuilds the symbol and procedure tables from entity states; call after the last checking phase.
 expression_checker_publish_procedures :: proc(checker: ^Expression_Checker, program: ^Checked_Program) -> Resolve_Error {
 	expression_resolve_bounds_helpers(checker) or_return
+	check_nominal_layouts(checker.type_checker) or_return
 	expression_backfill_deferred_calls(checker)
+	expression_report_deferred_sites(checker) or_return
 	scopes := checker.type_checker.resolver.scopes
 	clear(&checker.symbols)
 	clear(&checker.entity_symbols)

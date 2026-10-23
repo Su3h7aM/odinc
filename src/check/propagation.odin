@@ -1,5 +1,6 @@
 package check
 
+import "core:fmt"
 import "core:mem"
 import "oc:syntax"
 import "oc:types"
@@ -244,7 +245,23 @@ expression_or_return :: proc(
 			if result == 0 { returnable = false; break }
 		}
 	}
-	if !returnable { return expression_unsupported(checker, view, scope, node, "Or_Return_Result") }
+	if !returnable {
+		reason: string
+		if len(checker.results) == 0 {
+			reason = "'or_return' requires the current procedure to have at least one return value"
+		} else if len(checker.results) > 1 {
+			reason = "'or_return' within a procedure with more than 1 return value requires that the return values are named, allowing for early return"
+		} else {
+			allocator := checker.type_checker.arena_allocator
+			reason = fmt.aprintf(
+				"Cannot assign end value of type '%s' to '%s' in 'or_return'",
+				types.type_text(store, status, allocator),
+				types.type_text(store, checker.results[0], allocator),
+				allocator = allocator,
+			)
+		}
+		return expression_failure(checker, view, scope, node, .Message, reason)
+	}
 	allocator := mem.dynamic_arena_allocator(&checker.arena)
 	failure_values := make([]Operand, 1, allocator) or_return
 	failure_conversions := make([]Plan_Id, 1, allocator) or_return

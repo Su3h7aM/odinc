@@ -348,7 +348,7 @@ struct_field_index :: proc(fields: []types.Type_Field, name: string) -> int {
 }
 
 // Whether an operand is a parameter, or is within one by fields and array elements; parameters are not addressable (check_expr.cpp:3225).
-@(private = "file")
+@(private = "package")
 expression_parameter_root :: proc(
 	checker: ^Expression_Checker,
 	view: View_Id,

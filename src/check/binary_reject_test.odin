@@ -527,19 +527,26 @@ main :: proc "contextless" () {
 futex_parameter_without_futex_is_rejected :: proc(t: ^testing.T) {
 	source := transmute([]byte)string(`package sample
 @(futex_parameter = "word")
-main :: proc(word: ^u32) {}
+entry :: proc(word: ^u32) {}
 `)
-	_, ok := check_procedure_source(t, source, .Atomic, "@(futex_parameter) can only be used with @(futex)", 1)
+	_, ok := check_procedure_source(t, source, .Atomic, "@(futex_parameter) can only be used with @(futex)", 1, procedure_name = "entry")
 	testing.expect(t, ok)
 }
 
 @(test)
 parameter_address_is_rejected_unless_shadowed_or_through_a_pointer :: proc(t: ^testing.T) {
-	for source in ([]string{"package sample\nmain :: proc(p: ^int, s: []int) -> (r: int) {\n\tx := p\n\ty := &s[0]\n\tz := &p^\n\t_, _, _ = x, y, z\n\treturn r\n}\n", "package sample\nmain :: proc(x: int) -> ^int {\n\tx := x\n\treturn &x\n}\n"}) {
-		_, ok := check_procedure_source(t, transmute([]byte)source, procedure_name = "main")
+	for source in ([]string{"package sample\nentry :: proc(p: ^int, s: []int) -> (r: int) {\n\tx := p\n\ty := &s[0]\n\tz := &p^\n\t_, _, _ = x, y, z\n\treturn r\n}\n", "package sample\nentry :: proc(x: int) -> ^int {\n\tx := x\n\treturn &x\n}\n"}) {
+		_, ok := check_procedure_source(t, transmute([]byte)source, procedure_name = "entry")
 		testing.expect(t, ok)
 	}
-	source := transmute([]byte)string("package sample\nmain :: proc(x: int) -> ^int {\n\treturn &x\n}\n")
-	_, ok := check_procedure_source(t, source, .Invalid_Operand, "Cannot take the pointer address of 'x' which is a procedure parameter", 1)
+	source := transmute([]byte)string("package sample\nentry :: proc(x: int) -> ^int {\n\treturn &x\n}\n")
+	_, ok := check_procedure_source(
+		t,
+		source,
+		.Invalid_Operand,
+		"Cannot take the pointer address of 'x' which is a procedure parameter",
+		1,
+		procedure_name = "entry",
+	)
 	testing.expect(t, ok)
 }

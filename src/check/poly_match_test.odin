@@ -132,7 +132,7 @@ apply :: proc "contextless" (how: proc "contextless" (a: []int), what: []int) { 
 gen :: proc "contextless" (a: $T/[]$E) {}
 #assert(#hash("a", "crc32") == 3904355907)
 lanes :: proc "contextless" (v: #simd[$N]$E) -> [N]E { return transmute([N]E)v }
-main :: proc "contextless" (v: #simd[4]f32, w: []int) {
+entry :: proc "contextless" (v: #simd[4]f32, w: []int) {
 	a := lanes(v)
 	apply(gen, w)
 	data :: Id{int}
@@ -143,6 +143,6 @@ main :: proc "contextless" (v: #simd[4]f32, w: []int) {
 }
 `,
 	)
-	_, ok := check_procedure_source(t, source, .None, "", 0)
+	_, ok := check_procedure_source(t, source, .None, "", 0, procedure_name = "entry")
 	testing.expect(t, ok)
 }

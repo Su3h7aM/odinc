@@ -107,7 +107,7 @@ main :: proc() {
 @(test)
 type_valued_return_to_any_is_rejected_with_official_notes :: proc(t: ^testing.T) {
 	source := transmute([]byte)string(`package sample
-main :: proc() -> any {
+entry :: proc() -> any {
 	return int
 }
 `)
@@ -117,6 +117,7 @@ main :: proc() -> any {
 		.Invalid_Operand,
 		"Cannot assign 'int', a type, to return statement\n\tSuggestion: 'typeid_of(int)'\tSuggestion: If this is intended, make it explicit with a conversion to 'rawptr' or 'uintptr', or a 'transmute'",
 		diagnostic_count = 1,
+		procedure_name = "entry",
 	)
 	testing.expect(t, ok)
 }

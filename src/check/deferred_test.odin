@@ -346,3 +346,35 @@ main :: proc() {
 	main_data := entity_get(&fixture.scopes, main).data.(Procedure_Data)
 	testing.expect(t, main_data.body_state == .Complete)
 }
+
+@(test)
+deferred_calls_in_conditionally_evaluated_operands_are_rejected :: proc(t: ^testing.T) {
+	fixture, ok := deferred_fixture_collect(
+		t,
+		`package sample
+@(deferred_out = finish)
+start :: proc(x: int) -> int { return x }
+finish :: proc(_: int) {}
+main :: proc() {
+	flag := true
+	_ = start(1) if flag else 2
+	_ = flag && start(2) > 0
+	switch {
+	case flag, start(3) > 0:
+	}
+	_ = start(4) + 1
+}
+`,
+	)
+	if !ok { return }
+	defer deferred_fixture_destroy(fixture)
+	defer free(fixture, context.allocator)
+	if !deferred_fixture_resolve(t, fixture) { return }
+	program: Checked_Program
+	if !testing.expect(t, expression_checker_publish_procedures(&fixture.checker, &program) == nil) { return }
+	reasons := [?]string{DEFERRED_IN_TERNARY, DEFERRED_IN_LOGICAL, DEFERRED_IN_CASE}
+	if !testing.expect_value(t, len(fixture.checker.diagnostics), len(reasons)) { return }
+	for diagnostic, index in fixture.checker.diagnostics {
+		testing.expect_value(t, diagnostic.reason, reasons[index])
+	}
+}

@@ -15,7 +15,16 @@ Check_Options :: struct {
 	complete_package:   Package_Id,
 }
 
-Message_Diagnostics :: bit_set[Expression_Diagnostic_Kind]{.Shadowing, .Unused, .Large_Local, .Unneeded_Cast, .Deprecated, .Explicit_Allocator, .Atomic}
+Message_Diagnostics :: bit_set[Expression_Diagnostic_Kind] {
+	.Shadowing,
+	.Unused,
+	.Large_Local,
+	.Unneeded_Cast,
+	.Deprecated,
+	.Explicit_Allocator,
+	.Atomic,
+	.Message,
+}
 
 Diagnostic_Severity :: enum u8 {
 	Error,
@@ -52,6 +61,7 @@ Expression_Diagnostic_Kind :: enum u8 {
 	Main_Calling_Convention,
 	Compile_Time_Panic,
 	Target_Feature,
+	Message,
 }
 Expression_Diagnostic :: struct {
 	kind:       Expression_Diagnostic_Kind,
@@ -95,6 +105,7 @@ Expression_Checker :: struct {
 	procedures:           [dynamic]Checked_Procedure,
 	globals:              [dynamic]Global,
 	diagnostics:          [dynamic]Expression_Diagnostic,
+	deferred_sites:       [dynamic]Deferred_Site,
 	results:              []types.Type_Id,
 	named_results:        []Entity_Id,
 	control:              [dynamic]Control_Frame,
@@ -145,6 +156,7 @@ expression_checker_init :: proc(
 	checker.views.allocator, checker.plans.allocator, checker.diagnostics.allocator = allocator, allocator, allocator
 	checker.control.allocator = allocator
 	checker.invalid_rows.allocator = allocator
+	checker.deferred_sites.allocator = allocator
 	checker.stored_rows.allocator = allocator
 	checker.defers.allocator = allocator
 	checker.symbols.allocator, checker.entity_symbols.allocator, checker.procedures.allocator = allocator, allocator, allocator
@@ -185,6 +197,7 @@ expression_checker_destroy :: proc(checker: ^Expression_Checker) {
 	delete(checker.control)
 	delete(checker.defers)
 	delete(checker.invalid_rows)
+	delete(checker.deferred_sites)
 	delete(checker.stored_rows)
 	delete(checker.procedure_infos)
 	delete(checker.procedure_info_index)
@@ -278,6 +291,7 @@ check_expression :: proc(
 			scope = scope,
 			state = .Checked,
 		}
+		expression_record_deferred_sites(checker, view, file, node) or_return
 		#partial switch file.ast.nodes[node].kind {
 		case .Ident:
 			info = expression_identifier(checker, file_id, scope, node) or_return

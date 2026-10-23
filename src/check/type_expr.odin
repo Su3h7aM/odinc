@@ -1,6 +1,7 @@
 package check
 
 import "base:runtime"
+import "core:fmt"
 import "core:mem"
 import "core:strconv"
 import "oc:syntax"
@@ -66,6 +67,7 @@ Type_Diagnostic :: struct {
 	kind:   Type_Diagnostic_Kind,
 	name:   string,
 	source: Source_Span,
+	reason: string,
 }
 
 Enum_Member :: struct {
@@ -508,6 +510,7 @@ check_nominal_layouts :: proc(checker: ^Type_Checker) -> runtime.Allocator_Error
 				kind = .Recursive_Value,
 				name = entity.name,
 				source = {entity.declaration.file, entity.order.offset, entity.order.offset + u32(len(entity.name))},
+				reason = fmt.aprintf("Illegal declaration cycle of `%s`", entity.name, allocator = checker.arena_allocator),
 			},
 		)
 		if err != nil { return err }
@@ -1042,7 +1045,7 @@ union_no_nil_valid :: proc(checker: ^Type_Checker, file_id: File_Id, file: ^File
 	if file.ast.nodes[node].kind != .Union_Type { return true, nil }
 	record := syntax.node_payload(file.ast, node, syntax.Union_Type)
 	if record.kind != .No_Nil || record.variants.count >= 2 { return true, nil }
-	type_report(checker, file_id, file, node, .Invalid_No_Nil_Union) or_return
+	type_report(checker, file_id, file, node, .Invalid_No_Nil_Union, reason = "A union with #no_nil must have at least 2 variants") or_return
 	return false, nil
 }
 
@@ -1472,7 +1475,8 @@ type_report :: proc(
 	node: syntax.Node_Index,
 	kind: Type_Diagnostic_Kind,
 	name := "",
+	reason := "",
 ) -> runtime.Allocator_Error {
-	_, err := append(&checker.diagnostics, Type_Diagnostic{kind = kind, name = name, source = type_node_span(file_id, file, node)})
+	_, err := append(&checker.diagnostics, Type_Diagnostic{kind = kind, name = name, source = type_node_span(file_id, file, node), reason = reason})
 	return err
 }

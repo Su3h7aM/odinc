@@ -12,7 +12,8 @@ main :: proc "contextless" (value: union { u8, bool, typeid }) {
 	case bool:
 	case typeid:
 	}
-	switch &v in value {
+	local := value
+	switch &v in local {
 	case u8:
 	case bool:
 	case typeid:

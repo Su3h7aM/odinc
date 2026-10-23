@@ -1,5 +1,6 @@
 package check
 
+import "core:fmt"
 import "core:mem"
 import "oc:syntax"
 import "oc:types"
@@ -41,6 +42,7 @@ expression_switch :: proc(checker: ^Expression_Checker, view: View_Id, file_id: 
 		}
 	}
 	comparisons := make([dynamic]Plan_Id, mem.dynamic_arena_allocator(&checker.arena)) or_return
+	seen := make([dynamic]Switch_Case, context.temp_allocator)
 	append(&checker.control, Control_Frame{node = node, label = expression_label(file, statement.label), is_switch = true}) or_return
 	defer pop(&checker.control)
 	clauses := syntax.node_list(file.ast, syntax.node_payload(file.ast, statement.body, syntax.Block_Stmt).stmts)
@@ -54,7 +56,9 @@ expression_switch :: proc(checker: ^Expression_Checker, view: View_Id, file_id: 
 					if interval_ok && tag_entity != 0 { append(&comparisons, plan) or_return }
 					continue
 				}
-				_ = check_expression(checker, view, switch_scope, value, tag_type) or_return
+				case_info := check_expression(checker, view, switch_scope, value, tag_type) or_return
+				append(&checker.deferred_sites, Deferred_Site{view, value, DEFERRED_IN_CASE}) or_return
+				expression_switch_duplicate(checker, view, switch_scope, file, value, case_info, &seen) or_return
 				if tag_entity != 0 {
 					plan, supported, plan_error := runtime_comparison_plan(checker, comparison_name, Operand(tag_entity), Operand(Expression_Ref{view, value}))
 					if plan_error != nil { return plan_error }
@@ -66,6 +70,7 @@ expression_switch :: proc(checker: ^Expression_Checker, view: View_Id, file_id: 
 				}
 			} else {
 				expression_condition(checker, view, switch_scope, value) or_return
+				append(&checker.deferred_sites, Deferred_Site{view, value, DEFERRED_IN_CASE}) or_return
 			}
 		}
 		clause_scope, clause_error := scope_create(checker.type_checker.resolver.scopes, switch_scope, .Block)
@@ -509,4 +514,41 @@ expression_condition :: proc(checker: ^Expression_Checker, view: View_Id, scope:
 expression_label :: proc(file: ^File, label: syntax.Node_Index) -> string {
 	if label == 0 { return "" }
 	return expression_text(file, label)
+}
+
+Switch_Case :: struct {
+	constant: Const_Id,
+	node:     syntax.Node_Index,
+}
+
+@(private = "file")
+expression_switch_duplicate :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	scope: Scope_Id,
+	file: ^File,
+	node: syntax.Node_Index,
+	info: Expression_Info,
+	seen: ^[dynamic]Switch_Case,
+) -> Resolve_Error {
+	if info.state == .Invalid || info.mode != .Constant || info.constant == 0 { return nil }
+	for previous in seen {
+		equal, equal_error := constant_compare_operator(checker.constants, .Eq, previous.constant, info.constant)
+		if equal_error != nil { continue }
+		if value, is_bool := constant_pool_get(checker.constants, equal).value.(bool); !is_bool || !value { continue }
+		line, column := syntax.line_col(file.lines, file.ast.nodes[previous.node].start)
+		allocator := checker.type_checker.arena_allocator
+		reason := fmt.aprintf(
+			"Duplicate case '%s'\n\tprevious case at %s(%d:%d)",
+			expression_to_string(file, node),
+			file.path,
+			line,
+			column,
+			allocator = allocator,
+		)
+		_, err := expression_failure(checker, view, scope, node, .Message, reason)
+		return err
+	}
+	_, err := append(seen, Switch_Case{info.constant, node})
+	return err
 }

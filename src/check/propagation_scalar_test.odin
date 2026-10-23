@@ -7,7 +7,7 @@ or_branch_checks_scalar_status_expressions :: proc(t: ^testing.T) {
 	source := transmute([]byte)string(
 		`package sample
 Error :: enum { None, Failure }
-main :: proc "contextless" (ready: bool, pointer: ^int, error: Error) {
+entry :: proc "contextless" (ready: bool, pointer: ^int, error: Error) {
 	outer: for {
 		ready or_continue
 		(ready == false) or_break
@@ -19,7 +19,7 @@ main :: proc "contextless" (ready: bool, pointer: ^int, error: Error) {
 }
 `,
 	)
-	procedure, ok := check_procedure_source(t, source, diagnostic_count = 0)
+	procedure, ok := check_procedure_source(t, source, diagnostic_count = 0, procedure_name = "entry")
 	if !testing.expect(t, ok) { return }
 	testing.expect(t, procedure.body_state == .Complete)
 	invalid := transmute([]byte)string(`package sample
