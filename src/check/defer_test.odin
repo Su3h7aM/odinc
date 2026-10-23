@@ -18,7 +18,7 @@ check_procedure_source :: proc(
 	package_name := "",
 	defines: map[string]string = nil,
 	microarch: types.X86_Level = .V1,
-	check_options: Check_Options = {},
+	vet: syntax.Vet_Flags = {},
 ) -> (
 	procedure: Procedure_Data,
 	ok: bool,
@@ -30,6 +30,7 @@ check_procedure_source :: proc(
 	syntax.parser_init(&parser, &ast, source, context.allocator)
 	defer syntax.parser_destroy(&parser)
 	syntax.parse_file(&parser)
+	ast.vet = vet
 	if !testing.expectf(t, len(parser.errors) == 0 && len(parser.lex_errors) == 0, "%v", parser.errors) { return {}, false }
 	store := types.init()
 	defer types.destroy(&store)
@@ -85,8 +86,7 @@ check_procedure_source :: proc(
 	) { return {}, false }
 	defer expression_checker_destroy(&checker)
 	checker.packages = []Package{{}, {kind = package_kind, name = package_name, scope = package_scope}}
-	checker.options = check_options
-	checker.options.vet_package = 1
+	checker.options.complete_package = 1
 	checker.defines = defines
 	checker.target_features = types.x86_features_list(types.x86_level_features(microarch), context.allocator)
 	checker.microarch = microarch

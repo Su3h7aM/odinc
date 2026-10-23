@@ -345,7 +345,7 @@ vet_semicolon_rejects_only_unneeded_explicit_semicolons :: proc(t: ^testing.T) {
 		parser: Parser
 		parser_init(&parser, &ast, transmute([]byte)row.source)
 		defer parser_destroy(&parser)
-		parser.options.vet_semicolon = true
+		parser.options.vet = {.Semicolon}
 		parse_file(&parser)
 		testing.expect_value(t, len(parser.errors), row.errors)
 		if len(parser.errors) != 0 { testing.expect_value(t, parser.errors[0].kind, Parse_Error_Kind.Unneeded_Semicolon) }

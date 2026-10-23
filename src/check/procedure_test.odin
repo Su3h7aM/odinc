@@ -213,15 +213,7 @@ global_initializers_require_contextless_unless_file_opts_in :: proc(t: ^testing.
 unused_vet_reports_unread_locals_and_large_locals_warn :: proc(t: ^testing.T) {
 	// Official: an assigned variable counts as used; only never-referenced names are reported.
 	source := transmute([]byte)string("package sample\nf :: proc() { a := 1; b := 2; _ = b; c: int; c = 3 }\n")
-	_, ok := check_procedure_source(
-		t,
-		source,
-		.Unused,
-		"'a' declared but not used",
-		diagnostic_count = 1,
-		procedure_name = "f",
-		check_options = {vet_unused_variables = true},
-	)
+	_, ok := check_procedure_source(t, source, .Unused, "'a' declared but not used", diagnostic_count = 1, procedure_name = "f", vet = {.Unused_Variables})
 	testing.expect(t, ok)
 	_, silent := check_procedure_source(t, source, diagnostic_count = 0, procedure_name = "f")
 	testing.expect(t, silent)
@@ -248,19 +240,17 @@ shadowing_vet_reports_hidden_variables_but_not_intentional_redeclaration :: proc
 		"Declaration of 'x' shadows declaration at line 3",
 		diagnostic_count = 1,
 		procedure_name = "f",
-		check_options = {vet_shadowing = true},
+		vet = {.Shadowing},
 	)
 	testing.expect(t, ok)
 	redeclared := transmute([]byte)string("package sample\nf :: proc() {\n\tx := 1\n\t{\n\t\tx := x\n\t\t_ = x\n\t}\n\t_ = x\n}\n")
-	_, exempt := check_procedure_source(t, redeclared, diagnostic_count = 0, procedure_name = "f", check_options = {vet_shadowing = true})
+	_, exempt := check_procedure_source(t, redeclared, diagnostic_count = 0, procedure_name = "f", vet = {.Shadowing})
 	testing.expect(t, exempt)
 }
 
 @(test)
 cast_vet_reports_identical_casts_and_integer_transmutes :: proc(t: ^testing.T) {
-	options := Check_Options {
-		vet_cast = true,
-	}
+	options := syntax.Vet_Flags{.Cast}
 	identical := transmute([]byte)string("package sample\nf :: proc(a: int) { _ = cast(int)a }\n")
 	_, ok := check_procedure_source(
 		t,
@@ -269,7 +259,7 @@ cast_vet_reports_identical_casts_and_integer_transmutes :: proc(t: ^testing.T) {
 		"Unneeded cast of 'a' to identical type 'int'",
 		diagnostic_count = 1,
 		procedure_name = "f",
-		check_options = options,
+		vet = options,
 	)
 	testing.expect(t, ok)
 	transmuted := transmute([]byte)string("package sample\nf :: proc(a: int) { _ = transmute(i64)a }\n")
@@ -280,10 +270,10 @@ cast_vet_reports_identical_casts_and_integer_transmutes :: proc(t: ^testing.T) {
 		"Use of 'transmute' where 'cast' would be preferred since both are integers of the same endianness, from 'int' to 'i64'",
 		diagnostic_count = 1,
 		procedure_name = "f",
-		check_options = options,
+		vet = options,
 	)
 	testing.expect(t, integers)
 	converted := transmute([]byte)string("package sample\nf :: proc(a: int) { _ = cast(i64)a }\n")
-	_, silent := check_procedure_source(t, converted, diagnostic_count = 0, procedure_name = "f", check_options = options)
+	_, silent := check_procedure_source(t, converted, diagnostic_count = 0, procedure_name = "f", vet = options)
 	testing.expect(t, silent)
 }

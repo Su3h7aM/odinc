@@ -486,7 +486,7 @@ Entity_Flags :: bit_set[Entity_Flag;u64]
 File_Policy :: struct {
 	bounds_check, type_assert: Check_Policy,
 	division_by_zero:          Division_By_Zero,
-	features, vet:             []string,
+	features:                  []string,
 }
 Import_Edge :: struct {
 	declaration: Node_Ref,

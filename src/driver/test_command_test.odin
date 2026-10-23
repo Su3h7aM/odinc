@@ -4,6 +4,7 @@ import "core:os"
 import "core:path/filepath"
 import "core:strings"
 import "core:testing"
+import "oc:syntax"
 
 @(test)
 test_command_flag_syntax :: proc(t: ^testing.T) {
@@ -44,8 +45,7 @@ test_command_flag_syntax :: proc(t: ^testing.T) {
 	testing.expect(
 		t,
 		build.options.parse_options.disallow_do &&
-		build.options.parse_options.vet_tabs &&
-		build.options.parse_options.vet_style &&
+		{.Tabs, .Style} <= build.options.parse_options.vet &&
 		build.options.parse_options.strict_style &&
 		build.options.microarch == .V2 &&
 		!build.test_mode,
@@ -186,28 +186,35 @@ vet_options_reach_every_checking_command :: proc(t: ^testing.T) {
 			[]string {
 				"testdata",
 				"--vet-using-stmt",
-				"--vet-using-param",
 				"--vet-semicolon",
 				"--vet-unused",
 				"--vet-shadowing",
 				"--vet-cast",
+				"--vet-unused-procedures",
+				"--vet-packages=main,other",
 				"--warnings-as-errors",
 			},
 		)
 		defer delete(command.options.defines)
 		defer delete(command.collections)
+		defer delete(command.options.parse_options.vet_packages)
 		testing.expect_value(t, error, "")
-		testing.expect(
+		testing.expect_value(
 			t,
-			command.options.check_options.vet_using_stmt &&
-			command.options.check_options.vet_using_param &&
-			command.options.check_options.vet_shadowing &&
-			command.options.check_options.vet_cast &&
-			command.options.check_options.vet_unused_variables &&
-			command.options.check_options.vet_unused_imports &&
-			command.options.check_options.warnings_as_errors &&
-			command.options.parse_options.vet_semicolon,
+			command.options.parse_options.vet,
+			syntax.Vet_Flags{.Using_Stmt, .Semicolon, .Unused_Variables, .Unused_Imports, .Shadowing, .Cast, .Unused_Procedures},
 		)
+		testing.expect_value(t, len(command.options.parse_options.vet_packages), 2)
+		testing.expect(t, command.options.check_options.warnings_as_errors)
+	}
+	for row in ([]struct {
+			arguments: []string,
+			message:   string,
+		}{{{"testdata", "--vet-unused-procedures"}, "--vet-unused-procedures must be used with --vet-packages"}, {{"testdata", "--vet-packages=a,1b"}, "--vet-packages '1b' must be a valid identifier"}}) {
+		command, error := parse_command_arguments("check", row.arguments)
+		delete(command.options.defines)
+		delete(command.collections)
+		testing.expect_value(t, error, row.message)
 	}
 }
 
@@ -217,16 +224,6 @@ vet_flag_enables_exactly_the_official_vet_set :: proc(t: ^testing.T) {
 	defer delete(command.options.defines)
 	defer delete(command.collections)
 	testing.expect_value(t, error, "")
-	options := command.options.check_options
-	testing.expect(
-		t,
-		options.vet_using_stmt &&
-		options.vet_unused_variables &&
-		options.vet_unused_imports &&
-		options.vet_shadowing &&
-		options.vet_cast &&
-		options.vet_deprecated &&
-		options.vet_when_shadowing,
-	)
-	testing.expect(t, !options.vet_using_param && !command.options.parse_options.vet_style && !command.options.parse_options.vet_semicolon)
+	testing.expect_value(t, command.options.parse_options.vet, syntax.VET_ALL)
+	testing.expect(t, {.Using_Param, .Style, .Semicolon, .Tabs, .Unused_Procedures} & command.options.parse_options.vet == {})
 }

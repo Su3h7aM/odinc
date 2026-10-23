@@ -115,7 +115,16 @@ expression_type_switch :: proc(checker: ^Expression_Checker, view: View_Id, file
 		if name != "_" {
 			created, create_error := entity_create(
 				checker.type_checker.resolver.scopes,
-				Entity{name = name, kind = .Variable, scope = clause_scope, state = .Resolved, type = clause_type, data = Variable_Data{storage = .Local}},
+				Entity {
+					name = name,
+					kind = .Variable,
+					scope = clause_scope,
+					declaration = {file_id, name_node},
+					state = .Resolved,
+					flags = {.Used},
+					type = clause_type,
+					data = Variable_Data{storage = .Local},
+				},
 			)
 			if create_error != nil { return binding_resolve_error(create_error) }
 			_, insert_error := scope_insert(checker.type_checker.resolver.scopes, clause_scope, created)

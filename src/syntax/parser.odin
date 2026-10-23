@@ -52,6 +52,11 @@ Parse_Error_Kind :: enum u8 {
 	Notted_Feature_Flag,
 	// Expected_Feature_Name is a bare `!` with no flag after it.
 	Expected_Feature_Name,
+	// Vet tag errors: official texts "Expected a space after #+vet", "Expected a vet flag name after '!'" and
+	// "Invalid vet flag name".
+	Expected_Space_After_Vet,
+	Expected_Vet_Flag_Name,
+	Invalid_Vet_Flag,
 	// Conflicting_Feature_Flags is more than one integer-division-by-zero flag
 	// on one #+feature line.
 	Conflicting_Feature_Flags,
@@ -75,11 +80,11 @@ Parse_Error :: struct {
 
 // Parser must not move after `parser_init`: the tokenizer keeps a pointer to `lex_errors`.
 Parse_Options :: struct {
-	disallow_do:   bool,
-	vet_tabs:      bool,
-	vet_style:     bool,
-	vet_semicolon: bool,
-	strict_style:  bool,
+	disallow_do:  bool,
+	// The command-line vet flags; `#+vet` tags and `vet_packages` change them per file.
+	vet:          Vet_Flags,
+	vet_packages: []string,
+	strict_style: bool,
 }
 
 Parser :: struct {
@@ -97,6 +102,8 @@ Parser :: struct {
 	allow_type:       bool,
 	in_foreign_block: bool,
 	options:          Parse_Options,
+	// The vet flags of the file being parsed.
+	vet:              Vet_Flags,
 }
 
 parser_init :: proc(p: ^Parser, ast: ^Ast, source: []byte, allocator := context.allocator) {
@@ -130,6 +137,12 @@ parse_error_text :: proc(err: Parse_Error) -> string {
 		return "With '-strict-style' the attached brace style (1TBS) is enforced"
 	case .Unneeded_Semicolon:
 		return "Found unneeded semicolon"
+	case .Expected_Space_After_Vet:
+		return "Expected a space after #+vet"
+	case .Expected_Vet_Flag_Name:
+		return "Expected a vet flag name after '!'"
+	case .Invalid_Vet_Flag:
+		return "Invalid vet flag name"
 	case .Trailing_Comma_Before_Closer:
 		return fmt.tprintf("No need for a trailing comma followed by a %s on the same line", closer_text(err.expected))
 	}
@@ -171,18 +184,18 @@ expect_closing :: proc(p: ^Parser, kind: Token_Kind) -> Token {
 	if is_inserted_semicolon(p.curr) && peek_token(p, 0).kind == kind {
 		advance_token(p)
 	}
-	check_trailing_comma(p, kind)
 	return expect_token(p, kind)
 }
 
+// Only the `)` of parameter lists reports a trailing comma, as the official expect_token_after does.
 check_trailing_comma :: proc(p: ^Parser, closing: Token_Kind) {
-	if p.options.vet_style && p.curr.kind == closing && p.prev.kind == .Comma && !newline_before(p, p.curr) {
+	if .Style in p.vet && p.curr.kind == closing && p.prev.kind == .Comma && !newline_before(p, p.curr) {
 		report(p, .Trailing_Comma_Before_Closer, p.prev.start, closing)
 	}
 }
 
 enforce_tab_indentation :: proc(p: ^Parser) {
-	if !p.options.vet_tabs || !newline_before(p, p.curr) { return }
+	if .Tabs not_in p.vet || !newline_before(p, p.curr) { return }
 	line_start := p.curr.start
 	for line_start > 0 && p.tokenizer.source[line_start - 1] != '\n' { line_start -= 1 }
 	for offset in line_start ..< p.curr.start {
@@ -210,7 +223,7 @@ skip_possible_newline_before_brace :: proc(p: ^Parser, ignore_strict_style := fa
 
 check_unneeded_semicolon :: proc(p: ^Parser) {
 	semicolon := p.curr
-	if !(p.options.strict_style || p.options.vet_semicolon) || semicolon.kind != .Semicolon || is_inserted_semicolon(semicolon) { return }
+	if !(p.options.strict_style || .Semicolon in p.vet) || semicolon.kind != .Semicolon || is_inserted_semicolon(semicolon) { return }
 	next := peek_token(p, 0)
 	if newline_between(p, semicolon.end, next.start) || next.kind == .EOF || next.kind == .Close_Brace || next.kind == .Close_Paren {
 		report(p, .Unneeded_Semicolon, semicolon.start)
@@ -317,18 +330,18 @@ feature_flag_from_name :: proc(name: string) -> (Feature_Flag, bool) {
 	return {}, false
 }
 
-// next_feature_name splits one flag name off the front of a #+feature tag body,
+// next_flag_name splits one flag name off the front of a #+feature tag body,
 // mirroring vet_tag_get_token with allow_colon in the official parser: names hold
 // letters, digits, '-' and ':', with '!' allowed only first. Anything else ends
 // the name, and a leading separator is its own token.
-next_feature_name :: proc(body: string) -> (name, rest: string) {
+next_flag_name :: proc(body: string, allow_colon: bool) -> (name, rest: string) {
 	trimmed := strings.trim_space(body)
 	offset := 0
 	for offset < len(trimmed) {
 		char, width := utf8.decode_rune_in_string(trimmed[offset:])
 		if offset == 0 && char == '!' {
 			// Consumed below.
-		} else if !is_letter(char) && !is_digit(char) && char != '-' && char != ':' {
+		} else if !is_letter(char) && !is_digit(char) && char != '-' && !(allow_colon && char == ':') {
 			if offset == 0 {
 				return trimmed[:width], trimmed[width:]
 			}
@@ -357,7 +370,7 @@ validate_feature_tag :: proc(p: ^Parser, start: u32, text: string) {
 	enabled, disabled: Feature_Flags
 	for len(strings.trim_space(body)) > 0 {
 		name: string
-		name, body = next_feature_name(body)
+		name, body = next_flag_name(body, true)
 		name = strings.trim_space(name)
 		if len(name) == 0 {
 			break
@@ -396,10 +409,27 @@ validate_feature_tag :: proc(p: ^Parser, start: u32, text: string) {
 	}
 }
 
+// apply_vet_tag applies a `#+vet` tag to the vet flags of the file, as the official parse_vet_tag does.
+apply_vet_tag :: proc(p: ^Parser, start: u32, text: string) {
+	flags, err := parse_vet_tag(text[len("#+vet"):], p.vet)
+	switch err {
+	case .None:
+	case .Expected_Space:
+		report(p, .Expected_Space_After_Vet, start)
+	case .Expected_Flag_Name:
+		report(p, .Expected_Vet_Flag_Name, start)
+	case .Invalid_Flag:
+		report(p, .Invalid_Vet_Flag, start)
+	}
+	p.vet = flags
+}
+
 // parse_file parses the file header, then statements up to EOF, and sets `ast.root`.
 parse_file :: proc(p: ^Parser) -> Node_Index {
 	tags := make([dynamic]Node_Index, 0, 4, p.allocator)
 	defer delete(tags)
+	p.vet = p.options.vet
+	tagged := false
 	for p.curr.kind != .Package && p.curr.kind != .EOF {
 		start := p.curr.start
 		if p.curr.kind != .Directive || !strings.has_prefix(token_text(p.tokenizer.source, p.curr), "#+") {
@@ -409,14 +439,20 @@ parse_file :: proc(p: ^Parser) -> Node_Index {
 		}
 		advance_token(p)
 		push(p, &tags, add_node(p, .File_Tag, start, p.prev.end, File_Tag{}))
-		if text := token_text(p.tokenizer.source, p.prev); strings.has_prefix(text, "#+feature") {
+		text := token_text(p.tokenizer.source, p.prev)
+		if strings.has_prefix(text, "#+feature") {
 			validate_feature_tag(p, start, text)
+		} else if strings.has_prefix(text, "#+vet") {
+			apply_vet_tag(p, start, text)
+			tagged = true
 		}
 		expect_semicolon(p, 0)
 	}
 
 	package_pos := expect_token(p, .Package).start
 	name := parse_ident(p)
+	if !tagged { p.vet = vet_flags_for_package(p.options, node_text(p, name)) }
+	p.ast.vet = p.vet
 	package_decl := add_node(p, .Package_Decl, package_pos, p.prev.end, Package_Decl{package_pos = package_pos, name = name})
 	expect_semicolon(p, package_decl)
 

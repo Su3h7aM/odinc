@@ -9,12 +9,9 @@ import "oc:syntax"
 import "oc:types"
 
 Check_Options :: struct {
-	vet_using_stmt, vet_using_param:          bool,
-	vet_unused_variables, vet_unused_imports: bool,
-	vet_shadowing, vet_cast:                  bool,
-	vet_deprecated, vet_when_shadowing:       bool,
-	vet_package:                              Package_Id,
-	warnings_as_errors:                       bool,
+	warnings_as_errors: bool,
+	// The package whose declarations are all checked, so findings about whole files or packages are sound there.
+	complete_package:   Package_Id,
 }
 
 Message_Diagnostics :: bit_set[Expression_Diagnostic_Kind]{.Shadowing, .Unused, .Large_Local, .Unneeded_Cast, .Deprecated}

@@ -4,7 +4,7 @@ import "core:os"
 import "core:path/filepath"
 import "core:strings"
 import "core:testing"
-import "oc:check"
+import "oc:syntax"
 
 @(test)
 check_command_checks_without_building :: proc(t: ^testing.T) {
@@ -43,7 +43,16 @@ check_directory_keeps_vet_semicolon_diagnostics :: proc(t: ^testing.T) {
 	for enabled in ([2]bool{false, true}) {
 		log := strings.builder_make()
 		defer strings.builder_destroy(&log)
-		error := check_file(root, directory, strings.to_writer(&log), context.allocator, false, nil, nil, parse_options = {vet_semicolon = enabled})
+		error := check_file(
+			root,
+			directory,
+			strings.to_writer(&log),
+			context.allocator,
+			false,
+			nil,
+			nil,
+			parse_options = {vet = {.Semicolon} if enabled else {}},
+		)
 		testing.expect_value(t, error, Driver_Error.Parse_Failed if enabled else Driver_Error.None)
 		if enabled {
 			testing.expect(t, strings.contains(strings.to_string(log), "Syntax Error: Found unneeded semicolon"), strings.to_string(log))
@@ -61,16 +70,49 @@ check_command_reports_when_shadowing_and_deprecated_imports :: proc(t: ^testing.
 	defer os.remove_all(directory)
 	main_path, _ := filepath.join({directory, "main.odin"}, context.temp_allocator)
 	for row in ([]struct {
-			source:  string,
-			options: check.Check_Options,
-			error:   Driver_Error,
-			text:    string,
-		}{{"package main\nwhen true {\n\tlen :: 1\n}\nmain :: proc() {}\n", {vet_when_shadowing = true}, .Check_Failed, "Declaration of 'len' within a global 'when' shadows the builtin 'len'"}, {"package main\nwhen true {\n\tlen :: 1\n}\nmain :: proc() {}\n", {}, .None, ""}, {"package main\nimport \"core:runtime\"\nmain :: proc() {}\n", {vet_deprecated = true}, .Check_Failed, "Error: import \"core:runtime\" has been deprecated in favour of \"base:runtime\""}, {"package main\nimport \"core:runtime\"\nmain :: proc() {}\n", {}, .None, "Warning: import \"core:runtime\" has been deprecated in favour of \"base:runtime\""}}) {
+			source: string,
+			vet:    syntax.Vet_Flags,
+			error:  Driver_Error,
+			text:   string,
+		}{{"package main\nwhen true {\n\tlen :: 1\n}\nmain :: proc() {}\n", {.When_Shadowing}, .Check_Failed, "Declaration of 'len' within a global 'when' shadows the builtin 'len'"}, {"package main\nwhen true {\n\tlen :: 1\n}\nmain :: proc() {}\n", {}, .None, ""}, {"package main\nimport \"core:runtime\"\nmain :: proc() {}\n", {.Deprecated}, .Check_Failed, "Error: import \"core:runtime\" has been deprecated in favour of \"base:runtime\""}, {"package main\nimport \"core:runtime\"\nmain :: proc() {}\n", {}, .None, "Warning: import \"core:runtime\" has been deprecated in favour of \"base:runtime\""}}) {
 		if !testing.expect_value(t, os.write_entire_file(main_path, transmute([]byte)row.source), nil) { return }
 		log := strings.builder_make()
-		error := check_file(root, main_path, strings.to_writer(&log), context.allocator, false, nil, nil, check_options = row.options)
+		error := check_file(root, main_path, strings.to_writer(&log), context.allocator, false, nil, nil, parse_options = {vet = row.vet})
 		testing.expect_value(t, error, row.error)
 		testing.expect(t, strings.contains(strings.to_string(log), row.text), strings.to_string(log))
+		strings.builder_destroy(&log)
+	}
+}
+
+@(test)
+check_command_reports_unused_procedures_and_ignores_type_switch_variables :: proc(t: ^testing.T) {
+	root, _ := filepath.join({#directory, "..", ".."}, context.temp_allocator)
+	directory, directory_error := os.make_directory_temp("", "driver-check-unused-*", context.temp_allocator)
+	if !testing.expect_value(t, directory_error, nil) { return }
+	defer os.remove_all(directory)
+	main_path, _ := filepath.join({directory, "main.odin"}, context.temp_allocator)
+	source := "package sample\nhelper :: proc() {}\nused :: proc() {}\nmain :: proc() {\n\tused()\n\tvalue: union {int, bool}\n\tswitch v in value {\n\tcase int:\n\tcase bool:\n\t}\n}\n"
+	if !testing.expect_value(t, os.write_entire_file(main_path, transmute([]byte)source), nil) { return }
+	for row in ([]struct {
+			vet:      syntax.Vet_Flags,
+			packages: []string,
+			error:    Driver_Error,
+		}{{{.Unused_Procedures, .Unused_Variables}, {"sample"}, .Check_Failed}, {{.Unused_Procedures}, {"other"}, .None}}) {
+		log := strings.builder_make()
+		error := check_file(
+			root,
+			main_path,
+			strings.to_writer(&log),
+			context.allocator,
+			false,
+			nil,
+			nil,
+			parse_options = {vet = row.vet, vet_packages = row.packages},
+		)
+		testing.expect_value(t, error, row.error)
+		text := strings.to_string(log)
+		testing.expect_value(t, strings.contains(text, "'helper' declared but not used"), row.error == .Check_Failed)
+		testing.expect(t, !strings.contains(text, "'used'") && !strings.contains(text, "'main'") && !strings.contains(text, "'v'"), text)
 		strings.builder_destroy(&log)
 	}
 }

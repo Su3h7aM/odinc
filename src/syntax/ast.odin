@@ -43,6 +43,8 @@ Ast :: struct {
 	root:             Node_Index,
 	// Set by a failed append; `parse_file` turns it into a Parse_Error so the parse fails.
 	allocation_error: mem.Allocator_Error,
+	// The vet flags of the file, after `#+vet` tags and `-vet-packages`.
+	vet:              Vet_Flags,
 }
 
 ast_init :: proc(ast: ^Ast, allocator := context.allocator) {

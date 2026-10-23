@@ -2,6 +2,7 @@ package check
 
 import "core:strings"
 import "core:testing"
+import "oc:syntax"
 
 @(test)
 using_statements_reject_nonentities_collisions_and_missing_opt_in :: proc(t: ^testing.T) {
@@ -58,7 +59,7 @@ promoted_field_collisions_are_rejected_at_the_struct_declaration :: proc(t: ^tes
 
 @(test)
 using_vets_only_report_same_type_shadowing_from_using :: proc(t: ^testing.T) {
-	for options in ([]Check_Options{{vet_using_stmt = true}, {vet_using_param = true}}) {
+	for options in ([]syntax.Vet_Flags{{.Using_Stmt}, {.Using_Param}}) {
 		_, ok := check_procedure_source(
 			t,
 			transmute([]byte)string(
@@ -68,7 +69,7 @@ using_vets_only_report_same_type_shadowing_from_using :: proc(t: ^testing.T) {
 			"Declaration of 'x' from 'using' shadows declaration at line 4",
 			diagnostic_count = 1,
 			procedure_name = "f",
-			check_options = options,
+			vet = options,
 		)
 		testing.expect(t, ok)
 		_, clean := check_procedure_source(
@@ -78,7 +79,7 @@ using_vets_only_report_same_type_shadowing_from_using :: proc(t: ^testing.T) {
 			),
 			diagnostic_count = 0,
 			procedure_name = "f",
-			check_options = options,
+			vet = options,
 		)
 		testing.expect(t, clean)
 	}

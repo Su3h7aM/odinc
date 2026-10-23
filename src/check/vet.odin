@@ -10,22 +10,34 @@ import "oc:types"
 // Locals larger than this get a stack overflow warning, as in the official check_scope_usage.
 LARGE_LOCAL_BYTES :: 1 << 18
 
-// Runs the vet checks that need every body checked first, on the files of `options.vet_package`. A body the checker
-// could not finish leaves later names unreferenced, so unused names are only reported when checking had no errors.
+// The vet flags of a file after `#+vet` tags and `-vet-packages` (the official ast_file_vet_flags).
+@(private = "package")
+file_vet :: proc(checker: ^Expression_Checker, file: File_Id) -> syntax.Vet_Flags {
+	return checker.type_checker.files[file].ast.vet
+}
+
+// Runs the vet checks that need every body checked first, each against the flags of the file it reports in.
+// Library packages are checked lazily, so a declaration that nothing refers to is never checked. Findings about a
+// single body hold anywhere, but findings about the use of a whole file (imports) or package (procedures) are
+// only sound for `options.complete_package`, where every declaration is checked. A body the checker could not
+// finish leaves later names unreferenced, so unused names are only reported when checking had no errors.
 check_vet :: proc(checker: ^Expression_Checker, errors_found: bool) -> Resolve_Error {
 	first := len(checker.diagnostics)
 	scopes := checker.type_checker.resolver.scopes
-	for &entity in scopes.entities {
+	for &entity, index in scopes.entities {
 		if entity.declaration.file == 0 || entity.name == "" || entity.name == "_" { continue }
-		if !vetted_file(checker, entity.declaration.file) { continue }
+		flags := file_vet(checker, entity.declaration.file)
+		complete := checker.type_checker.files[entity.declaration.file].package_id == checker.options.complete_package
 		#partial switch entity.kind {
 		case .Variable:
-			check_local_variable(checker, scopes, &entity, first, errors_found) or_return
+			check_local_variable(checker, scopes, &entity, flags, first, errors_found) or_return
 		case .Import_Name, .Library_Name:
-			if !errors_found { check_unused_import(checker, &entity, first) or_return }
+			if complete && !errors_found { check_unused_import(checker, &entity, flags, first) or_return }
+		case .Procedure:
+			if complete && !errors_found { check_unused_procedure(checker, scopes, &entity, flags, first) or_return }
 		}
+		if complete { check_when_shadowing(checker, scopes, &entity, Entity_Id(index), flags, first) or_return }
 	}
-	check_when_shadowing(checker, first) or_return
 	check_deprecated_imports(checker, first) or_return
 	slice.sort_by(checker.diagnostics[first:], proc(a, b: Expression_Diagnostic) -> bool {
 		if a.source.file != b.source.file { return a.source.file < b.source.file }
@@ -34,24 +46,25 @@ check_vet :: proc(checker: ^Expression_Checker, errors_found: bool) -> Resolve_E
 	return nil
 }
 
-@(private = "package")
-vetted_file :: proc(checker: ^Expression_Checker, file: File_Id) -> bool {
-	return checker.type_checker.files[file].package_id == checker.options.vet_package
-}
-
 // Follows the official check_scope_usage: one finding per entity, so a name that is both unused and shadowing is
 // reported once, and the stack size note only applies to names with neither finding.
 @(private = "file")
-check_local_variable :: proc(checker: ^Expression_Checker, scopes: ^Scope_Store, entity: ^Entity, first: int, errors_found: bool) -> Resolve_Error {
+check_local_variable :: proc(
+	checker: ^Expression_Checker,
+	scopes: ^Scope_Store,
+	entity: ^Entity,
+	flags: syntax.Vet_Flags,
+	first: int,
+	errors_found: bool,
+) -> Resolve_Error {
 	variable, is_variable := entity.data.(Variable_Data)
 	if !is_variable || variable.storage != .Local { return nil }
 	if scope := scope_get(scopes, entity.scope); scope == nil || scope.kind != .Block && scope.kind != .Procedure { return nil }
-	options := checker.options
 	allocator := mem.dynamic_arena_allocator(&checker.arena)
-	unused := (options.vet_unused_variables || options.vet_unused_imports) && !errors_found
+	unused := flags & syntax.VET_UNUSED != {} && !errors_found
 	unused &&= .Used not_in entity.flags && entity.flags & {.Parameter, .Result, .Using, .Field} == {}
 	shadowed: ^Entity
-	if options.vet_shadowing || options.vet_using_stmt || options.vet_using_param { shadowed = find_shadowed(checker, scopes, entity) }
+	if flags & {.Shadowing, .Using_Stmt, .Using_Param} != {} { shadowed = find_shadowed(checker, scopes, entity) }
 	if shadowed != nil {
 		line := declaration_line(checker, shadowed)
 		if unused {
@@ -59,7 +72,7 @@ check_local_variable :: proc(checker: ^Expression_Checker, scopes: ^Scope_Store,
 			return report_vet(checker, first, .Unused, .Error, entity, reason)
 		}
 		using_shadow := .Using in entity.flags
-		if using_shadow || options.vet_shadowing {
+		if using_shadow || .Shadowing in flags {
 			format :=
 				"Declaration of '%s' from 'using' shadows declaration at line %d" if using_shadow else "Declaration of '%s' shadows declaration at line %d"
 			reason := fmt.aprintf(format, entity.name, line, allocator = allocator)
@@ -68,7 +81,7 @@ check_local_variable :: proc(checker: ^Expression_Checker, scopes: ^Scope_Store,
 		return nil
 	}
 	if unused {
-		if !options.vet_unused_variables { return nil }
+		if .Unused_Variables not_in flags { return nil }
 		return report_vet(checker, first, .Unused, .Error, entity, fmt.aprintf("'%s' declared but not used", entity.name, allocator = allocator))
 	}
 	if entity.flags & {.Parameter, .Using, .Field} != {} && .Result not_in entity.flags { return nil }
@@ -129,9 +142,26 @@ declaration_line :: proc(checker: ^Expression_Checker, entity: ^Entity) -> u32 {
 }
 
 @(private = "file")
-check_unused_import :: proc(checker: ^Expression_Checker, entity: ^Entity, first: int) -> Resolve_Error {
-	if !checker.options.vet_unused_imports || .Used in entity.flags || .Export in entity.flags { return nil }
+check_unused_import :: proc(checker: ^Expression_Checker, entity: ^Entity, flags: syntax.Vet_Flags, first: int) -> Resolve_Error {
+	if .Unused_Imports not_in flags || .Used in entity.flags || .Export in entity.flags { return nil }
 	if library, is_library := entity.data.(Library_Data); is_library && library.used { return nil }
+	reason := fmt.aprintf("'%s' declared but not used", entity.name, allocator = mem.dynamic_arena_allocator(&checker.arena))
+	return report_vet(checker, first, .Unused, .Error, entity, reason)
+}
+
+// The official check_scope_usage with vet_unused_procedures: a procedure nothing refers to is unused unless it is
+// `@(require)`, `@(init)`, `@(fini)`, exported, or `main` of the main package. Instances of generic procedures are
+// not declarations of their own.
+@(private = "file")
+check_unused_procedure :: proc(checker: ^Expression_Checker, scopes: ^Scope_Store, entity: ^Entity, flags: syntax.Vet_Flags, first: int) -> Resolve_Error {
+	if .Unused_Procedures not_in flags || .Used in entity.flags || entity.flags & {.Required, .Export, .Test} != {} { return nil }
+	procedure := entity.data.(Procedure_Data) or_else {}
+	if procedure.instance != 0 || procedure.definition != 0 { return nil }
+	if scope := scope_get(scopes, entity.scope); scope == nil || scope.kind == .Type_Member { return nil }
+	if entity.package_id == checker.options.complete_package && entity.name == "main" { return nil }
+	_, is_init := declaration_attribute(checker, entity^, "init") or_return
+	_, is_fini := declaration_attribute(checker, entity^, "fini") or_return
+	if is_init || is_fini { return nil }
 	reason := fmt.aprintf("'%s' declared but not used", entity.name, allocator = mem.dynamic_arena_allocator(&checker.arena))
 	return report_vet(checker, first, .Unused, .Error, entity, reason)
 }
@@ -140,38 +170,39 @@ check_unused_import :: proc(checker: ^Expression_Checker, entity: ^Entity, first
 // check_vet_when_shadowing finds it. A name kept in the package scope can only hide a builtin; a file-private one hides
 // package-level declarations.
 @(private = "file")
-check_when_shadowing :: proc(checker: ^Expression_Checker, first: int) -> Resolve_Error {
-	if !checker.options.vet_when_shadowing { return nil }
-	scopes := checker.type_checker.resolver.scopes
-	for &entity, index in scopes.entities {
-		if .In_When not_in entity.flags || entity.kind == .Import_Name || entity.declaration.file == 0 { continue }
-		if !vetted_file(checker, entity.declaration.file) { continue }
-		file_scope := scope_get(scopes, entity.scope)
-		outer := file_scope.parent
-		if file_scope.lookup[entity.name] != Entity_Id(index) { outer = scope_get(scopes, outer).parent }
-		shadowed_id, found_scope := scope_find(scopes, outer, entity.name)
-		shadowed := entity_get(scopes, shadowed_id)
-		if shadowed == nil || shadowed_id == Entity_Id(index) { continue }
-		allocator := mem.dynamic_arena_allocator(&checker.arena)
-		reason: string
-		if scope_get(scopes, found_scope).kind == .Universal || shadowed.declaration.file == 0 {
-			reason = fmt.aprintf("Declaration of '%s' within a global 'when' shadows the builtin '%s'", entity.name, entity.name, allocator = allocator)
-		} else {
-			other := checker.type_checker.files[shadowed.declaration.file]
-			line, column := syntax.line_col(other.lines, shadowed.order.offset)
-			reason = fmt.aprintf(
-				"Declaration of '%s' within a global 'when' shadows the declaration at %s(%d:%d)",
-				entity.name,
-				other.display_path,
-				line,
-				column,
-				allocator = allocator,
-			)
-		}
-		start := entity.order.offset
-		report_at(checker, first, .Shadowing, .Error, {entity.declaration.file, start, start + u32(len(entity.name))}, reason) or_return
+check_when_shadowing :: proc(
+	checker: ^Expression_Checker,
+	scopes: ^Scope_Store,
+	entity: ^Entity,
+	id: Entity_Id,
+	flags: syntax.Vet_Flags,
+	first: int,
+) -> Resolve_Error {
+	if .When_Shadowing not_in flags || .In_When not_in entity.flags || entity.kind == .Import_Name { return nil }
+	file_scope := scope_get(scopes, entity.scope)
+	outer := file_scope.parent
+	if file_scope.lookup[entity.name] != id { outer = scope_get(scopes, outer).parent }
+	shadowed_id, found_scope := scope_find(scopes, outer, entity.name)
+	shadowed := entity_get(scopes, shadowed_id)
+	if shadowed == nil || shadowed_id == id { return nil }
+	allocator := mem.dynamic_arena_allocator(&checker.arena)
+	reason: string
+	if scope_get(scopes, found_scope).kind == .Universal || shadowed.declaration.file == 0 {
+		reason = fmt.aprintf("Declaration of '%s' within a global 'when' shadows the builtin '%s'", entity.name, entity.name, allocator = allocator)
+	} else {
+		other := checker.type_checker.files[shadowed.declaration.file]
+		line, column := syntax.line_col(other.lines, shadowed.order.offset)
+		reason = fmt.aprintf(
+			"Declaration of '%s' within a global 'when' shadows the declaration at %s(%d:%d)",
+			entity.name,
+			other.display_path,
+			line,
+			column,
+			allocator = allocator,
+		)
 	}
-	return nil
+	start := entity.order.offset
+	return report_at(checker, first, .Shadowing, .Error, {entity.declaration.file, start, start + u32(len(entity.name))}, reason)
 }
 
 // `import "core:runtime"`, `core:intrinsics` and `core:builtin` name base packages. The official parser always warns,
@@ -199,7 +230,7 @@ report_deprecated_import :: proc(checker: ^Expression_Checker, first: int, decla
 	if !strings.has_prefix(text, "core:") { return nil }
 	name := text[len("core:"):]
 	if !strings.has_prefix(name, "runtime") && !strings.has_prefix(name, "intrinsics") && !strings.has_prefix(name, "builtin") { return nil }
-	severity := Diagnostic_Severity.Error if checker.options.vet_deprecated && vetted_file(checker, declaration.file) else .Warning
+	severity := Diagnostic_Severity.Error if .Deprecated in file_vet(checker, declaration.file) else .Warning
 	reason := fmt.aprintf(
 		"import \"core:%s\" has been deprecated in favour of \"base:%s\"",
 		name,
@@ -222,9 +253,13 @@ report_vet :: proc(
 ) -> Resolve_Error {
 	file := checker.type_checker.files[entity.declaration.file]
 	node := entity.declaration.node
-	if file.ast.nodes[node].kind == .Import_Decl {
+	#partial switch file.ast.nodes[node].kind {
+	case .Import_Decl:
 		import_decl := syntax.node_payload(file.ast, node, syntax.Import_Decl)
 		node = import_decl.name if import_decl.name != 0 else import_decl.relpath
+	case .Value_Decl:
+		start := entity.order.offset
+		return report_at(checker, first, kind, severity, {entity.declaration.file, start, start + u32(len(entity.name))}, reason)
 	}
 	span := file.ast.nodes[node]
 	return report_at(checker, first, kind, severity, {entity.declaration.file, span.start, span.end}, reason)

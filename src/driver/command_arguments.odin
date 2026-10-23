@@ -47,6 +47,8 @@ Command_Flags :: struct {
 	vet_unused_imports:        bool,
 	vet_shadowing:             bool,
 	vet_cast:                  bool,
+	vet_unused_procedures:     bool,
+	vet_packages:              string,
 	vet:                       bool,
 	vet_when_shadowing:        bool,
 	warnings_as_errors:        bool,
@@ -73,6 +75,8 @@ Check_Command_Flags :: struct {
 	vet_unused_imports:        bool,
 	vet_shadowing:             bool,
 	vet_cast:                  bool,
+	vet_unused_procedures:     bool,
+	vet_packages:              string,
 	vet:                       bool,
 	vet_when_shadowing:        bool,
 	warnings_as_errors:        bool,
@@ -135,6 +139,8 @@ parse_command_arguments :: proc(name: string, args: []string, allocator := conte
 		model.vet_unused_imports = check_flags.vet_unused_imports
 		model.vet_shadowing = check_flags.vet_shadowing
 		model.vet_cast = check_flags.vet_cast
+		model.vet_unused_procedures = check_flags.vet_unused_procedures
+		model.vet_packages = check_flags.vet_packages
 		model.vet = check_flags.vet
 		model.vet_when_shadowing = check_flags.vet_when_shadowing
 		model.warnings_as_errors = check_flags.warnings_as_errors
@@ -150,24 +156,17 @@ parse_command_arguments :: proc(name: string, args: []string, allocator := conte
 	command.keep_executable = model.keep_executable
 	command.options.all_packages = model.all_packages
 	command.options.thread_count = model.thread_count
-	// Follows VetFlag_All in the official build_settings.cpp: --vet leaves out using-param, style, semicolon and tabs.
+	vet_packages, vet_packages_error := parse_vet_packages(model.vet_packages, allocator)
+	if vet_packages_error != "" { return command, vet_packages_error }
+	if model.vet_unused_procedures && model.vet_packages == "" { return command, "--vet-unused-procedures must be used with --vet-packages" }
 	command.options.check_options = check.Check_Options {
-		vet_using_stmt       = model.vet || model.vet_using_stmt,
-		vet_using_param      = model.vet_using_param,
-		vet_unused_variables = model.vet || model.vet_unused || model.vet_unused_variables,
-		vet_unused_imports   = model.vet || model.vet_unused || model.vet_unused_imports,
-		vet_shadowing        = model.vet || model.vet_shadowing,
-		vet_cast             = model.vet || model.vet_cast,
-		vet_deprecated       = model.vet,
-		vet_when_shadowing   = model.vet || model.vet_when_shadowing,
-		warnings_as_errors   = model.warnings_as_errors,
+		warnings_as_errors = model.warnings_as_errors,
 	}
 	command.options.parse_options = syntax.Parse_Options {
-		vet_semicolon = model.vet_semicolon,
-		disallow_do   = model.disallow_do,
-		vet_tabs      = model.vet_tabs,
-		vet_style     = model.vet_style,
-		strict_style  = model.strict_style,
+		disallow_do  = model.disallow_do,
+		vet          = vet_flags_from_command(model),
+		vet_packages = vet_packages,
+		strict_style = model.strict_style,
 	}
 	if command.path == "" { return command, fmt.tprintf("usage: odinc %s <file-or-directory> [options] [-- arguments]", name) }
 	if model.sanitize != "" { return command, "odinc test: sanitizers are not supported" }
@@ -237,4 +236,42 @@ default_output_path :: proc(input: string, allocator := context.allocator) -> (o
 	result, allocation_error := strings.concatenate({name, extension}, allocator)
 	if allocation_error != nil { return "", "Allocation failed" }
 	return result, ""
+}
+
+// `--vet` is VetFlag_All of the official build_settings.cpp, which leaves out using-param, style, semicolon and tabs.
+@(private = "file")
+vet_flags_from_command :: proc(model: Command_Flags) -> (flags: syntax.Vet_Flags) {
+	if model.vet { flags += syntax.VET_ALL }
+	if model.vet_unused { flags += syntax.VET_UNUSED }
+	if model.vet_unused_variables { flags += {.Unused_Variables} }
+	if model.vet_unused_imports { flags += {.Unused_Imports} }
+	if model.vet_unused_procedures { flags += {.Unused_Procedures} }
+	if model.vet_shadowing { flags += {.Shadowing} }
+	if model.vet_using_stmt { flags += {.Using_Stmt} }
+	if model.vet_using_param { flags += {.Using_Param} }
+	if model.vet_style { flags += {.Style} }
+	if model.vet_semicolon { flags += {.Semicolon} }
+	if model.vet_cast { flags += {.Cast} }
+	if model.vet_tabs { flags += {.Tabs} }
+	if model.vet_when_shadowing { flags += {.When_Shadowing} }
+	return
+}
+
+// A comma separated list of package names, each a valid identifier, as main.cpp BuildFlag_VetPackages reads it.
+@(private = "file")
+parse_vet_packages :: proc(value: string, allocator: runtime.Allocator) -> (names: []string, error: string) {
+	if value == "" { return nil, "" }
+	parts, split_error := strings.split(value, ",", allocator)
+	if split_error != nil { return nil, "Allocation failed" }
+	for &part in parts {
+		part = strings.trim_space(part)
+		valid := part != "" && !(part[0] >= '0' && part[0] <= '9')
+		for char in part { valid &&= char == '_' || char >= 'a' && char <= 'z' || char >= 'A' && char <= 'Z' || char >= '0' && char <= '9' || char >= 0x80 }
+		if !valid {
+			message := fmt.tprintf("--vet-packages '%s' must be a valid identifier", part)
+			delete(parts, allocator)
+			return nil, message
+		}
+	}
+	return parts, ""
 }

@@ -313,7 +313,7 @@ check_session :: proc(
 	}
 	if error := assign_init_order(session); error != .None { return error }
 	if error := session_init_checkers(session); error != .None { return error }
-	session.checker.options.vet_package = main_package
+	session.checker.options.complete_package = main_package
 	if error := bind_whens(session); error != .None { return error }
 	if session.test_options != nil {
 		if error := collect_test_entry(session, main_package); error != .None { return error }

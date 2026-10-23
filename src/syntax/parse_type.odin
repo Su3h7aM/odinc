@@ -375,6 +375,7 @@ parse_results :: proc(p: ^Parser) -> (list: Node_Index, diverging: bool) {
 
 	expect_token(p, .Open_Paren)
 	list, _ = parse_field_list(p, .Close_Paren, field_flags_signature_results)
+	check_trailing_comma(p, .Close_Paren)
 	expect_closing_token(p, .Close_Paren)
 	return
 }
@@ -495,6 +496,7 @@ parse_proc_type :: proc(p: ^Parser, tok: Token) -> Node_Index {
 	p.expr_level += 1
 	params, _ := parse_field_list(p, .Close_Paren, field_flags_signature_params)
 	p.expr_level -= 1
+	check_trailing_comma(p, .Close_Paren)
 	expect_closing_token(p, .Close_Paren)
 	results, diverging := parse_results(p)
 
@@ -666,6 +668,7 @@ parse_poly_params :: proc(p: ^Parser) -> Node_Index {
 		report(p, .Missing_Poly_Parameter, p.ast.nodes[params].start)
 		result = 0
 	}
+	check_trailing_comma(p, .Close_Paren)
 	expect_closing(p, .Close_Paren)
 	return result
 }

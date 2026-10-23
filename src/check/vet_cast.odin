@@ -19,7 +19,7 @@ vet_conversion :: proc(
 	target: types.Type_Id,
 ) -> Resolve_Error {
 	file_id := checker.views[view].file
-	if !checker.options.vet_cast || checker.active_instance != 0 || !vetted_file(checker, file_id) { return nil }
+	if .Cast not_in file_vet(checker, file_id) || checker.active_instance != 0 { return nil }
 	store := checker.type_checker.store
 	source_base := conversion_base_type(store, source.type)
 	if conversion_untyped(types.get(store, source_base).kind) { return nil }
@@ -36,8 +36,8 @@ vet_conversion :: proc(
 	if castable != .None { return nil }
 	target_base := conversion_base_type(store, target)
 	unneeded := fmt.aprintf("Unneeded transmute of '%s' to identical type '%s'", expression_to_string(file, node), target_text, allocator = allocator)
-	source_core := types.get(store, conversion_core_type(store, source.type))
-	target_core := types.get(store, conversion_core_type(store, target))
+	source_core := types.get(store, source_base)
+	target_core := types.get(store, target_base)
 	reason: string
 	switch {
 	case source.type == target:
