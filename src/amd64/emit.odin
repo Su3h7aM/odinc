@@ -70,6 +70,8 @@ Emitter :: struct {
 	scratch_taken:  [Register_Class]int,
 	stores:         [4]Pending_Store,
 	store_count:    int,
+	epilogue_first: u32,
+	has_return:     bool,
 }
 
 // Emits `function` as one text atom. `result` is the allocation of `build_program(function)`.
@@ -128,6 +130,11 @@ emit_function :: proc(
 		}
 	}
 
+	if emitter.has_return {
+		drop_final_return_jump(&emitter)
+		emitter.epilogue_first = u32(len(emitter.instructions))
+		emit_epilogue(&emitter.instructions, emitter.layout) or_return
+	}
 	code, unresolved := relax_and_encode(&emitter) or_return
 	bytes := make([]byte, len(code), allocator) or_return
 	copy(bytes, code)
@@ -137,7 +144,7 @@ emit_function :: proc(
 		return {}, alloc_err
 	}
 	for relocation, index in unresolved {
-		external := emitter.externals[int(relocation.label_id) - len(function.blocks)]
+		external := emitter.externals[int(relocation.label_id) - external_base(function)]
 		relocations[index] = link.Relocation {
 			offset = relocation.offset,
 			symbol = external.symbol,
@@ -156,9 +163,8 @@ atom_destroy :: proc(atom: ^link.Atom, allocator: mem.Allocator) {
 
 @(private = "file")
 relax_and_encode :: proc(emitter: ^Emitter) -> (code: []byte, unresolved: []x86.Relocation, err: Emit_Error) {
-	block_count := len(emitter.function.blocks)
 	instruction_count := len(emitter.instructions)
-	instruction_label_base := block_count + len(emitter.externals)
+	instruction_label_base := external_base(emitter.function) + len(emitter.externals)
 	for branch in emitter.local_branches {
 		emitter.instructions[branch.instruction] = x86.inst_rel(branch.mnemonic, u32(instruction_label_base) + branch.block, 1)
 	}
@@ -171,7 +177,8 @@ relax_and_encode :: proc(emitter: ^Emitter) -> (code: []byte, unresolved: []x86.
 		for first, block_index in emitter.block_first {
 			label_defs[block_index] = x86.Label_Definition(first)
 		}
-		for index in len(emitter.block_first) ..< instruction_label_base {
+		label_defs[epilogue_label(emitter.function)] = x86.Label_Definition(emitter.epilogue_first)
+		for index in external_base(emitter.function) ..< instruction_label_base {
 			label_defs[index] = x86.LABEL_UNDEFINED
 		}
 		for index in 0 ..< len(emitter.instructions) {
@@ -221,7 +228,7 @@ emit_instruction_body :: proc(emitter: ^Emitter, instruction: Machine_Instructio
 	case .Entry:
 		return nil
 	case .Return:
-		return emit_epilogue(&emitter.instructions, emitter.layout)
+		return emit_return_jump(emitter)
 	case .Copy:
 		destination, destination_ok := instruction.operands[0].(Vreg)
 		source, source_ok := instruction.operands[1].(Vreg)
@@ -246,6 +253,42 @@ emit_instruction_body :: proc(emitter: ^Emitter, instruction: Machine_Instructio
 		return lower_instruction(emitter, instruction, block)
 	}
 	return nil
+}
+
+// Labels number the blocks, then the shared epilogue, then the external symbols, then the instructions.
+@(private = "file")
+epilogue_label :: proc(function: ^Machine_Function) -> u32 {
+	return u32(len(function.blocks))
+}
+
+@(private = "file")
+external_base :: proc(function: ^Machine_Function) -> int {
+	return len(function.blocks) + 1
+}
+
+// Every return jumps to the one epilogue, so the callee-saved restores are emitted once per procedure.
+@(private = "file")
+emit_return_jump :: proc(emitter: ^Emitter) -> Emit_Error {
+	label := epilogue_label(emitter.function)
+	append(&emitter.branches, Branch{u32(len(emitter.instructions)), label, .JMP}) or_return
+	append(&emitter.instructions, x86.inst_rel(.JMP, label, 1)) or_return
+	emitter.has_return = true
+	return nil
+}
+
+// A return that is the last instruction jumps onto the epilogue that directly follows it, so the jump is dropped.
+@(private = "file")
+drop_final_return_jump :: proc(emitter: ^Emitter) {
+	count := len(emitter.branches)
+	if count == 0 {
+		return
+	}
+	last := emitter.branches[count - 1]
+	if last.block != epilogue_label(emitter.function) || int(last.instruction) != len(emitter.instructions) - 1 {
+		return
+	}
+	pop(&emitter.branches)
+	pop(&emitter.instructions)
 }
 
 @(private = "file")
@@ -399,7 +442,7 @@ external_label :: proc(emitter: ^Emitter, target: Symbol_Target, kind: elf.R_X86
 		return 0, Emit_Failure.Unknown_Symbol
 	}
 	append(&emitter.externals, External_Reference{symbols[target.symbol.index], kind, addend}) or_return
-	return u32(len(emitter.function.blocks) + len(emitter.externals) - 1), nil
+	return u32(external_base(emitter.function) + len(emitter.externals) - 1), nil
 }
 
 @(private = "file")
@@ -593,7 +636,10 @@ fall_through_by_inverting :: proc(emitter: ^Emitter, block: u32, target: u32) ->
 	}
 	branch := &emitter.branches[len(emitter.branches) - 1]
 	inverse, invertible := inverted_condition(branch.mnemonic)
-	if !invertible || branch.block != block + 1 || int(branch.instruction) != len(emitter.instructions) - 1 {
+	if !invertible ||
+	   branch.block != block + 1 ||
+	   int(branch.instruction) != len(emitter.instructions) - 1 ||
+	   int(branch.instruction) < int(emitter.block_first[block]) {
 		return false
 	}
 	branch.mnemonic = inverse

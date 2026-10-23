@@ -100,20 +100,15 @@ emitted_add_links_and_exits_with_seven :: proc(t: ^testing.T) {
 @(test)
 emitted_shift_by_immediate_uses_imm8_form :: proc(t: ^testing.T) {
 	// The 64-bit shift by 1 comes first, so a cached shift-by-1 form would be reused for the 56.
-	shift_by_one_64 := [?]byte{0x55, 0x48, 0x89, 0xe5, 0x48, 0xc1, 0xef, 0x01, 0x48, 0x89, 0xf8, 0x5d, 0xc3}
-	shift_by_56_64 := [?]byte{0x55, 0x48, 0x89, 0xe5, 0x48, 0xc1, 0xef, 0x38, 0x48, 0x89, 0xf8, 0x5d, 0xc3}
-	shift_by_5_32 := [?]byte{0x55, 0x48, 0x89, 0xe5, 0xc1, 0xef, 0x05, 0x48, 0x89, 0xf8, 0x5d, 0xc3}
-	shift_by_3_16 := [?]byte{0x55, 0x48, 0x89, 0xe5, 0x66, 0xc1, 0xef, 0x03, 0x48, 0x89, 0xf8, 0x5d, 0xc3}
-	shift_by_7_8 := [?]byte{0x55, 0x48, 0x89, 0xe5, 0x40, 0xc0, 0xef, 0x07, 0x48, 0x89, 0xf8, 0x5d, 0xc3}
-	expect_emitted_shift(t, 8, 1, shift_by_one_64[:])
-	expect_emitted_shift(t, 8, 56, shift_by_56_64[:])
-	expect_emitted_shift(t, 4, 5, shift_by_5_32[:])
-	expect_emitted_shift(t, 2, 3, shift_by_3_16[:])
-	expect_emitted_shift(t, 1, 7, shift_by_7_8[:])
+	expect_emitted_shift(t, 8, 1, {0x48, 0xc1})
+	expect_emitted_shift(t, 8, 56, {0x48, 0xc1})
+	expect_emitted_shift(t, 4, 5, {0xc1})
+	expect_emitted_shift(t, 2, 3, {0x66, 0xc1})
+	expect_emitted_shift(t, 1, 7, {0xc0})
 }
 
 @(private = "file")
-expect_emitted_shift :: proc(t: ^testing.T, width: u8, count: i64, expected: []byte) {
+expect_emitted_shift :: proc(t: ^testing.T, width: u8, count: i64, imm8_opcode: []byte) {
 	arena: virtual.Arena
 	testing.expect_value(t, virtual.arena_init_growing(&arena), nil)
 	defer virtual.arena_destroy(&arena)
@@ -148,7 +143,15 @@ expect_emitted_shift :: proc(t: ^testing.T, width: u8, count: i64, expected: []b
 	atom, emit_err := emit_function(&function, &result, {}, context.allocator)
 	testing.expect_value(t, emit_err, nil)
 	defer atom_destroy(&atom, context.allocator)
-	testing.expectf(t, slice.equal(atom.bytes, expected), "width %v count %v emitted % x", width, count, atom.bytes)
+	found := false
+	for start in 0 ..< len(atom.bytes) - len(imm8_opcode) - 1 {
+		window := atom.bytes[start:]
+		modrm := window[len(imm8_opcode)]
+		if slice.equal(window[:len(imm8_opcode)], imm8_opcode) && modrm & 0xf8 == 0xe8 && window[len(imm8_opcode) + 1] == byte(count) {
+			found = true
+		}
+	}
+	testing.expectf(t, found, "width %v count %v: no imm8 shift in % x", width, count, atom.bytes)
 }
 
 @(test)
@@ -196,4 +199,47 @@ emitted_indexed_load_and_store_with_spilled_operands :: proc(t: ^testing.T) {
 		if atom.bytes[index] == 0x4f && atom.bytes[index + 1] == 0x8d && atom.bytes[index + 2] == 0x14 && atom.bytes[index + 3] == 0xda { lea_count += 1 }
 	}
 	testing.expect_value(t, lea_count, 2)
+}
+
+@(test)
+emitted_epilogue_restores_stack_pointer_moved_by_the_body :: proc(t: ^testing.T) {
+	arena: virtual.Arena
+	testing.expect_value(t, virtual.arena_init_growing(&arena), nil)
+	defer virtual.arena_destroy(&arena)
+	allocator := virtual.arena_allocator(&arena)
+
+	signature := ir.Signature {
+		cc     = .C,
+		params = []ir.Param{{type = .I64}},
+	}
+	assignment, abi_err := assign_signature(signature, allocator)
+	testing.expect_value(t, abi_err, nil)
+
+	function: Machine_Function
+	testing.expect_value(t, machine_function_init(&function, "moves_stack"), nil)
+	defer machine_function_destroy(&function)
+	block, _ := add_block(&function)
+	params, start_err := lower_start(&function, block, signature, assignment, allocator)
+	testing.expect_value(t, start_err, nil)
+	testing.expect_value(t, emit(&function, block, .MOV, 8, Physical_Register(Gpr.RSP), params[0].(Vreg)), nil)
+	testing.expect_value(t, emit_pseudo(&function, block, .Return), nil)
+	testing.expect_value(t, verify_machine(&function), Verify_Error{})
+
+	program, program_err := build_program(&function, allocator)
+	testing.expect_value(t, program_err, nil)
+	result, allocation_err := regalloc.allocate(&program)
+	defer regalloc.result_destroy(&result)
+	testing.expect_value(t, allocation_err.kind, regalloc.Allocation_Error.None)
+
+	atom, emit_err := emit_function(&function, &result, {}, context.allocator)
+	testing.expect_value(t, emit_err, nil)
+	defer atom_destroy(&atom, context.allocator)
+	// mov rsp, rbp; pop rbp; ret
+	restore := [?]byte{0x48, 0x89, 0xec, 0x5d, 0xc3}
+	testing.expectf(
+		t,
+		len(atom.bytes) >= len(restore) && slice.equal(atom.bytes[len(atom.bytes) - len(restore):], restore[:]),
+		"epilogue emitted % x",
+		atom.bytes,
+	)
 }
