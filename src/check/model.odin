@@ -593,21 +593,24 @@ Label_Data :: struct {
 	scope:  Scope_Id,
 }
 // Absent: no default. Invalid: a default rejected where it was declared, which already reports the error.
-// Value: an expression re-evaluated at each call in the declaring view.
+// Declaration stores syntax in its declaring scope; Value holds a checked operand.
 Default_Kind :: enum u8 {
 	Absent,
 	Invalid,
 	Constant,
 	Value,
+	Declaration,
 	Caller_Location,
 	Caller_Expression,
 }
 // For Caller_Expression, an empty source_parameter captures the call's own expression text.
 Default_Argument :: struct {
-	kind:             Default_Kind,
-	value:            Operand,
-	conversion:       Plan_Id,
-	source_parameter: string,
+	kind:              Default_Kind,
+	value:             Operand,
+	conversion:        Plan_Id,
+	source_parameter:  string,
+	declaration_scope: Scope_Id,
+	target_type:       types.Type_Id,
 }
 Procedure_Data :: struct {
 	source_name:         string,

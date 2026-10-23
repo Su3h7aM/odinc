@@ -60,6 +60,14 @@ expression_procedure_info_build :: proc(
 			for _ in 0 ..< max(int(field.names.count), 1) {
 				if field.default_value != 0 {
 					info.defaults[index] = expression_default_argument(checker, view, scope, field.default_value, parameters[index]) or_return
+					if info.defaults[index].kind == .Value {
+						info.defaults[index] = Default_Argument {
+							kind              = .Declaration,
+							value             = Operand(Expression_Ref{view, field.default_value}),
+							declaration_scope = scope,
+							target_type       = parameters[index],
+						}
+					}
 				}
 				info.parameter_flags[index] = flags
 				index += 1

@@ -33,6 +33,53 @@ candidate := identity(1)
 `, check_generic_instance_checked_once)
 }
 
+@(test)
+default_operands_cached_during_speculation_are_checked_for_the_call :: proc(t: ^testing.T) {
+	speculation_fixture_run(
+		t,
+		`package sample
+stored := 7
+with_default :: proc "contextless" (value := stored) -> int { return value }
+identity :: proc "contextless" (x: $T) -> T { return x }
+candidate := identity(with_default)
+ordinary :: proc() -> int { return with_default() }
+`,
+		check_default_operands_after_speculation,
+	)
+}
+
+@(private = "file")
+check_default_operands_after_speculation :: proc(t: ^testing.T, fixture: Speculation_Fixture) {
+	candidate := scope_lookup_current(fixture.scopes, fixture.package_scope, "candidate")
+	ordinary := scope_lookup_current(fixture.scopes, fixture.package_scope, "ordinary")
+	target := scope_lookup_current(fixture.scopes, fixture.package_scope, "with_default")
+	outer := expression_speculation_begin(fixture.checker)
+	inner := expression_speculation_begin(fixture.checker)
+	state, error := resolve_entity(fixture.resolver, candidate)
+	expression_speculation_end(fixture.checker, inner)
+	expression_speculation_end(fixture.checker, outer)
+	if !testing.expectf(t, error == nil && state == .Resolved, "candidate: state=%v error=%v", state, error) { return }
+	if !testing.expect(t, resolver_check_pending_bodies(fixture.resolver) == nil) { return }
+	state, error = resolve_entity(fixture.resolver, ordinary)
+	if !testing.expectf(t, error == nil && state == .Resolved, "ordinary: state=%v error=%v", state, error) { return }
+	if !testing.expect(t, resolver_check_pending_bodies(fixture.resolver) == nil) { return }
+	program: Checked_Program
+	expression_checker_publish(fixture.checker, &program)
+	found := false
+	for plan in program.plan_table {
+		call, is_call := plan.(Call_Plan)
+		if !is_call || call.entity != target { continue }
+		for argument in call.arguments {
+			source, is_expression := argument.value.(Expression_Ref)
+			if !testing.expect(t, is_expression) { continue }
+			info, checked := expression_info(&program, source.view, source.node)
+			testing.expectf(t, checked && info.state == .Checked && info.type != 0, "default operand: %v", info)
+			found = true
+		}
+	}
+	testing.expect(t, found)
+}
+
 @(private = "file")
 check_drained_operands_after_speculation :: proc(t: ^testing.T, fixture: Speculation_Fixture) {
 	candidate := scope_lookup_current(fixture.scopes, fixture.package_scope, "candidate")

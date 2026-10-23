@@ -154,7 +154,7 @@ default_argument_at :: proc(defaults: []Default_Argument, index: int) -> Default
 @(private = "package")
 default_argument_usable :: proc(argument: Default_Argument) -> bool {
 	#partial switch argument.kind {
-	case .Constant, .Value, .Caller_Location, .Caller_Expression:
+	case .Constant, .Value, .Declaration, .Caller_Location, .Caller_Expression:
 		return true
 	}
 	return false
@@ -191,6 +191,13 @@ expression_call_default_argument :: proc(
 	case .Constant, .Value:
 		argument.value = default_argument.value
 		argument.conversion = default_argument.conversion
+	case .Declaration:
+		source := default_argument.value.(Expression_Ref)
+		evaluated := expression_default_argument(checker, source.view, default_argument.declaration_scope, source.node, default_argument.target_type) or_return
+		if evaluated.kind == .Invalid { return {}, false, nil }
+		assert(evaluated.kind == .Constant || evaluated.kind == .Value)
+		argument.value = evaluated.value
+		argument.conversion = evaluated.conversion
 	case .Caller_Location:
 		argument.value = Operand(Expression_Ref{view, node})
 		argument.caller_location = true
