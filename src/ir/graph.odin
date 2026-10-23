@@ -74,12 +74,16 @@ Function :: struct {
 	intern_table:    []Node_Id,
 	intern_mask:     u32,
 	intern_count:    u32,
+	growth:          runtime.Allocator,
 	start:           Node_Id,
 	stop:            Node_Id,
 	arena:           virtual.Arena,
 	allocator:       runtime.Allocator,
 	error:           runtime.Allocator_Error,
 }
+
+INITIAL_NODE_CAPACITY :: 64
+INITIAL_EDGE_CAPACITY :: 128
 
 Use :: struct {
 	user: Node_Id,
@@ -114,13 +118,63 @@ function_make :: proc(allocator: runtime.Allocator, id: Function_Id, name: strin
 	arena_alloc := virtual.arena_allocator(&fn.arena)
 	fn.name = string(runtime.mem_alloc_bytes(len(name), 1, arena_alloc) or_return)
 	copy(transmute([]byte)fn.name, name)
-	fn.nodes = make_soa(#soa[dynamic]Node, 0, 64, arena_alloc) or_return
-	fn.edges = make([dynamic]Node_Id, 0, 128, arena_alloc) or_return
+	fn.nodes = make_soa(#soa[dynamic]Node, 0, 1, arena_alloc) or_return
+	fn.edges = make([dynamic]Node_Id, 0, 0, arena_alloc) or_return
 	fn.tables = make([dynamic][]i64, arena_alloc) or_return
 	fn.signatures = make([dynamic]Signature, arena_alloc) or_return
 	fn.blobs = make([dynamic]Data_Blob, arena_alloc) or_return
 	append_soa(&fn.nodes, Node{}) or_return
 	return fn, nil
+}
+
+// Moves the arrays that grow while a builder works onto `growth`, so their outgrown copies never reach the arena.
+// `function_seal` copies them back at their final length before `growth` is released.
+function_grow_in :: proc(fn: ^Function, growth: runtime.Allocator) -> runtime.Allocator_Error {
+	assert(fn.growth.procedure == nil, "function already grows in another allocator")
+	nodes := make_soa(#soa[dynamic]Node, 0, max(len(fn.nodes), INITIAL_NODE_CAPACITY), growth) or_return
+	for index in 0 ..< len(fn.nodes) {
+		append_soa(&nodes, fn.nodes[index]) or_return
+	}
+	edges := make([dynamic]Node_Id, 0, max(len(fn.edges), INITIAL_EDGE_CAPACITY), growth) or_return
+	append(&edges, ..fn.edges[:]) or_return
+	fn.nodes = nodes
+	fn.edges = edges
+	fn.growth = growth
+	return nil
+}
+
+// Copies the growing arrays into the arena at their exact length and drops the intern table, whose slots only
+// serve construction. Does nothing unless `function_grow_in` was called. On failure the arrays are left empty.
+function_seal :: proc(fn: ^Function) {
+	if fn.growth.procedure == nil {
+		return
+	}
+	fn.growth = {}
+	arena_alloc := virtual.arena_allocator(&fn.arena)
+	nodes, nodes_err := make_soa(#soa[dynamic]Node, 0, len(fn.nodes), arena_alloc)
+	edges, edges_err := make([dynamic]Node_Id, 0, len(fn.edges), arena_alloc)
+	fn.intern_table = nil
+	fn.intern_mask = 0
+	fn.intern_count = 0
+	if nodes_err != nil || edges_err != nil {
+		fn.nodes = {}
+		fn.edges = {}
+		fn.error = nodes_err if nodes_err != nil else edges_err
+		return
+	}
+	for index in 0 ..< len(fn.nodes) {
+		append_soa(&nodes, fn.nodes[index])
+	}
+	append(&edges, ..fn.edges[:])
+	fn.nodes = nodes
+	fn.edges = edges
+}
+
+growth_allocator :: proc(fn: ^Function) -> runtime.Allocator {
+	if fn.growth.procedure != nil {
+		return fn.growth
+	}
+	return virtual.arena_allocator(&fn.arena)
 }
 
 function_destroy :: proc(fn: ^Function) {

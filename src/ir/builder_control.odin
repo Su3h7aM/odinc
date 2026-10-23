@@ -66,6 +66,10 @@ builder_make :: proc(allocator: runtime.Allocator, fn: ^Function, entry: Start_N
 		runtime.default_temp_allocator_temp_end(b.scratch_mark)
 	}
 
+	function_grow_in(fn, b.scratch) or_return
+	defer if err != nil {
+		function_seal(fn)
+	}
 	b.values = make([dynamic]Node_Id, 0, 16, b.scratch) or_return
 	b.targets = make([dynamic]Jump_Target, b.scratch) or_return
 	append(&b.values, entry.memory) or_return
@@ -74,6 +78,7 @@ builder_make :: proc(allocator: runtime.Allocator, fn: ^Function, entry: Start_N
 }
 
 builder_destroy :: proc(b: ^Builder) {
+	function_seal(b.fn)
 	runtime.default_temp_allocator_temp_end(b.scratch_mark)
 	free(b, b.allocator)
 }

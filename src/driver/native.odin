@@ -87,13 +87,14 @@ build_file :: proc(
 	user_collections: []Collection = nil,
 	defines: map[string]string = nil,
 	level: types.X86_Level = .V1,
+	disallow_do: bool = false,
 ) -> (
 	image: []byte,
 	err: Build_Error,
 ) {
 	file_error: File_Error
 	defer file_error_destroy(&file_error, allocator)
-	session, driver_err := check_program(odin_root, main_path, allocator, false, user_collections, defines, level, &file_error)
+	session, driver_err := check_program(odin_root, main_path, allocator, false, user_collections, defines, level, &file_error, disallow_do)
 	defer if session != nil { session_destroy(session) }
 	if driver_err == .Check_Failed || driver_err == .Unsupported_Import || driver_err == .Parse_Failed || driver_err == .Import_Cycle {
 		write_diagnostics(session, log)

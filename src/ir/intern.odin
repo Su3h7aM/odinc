@@ -1,7 +1,5 @@
 package ir
 
-import "core:mem/virtual"
-
 // Hash-consing of pure nodes (section 11): identical pure constructions share one node.
 // The table holds node ids only; the key (kind, type, inputs, the data fields the kind
 // defines) is reread from the node arrays on every probe, so a stale slot after `set_input`,
@@ -98,7 +96,7 @@ intern_rebuild :: proc(fn: ^Function) {
 @(private = "file")
 intern_grow :: proc(fn: ^Function) {
 	capacity := 2 * len(fn.intern_table) if len(fn.intern_table) != 0 else INTERN_INITIAL_CAPACITY
-	grown, err := make([]Node_Id, capacity, virtual.arena_allocator(&fn.arena))
+	grown, err := make([]Node_Id, capacity, growth_allocator(fn))
 	if err != nil {
 		fn.error = err
 		return
