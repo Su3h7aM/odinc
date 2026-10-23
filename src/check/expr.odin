@@ -25,6 +25,8 @@ Message_Diagnostics :: bit_set[Expression_Diagnostic_Kind] {
 	.Atomic,
 	.Message,
 	.Undeclared_Name,
+	.No_Matching_Overload,
+	.Ambiguous_Call,
 }
 
 Diagnostic_Severity :: enum u8 {

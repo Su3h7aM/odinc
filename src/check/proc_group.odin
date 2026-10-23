@@ -1,6 +1,8 @@
 package check
 
+import "core:fmt"
 import "core:mem"
+import "core:strings"
 import "oc:syntax"
 import "oc:types"
 
@@ -149,8 +151,14 @@ expression_group_call :: proc(
 			ambiguous = true
 		}
 	}
-	if !found { return expression_failure(checker, view, scope, node, .No_Matching_Overload) }
-	if ambiguous { return expression_failure(checker, view, scope, node, .Ambiguous_Call) }
+	if !found || ambiguous {
+		head := "No procedures or ambiguous call for procedure group '%s' that match with the given arguments"
+		kind := Expression_Diagnostic_Kind.No_Matching_Overload
+		if found {
+			head, kind = "Ambiguous procedure group call '%s' that match with the given arguments", .Ambiguous_Call
+		}
+		return group_call_failure(checker, view, scope, file, node, callee, positional[:], named[:], head, kind)
+	}
 	chosen := Expression_Info {
 		scope  = scope,
 		state  = .Checked,
@@ -720,4 +728,48 @@ group_bound_scope :: proc(checker: ^Expression_Checker, member: Entity_Id, bindi
 		if insert_error != nil { return 0, binding_resolve_error(insert_error) }
 	}
 	return scope, nil
+}
+
+@(private = "file")
+group_call_failure :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	scope: Scope_Id,
+	file: ^File,
+	node: syntax.Node_Index,
+	callee: Expression_Info,
+	positional: []Group_Argument,
+	named: []Group_Argument,
+	head: string,
+	kind: Expression_Diagnostic_Kind,
+) -> (
+	info: Expression_Info,
+	err: Resolve_Error,
+) {
+	allocator := mem.dynamic_arena_allocator(&checker.arena)
+	store := checker.type_checker.store
+	builder := strings.builder_make(allocator)
+	name := entity_get(checker.type_checker.resolver.scopes, callee.entity).name
+	fmt.sbprintf(&builder, head, name)
+	if len(positional) == 0 && len(named) == 0 {
+		strings.write_string(&builder, "\n\tNo given arguments")
+	} else {
+		strings.write_string(&builder, "\n\tGiven argument types:")
+		for argument in positional {
+			fmt.sbprintf(&builder, "\n\t • %s", group_argument_text(checker, file, store, argument, allocator))
+		}
+		for argument in named {
+			fmt.sbprintf(&builder, "\n\t • %s = %s", argument.name, group_argument_text(checker, file, store, argument, allocator))
+		}
+	}
+	callee_node := syntax.node_payload(file.ast, node, syntax.Call_Expr).expr
+	return expression_failure(checker, view, scope, callee_node, kind, strings.to_string(builder))
+}
+
+@(private = "file")
+group_argument_text :: proc(checker: ^Expression_Checker, file: ^File, store: ^types.Store, argument: Group_Argument, allocator: mem.Allocator) -> string {
+	if argument.info.type == types.TYPE_NONE || group_argument_is_deferred(file, argument.value) {
+		return fmt.aprintf("%s (untyped)", expression_to_string(file, argument.value), allocator = allocator)
+	}
+	return types.type_text(store, argument.info.type, allocator)
 }
