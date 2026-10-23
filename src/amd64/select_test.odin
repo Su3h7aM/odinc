@@ -173,10 +173,7 @@ selected_test_run :: proc(t: ^testing.T, function: ^ir.Function, expected: int, 
 	testing.expect_value(t, directory_err, nil)
 	if directory_err != nil { return }
 	path, _ := filepath.join({directory, "boundary"}, context.temp_allocator)
-	defer {
-		testing.expect(t, os.remove(path) == nil)
-		testing.expect(t, os.remove(directory) == nil)
-	}
+	defer os.remove_all(directory)
 	testing.expect(t, write_executable(path, image) == nil)
 	devnull, devnull_err := os.open("/dev/null", {.Write})
 	testing.expect(t, devnull_err == nil, "devnull must open")
@@ -407,10 +404,7 @@ selected_loop_exits_with_fifty_five :: proc(t: ^testing.T) {
 	testing.expect_value(t, directory_err, nil)
 	if directory_err != nil { return }
 	path, _ := filepath.join({directory, "loop"}, context.temp_allocator)
-	defer {
-		testing.expect(t, os.remove(path) == nil)
-		testing.expect(t, os.remove(directory) == nil)
-	}
+	defer os.remove_all(directory)
 	testing.expect(t, write_executable(path, image) == nil)
 	devnull, devnull_err := os.open("/dev/null", {.Write})
 	testing.expect(t, devnull_err == nil, "devnull must open")

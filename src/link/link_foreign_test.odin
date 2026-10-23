@@ -60,7 +60,8 @@ run_command_capture :: proc(t: ^testing.T, directory, output_name: string, comma
 @(test)
 clang_objects_resolve_weak_common_comdat_and_tls :: proc(t: ^testing.T) {
 	directory, dir_err := os.make_directory_temp("", "link-foreign-*", context.temp_allocator)
-	testing.expect(t, dir_err == nil, "temporary directory must be created")
+	if !testing.expect(t, dir_err == nil, "temporary directory must be created") { return }
+	defer os.remove_all(directory)
 
 	first := clang_object(
 		t,
@@ -177,7 +178,8 @@ clang_objects_resolve_weak_common_comdat_and_tls :: proc(t: ^testing.T) {
 @(test)
 archive_extracts_the_referenced_member :: proc(t: ^testing.T) {
 	directory, dir_err := os.make_directory_temp("", "link-archive-*", context.temp_allocator)
-	testing.expect(t, dir_err == nil, "temporary directory must be created")
+	if !testing.expect(t, dir_err == nil, "temporary directory must be created") { return }
+	defer os.remove_all(directory)
 	used := clang_object(t, directory, "used", "int pick(void) { return 4; }\n", {})
 	unused := clang_object(t, directory, "unused", "extern int missing(void);\nint unused(void) { return missing(); }\n", {})
 	defer delete(used)
@@ -215,7 +217,8 @@ archive_extracts_the_referenced_member :: proc(t: ^testing.T) {
 @(test)
 shared_library_and_got_relaxation :: proc(t: ^testing.T) {
 	directory, dir_err := os.make_directory_temp("", "link-dynamic-*", context.temp_allocator)
-	testing.expect(t, dir_err == nil, "temporary directory must be created")
+	if !testing.expect(t, dir_err == nil, "temporary directory must be created") { return }
+	defer os.remove_all(directory)
 	source_path, source_err := filepath.join({directory, "shared.c"}, context.temp_allocator)
 	library_path, library_err := filepath.join({directory, "libanswer.so"}, context.temp_allocator)
 	testing.expect(t, source_err == nil && library_err == nil, "shared paths must be joined")

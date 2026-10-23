@@ -22,13 +22,10 @@ start_process :: proc(desc: os.Process_Desc) -> (os.Process, os.Error) {
 
 run_executable_expect_exit :: proc(t: ^testing.T, image: []byte, expected_code: int) {
 	directory, dir_err := os.make_directory_temp("", "link-l1-*", context.temp_allocator)
-	testing.expect(t, dir_err == nil, "temporary directory must be created")
+	if !testing.expect(t, dir_err == nil, "temporary directory must be created") { return }
+	defer os.remove_all(directory)
 	executable_path, path_err := filepath.join({directory, "exit"}, context.temp_allocator)
 	testing.expect(t, path_err == nil, "executable path must be joined")
-	defer {
-		testing.expect(t, os.remove(executable_path) == nil, "executable must be removed")
-		testing.expect(t, os.remove(directory) == nil, "temporary directory must be removed")
-	}
 
 	testing.expect(t, write_executable(executable_path, image) == nil, "executable must be written")
 
