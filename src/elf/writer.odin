@@ -547,47 +547,38 @@ concat_string :: proc(a, b: string, allocator: mem.Allocator) -> string {
 	return string(buffer)
 }
 
-String_Table_Entry :: struct {
-	// Offset of the string's first character inside the table.
-	offset: u64,
-	// Borrowed view of the interned name; lives as long as the table.
-	name:   string,
-}
-
 /*
 	An ELF-style string table: a byte blob of nul-terminated strings where
-	offset 0 is always the empty string.  Interning is a linear scan over
-	the entry list in insertion order, so layout stays deterministic.
+	offset 0 is always the empty string.  `offsets` maps each interned name
+	(a borrowed view that must outlive the table) to its offset; strings are
+	appended in first-seen order, so layout stays deterministic.
 */
 String_Table :: struct {
 	storage: [dynamic]u8,
-	entries: [dynamic]String_Table_Entry,
+	offsets: map[string]u64,
 }
 
 string_table_init :: proc(table: ^String_Table, allocator: mem.Allocator) {
 	table.storage = make([dynamic]u8, 1, allocator)
-	table.entries = make([dynamic]String_Table_Entry, 0, allocator)
-	append(&table.entries, String_Table_Entry{offset = 0, name = ""})
+	table.offsets = make(map[string]u64, allocator)
 }
 
 string_table_destroy :: proc(table: ^String_Table, allocator: mem.Allocator) {
 	free_dynamic(table.storage)
-	free_dynamic(table.entries)
+	delete(table.offsets)
 }
 
 string_table_intern :: proc(table: ^String_Table, entry_name: string) -> u64 {
 	if len(entry_name) == 0 {
 		return 0
 	}
-	for entry in table.entries {
-		if entry.name == entry_name {
-			return entry.offset
-		}
+	if offset, found := table.offsets[entry_name]; found {
+		return offset
 	}
 	offset := u64(len(table.storage))
 	append(&table.storage, entry_name)
 	append(&table.storage, u8(0))
-	append(&table.entries, String_Table_Entry{offset = offset, name = entry_name})
+	table.offsets[entry_name] = offset
 	return offset
 }
 

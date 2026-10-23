@@ -306,15 +306,13 @@ intern_string :: proc(table: ^String_Table, name: string) -> (offset: u64, err: 
 	if len(name) == 0 {
 		return 0, nil
 	}
-	for entry in table.entries {
-		if entry.name == name {
-			return entry.offset, nil
-		}
+	if existing, found := table.offsets[name]; found {
+		return existing, nil
 	}
 	offset = u64(len(table.storage))
 	append(&table.storage, name) or_return
 	append(&table.storage, u8(0)) or_return
-	append(&table.entries, String_Table_Entry{offset = offset, name = name}) or_return
+	table.offsets[name] = offset
 	return offset, nil
 }
 

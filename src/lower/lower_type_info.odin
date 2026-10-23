@@ -39,6 +39,7 @@ Type_Info_Writer :: struct {
 	variant_block:   i64,
 	tag_size:        i64,
 	image_count:     int,
+	names_in_use:    map[string]struct{},
 }
 
 // Bytes and relocations of one global under construction. `base` is where the current struct starts in `bytes`.
@@ -90,6 +91,7 @@ fill_type_info :: proc(
 		variant_block   = union_layout.variant_block_size,
 		tag_size        = union_layout.tag_size,
 	}
+	writer.names_in_use = module_symbol_names(module, allocator)
 	for entry in requirements.type_info {
 		name := generated_global_name(&writer, "entry", u64(entry.slot))
 		append(&module.globals, ir.Global{name = name, size = u32(size), align = u32(alignment)}) or_return
@@ -508,34 +510,24 @@ add_image :: proc(writer: ^Type_Info_Writer, image: Type_Info_Image, align: u32)
 }
 
 @(private)
+module_symbol_names :: proc(module: ^ir.Module, allocator: runtime.Allocator) -> (names: map[string]struct{}) {
+	names = make(map[string]struct{}, allocator)
+	for global in module.globals { names[global.name] = {} }
+	for function in module.functions { names[function.name] = {} }
+	for external in module.externs { names[external.name] = {} }
+	return names
+}
+
+// Unique across the module's globals, functions and externs: a numeric suffix resolves a clash.
+@(private)
 generated_global_name :: proc(writer: ^Type_Info_Writer, role: string, ordinal: u64) -> string {
 	base := fmt.aprintf("__odinc_internal_type_info_%s_%d", role, ordinal, allocator = writer.allocator)
 	candidate := base
-	suffix := 0
-	for {
-		collision := false
-		for global in writer.module.globals {
-			if global.name == candidate {
-				collision = true
-				break
-			}
-		}
-		for function in writer.module.functions {
-			if function.name == candidate {
-				collision = true
-				break
-			}
-		}
-		for external in writer.module.externs {
-			if external.name == candidate {
-				collision = true
-				break
-			}
-		}
-		if !collision { return candidate }
-		suffix += 1
+	for suffix := 1; (candidate in writer.names_in_use); suffix += 1 {
 		candidate = fmt.aprintf("%s_%d", base, suffix, allocator = writer.allocator)
 	}
+	writer.names_in_use[candidate] = {}
+	return candidate
 }
 
 // Global index of the runtime entry of `type`; -1 for TYPE_NONE (nil). False when the type has no entry.

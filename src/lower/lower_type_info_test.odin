@@ -163,6 +163,7 @@ generated_type_info_names_avoid_function_and_external_symbols :: proc(t: ^testin
 		module    = &module,
 		allocator = virtual.arena_allocator(&module.arena),
 	}
+	writer.names_in_use = module_symbol_names(&module, writer.allocator)
 	function_replacement := generated_global_name(&writer, "entry", 2)
 	external_replacement := generated_global_name(&writer, "entry", 3)
 	testing.expect(t, function_replacement != function_name)
