@@ -121,6 +121,8 @@ Graph :: struct {
 @(private = "package")
 Escape :: struct {
 	run:               ^Run,
+	allocator:         runtime.Allocator,
+	scratch:           ^mem.Dynamic_Arena,
 	graph:             Graph,
 	path_index:        map[Path_Key]Path_Id,
 	fact_index:        map[u64][dynamic]Index_Range,
@@ -154,31 +156,10 @@ Escape :: struct {
 escape_graph_init :: proc(escape: ^Escape, run: ^Run) -> runtime.Allocator_Error {
 	escape.run = run
 	allocator := run.allocator
-	escape.graph = {
-		values  = make([dynamic]Value, 0, allocator) or_return,
-		inputs  = make([dynamic]Value_Id, 0, allocator) or_return,
-		facts   = make([dynamic]Value_Fact, 0, allocator) or_return,
-		objects = make([dynamic]Object, 0, allocator) or_return,
-		paths   = make([dynamic]Path, 0, allocator) or_return,
-	}
 	escape.path_index = make(map[Path_Key]Path_Id, allocator)
-	escape.fact_index = make(map[u64][dynamic]Index_Range, allocator)
-	escape.temporary_objects = make(map[check.Expression_Ref]Object_Id, allocator)
 	escape.entity_objects = make([]Object_Id, len(run.program.entities), allocator) or_return
-	escape.memory = make([dynamic]Value_Id, 0, allocator) or_return
-	escape.nils = make([dynamic]Nil_Fact, 0, allocator) or_return
-	escape.nil_uses = make([dynamic]Nil_Use, 0, allocator) or_return
-	escape.uninit_entities = make([dynamic]check.Entity_Id, 0, allocator) or_return
-	escape.defers = make([dynamic]Defer_Frame, 0, allocator) or_return
-	escape.targets = make([dynamic]Control_Target, 0, allocator) or_return
-	escape.reported = make([dynamic]syntax.Node_Index, 0, allocator) or_return
-	escape.outers = make([dynamic]Outer_Store, 0, allocator) or_return
-	escape.flows = make([dynamic]Flow, 0, allocator) or_return
-	escape.applying = make([dynamic]check.Expression_Ref, 0, allocator) or_return
-	append(&escape.graph.values, Value{}) or_return
-	append(&escape.graph.objects, Object{}) or_return
+	escape.graph.paths = make([dynamic]Path, 0, allocator) or_return
 	append(&escape.graph.paths, Path{}) or_return
-	append(&escape.memory, Value_Id(0)) or_return
 	return nil
 }
 
@@ -260,7 +241,7 @@ escape_fact_set :: proc(escape: ^Escape, facts: []Value_Fact) -> (result: Index_
 		}
 		if equal { return candidate, nil }
 	}
-	if bucket.allocator.procedure == nil { bucket = make([dynamic]Index_Range, 0, escape.run.allocator) or_return }
+	if bucket.allocator.procedure == nil { bucket = make([dynamic]Index_Range, 0, escape.allocator) or_return }
 	result = {u32(len(escape.graph.facts)), u32(len(facts))}
 	append(&escape.graph.facts, ..facts) or_return
 	append(&bucket, result) or_return
@@ -346,7 +327,7 @@ escape_project :: proc(
 	result: Value_Id,
 	err: runtime.Allocator_Error,
 ) {
-	facts := make([dynamic]Value_Fact, 0, escape.run.allocator) or_return
+	facts := make([dynamic]Value_Fact, 0, escape.allocator) or_return
 	for fact in escape_facts(escape, value) {
 		fact := fact
 		if read { fact.definite = false }
@@ -365,7 +346,7 @@ escape_pointer_offset :: proc(
 	result: Value_Id,
 	err: runtime.Allocator_Error,
 ) {
-	facts := make([dynamic]Value_Fact, 0, escape.run.allocator) or_return
+	facts := make([dynamic]Value_Fact, 0, escape.allocator) or_return
 	for fact in escape_facts(escape, value) {
 		fact := fact
 		fact.path = 0
@@ -387,4 +368,37 @@ escape_pointer_offset :: proc(
 		escape_add_fact(&facts, fact) or_return
 	}
 	return escape_value(escape, .Project, expression, facts[:], []Value_Id{value})
+}
+
+@(private = "package")
+escape_reset_graph :: proc(escape: ^Escape) -> runtime.Allocator_Error {
+	for object in escape.graph.objects {
+		if object.entity != 0 { escape.entity_objects[object.entity] = 0 }
+	}
+	mem.dynamic_arena_reset(escape.scratch)
+	allocator := escape.allocator
+	paths := escape.graph.paths
+	escape.graph = {
+		paths   = paths,
+		values  = make([dynamic]Value, 0, allocator) or_return,
+		inputs  = make([dynamic]Value_Id, 0, allocator) or_return,
+		facts   = make([dynamic]Value_Fact, 0, allocator) or_return,
+		objects = make([dynamic]Object, 0, allocator) or_return,
+	}
+	escape.fact_index = make(map[u64][dynamic]Index_Range, allocator)
+	escape.temporary_objects = make(map[check.Expression_Ref]Object_Id, allocator)
+	escape.memory = make([dynamic]Value_Id, 0, allocator) or_return
+	escape.nils = make([dynamic]Nil_Fact, 0, allocator) or_return
+	escape.nil_uses = make([dynamic]Nil_Use, 0, allocator) or_return
+	escape.uninit_entities = make([dynamic]check.Entity_Id, 0, allocator) or_return
+	escape.defers = make([dynamic]Defer_Frame, 0, allocator) or_return
+	escape.targets = make([dynamic]Control_Target, 0, allocator) or_return
+	escape.reported = make([dynamic]syntax.Node_Index, 0, allocator) or_return
+	escape.outers = make([dynamic]Outer_Store, 0, allocator) or_return
+	escape.flows = make([dynamic]Flow, 0, allocator) or_return
+	escape.applying = make([dynamic]check.Expression_Ref, 0, allocator) or_return
+	append(&escape.graph.values, Value{}) or_return
+	append(&escape.graph.objects, Object{}) or_return
+	append(&escape.memory, Value_Id(0)) or_return
+	return nil
 }

@@ -93,7 +93,7 @@ escape_load :: proc(
 	err: runtime.Allocator_Error,
 ) {
 	if type != 0 && !escape_has_pointers(escape, type) { return }
-	facts := make([dynamic]Value_Fact, 0, escape.run.allocator) or_return
+	facts := make([dynamic]Value_Fact, 0, escape.allocator) or_return
 	for fact in escape_facts(escape, pointer) {
 		origin := fact.origin
 		#partial switch origin.kind {
@@ -133,10 +133,10 @@ escape_store_memory :: proc(escape: ^Escape, object: Object_Id, path: Path_Id, v
 		replaces &= escape.graph.paths[current].step.kind != .Element
 	}
 	if path == 0 && replaces { escape.memory[object] = value; return nil }
-	facts := make([dynamic]Value_Fact, 0, escape.run.allocator) or_return
+	facts := make([dynamic]Value_Fact, 0, escape.allocator) or_return
 	append(&facts, ..escape_facts(escape, escape.memory[object])) or_return
 	if replaces {
-		pieces := make([dynamic]Value_Fact, 0, escape.run.allocator) or_return
+		pieces := make([dynamic]Value_Fact, 0, escape.allocator) or_return
 		for index := len(facts) - 1; index >= 0; index -= 1 {
 			fact := facts[index]
 			remove := escape_path_has_prefix(escape, fact.path, path)

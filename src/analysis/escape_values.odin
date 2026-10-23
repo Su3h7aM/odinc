@@ -226,7 +226,7 @@ escape_elements :: proc(escape: ^Escape, expression: check.Expression_Ref) -> (r
 		loaded := escape_load(escape, expression, result, info.type) or_return
 		return escape_pointer_offset(escape, expression, loaded, 0)
 	case .Dynamic_Array, .Map:
-		facts := make([dynamic]Value_Fact, 0, escape.run.allocator) or_return
+		facts := make([dynamic]Value_Fact, 0, escape.allocator) or_return
 		for fact in escape_facts(escape, result) {
 			fact := fact
 			fact.path = 0
@@ -268,8 +268,8 @@ escape_aggregate :: proc(escape: ^Escape, expression: check.Expression_Ref, info
 			conversions = value.value_conversions,
 		}
 	}
-	facts := make([dynamic]Value_Fact, 0, escape.run.allocator) or_return
-	inputs := make([dynamic]Value_Id, 0, escape.run.allocator) or_return
+	facts := make([dynamic]Value_Fact, 0, escape.allocator) or_return
+	inputs := make([dynamic]Value_Id, 0, escape.allocator) or_return
 	ast := escape.run.program.files[escape.run.program.typed_views[expression.view].file].ast
 	literal := syntax.node_payload(ast, expression.node, syntax.Comp_Lit)
 	elements := syntax.node_list(ast, literal.elems)

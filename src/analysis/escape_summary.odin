@@ -2,6 +2,7 @@ package analysis
 
 import "base:runtime"
 import "core:fmt"
+import "core:strings"
 import "oc:check"
 import "oc:syntax"
 import "oc:types"
@@ -226,7 +227,7 @@ escape_path_widen :: proc(escape: ^Escape, path: Path_Id) -> (result: Path_Id, e
 
 @(private = "file")
 escape_path_steps :: proc(escape: ^Escape, path: Path_Id) -> (steps: [dynamic]Path_Step, err: runtime.Allocator_Error) {
-	steps = make([dynamic]Path_Step, 0, escape.run.allocator) or_return
+	steps = make([dynamic]Path_Step, 0, escape.allocator) or_return
 	for current := path; current != 0; current = escape.graph.paths[current].parent { append(&steps, escape.graph.paths[current].step) or_return }
 	for index := 0; index < len(steps) / 2; index += 1 {
 		end := len(steps) - 1 - index
@@ -267,7 +268,7 @@ escape_report_store :: proc(escape: ^Escape, node: syntax.Node_Index, origin: Or
 			"'%s' may keep a reference to %s after the procedure returns\n\tSuggestion: If this is intended, make it explicit with a conversion to 'rawptr' or 'uintptr', or a 'transmute'",
 			text,
 			description,
-			allocator = escape.run.allocator,
+			allocator = escape.allocator,
 		)
 	} else {
 		info := check.expression_info(escape.run.program, escape.view, node)
@@ -277,7 +278,7 @@ escape_report_store :: proc(escape: ^Escape, node: syntax.Node_Index, origin: Or
 			description,
 			text,
 			escape_zero_text(escape, info.type),
-			allocator = escape.run.allocator,
+			allocator = escape.allocator,
 		)
 	}
 	append(escape_report_list(escape), Diagnostic{severity = .Warning, source = escape_expression_span(escape, expression), reason = reason}) or_return
@@ -291,16 +292,16 @@ escape_origin_text :: proc(escape: ^Escape, origin: Origin) -> string {
 	switch origin.kind {
 	case .Local:
 		kind := "parameter" if escape_parameter(escape, object.entity) else "local variable"
-		return fmt.aprintf("the stack memory of the %s '%s'", kind, program.entities[object.entity].name, allocator = escape.run.allocator)
+		return fmt.aprintf("the stack memory of the %s '%s'", kind, program.entities[object.entity].name, allocator = escape.allocator)
 	case .Temporary:
 		ast := program.files[program.typed_views[object.temporary.view].file].ast
 		kind := "a compound literal" if object.temporary.node != 0 && ast.nodes[object.temporary.node].kind == .Comp_Lit else "a temporary value"
-		return fmt.aprintf("the stack memory of %s", kind, allocator = escape.run.allocator)
+		return fmt.aprintf("the stack memory of %s", kind, allocator = escape.allocator)
 	case .Variadic:
 		return fmt.aprintf(
 			"the variadic parameter '%s', which only lives for the duration of the call",
 			program.entities[object.entity].name,
-			allocator = escape.run.allocator,
+			allocator = escape.allocator,
 		)
 	case .Invalid, .Parameter, .Parameter_Load, .Parameter_Deep, .Outer, .Owned:
 		return ""
@@ -397,9 +398,9 @@ escape_apply_call :: proc(
 ) {
 	checked := escape.run.program.procedure_list[escape.run.procedures[target].checked_index]
 	count := len(checked.parameters)
-	args := make([]Value_Id, count, escape.run.allocator) or_return
-	arg_types := make([]types.Type_Id, count, escape.run.allocator) or_return
-	given := make([]bool, count, escape.run.allocator) or_return
+	args := make([]Value_Id, count, escape.allocator) or_return
+	arg_types := make([]types.Type_Id, count, escape.allocator) or_return
+	given := make([]bool, count, escape.allocator) or_return
 	for argument in call.arguments {
 		index := -1
 		for parameter, position in checked.parameters {
@@ -435,7 +436,7 @@ escape_apply_call :: proc(
 		if source.node != 0 { arg_types[index] = check.expression_info(escape.run.program, source.view, source.node).type }
 		args[index] = value
 	}
-	results := make([]Value_Id, len(checked.results), escape.run.allocator) or_return
+	results := make([]Value_Id, len(checked.results), escape.allocator) or_return
 	for flow in flows {
 		if flow.param < 0 || flow.param >= count || !given[flow.param] { continue }
 		value, value_type := escape_flow_source(escape, flow, args[flow.param], arg_types[flow.param]) or_return
@@ -616,7 +617,7 @@ escape_type_follow :: proc(escape: ^Escape, type: types.Type_Id, steps: []Path_S
 
 @(private = "file")
 escape_load_once :: proc(escape: ^Escape, expression: check.Expression_Ref, pointer: Value_Id) -> (result: Value_Id, err: runtime.Allocator_Error) {
-	facts := make([dynamic]Value_Fact, 0, escape.run.allocator) or_return
+	facts := make([dynamic]Value_Fact, 0, escape.allocator) or_return
 	element := escape_path(escape, 0, {kind = .Element}) or_return
 	for fact in escape_facts(escape, pointer) {
 		origin := fact.origin
@@ -645,10 +646,10 @@ escape_load_once :: proc(escape: ^Escape, expression: check.Expression_Ref, poin
 
 @(private = "file")
 escape_reachable :: proc(escape: ^Escape, expression: check.Expression_Ref, pointer: Value_Id) -> (result: Value_Id, err: runtime.Allocator_Error) {
-	reached := make([dynamic]Value_Fact, 0, escape.run.allocator) or_return
+	reached := make([dynamic]Value_Fact, 0, escape.allocator) or_return
 	frontier := escape_pointer_offset(escape, expression, pointer, 0) or_return
 	for len(escape_facts(escape, frontier)) > 0 {
-		next := make([dynamic]Value_Fact, 0, escape.run.allocator) or_return
+		next := make([dynamic]Value_Fact, 0, escape.allocator) or_return
 		loaded := escape_load_once(escape, expression, frontier) or_return
 		for fact in escape_facts(escape, loaded) {
 			before := len(reached)
@@ -662,7 +663,7 @@ escape_reachable :: proc(escape: ^Escape, expression: check.Expression_Ref, poin
 
 @(private = "file")
 escape_store_loaded :: proc(escape: ^Escape, node: syntax.Node_Index, pointer, value: Value_Id, value_path: Path_Id) -> runtime.Allocator_Error {
-	within := make([dynamic]Value_Fact, 0, escape.run.allocator) or_return
+	within := make([dynamic]Value_Fact, 0, escape.allocator) or_return
 	for fact in escape_facts(escape, value) {
 		fact := fact
 		fact.path = escape_path_concat(escape, value_path, fact.path) or_return
@@ -686,7 +687,7 @@ escape_store_loaded :: proc(escape: ^Escape, node: syntax.Node_Index, pointer, v
 
 @(private = "file")
 escape_place_facts :: proc(escape: ^Escape, existing: Value_Id, path: Path_Id, value: Value_Id) -> (result: Value_Id, err: runtime.Allocator_Error) {
-	facts := make([dynamic]Value_Fact, 0, escape.run.allocator) or_return
+	facts := make([dynamic]Value_Fact, 0, escape.allocator) or_return
 	if existing != 0 { append(&facts, ..escape_facts(escape, existing)) or_return }
 	for fact in escape_facts(escape, value) {
 		fact := fact
@@ -701,7 +702,7 @@ escape_tuple_results :: proc(escape: ^Escape, expression: check.Expression_Ref, 
 	info := check.expression_info(escape.run.program, expression.view, expression.node)
 	if info.type == 0 { return }
 	owner := types.resolve_named(escape.run.program.type_data, info.type)
-	facts := make([dynamic]Value_Fact, 0, escape.run.allocator) or_return
+	facts := make([dynamic]Value_Fact, 0, escape.allocator) or_return
 	for value, index in results {
 		path := escape_path(escape, 0, {kind = .Field, owner_type = owner, field_index = u32(index)}) or_return
 		for fact in escape_facts(escape, value) {
@@ -759,6 +760,9 @@ escape_analyse_program :: proc(escape: ^Escape, options: Options) -> runtime.All
 
 @(private = "file")
 escape_analyse_one :: proc(escape: ^Escape, id: Procedure_Id, options: Options) -> runtime.Allocator_Error {
+	escape_reset_graph(escape) or_return
+	reports := escape_report_list(escape)
+	first_report := len(reports^)
 	checked := escape.run.program.procedure_list[escape.run.procedures[id].checked_index]
 	file := &escape.run.program.files[checked.body.file]
 	enabled := file.ast != nil && .Escape in file.ast.analysis
@@ -778,6 +782,9 @@ escape_analyse_one :: proc(escape: ^Escape, id: Procedure_Id, options: Options) 
 	}
 	escape_statement(escape, checked.body.node) or_return
 	escape_finish_procedure(escape, checked.body.node) or_return
+	for &report in (reports^)[first_report:] {
+		report.reason = strings.clone(report.reason, escape.run.allocator) or_return
+	}
 	return nil
 }
 

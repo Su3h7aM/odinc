@@ -66,7 +66,7 @@ escape_reset_control :: proc(escape: ^Escape) {
 
 @(private = "package")
 escape_capture :: proc(escape: ^Escape) -> (state: Escape_State, err: runtime.Allocator_Error) {
-	allocator := escape.run.allocator
+	allocator := escape.allocator
 	state.reachable = escape.reachable
 	state.memory = make([dynamic]Value_Id, len(escape.memory), allocator) or_return
 	state.nils = make([dynamic]Nil_Fact, len(escape.nils), allocator) or_return
@@ -95,7 +95,7 @@ escape_union_values :: proc(escape: ^Escape, left, right: Value_Id) -> (result: 
 	if left == right { return left, false, nil }
 	if left == 0 { return right, right != 0, nil }
 	if right == 0 { return left, false, nil }
-	facts := make([dynamic]Value_Fact, 0, escape.run.allocator) or_return
+	facts := make([dynamic]Value_Fact, 0, escape.allocator) or_return
 	append(&facts, ..escape_facts(escape, left)) or_return
 	before := len(facts)
 	for fact in escape_facts(escape, right) { escape_add_fact(&facts, fact) or_return }
@@ -129,7 +129,7 @@ escape_nil_covered :: proc(escape: ^Escape, nils: []Nil_Fact, entity: check.Enti
 
 @(private = "file")
 escape_intersect_nils :: proc(left, right: []Nil_Fact, escape: ^Escape) -> (result: [dynamic]Nil_Fact, changed: bool, err: runtime.Allocator_Error) {
-	result = make([dynamic]Nil_Fact, 0, escape.run.allocator) or_return
+	result = make([dynamic]Nil_Fact, 0, escape.allocator) or_return
 	if len(left) == 0 { return result, false, nil }
 	for fact in left {
 		if escape_nil_covered(escape, right, fact.entity, fact.path, fact.uninit) { append(&result, fact) or_return }
@@ -175,7 +175,7 @@ escape_join_state :: proc(escape: ^Escape, state: ^Escape_State) -> (changed: bo
 @(private = "file")
 escape_push_frame :: proc(escape: ^Escape) -> runtime.Allocator_Error {
 	frame := Defer_Frame {
-		stmts = make([dynamic]syntax.Node_Index, 0, escape.run.allocator) or_return,
+		stmts = make([dynamic]syntax.Node_Index, 0, escape.allocator) or_return,
 	}
 	append(&escape.defers, frame) or_return
 	return nil
@@ -607,7 +607,7 @@ escape_finish_procedure :: proc(escape: ^Escape, body: syntax.Node_Index) -> run
 		escape_commit_stores(escape) or_return
 	}
 	if !escape.nil_deref && !escape.uninit_vet { return nil }
-	seen := make([]bool, len(escape.nil_uses), escape.run.allocator) or_return
+	seen := make([]bool, len(escape.nil_uses), escape.allocator) or_return
 	for use, index in escape.nil_uses {
 		if seen[index] { continue }
 		definite := use.definite
@@ -621,11 +621,11 @@ escape_finish_procedure :: proc(escape: ^Escape, body: syntax.Node_Index) -> run
 		reason: string
 		switch use.kind {
 		case .Deref:
-			reason = fmt.aprintf("Dereferencing '%s', which is always nil here", text, allocator = escape.run.allocator)
+			reason = fmt.aprintf("Dereferencing '%s', which is always nil here", text, allocator = escape.allocator)
 		case .Call:
-			reason = fmt.aprintf("Calling '%s', which is always nil here", text, allocator = escape.run.allocator)
+			reason = fmt.aprintf("Calling '%s', which is always nil here", text, allocator = escape.allocator)
 		case .Uninit:
-			reason = fmt.aprintf("Reading '%s' before anything is stored in it", text, allocator = escape.run.allocator)
+			reason = fmt.aprintf("Reading '%s' before anything is stored in it", text, allocator = escape.allocator)
 		}
 		append(escape_report_list(escape), Diagnostic{severity = .Error, source = escape_expression_span(escape, use.expression), reason = reason}) or_return
 	}

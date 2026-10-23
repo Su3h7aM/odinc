@@ -22,7 +22,6 @@ Result :: struct {
 	enabled:     syntax.Analysis_Flags,
 	procedures:  []Procedure,
 	events:      []Event,
-	graph:       Graph,
 	arena:       ^mem.Dynamic_Arena,
 	allocator:   runtime.Allocator,
 }
@@ -50,8 +49,7 @@ run :: proc(program: ^check.Checked_Program, options: Options, allocator := cont
 		atomics_run(&run, &graph) or_return
 	}
 	check_unsafe_returns(&run) or_return
-	check_escape_returns(&run, options) or_return
-	result.graph = run.graph
+	check_escape_returns(&run, options, allocator) or_return
 	result.procedures = run.procedures[:]
 	result.events = run.events[:]
 	result.diagnostics = run.diagnostics[:]

@@ -2,17 +2,23 @@ package analysis
 
 import "base:runtime"
 import "core:fmt"
+import "core:mem"
 import "oc:check"
 import "oc:syntax"
 
 @(private = "package")
-check_escape_returns :: proc(run: ^Run, options: Options) -> runtime.Allocator_Error {
+check_escape_returns :: proc(run: ^Run, options: Options, allocator: runtime.Allocator) -> runtime.Allocator_Error {
 	if .Escape not_in run.enabled { return nil }
-	escape: Escape
+	scratch: mem.Dynamic_Arena
+	mem.dynamic_arena_init(&scratch, block_allocator = allocator, array_allocator = allocator)
+	defer mem.dynamic_arena_destroy(&scratch)
+	escape := Escape {
+		scratch   = &scratch,
+		allocator = mem.dynamic_arena_allocator(&scratch),
+	}
 	escape_graph_init(&escape, run) or_return
 	escape.call_graph = call_graph_build(run) or_return
 	escape_analyse_program(&escape, options) or_return
-	run.graph = escape.graph
 	return nil
 }
 
@@ -37,7 +43,7 @@ escape_statement :: proc(escape: ^Escape, node: syntax.Node_Index) -> runtime.Al
 		if assignment, ok := check.plan(program, info.plan)^.(check.Assignment_Plan); ok {
 			for destination in assignment.destinations { if !escape_retain_known_effects(escape, destination) { return nil } }
 			for operand in assignment.values { if !escape_retain_known_effects(escape, operand) { return nil } }
-			values := make([dynamic]Value_Id, 0, escape.run.allocator) or_return
+			values := make([dynamic]Value_Id, 0, escape.allocator) or_return
 			for operand, index in assignment.values {
 				value := escape_operand(escape, operand) or_return
 				expression: check.Expression_Ref
@@ -109,7 +115,7 @@ escape_statement :: proc(escape: ^Escape, node: syntax.Node_Index) -> runtime.Al
 		escape_statement(escape, payload.init) or_return
 		escape_loop(escape, node, 0, 0, payload.body, payload.expr, syntax.node_list(ast, payload.vals)) or_return
 	case syntax.Unroll_Range_Stmt:
-		vals := make([dynamic]syntax.Node_Index, 0, escape.run.allocator) or_return
+		vals := make([dynamic]syntax.Node_Index, 0, escape.allocator) or_return
 		if payload.val0 != 0 { append(&vals, payload.val0) or_return }
 		if payload.val1 != 0 { append(&vals, payload.val1) or_return }
 		escape_loop(escape, node, 0, 0, payload.body, payload.expr, vals[:]) or_return
@@ -167,7 +173,7 @@ escape_stack_origin :: proc(escape: ^Escape, value: Value_Id) -> (origin: Origin
 		if fact.definite &&
 		   (fact.origin.kind == .Local || fact.origin.kind == .Temporary || fact.origin.kind == .Variadic) { return fact.origin, true, true, nil }
 	}
-	work := make([dynamic]Origin, 0, escape.run.allocator) or_return
+	work := make([dynamic]Origin, 0, escape.allocator) or_return
 	for fact in escape_facts(escape, value) { append(&work, fact.origin) or_return }
 	for index := 0; index < len(work); index += 1 {
 		entry := work[index]
@@ -198,16 +204,16 @@ escape_report_return :: proc(escape: ^Escape, expression: check.Expression_Ref, 
 	switch origin.kind {
 	case .Local:
 		kind := "parameter" if escape_parameter(escape, object.entity) else "local variable"
-		description = fmt.aprintf("the stack memory of the %s '%s'", kind, program.entities[object.entity].name, allocator = escape.run.allocator)
+		description = fmt.aprintf("the stack memory of the %s '%s'", kind, program.entities[object.entity].name, allocator = escape.allocator)
 	case .Temporary:
 		ast := program.files[program.typed_views[object.temporary.view].file].ast
 		kind := "a compound literal" if ast.nodes[object.temporary.node].kind == .Comp_Lit else "a temporary value"
-		description = fmt.aprintf("the stack memory of %s", kind, allocator = escape.run.allocator)
+		description = fmt.aprintf("the stack memory of %s", kind, allocator = escape.allocator)
 	case .Variadic:
 		description = fmt.aprintf(
 			"the variadic parameter '%s', which only lives for the duration of the call",
 			program.entities[object.entity].name,
-			allocator = escape.run.allocator,
+			allocator = escape.allocator,
 		)
 	case .Invalid, .Parameter, .Parameter_Load, .Parameter_Deep, .Outer, .Owned:
 		return nil
@@ -218,7 +224,7 @@ escape_report_return :: proc(escape: ^Escape, expression: check.Expression_Ref, 
 		text,
 		verb,
 		description,
-		allocator = escape.run.allocator,
+		allocator = escape.allocator,
 	)
 	append(
 		escape_report_list(escape),
@@ -231,8 +237,8 @@ escape_report_return :: proc(escape: ^Escape, expression: check.Expression_Ref, 
 escape_expression_text :: proc(escape: ^Escape, expression: check.Expression_Ref) -> string {
 	program := escape.run.program
 	file := &program.files[program.typed_views[expression.view].file]
-	text := check.render_expression(file.ast, file.source, expression.node, escape.run.allocator)
-	if len(text) > 80 { text = check.render_expression(file.ast, file.source, expression.node, escape.run.allocator, shorthand = true) }
+	text := check.render_expression(file.ast, file.source, expression.node, escape.allocator)
+	if len(text) > 80 { text = check.render_expression(file.ast, file.source, expression.node, escape.allocator, shorthand = true) }
 	return text
 }
 
