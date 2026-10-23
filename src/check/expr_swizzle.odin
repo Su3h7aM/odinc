@@ -25,10 +25,10 @@ expression_array_selector :: proc(
 	selector := syntax.node_payload(file.ast, node, syntax.Selector_Expr)
 	name := expression_text(file, selector.field)
 	if len(name) == 0 || len(name) > 4 || base.mode == .Type {
-		return expression_failure(checker, view, scope, selector.field, .Undeclared_Name)
+		return expression_no_field(checker, view, scope, file, selector, base)
 	}
 	if len(name) == 1 && descriptor.count > 4 {
-		return expression_failure(checker, view, scope, selector.field, .Undeclared_Name)
+		return expression_no_field(checker, view, scope, file, selector, base)
 	}
 	indices := make([]i64, len(name), mem.dynamic_arena_allocator(&checker.arena)) or_return
 	plan := Swizzle_Plan {
@@ -49,7 +49,7 @@ expression_array_selector :: proc(
 		case 'w', 'a':
 			plan.indices[index] = 3
 		case:
-			return expression_failure(checker, view, scope, selector.field, .Undeclared_Name)
+			return expression_no_field(checker, view, scope, file, selector, base)
 		}
 		xyzw ||= letter == 'x' || letter == 'y' || letter == 'z' || letter == 'w'
 		rgba ||= letter == 'r' || letter == 'g' || letter == 'b' || letter == 'a'
@@ -61,7 +61,7 @@ expression_array_selector :: proc(
 	}
 	for index in 0 ..< len(name) {
 		if i64(plan.indices[index]) >= descriptor.count {
-			if len(name) == 1 { return expression_failure(checker, view, scope, selector.field, .Undeclared_Name) }
+			if len(name) == 1 { return expression_no_field(checker, view, scope, file, selector, base) }
 			reason := fmt.aprintf("Swizzle value is out of bounds, got %c, max count %d", name[index], descriptor.count, allocator = allocator)
 			return expression_failure(checker, view, scope, selector.field, .Invalid_Operand, reason)
 		}

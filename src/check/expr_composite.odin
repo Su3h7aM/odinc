@@ -1,5 +1,6 @@
 package check
 
+import "core:fmt"
 import "core:mem"
 import "core:slice"
 import "oc:syntax"
@@ -208,7 +209,7 @@ expression_composite :: proc(
 				} else {
 					if descriptor.kind == .Struct {
 						if _, found := field_path(checker, owner, false, expression_text(file, pair.field), &path); !found {
-							return expression_failure(checker, view, scope, pair.field, .Undeclared_Name)
+							return expression_unknown_field(checker, view, scope, file, pair.field)
 						}
 						first = int(path[0].field_index)
 					} else {
@@ -217,7 +218,7 @@ expression_composite :: proc(
 					last = first
 				}
 			}
-			if first < 0 { return expression_failure(checker, view, scope, pair.field, .Undeclared_Name) }
+			if first < 0 { return expression_unknown_field(checker, view, scope, file, pair.field) }
 		} else if position >= count {
 			return expression_failure(checker, view, scope, element, .Invalid_Operand)
 		}
@@ -485,4 +486,19 @@ expression_composite_soa_fixed :: proc(
 	plan := Plan_Id(len(checker.plans))
 	append(&checker.plans, Plan(Aggregate_Plan{type = type, values = values[:], field_indices = indices[:], conversions = conversions[:]})) or_return
 	return Expression_Info{type = type, mode = .Value, plan = plan, scope = scope, state = .Checked}, nil
+}
+
+@(private = "file")
+expression_unknown_field :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	scope: Scope_Id,
+	file: ^File,
+	field: syntax.Node_Index,
+) -> (
+	info: Expression_Info,
+	err: Resolve_Error,
+) {
+	reason := fmt.aprintf("Unknown field '%s' in structure literal", expression_text(file, field), allocator = mem.dynamic_arena_allocator(&checker.arena))
+	return expression_failure(checker, view, scope, field, .Undeclared_Name, reason)
 }

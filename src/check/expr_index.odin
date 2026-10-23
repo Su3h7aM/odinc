@@ -653,7 +653,7 @@ expression_soa_field :: proc(
 		allocator := mem.dynamic_arena_allocator(&checker.arena)
 		path := make([dynamic]Member_Step, 0, allocator) or_return
 		found_type, found := field_path(checker, types.core_type(store, descriptor.soa_elem), false, name, &path)
-		if !found { return expression_failure(checker, view, scope, selector.field, .Undeclared_Name) }
+		if !found { return expression_no_field(checker, view, scope, file, selector, base) }
 		if len(path) != 1 { return expression_unsupported(checker, view, scope, node, "Soa_Using_Field") }
 		spread, field_type = int(path[0].field_index), found_type
 	} else if core.kind == .Array {
@@ -676,10 +676,10 @@ expression_soa_field :: proc(
 		case 'w', 'a':
 			spread = 3
 		case:
-			return expression_failure(checker, view, scope, selector.field, .Undeclared_Name)
+			return expression_no_field(checker, view, scope, file, selector, base)
 		}
 		if i64(spread) >= core.count {
-			return expression_failure(checker, view, scope, selector.field, .Undeclared_Name)
+			return expression_no_field(checker, view, scope, file, selector, base)
 		}
 		field_type = core.elem
 	} else {

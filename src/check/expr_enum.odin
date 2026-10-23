@@ -1,6 +1,8 @@
 package check
 
+import "core:fmt"
 import "core:math/big"
+import "core:mem"
 import "oc:syntax"
 import "oc:types"
 
@@ -83,5 +85,19 @@ expression_enum_member :: proc(
 		}
 		return Expression_Info{type = enum_type, constant = constant, mode = .Constant, scope = scope, state = .Checked}, nil
 	}
-	return expression_failure(checker, view, scope, node, .Undeclared_Name)
+	allocator := mem.dynamic_arena_allocator(&checker.arena)
+	file := checker.type_checker.files[file_id]
+	type_text := types.type_text(checker.type_checker.store, enum_type, allocator)
+	#partial switch file.ast.nodes[node].kind {
+	case .Selector_Expr:
+		selector := syntax.node_payload(file.ast, node, syntax.Selector_Expr)
+		reason := fmt.aprintf("Type '%s' has no field '%s'", expression_text(file, selector.expr), name, allocator = allocator)
+		return expression_failure(checker, view, scope, selector.expr, .Undeclared_Name, reason)
+	case .Implicit_Selector_Expr:
+		field := syntax.node_payload(file.ast, node, syntax.Implicit_Selector_Expr).field
+		reason := fmt.aprintf("Undeclared name '%s' for type '%s'", name, type_text, allocator = allocator)
+		return expression_failure(checker, view, scope, field, .Undeclared_Name, reason)
+	}
+	reason := fmt.aprintf("Undeclared name '%s' for type '%s'", name, type_text, allocator = allocator)
+	return expression_failure(checker, view, scope, node, .Undeclared_Name, reason)
 }

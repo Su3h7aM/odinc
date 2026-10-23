@@ -112,7 +112,7 @@ check_procedure_source :: proc(
 	if !testing.expect(t, check_vet(&checker, false) == nil) { return {}, false }
 	if expected_kind != .None {
 		reported := false
-		for diagnostic in checker.diagnostics { reported ||= diagnostic.kind == expected_kind && diagnostic.reason == expected_reason }
+		for diagnostic in checker.diagnostics { reported ||= diagnostic.kind == expected_kind && (expected_reason == "" || diagnostic.reason == expected_reason) }
 		if !testing.expectf(t, reported, "expected %v %q, got %v", expected_kind, expected_reason, checker.diagnostics) { return {}, false }
 	}
 	if diagnostic_count >= 0 &&

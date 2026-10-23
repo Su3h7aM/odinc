@@ -206,7 +206,15 @@ expression_import_member :: proc(
 	package_id := entity_get(scopes, import_name).data.(Import_Data).package_id
 	if int(package_id) >= len(checker.packages) { return expression_unsupported(checker, view, scope, node, "Selector_Package") }
 	member := scope_lookup_current(scopes, checker.packages[package_id].scope, expression_text(file, selector.field))
-	if member == 0 { return expression_failure(checker, view, scope, node, .Undeclared_Name) }
+	if member == 0 {
+		reason := fmt.aprintf(
+			"'%s' is not declared by '%s'",
+			expression_text(file, selector.field),
+			expression_text(file, selector.expr),
+			allocator = mem.dynamic_arena_allocator(&checker.arena),
+		)
+		return expression_failure(checker, view, scope, node, .Undeclared_Name, reason)
+	}
 	return expression_entity_info(checker, file_id, scope, node, member)
 }
 
@@ -281,7 +289,7 @@ expression_field :: proc(
 	} else {
 		field_type, found = field_path(checker, owner, indirect, expression_text(file, selector.field), &path)
 	}
-	if !found { return expression_failure(checker, view, scope, selector.field, .Undeclared_Name) }
+	if !found { return expression_no_field(checker, view, scope, file, selector, base) }
 	if base.mode == .Constant && !indirect {
 		constant := base.constant
 		for step in path {
@@ -393,4 +401,28 @@ selector_names_package :: proc(checker: ^Expression_Checker, scope: Scope_Id, fi
 	scopes := checker.type_checker.resolver.scopes
 	found, _ := scope_find(scopes, scope, expression_text(file, base))
 	return found != 0 && entity_get(scopes, found).kind == .Import_Name
+}
+
+@(private = "package")
+expression_no_field :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	scope: Scope_Id,
+	file: ^File,
+	selector: syntax.Selector_Expr,
+	base: Expression_Info,
+) -> (
+	info: Expression_Info,
+	err: Resolve_Error,
+) {
+	allocator := mem.dynamic_arena_allocator(&checker.arena)
+	operand, field := expression_text(file, selector.expr), expression_text(file, selector.field)
+	reason: string
+	if base.mode == .Type {
+		reason = fmt.aprintf("Type '%s' has no field '%s'", operand, field, allocator = allocator)
+	} else {
+		type_text := types.type_text(checker.type_checker.store, base.type, allocator)
+		reason = fmt.aprintf("'%s' of type '%s' has no field '%s'", operand, type_text, field, allocator = allocator)
+	}
+	return expression_failure(checker, view, scope, selector.expr, .Undeclared_Name, reason)
 }

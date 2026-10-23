@@ -24,6 +24,7 @@ Message_Diagnostics :: bit_set[Expression_Diagnostic_Kind] {
 	.Explicit_Allocator,
 	.Atomic,
 	.Message,
+	.Undeclared_Name,
 }
 
 Diagnostic_Severity :: enum u8 {
@@ -757,7 +758,10 @@ expression_identifier :: proc(
 	name := expression_text(checker.type_checker.files[file], node)
 	entity, found_scope := scope_lookup(resolver.scopes, scope, name)
 	view := expression_file_view(checker, file) or_return
-	if entity == 0 { return expression_failure(checker, view, scope, node, .Undeclared_Name) }
+	if entity == 0 {
+		reason := fmt.aprintf("Undeclared name: %s", name, allocator = mem.dynamic_arena_allocator(&checker.arena))
+		return expression_failure(checker, view, scope, node, .Undeclared_Name, reason)
+	}
 	for binding in scope_get(resolver.scopes, found_scope).using_bindings {
 		if binding.entity == entity && binding.name == name {
 			return expression_using_binding(checker, view, scope, node, binding)

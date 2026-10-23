@@ -1,5 +1,6 @@
 package check
 
+import "core:fmt"
 import "core:math/big"
 import "core:mem"
 import "oc:syntax"
@@ -60,7 +61,8 @@ expression_offset_of :: proc(
 	allocator := mem.dynamic_arena_allocator(&checker.arena)
 	path := make([dynamic]Member_Step, 0, allocator) or_return
 	if _, found := field_path(checker, owner, false, field_name, &path); !found {
-		return expression_failure(checker, view, scope, field_node, .Undeclared_Name)
+		reason := fmt.aprintf("'%s' has no field named '%s'", types.type_text(store, owner, allocator), field_name, allocator = allocator)
+		return expression_failure(checker, view, scope, field_node, .Undeclared_Name, reason)
 	}
 	offset: i64
 	for step in path {
