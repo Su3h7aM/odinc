@@ -26,9 +26,13 @@ lower_binary :: proc(
 	}
 	// Array operands lower through the element-wise path, which evaluates each side once itself: eager
 	// lowering here would choke on the Broadcast plans the checker puts on scalar operands.
-	left_kind := lower_type(state, lower_info(state, expression.left).type).kind
+	left_type := lower_operand_type(state, expression.left)
 	if state.failed { return 0 }
-	right_kind := lower_type(state, lower_info(state, expression.right).type).kind
+	right_type := lower_operand_type(state, expression.right)
+	if state.failed { return 0 }
+	left_kind := lower_type(state, left_type).kind
+	if state.failed { return 0 }
+	right_kind := lower_type(state, right_type).kind
 	if state.failed { return 0 }
 	if left_kind == .Array || left_kind == .Enumerated_Array || right_kind == .Array || right_kind == .Enumerated_Array {
 		return lower_array_binary(state, node, expression, conversions)
@@ -49,8 +53,7 @@ lower_binary :: proc(
 		if expression.op.kind == .Not_In { return bool_not(state.job.function, found) }
 		return found
 	}
-	if lower_type(state, lower_info(state, expression.left).type).kind == .Matrix ||
-	   lower_type(state, lower_info(state, expression.right).type).kind == .Matrix {
+	if lower_type(state, left_type).kind == .Matrix || lower_type(state, right_type).kind == .Matrix {
 		info := lower_info(state, node)
 		if info.plan == 0 { return lower_fail(state, node, .Operator) }
 		plan, is_matrix := check.plan(state.job.program, info.plan)^.(check.Matrix_Binary_Plan)
@@ -89,18 +92,15 @@ lower_binary :: proc(
 	if conversions.type != 0 && is_wide_integer(state, conversions.type) {
 		return lower_wide_operator(state, node, expression.op.kind, signed_type(state, conversions.type), false, left, right)
 	}
-	if is_wide_integer(state, lower_info(state, expression.left).type) { return lower_wide_binary(state, node, expression, left, right) }
-	if (expression.op.kind == .Shl || expression.op.kind == .Shr) && is_wide_integer(state, lower_info(state, expression.right).type) {
-		right = wide_count_word(state, right, signed_type(state, lower_info(state, expression.right).type))
+	if is_wide_integer(state, left_type) { return lower_wide_binary(state, node, expression, left, right) }
+	if (expression.op.kind == .Shl || expression.op.kind == .Shr) && is_wide_integer(state, right_type) {
+		right = wide_count_word(state, right, signed_type(state, right_type))
 		if state.failed { return 0 }
 	}
-	if lower_operand_is_bit_set(state, expression.left) {
-		return lower_bit_set_operator(state, node, expression.op.kind, left, right)
-	}
-	if lower_complex_kind(state, lower_info(state, expression.left).type) || lower_complex_kind(state, lower_info(state, expression.right).type) {
-		if !lower_complex_kind(state, lower_info(state, expression.left).type) ||
-		   !lower_complex_kind(state, lower_info(state, expression.right).type) { return lower_fail(state, node, .Operator) }
-		return lower_complex_binary(state, node, expression.op.kind, left, right, lower_info(state, expression.left).type)
+	if lower_operand_is_bit_set(state, expression.left) { return lower_bit_set_operator(state, node, expression.op.kind, left, right) }
+	if lower_complex_kind(state, left_type) || lower_complex_kind(state, right_type) {
+		if !lower_complex_kind(state, left_type) || !lower_complex_kind(state, right_type) { return lower_fail(state, node, .Operator) }
+		return lower_complex_binary(state, node, expression.op.kind, left, right, left_type)
 	}
 	if is_nil_comparison(state, expression) { return lower_nil_comparison(state, expression, left, right) }
 	if (expression.op.kind == .Cmp_Eq || expression.op.kind == .Not_Eq) &&
@@ -112,9 +112,18 @@ lower_binary :: proc(
 			return lower_array_generated_equal(state, node, expression.op.kind, struct_type, left, right)
 		}
 	}
-	operand_type := lower_info(state, expression.left).type
+	operand_type := left_type
 	if conversions.type != 0 { operand_type = conversions.type }
 	return lower_scalar_binary(state, node, expression.op.kind, left, right, operand_type)
+}
+
+// The type an operand contributes to an operator. A type used where a value is expected is its typeid,
+// matching the official backend, which lowers every Addressing_Type expression to lb_typeid.
+@(private)
+lower_operand_type :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> types.Type_Id {
+	info := lower_info(state, node)
+	if info.mode != .Type { return info.type }
+	return types.intern(check.type_store(state.job.program), types.Type{kind = .Type_Id})
 }
 
 // One scalar operator: the shared tail of binary lowering, reused for every array lane.
@@ -738,9 +747,8 @@ lower_struct_compare_type :: proc(state: ^Procedure_State, left_node, right_node
 // Whether the operand's resolved type is a bit set, whose ordered comparison needs masks.
 @(private)
 lower_operand_is_bit_set :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> bool {
-	info := lower_info(state, node)
 	store := check.type_store(state.job.program)
-	return types.get(store, types.resolve_named(store, info.type)).kind == .Bit_Set
+	return types.get(store, types.resolve_named(store, lower_operand_type(state, node))).kind == .Bit_Set
 }
 
 // One operand is the nil constant the checker unified into the other operand's type.

@@ -206,6 +206,8 @@ lower_value :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> ir.Node
 		return lower_entity_value(state, info.entity)
 	}
 	if state.ast.nodes[node].kind == .Paren_Expr { return lower_value(state, state.ast.nodes[node].payload.(syntax.Paren_Expr).expr) }
+	// A type used where a value is expected is its typeid, as the official lb_build_expr does for Addressing_Type.
+	if info.mode == .Type && info.plan == 0 { return lower_runtime_typeid(state, node, info.type) }
 	if info.plan != 0 {
 		plan := check.plan(state.job.program, info.plan)
 		if plan == nil &&
