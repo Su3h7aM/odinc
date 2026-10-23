@@ -131,6 +131,10 @@ lower_index_address :: proc(state: ^Procedure_State, node: syntax.Node_Index, pl
 		if base_type.kind == .Enumerated_Array {
 			offset = ir.binary(function, .Sub, offset, ir.const_int(function, .I64, base_type.lower_bound))
 		}
+	case .Fixed_Capacity_Array:
+		base = lower_array_base(state, index.expr)
+		if state.failed || function.error != nil { return 0 }
+		length = lower_fixed_capacity_length(state, base, base_type)
 	case .Slice, .String, .String16, .Dynamic_Array:
 		base, length = lower_header_parts(state, lower_value(state, index.expr))
 	case .Multi_Pointer:
@@ -258,7 +262,17 @@ lower_length :: proc(state: ^Procedure_State, node: syntax.Node_Index, info: che
 	}
 	header := lower_operand(state, plan.arguments[0])
 	if state.failed || state.job.function.error != nil { return 0 }
+	argument := lower_type(state, argument_type)
+	if argument.kind == .Pointer { argument = lower_type(state, argument.elem) }
+	if argument.kind == .Fixed_Capacity_Array { return lower_fixed_capacity_length(state, header, argument) }
 	return lower_load_word(state, ir.ptr_offset(state.job.function, header, 8), .I64)
+}
+
+// The length word follows the element storage, rounded up to a word.
+@(private)
+lower_fixed_capacity_length :: proc(state: ^Procedure_State, address: ir.Node_Id, array: ^types.Type) -> ir.Node_Id {
+	storage := state.job.layouts[array.elem].size * array.count
+	return lower_load_word(state, ir.ptr_offset(state.job.function, address, (storage + 7) / 8 * 8), .I64)
 }
 
 lower_capacity :: proc(state: ^Procedure_State, node: syntax.Node_Index, info: check.Expression_Info, plan: check.Builtin_Plan) -> ir.Node_Id {

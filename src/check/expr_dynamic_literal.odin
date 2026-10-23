@@ -74,6 +74,37 @@ expression_dynamic_array_literal :: proc(
 	return Expression_Info{type = literal_type, mode = .Value, plan = plan, scope = scope, state = .Checked}, nil
 }
 
+// A fixed-capacity array literal keeps its elements in place and needs no allocation.
+@(private = "package")
+expression_fixed_capacity_literal :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	file_id: File_Id,
+	scope: Scope_Id,
+	node: syntax.Node_Index,
+	literal_type: types.Type_Id,
+	elements: []syntax.Node_Index,
+	descriptor: types.Type,
+) -> (
+	info: Expression_Info,
+	err: Resolve_Error,
+) {
+	values, indices, conversions, count, failed, elements_error := expression_literal_elements(checker, view, scope, file_id, elements, descriptor.elem)
+	if elements_error != nil { return {}, elements_error }
+	if failed { return expression_poison(scope), nil }
+	if i64(count) > descriptor.count { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
+	backing_type := types.intern(checker.type_checker.store, types.Type{kind = .Array, elem = descriptor.elem, count = i64(count)})
+	plan := Plan_Id(len(checker.plans))
+	backing := Aggregate_Plan {
+		type          = backing_type,
+		values        = values,
+		field_indices = indices,
+		conversions   = conversions,
+	}
+	append(&checker.plans, Plan(Dynamic_Array_Literal_Plan{type = literal_type, backing = backing})) or_return
+	return Expression_Info{type = literal_type, mode = .Value, plan = plan, scope = scope, state = .Checked}, nil
+}
+
 // Map keys are arbitrary expressions, so every element names its key (`key = value`).
 @(private = "file")
 expression_map_literal :: proc(

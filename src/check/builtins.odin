@@ -1201,6 +1201,12 @@ expression_length :: proc(
 	if descriptor.kind == .Struct && descriptor.soa != .None {
 		return expression_soa_length(checker, view, scope, node, builtin, kind, operand, arguments[0], hint)
 	}
+	capacity: types.Type
+	if descriptor.kind == .Fixed_Capacity_Array && kind == .Cap {
+		capacity = descriptor^
+		capacity.kind = .Array
+		descriptor = &capacity
+	}
 	#partial switch descriptor.kind {
 	case .Array, .Enumerated_Array, .Enum:
 		if descriptor.kind == .Enum && operand.mode != .Type || descriptor.kind != .Array && kind == .Cap {
@@ -1218,7 +1224,7 @@ expression_length :: proc(
 			return expression_poison(scope), nil
 		}
 		return Expression_Info{type = types.TYPE_UNTYPED_INTEGER, constant = constant, mode = .Constant, scope = scope, state = .Checked}, nil
-	case .Slice, .Dynamic_Array, .Map, .String, .String16, .CString, .CString16, .Untyped_String:
+	case .Slice, .Dynamic_Array, .Fixed_Capacity_Array, .Map, .String, .String16, .CString, .CString16, .Untyped_String:
 		if kind == .Len && operand.mode == .Constant && operand.constant != 0 {
 			length, known := constant_string_length(checker, operand.constant)
 			if known {

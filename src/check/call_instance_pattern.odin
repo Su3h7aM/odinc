@@ -147,7 +147,7 @@ poly_match_pattern :: proc(match: ^Poly_Match, pattern: syntax.Node_Index, argum
 		}
 		if poly.specialization == 0 { return true, nil }
 		matched = poly_match_pattern(match, poly.specialization, argument) or_return
-		if matched || poly_pattern_has_poly(file, poly.specialization) { return matched, nil }
+		if matched || argument == types.TYPE_NONE || poly_pattern_has_poly(file, poly.specialization) { return matched, nil }
 		store := match.checker.type_checker.store
 		record := types.get(store, underlying_type(store, argument)).kind
 		if record != .Struct && record != .Union { return false, nil }
@@ -350,7 +350,8 @@ poly_match_array :: proc(
 		name := expression_text(file, syntax.node_payload(file.ast, length, syntax.Poly_Type).type)
 		constant, ok, constant_error := poly_integer_constant(match, count)
 		if constant_error != nil || !ok { return false, constant_error }
-		bound := poly_bind(match.checker.type_checker.store, match.bindings, name, match.checker.default_integer, constant) or_return
+		count_type := types.TYPE_UNTYPED_INTEGER if kind == .Fixed_Capacity_Array else match.checker.default_integer
+		bound := poly_bind(match.checker.type_checker.store, match.bindings, name, count_type, constant) or_return
 		if !bound { return false, nil }
 	} else {
 		expected, valid, count_error := poly_match_count(match, length)

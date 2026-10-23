@@ -123,6 +123,9 @@ expression_composite :: proc(
 		if descriptor.kind == .Dynamic_Array || descriptor.kind == .Map {
 			return expression_dynamic_literal(checker, view, file_id, scope, node, type, descriptor)
 		}
+		if descriptor.kind == .Fixed_Capacity_Array {
+			return expression_fixed_capacity_literal(checker, view, file_id, scope, node, type, syntax.node_list(file.ast, literal.elems), descriptor)
+		}
 		reason := "Composite_Type"
 		#partial switch descriptor.kind {
 		case .Slice:

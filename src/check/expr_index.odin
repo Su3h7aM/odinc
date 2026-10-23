@@ -77,13 +77,14 @@ expression_index :: proc(
 		vector := expression_matrix_vector(checker, view, file_id, scope, node, base) or_return
 		return vector, nil
 	}
-	if !is_array && !is_dynamic_array && !is_enumerated_array && !is_string && !is_multi_pointer && base_descriptor.kind != .Slice {
+	is_fixed_capacity := base_descriptor.kind == .Fixed_Capacity_Array
+	if !is_array && !is_dynamic_array && !is_fixed_capacity && !is_enumerated_array && !is_string && !is_multi_pointer && base_descriptor.kind != .Slice {
 		return expression_unsupported(checker, view, scope, node, "Index_Base")
 	}
 	length := base_descriptor.count
 	element_type := base_descriptor.elem
 	mode := Addressing_Mode.Variable
-	if is_array && !is_pointer && base.mode != .Variable {
+	if (is_array || is_fixed_capacity) && !is_pointer && base.mode != .Variable {
 		mode = .Value
 	}
 	if is_string {

@@ -15,7 +15,7 @@ lower_dynamic_array_literal :: proc(state: ^Procedure_State, node: syntax.Node_I
 	function := state.job.function
 	store := check.type_store(state.job.program)
 	descriptor := types.get(store, types.resolve_named(store, plan.type))
-	if descriptor.kind != .Dynamic_Array { return lower_fail(state, node, .Expression) }
+	if descriptor.kind != .Dynamic_Array && descriptor.kind != .Fixed_Capacity_Array { return lower_fail(state, node, .Expression) }
 	backing_descriptor := types.get(store, plan.backing.type)
 	if backing_descriptor.kind != .Array || backing_descriptor.elem != descriptor.elem { return lower_fail(state, node, .Expression) }
 	layout := state.job.layouts[plan.type]
@@ -24,6 +24,14 @@ lower_dynamic_array_literal :: proc(state: ^Procedure_State, node: syntax.Node_I
 	lower_zero_memory(state, header, layout.size)
 	count := backing_descriptor.count
 	if count == 0 { return header }
+	if descriptor.kind == .Fixed_Capacity_Array {
+		backing_size := state.job.layouts[plan.backing.type].size
+		lower_aggregate_into(state, node, plan.backing, header, backing_size)
+		if state.failed || function.error != nil { return 0 }
+		length_offset := (backing_size / count * descriptor.count + 7) / 8 * 8
+		lower_store_word(state, ir.ptr_offset(function, header, length_offset), ir.const_int(function, .I64, count))
+		return header
+	}
 	element_layout := state.job.layouts[descriptor.elem]
 	if element_layout.error != .None || element_layout.size < 0 || element_layout.size > i64(max(u32)) {
 		return lower_fail(state, node, .Expression)

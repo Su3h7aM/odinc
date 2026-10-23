@@ -582,6 +582,18 @@ expression_diagnostics_within :: proc(checker: ^Expression_Checker, first: int, 
 	return false
 }
 
+// A call from a declaration still being resolved needs the parameters before the callee's body is checked.
+@(private = "package")
+expression_prepare_parameters :: proc(checker: ^Expression_Checker, id: Entity_Id) -> Resolve_Error {
+	resolver := checker.type_checker.resolver
+	signature := checker.type_checker.declarations[id].type
+	procedure_scope, scope_error := scope_create(resolver.scopes, entity_get(resolver.scopes, id).scope, .Procedure, id)
+	if scope_error != nil { return binding_resolve_error(scope_error) }
+	outer_results, outer_named_results := checker.results, checker.named_results
+	defer { checker.results, checker.named_results = outer_results, outer_named_results }
+	return expression_signature_bindings(checker, resolver, id, signature, procedure_scope)
+}
+
 @(private = "file")
 expression_bodyless_signature_bindings :: proc(
 	checker: ^Expression_Checker,
