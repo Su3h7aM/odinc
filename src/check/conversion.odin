@@ -192,7 +192,8 @@ check_conversion :: proc(
 			return result, .None, nil
 		}
 	}
-	allowed := types.are_identical(store, info.type, target)
+	same_type := types.are_identical(store, info.type, target)
+	allowed := same_type
 	if kind == .Assignment && untyped {
 		allowed = conversion_integer(src.kind) && conversion_integer(dst.kind) || conversion_boolean(src.kind) && conversion_boolean(dst.kind)
 		allowed ||= conversion_float(src.kind) && conversion_float(dst.kind)
@@ -297,7 +298,7 @@ check_conversion :: proc(
 	if !allowed {
 		return {}, .Not_Assignable if kind == .Assignment else .Not_Castable, nil
 	}
-	if types.are_identical(store, info.type, target) {
+	if same_type {
 		if info.mode == .Constant {
 			result.info.mode = .Constant
 			result.info.constant = info.constant

@@ -236,8 +236,9 @@ intern :: proc(store: ^Store, descriptor: Type) -> Type_Id {
 lookup :: proc(store: ^Store, descriptor: Type) -> (id: Type_Id, found: bool) {
 	bucket, present := store.index[descriptor_hash(descriptor)]
 	if !present { return TYPE_NONE, false }
+	probe := descriptor
 	for candidate in bucket {
-		if descriptors_equal(store.types[candidate]^, descriptor) { return candidate, true }
+		if descriptors_equal(store.types[candidate], &probe, true) { return candidate, true }
 	}
 	return TYPE_NONE, false
 }
@@ -445,18 +446,18 @@ complete_alias :: proc(store: ^Store, id: Type_Id, descriptor: Type) {
 	index_insert(store, id)
 }
 
-descriptors_equal :: proc(a, b: Type) -> bool {
+// children: also compare ids and nested descriptors. Identity passes false after comparing children structurally.
+descriptors_equal :: proc(a, b: ^Type, children: bool) -> bool {
+	if children && (a.procedure_info != b.procedure_info || a.elem != b.elem || a.index != b.index || a.backing != b.backing) {
+		return false
+	}
 	if a.kind != b.kind ||
-	   a.procedure_info != b.procedure_info ||
 	   a.name != b.name ||
-	   a.elem != b.elem ||
-	   a.index != b.index ||
 	   a.count != b.count ||
 	   a.lower_bound != b.lower_bound ||
 	   a.enum_lower_bound != b.enum_lower_bound ||
 	   a.enum_upper_bound != b.enum_upper_bound ||
 	   a.upper_bound != b.upper_bound ||
-	   a.backing != b.backing ||
 	   a.endianness != b.endianness ||
 	   a.signed != b.signed ||
 	   a.variadic != b.variadic ||
@@ -475,15 +476,16 @@ descriptors_equal :: proc(a, b: Type) -> bool {
 	   a.raw_union != b.raw_union ||
 	   a.is_nominal != b.is_nominal ||
 	   a.is_complete != b.is_complete ||
-	   len(a.fields) != len(b.fields) ||
-	   len(a.bit_sizes) != len(b.bit_sizes) ||
-	   len(a.variants) != len(b.variants) {
+	   len(a.bit_sizes) != len(b.bit_sizes) {
+		return false
+	}
+	for i in 0 ..< len(a.bit_sizes) { if a.bit_sizes[i] != b.bit_sizes[i] { return false } }
+	if !children { return true }
+	if len(a.fields) != len(b.fields) || len(a.variants) != len(b.variants) || len(a.params) != len(b.params) || len(a.results) != len(b.results) {
 		return false
 	}
 	for i in 0 ..< len(a.fields) { if a.fields[i] != b.fields[i] { return false } }
-	for i in 0 ..< len(a.bit_sizes) { if a.bit_sizes[i] != b.bit_sizes[i] { return false } }
 	for i in 0 ..< len(a.variants) { if a.variants[i] != b.variants[i] { return false } }
-	if len(a.params) != len(b.params) || len(a.results) != len(b.results) { return false }
 	if !names_equal(a.param_names, b.param_names) || !names_equal(a.result_names, b.result_names) { return false }
 	for i in 0 ..< len(a.params) { if a.params[i] != b.params[i] { return false } }
 	for i in 0 ..< len(a.results) { if a.results[i] != b.results[i] { return false } }
