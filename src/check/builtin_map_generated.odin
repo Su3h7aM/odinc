@@ -6,38 +6,38 @@ import "core:mem"
 import "oc:types"
 
 // Runtime procedures that generated map hashers and equality procedures call.
-map_helper_names := [?]string {
-	"default_hasher_fixed",
-	"default_hasher_string",
-	"default_hasher_string16",
-	"default_hasher_cstring",
-	"default_hasher_cstring16",
-	"default_hasher_f64",
-	"memory_equal",
-	"cstring_eq",
-	"cstring16_eq",
+map_helper_names := [?]Runtime_Helper {
+	.Default_Hasher_Fixed,
+	.Default_Hasher_String,
+	.Default_Hasher_String16,
+	.Default_Hasher_Cstring,
+	.Default_Hasher_Cstring16,
+	.Default_Hasher_F64,
+	.Memory_Equal,
+	.Cstring_Eq,
+	.Cstring16_Eq,
 }
-map_runtime_helper_names := [?]string {
-	"map_seed",
-	"map_cap",
-	"map_kvh_data_dynamic",
-	"map_cell_index_dynamic",
-	"map_hash_is_valid",
-	"__dynamic_map_get",
-	"__dynamic_map_set",
-	"__dynamic_map_reserve",
+map_runtime_helper_names := [?]Runtime_Helper {
+	.Map_Seed,
+	.Map_Cap,
+	.Map_Kvh_Data_Dynamic,
+	.Map_Cell_Index_Dynamic,
+	.Map_Hash_Is_Valid,
+	.Dynamic_Map_Get,
+	.Dynamic_Map_Set,
+	.Dynamic_Map_Reserve,
 }
 
 // Queues runtime procedures the way upstream's add_package_dependency does: resolving
 // their bodies so publish emits a symbol lowering can call. Used for helpers that no
 // user code names, such as the ones non-empty dynamic literals call.
 @(private = "package")
-expression_resolve_runtime_helpers :: proc(checker: ^Expression_Checker, names: []string) -> (resolved: bool, err: Resolve_Error) {
+expression_resolve_runtime_helpers :: proc(checker: ^Expression_Checker, helpers: []Runtime_Helper) -> (resolved: bool, err: Resolve_Error) {
 	collection := checker.type_checker.collection
 	if collection == nil || collection.runtime_scope == 0 { return false, nil }
 	scopes := checker.type_checker.resolver.scopes
-	for name in names {
-		helper := scope_lookup_current(scopes, collection.runtime_scope, name)
+	for kind in helpers {
+		helper := runtime_helper_entity(checker, kind)
 		if helper == 0 { return false, nil }
 		_, resolve_error := resolve_entity(checker.type_checker.resolver, helper)
 		if resolve_error != nil { return false, resolve_error }
@@ -50,17 +50,17 @@ expression_resolve_runtime_helpers :: proc(checker: ^Expression_Checker, names: 
 expression_resolve_bounds_helpers :: proc(checker: ^Expression_Checker) -> Resolve_Error {
 	collection := checker.type_checker.collection
 	if collection == nil || collection.runtime_scope == 0 { return nil }
-	names := [?]string {
-		"bounds_check_error_contextless",
-		"bounds_check_error_with_context",
-		"matrix_bounds_check_error_contextless",
-		"matrix_bounds_check_error_with_context",
-		"slice_expr_error_hi_contextless",
-		"slice_expr_error_hi_with_context",
-		"slice_expr_error_lo_hi_contextless",
-		"slice_expr_error_lo_hi_with_context",
-		"multi_pointer_slice_expr_error_contextless",
-		"multi_pointer_slice_expr_error_with_context",
+	names := [?]Runtime_Helper {
+		.Bounds_Check_Error_Contextless,
+		.Bounds_Check_Error_With_Context,
+		.Matrix_Bounds_Check_Error_Contextless,
+		.Matrix_Bounds_Check_Error_With_Context,
+		.Slice_Expr_Error_Hi_Contextless,
+		.Slice_Expr_Error_Hi_With_Context,
+		.Slice_Expr_Error_Lo_Hi_Contextless,
+		.Slice_Expr_Error_Lo_Hi_With_Context,
+		.Multi_Pointer_Slice_Expr_Error_Contextless,
+		.Multi_Pointer_Slice_Expr_Error_With_Context,
 	}
 	_, err := expression_resolve_runtime_helpers(checker, names[:])
 	return err
@@ -70,10 +70,9 @@ expression_resolve_bounds_helpers :: proc(checker: ^Expression_Checker) -> Resol
 expression_resolve_map_helpers :: proc(checker: ^Expression_Checker) -> (resolved: bool, err: Resolve_Error) {
 	resolved, err = expression_resolve_runtime_helpers(checker, map_runtime_helper_names[:])
 	if err != nil || !resolved { return resolved, err }
-	collection := checker.type_checker.collection
 	scopes := checker.type_checker.resolver.scopes
-	for name in map_helper_names {
-		helper := scope_lookup_current(scopes, collection.runtime_scope, name)
+	for kind in map_helper_names {
+		helper := runtime_helper_entity(checker, kind)
 		if helper == 0 { continue }
 		_, resolve_error := resolve_entity(checker.type_checker.resolver, helper)
 		if resolve_error != nil { return false, resolve_error }
@@ -133,7 +132,7 @@ expression_checker_publish_map_info :: proc(checker: ^Expression_Checker, progra
 		append_map_info_entry(checker, &entries, program, map_type) or_return
 	}
 	program.runtime.map_info = entries[:]
-	program.runtime.helper_entities = map_helper_entities(checker) or_return
+	program.runtime.helpers = runtime_helper_entities(checker)
 	return nil
 }
 
@@ -181,28 +180,6 @@ map_cell_info_symbol :: proc(program: ^Checked_Program, type: types.Type_Id) -> 
 		if entry.type == type { return entry.symbol }
 	}
 	return 0
-}
-
-@(private = "file")
-map_helper_entities :: proc(checker: ^Expression_Checker) -> (helpers: []Entity_Id, err: runtime.Allocator_Error) {
-	collection := checker.type_checker.collection
-	if collection == nil || collection.runtime_scope == 0 { return nil, nil }
-	allocator := mem.dynamic_arena_allocator(&checker.arena)
-	scopes := checker.type_checker.resolver.scopes
-	list := make([dynamic]Entity_Id, allocator) or_return
-	for name in map_runtime_helper_names {
-		helper := scope_lookup_current(scopes, collection.runtime_scope, name)
-		if helper != 0 { append(&list, helper) or_return }
-	}
-	for name in map_helper_names {
-		helper := scope_lookup_current(scopes, collection.runtime_scope, name)
-		if helper != 0 { append(&list, helper) or_return }
-	}
-	for name in range_helper_names {
-		helper := scope_lookup_current(scopes, collection.runtime_scope, name)
-		if helper != 0 { append(&list, helper) or_return }
-	}
-	return list[:], nil
 }
 
 // One generated procedure per kind and type, shared by every map that needs it.

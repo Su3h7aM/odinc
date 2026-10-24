@@ -65,26 +65,27 @@ lower_range_string :: proc(state: ^Procedure_State, node: syntax.Node_Index, par
 }
 
 @(private = "file")
-range_decode_name :: proc(kind: types.Kind, reverse: bool) -> string {
+range_decode_name :: proc(kind: types.Kind, reverse: bool) -> check.Runtime_Helper {
 	if kind == .String16 {
-		return "string16_decode_last_rune" if reverse else "string16_decode_rune"
+		return .String16_Decode_Last_Rune if reverse else .String16_Decode_Rune
 	}
-	return "string_decode_last_rune" if reverse else "string_decode_rune"
+	return .String_Decode_Last_Rune if reverse else .String_Decode_Rune
 }
 
 // Calls a runtime decode procedure with the string passed as its data pointer and length. The rune comes back
 // through a stack slot, because the procedure splits its results; the width is the final result.
 @(private = "file")
-lower_range_decode :: proc(state: ^Procedure_State, node: syntax.Node_Index, name: string, data, length: ir.Node_Id) -> (value, width: ir.Node_Id) {
+lower_range_decode :: proc(
+	state: ^Procedure_State,
+	node: syntax.Node_Index,
+	kind: check.Runtime_Helper,
+	data, length: ir.Node_Id,
+) -> (
+	value, width: ir.Node_Id,
+) {
 	function := state.job.function
 	program := state.job.program
-	helper: check.Entity_Id
-	for entity in program.runtime.helper_entities {
-		if program.entities[entity].name == name {
-			helper = entity
-			break
-		}
-	}
+	helper := program.runtime.helpers[kind]
 	if helper == 0 || program.entity_symbols[helper] == 0 {
 		lower_fail(state, node, .Range)
 		return 0, 0

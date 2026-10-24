@@ -629,13 +629,10 @@ lower_array_cstring_length :: proc(state: ^Procedure_State, node: syntax.Node_In
 lower_array_memory_equal :: proc(state: ^Procedure_State, node: syntax.Node_Index, left, right, count: ir.Node_Id) -> ir.Node_Id {
 	if state.failed { return 0 }
 	program := state.job.program
-	for entity in program.runtime.helper_entities {
-		if program.entities[entity].name != "memory_equal" { continue }
-		if program.entity_symbols[entity] == 0 { return lower_fail(state, node, .Operator) }
-		symbol := state.job.symbols[program.entity_symbols[entity]]
-		return generated_procedure_call(state, symbol, program.entities[entity].type, []ir.Node_Id{left, right, count})
-	}
-	return lower_fail(state, node, .Operator)
+	entity := program.runtime.helpers[.Memory_Equal]
+	if entity == 0 || program.entity_symbols[entity] == 0 { return lower_fail(state, node, .Operator) }
+	symbol := state.job.symbols[program.entity_symbols[entity]]
+	return generated_procedure_call(state, symbol, program.entities[entity].type, []ir.Node_Id{left, right, count})
 }
 
 // Element-wise unary plus, minus and bitwise-not over fixed arrays; the unary dispatch hook lives in lower_expr.

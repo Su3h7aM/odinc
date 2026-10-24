@@ -121,9 +121,12 @@ map_index_assignment_results_lower :: proc(t: ^testing.T) {
 		},
 		allocator,
 	)
+	runtime_helpers: [check.Runtime_Helper]check.Entity_Id
+	runtime_helpers[.Map_Seed] = 6
+	runtime_helpers[.Dynamic_Map_Get] = 7
 	program.runtime = check.Runtime_Requirements {
-		helper_entities = {6, 7},
-		map_info        = {{type = map_type, key_cell = 7, value_cell = 8, key_hasher = 5, key_equal = 6, symbol = 4}},
+		helpers  = runtime_helpers,
+		map_info = {{type = map_type, key_cell = 7, value_cell = 8, key_hasher = 5, key_equal = 6, symbol = 4}},
 	}
 	module: ir.Module
 	errors, _, err := lower_program(&program, &module)

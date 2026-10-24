@@ -25,13 +25,13 @@ lower_range_map :: proc(state: ^Procedure_State, node: syntax.Node_Index, parts:
 	map_value := lower_operand(state, check.Expression_Ref{state.view, parts.expr})
 	if state.failed || state.job.function.error != nil { return }
 	map_info := lower_map_info_of(state, node, check.Map_Info_Plan{type = map_type})
-	capacity := lower_map_runtime_call(state, node, "map_cap", []ir.Node_Id{map_value})
+	capacity := lower_map_runtime_call(state, node, check.Runtime_Helper.Map_Cap, []ir.Node_Id{map_value})
 	keys, values, hashes, data_ok := lower_map_range_data(state, node, map_value, map_info)
 	if !data_ok || state.failed || state.job.function.error != nil { return }
 	key_info := lower_map_range_cell_info(state, node, map_descriptor.index)
 	value_info := lower_map_range_cell_info(state, node, map_descriptor.elem)
 	if key_info == 0 || value_info == 0 { return }
-	hash_entity := lower_map_range_helper(state, "map_hash_is_valid")
+	hash_entity := lower_map_range_helper(state, check.Runtime_Helper.Map_Hash_Is_Valid)
 	if hash_entity == 0 { lower_fail(state, node, .Range); return }
 	hash_type := types.get(store, types.resolve_named(store, state.job.program.entities[hash_entity].type)).params[0]
 	hash_layout := state.job.layouts[hash_type]
@@ -60,14 +60,14 @@ lower_range_map :: proc(state: ^Procedure_State, node: syntax.Node_Index, parts:
 	ir.enter_arm(state.builder, bounds_branch, 0)
 	hash_address := ir.ptr_index(function, hashes, current, u32(hash_layout.size))
 	hash := lower_load_word(state, hash_address, hash_value_type)
-	valid := lower_map_runtime_call(state, node, "map_hash_is_valid", []ir.Node_Id{hash})
+	valid := lower_map_runtime_call(state, node, check.Runtime_Helper.Map_Hash_Is_Valid, []ir.Node_Id{hash})
 	if state.failed || function.error != nil { return }
 	valid_branch := ir.branch_if(state.builder, valid)
 	ir.enter_arm(state.builder, valid_branch, 1)
 	ir.jump_to(state.builder, continuation)
 	ir.enter_arm(state.builder, valid_branch, 0)
-	key_raw := lower_map_runtime_call(state, node, "map_cell_index_dynamic", []ir.Node_Id{keys, key_info, current})
-	value_raw := lower_map_runtime_call(state, node, "map_cell_index_dynamic", []ir.Node_Id{values, value_info, current})
+	key_raw := lower_map_runtime_call(state, node, check.Runtime_Helper.Map_Cell_Index_Dynamic, []ir.Node_Id{keys, key_info, current})
+	value_raw := lower_map_runtime_call(state, node, check.Runtime_Helper.Map_Cell_Index_Dynamic, []ir.Node_Id{values, value_info, current})
 	if state.failed || function.error != nil { return }
 	key_address := ir.convert(function, .Bitcast, key_raw, .Ptr)
 	value_address := ir.convert(function, .Bitcast, value_raw, .Ptr)
@@ -113,11 +113,8 @@ lower_map_range_cell_info :: proc(state: ^Procedure_State, node: syntax.Node_Ind
 }
 
 @(private)
-lower_map_range_helper :: proc(state: ^Procedure_State, name: string) -> check.Entity_Id {
-	for candidate in state.job.program.runtime.helper_entities {
-		if state.job.program.entities[candidate].name == name { return candidate }
-	}
-	return 0
+lower_map_range_helper :: proc(state: ^Procedure_State, helper: check.Runtime_Helper) -> check.Entity_Id {
+	return state.job.program.runtime.helpers[helper]
 }
 
 @(private)
@@ -129,7 +126,7 @@ lower_map_range_data :: proc(
 	keys, values, hashes: ir.Node_Id,
 	ok: bool,
 ) {
-	helper := lower_map_range_helper(state, "map_kvh_data_dynamic")
+	helper := lower_map_range_helper(state, check.Runtime_Helper.Map_Kvh_Data_Dynamic)
 	if helper == 0 || int(helper) >= len(state.job.declarations) || state.job.program.entity_symbols[helper] == 0 {
 		lower_fail(state, node, .Range)
 		return

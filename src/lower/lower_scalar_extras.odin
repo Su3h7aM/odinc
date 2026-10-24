@@ -90,8 +90,8 @@ fused_multiply_add_lane :: proc(state: ^Procedure_State, node: syntax.Node_Index
 	if half {
 		for &operand in operands { operand = ir.convert(function, .Float_Ext, float16_widen(function, operand), .F64) }
 	}
-	name := "linux_math_fma_f32" if scalar == .F32 else "linux_math_fma_f64"
-	declaration, found := lower_runtime_procedure(state, name)
+	helper := check.Runtime_Helper.Linux_Math_Fma_F32 if scalar == .F32 else check.Runtime_Helper.Linux_Math_Fma_F64
+	declaration, found := lower_runtime_procedure(state, helper)
 	if !found { return lower_fail(state, node, .Builtin) }
 	result := lower_runtime_scalar_call(state, declaration, operands[:])
 	if half { return float16_narrow(function, result) }

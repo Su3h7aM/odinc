@@ -27,20 +27,20 @@ lower_bounds_check :: proc(state: ^Procedure_State, holds: ir.Node_Id, node: syn
 @(private)
 lower_bounds_error :: proc(state: ^Procedure_State, node: syntax.Node_Index, handler: string, bounds: []ir.Node_Id) {
 	with_context := state.context_pointer != 0
-	name: string
+	helper: check.Runtime_Helper
 	switch handler {
 	case "bounds_check_error":
-		name = "bounds_check_error_with_context" if with_context else "bounds_check_error_contextless"
+		helper = .Bounds_Check_Error_With_Context if with_context else .Bounds_Check_Error_Contextless
 	case "slice_expr_error_hi":
-		name = "slice_expr_error_hi_with_context" if with_context else "slice_expr_error_hi_contextless"
+		helper = .Slice_Expr_Error_Hi_With_Context if with_context else .Slice_Expr_Error_Hi_Contextless
 	case "slice_expr_error_lo_hi":
-		name = "slice_expr_error_lo_hi_with_context" if with_context else "slice_expr_error_lo_hi_contextless"
+		helper = .Slice_Expr_Error_Lo_Hi_With_Context if with_context else .Slice_Expr_Error_Lo_Hi_Contextless
 	case "multi_pointer_slice_expr_error":
-		name = "multi_pointer_slice_expr_error_with_context" if with_context else "multi_pointer_slice_expr_error_contextless"
+		helper = .Multi_Pointer_Slice_Expr_Error_With_Context if with_context else .Multi_Pointer_Slice_Expr_Error_Contextless
 	case:
 		lower_fail(state, node, .Bounds); return
 	}
-	declaration, found := lower_runtime_procedure(state, name)
+	declaration, found := lower_runtime_procedure(state, helper)
 	if !found { lower_fail(state, node, .Call); return }
 	function := state.job.function
 	allocator := virtual.arena_allocator(&function.arena)
@@ -283,7 +283,7 @@ lower_capacity :: proc(state: ^Procedure_State, node: syntax.Node_Index, info: c
 	if descriptor.kind == .Map {
 		map_value := lower_operand(state, plan.arguments[0])
 		if state.failed || state.job.function.error != nil { return 0 }
-		return lower_map_runtime_call(state, node, "map_cap", []ir.Node_Id{map_value})
+		return lower_map_runtime_call(state, node, check.Runtime_Helper.Map_Cap, []ir.Node_Id{map_value})
 	}
 	if descriptor.kind != .Dynamic_Array { return lower_fail(state, node, .Builtin) }
 	header := lower_operand(state, plan.arguments[0])

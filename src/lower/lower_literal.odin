@@ -41,12 +41,12 @@ lower_dynamic_array_literal :: proc(state: ^Procedure_State, node: syntax.Node_I
 	element_size := ir.const_int(function, .I64, element_layout.size)
 	element_align := ir.const_int(function, .I64, element_layout.align)
 	item_count := ir.const_int(function, .I64, count)
-	lower_literal_runtime_call(state, node, "__dynamic_array_reserve", {header, element_size, element_align, item_count})
+	lower_literal_runtime_call(state, node, check.Runtime_Helper.Dynamic_Array_Reserve, {header, element_size, element_align, item_count})
 	if state.failed || function.error != nil { return 0 }
 	items := ir.stack_slot(function, state.entry_control, u32(max(backing_layout.size, 1)), u32(backing_layout.align))
 	lower_aggregate_into(state, node, plan.backing, items, backing_layout.size)
 	if state.failed || function.error != nil { return 0 }
-	lower_literal_runtime_call(state, node, "__dynamic_array_append", {header, element_size, element_align, items, item_count})
+	lower_literal_runtime_call(state, node, check.Runtime_Helper.Dynamic_Array_Append, {header, element_size, element_align, items, item_count})
 	if state.failed || function.error != nil { return 0 }
 	return header
 }
@@ -67,12 +67,17 @@ lower_map_literal :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan
 	if len(plan.keys) != len(plan.values) { return lower_fail(state, node, .Expression) }
 	map_info := lower_map_info_of(state, node, check.Map_Info_Plan{type = map_type})
 	if state.failed || function.error != nil { return 0 }
-	lower_literal_runtime_call(state, node, "__dynamic_map_reserve", {header, map_info, ir.const_int(function, .I64, 2 * i64(len(plan.keys)))})
+	lower_literal_runtime_call(
+		state,
+		node,
+		check.Runtime_Helper.Dynamic_Map_Reserve,
+		{header, map_info, ir.const_int(function, .I64, 2 * i64(len(plan.keys)))},
+	)
 	if state.failed || function.error != nil { return 0 }
 	key_layout := state.job.layouts[descriptor.index]
 	value_layout := state.job.layouts[descriptor.elem]
 	if key_layout.error != .None || value_layout.error != .None { return lower_fail(state, node, .Expression) }
-	seed := lower_map_runtime_call(state, node, "map_seed", {header})
+	seed := lower_map_runtime_call(state, node, check.Runtime_Helper.Map_Seed, {header})
 	if state.failed || function.error != nil { return 0 }
 	for key, position in plan.keys {
 		key_value := lower_operand(state, key, descriptor.index)
@@ -93,12 +98,9 @@ lower_map_literal :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan
 }
 
 @(private)
-lower_runtime_procedure :: proc(state: ^Procedure_State, name: string) -> (declaration: Procedure_Declaration, found: bool) {
+lower_runtime_procedure :: proc(state: ^Procedure_State, helper: check.Runtime_Helper) -> (declaration: Procedure_Declaration, found: bool) {
 	program := state.job.program
-	target: check.Entity_Id
-	for candidate in 1 ..< len(program.entities) {
-		if program.entities[candidate].name == name { target = check.Entity_Id(candidate); break }
-	}
+	target := program.runtime.helpers[helper]
 	if target == 0 || int(target) >= len(state.job.declarations) || program.entity_symbols[target] == 0 { return {}, false }
 	return state.job.declarations[target], true
 }
@@ -106,8 +108,8 @@ lower_runtime_procedure :: proc(state: ^Procedure_State, name: string) -> (decla
 // A call to a named runtime procedure taking scalar arguments plus a trailing caller location, for helpers the
 // checker did not plan. The arguments pass positionally; a context is added for Odin-convention procedures.
 @(private)
-lower_literal_runtime_call :: proc(state: ^Procedure_State, node: syntax.Node_Index, name: string, values: []ir.Node_Id) {
-	declaration, found := lower_runtime_procedure(state, name)
+lower_literal_runtime_call :: proc(state: ^Procedure_State, node: syntax.Node_Index, helper: check.Runtime_Helper, values: []ir.Node_Id) {
+	declaration, found := lower_runtime_procedure(state, helper)
 	if !found {
 		lower_fail(state, node, .Expression)
 		return

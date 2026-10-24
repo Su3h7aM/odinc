@@ -71,11 +71,11 @@ lower_map_entry :: proc(
 	lower_store(state, key_address, key_value, map_descriptor.index)
 	if state.failed || state.job.function.error != nil { return }
 	if operands != nil { operands^ = {map_value, key_address} }
-	seed := lower_map_runtime_call(state, node, "map_seed", []ir.Node_Id{map_value})
+	seed := lower_map_runtime_call(state, node, check.Runtime_Helper.Map_Seed, []ir.Node_Id{map_value})
 	map_info_value := lower_map_info_of(state, node, check.Map_Info_Plan{type = map_type})
 	key_hash := lower_map_key_hash(state, node, map_type, key_address, seed)
 	if key_hash == 0 || state.failed || state.job.function.error != nil { return }
-	found_pointer = lower_map_runtime_call(state, node, "__dynamic_map_get", []ir.Node_Id{map_value, map_info_value, key_hash, key_address})
+	found_pointer = lower_map_runtime_call(state, node, check.Runtime_Helper.Dynamic_Map_Get, []ir.Node_Id{map_value, map_info_value, key_hash, key_address})
 	if state.failed || state.job.function.error != nil { return }
 	function := state.job.function
 	ok = ir.compare(function, .Ne, found_pointer, ir.const_int(function, .Ptr, 0))
@@ -132,15 +132,12 @@ lower_map_index :: proc(
 }
 
 @(private)
-lower_map_runtime_call :: proc(state: ^Procedure_State, node: syntax.Node_Index, name: string, arguments: []ir.Node_Id) -> ir.Node_Id {
+lower_map_runtime_call :: proc(state: ^Procedure_State, node: syntax.Node_Index, helper: check.Runtime_Helper, arguments: []ir.Node_Id) -> ir.Node_Id {
 	program := state.job.program
-	for entity in program.runtime.helper_entities {
-		if program.entities[entity].name != name { continue }
-		if program.entity_symbols[entity] == 0 { return lower_fail(state, node, .Expression) }
-		symbol := state.job.symbols[program.entity_symbols[entity]]
-		return generated_procedure_call(state, symbol, program.entities[entity].type, arguments)
-	}
-	return lower_fail(state, node, .Expression)
+	entity := program.runtime.helpers[helper]
+	if entity == 0 || program.entity_symbols[entity] == 0 { return lower_fail(state, node, .Expression) }
+	symbol := state.job.symbols[program.entity_symbols[entity]]
+	return generated_procedure_call(state, symbol, program.entities[entity].type, arguments)
 }
 
 @(private)
@@ -186,7 +183,7 @@ lower_map_store :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: 
 	value_address := ir.stack_slot(function, state.entry_control, u32(max(value_layout.size, 1)), u32(max(value_layout.align, 1)))
 	lower_store(state, value_address, value, value_type)
 	if state.failed || function.error != nil { return }
-	seed := lower_map_runtime_call(state, node, "map_seed", []ir.Node_Id{map_value})
+	seed := lower_map_runtime_call(state, node, check.Runtime_Helper.Map_Seed, []ir.Node_Id{map_value})
 	map_info_value := lower_map_info_of(state, node, check.Map_Info_Plan{type = map_type})
 	key_hash := lower_map_key_hash(state, node, map_type, key_address, seed)
 	if key_hash == 0 || state.failed || function.error != nil { return }
@@ -196,10 +193,7 @@ lower_map_store :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: 
 @(private)
 lower_map_set_call :: proc(state: ^Procedure_State, node: syntax.Node_Index, map_value, map_info_value, hash, key_address, value_address: ir.Node_Id) {
 	program := state.job.program
-	helper: check.Entity_Id
-	for candidate in program.runtime.helper_entities {
-		if program.entities[candidate].name == "__dynamic_map_set" { helper = candidate; break }
-	}
+	helper := program.runtime.helpers[.Dynamic_Map_Set]
 	if helper == 0 || int(helper) >= len(state.job.declarations) || program.entity_symbols[helper] == 0 {
 		lower_fail(state, node, .Expression)
 		return

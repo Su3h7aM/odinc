@@ -59,28 +59,28 @@ generated_hash_value :: proc(state: ^Procedure_State, type: types.Type_Id, addre
 	resolved := types.resolve_named(store, type)
 	size, _, _ := types.layout(store, resolved)
 	if types.is_simple_compare(store, resolved) {
-		return generated_helper_call(state, "default_hasher_fixed", []ir.Node_Id{address, seed, ir.const_int(function, .I64, size)})
+		return generated_helper_call(state, check.Runtime_Helper.Default_Hasher_Fixed, []ir.Node_Id{address, seed, ir.const_int(function, .I64, size)})
 	}
 	kind := types.get(store, resolved).kind
 	#partial switch kind {
 	case .String:
-		return generated_helper_call(state, "default_hasher_string", []ir.Node_Id{address, seed})
+		return generated_helper_call(state, check.Runtime_Helper.Default_Hasher_String, []ir.Node_Id{address, seed})
 	case .String16:
-		return generated_helper_call(state, "default_hasher_string16", []ir.Node_Id{address, seed})
+		return generated_helper_call(state, check.Runtime_Helper.Default_Hasher_String16, []ir.Node_Id{address, seed})
 	case .CString:
-		return generated_helper_call(state, "default_hasher_cstring", []ir.Node_Id{address, seed})
+		return generated_helper_call(state, check.Runtime_Helper.Default_Hasher_Cstring, []ir.Node_Id{address, seed})
 	case .CString16:
-		return generated_helper_call(state, "default_hasher_cstring16", []ir.Node_Id{address, seed})
+		return generated_helper_call(state, check.Runtime_Helper.Default_Hasher_Cstring16, []ir.Node_Id{address, seed})
 	case .Float:
 		if size == 2 {
 			// Widening a half is exact, so equal halves hash equal, like every wider float.
 			wide := float16_widen(function, lower_load_word(state, address, .I16))
-			return generated_helper_call(state, "default_hasher_f64", []ir.Node_Id{ir.convert(function, .Float_Ext, wide, .F64), seed})
+			return generated_helper_call(state, check.Runtime_Helper.Default_Hasher_F64, []ir.Node_Id{ir.convert(function, .Float_Ext, wide, .F64), seed})
 		}
 		if size != 4 && size != 8 { return generated_unsupported(state) }
 		value := lower_load(state, address, resolved)
 		if size == 4 { value = ir.convert(function, .Float_Ext, value, .F64) }
-		return generated_helper_call(state, "default_hasher_f64", []ir.Node_Id{value, seed})
+		return generated_helper_call(state, check.Runtime_Helper.Default_Hasher_F64, []ir.Node_Id{value, seed})
 	case .Complex:
 		return generated_hash_parts(state, address, size / 2, 2, seed)
 	case .Quaternion:
@@ -104,7 +104,7 @@ generated_hash_value :: proc(state: ^Procedure_State, type: types.Type_Id, addre
 	case .Any, .Slice, .Dynamic_Array, .Fixed_Capacity_Array, .Map:
 		return generated_unsupported(state)
 	}
-	return generated_helper_call(state, "default_hasher_fixed", []ir.Node_Id{address, seed, ir.const_int(function, .I64, size)})
+	return generated_helper_call(state, check.Runtime_Helper.Default_Hasher_Fixed, []ir.Node_Id{address, seed, ir.const_int(function, .I64, size)})
 }
 
 @(private = "file")
@@ -115,7 +115,7 @@ generated_equal_value :: proc(state: ^Procedure_State, type: types.Type_Id, left
 	size, _, _ := types.layout(store, resolved)
 	if size == 0 { return ir.const_int(function, .Bool, 1) }
 	if types.is_simple_compare(store, resolved) {
-		return generated_helper_call(state, "memory_equal", []ir.Node_Id{left, right, ir.const_int(function, .I64, size)})
+		return generated_helper_call(state, check.Runtime_Helper.Memory_Equal, []ir.Node_Id{left, right, ir.const_int(function, .I64, size)})
 	}
 	kind := types.get(store, resolved).kind
 	#partial switch kind {
@@ -124,9 +124,17 @@ generated_equal_value :: proc(state: ^Procedure_State, type: types.Type_Id, left
 	case .String16:
 		return generated_string_equal(state, left, right, 2)
 	case .CString:
-		return generated_helper_call(state, "cstring_eq", []ir.Node_Id{lower_load_word(state, left, .Ptr), lower_load_word(state, right, .Ptr)})
+		return generated_helper_call(
+			state,
+			check.Runtime_Helper.Cstring_Eq,
+			[]ir.Node_Id{lower_load_word(state, left, .Ptr), lower_load_word(state, right, .Ptr)},
+		)
 	case .CString16:
-		return generated_helper_call(state, "cstring16_eq", []ir.Node_Id{lower_load_word(state, left, .Ptr), lower_load_word(state, right, .Ptr)})
+		return generated_helper_call(
+			state,
+			check.Runtime_Helper.Cstring16_Eq,
+			[]ir.Node_Id{lower_load_word(state, left, .Ptr), lower_load_word(state, right, .Ptr)},
+		)
 	case .Float:
 		if size == 2 {
 			left_wide := float16_widen(function, lower_load_word(state, left, .I16))
@@ -160,7 +168,7 @@ generated_equal_value :: proc(state: ^Procedure_State, type: types.Type_Id, left
 		return generated_unsupported(state)
 	}
 	if size == 0 { return ir.const_int(function, .Bool, 1) }
-	return generated_helper_call(state, "memory_equal", []ir.Node_Id{left, right, ir.const_int(function, .I64, size)})
+	return generated_helper_call(state, check.Runtime_Helper.Memory_Equal, []ir.Node_Id{left, right, ir.const_int(function, .I64, size)})
 }
 
 // Strings compare lengths first; a length mismatch makes the byte count zero, so memory_equal never reads past a string.
@@ -175,7 +183,7 @@ generated_string_equal :: proc(state: ^Procedure_State, left, right: ir.Node_Id,
 	if unit == 2 { bytes = ir.binary(function, .Shl, count, ir.const_int(function, .I64, 1)) }
 	left_data := lower_load_word(state, left, .Ptr)
 	right_data := lower_load_word(state, right, .Ptr)
-	equal := generated_helper_call(state, "memory_equal", []ir.Node_Id{left_data, right_data, bytes})
+	equal := generated_helper_call(state, check.Runtime_Helper.Memory_Equal, []ir.Node_Id{left_data, right_data, bytes})
 	if state.failed { return ir.NODE_NONE }
 	return ir.binary(function, .And, same, equal)
 }
@@ -216,23 +224,22 @@ generated_hash_parts :: proc(state: ^Procedure_State, address: ir.Node_Id, part_
 		value := lower_load_word(state, ir.ptr_offset(function, address, i64(index) * part_size), load_type)
 		if part_size == 2 { value = float16_widen(function, value) }
 		if part_size != 8 { value = ir.convert(function, .Float_Ext, value, .F64) }
-		result = generated_helper_call(state, "default_hasher_f64", []ir.Node_Id{value, result})
+		result = generated_helper_call(state, check.Runtime_Helper.Default_Hasher_F64, []ir.Node_Id{value, result})
 		if state.failed { return ir.NODE_NONE }
 	}
 	return result
 }
 
 @(private = "file")
-generated_helper_call :: proc(state: ^Procedure_State, name: string, arguments: []ir.Node_Id) -> ir.Node_Id {
+generated_helper_call :: proc(state: ^Procedure_State, helper: check.Runtime_Helper, arguments: []ir.Node_Id) -> ir.Node_Id {
 	program := state.job.program
-	for entity in program.runtime.helper_entities {
-		if program.entities[entity].name != name { continue }
-		// An unresolved helper has no type or symbol; failing cleanly beats asserting in type lookup.
-		if program.entities[entity].type == types.TYPE_NONE || program.entity_symbols[entity] == 0 { continue }
-		symbol := state.job.symbols[program.entity_symbols[entity]]
-		return generated_procedure_call(state, symbol, program.entities[entity].type, arguments)
+	entity := program.runtime.helpers[helper]
+	// An unresolved helper has no type or symbol; failing cleanly beats asserting in type lookup.
+	if entity == 0 || program.entities[entity].type == types.TYPE_NONE || program.entity_symbols[entity] == 0 {
+		return generated_unsupported(state)
 	}
-	return generated_unsupported(state)
+	symbol := state.job.symbols[program.entity_symbols[entity]]
+	return generated_procedure_call(state, symbol, program.entities[entity].type, arguments)
 }
 
 @(private)

@@ -110,7 +110,11 @@ bad_info := type_map_info(Name)
 	testing.expect_value(t, entries[0].size_of_cell, 64)
 	testing.expect_value(t, entries[0].elements_per_cell, 4)
 	if !testing.expect(t, expression_checker_publish_map_info(&checker, &program) == nil) { return }
-	testing.expect_value(t, len(program.runtime.helper_entities), 12)
+	helper_count := 0
+	for helper in program.runtime.helpers {
+		if helper != 0 { helper_count += 1 }
+	}
+	testing.expect_value(t, helper_count, 12)
 	testing.expect_value(t, len(checker.procedures), 2)
 	has_map_info_plan := false
 	has_map_index_plan := false

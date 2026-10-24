@@ -38,7 +38,7 @@ expression_dynamic_literal :: proc(
 
 // Non-empty dynamic array literals reserve and append through the runtime.
 @(private = "file")
-dynamic_array_helper_names := [?]string{"__dynamic_array_reserve", "__dynamic_array_append"}
+dynamic_array_helper_names := [?]Runtime_Helper{.Dynamic_Array_Reserve, .Dynamic_Array_Append}
 
 // The backing store matches a slice literal's; only the container header differs.
 @(private = "file")

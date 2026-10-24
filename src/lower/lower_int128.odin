@@ -555,7 +555,10 @@ lower_wide_conversion :: proc(state: ^Procedure_State, node: syntax.Node_Index, 
 		if float_source := scalar_type(state, source); float_source == .F32 || float_source == .F64 {
 			float_value := value
 			if float_source == .F32 { float_value = ir.convert(function, .Float_Ext, value, .F64) }
-			declaration, found := lower_runtime_procedure(state, "fixdfti" if signed_type(state, target) else "fixunsdfti")
+			declaration, found := lower_runtime_procedure(
+				state,
+				check.Runtime_Helper.Fixdfti if signed_type(state, target) else check.Runtime_Helper.Fixunsdfti,
+			)
 			if !found { return lower_fail(state, node, .Conversion) }
 			low, high := lower_runtime_two_word_call(state, declaration, []ir.Node_Id{float_value})
 			return wide_store(state, Wide_Words{low = low, high = high})
@@ -568,7 +571,10 @@ lower_wide_conversion :: proc(state: ^Procedure_State, node: syntax.Node_Index, 
 		return wide_store(state, Wide_Words{low = low, high = high})
 	}
 	if scalar_type(state, target) == .F32 || scalar_type(state, target) == .F64 {
-		declaration, found := lower_runtime_procedure(state, "floattidf" if signed_type(state, source) else "floattidf_unsigned")
+		declaration, found := lower_runtime_procedure(
+			state,
+			check.Runtime_Helper.Floattidf if signed_type(state, source) else check.Runtime_Helper.Floattidf_Unsigned,
+		)
 		if !found { return lower_fail(state, node, .Conversion) }
 		words := wide_load(state, value)
 		result := lower_runtime_scalar_call(state, declaration, []ir.Node_Id{words.low, words.high})

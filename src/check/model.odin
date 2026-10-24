@@ -1092,7 +1092,8 @@ Type_Info_Entry :: struct {
 	symbol:          Symbol_Id,
 }
 Runtime_Requirements :: struct {
-	schema_entities, helper_entities: []Entity_Id,
+	schema_entities:                  []Entity_Id,
+	helpers:                          [Runtime_Helper]Entity_Id,
 	dependencies:                     []Dependency,
 	type_info:                        []Type_Info_Entry,
 	type_info_representatives:        []types.Type_Id,

@@ -13,7 +13,7 @@ Range_Parts :: struct {
 }
 
 // Runtime procedures that string range loops call to decode one rune.
-range_helper_names := [?]string{"string_decode_rune", "string_decode_last_rune", "string16_decode_rune", "string16_decode_last_rune"}
+range_helper_names := [?]Runtime_Helper{.String_Decode_Rune, .String_Decode_Last_Rune, .String16_Decode_Rune, .String16_Decode_Last_Rune}
 
 @(private = "package")
 expression_range :: proc(checker: ^Expression_Checker, view: View_Id, file_id: File_Id, scope: Scope_Id, node: syntax.Node_Index) -> Resolve_Error {
@@ -411,8 +411,8 @@ expression_resolve_range_helpers :: proc(checker: ^Expression_Checker) -> (resol
 	collection := checker.type_checker.collection
 	if collection == nil || collection.runtime_scope == 0 { return false, nil }
 	scopes := checker.type_checker.resolver.scopes
-	for name in range_helper_names {
-		helper := scope_lookup_current(scopes, collection.runtime_scope, name)
+	for kind in range_helper_names {
+		helper := runtime_helper_entity(checker, kind)
 		if helper == 0 { return false, nil }
 		_, resolve_error := resolve_entity(checker.type_checker.resolver, helper)
 		if resolve_error != nil { return false, resolve_error }
