@@ -257,6 +257,7 @@ poly_match_record_template :: proc(
 	if definition == 0 { return false, false, nil }
 	state := resolve_type_dependency(checker, definition, type_node_span(match.definition_file, file, pattern), .Name) or_return
 	if state == .Invalid { return false, true, nil }
+	definition = generic_record_definition(checker, definition)
 	if _, is_generic := checker.generic_records[definition]; !is_generic { return false, false, nil }
 	for instance in checker.record_instances {
 		if instance.definition == definition && instance.type == argument { return true, true, nil }

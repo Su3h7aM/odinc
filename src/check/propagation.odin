@@ -77,7 +77,7 @@ expression_or_else :: proc(
 	}
 	value := check_expression(checker, view, scope, expression.y, payload_type) or_return
 	if value.state == .Invalid { return expression_poison(scope), nil }
-	if value.mode == .No_Value || value.mode == .Type {
+	if value.mode == .Type || value.mode == .No_Value && !expression_is_diverging_call(checker, value.plan) {
 		return expression_unsupported(checker, view, scope, node, "Or_Else_Fallback")
 	}
 	values, alloc_error := make([]Operand, 1, mem.dynamic_arena_allocator(&checker.arena))

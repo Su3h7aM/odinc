@@ -94,6 +94,25 @@ expression_check_default :: proc(
 	return expression_conversion(checker, view, scope, node, Operand(info.constant), info, target, .Assignment)
 }
 
+// Checks a variable initializer; a runtime value that does not convert to the declared type is reported as
+// official check_assignment reports it in a variable declaration.
+@(private = "package")
+expression_check_initializer :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	scope: Scope_Id,
+	node: syntax.Node_Index,
+	target: types.Type_Id,
+) -> (
+	info: Expression_Info,
+	err: Resolve_Error,
+) {
+	previous := checker.initializer_node
+	checker.initializer_node = node
+	defer checker.initializer_node = previous
+	return check_expression(checker, view, scope, node, target)
+}
+
 expression_type_evaluator :: proc(
 	type_checker: ^Type_Checker,
 	scope: Scope_Id,
@@ -174,15 +193,18 @@ expression_boolean_evaluator :: proc(
 expression_declaration :: proc(resolver: ^Resolver, id: Entity_Id, user_data: rawptr) -> (valid: bool, err: Resolve_Error) {
 	checker := cast(^Expression_Checker)user_data
 	resolver.check_body = expression_procedure_body_declaration
+	intrinsic_entity := entity_get(resolver.scopes, id)
+	intrinsic_declaration := intrinsic_entity.kind == .Builtin
+	if procedure, is_procedure := intrinsic_entity.data.(Procedure_Data); is_procedure && procedure.body.node == 0 { intrinsic_declaration = true }
+	if intrinsic_declaration && expression_in_intrinsics(checker, intrinsic_entity.package_id) {
+		return expression_intrinsic_declaration(checker, resolver, id, 0, 0)
+	}
 	handled, type_valid := type_declaration(checker.type_checker, id) or_return
 	if handled { return type_valid, nil }
 	declaration, found := checker.type_checker.declarations[id]
 	if !found { return false, nil }
 	entity := entity_get(resolver.scopes, id)^
 	view := expression_file_view(checker, declaration.identifier.file) or_return
-	if entity.kind == .Procedure && expression_in_intrinsics(checker, entity.package_id) && entity.data.(Procedure_Data).body.node == 0 {
-		return expression_intrinsic_declaration(checker, resolver, id, view, declaration.identifier.node)
-	}
 	if entity.kind == .Import_Name || entity.kind == .Library_Name { return true, nil }
 	if entity.kind == .Procedure { return expression_procedure_declaration(checker, resolver, id, declaration, entity.scope) }
 	if entity.kind == .Procedure_Group { return expression_procedure_group_declaration(checker, resolver, id, declaration, entity.scope) }
@@ -227,7 +249,7 @@ expression_declaration :: proc(resolver: ^Resolver, id: Entity_Id, user_data: ra
 	}
 	info: Expression_Info
 	if declaration.value.node != 0 {
-		info = check_expression(checker, view, entity.scope, declaration.value.node, target) or_return
+		info = expression_check_initializer(checker, view, entity.scope, declaration.value.node, target) or_return
 		if info.state == .Invalid { return false, nil }
 		if entity.kind == .Constant && info.mode == .Builtin {
 			binding := entity_get(resolver.scopes, id)
@@ -337,4 +359,18 @@ expression_procedure_body_declaration :: proc(resolver: ^Resolver, id: Entity_Id
 	checker.active_instance = entity_get(resolver.scopes, id).data.(Procedure_Data).instance
 	defer checker.active_instance = outer_instance
 	return expression_procedure_body(checker, resolver, id, declaration.type)
+}
+
+declaration_is_lazy :: proc(checker: ^Expression_Checker, id: Entity_Id) -> bool {
+	entity := entity_get(checker.type_checker.resolver.scopes, id)
+	if .Lazy not_in entity.flags { return false }
+	if entity.flags & {.Test, .Export} != {} { return false }
+	if entity.package_id == checker.options.complete_package && entity.kind == .Procedure && entity.name == "main" { return false }
+	file := checker.type_checker.files[entity.declaration.file]
+	declaration, is_value := file.ast.nodes[entity.declaration.node].payload.(syntax.Value_Decl)
+	if !is_value { return true }
+	for name in ([5]string{"test", "init", "fini", "export", "linkage"}) {
+		if collection_has_attribute(file.ast, file.source, declaration.attributes, name) { return false }
+	}
+	return true
 }

@@ -119,6 +119,9 @@ expression_composite :: proc(
 		append(&checker.plans, Plan(Aggregate_Plan{type = type})) or_return
 		return Expression_Info{type = type, mode = .Value, plan = plan, scope = scope, state = .Checked}, nil
 	}
+	if descriptor.kind == .Union && literal.type == 0 {
+		return expression_union_variant_literal(checker, view, file_id, scope, node, descriptor.variants)
+	}
 	if descriptor.kind != .Struct && descriptor.kind != .Bit_Field && descriptor.kind != .Any && !is_array && !is_matrix {
 		if descriptor.kind == .Dynamic_Array || descriptor.kind == .Map {
 			return expression_dynamic_literal(checker, view, file_id, scope, node, type, descriptor)
@@ -321,6 +324,41 @@ expression_composite :: proc(
 }
 
 @(private = "file")
+// An untyped literal against a union takes the one variant it fits, as upstream check_compound_literal does.
+expression_union_variant_literal :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	file_id: File_Id,
+	scope: Scope_Id,
+	node: syntax.Node_Index,
+	variants: []types.Type_Id,
+) -> (
+	info: Expression_Info,
+	err: Resolve_Error,
+) {
+	fitting: [dynamic]types.Type_Id
+	defer delete(fitting)
+	for variant in variants {
+		mark := expression_speculation_begin(checker)
+		trial, trial_error := expression_composite(checker, view, file_id, scope, node, variant)
+		fits :=
+			trial_error == nil &&
+			trial.state != .Invalid &&
+			len(checker.diagnostics) == mark.checker_diagnostics &&
+			len(checker.type_checker.diagnostics) == mark.type_diagnostics
+		expression_speculation_end(checker, mark)
+		if trial_error != nil { return {}, trial_error }
+		if fits { append(&fitting, variant) or_return }
+	}
+	switch len(fitting) {
+	case 0:
+		return expression_failure(checker, view, scope, node, .Invalid_Operand, "No variant of the union matches this compound literal")
+	case 1:
+		return expression_composite(checker, view, file_id, scope, node, fitting[0])
+	}
+	return expression_failure(checker, view, scope, node, .Invalid_Operand, "Ambiguous compound literal for the union; it matches more than one variant")
+}
+
 expression_composite_paths_overlap :: proc(store: ^types.Store, left, right: []Member_Step) -> bool {
 	for step, index in left {
 		if index >= len(right) { return false }

@@ -106,6 +106,59 @@ main :: proc() {
 }
 
 @(test)
+polymorphic_procedure_value_specializes_to_target_type :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(
+		`package sample
+f_poly :: proc(x: $T) -> T { return x }
+foo_poly :: proc(x: $T, g: proc(T) -> T = f_poly) -> T { return g(x) }
+foo_concrete :: proc(x: int, g: proc(int) -> int) -> int { return g(x) }
+foo_pair :: proc(x: int, g: proc(int, int) -> int) -> int { return g(x, x) }
+foo_group :: proc { foo_concrete, foo_pair }
+main :: proc "contextless" () {
+	_ = foo_poly(123, f_poly)
+	_ = foo_poly(123)
+	_ = foo_concrete(1, f_poly)
+	_ = foo_group(1, f_poly)
+	p: proc(int) -> int = f_poly
+	_ = p
+}
+`,
+	)
+	_, ok := check_procedure_source(t, source)
+	testing.expect(t, ok)
+}
+
+@(test)
+polymorphic_procedure_value_without_matching_specialization_is_rejected :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(
+		`package sample
+f_poly :: proc(x: $T) -> T { return x }
+takes_string :: proc(x: int, g: proc(int) -> string) -> int { return x }
+main :: proc () {
+	_ = takes_string(1, f_poly)
+}
+`,
+	)
+	_, ok := check_procedure_source(t, source, .Conversion)
+	testing.expect(t, ok)
+}
+
+@(test)
+polymorphic_procedure_value_for_a_polymorphic_parameter_is_rejected :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(
+		`package sample
+f_poly :: proc(x: $T) -> T { return x }
+takes_any :: proc(v: $V) {}
+main :: proc() {
+	takes_any(f_poly)
+}
+`,
+	)
+	_, ok := check_procedure_source(t, source, .Invalid_Operand)
+	testing.expect(t, ok)
+}
+
+@(test)
 generic_call_instantiates_and_checks_caller_body :: proc(t: ^testing.T) {
 	source := transmute([]byte)string(
 		`package sample

@@ -181,13 +181,6 @@ group_member_rejection :: proc(checker: ^Expression_Checker, member: Entity_Id) 
 	}
 	declaration := checker.type_checker.declarations[member]
 	if declaration.type.node == 0 { return "Proc_Group_Polymorphic" }
-	file := checker.type_checker.files[declaration.type.file]
-	signature := syntax.node_payload(file.ast, declaration.type.node, syntax.Proc_Type)
-	params := syntax.node_payload(file.ast, signature.params, syntax.Field_List)
-	for field_node in syntax.node_list(file.ast, params.list) {
-		field := syntax.node_payload(file.ast, field_node, syntax.Field)
-		if is_poly_name_field(file, field) && !is_type_param_field(file, field) { return "Proc_Group_Polymorphic" }
-	}
 	return ""
 }
 
@@ -513,8 +506,28 @@ group_field_argument_score :: proc(
 	file := checker.type_checker.files[match.definition_file]
 	store := checker.type_checker.store
 	if file.ast.nodes[name].kind == .Poly_Type {
-		if argument.info.mode != .Type { return 0, false, nil }
 		poly := syntax.node_payload(file.ast, name, syntax.Poly_Type)
+		if argument.info.mode != .Type {
+			// A `$name: T` value parameter takes a constant of type T and binds the name to that value.
+			if argument.info.mode != .Constant || field.type == 0 || poly_pattern_has_poly(file, field.type) { return 0, false, nil }
+			bound_scope := group_bound_scope(checker, member, match.bindings) or_return
+			expected := type_expression(checker.type_checker, match.definition_file, bound_scope, field.type, true) or_return
+			if expected == types.TYPE_POISON { return 0, false, nil }
+			value_score, value_matched := group_argument_match(
+				checker,
+				view,
+				argument.scope,
+				checker.type_checker.files[checker.views[view].file],
+				argument.value,
+				argument.info,
+				expected,
+				.Any_Int in field.flags,
+			) or_return
+			if !value_matched { return 0, false, nil }
+			bound := poly_bind(store, match.bindings, expression_text(file, poly.type), expected, 0) or_return
+			if !bound { return 0, false, nil }
+			return value_score, true, nil
+		}
 		bound := poly_bind(match.checker.type_checker.store, match.bindings, expression_text(file, poly.type), argument.info.type, 0) or_return
 		if !bound { return 0, false, nil }
 		if file.ast.nodes[field.type].kind == .Typeid_Type {
@@ -625,13 +638,14 @@ group_argument_match :: proc(
 	matches: bool,
 	err: Resolve_Error,
 ) {
-	if !group_argument_is_deferred(file, argument) && !expression_argument_needs_hint(file, argument) {
+	_, generic_reference := expression_generic_procedure_reference(checker, view, scope, argument) or_return
+	if !group_argument_is_deferred(file, argument) && !expression_argument_needs_hint(file, argument) && !generic_reference {
 		return group_argument_score(checker, view, argument, info, target, any_integer)
 	}
 	mark := expression_speculation_begin(checker)
 	defer expression_speculation_end(checker, mark)
 	deferred := check_expression(checker, view, scope, argument, target) or_return
-	if deferred.state == .Invalid { return 0, false, nil }
+	if deferred.state == .Invalid || deferred.type == types.TYPE_NONE && generic_reference { return 0, false, nil }
 	return group_argument_score(checker, view, argument, deferred, target, any_integer)
 }
 

@@ -11,7 +11,7 @@ import "oc:types"
 Check_Options :: struct {
 	warnings_as_errors: bool,
 	ignore_warnings:    bool,
-	// The package whose declarations are all checked, so findings about whole files or packages are sound there.
+	// The main package, whose entry procedure is not considered unused.
 	complete_package:   Package_Id,
 }
 
@@ -90,6 +90,7 @@ Expression_Checker :: struct {
 	target_features:      []string,
 	microarch:            types.X86_Level,
 	no_entry_point:       bool,
+	initializer_node:     syntax.Node_Index,
 	defines:              map[string]string,
 	default_integer:      types.Type_Id,
 	boolean:              types.Type_Id,
@@ -335,6 +336,7 @@ check_expression :: proc(
 		case .Pointer_Type,
 		     .Multi_Pointer_Type,
 		     .Proc_Type,
+		     .Typeid_Type,
 		     .Array_Type,
 		     .Dynamic_Array_Type,
 		     .Fixed_Capacity_Dynamic_Array_Type,
@@ -606,7 +608,7 @@ check_expression :: proc(
 			.Cast,
 		)
 	}
-	if hint != 0 && info.state != .Invalid && info.type != hint {
+	if hint != 0 && info.state != .Invalid && info.type != hint && !(info.mode == .No_Value && expression_is_diverging_call(checker, info.plan)) {
 		// A constant is its own retained source. Runtime expressions need a separate cast node.
 		if info.mode != .Constant {
 			conversion, diagnostic, failure := check_conversion(
@@ -622,7 +624,12 @@ check_expression :: proc(
 				expression_constant_failure(checker, file_id, node, failure) or_return
 				return expression_poison(scope), nil
 			}
-			if diagnostic != .None { return expression_failure(checker, view, scope, node, .Mismatched_Types) }
+			if diagnostic != .None {
+				if checker.initializer_node != 0 && node == checker.initializer_node {
+					return expression_value_initializer_failure(checker, view, scope, node, hint, info.type)
+				}
+				return expression_failure(checker, view, scope, node, .Mismatched_Types)
+			}
 			expression_store(checker, view, node, info)
 			conversion.info.plan = Plan_Id(len(checker.plans))
 			append(&checker.plans, Plan(conversion.plan)) or_return

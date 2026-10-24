@@ -11,6 +11,7 @@ Type_Diagnostic_Kind :: enum u8 {
 	None,
 	Undeclared_Type,
 	Not_A_Type,
+	Non_Specialized_Polymorphic_Type,
 	Unsupported_Type_Expression,
 	Invalid_Array_Count,
 	Invalid_Alignment,
@@ -174,6 +175,7 @@ Type_Checker :: struct {
 	record_instance:          Instance_Id,
 	evaluate_record_argument: Record_Argument_Evaluator,
 	generic_records:          map[Entity_Id]Node_Ref,
+	generic_record_aliases:   map[Entity_Id]Entity_Id,
 	record_instances:         [dynamic]Record_Instance,
 	allocator:                mem.Allocator,
 	arena:                    mem.Dynamic_Arena,
@@ -211,6 +213,7 @@ type_checker_init :: proc(
 	mem.dynamic_arena_init(&checker.arena, block_allocator = allocator, array_allocator = allocator)
 	checker.arena_allocator = mem.dynamic_arena_allocator(&checker.arena)
 	checker.generic_records = make(map[Entity_Id]Node_Ref, checker.arena_allocator)
+	checker.generic_record_aliases = make(map[Entity_Id]Entity_Id, checker.arena_allocator)
 	checker.record_instances.allocator = checker.arena_allocator
 	checker.declarations = make(map[Entity_Id]Collected_Declaration, allocator)
 	checker.enum_members = make(map[types.Type_Id][]Enum_Member, allocator)
@@ -246,6 +249,8 @@ type_declaration :: proc(checker: ^Type_Checker, id: Entity_Id) -> (handled, val
 	scope, name := entity.scope, entity.name
 	value := type_unparen(file, collected.value.node)
 	definition := value
+	alias_handled, alias_valid := declare_generic_record_alias(checker, id, file_id, file, scope, definition) or_return
+	if alias_handled { return true, alias_valid, nil }
 	helper_wrapped := false
 	for file.ast.nodes[definition].kind == .Helper_Type {
 		helper_wrapped = true
@@ -306,10 +311,11 @@ type_declaration :: proc(checker: ^Type_Checker, id: Entity_Id) -> (handled, val
 		}
 		type := publish_nominal(checker, id, .Procedure, name) or_return
 		base := procedure_type(checker, file_id, file, scope, definition) or_return
+		if base == types.TYPE_POISON { return true, false, nil }
 		descriptor := types.get(checker.store, base)^
 		descriptor.name = ""
 		types.complete_alias(checker.store, type, descriptor)
-		return true, base != types.TYPE_POISON, nil
+		return true, true, nil
 	}
 	type := type_expression(checker, file_id, scope, definition, true) or_return
 	entity = entity_get(scopes, id)
@@ -755,6 +761,9 @@ type_of_type :: proc(
 ) {
 	call := syntax.node_payload(file.ast, node, syntax.Call_Expr)
 	arguments := syntax.node_list(file.ast, call.args)
+	if checker.evaluate_type_expression != nil {
+		return checker.evaluate_type_expression(checker, scope, file_id, node, checker.user_data)
+	}
 	if file.ast.nodes[call.expr].kind != .Ident ||
 	   type_node_text(file, call.expr) != "type_of" ||
 	   len(arguments) != 1 ||

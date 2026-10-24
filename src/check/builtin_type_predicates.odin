@@ -104,7 +104,8 @@ expression_record_template :: proc(
 	if definition == 0 { return 0, nil }
 	if kind := entity_get(checker.type_checker.resolver.scopes, definition).kind; kind != .Type_Name && kind != .Constant { return 0, nil }
 	state := resolve_type_dependency(checker.type_checker, definition, type_node_span(file_id, file, unparen), .Name) or_return
-	if _, generic := checker.type_checker.generic_records[definition]; state != .Invalid && generic { return definition, nil }
+	declaration := generic_record_definition(checker.type_checker, definition)
+	if _, generic := checker.type_checker.generic_records[declaration]; state != .Invalid && generic { return declaration, nil }
 	return 0, nil
 }
 

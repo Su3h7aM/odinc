@@ -253,6 +253,21 @@ expression_generic_call :: proc(
 				continue
 			}
 			is_runtime[slot.position] = true
+			if _, generic := expression_generic_procedure_reference(checker, view, scope, argument_node) or_return; generic {
+				// A generic procedure value binds no name, so a polymorphic pattern cannot take its type, as official rejects it.
+				if field.type != 0 && poly_pattern_has_poly(file, field.type) {
+					return expression_failure(
+						checker,
+						view,
+						scope,
+						argument_node,
+						.Invalid_Operand,
+						"Cannot determine complete type of partial polymorphic procedure",
+					)
+				}
+				// A concrete pattern is checked by the instance call against the parameter type.
+				continue
+			}
 			if spread && file.ast.nodes[field.type].kind == .Ellipsis {
 				matched := poly_match_spread(&match, field.type, argument.type) or_return
 				if !matched { return expression_unsupported(checker, view, scope, node, "Generic_Call_Spread_Type") }

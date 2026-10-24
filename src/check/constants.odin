@@ -170,6 +170,19 @@ constant_pool_intern_type :: proc(pool: ^Constant_Pool, value: types.Type_Id, ty
 	return id, nil
 }
 
+// Retains an aggregate constant as slice backing; runtime uses materialize independent storage.
+@(require_results)
+constant_pool_intern_slice :: proc(pool: ^Constant_Pool, type: types.Type_Id, backing: Const_Id) -> (id: Const_Id, err: Constant_Error) {
+	if !constant_pool_ready(pool) { return 0, Constant_Pool_Error.Uninitialized }
+	array := constant_pool_get(pool, backing)
+	if array == nil { return 0, Constant_Pool_Error.Invalid_Component }
+	if _, aggregate := array.value.(Aggregate_Value); !aggregate { return 0, Constant_Pool_Error.Invalid_Component }
+	if u64(len(pool.values)) > u64(max(u32)) { return 0, Constant_Pool_Error.Handle_Limit }
+	id = Const_Id(len(pool.values))
+	append(&pool.values, Constant{type = type, value = Slice_Value{backing}}) or_return
+	return id, nil
+}
+
 // Aggregates are not deduplicated: each composite literal is its own immutable value.
 @(require_results)
 constant_pool_intern_aggregate :: proc(pool: ^Constant_Pool, type: types.Type_Id, elements: []Const_Id) -> (id: Const_Id, err: Constant_Error) {

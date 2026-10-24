@@ -407,7 +407,6 @@ call_broadcast_rejected :: proc(
 // elements must already have the element type; constants take it from the parameter at lowering. A multi-result
 // call contributes one element per result from the first_element on, each naming the call and its 1-based result.
 // Every result converts to the element type, as official check_call_arguments_internal does for variadic operands.
-@(private = "file")
 expression_variadic_argument :: proc(
 	checker: ^Expression_Checker,
 	view: View_Id,

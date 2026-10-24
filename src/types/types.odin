@@ -826,6 +826,10 @@ type_text :: proc(store: ^Store, id: Type_Id, allocator: runtime.Allocator) -> s
 
 @(private = "file")
 write_type_text :: proc(builder: ^strings.Builder, store: ^Store, id: Type_Id) {
+	if id == TYPE_NONE {
+		strings.write_string(builder, "<unresolved>")
+		return
+	}
 	descriptor := get(store, id)
 	if descriptor.name != "" {
 		strings.write_string(builder, descriptor.name)
@@ -1079,7 +1083,7 @@ calling_convention_text :: proc(convention: Calling_Convention) -> string {
 	case .Contextless:
 		return "contextless"
 	case .C:
-		return "c"
+		return "cdecl"
 	case .Stdcall:
 		return "stdcall"
 	case .Fastcall:
@@ -1089,13 +1093,13 @@ calling_convention_text :: proc(convention: Calling_Convention) -> string {
 	case .SysV:
 		return "sysv"
 	case .Preserve_None:
-		return "preserve_none"
+		return "preserve/none"
 	case .Preserve_Most:
-		return "preserve_most"
+		return "preserve/most"
 	case .Preserve_All:
-		return "preserve_all"
+		return "preserve/all"
 	case .Inline_Asm:
-		return "inline_asm"
+		return "inlineasm"
 	}
 	return ""
 }

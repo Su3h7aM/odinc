@@ -63,8 +63,8 @@ make_value :: proc "contextless" () -> [4]u8 { return {} }
 main :: proc "contextless" () { make_value().xy = [2]u8{} }
 `,
 		),
-		.Unsupported,
-		"Assign_Destination_Mode",
+		.Message,
+		"Cannot assign to 'make_value().xy'",
 		1,
 	)
 	testing.expect(t, rejected)

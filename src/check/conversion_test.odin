@@ -332,6 +332,11 @@ main :: proc() {
 }
 `,
 	)
-	_, ok := check_procedure_source(t, source, .Mismatched_Types)
+	_, ok := check_procedure_source(
+		t,
+		source,
+		.Conversion,
+		"Cannot assign value 'wrong' of type 'proc(string) -> int' to 'Callback' in a variable declaration",
+	)
 	testing.expect(t, ok)
 }

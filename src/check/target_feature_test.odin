@@ -1,6 +1,29 @@
 package check
 
 import "core:testing"
+import "oc:types"
+
+@(test)
+target_feature_signed_overrides_and_tuning_names :: proc(t: ^testing.T) {
+	features, invalid, valid := parse_target_feature_names("avx2,-slow-unaligned-mem-32")
+	testing.expectf(t, valid, "valid tuning feature rejected: %s", invalid)
+	testing.expect(t, .Avx2 in features && .Avx in features && .Sse2 in features)
+	features, _, valid = parse_target_feature_names("+avx2,-avx2")
+	testing.expect(t, valid && .Avx2 not_in features && .Avx in features)
+	features, _, valid = parse_target_feature_names("-avx2,+avx2")
+	testing.expect(t, valid && .Avx2 in features && .Avx in features)
+	features, _, valid = parse_target_feature_names("avx512f,-avx")
+	testing.expect(t, valid && .Avx not_in features && .Avx2 not_in features && .Avx512f not_in features && .Fma not_in features)
+	features, _, valid = parse_target_feature_names("-avx,+fma")
+	testing.expect(t, valid && .Fma in features && .Avx in features && .Avx2 not_in features)
+	testing.expect(t, target_feature_valid_globally("sve"))
+	_, _, valid = parse_target_feature_names("sve")
+	testing.expect(t, !valid)
+	_, _, valid = parse_target_feature_names("slow-unaligned-mem-320")
+	testing.expect(t, !valid)
+	_, satisfied := target_features_satisfied(types.X86_Features{}, "-slow-unaligned-mem-32")
+	testing.expect(t, satisfied)
+}
 
 @(test)
 target_feature_attributes_conflict :: proc(t: ^testing.T) {

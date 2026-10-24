@@ -25,19 +25,27 @@ expression_checker_publish_globals :: proc(checker: ^Expression_Checker, program
 			name = fmt.aprintf("%s-%d", name, id, allocator = mem.dynamic_arena_allocator(&checker.arena))
 		}
 		linkage := symbol_linkage(checker, entity) or_return
+		kind := Symbol_Kind.Global
+		library: Entity_Id
+		if .Foreign in entity.flags {
+			kind = .Extern
+			library = resolver_foreign_library(checker.type_checker.resolver, entity_get(scopes, Entity_Id(id)))
+		}
 		append(
 			&checker.symbols,
 			Symbol {
 				entity = Entity_Id(id),
-				kind = .Global,
+				kind = kind,
 				name = name,
 				type = entity.type,
 				linkage = linkage,
 				thread_local = thread_local,
 				alignment = u32(alignment),
+				library = library,
 			},
 		) or_return
 		checker.entity_symbols[id] = symbol
+		if kind == .Extern { continue }
 		global := Global {
 			entity       = Entity_Id(id),
 			symbol       = symbol,

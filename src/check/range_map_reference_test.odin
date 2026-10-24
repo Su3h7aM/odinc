@@ -107,14 +107,15 @@ unaddressable_value :: proc "contextless" () {
 	testing.expect(t, entity_get(&scopes, main).data.(Procedure_Data).body_state == .Complete)
 	for entry in ([?]struct {
 			name, reason: string,
-		}{{"immutable_key", "Assign_Destination_Mode"}, {"immutable_value", "Assign_Destination_Mode"}, {"unaddressable_key", "Address_Mode"}, {"unaddressable_value", "Address_Mode"}}) {
+			kind:         Expression_Diagnostic_Kind,
+		}{{"immutable_key", "Cannot assign to 'key'", .Message}, {"immutable_value", "Cannot assign to 'record.value'", .Message}, {"unaddressable_key", "Address_Mode", .Unsupported}, {"unaddressable_value", "Address_Mode", .Unsupported}}) {
 		entity := scope_lookup_current(&scopes, package_scope, entry.name)
 		before := len(checker.diagnostics)
 		_, failure := resolve_entity(&resolver, entity)
 		if !testing.expect_value(t, failure, nil) { continue }
 		if !testing.expectf(t, len(checker.diagnostics) == before + 1, "%s: %v", entry.name, checker.diagnostics[before:]) { continue }
 		diagnostic := checker.diagnostics[before]
-		testing.expectf(t, diagnostic.kind == .Unsupported && diagnostic.reason == entry.reason, "%s: %v", entry.name, diagnostic)
+		testing.expectf(t, diagnostic.kind == entry.kind && diagnostic.reason == entry.reason, "%s: %v", entry.name, diagnostic)
 		testing.expect(t, entity_get(&scopes, entity).data.(Procedure_Data).body_state == .Invalid)
 	}
 }

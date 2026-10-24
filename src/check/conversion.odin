@@ -273,6 +273,7 @@ check_conversion :: proc(
 			conversion_code_unit_pointer(store, core_source, 2) && core_target.kind == .CString16
 		allowed ||= core_source.kind == .CString && core_target.kind == .String || core_source.kind == .CString16 && core_target.kind == .String16
 		allowed ||= core_source.kind == .CString && core_target.kind == .Raw_Pointer || core_source.kind == .Raw_Pointer && core_target.kind == .CString
+		allowed ||= core_source.kind == .CString16 && core_target.kind == .Raw_Pointer || core_source.kind == .Raw_Pointer && core_target.kind == .CString16
 		allowed ||=
 			conversion_code_unit_slice(store, core_source, 1) && core_target.kind == .String ||
 			core_source.kind == .String && conversion_code_unit_slice(store, core_target, 1)
@@ -290,6 +291,8 @@ check_conversion :: proc(
 		}
 		// Official check_is_castable_to: rawptr <-> procedure, both directions.
 		allowed ||= core_source.kind == .Raw_Pointer && core_target.kind == .Procedure || core_source.kind == .Procedure && core_target.kind == .Raw_Pointer
+		// Official check_is_castable_to: procedure to procedure, whatever their parameters.
+		allowed ||= core_source.kind == .Procedure && core_target.kind == .Procedure
 	}
 	if !allowed {
 		return {}, .Not_Assignable if kind == .Assignment else .Not_Castable, nil
@@ -521,6 +524,9 @@ conversion_procedure_assignment :: proc(store: ^types.Store, source, target: typ
 	   len(source_type.results) != len(target_type.results) {
 		return false
 	}
+	// A polymorphic parameter has no type yet, so its signature never matches a concrete one.
+	if slice.contains(source_type.params, types.TYPE_NONE) || slice.contains(target_type.params, types.TYPE_NONE) { return false }
+	if slice.contains(source_type.results, types.TYPE_NONE) || slice.contains(target_type.results, types.TYPE_NONE) { return false }
 	for index in 0 ..< len(source_type.params) {
 		if !types.are_identical(store, source_type.params[index], target_type.params[index]) &&
 		   !conversion_offset_zero_pointer(store, source_type.params[index], target_type.params[index], config) {

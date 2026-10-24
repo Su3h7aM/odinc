@@ -410,6 +410,7 @@ expression_procedure_declaration :: proc(
 	if syntax.node_payload(checker.type_checker.files[declaration.type.file].ast, declaration.type.node, syntax.Proc_Type).generic {
 		procedure := &entity_get(resolver.scopes, id).data.(Procedure_Data)
 		procedure.generic = true
+		expression_mark_signature_imports(checker, declaration.type, scope)
 		check_atomic_attributes(checker, id, declaration.identifier.node, declaration.type.node, 0) or_return
 		return expression_generic_default_validation(checker, id, declaration, scope)
 	}
@@ -580,6 +581,22 @@ expression_diagnostics_within :: proc(checker: ^Expression_Checker, first: int, 
 		if source.file == body.file && source.start >= span.start && source.end <= span.end { return true }
 	}
 	return false
+}
+
+// The signature of a generic procedure is not checked until an instance exists, but a package named in its parameter
+// types, defaults or results still counts as used, while its where clauses and body do not.
+@(private = "file")
+expression_mark_signature_imports :: proc(checker: ^Expression_Checker, signature: Node_Ref, scope: Scope_Id) {
+	scopes := checker.type_checker.resolver.scopes
+	ast := checker.type_checker.files[signature.file].ast
+	span := ast.nodes[signature.node]
+	for node in ast.nodes[1:] {
+		if node.kind != .Selector_Expr || node.start < span.start || node.end > span.end { continue }
+		qualifier := ast.nodes[node.payload.(syntax.Selector_Expr).expr]
+		if qualifier.kind != .Ident { continue }
+		id, _ := scope_find(scopes, scope, expression_text(checker.type_checker.files[signature.file], node.payload.(syntax.Selector_Expr).expr))
+		if import_name := entity_get(scopes, id); import_name != nil && import_name.kind == .Import_Name { import_name.flags += {.Used} }
+	}
 }
 
 // A call from a declaration still being resolved needs the parameters before the callee's body is checked.
@@ -756,7 +773,7 @@ expression_deferred_tail_check :: proc(
 	for file.ast.nodes[call].kind == .Paren_Expr {
 		call = syntax.node_payload(file.ast, call, syntax.Paren_Expr).expr
 	}
-	if file.ast.nodes[call].kind != .Call_Expr || !expression_is_diverging_call(checker, view, call) { return nil }
+	if file.ast.nodes[call].kind != .Call_Expr || !expression_is_diverging_call(checker, expression_stored_info(checker, view, call).plan) { return nil }
 	for statement in statements[:end - 1] {
 		if file.ast.nodes[statement].kind == .Defer_Stmt {
 			expression_unsupported(
@@ -781,10 +798,9 @@ expression_deferred_tail_check :: proc(
 	return nil
 }
 
-// Whether a call expression diverges: a diverging callee or a diverging builtin.
-@(private = "file")
-expression_is_diverging_call :: proc(checker: ^Expression_Checker, view: View_Id, node: syntax.Node_Index) -> bool {
-	plan := expression_stored_info(checker, view, node).plan
+// Whether a checked call plan diverges: a diverging callee or a diverging builtin.
+@(private = "package")
+expression_is_diverging_call :: proc(checker: ^Expression_Checker, plan: Plan_Id) -> bool {
 	if plan == 0 { return false }
 	#partial switch specific in checker.plans[plan] {
 	case Builtin_Plan:
@@ -946,8 +962,7 @@ expression_assignment :: proc(checker: ^Expression_Checker, view: View_Id, file_
 	destination := check_expression(checker, view, scope, left[0]) or_return
 	if destination.state == .Invalid { return nil }
 	if !expression_assignable(checker, destination) {
-		expression_unsupported(checker, view, scope, left[0], "Assign_Destination_Mode") or_return
-		return nil
+		return expression_assignment_failure(checker, view, scope, left[0])
 	}
 	if assignment.op.kind == .Cmp_And_Eq || assignment.op.kind == .Cmp_Or_Eq {
 		destination_kind := types.get(checker.type_checker.store, types.resolve_named(checker.type_checker.store, destination.type)).kind
@@ -1067,8 +1082,13 @@ local_variable_data :: proc(
 		storage = .Local,
 	}
 	if len(values) == name_count { data.value = Node_Ref{file_id, values[index]} }
-	if !collection_has_attribute(file.ast, file.source, attributes, "static") { return data }
-	data.storage = .Global
+	if collection_has_attribute(file.ast, file.source, attributes, "thread_local") {
+		data.storage = .Thread_Local
+	} else if collection_has_attribute(file.ast, file.source, attributes, "static") {
+		data.storage = .Global
+	} else {
+		return data
+	}
 	if len(values) == name_count {
 		data.initializer = Node_Ref{file_id, values[index]}
 		data.initializer_view = view
@@ -1180,10 +1200,6 @@ expression_local_declaration :: proc(
 	declaration := syntax.node_payload(file.ast, node, syntax.Value_Decl)
 	names := syntax.node_list(file.ast, declaration.names)
 	values := syntax.node_list(file.ast, declaration.values)
-	if len(values) != 0 && collection_has_attribute(file.ast, file.source, declaration.attributes, "thread_local") {
-		expression_unsupported(checker, view, scope, node, "A thread local variable declaration cannot have initialization values") or_return
-		return nil
-	}
 	multi := len(values) == 1 && len(names) > 1
 	deferred_element, deferred_name, attributes_ok := expression_local_attributes(checker, view, file_id, scope, node) or_return
 	if !attributes_ok { return nil }
@@ -1259,7 +1275,7 @@ expression_local_declaration :: proc(
 			continue
 		}
 		initializes[index] = true
-		value := check_expression(checker, view, scope, values[index], target) or_return
+		value := expression_check_initializer(checker, view, scope, values[index], target) or_return
 		if value.state == .Invalid {
 			variable_types[index] = target if target != 0 else types.TYPE_POISON
 			continue

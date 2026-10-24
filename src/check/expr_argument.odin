@@ -16,6 +16,28 @@ expression_argument_needs_hint :: proc(file: ^File, node: syntax.Node_Index) -> 
 	return false
 }
 
+// A bare name or selector naming a generic procedure, whose value takes the instance its target type selects.
+@(private = "package")
+expression_generic_procedure_reference :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	scope: Scope_Id,
+	node: syntax.Node_Index,
+) -> (
+	entity: Entity_Id,
+	generic: bool,
+	err: Resolve_Error,
+) {
+	file := checker.type_checker.files[checker.views[view].file]
+	reference := type_unparen(file, node)
+	if file.ast.nodes[reference].kind != .Ident && file.ast.nodes[reference].kind != .Selector_Expr { return 0, false, nil }
+	entity = type_name_entity(checker.type_checker, file, scope, reference)
+	if entity == 0 { return 0, false, nil }
+	span := Source_Span{checker.views[view].file, file.ast.nodes[node].start, file.ast.nodes[node].end}
+	generic = expression_resolved_generic_procedure(checker, entity, span) or_return
+	return entity, generic, nil
+}
+
 // A runtime argument converts to its parameter type through its own conversion plan, which the call retains; the
 // argument keeps its unconverted type. Constants and expressions that need the parameter type to be checked take it as a hint.
 // An `#any_int` parameter also accepts a typed integer or enum argument by cast, as official check_expr.cpp:7487-7493.
@@ -33,21 +55,17 @@ expression_argument :: proc(
 ) {
 	file := checker.type_checker.files[checker.views[view].file]
 	if expression_argument_needs_hint(file, node) { return check_expression(checker, view, scope, node, target) }
-	if reference := type_unparen(file, node); file.ast.nodes[reference].kind == .Ident || file.ast.nodes[reference].kind == .Selector_Expr {
-		entity := type_name_entity(checker.type_checker, file, scope, reference)
-		span := Source_Span{checker.views[view].file, file.ast.nodes[node].start, file.ast.nodes[node].end}
-		if entity != 0 && (expression_resolved_generic_procedure(checker, entity, span) or_return) {
-			generic := Expression_Info {
-				mode   = .Value,
-				entity = entity,
-				scope  = scope,
-				state  = .Checked,
-			}
-			info = expression_generic_value(checker, view, checker.views[view].file, scope, node, generic, target) or_return
-			if info.type != types.TYPE_NONE {
-				expression_store(checker, view, node, info)
-				return info, nil
-			}
+	if entity, generic := expression_generic_procedure_reference(checker, view, scope, node) or_return; generic {
+		generic_info := Expression_Info {
+			mode   = .Value,
+			entity = entity,
+			scope  = scope,
+			state  = .Checked,
+		}
+		info = expression_generic_value(checker, view, checker.views[view].file, scope, node, generic_info, target) or_return
+		if info.type != types.TYPE_NONE {
+			expression_store(checker, view, node, info)
+			return info, nil
 		}
 	}
 	#partial switch file.ast.nodes[node].kind {

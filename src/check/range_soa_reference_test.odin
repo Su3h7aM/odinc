@@ -42,9 +42,9 @@ soa_reference_iteration_checks :: proc(t: ^testing.T) {
 		{"c: #soa[4]S\nmain :: proc \"contextless\" () {\nfor v, &i in c { _, _ = v, i }\n}", "Range_Form", .Unsupported},
 		// By-value variables never grant writes: the official compiler
 		// reports "Cannot assign" for each of these.
-		{"c: #soa[4]S\nmain :: proc \"contextless\" () {\nfor v in c { v = S{} }\n}", "Assign_Destination_Mode", .Unsupported},
-		{"c: #soa[4]S\nmain :: proc \"contextless\" () {\nfor v in c { v.b = 1 }\n}", "Assign_Destination_Mode", .Unsupported},
-		{"a: #soa[4][4]u16\nmain :: proc \"contextless\" () {\nfor v in a { v[0] = 1 }\n}", "Assign_Destination_Mode", .Unsupported},
+		{"c: #soa[4]S\nmain :: proc \"contextless\" () {\nfor v in c { v = S{} }\n}", "Cannot assign to 'v'", .Message},
+		{"c: #soa[4]S\nmain :: proc \"contextless\" () {\nfor v in c { v.b = 1 }\n}", "Cannot assign to 'v.b'", .Message},
+		{"a: #soa[4][4]u16\nmain :: proc \"contextless\" () {\nfor v in a { v[0] = 1 }\n}", "Cannot assign to 'v[0]'", .Message},
 	}
 	for entry in rejects {
 		source := strings.concatenate({header, entry.body, "\n"}, context.temp_allocator)

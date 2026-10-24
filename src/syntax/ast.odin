@@ -46,6 +46,7 @@ Ast :: struct {
 	// The vet flags of the file, after `#+vet` tags and `-vet-packages`.
 	vet:              Vet_Flags,
 	analysis:         Analysis_Flags,
+	lazy:             bool,
 }
 
 ast_init :: proc(ast: ^Ast, allocator := context.allocator) {

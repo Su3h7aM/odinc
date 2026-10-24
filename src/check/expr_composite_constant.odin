@@ -10,7 +10,7 @@ expression_constant_type :: proc(store: ^types.Store, type: types.Type_Id) -> bo
 	#partial switch descriptor.kind {
 	case .Bool, .Integer, .Float, .Rune, .Complex, .Quaternion, .String, .String16, .CString, .CString16, .Raw_Pointer, .Type_Id, .Bit_Set, .Procedure, .Enum:
 		return true
-	case .Array, .Enumerated_Array, .Simd_Vector, .Matrix:
+	case .Array, .Enumerated_Array, .Simd_Vector, .Matrix, .Slice:
 		return expression_constant_type(store, descriptor.elem)
 	case .Struct:
 		for field in descriptor.fields {
@@ -37,6 +37,8 @@ expression_zero_fill_supported :: proc(checker: ^Expression_Checker, store: ^typ
 	case .Enum, .Bit_Set:
 		return true
 	case .Raw_Pointer, .Pointer, .Multi_Pointer, .CString, .CString16, .Type_Id, .Procedure:
+		return true
+	case .Slice:
 		return true
 	case .Union:
 		return expression_union_variant_constant(store, element_type)
@@ -83,7 +85,7 @@ expression_zero_fill_constants :: proc(
 			element = expression_zero_fill_constants(checker, store, descriptor.elem) or_return
 		}
 		return constant_pool_intern_aggregate(checker.constants, element_type, element_ids)
-	case .Raw_Pointer, .Pointer, .Multi_Pointer, .CString, .CString16, .Type_Id, .Procedure:
+	case .Raw_Pointer, .Pointer, .Multi_Pointer, .CString, .CString16, .Type_Id, .Procedure, .Slice:
 		return constant_pool_intern_nil(checker.constants, element_type)
 	case .Struct:
 		element_ids := make([]Const_Id, len(descriptor.fields), checker.allocator) or_return

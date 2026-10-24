@@ -16,25 +16,33 @@ file_vet :: proc(checker: ^Expression_Checker, file: File_Id) -> syntax.Vet_Flag
 	return checker.type_checker.files[file].ast.vet
 }
 
-// Runs the vet checks that need every body checked first, each against the flags of the file it reports in.
-// Library packages are checked lazily, so a declaration that nothing refers to is never checked. Findings about a
-// single body hold anywhere, but findings about the use of a whole file (imports) or package (procedures) are
-// only sound for `options.complete_package`, where every declaration is checked. A body the checker could not
-// finish leaves later names unreferenced, so unused names are only reported when checking had no errors.
+// Unused findings require completed checking in their file or body.
 check_vet :: proc(checker: ^Expression_Checker, errors_found: bool) -> Resolve_Error {
 	first := len(checker.diagnostics)
 	scopes := checker.type_checker.resolver.scopes
+	complete_files := make([]bool, len(checker.type_checker.files), context.temp_allocator) or_return
+	defer delete(complete_files, context.temp_allocator)
+	for &complete in complete_files { complete = true }
+	if collection := checker.type_checker.collection; collection != nil {
+		for declaration in collection.declarations {
+			entity := entity_get(scopes, declaration.entity)
+			if entity.state != .Resolved && !declaration_is_lazy(checker, declaration.entity) { complete_files[entity.declaration.file] = false }
+		}
+	}
+	for diagnostic in checker.diagnostics {
+		if diagnostic.severity != .Warning || checker.options.warnings_as_errors { complete_files[diagnostic.source.file] = false }
+	}
 	for &entity, index in scopes.entities {
 		if entity.declaration.file == 0 || entity.name == "" || entity.name == "_" { continue }
 		flags := file_vet(checker, entity.declaration.file)
-		complete := checker.type_checker.files[entity.declaration.file].package_id == checker.options.complete_package
+		complete := complete_files[entity.declaration.file]
 		#partial switch entity.kind {
 		case .Variable:
 			check_local_variable(checker, scopes, &entity, flags, first, errors_found) or_return
 		case .Import_Name, .Library_Name:
-			if complete && !errors_found { check_unused_import(checker, &entity, flags, first) or_return }
+			if complete { check_unused_import(checker, &entity, flags, first) or_return }
 		case .Procedure:
-			if complete && !errors_found { check_unused_procedure(checker, scopes, &entity, flags, first) or_return }
+			if complete { check_unused_procedure(checker, scopes, &entity, flags, first) or_return }
 		}
 		if complete { check_when_shadowing(checker, scopes, &entity, Entity_Id(index), flags, first) or_return }
 	}
@@ -166,6 +174,7 @@ check_unused_import :: proc(checker: ^Expression_Checker, entity: ^Entity, flags
 @(private = "file")
 check_unused_procedure :: proc(checker: ^Expression_Checker, scopes: ^Scope_Store, entity: ^Entity, flags: syntax.Vet_Flags, first: int) -> Resolve_Error {
 	if .Unused_Procedures not_in flags || .Used in entity.flags || entity.flags & {.Required, .Export, .Test} != {} { return nil }
+	if int(entity.package_id) < len(checker.packages) && checker.packages[entity.package_id].kind == .Runtime { return nil }
 	procedure := entity.data.(Procedure_Data) or_else {}
 	if procedure.instance != 0 || procedure.definition != 0 { return nil }
 	if scope := scope_get(scopes, entity.scope); scope == nil || scope.kind == .Type_Member { return nil }

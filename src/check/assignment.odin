@@ -1,8 +1,18 @@
 package check
 
+import "core:fmt"
 import "core:mem"
 import "oc:syntax"
 import "oc:types"
+
+@(private = "package")
+expression_assignment_failure :: proc(checker: ^Expression_Checker, view: View_Id, scope: Scope_Id, node: syntax.Node_Index) -> Resolve_Error {
+	file := checker.type_checker.files[checker.views[view].file]
+	allocator := mem.dynamic_arena_allocator(&checker.arena)
+	reason := fmt.aprintf("Cannot assign to '%s'", render_expression(file.ast, file.source, node, allocator), allocator = allocator)
+	_, failure := expression_failure(checker, view, scope, node, .Message, reason)
+	return failure
+}
 
 @(private = "package")
 expression_multiple_assignment :: proc(
@@ -27,15 +37,14 @@ expression_multiple_assignment :: proc(
 		destination := check_expression(checker, view, scope, target) or_return
 		if destination.state == .Invalid { return nil }
 		if !expression_assignable(checker, destination) {
-			expression_unsupported(checker, view, scope, target, "Assign_Destination_Mode") or_return
-			return nil
+			return expression_assignment_failure(checker, view, scope, target)
 		}
 		destinations[index] = Operand(Expression_Ref{view, target})
 		targets[index] = destination.type
 	}
 	for source in right {
 		hint: types.Type_Id
-		if len(values) < len(targets) && (file.ast.nodes[source].kind == .Implicit_Selector_Expr || file.ast.nodes[source].kind == .Comp_Lit) {
+		if len(left) == len(right) {
 			hint = targets[len(values)]
 		}
 		value := check_expression(checker, view, scope, source, hint) or_return
@@ -134,9 +143,11 @@ expression_multiple_assignment :: proc(
 			append(&values, operand) or_return
 			continue
 		}
-		target := targets[len(values)]
-		if target == 0 { target = types.default_type_of_untyped(checker.type_checker.store, value.type) }
-		if target != 0 { value = expression_check_default(checker, view, scope, source, target) or_return }
+		if hint == 0 {
+			target := targets[len(values)]
+			if target == 0 { target = types.default_type_of_untyped(checker.type_checker.store, value.type) }
+			if target != 0 { value = expression_check_default(checker, view, scope, source, target) or_return }
+		}
 		if value.state == .Invalid { return nil }
 		append(&values, Operand(Expression_Ref{view, source})) or_return
 		append(&conversions, expression_conversion_plan(checker, value.plan)) or_return

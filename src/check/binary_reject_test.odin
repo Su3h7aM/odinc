@@ -3,6 +3,53 @@ package check
 import "core:testing"
 
 @(test)
+enum_numeric_operators_and_default_typed_switch_tags :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(
+		`package sample
+E :: enum { A=2, B=4 }
+#assert(E.A + E.B == E(6))
+#assert(E.B - E.A == E(2))
+#assert(E.A * E.B == E(8))
+#assert(type_of(E.B / E.A) == E)
+#assert(+E.A == E(2))
+#assert(-E.A == E(-2))
+predicate :: proc() -> bool { return true }
+number :: proc() -> int { return 1 }
+text :: proc() -> string { return "a" }
+rune_value :: proc() -> rune { return 'x' }
+float_value :: proc() -> f64 { return 1.5 }
+main :: proc() {
+    value := E.A
+    _ = value + .B
+    _ = value - .B
+    _ = value * .B
+    _ = value / .B
+    _ = +value
+    _ = -value
+    for kind in (E.A + E(1))..<E.B { _ = kind }
+    switch ch := 1; true { case predicate(): _ = ch }
+    switch 1 { case number(): }
+    switch "a" { case text(): }
+    switch 'x' { case rune_value(): }
+    switch 1.5 { case float_value(): }
+    #partial switch E.A { case value: }
+    switch bool(true) { case predicate(): }
+    switch rawptr(nil) { case nil: }
+    switch { case predicate(): }
+}
+`,
+	)
+	_, ok := check_procedure_source(t, source)
+	if !testing.expect(t, ok) { return }
+	PREFIX :: "package sample\nE :: enum { A=2, B=4 }\nmain :: proc() { _ = "
+	rejected_sources := []string{PREFIX + "E.A % E.B }\n", PREFIX + "E.A << E.B }\n", PREFIX + "~E.A }\n"}
+	for rejected in rejected_sources {
+		_, rejected_ok := check_procedure_source(t, transmute([]byte)rejected, .Invalid_Operator)
+		testing.expect(t, rejected_ok)
+	}
+}
+
+@(test)
 binary_invalid_operand_does_not_hint_implicit_selector :: proc(t: ^testing.T) {
 	source := transmute([]byte)string(`package sample
 main :: proc() {
@@ -53,7 +100,7 @@ main :: proc "contextless" () {
 	_ = a + b
 }
 `)
-	_, ok := check_procedure_source(t, source, .Mismatched_Types, "")
+	_, ok := check_procedure_source(t, source, .Mismatched_Types, "Mismatched types in binary expression 'a + b' : 'i32' vs 'i64'")
 	testing.expect(t, ok)
 }
 
@@ -129,7 +176,7 @@ main :: proc "contextless" () {
 	_ = a == b
 }
 `)
-	_, ok := check_procedure_source(t, source, .Invalid_Operator, "")
+	_, ok := check_procedure_source(t, source, .Mismatched_Types, "Cannot compare expression. Mismatched types '[3]int' and '[4]int'.")
 	testing.expect(t, ok)
 }
 

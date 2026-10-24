@@ -19,26 +19,19 @@ main :: proc() {
 	buffer[5] = '\n'
 	intrinsics.syscall(1, 1, uintptr(&buffer), 6)
 	intrinsics.syscall(60, 0)
+	#assert(intrinsics.type_is_integer(uintptr))
 }
+unknown_intrinsic :: proc() { intrinsics.not_a_real_intrinsic() }
 `,
 	)
-	intrinsics_source := transmute([]byte)string(`package intrinsics
-
-syscall :: proc(id: uintptr, args: ..uintptr) -> uintptr ---
-`)
-	main_ast, intrinsics_ast: syntax.Ast
+	main_ast: syntax.Ast
 	syntax.ast_init(&main_ast, context.allocator)
 	defer syntax.ast_destroy(&main_ast)
-	syntax.ast_init(&intrinsics_ast, context.allocator)
-	defer syntax.ast_destroy(&intrinsics_ast)
-	main_parser, intrinsics_parser: syntax.Parser
+	main_parser: syntax.Parser
 	syntax.parser_init(&main_parser, &main_ast, main_source, context.allocator)
 	defer syntax.parser_destroy(&main_parser)
-	syntax.parser_init(&intrinsics_parser, &intrinsics_ast, intrinsics_source, context.allocator)
-	defer syntax.parser_destroy(&intrinsics_parser)
 	syntax.parse_file(&main_parser)
-	syntax.parse_file(&intrinsics_parser)
-	if !testing.expect(t, len(main_parser.errors) + len(intrinsics_parser.errors) + len(main_parser.lex_errors) == 0) { return }
+	if !testing.expect(t, len(main_parser.errors) + len(main_parser.lex_errors) == 0) { return }
 	store := types.init()
 	defer types.destroy(&store)
 	integer := types.intern(&store, types.Type{kind = .Integer, name = "int", count = 8, signed = true})
@@ -55,11 +48,8 @@ syscall :: proc(id: uintptr, args: ..uintptr) -> uintptr ---
 	main_package, main_package_error := scope_create(&scopes, universe, .Package)
 	main_file_scope, main_file_error := scope_create(&scopes, main_package, .File)
 	intrinsics_package, intrinsics_package_error := scope_create(&scopes, universe, .Package)
-	intrinsics_file_scope, intrinsics_file_error := scope_create(&scopes, intrinsics_package, .File)
-	if !testing.expect(
-		t,
-		universe_error == nil && main_package_error == nil && main_file_error == nil && intrinsics_package_error == nil && intrinsics_file_error == nil,
-	) { return }
+	if !testing.expect(t, universe_error == nil && main_package_error == nil && main_file_error == nil && intrinsics_package_error == nil) { return }
+	if !testing.expect(t, intrinsic_scope_init(&scopes, intrinsics_package, 2) == nil) { return }
 	for builtin in ([]struct {
 			name: string,
 			type: types.Type_Id,
@@ -74,32 +64,17 @@ syscall :: proc(id: uintptr, args: ..uintptr) -> uintptr ---
 		source     = main_source,
 		scope      = main_file_scope,
 	}
-	intrinsics_file := File {
-		package_id = 2,
-		ast        = &intrinsics_ast,
-		source     = intrinsics_source,
-		scope      = intrinsics_file_scope,
-	}
 	collection: Collection
 	collection_init(&collection, &scopes, context.allocator)
 	defer collection_destroy(&collection)
-	if !testing.expect(t, collect_file(&collection, &main_file, 1, {}) == nil && collect_file(&collection, &intrinsics_file, 2, {}) == nil) { return }
+	if !testing.expect(t, collect_file(&collection, &main_file, 1, {}) == nil) { return }
 	if !testing.expect(t, collect_import_name(&collection, &main_file, 0, "intrinsics", 2) == nil && len(collection.diagnostics) == 0) { return }
 	checker: Expression_Checker
 	resolver: Resolver
 	resolver_init(&resolver, &scopes, expression_declaration, &checker, context.allocator)
 	defer resolver_destroy(&resolver)
 	type_checker: Type_Checker
-	type_checker_init(
-		&type_checker,
-		&resolver,
-		&collection,
-		&store,
-		[]^File{nil, &main_file, &intrinsics_file},
-		expression_integer_evaluator,
-		&checker,
-		context.allocator,
-	)
+	type_checker_init(&type_checker, &resolver, &collection, &store, []^File{nil, &main_file}, expression_integer_evaluator, &checker, context.allocator)
 	defer type_checker_destroy(&type_checker)
 	if !testing.expect(
 		t,
@@ -125,7 +100,8 @@ syscall :: proc(id: uintptr, args: ..uintptr) -> uintptr ---
 			len(resolver.diagnostics),
 		)
 	}
-	testing.expect(t, len(type_checker.diagnostics) == 0 && len(resolver.diagnostics) == 0 && len(checker.diagnostics) == 0)
+	testing.expect(t, len(type_checker.diagnostics) == 0 && len(resolver.diagnostics) == 0 && len(checker.diagnostics) == 1)
+	if len(checker.diagnostics) == 1 { testing.expect_value(t, checker.diagnostics[0].reason, "'not_a_real_intrinsic' is not declared by 'intrinsics'") }
 	main := entity_get(&scopes, scope_lookup_current(&scopes, main_package, "main"))
 	procedure := main.data.(Procedure_Data)
 	testing.expect(t, procedure.body_state == .Complete)
@@ -133,7 +109,7 @@ syscall :: proc(id: uintptr, args: ..uintptr) -> uintptr ---
 	statements := syntax.node_list(&main_ast, body.stmts)
 	program: Checked_Program
 	expression_checker_publish(&checker, &program)
-	program.files = []File{{}, main_file, intrinsics_file}
+	program.files = []File{{}, main_file}
 	call := syntax.node_payload(&main_ast, statements[3], syntax.Expr_Stmt).expr
 	call_info, call_found := expression_info(&program, 1, call)
 	plan, is_builtin := program.plan_table[call_info.plan].(Builtin_Plan)

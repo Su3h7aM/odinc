@@ -29,7 +29,7 @@ Intrinsic_Shape :: enum u8 {
 intrinsic_shape :: proc(kind: Builtin_Kind) -> Intrinsic_Shape {
 	if shape := memory_misc_shape(kind); shape != .None { return shape }
 	#partial switch kind {
-	case .Count_Ones, .Count_Zeros, .Count_Leading_Zeros, .Count_Trailing_Zeros, .Reverse_Bits, .Byte_Swap:
+	case .Count_Ones, .Count_Zeros, .Count_Leading_Zeros, .Count_Trailing_Zeros, .Count_Leading_Ones, .Count_Trailing_Ones, .Reverse_Bits, .Byte_Swap:
 		return .Integer_Unary
 	case .Expect:
 		return .Value_Pair

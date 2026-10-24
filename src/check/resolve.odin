@@ -147,7 +147,11 @@ resolve_entity_signature :: proc(resolver: ^Resolver, id: Entity_Id, need: Resol
 		return .Invalid, callback_err
 	}
 	entity.state = .Resolved
-	resolver_use_foreign_library(resolver, entity)
+	if library := resolver_foreign_library(resolver, entity); library != 0 {
+		library_entity := entity_get(resolver.scopes, library)
+		data := &library_entity.data.(Library_Data)
+		data.used = true
+	}
 	return .Resolved, nil
 }
 
@@ -182,24 +186,23 @@ resolver_reevaluate_alias :: proc(resolver: ^Resolver, id: Entity_Id) -> Resolve
 	return nil
 }
 
-// A foreign entity uses the library its foreign block names, found from its scope outward, as the fork's init_entity_foreign_library does.
-@(private = "file")
-resolver_use_foreign_library :: proc(resolver: ^Resolver, foreign_entity: ^Entity) {
-	if .Foreign not_in foreign_entity.flags || foreign_entity.foreign_library == "" { return }
+@(private = "package")
+resolver_foreign_library :: proc(resolver: ^Resolver, foreign_entity: ^Entity) -> Entity_Id {
+	if .Foreign not_in foreign_entity.flags || foreign_entity.foreign_library == "" { return 0 }
 	scope := foreign_entity.scope
 	for scope != 0 {
 		if id := scope_lookup_current(resolver.scopes, scope, foreign_entity.foreign_library); id != 0 {
 			library := entity_get(resolver.scopes, id)
 			if library != nil && library.kind == .Library_Name {
-				data := &library.data.(Library_Data)
-				data.used = true
+				return id
 			}
-			return
+			return 0
 		}
 		current := scope_get(resolver.scopes, scope)
-		if current == nil { return }
+		if current == nil { return 0 }
 		scope = current.parent
 	}
+	return 0
 }
 
 // Records the first source for each target/kind pair in encounter order, including cyclic edges.

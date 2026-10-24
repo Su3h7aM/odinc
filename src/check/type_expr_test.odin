@@ -13,6 +13,27 @@ Type_Test_Data :: struct {
 }
 
 @(test)
+generic_record_identifier_alias_is_rejected :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(`package sample
+Inner :: union($T: typeid) { T }
+Outer :: Inner
+main :: proc "contextless" () {}
+`)
+	_, ok := check_procedure_source(t, source, type_diagnostic_count = 1)
+	testing.expect(t, ok)
+}
+
+@(test)
+helper_procedure_alias_with_undeclared_parameter_reports_once :: proc(t: ^testing.T) {
+	source := transmute([]byte)string(`package sample
+Handler :: #type proc(x: Missing) -> int
+main :: proc "contextless" () {}
+`)
+	_, ok := check_procedure_source(t, source, type_diagnostic_count = 1)
+	testing.expect(t, ok)
+}
+
+@(test)
 type_expressions_resolve_recursive_nominals_and_report_errors :: proc(t: ^testing.T) {
 	source := transmute([]byte)string(
 		`package sample

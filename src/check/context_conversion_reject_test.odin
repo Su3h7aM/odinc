@@ -39,6 +39,19 @@ main :: proc "contextless" () { _ = rawptr(u64(1)) }
 }
 
 @(test)
+variable_initializer_mismatch_names_declaration :: proc(t: ^testing.T) {
+	// Official: Cannot assign value 'b' of type 'Maybe($T=int)' to 'Maybe($T=f32)' in a variable declaration.
+	source := transmute([]byte)string(
+		`package sample
+Maybe :: union($T: typeid) { T }
+main :: proc "contextless" () { a: Maybe(int) = 1; b := a; c: Maybe(f32) = b; _ = c }
+`,
+	)
+	_, ok := check_procedure_source(t, source, .Conversion, "Cannot assign value 'b' of type 'Maybe($T=int)' to 'Maybe($T=f32)' in a variable declaration")
+	testing.expect(t, ok)
+}
+
+@(test)
 plain_field_does_not_enable_implicit_pointer_conversion :: proc(t: ^testing.T) {
 	// Official: Cannot assign '^Derived' to '^Base' in a return statement.
 	source := transmute([]byte)string(

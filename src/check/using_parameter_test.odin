@@ -19,10 +19,10 @@ using_parameters_reject_invalid_roots_collisions_and_value_mutation :: proc(t: ^
 		{"f :: proc(using value: Point) -> (x: int) { return }", .Invalid_Operand, "Using_Collision"},
 		{"f :: proc(using value: Point) { x := 2; _ = x }", .Unsupported, "Local_Duplicate"},
 		// Official: Cannot assign to 'x'. Pointer-valued embedded fields do not make value-root aliases writable.
-		{"f :: proc(using value: Point) { x = 2 }", .Unsupported, "Assign_Destination_Mode"},
-		{"f :: proc(using value: Embedded) { x = 2 }", .Unsupported, "Assign_Destination_Mode"},
+		{"f :: proc(using value: Point) { x = 2 }", .Message, "Cannot assign to 'x'"},
+		{"f :: proc(using value: Embedded) { x = 2 }", .Message, "Cannot assign to 'x'"},
 		// Official: Cannot assign to 'value' which is from a 'using' procedure parameter.
-		{"f :: proc(using value: ^Point) { value = nil }", .Unsupported, "Assign_Destination_Mode"},
+		{"f :: proc(using value: ^Point) { value = nil }", .Message, "Cannot assign to 'value'"},
 		// Official: Cannot take the pointer address of 'value' which is a procedure parameter.
 		{"f :: proc(using value: Point) { _ = &value }", .Unsupported, "Address_Mode"},
 	}

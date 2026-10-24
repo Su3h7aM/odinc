@@ -102,6 +102,17 @@ expression_index :: proc(
 		position = check_expression(checker, view, scope, access.index, checker.default_integer) or_return
 	}
 	statically_checked := false
+	if base_descriptor.kind == .Slice && base.mode == .Constant && position.mode == .Constant {
+		if slice, is_slice := constant_pool_get(checker.constants, base.constant).value.(Slice_Value); is_slice {
+			backing := constant_pool_get(checker.constants, slice.backing).value.(Aggregate_Value)
+			value := constant_pool_get(checker.constants, position.constant).value.(big.Int)
+			index, failure := big.int_get_i64(&value)
+			if failure != .None || index < 0 || index >= i64(len(backing.elements)) {
+				return expression_failure(checker, view, scope, access.index, .Invalid_Operand)
+			}
+			return Expression_Info{type = element_type, constant = backing.elements[index], mode = .Constant, scope = scope, state = .Checked}, nil
+		}
+	}
 	if (is_array || is_enumerated_array) && position.mode == .Constant {
 		value := constant_pool_get(checker.constants, position.constant).value.(big.Int)
 		constant_index, value_error := big.int_get_i64(&value)
@@ -170,6 +181,15 @@ expression_slice :: proc(
 	if has_pointer_base {
 		base.type = base_descriptor.elem
 		base_descriptor = types.get(store, types.resolve_named(store, base_descriptor.elem))
+	}
+	if base_descriptor.kind == .Slice && base.mode == .Constant {
+		span := file.ast.nodes[access.expr]
+		reason := fmt.aprintf(
+			"Cannot slice constant value '%s'",
+			string(file.source[span.start:span.end]),
+			allocator = mem.dynamic_arena_allocator(&checker.arena),
+		)
+		return expression_failure(checker, view, scope, access.expr, .Message, reason)
 	}
 	_, _, is_soa := soa_descriptor(store, base.type)
 	if is_soa {
@@ -436,9 +456,7 @@ expression_soa_component_index :: proc(
 	return Expression_Info{type = core.elem, mode = soa_lane_mode(checker, base), plan = plan, scope = scope, state = .Checked}, nil
 }
 
-// A lane of an immutable `#soa` value is itself immutable: writes through a
-// by-value range variable report Assign_Destination_Mode, as the official
-// compiler's "Cannot assign" does.
+// Lanes of an immutable #soa value remain immutable.
 @(private = "file")
 soa_lane_mode :: proc(checker: ^Expression_Checker, base: Expression_Info) -> Addressing_Mode {
 	if base.entity != 0 {

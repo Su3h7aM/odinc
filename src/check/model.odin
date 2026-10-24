@@ -711,6 +711,9 @@ Address_Value :: struct {
 Aggregate_Value :: struct {
 	elements: []Const_Id,
 }
+Slice_Value :: struct {
+	backing: Const_Id,
+}
 Variant_Value :: struct {
 	type:  types.Type_Id,
 	value: Const_Id,
@@ -731,6 +734,7 @@ Constant_Value :: union {
 	Entity_Id,
 	types.Type_Id,
 	Aggregate_Value,
+	Slice_Value,
 	Variant_Value,
 	Nil_Value,
 	Uninitialized_Value,
@@ -1039,21 +1043,22 @@ Generated_Body :: struct {
 	type: types.Type_Id,
 }
 Checked_Procedure :: struct {
-	entity:              Entity_Id,
-	symbol:              Symbol_Id,
-	signature:           types.Type_Id,
-	body:                Node_Ref,
-	generated:           Generated_Body,
-	view:                View_Id,
-	parameters, results: []Entity_Id,
-	result_defaults:     []Default_Argument,
-	convention:          types.Calling_Convention,
+	entity:                   Entity_Id,
+	symbol:                   Symbol_Id,
+	signature:                types.Type_Id,
+	body:                     Node_Ref,
+	generated:                Generated_Body,
+	view:                     View_Id,
+	parameters, results:      []Entity_Id,
+	result_defaults:          []Default_Argument,
+	convention:               types.Calling_Convention,
 	// Parsed `@(enable_target_feature)` list, plus the global level the procedure was checked against.
-	target_features:     types.X86_Features,
-	microarch:           types.X86_Level,
-	attributes:          []Attribute,
-	source:              Source_Span,
-	defers:              []Defer_Registration,
+	target_features:          types.X86_Features,
+	disabled_target_features: types.X86_Features,
+	microarch:                types.X86_Level,
+	attributes:               []Attribute,
+	source:                   Source_Span,
+	defers:                   []Defer_Registration,
 }
 Relocation :: struct {
 	offset: u64,

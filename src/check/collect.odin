@@ -265,6 +265,9 @@ collect_import_name :: proc(collection: ^Collection, file: ^File, pending_index:
 		}
 		if import_decl.is_using { flags += {.Using} }
 		if collection_has_attribute(file.ast, file.source, import_decl.attributes, "require") { flags += {.Required} }
+		path, allocated, valid := strconv.unquote_string(collection_node_text(file, import_decl.relpath), context.temp_allocator)
+		if valid && (path == "base:builtin" || path == "base:intrinsics") { flags += {.Used} }
+		if allocated { delete(path, context.temp_allocator) }
 	} else {
 		import_decl := syntax.node_payload(file.ast, declaration, syntax.Foreign_Import_Decl)
 		identifier = import_decl.name
@@ -532,12 +535,14 @@ collect_entity :: proc(
 ) {
 	entity_order := order
 	entity_order.offset = file.ast.nodes[identifier].start
+	entity_flags := flags
+	if file.ast.lazy { entity_flags += {.Lazy} }
 	entity, create_err := entity_create(
 		collection.scopes,
 		Entity {
 			name = name,
 			kind = kind,
-			flags = flags,
+			flags = entity_flags,
 			scope = file.scope,
 			package_id = file.package_id,
 			declaration = {id, declaration},

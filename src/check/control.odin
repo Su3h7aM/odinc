@@ -26,12 +26,19 @@ expression_switch :: proc(checker: ^Expression_Checker, view: View_Id, file_id: 
 	if statement.cond != 0 {
 		tag := check_expression(checker, view, switch_scope, statement.cond) or_return
 		if tag.state == .Invalid { return nil }
-		// A multi-valued call has no single tag type to query below; refuse it as a value, as conditions already do.
-		if tag.mode != .Type && !expression_value(tag) {
+		if !expression_value(tag) {
 			expression_failure(checker, view, switch_scope, statement.cond, .Invalid_Operand) or_return
 			return nil
 		}
-		tag_type = tag.type
+		if types.get(checker.type_checker.store, tag.type).kind == .Untyped_Nil {
+			expression_failure(checker, view, switch_scope, statement.cond, .Message, "Use of untyped nil in switch expression") or_return
+			return nil
+		}
+		tag_type = types.default_type_of_untyped(checker.type_checker.store, tag.type)
+		if tag_type != tag.type {
+			tag = check_expression(checker, view, switch_scope, statement.cond, tag_type) or_return
+			if tag.state == .Invalid { return nil }
+		}
 		tag_error: Resolve_Error
 		tag_entity, comparison_name, tag_error = expression_switch_tag(checker, switch_scope, tag_type)
 		if tag_error != nil { return tag_error }

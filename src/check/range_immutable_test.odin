@@ -3,9 +3,7 @@ package check
 import "core:strings"
 import "core:testing"
 
-// A by-value range variable is immutable: official rejects assignment to it
-// with `Cannot assign to 'x'` (check_stmt.cpp:613). Uses of the checker-wide
-// `.Immutable` mechanism surface that verdict as Assign_Destination_Mode.
+// A by-value range variable is immutable (check_stmt.cpp:613).
 @(test)
 range_by_value_assignment_is_rejected :: proc(t: ^testing.T) {
 	header :=
@@ -20,17 +18,17 @@ range_by_value_assignment_is_rejected :: proc(t: ^testing.T) {
 
 
 		// Official: Cannot assign to 'x'.
-		{"a := [3]int{1, 2, 3}\nfor x in a { x = 9 }", .Unsupported, "Assign_Destination_Mode"},
-		{"s: []int\nfor x in s { x = 9 }", .Unsupported, "Assign_Destination_Mode"},
-		{"d: [dynamic]int\nfor x in d { x = 9 }", .Unsupported, "Assign_Destination_Mode"},
-		{"for c in Color { c = .Green }", .Unsupported, "Assign_Destination_Mode"},
-		{"f: Flags\nfor e in f { e = .Green }", .Unsupported, "Assign_Destination_Mode"},
-		{"for i in 0 ..< 3 { i = 9 }", .Unsupported, "Assign_Destination_Mode"},
-		{"for v in produce() { v = 9 }", .Unsupported, "Assign_Destination_Mode"},
+		{"a := [3]int{1, 2, 3}\nfor x in a { x = 9 }", .Message, "Cannot assign to 'x'"},
+		{"s: []int\nfor x in s { x = 9 }", .Message, "Cannot assign to 'x'"},
+		{"d: [dynamic]int\nfor x in d { x = 9 }", .Message, "Cannot assign to 'x'"},
+		{"for c in Color { c = .Green }", .Message, "Cannot assign to 'c'"},
+		{"f: Flags\nfor e in f { e = .Green }", .Message, "Cannot assign to 'e'"},
+		{"for i in 0 ..< 3 { i = 9 }", .Message, "Cannot assign to 'i'"},
+		{"for v in produce() { v = 9 }", .Message, "Cannot assign to 'v'"},
 		// Official: Cannot assign to 'i'. The index is a value too.
-		{"a := [3]int{1, 2, 3}\nfor v, i in a { i = 9 }", .Unsupported, "Assign_Destination_Mode"},
+		{"a := [3]int{1, 2, 3}\nfor v, i in a { i = 9 }", .Message, "Cannot assign to 'i'"},
 		// Official: Cannot assign to 'e.x'. A field of a by-value variable is not assignable.
-		{"a: [3]S\nfor e in a { e.x = 9 }", .Unsupported, "Assign_Destination_Mode"},
+		{"a: [3]S\nfor e in a { e.x = 9 }", .Message, "Cannot assign to 'e.x'"},
 		// Official: Cannot take the pointer address of 'x'. Passing it to a pointer parameter is the same rule.
 		{"a := [3]int{1, 2, 3}\nfor x in a { _ = &x }", .Unsupported, "Address_Mode"},
 		{"a := [3]int{1, 2, 3}\nfor x in a { take_ptr(&x) }", .Unsupported, "Address_Mode"},

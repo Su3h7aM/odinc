@@ -21,15 +21,14 @@ expression_unary :: proc(
 	if !expression_value(operand) { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
 	store := checker.type_checker.store
 	kind := types.get(store, conversion_base_type(store, operand.type)).kind
-	valid := conversion_integer(kind) && (unary.op.kind == .Add || unary.op.kind == .Sub || unary.op.kind == .Xor)
+	valid := expression_type_numeric(store, operand.type) && (unary.op.kind == .Add || unary.op.kind == .Sub)
+	valid ||= conversion_integer(kind) && unary.op.kind == .Xor
 	valid ||= conversion_boolean(kind) && unary.op.kind == .Not
-	valid ||= conversion_complex(kind) && (unary.op.kind == .Add || unary.op.kind == .Sub)
-	valid ||= conversion_float(kind) && (unary.op.kind == .Add || unary.op.kind == .Sub)
 	// Official unary plus, minus, and bitwise-not on arrays work element-wise.
 	is_array := kind == .Array || kind == .Enumerated_Array
 	if is_array {
 		element_kind := types.get(store, types.get(store, conversion_base_type(store, operand.type)).elem).kind
-		if conversion_integer(element_kind) || conversion_float(element_kind) || conversion_complex(element_kind) {
+		if expression_type_numeric(store, types.get(store, conversion_base_type(store, operand.type)).elem) {
 			valid ||= unary.op.kind == .Add || unary.op.kind == .Sub
 		}
 		if conversion_integer(element_kind) || conversion_boolean(element_kind) || element_kind == .Bit_Set {
@@ -116,6 +115,7 @@ Binary_Operand_Class :: struct {
 	left_kind:                   types.Kind,
 	right_kind:                  types.Kind,
 	integer:                     bool,
+	numeric:                     bool,
 	bitwise_integer:             bool,
 	boolean:                     bool,
 	enum_pair:                   bool,
@@ -427,7 +427,7 @@ binary_operand_class :: proc(
 	array_leaf_kind := types.Kind.Invalid
 	if array_leaf != 0 { array_leaf_kind = types.get(checker.type_checker.store, array_leaf).kind }
 	array_involved := array_pair || broadcast_pair || nested_broadcast
-	array_numeric := array_involved && array_element_numeric(checker.type_checker.store, array_leaf)
+	array_numeric := array_involved && expression_type_numeric(checker.type_checker.store, array_leaf)
 	array_integer := array_involved && (array_leaf_kind == .Integer || array_leaf_kind == .Rune)
 	// Official bitwise operators unwrap enums to their backing integer through core_type.
 	array_bitwise_integer := array_integer || (array_involved && array_element_core_integer(checker.type_checker.store, array_leaf))
@@ -496,6 +496,7 @@ binary_operand_class :: proc(
 			left_kind = left_kind,
 			right_kind = right_kind,
 			integer = integer,
+			numeric = expression_type_numeric(store, operands.left.type) && expression_type_numeric(store, operands.right.type),
 			bitwise_integer = bitwise_integer,
 			boolean = boolean,
 			enum_pair = enum_pair,
@@ -553,32 +554,20 @@ expression_binary_validate :: proc(
 	#partial switch classification.operator {
 	case .Add, .Sub:
 		valid =
-			classification.integer ||
-			classification.float_pair ||
+			classification.numeric ||
 			classification.array_numeric ||
 			classification.array_bit_set ||
 			classification.bit_set_pair ||
-			classification.simd_arithmetic ||
-			classification.complex_arithmetic
+			classification.simd_arithmetic
 		// Official string concatenation requires constant strings on both sides.
 		if classification.operator == .Add &&
 		   classification.string_pair &&
 		   operands.left.mode == .Constant &&
 		   operands.right.mode == .Constant { valid = true }
 	case .Mul:
-		valid =
-			classification.integer ||
-			classification.float_pair ||
-			classification.array_numeric ||
-			classification.simd_arithmetic ||
-			classification.complex_arithmetic
+		valid = classification.numeric || classification.array_numeric || classification.simd_arithmetic
 	case .Quo:
-		valid =
-			classification.integer ||
-			classification.float_pair ||
-			classification.array_numeric ||
-			classification.simd_quotient ||
-			classification.complex_arithmetic
+		valid = classification.numeric || classification.array_numeric || classification.simd_quotient
 	case .Mod, .Mod_Mod, .Shl, .Shr:
 		valid = classification.integer || (classification.array_integer && (classification.operator == .Mod || classification.operator == .Mod_Mod))
 	case .And, .Or, .Xor, .And_Not:
@@ -623,8 +612,29 @@ expression_binary_validate :: proc(
 	case .Eq:
 		valid = true
 	}
-	if !valid { return expression_failure(checker, view, scope, node, .Invalid_Operator) }
+	if !valid && !expression_binary_unrelated_operands(checker, view, node, operands, classification) {
+		return expression_failure(checker, view, scope, node, .Invalid_Operator)
+	}
 	return Expression_Info{state = .Checked}, nil
+}
+
+// Typed operands of different types that neither convert to the other are reported as mismatched by official check_binary_expr before the operator is validated.
+@(private = "file")
+expression_binary_unrelated_operands :: proc(
+	checker: ^Expression_Checker,
+	view: View_Id,
+	node: syntax.Node_Index,
+	operands: Binary_Operands,
+	classification: Binary_Operand_Class,
+) -> bool {
+	if classification.shift || classification.left_untyped || classification.right_untyped { return false }
+	if types.are_identical(classification.store, operands.left.type, operands.right.type) { return false }
+	file := checker.type_checker.files[checker.views[view].file]
+	binary := syntax.node_payload(file.ast, node, syntax.Binary_Expr)
+	return(
+		!operand_assignable(checker, view, binary.left, operands.left, operands.right.type) &&
+		!operand_assignable(checker, view, binary.right, operands.right, operands.left.type) \
+	)
 }
 
 @(private = "file")
@@ -683,7 +693,7 @@ expression_binary_convert :: proc(
 					}
 				} else {
 					if classification.operator != .Cmp_And && classification.operator != .Cmp_Or {
-						return expression_failure(checker, view, scope, node, .Mismatched_Types)
+						return expression_binary_mismatch_failure(checker, view, scope, node, binary.op, operands.left.type, operands.right.type)
 					}
 					operands.right = expression_conversion(
 						checker,
@@ -737,7 +747,7 @@ expression_binary_convert :: proc(
 					append(&checker.plans, Plan(conversions)) or_return
 				}
 			} else {
-				return expression_failure(checker, view, scope, node, .Mismatched_Types)
+				return expression_comparison_mismatch_failure(checker, view, scope, node, operands.left.type, operands.right.type)
 			}
 		} else {
 			if operands.left.type != target && target != types.TYPE_UNTYPED_COMPLEX && target != types.TYPE_UNTYPED_QUATERNION {
@@ -919,16 +929,16 @@ expression_binary_constant :: proc(
 	return info, nil
 }
 
-// Like upstream is_type_numeric over the array core element: integers, floats, complex values, and enums over them.
+// Matches upstream is_type_numeric without treating enums as integers.
 @(private = "file")
-array_element_numeric :: proc(store: ^types.Store, id: types.Type_Id) -> bool {
+expression_type_numeric :: proc(store: ^types.Store, id: types.Type_Id) -> bool {
 	if id == 0 { return false }
 	descriptor := types.get(store, types.resolve_named(store, id))
 	#partial switch descriptor.kind {
-	case .Integer, .Rune, .Float, .Complex, .Quaternion:
+	case .Integer, .Rune, .Float, .Complex, .Quaternion, .Untyped_Integer, .Untyped_Rune, .Untyped_Float, .Untyped_Complex, .Untyped_Quaternion:
 		return true
 	case .Enum:
-		return array_element_numeric(store, descriptor.backing)
+		return expression_type_numeric(store, descriptor.backing)
 	}
 	return false
 }

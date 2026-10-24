@@ -202,6 +202,7 @@ bind_universe_build_context :: proc(checker: ^Type_Checker, universe: Scope_Id, 
 	}
 	if !publish_optimization_mode(checker, universe, pool, configuration.optimization_mode) { return false }
 	if !publish_sanitizer_flags(checker, universe, pool) { return false }
+	if !publish_intrinsics_types(checker, configuration) { return false }
 	if !publish_intrinsics_fast_math(checker) { return false }
 	return bind_universe_calling_convention(checker, universe, pool)
 }
@@ -262,6 +263,75 @@ publish_intrinsics_fast_math :: proc(checker: ^Type_Checker) -> bool {
 		return true
 	}
 	return true
+}
+
+@(private = "file")
+publish_intrinsics_types :: proc(checker: ^Type_Checker, configuration: Build_Configuration) -> bool {
+	for intrinsics_package in checker.packages {
+		if intrinsics_package.kind != .Intrinsics { continue }
+		order_type, order_ok := publish_enum_type(checker, Atomic_Order, "Atomic_Memory_Order")
+		if !order_ok || !publish_package_type(checker, intrinsics_package.scope, "Atomic_Memory_Order", order_type) { return false }
+		futex_names := reflect.enum_field_names(Futex_Kind)
+		futex_members, futex_error := make([]Enum_Member, len(futex_names) - 1, checker.arena_allocator)
+		if futex_error != nil { return false }
+		for name, index in futex_names[1:] {futex_members[index] = {
+				name  = name,
+				value = i128(index),
+			}}
+		futex_type, futex_ok := publish_enum_members(checker, "Futex_Operation", futex_members)
+		if !futex_ok || !publish_package_type(checker, intrinsics_package.scope, "Futex_Operation", futex_type) { return false }
+		if !publish_intrinsics_va_list(checker, intrinsics_package.scope, configuration) { return false }
+		for name, index in ([4]string{"objc_object", "objc_selector", "objc_class", "objc_ivar"}) {
+			type := types.reserve_nominal(checker.store, .Struct, name)
+			types.complete_nominal(checker.store, type, types.Type{kind = .Struct, name = name})
+			if !publish_package_type(checker, intrinsics_package.scope, name, type) { return false }
+			if index == 0 {
+				pointer := types.intern(checker.store, types.Type{kind = .Pointer, elem = type})
+				instance_type := types.intern(checker.store, types.Type{kind = .Named, name = "objc_instancetype", elem = pointer})
+				if !publish_package_type(checker, intrinsics_package.scope, "objc_instancetype", instance_type) { return false }
+			}
+		}
+	}
+	return true
+}
+
+@(private = "file")
+publish_intrinsics_va_list :: proc(checker: ^Type_Checker, scope: Scope_Id, configuration: Build_Configuration) -> bool {
+	store := checker.store
+	pointer := types.intern(store, types.Type{kind = .Raw_Pointer})
+	u32_type := types.sized_integer(store, 4, false)
+	i32_type := types.sized_integer(store, 4, true)
+	fields: [dynamic]types.Type_Field
+	fields.allocator = checker.arena_allocator
+	unix :=
+		configuration.os == .Linux ||
+		configuration.os == .FreeBSD ||
+		configuration.os == .NetBSD ||
+		configuration.os == .OpenBSD ||
+		configuration.os == .Freestanding
+	if configuration.arch == .amd64 && unix {
+		if _, err := append(
+			&fields,
+			types.Type_Field{name = "gp_offset", type = u32_type},
+			{name = "fp_offset", type = u32_type},
+			{name = "overflow_arg_area", type = pointer},
+			{name = "reg_save_area", type = pointer},
+		); err != nil { return false }
+	} else if configuration.arch == .arm64 && unix {
+		if _, err := append(
+			&fields,
+			types.Type_Field{name = "__stack", type = pointer},
+			{name = "__gr_top", type = pointer},
+			{name = "__vr_top", type = pointer},
+			{name = "__gr_offs", type = i32_type},
+			{name = "__vr_offs", type = i32_type},
+		); err != nil { return false }
+	} else {
+		if _, err := append(&fields, types.Type_Field{name = "_", type = pointer}); err != nil { return false }
+	}
+	type := types.reserve_nominal(store, .Struct, "c_va_list")
+	types.complete_nominal(store, type, types.Type{kind = .Struct, name = "c_va_list", fields = fields[:]})
+	return publish_package_type(checker, scope, "c_va_list", type)
 }
 
 @(private = "file")

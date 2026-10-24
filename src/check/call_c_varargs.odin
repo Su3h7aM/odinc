@@ -59,7 +59,10 @@ expression_c_vararg_argument :: proc(
 	case:
 		source := Operand(Expression_Ref{view, node})
 		if info.mode == .Constant { source = Operand(info.constant) }
-		value = expression_conversion(checker, view, scope, node, source, info, promoted, .Cast) or_return
+		// A bit set promotes to its backing integer by its bits, which official c_vararg promotion passes unchanged.
+		kind := Conversion_Kind.Cast
+		if types.get(store, types.core_type(store, info.type)).kind == .Bit_Set { kind = .Transmute }
+		value = expression_conversion(checker, view, scope, node, source, info, promoted, kind) or_return
 	}
 	if value.state == .Invalid { return {}, false, nil }
 	argument = Call_Argument {

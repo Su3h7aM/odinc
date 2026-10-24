@@ -18,6 +18,14 @@ expression_checker_publish_procedures :: proc(checker: ^Expression_Checker, prog
 	for entity, id in scopes.entities {
 		if entity.kind != .Procedure { continue }
 		procedure, is_procedure := entity.data.(Procedure_Data)
+		if is_procedure && .Foreign in entity.flags && procedure.body.node == 0 && entity.state == .Resolved {
+			name := symbol_name(checker, program, entity) or_return
+			symbol := Symbol_Id(len(checker.symbols))
+			library := resolver_foreign_library(checker.type_checker.resolver, entity_get(scopes, Entity_Id(id)))
+			append(&checker.symbols, Symbol{entity = Entity_Id(id), kind = .Extern, name = name, type = procedure.signature, library = library}) or_return
+			checker.entity_symbols[id] = symbol
+			continue
+		}
 		if !is_procedure || procedure.body.node == 0 || procedure.body_state != .Complete || entity.state != .Resolved { continue }
 		symbol := Symbol_Id(len(checker.symbols))
 		name := symbol_name(checker, program, entity) or_return
@@ -26,7 +34,7 @@ expression_checker_publish_procedures :: proc(checker: ^Expression_Checker, prog
 		checker.entity_symbols[id] = symbol
 		view := expression_body_view(checker, procedure, procedure.body.file) or_return
 		span := checker.type_checker.files[procedure.body.file].ast.nodes[procedure.body.node]
-		target_features, microarch, _ := procedure_effective_features(checker, Entity_Id(id))
+		target_features, disabled_target_features, microarch, _ := procedure_effective_features(checker, Entity_Id(id))
 		append(
 			&checker.procedures,
 			Checked_Procedure {
@@ -42,6 +50,7 @@ expression_checker_publish_procedures :: proc(checker: ^Expression_Checker, prog
 				defers = procedure.defers,
 				convention = procedure.convention,
 				target_features = target_features,
+				disabled_target_features = disabled_target_features,
 				microarch = microarch,
 				attributes = entity_get(scopes, Entity_Id(id)).attributes,
 			},

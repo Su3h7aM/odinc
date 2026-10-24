@@ -6,7 +6,7 @@ import "oc:types"
 
 // A generic procedure used as a value takes the instance whose parameters are the target procedure type's, as the
 // official check_polymorphic_procedure_assignment does. The row is unchanged when the target is not a procedure type
-// or its parameters do not bind every name.
+// or its parameters do not bind every name, or the instance does not have the target type.
 @(private = "package")
 expression_generic_value :: proc(
 	checker: ^Expression_Checker,
@@ -84,5 +84,7 @@ expression_generic_value :: proc(
 		) or_return
 		if !created { return failure, nil }
 	}
-	return Expression_Info{type = entity_get(scopes, instance).type, mode = .Value, entity = instance, scope = scope, state = .Checked}, nil
+	instance_type := entity_get(scopes, instance).type
+	if !types.are_identical(store, instance_type, types.resolve_named(store, target)) { return generic, nil }
+	return Expression_Info{type = instance_type, mode = .Value, entity = instance, scope = scope, state = .Checked}, nil
 }

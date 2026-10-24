@@ -463,6 +463,8 @@ parse_file :: proc(p: ^Parser) -> Node_Index {
 			tagged = true
 		} else if strings.has_prefix(text, "#+analysis") {
 			apply_analysis_tag(p, start, text)
+		} else if strings.trim_space(text) == "#+lazy" {
+			p.ast.lazy = true
 		}
 		expect_semicolon(p, 0)
 	}

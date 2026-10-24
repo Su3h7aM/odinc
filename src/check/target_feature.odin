@@ -11,29 +11,41 @@ import "oc:types"
 // the enabled check; validity is decided by the bare name, as upstream does.
 @(private = "package")
 parse_target_feature_names :: proc(names: string) -> (set: types.X86_Features, invalid: string, ok: bool) {
-	return parse_target_feature_names_arch(names, false)
+	set, _, invalid, ok = parse_target_feature_names_arch(names, false)
+	return
 }
 
 // The same parse against every architecture's names. Only declarations use
 // it: a foreign name there stays valid and disables or stamps as upstream does.
 @(private = "package")
 parse_target_feature_names_globally :: proc(names: string) -> (set: types.X86_Features, invalid: string, ok: bool) {
-	return parse_target_feature_names_arch(names, true)
+	set, _, invalid, ok = parse_target_feature_names_arch(names, true)
+	return
 }
 
 @(private = "file")
-parse_target_feature_names_arch :: proc(names: string, global: bool) -> (set: types.X86_Features, invalid: string, ok: bool) {
+parse_target_feature_names_arch :: proc(names: string, global: bool) -> (set, disabled: types.X86_Features, invalid: string, ok: bool) {
 	remaining := names
 	for name in strings.split_iterator(&remaining, ",") {
 		token := target_feature_bare_name(name)
 		if global {
-			if !target_feature_valid_globally(name) { return {}, name, false }
-		} else if _, valid := types.parse_x86_feature(token); !valid {
-			return {}, name, false
+			if !target_feature_valid_globally(name) { return {}, {}, name, false }
+		} else if !types.target_feature_known(token, x86_only = true) {
+			return {}, {}, name, false
 		}
-		if feature, parsed := types.parse_x86_feature(token); parsed { set += {feature} }
+		feature, modeled := types.parse_x86_feature(token)
+		if !modeled { continue }
+		if strings.has_prefix(name, "-") {
+			removed := types.x86_disabled_features({feature})
+			set -= removed
+			disabled |= removed
+		} else {
+			added := types.x86_enabled_features({feature})
+			set |= added
+			disabled -= added
+		}
 	}
-	return set, "", true
+	return set, disabled, "", true
 }
 
 // The name without a leading `+` or `-` sign.
@@ -43,23 +55,12 @@ target_feature_bare_name :: proc(name: string) -> string {
 	return name
 }
 
-// Upstream validates names against every architecture's feature list, so
-// names from other architectures are valid everywhere and simply never
-// enabled on this target. These are the foreign names portable `when`
-// conditions query; anything else must parse as an x86 feature.
-@(private = "file")
-foreign_target_feature_names := []string{"neon", "simd128", "atomics", "v"}
-
 // Whether the name is valid on any architecture. The target check below stays
 // x86-only: a foreign name in a procedure attribute is diagnosed at the call.
 @(private = "package")
 target_feature_valid_globally :: proc(name: string) -> bool {
 	token := target_feature_bare_name(name)
-	if _, valid := types.parse_x86_feature(token); valid { return true }
-	for other in foreign_target_feature_names {
-		if token == other { return true }
-	}
-	return false
+	return types.target_feature_known(token)
 }
 
 // Raw require and enable lists for a procedure entity: the signature's
@@ -138,8 +139,9 @@ target_features_satisfied :: proc(global: types.X86_Features, required: string) 
 		} else if strings.has_prefix(token, "-") {
 			token, want = token[1:], false
 		}
-		feature, valid := types.parse_x86_feature(token)
-		if !valid || (feature in global) != want { return name, false }
+		feature, modeled := types.parse_x86_feature(token)
+		enabled := modeled && feature in global
+		if !types.target_feature_known(token) || enabled != want { return name, false }
 	}
 	return "", true
 }
@@ -337,13 +339,14 @@ procedure_effective_features :: proc(
 	id: Entity_Id,
 ) -> (
 	features: types.X86_Features,
+	disabled: types.X86_Features,
 	level: types.X86_Level,
 	err: Resolve_Error,
 ) {
 	level = checker.microarch
 	_, enable := entity_target_features(checker, id) or_return
-	if enable == "" { return {}, level, nil }
-	set, _, features_valid := parse_target_feature_names_globally(enable)
-	if !features_valid { return {}, level, nil }
-	return set, level, nil
+	if enable == "" { return {}, {}, level, nil }
+	set, disabled_set, _, features_valid := parse_target_feature_names_arch(enable, true)
+	if !features_valid { return {}, {}, level, nil }
+	return set, disabled_set, level, nil
 }

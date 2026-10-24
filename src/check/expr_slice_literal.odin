@@ -25,6 +25,19 @@ expression_slice_literal :: proc(
 	if elements_error != nil { return {}, elements_error }
 	if failed { return expression_poison(scope), nil }
 	array_type := types.intern(checker.type_checker.store, types.Type{kind = .Array, elem = element_type, count = i64(count)})
+	constant, constant_error := expression_slice_literal_constant(checker, values, indices, array_type, element_type, count)
+	if constant_error != nil {
+		expression_constant_failure(checker, file_id, node, constant_error) or_return
+		return expression_poison(scope), nil
+	}
+	if constant != 0 {
+		value, failure := constant_pool_intern_slice(checker.constants, slice_type, constant)
+		if failure != nil {
+			expression_constant_failure(checker, file_id, node, failure) or_return
+			return expression_poison(scope), nil
+		}
+		return Expression_Info{type = slice_type, constant = value, mode = .Constant, scope = scope, state = .Checked}, nil
+	}
 	plan := Plan_Id(len(checker.plans))
 	backing := Aggregate_Plan {
 		type          = array_type,
@@ -34,6 +47,36 @@ expression_slice_literal :: proc(
 	}
 	append(&checker.plans, Plan(Slice_Literal_Plan{type = slice_type, backing = backing})) or_return
 	return Expression_Info{type = slice_type, mode = .Value, plan = plan, scope = scope, state = .Checked}, nil
+}
+
+@(private = "file")
+expression_slice_literal_constant :: proc(
+	checker: ^Expression_Checker,
+	values: []Operand,
+	indices: []u32,
+	array_type, element_type: types.Type_Id,
+	count: int,
+) -> (
+	constant: Const_Id,
+	err: Constant_Error,
+) {
+	store := checker.type_checker.store
+	constants := make([]Const_Id, count, checker.allocator) or_return
+	defer delete(constants, checker.allocator)
+	for value, index in values {
+		reference := value.(Expression_Ref)
+		info := typed_view_info(&checker.views[reference.view], reference.node)
+		if info.constant == 0 || !expression_constant_element(checker, store, true, element_type, info.plan) { return 0, nil }
+		constants[indices[index]] = info.constant
+	}
+	for &element in constants {
+		if element != 0 { continue }
+		if !expression_zero_fill_supported(checker, store, element_type) { return 0, nil }
+		value, failure := expression_zero_fill_constants(checker, store, element_type)
+		if failure != nil { return 0, failure }
+		element = value
+	}
+	return constant_pool_intern_aggregate(checker.constants, array_type, constants)
 }
 
 // Positional elements take their own position; `i = v` and range keys take the keyed span.

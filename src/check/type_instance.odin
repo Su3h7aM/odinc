@@ -164,9 +164,65 @@ record_call_definition :: proc(
 	if entity.kind != .Type_Name && entity.kind != .Constant { return 0, nil }
 	state := resolve_type_dependency(checker, definition, type_node_span(file_id, file, node), .Name) or_return
 	if state == .Invalid { return 0, nil }
+	definition = generic_record_definition(checker, definition)
 	_, found := checker.generic_records[definition]
 	if !found { return 0, nil }
 	return definition, nil
+}
+
+// The entity whose declaration defines a generic record. A package-qualified alias such as
+// `Maybe :: runtime.Maybe` names that declaration, so instances share its identity.
+@(private = "package")
+generic_record_definition :: proc(checker: ^Type_Checker, entity: Entity_Id) -> Entity_Id {
+	if declaration, is_alias := checker.generic_record_aliases[entity]; is_alias { return declaration }
+	return entity
+}
+
+// Whether a declared type name is a generic record, judged from its declaration's syntax so that
+// resolving it cannot close a declaration cycle through the alias being declared.
+@(private = "file")
+declared_generic_record :: proc(checker: ^Type_Checker, target: Entity_Id, alias: Entity_Id) -> bool {
+	if target == 0 || target == alias { return false }
+	collected, found := checker.declarations[target]
+	if !found || collected.value.node == 0 { return false }
+	file := checker.files[collected.value.file]
+	record := type_unparen(file, collected.value.node)
+	if file.ast.nodes[record].kind == .Distinct_Type {
+		record = type_unparen(file, syntax.node_payload(file.ast, record, syntax.Distinct_Type).type)
+	}
+	return record_poly_params(file, record) != 0
+}
+
+// Declares a constant or type name whose value is a generic record name. A bare name is rejected as
+// official does; a package-qualified name becomes an alias that instances share. Other values report handled = false.
+@(private = "package")
+declare_generic_record_alias :: proc(
+	checker: ^Type_Checker,
+	id: Entity_Id,
+	file_id: File_Id,
+	file: ^File,
+	scope: Scope_Id,
+	definition: syntax.Node_Index,
+) -> (
+	handled, valid: bool,
+	err: Resolve_Error,
+) {
+	#partial switch file.ast.nodes[definition].kind {
+	case .Ident:
+		if !declared_generic_record(checker, type_name_entity(checker, file, scope, definition), id) { return }
+		reason := fmt.aprintf("Invalid use of a non-specialized polymorphic type '%s'", type_node_text(file, definition), allocator = checker.arena_allocator)
+		type_report(checker, file_id, file, definition, .Non_Specialized_Polymorphic_Type, reason = reason) or_return
+		return true, false, nil
+	case .Selector_Expr:
+		target := type_name_entity(checker, file, scope, definition)
+		if target == 0 || target == id { return }
+		state := resolve_type_dependency(checker, target, type_node_span(file_id, file, definition), .Name) or_return
+		declaration := generic_record_definition(checker, target)
+		if _, generic := checker.generic_records[declaration]; !generic || state == .Invalid { return }
+		checker.generic_record_aliases[id] = declaration
+		return true, true, nil
+	}
+	return
 }
 
 @(private = "package")
@@ -349,6 +405,7 @@ record_type_call :: proc(
 
 @(private = "package")
 record_type_name :: proc(store: ^types.Store, type: types.Type_Id, allocator: mem.Allocator) -> string {
+	if type == types.TYPE_NONE { return types.type_text(store, type, allocator) }
 	descriptor := types.get(store, type)^
 	if descriptor.name != "" { return descriptor.name }
 	#partial switch descriptor.kind {
@@ -386,7 +443,7 @@ record_type_name :: proc(store: ^types.Store, type: types.Type_Id, allocator: me
 			allocator = allocator,
 		)
 	}
-	return fmt.aprintf("%v", descriptor.kind, allocator = allocator)
+	return types.type_text(store, type, allocator)
 }
 
 @(private = "package")
