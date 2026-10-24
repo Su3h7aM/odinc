@@ -41,7 +41,6 @@ select_integer :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Status {
 		move_if_true := select_condition_flags(selector, inputs[0]) or_return
 		return emit(output, selector.block, move_if_true, width, destination, if_false, if_true)
 	case .Eq, .Ne, .SLt, .SLe, .ULt, .ULe:
-		byte := new_vreg(output, .Int) or_return
 		mnemonics := #partial [ir.Node_Kind]x86.Mnemonic {
 			.Eq  = .SETE,
 			.Ne  = .SETNE,
@@ -51,8 +50,7 @@ select_integer :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Status {
 			.ULe = .SETBE,
 		}
 		select_integer_flags(selector, node) or_return
-		emit(output, selector.block, mnemonics[kind], 1, byte) or_return
-		return emit(output, selector.block, .MOVZX, 1, destination, byte)
+		return emit(output, selector.block, mnemonics[kind], 1, destination)
 	case .Shl, .Shr, .Sar:
 		return select_shift(selector, node)
 	}
