@@ -149,6 +149,18 @@ Target_Op :: enum u32 {
 	Sha256msg1,
 	Sha256msg2,
 	Sha256rnds2,
+	Valgrind_Client_Request,
+	Rcpss,
+	Rsqrtss,
+	C_Va_Start,
+	Frame_Pointer,
+	Stack_Pointer,
+	Prefetch_T0,
+	Prefetch_T1,
+	Prefetch_T2,
+	Prefetch_Nta,
+	Stack_Restore,
+	Thread_Pointer,
 }
 
 // Arguments follow the control and memory inputs; results follow the memory member.
@@ -178,6 +190,24 @@ target_op_info := [Target_Op]Target_Op_Info {
 	.Sha256msg1 = {name = "sha256msg1", arg_count = 2, args = {.V128, .V128, .None}, result_count = 1, results = {.V128, .None, .None, .None}},
 	.Sha256msg2 = {name = "sha256msg2", arg_count = 2, args = {.V128, .V128, .None}, result_count = 1, results = {.V128, .None, .None, .None}},
 	.Sha256rnds2 = {name = "sha256rnds2", arg_count = 3, args = {.V128, .V128, .V128}, result_count = 1, results = {.V128, .None, .None, .None}},
+	.Rcpss = {name = "rcpss", arg_count = 1, args = {.F32, .None, .None}, result_count = 1, results = {.F32, .None, .None, .None}},
+	.Rsqrtss = {name = "rsqrtss", arg_count = 1, args = {.F32, .None, .None}, result_count = 1, results = {.F32, .None, .None, .None}},
+	.Frame_Pointer = {name = "frame_pointer", result_count = 1, results = {.Ptr, .None, .None, .None}},
+	.Stack_Pointer = {name = "stack_pointer", result_count = 1, results = {.Ptr, .None, .None, .None}},
+	.Prefetch_T0 = {name = "prefetcht0", arg_count = 1, args = {.Ptr, .None, .None}},
+	.Prefetch_T1 = {name = "prefetcht1", arg_count = 1, args = {.Ptr, .None, .None}},
+	.Prefetch_T2 = {name = "prefetcht2", arg_count = 1, args = {.Ptr, .None, .None}},
+	.Prefetch_Nta = {name = "prefetchnta", arg_count = 1, args = {.Ptr, .None, .None}},
+	.Stack_Restore = {name = "stack_restore", arg_count = 1, args = {.Ptr, .None, .None}},
+	.Thread_Pointer = {name = "thread_pointer", result_count = 1, results = {.Ptr, .None, .None, .None}},
+	.C_Va_Start = {name = "c_va_start", arg_count = 1, args = {.Ptr, .None, .None}},
+	.Valgrind_Client_Request = {
+		name = "valgrind_client_request",
+		arg_count = 2,
+		args = {.I64, .Ptr, .None},
+		result_count = 1,
+		results = {.I64, .None, .None, .None},
+	},
 }
 
 @(rodata)
@@ -428,7 +458,7 @@ KIND_TABLE :: [Node_Kind]Kind_Info {
 		min_inputs = 2,
 		max_inputs = 5,
 		slots = {CONTROL, MEMORY, {}, {}, {}},
-		tail = INTS + VECTOR,
+		tail = INTS + PTR + ARITH_FLOATS + VECTOR,
 		result = TUPLE,
 		tuple = .Open,
 		members = {.Memory, .None},

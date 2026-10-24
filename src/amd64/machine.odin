@@ -136,6 +136,7 @@ Pseudo :: enum u8 {
 	Copy,
 	Syscall,
 	Atomic,
+	Client_Request,
 }
 
 // operands[:explicit_count] go to the encoder; the rest only constrain the allocator.
@@ -165,12 +166,14 @@ Frame_Slot :: struct {
 // A Machine_Function allocates everything it references from the temp allocator in effect at
 // `machine_function_init`, so it lives until the enclosing temp guard ends.
 Machine_Function :: struct {
-	name:           string,
-	blocks:         [dynamic]Machine_Block,
-	vreg_classes:   [dynamic]Register_Class,
-	frame_slots:    [dynamic]Frame_Slot,
-	outgoing_bytes: u32,
-	allocator:      runtime.Allocator,
+	name:               string,
+	blocks:             [dynamic]Machine_Block,
+	vreg_classes:       [dynamic]Register_Class,
+	frame_slots:        [dynamic]Frame_Slot,
+	outgoing_bytes:     u32,
+	// The frame slot of a C-variadic function that holds the incoming argument registers.
+	register_save_slot: Maybe(u32),
+	allocator:          runtime.Allocator,
 }
 
 machine_function_init :: proc(function: ^Machine_Function, name: string) -> (err: runtime.Allocator_Error) {

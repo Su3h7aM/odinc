@@ -115,6 +115,7 @@ R_X86_64 :: enum u32le {
 	R_X86_64_32S           = 11, // S + A sign-extended to i64 as i32
 	R_X86_64_TPOFF32       = 23, // TLS offset
 	R_X86_64_TPOFF64       = 18, // TLS offset, word64
+	R_X86_64_PC64          = 24, // S + A - P, word64
 	R_X86_64_GOTPCRELX     = 41, // relaxable GOTPCREL without a REX prefix
 	R_X86_64_REX_GOTPCRELX = 42, // relaxable GOTPCREL with a REX prefix
 }

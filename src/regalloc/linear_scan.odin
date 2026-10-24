@@ -173,53 +173,24 @@ scan_destroy :: proc(scan: ^Scan, allocator := context.allocator) {
 	delete(scan.conflict_seen, allocator)
 }
 
-ORDER_RADIX_BITS :: 16
-ORDER_RADIX_BUCKETS :: 1 << ORDER_RADIX_BITS
-
-// sort_live_order sorts `order` by first position, breaking ties by vreg,
-// with a stable radix pass over the combined key. The key fits the order the
-// scan needs, so no comparator runs.
+// sort_live_order orders `order` by first position, breaking ties by vreg. Each
+// key packs the position above the vreg, so the keys' natural order is the scan
+// order.
 sort_live_order :: proc(live: ^Liveness, order: []Vreg, allocator := context.allocator) -> Error {
 	if len(order) < 2 {
 		return {}
 	}
-	items := make([]u64, len(order), allocator)
-	scratch := make([]u64, len(order), allocator)
-	counts := make([]u32, ORDER_RADIX_BUCKETS, allocator)
-	if items == nil || scratch == nil || counts == nil {
-		delete(items, allocator)
-		delete(scratch, allocator)
-		delete(counts, allocator)
+	keys := make([]u64, len(order), allocator)
+	if keys == nil {
 		return Error{kind = .Out_Of_Memory}
 	}
-	defer delete(items, allocator)
-	defer delete(scratch, allocator)
-	defer delete(counts, allocator)
+	defer delete(keys, allocator)
 	for vreg, index in order {
-		items[index] = u64(interval_first(&live.intervals[vreg])) << 32 | u64(vreg)
+		keys[index] = u64(interval_first(&live.intervals[vreg])) << 32 | u64(vreg)
 	}
-	source, destination := items, scratch
-	for pass in 0 ..< 4 {
-		shift := uint(pass * ORDER_RADIX_BITS)
-		slice.fill(counts, 0)
-		for item in source {
-			counts[(item >> shift) & (ORDER_RADIX_BUCKETS - 1)] += 1
-		}
-		next := u32(0)
-		for &count in counts {
-			base := next
-			next += count
-			count = base
-		}
-		for item in source {
-			bucket := (item >> shift) & (ORDER_RADIX_BUCKETS - 1)
-			destination[counts[bucket]] = item
-			counts[bucket] += 1
-		}
-		source, destination = destination, source
-	}
-	for item, index in source {
-		order[index] = Vreg(item & 0xffff_ffff)
+	slice.sort(keys)
+	for key, index in keys {
+		order[index] = Vreg(key & 0xffff_ffff)
 	}
 	return {}
 }

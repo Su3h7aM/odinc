@@ -1,6 +1,7 @@
 package link
 
 import "core:mem"
+import "core:strings"
 import "oc:elf"
 
 File_Kind :: enum u8 {
@@ -129,6 +130,10 @@ link_inputs :: proc(
 		}
 	}
 
+	if dso_handle_is_undefined(inputs[:], defined, provided) {
+		append(&inputs, dso_handle_input(allocator) or_return)
+	}
+
 	used := make([]bool, len(shared), allocator) or_return
 	defer delete(used, allocator)
 	for input in inputs {
@@ -143,4 +148,30 @@ link_inputs :: proc(
 		if !library.as_needed || used[index] { append(&needed, library.needed) or_return }
 	}
 	return link_with(inputs[:], needed[:], provided, entry, allocator, interpreter)
+}
+
+// crtbegin.o defines `__dso_handle`, which libc_nonshared.a's dso_handle.o uses; it is a Data word holding its own address.
+dso_handle_is_undefined :: proc(inputs: []Input, defined, provided: map[string]bool) -> bool {
+	if "__dso_handle" in defined || "__dso_handle" in provided { return false }
+	for input in inputs {
+		for symbol in input.symbols {
+			if symbol.name == "__dso_handle" { return true }
+		}
+	}
+	return false
+}
+
+dso_handle_input :: proc(allocator: mem.Allocator) -> (input: Input, err: mem.Allocator_Error) {
+	defer if err != nil { input_destroy(&input, allocator) }
+	input.atoms = make([]Atom, 1, allocator) or_return
+	input.symbols = make([]Symbol, 1, allocator) or_return
+	input.atoms[0].section = .Data
+	input.atoms[0].align = 8
+	input.atoms[0].size = 8
+	input.atoms[0].bytes = make([]byte, 8, allocator) or_return
+	input.atoms[0].relocs = make([]Relocation, 1, allocator) or_return
+	input.atoms[0].relocs[0].kind = .R_X86_64_64
+	input.symbols[0].name = strings.clone("__dso_handle", allocator) or_return
+	input.symbols[0].binding = .Global
+	return input, nil
 }

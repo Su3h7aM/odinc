@@ -259,9 +259,22 @@ emit_instruction_body :: proc(emitter: ^Emitter, instruction: Machine_Instructio
 		return nil
 	case .Atomic:
 		return emit_atomic(emitter, instruction)
+	case .Client_Request:
+		return emit_client_request(emitter)
 	case .Call, .None:
 		return lower_instruction(emitter, instruction, block)
 	}
+	return nil
+}
+
+// Valgrind's special instruction sequence: the rotates add up to 128 bits, so RDI is unchanged, and the
+// exchange of RBX with itself is the marker Valgrind's translator recognizes. Outside Valgrind it does nothing.
+@(private = "file")
+emit_client_request :: proc(emitter: ^Emitter) -> Emit_Error {
+	for amount in ([?]i8{3, 13, 61, 51}) {
+		append(&emitter.instructions, x86.inst_rol_r64_imm8(.RDI, amount)) or_return
+	}
+	append(&emitter.instructions, x86.inst_xchg_r64_r64(.RBX, .RBX)) or_return
 	return nil
 }
 

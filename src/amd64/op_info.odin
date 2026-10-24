@@ -26,7 +26,7 @@ Op_Info :: struct {
 // Returns false for mnemonics `amd64` does not select.
 op_info :: proc(mnemonic: x86.Mnemonic) -> (info: Op_Info, known: bool) {
 	#partial switch mnemonic {
-	case .MOV, .MOVABS, .MOVZX, .MOVSX, .MOVSXD, .LEA, .MOVSS, .MOVSD, .MOVUPS, .MOVAPS, .MOVD, .MOVQ, .SQRTSS, .SQRTSD:
+	case .MOV, .MOVABS, .MOVZX, .MOVSX, .MOVSXD, .LEA, .MOVSS, .MOVSD, .MOVUPS, .MOVAPS, .MOVD, .MOVQ, .SQRTSS, .SQRTSD, .RCPSS, .RSQRTSS:
 		info.access = {.Def, .Use, .None, .None}
 	case .CVTSI2SS, .CVTSI2SD, .CVTTSS2SI, .CVTTSD2SI, .CVTSS2SD, .CVTSD2SS:
 		info.access = {.Def, .Use, .None, .None}
@@ -77,7 +77,7 @@ op_info :: proc(mnemonic: x86.Mnemonic) -> (info: Op_Info, known: bool) {
 		info.writes_flags = true
 	case .CMPXCHG, .XADD:
 		info.writes_flags = true
-	case .MFENCE, .XCHG:
+	case .MFENCE, .XCHG, .PREFETCHT0, .PREFETCHT1, .PREFETCHT2, .PREFETCHNTA:
 	case .CQO, .CDQ, .MOVSB, .STOSB, .STD, .CLD, .PAUSE, .INT3:
 	case .CPUID, .XGETBV, .RDTSC:
 	case .SYSCALL:

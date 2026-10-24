@@ -15,6 +15,36 @@ select_memory_misc :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Stat
 		return select_fixed_target_op(selector, node, .XGETBV, []Gpr{.RCX}, []Gpr{.RAX, .RDX})
 	case .Rdtsc:
 		return select_read_cycle_counter(selector, node)
+	case .Rcpss:
+		return select_scalar_float_target_op(selector, node, .RCPSS)
+	case .Rsqrtss:
+		return select_scalar_float_target_op(selector, node, .RSQRTSS)
+	case .Prefetch_T0:
+		return select_prefetch(selector, node, .PREFETCHT0)
+	case .Prefetch_T1:
+		return select_prefetch(selector, node, .PREFETCHT1)
+	case .Prefetch_T2:
+		return select_prefetch(selector, node, .PREFETCHT2)
+	case .Prefetch_Nta:
+		return select_prefetch(selector, node, .PREFETCHNTA)
+	case .Frame_Pointer:
+		return select_frame_register(selector, node, Frame_Object{.Incoming, 0}, -16)
+	case .Stack_Pointer:
+		return select_frame_register(selector, node, Frame_Object{.Outgoing, 0}, 0)
+	case .Stack_Restore:
+		inputs := ir.node_inputs(selector.input, node)
+		pointer := select_value(selector, inputs[2]) or_return
+		return emit(selector.output, selector.block, .MOV, 8, Physical_Register(Gpr.RSP), pointer)
+	case .Thread_Pointer:
+		result := new_vreg(selector.output, .Int) or_return
+		emit(selector.output, selector.block, .MOV, 8, result, Memory_Ref{segment_fs = true}) or_return
+		selector.tuples[node] = make([]Vreg, 1, selector.allocator) or_return
+		selector.tuples[node][0] = result
+		return nil
+	case .C_Va_Start:
+		return select_c_va_start(selector, node)
+	case .Valgrind_Client_Request:
+		return select_client_request(selector, node)
 	case .Aesenc:
 		return select_simd_target_op(selector, node, .AESENC)
 	case .Aesenclast:

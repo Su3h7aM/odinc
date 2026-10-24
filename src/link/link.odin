@@ -563,6 +563,8 @@ apply_atom_relocations :: proc(
 		#partial switch reloc.kind {
 		case .R_X86_64_64:
 			field_size = 8
+		case .R_X86_64_PC64:
+			field_size = 8
 		case .R_X86_64_TPOFF64:
 			field_size = 8
 		case .R_X86_64_PC32, .R_X86_64_PLT32, .R_X86_64_32, .R_X86_64_32S, .R_X86_64_TPOFF32:
@@ -605,7 +607,7 @@ apply_atom_relocations :: proc(
 			}
 		} else {
 			#partial switch reloc.kind {
-			case .R_X86_64_PC32, .R_X86_64_PLT32:
+			case .R_X86_64_PC32, .R_X86_64_PLT32, .R_X86_64_PC64:
 				value = target - place
 			case .R_X86_64_GOTPCREL:
 				key := Got_Key {
@@ -656,7 +658,7 @@ apply_atom_relocations :: proc(
 
 fits_field :: proc(kind: elf.R_X86_64, value: i64) -> bool {
 	#partial switch kind {
-	case .R_X86_64_64:
+	case .R_X86_64_64, .R_X86_64_PC64:
 		return true
 	case .R_X86_64_32:
 		return value >= 0 && value <= i64(max(u32))

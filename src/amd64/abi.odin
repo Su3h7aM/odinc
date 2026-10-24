@@ -126,6 +126,53 @@ Callee :: union {
 	Vreg,
 }
 
+REGISTER_SAVE_AREA_BYTES :: 176
+REGISTER_SAVE_FLOAT_OFFSET :: 48
+
+Register_Save :: struct {
+	vreg:   Vreg,
+	class:  Register_Class,
+	offset: i32,
+}
+
+// The System V register save area of a C-variadic function holds the six integer argument registers, then the eight
+// vector registers, at the offsets `va_arg` reads. The registers the named parameters do not use are defined at entry so
+// they stay live until they are stored; the named ones are never read back from the area.
+@(private = "file")
+define_unnamed_argument_registers :: proc(
+	function: ^Machine_Function,
+	assignment: Assignment,
+	defined: ^[dynamic]Machine_Operand,
+	allocator: mem.Allocator,
+) -> (
+	saves: [dynamic]Register_Save,
+	err: Abi_Error,
+) {
+	saves = make([dynamic]Register_Save, 0, 14, allocator) or_return
+	function.register_save_slot = add_frame_slot(function, REGISTER_SAVE_AREA_BYTES, 16) or_return
+	for register, index in INT_ARGUMENT_REGISTERS {
+		if argument_register_taken(assignment, .Int, regalloc.Register(register)) { continue }
+		vreg := new_vreg(function, .Int) or_return
+		append(defined, fixed(vreg, gpr(register), .Def)) or_return
+		append(&saves, Register_Save{vreg, .Int, i32(8 * index)}) or_return
+	}
+	for index in 0 ..< FLOAT_ARGUMENT_REGISTER_COUNT {
+		if argument_register_taken(assignment, .Float, regalloc.Register(index)) { continue }
+		vreg := new_vreg(function, .Float) or_return
+		append(defined, fixed(vreg, regalloc.Register(index), .Def)) or_return
+		append(&saves, Register_Save{vreg, .Float, i32(REGISTER_SAVE_FLOAT_OFFSET + 16 * index)}) or_return
+	}
+	return saves, nil
+}
+
+@(private = "file")
+argument_register_taken :: proc(assignment: Assignment, class: Register_Class, register: regalloc.Register) -> bool {
+	for location in assignment.params {
+		if location.kind == .Register && location.class == class && location.register == register { return true }
+	}
+	return false
+}
+
 // Defines the register parameters with one `Entry` pseudo and returns where each
 // parameter piece is: a vreg for a register piece, the incoming memory otherwise
 // (for `By_Value`, the object itself). `allocator` holds the returned slice and scratch.
@@ -152,7 +199,19 @@ lower_start :: proc(
 		params[index] = vreg
 		append(&defined, fixed(vreg, location.register, .Def)) or_return
 	}
+	saves: [dynamic]Register_Save
+	if signature.variadic { saves = define_unnamed_argument_registers(function, assignment, &defined, allocator) or_return }
 	emit_pseudo(function, block, .Entry, ..defined[:]) or_return
+	if len(saves) != 0 {
+		slot := function.register_save_slot.?
+		for save in saves {
+			memory := Memory_Ref {
+				base         = Frame_Object{.Slot, slot},
+				displacement = save.offset,
+			}
+			emit(function, block, .MOV if save.class == .Int else .MOVUPS, 8 if save.class == .Int else 16, memory, save.vreg) or_return
+		}
+	}
 	for location, index in assignment.params {
 		// An incoming register is caller-saved, so the piece must be handed out immediately:
 		// keeping the pinned vreg for the body would leave it live across calls that destroy the register.

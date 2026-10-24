@@ -107,7 +107,7 @@ select_function_impl :: proc(
 		nodes_of      = make([][]ir.Node_Id, len(schedule.blocks), allocator) or_return,
 		resolved      = make([]ir.Block_Id, len(schedule.blocks), allocator) or_return,
 	}
-	selector.features = input.target_features | types.x86_level_features(microarch)
+	selector.features = (input.target_features | types.x86_level_features(microarch)) - input.disabled_target_features
 	if len(schedule.blocks) == 0 || int(input.signature) >= len(input.signatures) {
 		return Select_Failure_Kind.Malformed_Input
 	}

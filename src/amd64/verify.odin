@@ -63,7 +63,7 @@ verify_machine :: proc(function: ^Machine_Function) -> Verify_Error {
 			if info.writes_flags {
 				flags_valid = true
 			}
-			if instruction.pseudo == .Call || instruction.mnemonic == .SYSCALL {
+			if instruction.pseudo == .Call || instruction.pseudo == .Client_Request || instruction.mnemonic == .SYSCALL {
 				flags_valid = false
 			}
 		}
