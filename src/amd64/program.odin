@@ -47,7 +47,7 @@ build_program :: proc(function: ^Machine_Function, allocator: mem.Allocator) -> 
 
 @(private = "file")
 translate_instruction :: proc(instruction: Machine_Instruction, allocator: mem.Allocator) -> (result: regalloc.Instruction, err: runtime.Allocator_Error) {
-	info, _ := op_info(instruction.mnemonic)
+	info, _ := instruction_info(instruction)
 	operands := make([dynamic]regalloc.Operand, 0, len(instruction.operands), allocator) or_return
 	for operand, index in instruction.operands {
 		switch value in operand {

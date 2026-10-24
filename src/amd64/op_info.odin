@@ -95,3 +95,12 @@ op_info :: proc(mnemonic: x86.Mnemonic) -> (info: Op_Info, known: bool) {
 	}
 	return info, true
 }
+
+// The one-operand IMUL (RDX:RAX = RAX * r/m) reads its only explicit operand, as MUL does; the
+// two- and three-operand IMUL forms write their first operand.
+instruction_info :: proc(instruction: Machine_Instruction) -> (info: Op_Info, known: bool) {
+	if instruction.mnemonic == .IMUL && instruction.explicit_count == 1 {
+		return op_info(.MUL)
+	}
+	return op_info(instruction.mnemonic)
+}

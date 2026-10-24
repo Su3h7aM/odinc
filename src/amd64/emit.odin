@@ -558,7 +558,7 @@ lower_instruction :: proc(emitter: ^Emitter, instruction: Machine_Instruction, b
 	info: Op_Info
 	if instruction.pseudo == .None {
 		known: bool
-		info, known = op_info(instruction.mnemonic)
+		info, known = instruction_info(instruction)
 		if !known {
 			return Emit_Failure.Bad_Operand
 		}

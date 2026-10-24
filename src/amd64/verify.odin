@@ -42,7 +42,7 @@ verify_machine :: proc(function: ^Machine_Function) -> Verify_Error {
 		branching := false
 		for instruction, instruction_index in block.instructions {
 			ii := u32(instruction_index)
-			info, known := op_info(instruction.mnemonic)
+			info, known := instruction_info(instruction)
 			if instruction.pseudo == .None && !known {
 				return {.Unknown_Mnemonic, bi, ii}
 			}

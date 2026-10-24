@@ -263,3 +263,15 @@ handwritten_entry_unwind_terminates_at_stack_roots :: proc(t: ^testing.T) {
 	defer atom_destroy(&tls, context.allocator)
 	testing.expect(t, slice.equal(tls.unwind, []byte{0}), "TLS layout helper retains the CIE leaf rules")
 }
+
+// The one-operand IMUL reads its multiplier, so the allocator must keep it live across the RAX copy.
+@(test)
+emitted_signed_high_multiply_keeps_its_multiplier :: proc(t: ^testing.T) {
+	cases := []Integer_Boundary_Case {
+		{.Mul_Hi_S, .I64, min(i64), 2, -1},
+		{.Mul_Hi_S, .I64, min(i64), -3, 1},
+		{.Mul_Hi_S, .I64, max(i64), max(i64), 0x3fffffffffffffff},
+		{.Mul_Hi_S, .I64, -1, -1, 0},
+	}
+	for c in cases { selected_integer_check(t, c, false) }
+}
