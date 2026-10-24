@@ -48,10 +48,9 @@ unreached_runtime_body_errors_only_when_reached :: proc(t: ^testing.T) {
 	testing.expect_value(t, len(reached_errors), 1)
 }
 
-// A library package (a .User package under a library prefix) lowers its procedures only when reached; its @(init)
-// procedures stay roots.
+// User and library procedures need an entry, attribute or reference to reach them.
 @(test)
-library_procedures_lower_only_when_reached :: proc(t: ^testing.T) {
+procedures_lower_only_when_reached :: proc(t: ^testing.T) {
 	store := types.init()
 	defer types.destroy(&store)
 	ast: syntax.Ast
@@ -88,7 +87,61 @@ library_procedures_lower_only_when_reached :: proc(t: ^testing.T) {
 	defer delete(user_errors)
 	defer ir.module_destroy(&user)
 	testing.expect_value(t, user_err, nil)
-	testing.expect(t, user.functions[0] != nil, "a user package procedure is a root and must lower")
+	testing.expect(t, user.functions[0] == nil, "an unused user procedure must not lower")
+
+	program.entities[1].flags = {.Required}
+	required: ir.Module
+	required_errors, _, required_err := lower_program(&program, &required, context.allocator)
+	defer delete(required_errors)
+	defer ir.module_destroy(&required)
+	testing.expect_value(t, required_err, nil)
+	testing.expect_value(t, len(required_errors), 0)
+	testing.expect(t, required.functions[0] != nil, "a required procedure must lower")
+	program.entities[1].flags = {}
+
+	program.runtime.entry_point = 1
+	entry: ir.Module
+	entry_errors, _, entry_err := lower_program(&program, &entry, context.allocator)
+	defer delete(entry_errors)
+	defer ir.module_destroy(&entry)
+	testing.expect_value(t, entry_err, nil)
+	testing.expect_value(t, len(entry_errors), 0)
+	testing.expect(t, entry.functions[0] != nil, "the entry point must lower")
+	program.runtime.entry_point = 0
+
+	program.entities[1].flags = {.Export}
+	exported: ir.Module
+	exported_errors, _, exported_err := lower_program(&program, &exported, context.allocator)
+	defer delete(exported_errors)
+	defer ir.module_destroy(&exported)
+	testing.expect_value(t, exported_err, nil)
+	testing.expect_value(t, len(exported_errors), 0)
+	testing.expect(t, exported.functions[0] != nil, "an exported procedure must lower")
+	program.entities[1].flags = {}
+
+	program.runtime.tests = {1}
+	tests: ir.Module
+	test_errors, _, test_err := lower_program(&program, &tests, context.allocator)
+	defer delete(test_errors)
+	defer ir.module_destroy(&tests)
+	testing.expect_value(t, test_err, nil)
+	testing.expect_value(t, len(test_errors), 1)
+	testing.expect(t, tests.functions[0] == nil, "test procedures must not be roots of a normal build")
+	program.runtime.tests = nil
+
+	program.entities[1].flags = {.Required}
+	program.entities[1].name = "_start_odin"
+	program.packages[1].kind = .Runtime
+	runtime_entry: ir.Module
+	runtime_errors, _, runtime_err := lower_program(&program, &runtime_entry, context.allocator)
+	defer delete(runtime_errors)
+	defer ir.module_destroy(&runtime_entry)
+	testing.expect_value(t, runtime_err, nil)
+	testing.expect_value(t, len(runtime_errors), 0)
+	testing.expect(t, runtime_entry.functions[0] == nil, "native startup must not pull in the official runtime entry")
+	program.entities[1].flags = {}
+	program.entities[1].name = "helper"
+	program.packages[1].kind = .User
 
 	program.runtime.init_procedures = {{entity = 1}}
 	initialized: ir.Module

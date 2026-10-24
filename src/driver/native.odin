@@ -118,6 +118,7 @@ build_file :: proc(
 	}
 
 	write_diagnostics(session, log)
+	session.program.runtime.entry_point = check.scope_lookup_current(&session.scopes, session.main_scope, "main")
 	module: ir.Module
 	lower_errors, required_symbols, lower_err := lower.lower_program(
 		&session.program,

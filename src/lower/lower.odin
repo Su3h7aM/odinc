@@ -70,11 +70,10 @@ lower_program :: proc(
 		index = u32(len(module.globals)),
 	}
 	append(&module.globals, ir.Global{name = DEFAULT_CONTEXT_NAME, size = DEFAULT_CONTEXT_SIZE, align = 16, mutable = true}) or_return
-	runtime_requirements := check.runtime_requirements(program)
 	fill_type_info(program, module, symbols, &collected) or_return
 	fill_map_cell_info(program, module, symbols) or_return
 	fill_map_info(program, module, symbols) or_return
-	if runtime_requirements.entry_point != 0 || len(runtime_requirements.tests) != 0 {
+	if len(check.runtime_requirements(program).tests) != 0 {
 		append(&collected, Lower_Error{code = .Unsupported, feature = .Startup}) or_return
 	}
 	jobs := make([]Procedure_Job, len(module.functions), scratch_allocator) or_return

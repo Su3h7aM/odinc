@@ -9,12 +9,7 @@ import "core:thread"
 import "oc:check"
 import "oc:ir"
 
-// Staged divergence: the official compiler lowers every procedure, we lower only what the roots reach
-// (docs/archive/05-lower-design.md section 4). Roots are user-package procedures and globals and the startup
-// procedures of the runtime requirements, plus the already-lowered generated startup procedures. Each round
-// creates the functions of the newly reached procedures serially, lowers them in parallel, then marks the
-// symbols their code and data reference. A procedure that is never reached has no job output: no function,
-// no symbol, no code.
+// Only procedures reached from the entry point, explicit roots, globals and generated startup are lowered.
 @(private)
 Global_Scan :: enum u8 {
 	Unscanned,
@@ -41,6 +36,16 @@ is_user_entity :: proc(program: ^check.Checked_Program, entity: check.Entity_Id,
 		if strings.has_prefix(package_value.key, prefix) { return false }
 	}
 	return true
+}
+
+// Our native process entry replaces the runtime-provided CRT and no-CRT entries.
+@(private)
+is_runtime_entry :: proc(program: ^check.Checked_Program, entity: check.Entity) -> bool {
+	return(
+		int(entity.package_id) < len(program.packages) &&
+		program.packages[entity.package_id].kind == .Runtime &&
+		(entity.name == "main" || entity.name == "_start_odin") \
+	)
 }
 
 @(private)
@@ -154,20 +159,22 @@ lower_reachable :: proc(
 		scan_function_references(module.functions[root], &marks)
 	}
 	for &job, index in jobs {
-		if is_user_entity(program, job.procedure.entity, library_prefixes) { marks.functions[index] = true }
+		entity := program.entities[job.procedure.entity]
+		if int(entity.package_id) >= len(program.packages) { marks.functions[index] = true }
 	}
 	for global in check.globals(program) {
 		if is_user_entity(program, global.entity, library_prefixes) { mark_symbol(&marks, symbols[global.symbol]) }
 	}
 	for symbol, index in check.symbols(program) {
-		if .Export in program.entities[symbol.entity].flags { mark_symbol(&marks, symbols[index + 1]) }
+		entity := program.entities[symbol.entity]
+		required := .Required in entity.flags && !is_runtime_entry(program, entity)
+		if .Export in entity.flags || required { mark_symbol(&marks, symbols[index + 1]) }
 	}
 	runtime_requirements := check.runtime_requirements(program)
 	mark_entity(program, symbols, &marks, runtime_requirements.entry_point)
 	mark_entity(program, symbols, &marks, runtime_requirements.init_context)
 	for ordered in runtime_requirements.init_procedures { mark_entity(program, symbols, &marks, ordered.entity) }
 	for ordered in runtime_requirements.fini_procedures { mark_entity(program, symbols, &marks, ordered.entity) }
-	for entity in runtime_requirements.tests { mark_entity(program, symbols, &marks, entity) }
 
 	pool_arena: virtual.Arena
 	pool: thread.Pool

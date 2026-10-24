@@ -2,6 +2,7 @@ package driver
 
 import "core:path/filepath"
 import "core:testing"
+import "oc:check"
 import "oc:ir"
 import "oc:lower"
 
@@ -13,6 +14,7 @@ run_section :: proc(t: ^testing.T, section: string) -> (result: ir.Interp_Result
 	defer session_destroy(session)
 	if !testing.expectf(t, err == .None, "%v", err) { return }
 
+	session.program.runtime.entry_point = check.scope_lookup_current(&session.scopes, session.main_scope, "main")
 	module: ir.Module
 	lower_errors, _, lower_error := lower.lower_program(&session.program, &module, context.allocator)
 	defer delete(lower_errors, context.allocator)

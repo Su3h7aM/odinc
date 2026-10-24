@@ -3,6 +3,7 @@ package driver
 import "core:path/filepath"
 import "core:strings"
 import "core:testing"
+import "oc:check"
 import "oc:ir"
 import "oc:lower"
 
@@ -18,6 +19,7 @@ logical_map_assignment_evaluates_key_per_access :: proc(t: ^testing.T) {
 	session, err := check_program(odin_root, main_path, context.allocator, false)
 	defer session_destroy(session)
 	if !testing.expect_value(t, err, Driver_Error.None) { return }
+	session.program.runtime.entry_point = check.scope_lookup_current(&session.scopes, session.main_scope, "main")
 	module: ir.Module
 	errors, _, lower_error := lower.lower_program(&session.program, &module, context.allocator)
 	defer delete(errors)
