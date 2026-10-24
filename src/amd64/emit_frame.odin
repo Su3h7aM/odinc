@@ -23,6 +23,9 @@ Frame_Layout :: struct {
 	// restores_from_frame_pointer says the body moves rsp (Stack_Alloc), so the epilogue derives the saved-register
 	// base from rbp; otherwise the epilogue adds back frame_bytes.
 	restores_from_frame_pointer: bool,
+	// uses_frame_pointer is false when nothing in the body addresses through rbp and rsp never moves,
+	// so the prologue and epilogue skip the rbp chain and address everything from rsp.
+	uses_frame_pointer:          bool,
 }
 
 frame_layout :: proc(function: ^Machine_Function, result: ^regalloc.Result, allocator: mem.Allocator) -> (layout: Frame_Layout, err: Emit_Error) {
@@ -34,6 +37,12 @@ frame_layout :: proc(function: ^Machine_Function, result: ^regalloc.Result, allo
 	}
 	layout.slot_offsets = make([]i32, len(function.frame_slots), allocator) or_return
 	cursor := u32(8 * layout.saved_count)
+	layout.restores_from_frame_pointer = moves_stack_pointer(function)
+	needs_rbp, has_calls := scan_frame_uses(function)
+	layout.uses_frame_pointer = layout.restores_from_frame_pointer || len(function.frame_slots) > 0 || result.spill_slot_count > 0 || needs_rbp
+	if !layout.uses_frame_pointer {
+		cursor += 8
+	}
 	for slot, index in function.frame_slots {
 		if slot.align > MAX_FRAME_ALIGNMENT {
 			return {}, Emit_Failure.Unsupported_Alignment
@@ -43,9 +52,14 @@ frame_layout :: proc(function: ^Machine_Function, result: ^regalloc.Result, allo
 	}
 	layout.spill_start = -i32(cursor + SPILL_SLOT_BYTES)
 	cursor += SPILL_SLOT_BYTES * result.spill_slot_count
-	total := align_up(cursor + function.outgoing_bytes, 16)
+	total := cursor + function.outgoing_bytes
+	if has_calls || function.outgoing_bytes > 0 {
+		total = align_up(total, 16)
+	}
 	layout.frame_bytes = total - u32(8 * layout.saved_count)
-	layout.restores_from_frame_pointer = moves_stack_pointer(function)
+	if !layout.uses_frame_pointer {
+		layout.frame_bytes -= 8
+	}
 	return layout, nil
 }
 
@@ -54,8 +68,10 @@ spill_offset :: proc(layout: Frame_Layout, slot: regalloc.Spill_Slot) -> i32 {
 }
 
 emit_prologue :: proc(instructions: ^[dynamic]x86.Instruction, layout: Frame_Layout) -> runtime.Allocator_Error {
-	append(instructions, x86.inst_r(.PUSH, x86.RBP)) or_return
-	append(instructions, x86.inst_r_r(.MOV, x86.RBP, x86.RSP)) or_return
+	if layout.uses_frame_pointer {
+		append(instructions, x86.inst_r(.PUSH, x86.RBP)) or_return
+		append(instructions, x86.inst_r_r(.MOV, x86.RBP, x86.RSP)) or_return
+	}
 	for index in 0 ..< layout.saved_count {
 		append(instructions, x86.inst_r(.PUSH, x86.gpr64_from_num(u8(layout.saved[index])))) or_return
 	}
@@ -85,9 +101,27 @@ emit_epilogue :: proc(instructions: ^[dynamic]x86.Instruction, layout: Frame_Lay
 	for index := layout.saved_count - 1; index >= 0; index -= 1 {
 		append(instructions, x86.inst_r(.POP, x86.gpr64_from_num(u8(layout.saved[index])))) or_return
 	}
-	append(instructions, x86.inst_r(.POP, x86.RBP)) or_return
+	if layout.uses_frame_pointer {
+		append(instructions, x86.inst_r(.POP, x86.RBP)) or_return
+	}
 	append(instructions, x86.inst_none(.RET)) or_return
 	return nil
+}
+
+// prologue_sub_count mirrors the stack-probe loop in emit_prologue: two instructions
+// per probed page, plus one for a nonzero remainder.
+@(private)
+prologue_sub_count :: proc(frame_bytes: u32) -> int {
+	count := 0
+	remaining := frame_bytes
+	for remaining >= PROBE_PAGE_BYTES {
+		count += 2
+		remaining -= PROBE_PAGE_BYTES
+	}
+	if remaining > 0 {
+		count += 1
+	}
+	return count
 }
 
 // Stack_Alloc (`intrinsics.alloca`) moves rsp inside the body, which the frame size does not show.
@@ -103,6 +137,42 @@ moves_stack_pointer :: proc(function: ^Machine_Function) -> bool {
 		}
 	}
 	return false
+}
+
+// scan_frame_uses reports what the body needs from the frame: rbp-relative addressing
+// (a Slot, Spill or Incoming frame object, or rbp itself; Outgoing objects address
+// through rsp) and whether it calls (which alone requires 16-byte stack alignment).
+@(private = "file")
+scan_frame_uses :: proc(function: ^Machine_Function) -> (needs_rbp, has_calls: bool) {
+	for &block in function.blocks {
+		for &instruction in block.instructions {
+			if instruction.pseudo == .Call {
+				has_calls = true
+			}
+			for operand in instruction.operands {
+				switch value in operand {
+				case Physical_Register:
+					if Gpr(value) == .RBP {
+						needs_rbp = true
+					}
+				case Fixed_Vreg:
+					if value.register == gpr(.RBP) {
+						needs_rbp = true
+					}
+				case Memory_Ref:
+					if object, is_object := value.base.(Frame_Object); is_object {
+						switch object.kind {
+						case .Slot, .Spill, .Incoming:
+							needs_rbp = true
+						case .Outgoing:
+						}
+					}
+				case Vreg, Immediate, Block_Ref, Symbol_Target, Thread_Pointer_Offset:
+				}
+			}
+		}
+	}
+	return needs_rbp, has_calls
 }
 
 @(private = "file")

@@ -28,12 +28,12 @@ start_process :: proc(desc: os.Process_Desc) -> (os.Process, os.Error) {
 // `add(a, b)` built by hand, allocated and emitted, then linked behind a `_start` that
 // calls `add(3, 4)` and exits with the result. `llvm-objdump -d` of the function atom:
 //
-//	push rbp
-//	mov  rbp, rsp
 //	add  rdi, rsi
 //	mov  rax, rdi
-//	pop  rbp
 //	ret
+//
+// The leaf uses no stack slots, spills or incoming stack arguments, so it is frameless:
+// no rbp chain, and empty unwind rules since CFA stays rsp+8 throughout.
 @(test)
 emitted_add_links_and_exits_with_seven :: proc(t: ^testing.T) {
 	arena: virtual.Arena
@@ -68,10 +68,9 @@ emitted_add_links_and_exits_with_seven :: proc(t: ^testing.T) {
 	atom, emit_err := emit_function(&function, &result, {}, context.allocator)
 	testing.expect_value(t, emit_err, nil)
 	defer atom_destroy(&atom, context.allocator)
-	testing.expect(t, len(atom.bytes) >= 6 && atom.bytes[0] == 0x55 && atom.bytes[len(atom.bytes) - 1] == 0xc3, "framed function")
+	testing.expect(t, len(atom.bytes) >= 6 && atom.bytes[0] == 0x48 && atom.bytes[len(atom.bytes) - 1] == 0xc3, "frameless leaf function")
 	testing.expect_value(t, len(atom.relocs), 0)
-	expected_unwind := [?]byte{0x41, 0x0e, 16, 0x86, 2, 0x43, 0x0d, 6, 0x40 | byte(len(atom.bytes) - 5), 0x0c, 7, 8, 0xc6}
-	testing.expect(t, slice.equal(atom.unwind, expected_unwind[:]), "CFI must follow encoded prologue and shared epilogue offsets")
+	testing.expect(t, len(atom.unwind) == 0, "frameless leaf keeps CFA at rsp+8, so no CFI rules")
 
 	start_code := [?]byte{0xbf, 3, 0, 0, 0, 0xbe, 4, 0, 0, 0, 0xe8, 0, 0, 0, 0, 0x89, 0xc7, 0xb8, 231, 0, 0, 0, 0x0f, 0x05}
 	start_relocs := []link.Relocation{{offset = 11, symbol = 1, kind = .R_X86_64_PLT32, addend = -4}}
