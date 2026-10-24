@@ -2357,7 +2357,7 @@ heap_resize :: proc "contextless" (old_ptr: rawptr, old_size: int, new_size: int
 		// We can re-use the same bin.
 		if zero_memory && new_size > effective_old_size {
 			// Zero any old, dirty memory in the expanded region.
-			intrinsics.mem_zero_volatile(
+			conditional_mem_zero(
 				rawptr(uintptr(old_ptr) + uintptr(effective_old_size)),
 				new_size - effective_old_size,
 			)
@@ -2376,7 +2376,7 @@ heap_resize :: proc "contextless" (old_ptr: rawptr, old_size: int, new_size: int
 		// the segments the operating system has to map.
 		new_ptr = grown
 		if zero_memory && new_size > effective_old_size {
-			intrinsics.mem_zero_volatile(rawptr(uintptr(new_ptr) + uintptr(effective_old_size)), new_size - effective_old_size)
+			conditional_mem_zero(rawptr(uintptr(new_ptr) + uintptr(effective_old_size)), new_size - effective_old_size)
 		}
 	} else {
 		// A change in bin rank requires a new bin; this allocator does no coalescence.
@@ -2387,7 +2387,7 @@ heap_resize :: proc "contextless" (old_ptr: rawptr, old_size: int, new_size: int
 		}
 		intrinsics.mem_copy_non_overlapping(new_ptr, old_ptr, min(effective_old_size, new_size))
 		if zero_memory && new_size > effective_old_size {
-			intrinsics.mem_zero_volatile(rawptr(uintptr(new_ptr) + uintptr(effective_old_size)), new_size - effective_old_size)
+			conditional_mem_zero(rawptr(uintptr(new_ptr) + uintptr(effective_old_size)), new_size - effective_old_size)
 		}
 		heap_free(old_ptr)
 	}
