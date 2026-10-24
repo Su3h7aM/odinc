@@ -294,8 +294,7 @@ parse_field_selector :: proc(p: ^Parser, operand: Node_Index, tok: Token) -> Nod
 }
 
 parse_call_expr :: proc(p: ^Parser, operand: Node_Index) -> Node_Index {
-	args := make([dynamic]Node_Index, 0, 4, p.allocator)
-	defer delete(args)
+	args_mark := node_list_mark(p)
 
 	ellipsis: Token
 	seen_ellipsis := false
@@ -332,7 +331,7 @@ parse_call_expr :: proc(p: ^Parser, operand: Node_Index) -> Node_Index {
 		} else if seen_ellipsis {
 			report(p, .Positional_After_Ellipsis, p.ast.nodes[arg].start)
 		}
-		push(p, &args, arg)
+		node_list_push(p, arg)
 
 		if ellipsis.kind != .Invalid {
 			seen_ellipsis = true
@@ -344,13 +343,14 @@ parse_call_expr :: proc(p: ^Parser, operand: Node_Index) -> Node_Index {
 
 	p.expr_level = prev_expr_level
 	close := expect_closing_token(p, .Close_Paren)
+	args := node_list_end(p, args_mark)
 
 	call := add_node(
 		p,
 		.Call_Expr,
 		start_of(p, operand),
 		close.end,
-		Call_Expr{expr = operand, open = open.start, args = ast_add_list(p.ast, args[:]), ellipsis = ellipsis, close = close.start},
+		Call_Expr{expr = operand, open = open.start, args = args, ellipsis = ellipsis, close = close.start},
 	)
 
 	callee := unparen(p, operand)
