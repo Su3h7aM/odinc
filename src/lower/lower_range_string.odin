@@ -85,7 +85,7 @@ lower_range_decode :: proc(state: ^Procedure_State, node: syntax.Node_Index, nam
 			break
 		}
 	}
-	if helper == 0 {
+	if helper == 0 || program.entity_symbols[helper] == 0 {
 		lower_fail(state, node, .Range)
 		return 0, 0
 	}

@@ -631,6 +631,7 @@ lower_array_memory_equal :: proc(state: ^Procedure_State, node: syntax.Node_Inde
 	program := state.job.program
 	for entity in program.runtime.helper_entities {
 		if program.entities[entity].name != "memory_equal" { continue }
+		if program.entity_symbols[entity] == 0 { return lower_fail(state, node, .Operator) }
 		symbol := state.job.symbols[program.entity_symbols[entity]]
 		return generated_procedure_call(state, symbol, program.entities[entity].type, []ir.Node_Id{left, right, count})
 	}

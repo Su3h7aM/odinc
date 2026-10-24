@@ -25,9 +25,12 @@ lower_generated_procedure :: proc(job: ^Procedure_Job) -> runtime.Allocator_Erro
 		return job.allocation_error
 	}
 	if generated.kind == .Hasher {
-		ir.emit_return(builder, generated_hash_value(&state, generated.type, entry.params[0], entry.params[1]))
+		result := generated_hash_value(&state, generated.type, entry.params[0], entry.params[1])
+		if state.failed { return job.allocation_error }
+		ir.emit_return(builder, result)
 	} else {
 		result := generated_equal_value(&state, generated.type, entry.params[0], entry.params[1])
+		if state.failed { return job.allocation_error }
 		if function.nodes.type[result] == .Bool { result = ir.convert(function, .Zext, result, .I8) }
 		ir.emit_return(builder, result)
 	}
@@ -88,6 +91,7 @@ generated_hash_value :: proc(state: ^Procedure_State, type: types.Type_Id, addre
 		for field, index in fields {
 			offset, _ := types.field_offset(store, resolved, index)
 			result = generated_hash_value(state, field.type, ir.ptr_offset(function, address, offset), result)
+			if state.failed { return ir.NODE_NONE }
 		}
 		return result
 	case .Array, .Enumerated_Array, .Simd_Vector, .Matrix:
@@ -141,6 +145,7 @@ generated_equal_value :: proc(state: ^Procedure_State, type: types.Type_Id, left
 		for field, index in fields {
 			offset, _ := types.field_offset(store, resolved, index)
 			equal := generated_equal_value(state, field.type, ir.ptr_offset(function, left, offset), ir.ptr_offset(function, right, offset))
+			if state.failed { return ir.NODE_NONE }
 			result = ir.binary(function, .And, result, equal)
 		}
 		return result
@@ -171,6 +176,7 @@ generated_string_equal :: proc(state: ^Procedure_State, left, right: ir.Node_Id,
 	left_data := lower_load_word(state, left, .Ptr)
 	right_data := lower_load_word(state, right, .Ptr)
 	equal := generated_helper_call(state, "memory_equal", []ir.Node_Id{left_data, right_data, bytes})
+	if state.failed { return ir.NODE_NONE }
 	return ir.binary(function, .And, same, equal)
 }
 
@@ -211,6 +217,7 @@ generated_hash_parts :: proc(state: ^Procedure_State, address: ir.Node_Id, part_
 		if part_size == 2 { value = float16_widen(function, value) }
 		if part_size != 8 { value = ir.convert(function, .Float_Ext, value, .F64) }
 		result = generated_helper_call(state, "default_hasher_f64", []ir.Node_Id{value, result})
+		if state.failed { return ir.NODE_NONE }
 	}
 	return result
 }
@@ -308,7 +315,9 @@ generated_hash_union :: proc(state: ^Procedure_State, union_type: types.Type_Id,
 	for variant, index in variants {
 		matched := ir.branch_if(builder, ir.compare(function, .Eq, tag, ir.const_int(function, tag_type, i64(index) + tag_offset)))
 		ir.enter_arm(builder, matched, 0)
-		ir.variable_set(builder, result, generated_hash_value(state, variant, address, seed))
+		variant_hash := generated_hash_value(state, variant, address, seed)
+		if state.failed { return ir.NODE_NONE }
+		ir.variable_set(builder, result, variant_hash)
 		ir.jump_to(builder, end)
 		ir.enter_arm(builder, matched, 1)
 	}
@@ -340,7 +349,9 @@ generated_equal_union :: proc(state: ^Procedure_State, union_type: types.Type_Id
 	for variant, index in variants {
 		matched := ir.branch_if(builder, ir.compare(function, .Eq, left_tag, ir.const_int(function, tag_type, i64(index) + tag_offset)))
 		ir.enter_arm(builder, matched, 0)
-		ir.variable_set(builder, result, generated_equal_value(state, variant, left, right))
+		variant_equal := generated_equal_value(state, variant, left, right)
+		if state.failed { return ir.NODE_NONE }
+		ir.variable_set(builder, result, variant_equal)
 		ir.jump_to(builder, end)
 		ir.enter_arm(builder, matched, 1)
 	}
@@ -365,6 +376,7 @@ generated_hash_elements :: proc(state: ^Procedure_State, elem: types.Type_Id, ad
 	ir.jump_to(builder, end)
 	ir.enter_arm(builder, branch, 0)
 	hashed := generated_hash_value(state, elem, ir.variable_get(builder, cursor), ir.variable_get(builder, result))
+	if state.failed { return ir.NODE_NONE }
 	ir.variable_set(builder, result, hashed)
 	ir.variable_set(builder, cursor, ir.ptr_offset(function, ir.variable_get(builder, cursor), stride))
 	ir.variable_set(builder, index, ir.binary(function, .Add, ir.variable_get(builder, index), ir.const_int(function, .I64, 1)))
@@ -388,6 +400,7 @@ generated_equal_elements :: proc(state: ^Procedure_State, elem: types.Type_Id, l
 	ir.jump_to(builder, end)
 	ir.enter_arm(builder, branch, 0)
 	equal := generated_equal_value(state, elem, ir.variable_get(builder, left_cursor), ir.variable_get(builder, right_cursor))
+	if state.failed { return ir.NODE_NONE }
 	ir.variable_set(builder, result, ir.binary(function, .And, ir.variable_get(builder, result), equal))
 	ir.variable_set(builder, left_cursor, ir.ptr_offset(function, ir.variable_get(builder, left_cursor), stride))
 	ir.variable_set(builder, right_cursor, ir.ptr_offset(function, ir.variable_get(builder, right_cursor), stride))

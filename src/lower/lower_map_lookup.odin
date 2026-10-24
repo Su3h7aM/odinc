@@ -136,6 +136,7 @@ lower_map_runtime_call :: proc(state: ^Procedure_State, node: syntax.Node_Index,
 	program := state.job.program
 	for entity in program.runtime.helper_entities {
 		if program.entities[entity].name != name { continue }
+		if program.entity_symbols[entity] == 0 { return lower_fail(state, node, .Expression) }
 		symbol := state.job.symbols[program.entity_symbols[entity]]
 		return generated_procedure_call(state, symbol, program.entities[entity].type, arguments)
 	}
