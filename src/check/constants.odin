@@ -234,12 +234,24 @@ constant_pool_ready :: proc(pool: ^Constant_Pool) -> bool {
 
 @(private = "file")
 constant_pool_integer_key :: proc(pool: ^Constant_Pool, type: types.Type_Id, value: ^big.Int) -> (key: string, err: Constant_Error) {
-	text, conversion_error := big.int_to_string(value, 10, allocator = pool.allocator)
-	if conversion_error != nil { return "", conversion_error }
 	type_buffer: [11]byte
 	type_text := strconv.write_bits(type_buffer[:], u64(type), 10, false, 32, strconv.digits, {})
-	segments := [4]string{"i:", type_text, ":", text}
-	return strings.concatenate(segments[:], allocator = pool.allocator)
+	// The key is the trimmed magnitude limbs, so equal values give equal keys without a decimal conversion.
+	used := min(value.used, len(value.digit))
+	for used > 0 && value.digit[used - 1] == 0 { used -= 1 }
+	sign_text := "-" if value.sign == .Negative && used > 0 else "+"
+	header := [?]string{"i:", type_text, ":", sign_text, ":"}
+	header_length := 0
+	for part in header { header_length += len(part) }
+	limbs := mem.slice_to_bytes(value.digit[:used])
+	buffer := make([]byte, header_length + len(limbs), pool.allocator)
+	position := 0
+	for part in header {
+		copy(buffer[position:], part)
+		position += len(part)
+	}
+	copy(buffer[position:], limbs)
+	return string(buffer), nil
 }
 
 @(private = "file")
