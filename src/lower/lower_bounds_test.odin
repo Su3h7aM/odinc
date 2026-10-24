@@ -62,7 +62,7 @@ slice_expression_widens_narrow_bounds :: proc(t: ^testing.T) {
 	big.int_set_from_integer(&one, i64(1), allocator = allocator)
 	program.constant_table = fixture_clone([]check.Constant{{}, {type = narrow, value = one}}, allocator)
 	module: ir.Module
-	errors, err := lower_program(&program, &module)
+	errors, _, err := lower_program(&program, &module)
 	defer delete(errors)
 	if !testing.expect_value(t, err, nil) { return }
 	defer ir.module_destroy(&module)

@@ -19,7 +19,7 @@ logical_map_assignment_evaluates_key_per_access :: proc(t: ^testing.T) {
 	defer session_destroy(session)
 	if !testing.expect_value(t, err, Driver_Error.None) { return }
 	module: ir.Module
-	errors, lower_error := lower.lower_program(&session.program, &module, context.allocator)
+	errors, _, lower_error := lower.lower_program(&session.program, &module, context.allocator)
 	defer delete(errors)
 	defer ir.module_destroy(&module)
 	if !testing.expectf(t, lower_error == nil && len(errors) == 0, "%v %v", lower_error, errors) { return }

@@ -125,7 +125,7 @@ wide_arithmetic_carries_into_high_word :: proc(t: ^testing.T) {
 	)
 
 	module: ir.Module
-	errors, err := lower_program(&program, &module)
+	errors, _, err := lower_program(&program, &module)
 	defer delete(errors)
 	if !testing.expect_value(t, err, nil) || !testing.expect_value(t, len(errors), 0) { return }
 	defer ir.module_destroy(&module)
@@ -227,7 +227,7 @@ wide_compound_assignment_updates_global :: proc(t: ^testing.T) {
 	program.constant_table = fixture_clone([]check.Constant{{}, {type = wide, value = addend_value}, {type = wide, value = divisor}}, allocator)
 
 	module: ir.Module
-	errors, err := lower_program(&program, &module)
+	errors, _, err := lower_program(&program, &module)
 	defer delete(errors)
 	if !testing.expect_value(t, err, nil) || !testing.expect_value(t, len(errors), 0) { return }
 	defer ir.module_destroy(&module)
@@ -306,7 +306,7 @@ wide_minimum_quotient_by_minus_one_traps :: proc(t: ^testing.T) {
 	)
 
 	module: ir.Module
-	errors, err := lower_program(&program, &module)
+	errors, _, err := lower_program(&program, &module)
 	defer delete(errors)
 	if !testing.expect_value(t, err, nil) || !testing.expect_value(t, len(errors), 0) { return }
 	defer ir.module_destroy(&module)

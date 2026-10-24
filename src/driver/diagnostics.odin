@@ -81,7 +81,9 @@ write_diagnostics :: proc(session: ^Session, writer: io.Writer, extra: []Output_
 		if _, err := append(&diagnostics, source_diagnostic(session, diagnostic.source, diagnostic.reason, diagnostic.severity)); err != nil { return }
 	}
 	if _, err := append(&diagnostics, ..extra); err != nil { return }
-	write_ordered_diagnostics(writer, diagnostics[:], session.check_options)
+	maximum := session.max_error_count
+	if maximum <= 0 { maximum = 36 }
+	write_ordered_diagnostics(writer, diagnostics[:], session.check_options, maximum)
 }
 
 @(private = "file")
@@ -99,15 +101,20 @@ collect_kind_diagnostics :: proc(
 }
 
 @(private = "file")
-write_ordered_diagnostics :: proc(writer: io.Writer, diagnostics: []Output_Diagnostic, options: check.Check_Options) {
+write_ordered_diagnostics :: proc(writer: io.Writer, diagnostics: []Output_Diagnostic, options: check.Check_Options, max_error_count: int) {
 	slice.stable_sort_by(diagnostics, proc(left, right: Output_Diagnostic) -> bool {
 		if left.start != right.start { return left.start < right.start }
 		if left.line != right.line { return left.line < right.line }
 		if left.column != right.column { return left.column < right.column }
 		return left.path < right.path
 	})
+	error_count := 0
 	for index := 0; index < len(diagnostics); {
 		first := diagnostics[index]
+		if first.severity == .Error || options.warnings_as_errors {
+			if error_count >= max_error_count { break }
+			error_count += 1
+		}
 		write_output_diagnostic(writer, first, options)
 		index += 1
 		for index < len(diagnostics) {
@@ -139,7 +146,10 @@ write_message_diagnostic :: proc(
 }
 
 write_lower_errors :: proc(session: ^Session, writer: io.Writer, errors: []lower.Lower_Error) {
-	for error in errors {
+	maximum := session.max_error_count
+	if maximum <= 0 { maximum = 36 }
+	for error, index in errors {
+		if index >= maximum { break }
 		source := error.source
 		if error.node.file != 0 {
 			node := session.files[error.node.file].ast.nodes[error.node.node]

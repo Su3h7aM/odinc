@@ -85,8 +85,8 @@ lower_binary :: proc(
 	if simd_operator != .None {
 		operand_type := lower_info(state, node).type
 		if lower_type(state, operand_type).kind == .Simd_Vector {
-			values := [5]ir.Node_Id{left, right, 0, 0, 0}
-			return lower_simd_lanewise(state, operand_type, simd_operator, values)
+			values := [2]ir.Node_Id{left, right}
+			return lower_simd_lanewise(state, operand_type, simd_operator, values[:])
 		}
 	}
 	if conversions.type != 0 && is_wide_integer(state, conversions.type) {

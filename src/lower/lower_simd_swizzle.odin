@@ -9,7 +9,8 @@ import "oc:syntax"
 @(private)
 lower_simd_runtime_swizzle :: proc(state: ^Procedure_State, node: syntax.Node_Index, info: check.Expression_Info, plan: check.Builtin_Plan) -> ir.Node_Id {
 	if len(plan.arguments) != 2 { return lower_fail(state, node, .Builtin) }
-	values, ok := lower_intrinsic_operands(state, node, plan)
+	storage: [4]ir.Node_Id
+	values, ok := lower_intrinsic_operands(state, node, plan, storage[:])
 	if !ok { return 0 }
 	function := state.job.function
 	elem, lanes := simd_shape(state, info.type)

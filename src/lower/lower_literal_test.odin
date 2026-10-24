@@ -55,7 +55,7 @@ empty_dynamic_array_literal_lowers_to_zeroed_header :: proc(t: ^testing.T) {
 		allocator,
 	)
 	module: ir.Module
-	errors, err := lower_program(&program, &module)
+	errors, _, err := lower_program(&program, &module)
 	defer delete(errors)
 	if !testing.expect_value(t, err, nil) { return }
 	defer ir.module_destroy(&module)
@@ -109,7 +109,7 @@ empty_map_literal_lowers_to_zeroed_header :: proc(t: ^testing.T) {
 		allocator,
 	)
 	module: ir.Module
-	errors, err := lower_program(&program, &module)
+	errors, _, err := lower_program(&program, &module)
 	defer delete(errors)
 	if !testing.expect_value(t, err, nil) { return }
 	defer ir.module_destroy(&module)

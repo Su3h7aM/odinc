@@ -58,7 +58,7 @@ float16_addition_rounds_ties_to_even :: proc(t: ^testing.T) {
 	)
 
 	module: ir.Module
-	errors, err := lower_program(&program, &module)
+	errors, _, err := lower_program(&program, &module)
 	defer delete(errors)
 	if !testing.expect_value(t, err, nil) || !testing.expect_value(t, len(errors), 0) { return }
 	defer ir.module_destroy(&module)

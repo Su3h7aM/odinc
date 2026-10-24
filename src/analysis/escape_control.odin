@@ -49,16 +49,28 @@ Control_Target :: struct {
 	continues:   Escape_State,
 }
 
+MAX_FACT_COUNT :: 1 << 13
+MAX_STMT_VISITS :: 1 << 20
+
+@(private = "package")
+escape_too_large :: proc(escape: ^Escape) -> bool {
+	escape.too_large ||= escape.live_facts + len(escape.outers) > MAX_FACT_COUNT || escape.stmt_visits > MAX_STMT_VISITS
+	return escape.too_large
+}
+
 @(private = "package")
 escape_reset_control :: proc(escape: ^Escape) {
 	clear(&escape.nils)
 	clear(&escape.nil_uses)
 	clear(&escape.uninit_entities)
+	clear(&escape.nil_escaped)
 	clear(&escape.defers)
 	clear(&escape.targets)
 	clear(&escape.reported)
 	clear(&escape.outers)
 	clear(&escape.flows)
+	escape.stmt_visits = 0
+	escape.too_large = false
 	escape.fallen = {}
 	escape.fallen_live = false
 	escape.reachable = true
@@ -82,8 +94,11 @@ escape_restore :: proc(escape: ^Escape, state: Escape_State) -> runtime.Allocato
 	for len(escape.memory) < len(state.memory) { append(&escape.memory, Value_Id(0)) or_return }
 	for value, index in state.memory { escape.memory[index] = value }
 	for index in len(state.memory) ..< len(escape.memory) { escape.memory[index] = 0 }
+	escape.live_facts = 0
+	for value in state.memory { escape.live_facts += len(escape_facts(escape, value)) }
 	clear(&escape.nils)
 	append(&escape.nils, ..state.nils[:]) or_return
+	for entity in escape.nil_escaped { escape_nil_forget(escape, entity) }
 	clear(&escape.outers)
 	append(&escape.outers, ..state.outers[:]) or_return
 	escape.reachable = state.reachable
@@ -106,13 +121,14 @@ escape_union_values :: proc(escape: ^Escape, left, right: Value_Id) -> (result: 
 }
 
 @(private = "file")
-escape_merge_memory :: proc(escape: ^Escape, dst: ^[dynamic]Value_Id, src: []Value_Id) -> (changed: bool, err: runtime.Allocator_Error) {
+escape_merge_memory :: proc(escape: ^Escape, dst: ^[dynamic]Value_Id, src: []Value_Id, live: ^int) -> (changed: bool, err: runtime.Allocator_Error) {
 	width := max(len(dst), len(src))
 	for len(dst) < width { append(dst, Value_Id(0)) or_return }
 	for index in 0 ..< width {
 		right: Value_Id
 		if index < len(src) { right = src[index] }
 		merged, grew := escape_union_values(escape, dst[index], right) or_return
+		if live != nil { live^ += len(escape_facts(escape, merged)) - len(escape_facts(escape, dst[index])) }
 		dst[index] = merged
 		changed |= grew
 	}
@@ -145,7 +161,7 @@ escape_join_live :: proc(escape: ^Escape, state: Escape_State) -> (changed: bool
 		escape_restore(escape, state) or_return
 		return true, nil
 	}
-	changed = escape_merge_memory(escape, &escape.memory, state.memory[:]) or_return
+	changed = escape_merge_memory(escape, &escape.memory, state.memory[:], &escape.live_facts) or_return
 	nils, nils_changed := escape_intersect_nils(escape.nils[:], state.nils[:], escape) or_return
 	clear(&escape.nils)
 	append(&escape.nils, ..nils[:]) or_return
@@ -163,7 +179,7 @@ escape_join_state :: proc(escape: ^Escape, state: ^Escape_State) -> (changed: bo
 		state^ = captured
 		return true, nil
 	}
-	changed = escape_merge_memory(escape, &state.memory, escape.memory[:]) or_return
+	changed = escape_merge_memory(escape, &state.memory, escape.memory[:], nil) or_return
 	nils, nils_changed := escape_intersect_nils(state.nils[:], escape.nils[:], escape) or_return
 	state.nils = nils
 	outers_changed := escape_merge_outers(escape, &state.outers, escape.outers[:]) or_return
@@ -288,9 +304,10 @@ escape_nillable :: proc(escape: ^Escape, type: types.Type_Id) -> bool {
 }
 
 @(private = "file")
-escape_nil_add :: proc(escape: ^Escape, entity: check.Entity_Id, uninit: bool) -> runtime.Allocator_Error {
-	if entity == 0 || escape_nil_covered(escape, escape.nils[:], entity, 0, uninit) { return nil }
-	append(&escape.nils, Nil_Fact{entity, 0, uninit}) or_return
+escape_nil_add :: proc(escape: ^Escape, entity: check.Entity_Id, uninit: bool, path: Path_Id = 0) -> runtime.Allocator_Error {
+	if entity == 0 || escape_nil_covered(escape, escape.nils[:], entity, path, uninit) { return nil }
+	for escaped in escape.nil_escaped { if escaped == entity { return nil } }
+	append(&escape.nils, Nil_Fact{entity, path, uninit}) or_return
 	return nil
 }
 
@@ -328,6 +345,7 @@ escape_is_undef :: proc(escape: ^Escape, node: syntax.Node_Index) -> bool {
 
 @(private = "package")
 escape_note_declaration :: proc(escape: ^Escape, names: []syntax.Node_Index, values: []syntax.Node_Index) -> runtime.Allocator_Error {
+	if !escape.nil_deref && !escape.uninit_vet { return nil }
 	for name, index in names {
 		entity := escape_ident_entity(escape, name)
 		if entity == 0 { continue }
@@ -353,19 +371,31 @@ escape_note_declaration :: proc(escape: ^Escape, names: []syntax.Node_Index, val
 
 @(private = "package")
 escape_note_store :: proc(escape: ^Escape, destination: syntax.Node_Index, value: syntax.Node_Index, replace: bool) -> runtime.Allocator_Error {
-	entity := escape_ident_entity(escape, destination)
-	if entity == 0 || !replace {
-		if entity != 0 { escape_nil_forget(escape, entity) }
-		return nil
+	if !escape.nil_deref && !escape.uninit_vet { return nil }
+	entity, path, exact := escape_nil_location(escape, {escape.view, destination}) or_return
+	if entity == 0 { return nil }
+	source, source_path, _ := escape_nil_location(escape, {escape.view, value}) or_return
+	propagated := make([dynamic]Nil_Fact, 0, escape.allocator) or_return
+	if replace && exact {
+		for fact in escape.nils {
+			if source == 0 || fact.entity != source { continue }
+			if escape_path_has_prefix(escape, source_path, fact.path) {
+				append(&propagated, Nil_Fact{entity, path, fact.uninit}) or_return
+			} else if escape_path_has_prefix(escape, fact.path, source_path) {
+				suffix := escape_path_suffix(escape, fact.path, escape.graph.paths[source_path].depth) or_return
+				projected := escape_path_concat(escape, path, suffix) or_return
+				append(&propagated, Nil_Fact{entity, projected, fact.uninit}) or_return
+			}
+		}
 	}
-	escape_nil_forget(escape, entity)
+	escape_nil_kill(escape, entity, path) or_return
+	if !replace || !exact { return nil }
 	if escape.nil_deref && escape_is_nil_literal(escape, value) {
-		escape_nil_add(escape, entity, false) or_return
+		escape_nil_add(escape, entity, false, path) or_return
 	} else if escape.uninit_vet && escape_is_undef(escape, value) {
-		escape_nil_add(escape, entity, true) or_return
-	} else if escape.nil_deref {
-		source := escape_ident_entity(escape, value)
-		if source != 0 && escape_nil_covered(escape, escape.nils[:], source, 0, false) { escape_nil_add(escape, entity, false) or_return }
+		escape_nil_add(escape, entity, true, path) or_return
+	} else {
+		for fact in propagated { escape_nil_add(escape, entity, fact.uninit, fact.path) or_return }
 	}
 	return nil
 }
@@ -381,10 +411,23 @@ escape_record_use :: proc(escape: ^Escape, expression: check.Expression_Ref, kin
 
 @(private = "package")
 escape_note_expression :: proc(escape: ^Escape, expression: check.Expression_Ref) -> runtime.Allocator_Error {
+	if !escape.nil_deref && !escape.uninit_vet { return nil }
 	if expression.node == 0 { return nil }
 	ast := escape_view_ast(escape, expression.view)
 	if ast == nil || int(expression.node) >= len(ast.nodes) { return nil }
 	node := expression.node
+	expression_info := check.expression_info(escape.run.program, expression.view, node)
+	if expression_info.mode == .Constant || expression_info.mode == .Type { return nil }
+	root, path, _ := escape_nil_location(escape, expression) or_return
+	if root != 0 {
+		for tracked in escape.uninit_entities {
+			if tracked == root {
+				escape_record_use(escape, expression, .Uninit, escape_nil_covered(escape, escape.nils[:], root, path, true)) or_return
+				break
+			}
+		}
+		return escape_note_address(escape, expression)
+	}
 	#partial switch payload in ast.nodes[node].payload {
 	case syntax.Paren_Expr:
 		return escape_note_expression(escape, {expression.view, payload.expr})
@@ -423,7 +466,8 @@ escape_note_expression :: proc(escape: ^Escape, expression: check.Expression_Ref
 	case syntax.Index_Expr:
 		base := check.expression_info(escape.run.program, expression.view, payload.expr)
 		if base.type != 0 {
-			kind := escape_type(escape, base.type).kind
+			kind: types.Kind
+			if base.type != 0 { kind = escape_type(escape, base.type).kind }
 			if kind == .Pointer || kind == .Multi_Pointer || kind == .Raw_Pointer {
 				pointer := check.Expression_Ref{expression.view, escape_unparen(escape, payload.expr, expression.view)}
 				entity := escape_ident_entity(escape, pointer.node, expression.view)
@@ -433,7 +477,23 @@ escape_note_expression :: proc(escape: ^Escape, expression: check.Expression_Ref
 		escape_note_expression(escape, {expression.view, payload.expr}) or_return
 		return escape_note_expression(escape, {expression.view, payload.index})
 	case syntax.Unary_Expr:
+		if payload.op.kind == .And {
+			address := check.Expression_Ref{expression.view, payload.expr}
+			escape_nil_escape(escape, address) or_return
+			return escape_note_address(escape, address)
+		}
 		return escape_note_expression(escape, {expression.view, payload.expr})
+	case syntax.Slice_Expr:
+		base := check.expression_info(escape.run.program, expression.view, payload.expr)
+		kind: types.Kind
+		if base.type != 0 { kind = escape_type(escape, base.type).kind }
+		if kind == .Array || kind == .Enumerated_Array || kind == .Fixed_Capacity_Array {
+			address := check.Expression_Ref{expression.view, payload.expr}
+			escape_nil_escape(escape, address) or_return
+			escape_note_address(escape, address) or_return
+		} else { escape_note_expression(escape, {expression.view, payload.expr}) or_return }
+		escape_note_expression(escape, {expression.view, payload.low}) or_return
+		return escape_note_expression(escape, {expression.view, payload.high})
 	case syntax.Binary_Expr:
 		escape_note_expression(escape, {expression.view, payload.left}) or_return
 		return escape_note_expression(escape, {expression.view, payload.right})
@@ -452,6 +512,155 @@ escape_note_expression :: proc(escape: ^Escape, expression: check.Expression_Ref
 		return escape_note_expression(escape, {expression.view, payload.expr})
 	}
 	return nil
+}
+
+@(private = "file")
+escape_nil_location :: proc(
+	escape: ^Escape,
+	expression: check.Expression_Ref,
+) -> (
+	entity: check.Entity_Id,
+	path: Path_Id,
+	exact: bool,
+	err: runtime.Allocator_Error,
+) {
+	node := escape_unparen(escape, expression.node, expression.view)
+	if node == 0 { return }
+	ast := escape_view_ast(escape, expression.view)
+	#partial switch payload in ast.nodes[node].payload {
+	case syntax.Ident:
+		entity = escape_ident_entity(escape, node, expression.view)
+		exact = entity != 0
+	case syntax.Selector_Expr:
+		info := check.expression_info(escape.run.program, expression.view, node)
+		if info.plan == 0 { return }
+		place, ok := check.plan(escape.run.program, info.plan)^.(check.Place_Plan)
+		if !ok { return }
+		root_type := escape_operand_type(escape, place.root)
+		if root_type == 0 || escape_type(escape, root_type).kind == .Pointer { return }
+		switch root in place.root {
+		case check.Expression_Ref:
+			entity, path, exact = escape_nil_location(escape, root) or_return
+		case check.Entity_Id:
+			if escape_local(escape, root) { entity = root; exact = true }
+		case check.Projection, check.Const_Id:
+		}
+		if entity == 0 { return }
+		for step in place.path {
+			if step.indirect || step.type == 0 { return 0, 0, false, nil }
+			if escape_type(escape, step.type).raw_union { exact = false; continue }
+			path = escape_path(
+				escape,
+				path,
+				{kind = .Field, owner_type = types.resolve_named(escape.run.program.type_data, step.type), field_index = step.field_index},
+			) or_return
+		}
+	case syntax.Index_Expr:
+		info := check.expression_info(escape.run.program, expression.view, payload.expr)
+		kind: types.Kind
+		if info.type != 0 { kind = escape_type(escape, info.type).kind }
+		if kind != .Array && kind != .Enumerated_Array && kind != .Fixed_Capacity_Array { return }
+		entity, path, _ = escape_nil_location(escape, {expression.view, payload.expr}) or_return
+		if entity != 0 { path = escape_path(escape, path, {kind = .Element}) or_return }
+	}
+	return
+}
+
+@(private = "file")
+escape_nil_kill :: proc(escape: ^Escape, entity: check.Entity_Id, path: Path_Id) -> runtime.Allocator_Error {
+	pieces := make([dynamic]Nil_Fact, 0, escape.allocator) or_return
+	steps := escape_path_steps(escape, path) or_return
+	for index := len(escape.nils) - 1; index >= 0; index -= 1 {
+		fact := escape.nils[index]
+		if fact.entity != entity || !escape_path_has_prefix(escape, path, fact.path) && !escape_path_has_prefix(escape, fact.path, path) { continue }
+		unordered_remove(&escape.nils, index)
+		fact_steps := escape_path_steps(escape, fact.path) or_return
+		if len(fact_steps) > len(steps) { continue }
+		type := escape_type_follow(escape, escape.run.program.entities[entity].type, fact_steps[:])
+		prefix := fact.path
+		for step in steps[len(fact_steps):] {
+			if type == 0 { break }
+			descriptor := escape_type(escape, type)
+			if step.kind != .Field || descriptor.kind != .Struct || int(step.field_index) >= len(descriptor.fields) { break }
+			for field, field_index in descriptor.fields {
+				if field_index == int(step.field_index) || !fact.uninit && !escape_nillable(escape, field.type) { continue }
+				other := escape_path(escape, prefix, {kind = .Field, owner_type = step.owner_type, field_index = u32(field_index)}) or_return
+				append(&pieces, Nil_Fact{entity, other, fact.uninit}) or_return
+			}
+			type = descriptor.fields[step.field_index].type
+			prefix = escape_path(escape, prefix, step) or_return
+		}
+	}
+	for piece in pieces { escape_nil_add(escape, piece.entity, piece.uninit, piece.path) or_return }
+	return nil
+}
+
+@(private = "file")
+escape_nil_root :: proc(escape: ^Escape, expression: check.Expression_Ref) -> check.Entity_Id {
+	node := escape_unparen(escape, expression.node, expression.view)
+	if node == 0 { return 0 }
+	ast := escape_view_ast(escape, expression.view)
+	base: syntax.Node_Index
+	#partial switch payload in ast.nodes[node].payload {
+	case syntax.Ident:
+		return escape_ident_entity(escape, node, expression.view)
+	case syntax.Selector_Expr:
+		info := check.expression_info(escape.run.program, expression.view, payload.expr)
+		if info.type != 0 && escape_type(escape, info.type).kind == .Pointer { return 0 }
+		return escape_nil_root(escape, {expression.view, payload.expr})
+	case syntax.Index_Expr:
+		base = payload.expr
+	case syntax.Slice_Expr:
+		base = payload.expr
+	}
+	if base == 0 { return 0 }
+	info := check.expression_info(escape.run.program, expression.view, base)
+	if info.type == 0 { return 0 }
+	kind := escape_type(escape, info.type).kind
+	if kind == .Array || kind == .Enumerated_Array || kind == .Fixed_Capacity_Array || kind == .Struct {
+		return escape_nil_root(escape, {expression.view, base})
+	}
+	return 0
+}
+
+@(private = "file")
+escape_nil_escape :: proc(escape: ^Escape, expression: check.Expression_Ref) -> runtime.Allocator_Error {
+	if !escape.nil_deref && !escape.uninit_vet { return nil }
+	entity := escape_nil_root(escape, expression)
+	if entity == 0 { return nil }
+	for previous in escape.nil_escaped { if previous == entity { return nil } }
+	append(&escape.nil_escaped, entity) or_return
+	escape_nil_forget(escape, entity)
+	return nil
+}
+
+@(private = "package")
+escape_note_address :: proc(escape: ^Escape, expression: check.Expression_Ref) -> runtime.Allocator_Error {
+	if !escape.nil_deref && !escape.uninit_vet { return nil }
+	node := escape_unparen(escape, expression.node, expression.view)
+	if node == 0 { return nil }
+	ast := escape_view_ast(escape, expression.view)
+	#partial switch payload in ast.nodes[node].payload {
+	case syntax.Ident:
+		return nil
+	case syntax.Selector_Expr:
+		info := check.expression_info(escape.run.program, expression.view, payload.expr)
+		base := check.Expression_Ref{expression.view, payload.expr}
+		if info.type != 0 && escape_type(escape, info.type).kind == .Pointer { return escape_note_expression(escape, base) }
+		return escape_note_address(escape, base)
+	case syntax.Index_Expr:
+		info := check.expression_info(escape.run.program, expression.view, payload.expr)
+		kind: types.Kind
+		if info.type != 0 { kind = escape_type(escape, info.type).kind }
+		base := check.Expression_Ref{expression.view, payload.expr}
+		if kind == .Array || kind == .Enumerated_Array || kind == .Fixed_Capacity_Array || kind == .Struct {
+			escape_note_address(escape, base) or_return
+		} else { escape_note_expression(escape, base) or_return }
+		return escape_note_expression(escape, {expression.view, payload.index})
+	case syntax.Deref_Expr:
+		return escape_note_expression(escape, {expression.view, payload.expr})
+	}
+	return escape_note_expression(escape, expression)
 }
 
 @(private = "file")
@@ -602,6 +811,7 @@ escape_or_return :: proc(escape: ^Escape, node: syntax.Node_Index) -> runtime.Al
 
 @(private = "package")
 escape_finish_procedure :: proc(escape: ^Escape, body: syntax.Node_Index) -> runtime.Allocator_Error {
+	if escape_too_large(escape) { return nil }
 	if escape.reachable {
 		escape_named_results(escape, body) or_return
 		escape_commit_stores(escape) or_return

@@ -86,7 +86,7 @@ scalar_shift_by_wide_count_reads_low_word :: proc(t: ^testing.T) {
 		}
 		program.typed_views[1].nodes.constants[int(amount) - 1] = variant.constant
 		module: ir.Module
-		errors, err := lower_program(&program, &module)
+		errors, _, err := lower_program(&program, &module)
 		defer delete(errors)
 		if !testing.expect_value(t, err, nil) || !testing.expect_value(t, len(errors), 0) { continue }
 		defer ir.module_destroy(&module)
@@ -145,7 +145,7 @@ scalar_int_to_bool_compares_against_zero :: proc(t: ^testing.T) {
 	program.entity_symbols = fixture_clone([]check.Symbol_Id{0, 1}, allocator)
 
 	module: ir.Module
-	errors, err := lower_program(&program, &module)
+	errors, _, err := lower_program(&program, &module)
 	defer delete(errors)
 	if !testing.expect_value(t, err, nil) || !testing.expect_value(t, len(errors), 0) { return }
 	defer ir.module_destroy(&module)
@@ -238,7 +238,7 @@ wide_int_to_bool_true_when_only_high_word_set :: proc(t: ^testing.T) {
 	program.constant_table = fixture_clone([]check.Constant{{}, {type = wide, value = high}}, allocator)
 
 	module: ir.Module
-	errors, err := lower_program(&program, &module)
+	errors, _, err := lower_program(&program, &module)
 	defer delete(errors)
 	if !testing.expect_value(t, err, nil) || !testing.expect_value(t, len(errors), 0) { return }
 	defer ir.module_destroy(&module)
@@ -304,7 +304,7 @@ wide_int_to_bool_false_when_zero :: proc(t: ^testing.T) {
 	program.global_list = fixture_clone([]check.Global{{entity = 2, symbol = 2, type = wide, alignment = 16}}, allocator)
 
 	module: ir.Module
-	errors, err := lower_program(&program, &module)
+	errors, _, err := lower_program(&program, &module)
 	defer delete(errors)
 	if !testing.expect_value(t, err, nil) || !testing.expect_value(t, len(errors), 0) { return }
 	defer ir.module_destroy(&module)

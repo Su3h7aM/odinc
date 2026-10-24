@@ -1,6 +1,7 @@
 package lower
 
 import "base:runtime"
+import "core:fmt"
 import "core:math/big"
 import "oc:check"
 import "oc:ir"
@@ -60,12 +61,64 @@ global_constant_image :: proc(
 		if !found { return nil, nil, false, nil }
 		write_little_endian(bytes, id, 0)
 	case check.Nil_Value, check.Uninitialized_Value:
+	case check.Slice_Value:
+		backing := check.constant(program, value.backing)
+		elements := backing.value.(check.Aggregate_Value).elements
+		if len(elements) == 0 { break }
+		backing_size, alignment, layout_error := types.layout(check.type_store(program), backing.type)
+		if layout_error != .None || backing_size > i64(max(u32)) { return nil, nil, false, nil }
+		image, backing_relocs, encoded := global_constant_image(module, program, value.backing, u32(backing_size), symbols, nil, allocator) or_return
+		if !encoded { return nil, nil, false, nil }
+		index := u32(len(module.globals))
+		name := fmt.aprintf("__odinc_internal_slice_backing_%d", index, allocator = allocator)
+		append(
+			&module.globals,
+			ir.Global{name = name, size = u32(backing_size), align = u32(alignment), mutable = true, anonymous = true, bytes = image, relocs = backing_relocs},
+		) or_return
+		write_scalar(bytes, 8, u64(len(elements)), 8)
+		out_relocs = make([]ir.Data_Reloc, len(relocs) + 1, allocator) or_return
+		copy(out_relocs, relocs)
+		out_relocs[len(relocs)] = {
+			target = ir.Symbol_Ref{space = .Global, index = index},
+		}
 	case check.Aggregate_Value:
 		relocations := make([dynamic]ir.Data_Reloc, allocator) or_return
 		for reloc in relocs { append(&relocations, reloc) or_return }
 		encoded := aggregate_constant_image(module, program, constant.type, value.elements, bytes, 0, &relocations, allocator) or_return
 		if !encoded { return nil, nil, false, nil }
 		out_relocs = relocations[:]
+	case check.Variant_Value:
+		store := check.type_store(program)
+		union_type := types.resolve_named(store, value.type)
+		descriptor := types.get(store, union_type)
+		layout, layout_error := types.union_layout(store, union_type)
+		if layout_error != .None || descriptor.kind != .Union { return nil, nil, false, nil }
+		payload := check.constant(program, value.value)
+		variant_index := -1
+		for variant, index in descriptor.variants {
+			if variant == payload.type { variant_index = index }
+		}
+		payload_size, _, payload_layout_error := types.layout(store, payload.type)
+		if variant_index < 0 || payload_layout_error != .None || payload_size > i64(size) { return nil, nil, false, nil }
+		payload_bytes, payload_relocs, payload_ok := global_constant_image(
+			module,
+			program,
+			value.value,
+			u32(payload_size),
+			symbols,
+			relocs,
+			allocator,
+		) or_return
+		if !payload_ok { return nil, nil, false, nil }
+		copy(bytes, payload_bytes)
+		out_relocs = payload_relocs
+		#partial switch descriptor.union_form {
+		case .Maybe_Pointer:
+		case .No_Nil:
+			write_scalar(bytes, layout.variant_block_size, u64(variant_index), layout.tag_size)
+		case:
+			write_scalar(bytes, layout.variant_block_size, u64(variant_index + 1), layout.tag_size)
+		}
 	case check.Address_Value:
 		assert(int(value.symbol) > 0 && int(value.symbol) < len(symbols))
 		out_relocs = make([]ir.Data_Reloc, len(relocs) + 1, allocator) or_return
@@ -163,8 +216,13 @@ aggregate_constant_image :: proc(
 		if _, is_address := constant.value.(check.Address_Value); is_address { return false, nil }
 		image, scalar_relocs, scalar_ok, image_error := global_constant_image(module, program, element, u32(size), nil, nil, allocator)
 		if image_error != nil { return false, image_error }
-		if !scalar_ok || len(scalar_relocs) != 0 { return false, nil }
+		if !scalar_ok { return false, nil }
 		copy(bytes[start:], image)
+		for relocation in scalar_relocs {
+			relocation := relocation
+			relocation.offset += u32(start)
+			append(relocations, relocation) or_return
+		}
 	}
 	return true, nil
 }

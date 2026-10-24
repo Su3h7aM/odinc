@@ -33,7 +33,7 @@ unreached_runtime_body_errors_only_when_reached :: proc(t: ^testing.T) {
 	}
 
 	unreached: ir.Module
-	unreached_errors, unreached_err := lower_program(&program, &unreached, context.allocator)
+	unreached_errors, _, unreached_err := lower_program(&program, &unreached, context.allocator)
 	defer delete(unreached_errors)
 	defer ir.module_destroy(&unreached)
 	testing.expect_value(t, unreached_err, nil)
@@ -41,11 +41,72 @@ unreached_runtime_body_errors_only_when_reached :: proc(t: ^testing.T) {
 
 	program.runtime.init_procedures = {{entity = 1}}
 	reached: ir.Module
-	reached_errors, reached_err := lower_program(&program, &reached, context.allocator)
+	reached_errors, _, reached_err := lower_program(&program, &reached, context.allocator)
 	defer delete(reached_errors)
 	defer ir.module_destroy(&reached)
 	testing.expect_value(t, reached_err, nil)
 	testing.expect_value(t, len(reached_errors), 1)
+}
+
+// A library package (a .User package under a library prefix) lowers its procedures only when reached; its @(init)
+// procedures stay roots.
+@(test)
+library_procedures_lower_only_when_reached :: proc(t: ^testing.T) {
+	store := types.init()
+	defer types.destroy(&store)
+	ast: syntax.Ast
+	syntax.ast_init(&ast, context.allocator)
+	defer syntax.ast_destroy(&ast)
+	signature := types.intern(&store, types.Type{kind = .Procedure, convention = .Contextless})
+	raw := types.intern(&store, types.Type{kind = .Raw_Pointer})
+	boolean := types.intern(&store, types.Type{kind = .Bool})
+	equal_signature := types.intern(
+		&store,
+		types.Type{kind = .Procedure, convention = .Contextless, params = []types.Type_Id{raw, raw}, results = []types.Type_Id{boolean}},
+	)
+	empty := types.intern(&store, types.Type{kind = .Struct})
+	program := check.Checked_Program {
+		type_data      = &store,
+		packages       = {{}, {kind = .User, key = "/root/core/lib"}},
+		files          = {{}, {ast = &ast}},
+		entities       = {{}, {name = "helper", kind = .Procedure, state = .Resolved, type = signature, package_id = 1, declaration = {file = 1}}},
+		symbol_table   = {{}, {entity = 1, kind = .Procedure, name = "helper", type = signature}},
+		entity_symbols = {0, 1},
+		procedure_list = {{entity = 1, symbol = 1, signature = equal_signature, convention = .Contextless, generated = {kind = .Equality, type = empty}}},
+	}
+
+	library: ir.Module
+	library_errors, _, library_err := lower_program(&program, &library, context.allocator, library_prefixes = []string{"/root/core/"})
+	defer delete(library_errors)
+	defer ir.module_destroy(&library)
+	testing.expect_value(t, library_err, nil)
+	testing.expect_value(t, len(library_errors), 0)
+	testing.expect(t, has_unreachable_body(&library), "a library procedure must not lower without a reaching root")
+
+	user: ir.Module
+	user_errors, _, user_err := lower_program(&program, &user, context.allocator)
+	defer delete(user_errors)
+	defer ir.module_destroy(&user)
+	testing.expect_value(t, user_err, nil)
+	testing.expect(t, !has_unreachable_body(&user), "a user package procedure is a root and must lower")
+
+	program.runtime.init_procedures = {{entity = 1}}
+	initialized: ir.Module
+	initialized_errors, _, initialized_err := lower_program(&program, &initialized, context.allocator, library_prefixes = []string{"/root/core/"})
+	defer delete(initialized_errors)
+	defer ir.module_destroy(&initialized)
+	testing.expect_value(t, initialized_err, nil)
+	testing.expect(t, !has_unreachable_body(&initialized), "a library @(init) procedure is a root and must lower")
+}
+
+@(private = "file")
+has_unreachable_body :: proc(module: ^ir.Module) -> bool {
+	for function in module.functions {
+		for index in 1 ..< len(function.nodes) {
+			if function.nodes.kind[index] == .Unreachable { return true }
+		}
+	}
+	return false
 }
 
 @(test)
@@ -108,7 +169,7 @@ lowering_output_is_independent_of_worker_count :: proc(t: ^testing.T) {
 lowered_text :: proc(program: ^check.Checked_Program, worker_count: int) -> (text: string, passed: bool) {
 	module: ir.Module
 	defer ir.module_destroy(&module)
-	errors, err := lower_program(program, &module, context.allocator, worker_count = worker_count)
+	errors, _, err := lower_program(program, &module, context.allocator, worker_count = worker_count)
 	defer delete(errors)
 	if err != nil || len(errors) != 0 { return }
 	builder := strings.builder_make(context.temp_allocator)

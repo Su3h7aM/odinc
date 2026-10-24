@@ -135,3 +135,71 @@ Upstream report: not searched yet.
 
 - **`ADD`/`CMP` `m16, imm8` picking `81 /0 iw` over `83 /0 ib`** (`encoder.odin` form-match order, `encode_tables.odin:112` before `:115`, and the same for `CMP`): INTENDED. The SDM lists both `81 /0 iw` and `83 /0 ib` as valid `ADD r/m16, imm8` encodings, so the emitted bytes are architecturally correct, only 3 bytes longer than the shortest form. It is a code-size opportunity, not a wrong encoding; our compiler should prefer `83` but must not call upstream's output incorrect.
 - **`Process_State.exit_code` holding the signal number**: INTENDED as documented (`core/os/process.odin:497-500` says so explicitly). Only the missing signal field and the `success` comment are wrong, as covered in section 2.
+
+### Target-feature override order and force-inline checking
+
+The reference fork passes `enable_target_feature` tokens to LLVM in source order. A probe with exported procedures adding two `#simd[8]i32` values produced 128-bit `vpaddd` for `"+avx2,-avx2"` and 256-bit `vpaddd` for `"-avx2,+avx2"`. Its LLVM IR preserves those exact `target-features` strings. The last override wins. Enabling a feature also enables its prerequisites, while disabling a prerequisite removes dependent features, as defined by [LLVM's X86.td](https://github.com/llvm/llvm-project/blob/main/llvm/lib/Target/X86/X86.td).
+
+The reference checker also accepts this program:
+
+```odin
+package sample
+@(enable_target_feature="avx2")
+callee :: #force_inline proc() {}
+@(enable_target_feature="avx2,-avx2")
+caller :: proc() { callee() }
+main :: proc() { caller() }
+```
+
+`check_target_feature_is_superset_of` in the fork's `src/build_settings.cpp:2312-2323` compares raw comma-separated tokens. It finds `avx2` in the caller's list without accounting for the later disable. We preserve this accepted source behavior. There is currently no machine-code inliner in our compiler. A future inliner must compare the procedures' effective hardware sets, including ordered overrides and dependency closure, before merging bodies. A missing callee feature must prevent inlining, not introduce a new source error. Negative overrides remain local to each procedure and must never change its caller or other procedures.
+
+The complete valid-name vocabulary comes from the reference fork's `src/build_settings_microarch.cpp:29-44`, rather than only the hardware features modeled by our instruction selector. Valid tuning names such as `slow-unaligned-mem-32` do not imply an ISA capability.
+## Keyed constant-slice indexing
+
+This compiler deliberately accepts a superset of the reference compiler for constant indexing of keyed slice literals. The reference accepts the declaration, copies its backing correctly into a variable, and accepts indexing a positional constant slice, but rejects indexing the keyed constant directly:
+
+```odin
+package main
+
+main :: proc() {
+	A :: []int{0 = 1, 2 = 3}
+	_ = A[0]
+}
+```
+
+The reference compiler reports:
+
+```text
+Error: Cannot index a constant 'A' with index 0
+Suggestion: store the constant into a variable in order to index it with a variable index
+```
+
+`get_constant_field_single` in the upstream `src/check_expr.cpp:5923` handles keyed arrays and enumerated arrays but omits slices. Its positional path accepts slices. The compound-literal checker and constant emitter already accept keyed slices and use their highest index to size the backing. We normalize both forms to the same array backing and return its indexed constant, including zero-filled holes. This does not change the meaning of a program the reference accepts.
+
+Constant-slice storage follows upstream `src/llvm_backend_const.cpp:1127-1235`: each local use gets fresh writable frame storage, and package initializers get mutable static backing. Escape behavior follows upstream `src/check_escape.cpp:3448-3457`: a constant slice produces one opaque temporary origin at its use site, without propagating backing-element origins. Constant non-slices are inert. A syntactically empty slice literal is exempt, but an identifier naming an empty constant slice is not. The reference and this compiler agree on direct and copied returns, nested and three-level slices, array/slice mixtures, and storing elements in globals. No extra nested-element escape warning is introduced.
+## Enum constant division computes a remainder
+
+The reference compiler accepts this program with optimizations disabled; its constant quotient is zero while the same operands divided at runtime produce two:
+
+```odin
+package main
+
+E :: enum { A = 2, B = 4 }
+#assert(E.B / E.A == E(0))
+
+main :: proc() {
+    a := E.B
+    b := E.A
+    assert(a / b == E(2))
+}
+```
+
+Both the fork and upstream reference sources have the same cause. `check_expr.cpp:5171–5173` rewrites constant `/` to the integer-division operation `Token_QuoEq` only when `is_type_integer(x->type)` succeeds. That predicate excludes enums, although arithmetic accepts them through `is_type_numeric`. The integer-value branch in `exact_value.cpp:953–954` then implements `Token_Quo` with `fmod` and `Token_QuoEq` with `big_int_quo`. Thus enum constants take the remainder path accidentally; this is not a different enum division rule.
+
+Decision: numeric enum operators retain the enum type, and our existing integer constant evaluator computes the quotient, matching runtime evaluation. Do not reproduce the reference's constant-folding defect. The regression checks acceptance and the result type of constant enum division, without asserting the disputed reference value.
+
+## `simd_reduce_any` / `simd_reduce_all` return the raw lane value
+
+Checked against the fork `ea225db25` (`llvm_backend_proc.cpp`, `BuiltinProc_simd_reduce_any/all`). The checker types the result as an untyped boolean, but the backend returns the `llvm.vector.reduce.or/and` value converted from the lane type, with no comparison against zero. For a lane type that is an integer, a vector like `#simd[4]i32{0, -1, 0, 5}` yields `-1`, and `u64(simd_reduce_any(m))` prints `0xffffffffffffffff`, while `#simd[4]i32{0, 0, 0, 4}` yields `1`. The value depends on the lane bits, not on whether any lane is non-zero.
+
+Decision: odinc returns a normal boolean (`0` or `1`; any bit set in the reduced lanes is true). Programs that treat the result as a bool behave the same. Only code that converts the result to a wider integer can see the difference, and it relied on the lane bits of an untyped bool.

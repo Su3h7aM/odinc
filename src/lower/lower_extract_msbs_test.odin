@@ -45,7 +45,7 @@ extract_msbs_internal_128_lanes_preserves_word_boundaries :: proc(t: ^testing.T)
 	for lane in ([4]i64{0, 63, 64, 127}) {
 		lower_store_word(&state, ir.ptr_offset(function, address, lane), ir.const_int(function, .I8, 0x80))
 	}
-	mask := lower_simd_extract_msbs(&state, 0, result_type, vector_type, address)
+	mask := lower_simd_extract_bits(&state, 0, result_type, vector_type, address, true)
 	if !testing.expect(t, !state.failed && function.error == nil) { return }
 	words := wide_load(&state, mask)
 	expected := ir.const_int(function, .I64, transmute(i64)u64(0x8000_0000_0000_0001))

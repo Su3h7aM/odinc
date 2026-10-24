@@ -52,7 +52,7 @@ global_address_of_literal_materializes_backing_global :: proc(t: ^testing.T) {
 		plan_table            = fixture_clone([]check.Plan{{}, check.Aggregate_Plan{type = record}}, allocator),
 	}
 	module: ir.Module
-	errors, err := lower_program(&program, &module, context.allocator)
+	errors, _, err := lower_program(&program, &module, context.allocator)
 	defer delete(errors)
 	if !testing.expect_value(t, err, nil) { return }
 	defer ir.module_destroy(&module)
@@ -76,4 +76,48 @@ global_address_of_literal_materializes_backing_global :: proc(t: ^testing.T) {
 	}
 	testing.expect(t, found_initializer, "dynamic globals require init.globals")
 	testing.expect(t, stores_backing_address, "global must store its backing global's address, not a dead stack slot")
+}
+
+// A constant union global keeps its payload at offset 0 and the variant index plus one in the tag, so it needs no
+// startup code.
+@(test)
+global_constant_union_variant_is_encoded_statically :: proc(t: ^testing.T) {
+	arena: virtual.Arena
+	testing.expect_value(t, virtual.arena_init_growing(&arena), nil)
+	defer virtual.arena_destroy(&arena)
+	allocator := virtual.arena_allocator(&arena)
+	store := types.init()
+	defer types.destroy(&store)
+	integer := types.intern(&store, types.Type{kind = .Integer, count = 8, signed = true})
+	boolean := types.intern(&store, types.Type{kind = .Bool})
+	union_type := types.intern(&store, types.Type{kind = .Union, variants = []types.Type_Id{integer, boolean}})
+	ast: syntax.Ast
+	syntax.ast_init(&ast, allocator)
+	defer syntax.ast_destroy(&ast)
+	program := check.Checked_Program {
+		type_data      = &store,
+		files          = fixture_clone([]check.File{{}, {ast = &ast}}, allocator),
+		entities       = fixture_clone([]check.Entity{{}, {kind = .Variable, type = union_type}}, allocator),
+		symbol_table   = fixture_clone([]check.Symbol{{}, {entity = 1, kind = .Global, name = "G", type = union_type}}, allocator),
+		entity_symbols = fixture_clone([]check.Symbol_Id{0, 1}, allocator),
+		procedure_list = fixture_clone([]check.Checked_Procedure{}, allocator),
+		constant_table = fixture_clone(
+			[]check.Constant{{}, {type = union_type, value = check.Variant_Value{type = union_type, value = 2}}, {type = boolean, value = true}},
+			allocator,
+		),
+		global_list    = fixture_clone([]check.Global{{entity = 1, symbol = 1, type = union_type, alignment = 8, initializer = 1}}, allocator),
+	}
+	module: ir.Module
+	errors, _, err := lower_program(&program, &module, context.allocator)
+	defer delete(errors)
+	if !testing.expect_value(t, err, nil) { return }
+	defer ir.module_destroy(&module)
+	if !testing.expect_value(t, len(errors), 0) { return }
+	union_image: []byte
+	for global in module.globals {
+		if len(global.bytes) == 16 { union_image = global.bytes }
+	}
+	if !testing.expect(t, union_image != nil, "the union global must carry its static image") { return }
+	testing.expect_value(t, union_image[0], u8(1))
+	testing.expect_value(t, union_image[8], u8(2))
 }

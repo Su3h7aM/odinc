@@ -25,7 +25,7 @@ lower_matrix_parameter :: proc(t: ^testing.T, store: ^types.Store, allocator: ru
 	entities := fixture_clone([]check.Entity{{}, {kind = .Procedure, type = signature}, {kind = .Variable, type = shape}}, allocator)
 	program := expression_fixture(&ast, store, allocator, body, signature, entities, nil, {2})
 	module: ir.Module
-	errors, err := lower_program(&program, &module, allocator)
+	errors, _, err := lower_program(&program, &module, allocator)
 	defer delete(errors)
 	if !testing.expect_value(t, err, nil) { return }
 	defer ir.module_destroy(&module)
@@ -74,7 +74,7 @@ lower_matrix_identity :: proc(t: ^testing.T, store: ^types.Store, allocator: run
 	}
 	program := expression_fixture(&ast, store, allocator, body, signature, entities, facts, {2})
 	module: ir.Module
-	errors, err := lower_program(&program, &module, allocator)
+	errors, _, err := lower_program(&program, &module, allocator)
 	defer delete(errors)
 	if !testing.expect_value(t, err, nil) { return }
 	defer ir.module_destroy(&module)

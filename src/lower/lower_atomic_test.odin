@@ -106,7 +106,7 @@ overflow_add_tuple_reports_wrapped_overflow :: proc(t: ^testing.T) {
 	program.constant_table = fixture_clone([]check.Constant{{}, {type = byte, value = values[0]}, {type = byte, value = values[1]}}, allocator)
 
 	module: ir.Module
-	errors, err := lower_program(&program, &module)
+	errors, _, err := lower_program(&program, &module)
 	defer delete(errors)
 	if !testing.expect_value(t, err, nil) || !testing.expect_value(t, len(errors), 0) { return }
 	defer ir.module_destroy(&module)
@@ -390,7 +390,7 @@ compare_exchange_explicit_orders_apply_in_sequence :: proc(t: ^testing.T) {
 		allocator,
 	)
 	module: ir.Module
-	errors, err := lower_program(&program, &module)
+	errors, _, err := lower_program(&program, &module)
 	defer delete(errors)
 	if !testing.expect_value(t, err, nil) || !testing.expect_value(t, len(errors), 0) { return }
 	defer ir.module_destroy(&module)

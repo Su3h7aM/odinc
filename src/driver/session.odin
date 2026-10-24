@@ -98,6 +98,7 @@ Session :: struct {
 	no_entry_point:      bool,
 	parse_options:       syntax.Parse_Options,
 	check_options:       check.Check_Options,
+	max_error_count:     int,
 	test_options:        ^Test_Options,
 	test_entry:          check.Entity_Id,
 	test_entry_file:     check.File_Id,
@@ -336,7 +337,7 @@ check_session :: proc(
 	libraries: []check.Entity_Id
 	if session.stop_at_external { libraries = library_entities(session, context.temp_allocator) }
 	for declaration in session.collection.declarations {
-		if check.entity_get(&session.scopes, declaration.entity).package_id != main_package { continue }
+		if check.declaration_is_lazy(&session.checker, declaration.entity) { continue }
 		if _, resolve_error := check.resolve_entity(&session.resolver, declaration.entity); resolve_error != nil { return .Check_Failed }
 		if session.stop_at_external && any_external_library_used(session, libraries) { return .External_Library_Used }
 	}
@@ -589,6 +590,7 @@ import_package :: proc(session: ^Session, importer_id: check.File_Id, import_pat
 	importer := session.files[importer_id]
 	if session.packages[importer.package_id].kind == .Intrinsics { return 0, .None }
 	if import_path == "base:builtin" || import_path == "core:builtin" { return builtin_package(session) }
+	if import_path == "base:intrinsics" || import_path == "core:intrinsics" { return intrinsic_package(session) }
 	directory, resolve_error := import_directory(&session.collections, import_path, filepath.dir(importer.path), session.allocator, file_error)
 	if resolve_error != .None { return 0, .Import_Failed }
 	if error := push(&session.owned_strings, directory); error != .None { return 0, error }
@@ -596,7 +598,6 @@ import_package :: proc(session: ^Session, importer_id: check.File_Id, import_pat
 		if id != 0 && package_value.key == directory { return check.Package_Id(id), .None }
 	}
 	kind := check.Package_Kind.User
-	if import_path == "base:intrinsics" || import_path == "core:intrinsics" { kind = .Intrinsics }
 	package_id, package_scope, package_error := add_package(session, directory, filepath.base(directory), kind)
 	if package_error != .None { return 0, package_error }
 	return package_id, load_package(session, directory, package_id, package_scope, file_error)
@@ -660,6 +661,18 @@ load_package :: proc(
 		return .Import_Failed
 	}
 	return .None
+}
+
+// Intrinsic signatures are compiler-provided; the documentation package is not parsed.
+@(private = "file")
+intrinsic_package :: proc(session: ^Session) -> (check.Package_Id, Driver_Error) {
+	for package_value, id in session.packages {
+		if id != 0 && package_value.kind == .Intrinsics { return check.Package_Id(id), .None }
+	}
+	id, scope, error := add_package(session, "intrinsics", "intrinsics", .Intrinsics)
+	if error != .None { return 0, error }
+	if check.intrinsic_scope_init(&session.scopes, scope, id) != nil { return 0, .Allocation_Failed }
+	return id, .None
 }
 
 // base:builtin names the universal scope, as checker.cpp builtin_pkg does: its members are the universe builtins.

@@ -91,6 +91,7 @@ build_file :: proc(
 	parse_options: syntax.Parse_Options = {},
 	interpreter: string = link.DEFAULT_INTERPRETER,
 	check_options: check.Check_Options = {},
+	max_error_count: int = 36,
 ) -> (
 	image: []byte,
 	err: Build_Error,
@@ -99,6 +100,7 @@ build_file :: proc(
 	defer file_error_destroy(&file_error, allocator)
 	session, driver_err := check_program(odin_root, main_path, allocator, false, user_collections, defines, level, &file_error, parse_options, check_options)
 	defer if session != nil { session_destroy(session) }
+	if session != nil { session.max_error_count = max_error_count }
 	if driver_err == .Check_Failed || driver_err == .Unsupported_Import || driver_err == .Parse_Failed || driver_err == .Import_Cycle {
 		write_diagnostics(session, log)
 	}
@@ -117,7 +119,13 @@ build_file :: proc(
 
 	write_diagnostics(session, log)
 	module: ir.Module
-	lower_errors, lower_err := lower.lower_program(&session.program, &module, allocator, worker_count = thread_count)
+	lower_errors, required_symbols, lower_err := lower.lower_program(
+		&session.program,
+		&module,
+		allocator,
+		worker_count = thread_count,
+		library_prefixes = library_prefixes(odin_root),
+	)
 	defer delete(lower_errors, allocator)
 	if lower_err != nil {
 		write_build_error(log, lower_err)
@@ -130,7 +138,7 @@ build_file :: proc(
 	}
 	entry_name, entry_error := strings.clone(main_symbol_name(session), virtual.arena_allocator(&module.arena))
 	if entry_error != nil { return nil, entry_error }
-	foreign_files, foreign_err := load_foreign_files(&session.program, session.build.root, allocator)
+	foreign_files, foreign_err := load_foreign_files(&session.program, required_symbols, session.build.root, allocator)
 	if foreign_err != nil {
 		write_build_error(log, foreign_err)
 		return nil, foreign_err
@@ -139,6 +147,16 @@ build_file :: proc(
 	session_destroy(session)
 	session = nil
 	return build_image(&module, entry_name, log, allocator, thread_count, foreign_files, interpreter)
+}
+
+// Packages under the shipped base/, core/ and vendor/ trees are libraries: lowered only when reached.
+library_prefixes :: proc(odin_root: string) -> []string {
+	root := strings.trim_right(odin_root, "/")
+	prefixes := make([]string, 3, context.temp_allocator)
+	prefixes[0] = fmt.tprintf("%s/base/", root)
+	prefixes[1] = fmt.tprintf("%s/core/", root)
+	prefixes[2] = fmt.tprintf("%s/vendor/", root)
+	return prefixes
 }
 
 // The symbol of the main package's `main` procedure; empty when the program has none.

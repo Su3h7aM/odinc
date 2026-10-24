@@ -32,9 +32,10 @@ Planned_Abi :: struct {
 
 @(private)
 Abi_Plans :: struct {
-	procedures:    []Planned_Abi, // by procedure type id, without by-pointer parameters
-	foreign_plans: []Planned_Abi, // by entity id, for bodyless foreign procedures
-	call_sites:    []Planned_Abi, // by Plan_Id, for direct calls of C variadic procedures
+	procedures:     []Planned_Abi, // by procedure type id, without by-pointer parameters
+	foreign_plans:  []Planned_Abi, // by entity id, for bodyless foreign procedures
+	call_sites:     []Planned_Abi, // by Plan_Id, for direct calls of C variadic procedures
+	va_arg_classes: []types.Classification, // by Plan_Id, for c_va_arg
 }
 
 @(private)
@@ -73,6 +74,16 @@ prepare_abi_plans :: proc(program: ^check.Checked_Program, allocator: runtime.Al
 		if by_error != nil { return plans, by_error }
 		if !valid { continue }
 		plans.call_sites[plan_id] = plan_call_site(store, procedure.signature, by_pointer, tail, allocator) or_return
+	}
+	plans.va_arg_classes = make([]types.Classification, len(program.plan_table), allocator) or_return
+	for entry, plan_id in program.plan_table {
+		builtin, is_builtin := entry.(check.Builtin_Plan)
+		if !is_builtin || check.builtin_kind(program, builtin.builtin) != .C_Va_Arg || len(builtin.arguments) != 2 { continue }
+		requested, is_expression := builtin.arguments[1].(check.Expression_Ref)
+		if !is_expression { continue }
+		info, found := check.expression_info(program, requested.view, requested.node)
+		if !found || info.type == 0 { continue }
+		plans.va_arg_classes[plan_id], _ = types.classify(store, info.type)
 	}
 	return plans, nil
 }

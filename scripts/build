@@ -8,7 +8,7 @@ acquire_binary_lock
 binary="$PROJECT_ROOT/build/odinc"
 mkdir -p "$PROJECT_ROOT/build"
 step "build odinc"
-flags=(-vet -strict-style -vet-tabs -disallow-do -warnings-as-errors -o:speed "$COLLECTION")
+flags=(-vet -strict-style -vet-tabs -disallow-do -warnings-as-errors "$COLLECTION")
 "$ODIN" build "$PROJECT_ROOT/src/odinc" "${flags[@]}" -out:"$binary" || die "build failed: odinc"
 if (($# == 0)); then exit 0; fi
 "$binary" "$@"

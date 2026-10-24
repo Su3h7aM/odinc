@@ -197,7 +197,7 @@ lower_entries_for_test :: proc(
 		}
 		testing.expectf(t, matched, "scaffold union must declare %s", want)
 	}
-	errors, err := lower_program(&program, module)
+	errors, _, err := lower_program(&program, module)
 	defer delete(errors)
 	if !testing.expect_value(t, err, nil) || !testing.expect_value(t, len(errors), 0) {
 		ir.module_destroy(module)

@@ -145,7 +145,7 @@ broadcast_read_check :: proc(
 	)
 	program.constant_table = fixture_clone(constants, allocator)
 	module: ir.Module
-	errors, err := lower_program(&program, &module)
+	errors, _, err := lower_program(&program, &module)
 	defer delete(errors)
 	if !testing.expect_value(t, err, nil) { return }
 	defer ir.module_destroy(&module)

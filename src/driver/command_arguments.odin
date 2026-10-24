@@ -1,10 +1,10 @@
 package driver
 
 import "base:runtime"
-import "core:flags"
 import "core:fmt"
 import "core:os"
 import "core:path/filepath"
+import "core:strconv"
 import "core:strings"
 import "oc:check"
 import "oc:link"
@@ -20,105 +20,234 @@ Command_Arguments :: struct {
 	keep_executable, test_mode, run, check_only, no_entry_point, help: bool,
 }
 
-@(private = "file")
-Command_Flags :: struct {
-	path:                      string `args:"pos=0"`,
-	output:                    string `args:"short=o"`,
-	dynamic_linker:            string,
-	collection:                [dynamic]string `args:"short=c"`,
-	define:                    [dynamic]string `args:"short=d"`,
-	keep_executable:           bool `args:"short=k"`,
-	all_packages:              bool,
-	thread_count:              int,
-	mcpu:                      string,
-	opt:                       string,
-	sanitize:                  string,
-	ignore_unused_defineables: bool,
-	lifetime_markers:          bool,
-	show_timings:              bool,
-	disallow_do:               bool,
-	no_escape_analysis:        bool,
-	no_atomic_analysis:        bool,
-	vet_atomic_access:         bool,
-	vet_tabs:                  bool,
-	vet_style:                 bool,
-	vet_semicolon:             bool,
-	vet_using_stmt:            bool,
-	vet_using_param:           bool,
-	vet_unused:                bool,
-	vet_unused_variables:      bool,
-	vet_unused_imports:        bool,
-	vet_shadowing:             bool,
-	vet_cast:                  bool,
-	vet_unused_procedures:     bool,
-	vet_packages:              string,
-	vet:                       bool,
-	vet_when_shadowing:        bool,
-	vet_nil_deref:             bool,
-	vet_uninitialized:         bool,
-	warnings_as_errors:        bool,
-	ignore_warnings:           bool,
-	strict_style:              bool,
+Command_Name :: enum u8 {
+	Build,
+	Run,
+	Test,
+	Check,
+}
+
+Command_Set :: bit_set[Command_Name;u8]
+
+// Every flag the odinc commands accept. A flag that a command does not use is rejected for that command.
+Flag_Id :: enum u8 {
+	Help,
+	Output,
+	Dynamic_Linker,
+	Collection,
+	Define,
+	Keep_Executable,
+	All_Packages,
+	Thread_Count,
+	Mcpu,
+	Opt,
+	Sanitize,
+	Max_Error_Count,
+	No_Entry_Point,
+	Disallow_Do,
+	No_Escape_Analysis,
+	No_Atomic_Analysis,
+	Vet,
+	Vet_Atomic_Access,
+	Vet_Tabs,
+	Vet_Style,
+	Vet_Semicolon,
+	Vet_Using_Stmt,
+	Vet_Using_Param,
+	Vet_Unused,
+	Vet_Unused_Variables,
+	Vet_Unused_Imports,
+	Vet_Shadowing,
+	Vet_Cast,
+	Vet_Unused_Procedures,
+	Vet_Packages,
+	Vet_When_Shadowing,
+	Vet_Nil_Deref,
+	Vet_Uninitialized,
+	Warnings_As_Errors,
+	Ignore_Warnings,
+	Strict_Style,
+}
+
+Value_Kind :: enum u8 {
+	Switch,
+	Text,
+	Number,
+	List,
+}
+
+Flag_Spec :: struct {
+	name:        string,
+	short:       u8,
+	kind:        Value_Kind,
+	placeholder: string,
+	commands:    Command_Set,
+}
+
+ALL_COMMANDS :: Command_Set{.Build, .Run, .Test, .Check}
+IMAGE_COMMANDS :: Command_Set{.Build, .Run, .Test}
+RUN_COMMANDS :: Command_Set{.Run, .Test}
+
+FLAGS := [Flag_Id]Flag_Spec {
+	.Help = {name = "help", short = 'h', commands = ALL_COMMANDS},
+	.Output = {name = "output", short = 'o', kind = .Text, placeholder = "path", commands = IMAGE_COMMANDS},
+	.Dynamic_Linker = {name = "dynamic-linker", kind = .Text, placeholder = "path", commands = IMAGE_COMMANDS},
+	.Collection = {name = "collection", short = 'c', kind = .List, placeholder = "name=path", commands = ALL_COMMANDS},
+	.Define = {name = "define", short = 'd', kind = .List, placeholder = "NAME=value", commands = ALL_COMMANDS},
+	.Keep_Executable = {name = "keep-executable", short = 'k', commands = RUN_COMMANDS},
+	.All_Packages = {name = "all-packages", commands = {.Test}},
+	.Thread_Count = {name = "thread-count", kind = .Number, placeholder = "integer", commands = IMAGE_COMMANDS},
+	.Mcpu = {name = "mcpu", kind = .Text, placeholder = "level", commands = ALL_COMMANDS},
+	.Opt = {name = "opt", kind = .Text, placeholder = "speed", commands = IMAGE_COMMANDS},
+	.Sanitize = {name = "sanitize", kind = .Text, placeholder = "flags", commands = IMAGE_COMMANDS},
+	.Max_Error_Count = {name = "max-error-count", kind = .Number, placeholder = "integer", commands = ALL_COMMANDS},
+	.No_Entry_Point = {name = "no-entry-point", commands = {.Check}},
+	.Disallow_Do = {name = "disallow-do", commands = ALL_COMMANDS},
+	.No_Escape_Analysis = {name = "no-escape-analysis", commands = ALL_COMMANDS},
+	.No_Atomic_Analysis = {name = "no-atomic-analysis", commands = ALL_COMMANDS},
+	.Vet = {name = "vet", commands = ALL_COMMANDS},
+	.Vet_Atomic_Access = {name = "vet-atomic-access", commands = ALL_COMMANDS},
+	.Vet_Tabs = {name = "vet-tabs", commands = ALL_COMMANDS},
+	.Vet_Style = {name = "vet-style", commands = ALL_COMMANDS},
+	.Vet_Semicolon = {name = "vet-semicolon", commands = ALL_COMMANDS},
+	.Vet_Using_Stmt = {name = "vet-using-stmt", commands = ALL_COMMANDS},
+	.Vet_Using_Param = {name = "vet-using-param", commands = ALL_COMMANDS},
+	.Vet_Unused = {name = "vet-unused", commands = ALL_COMMANDS},
+	.Vet_Unused_Variables = {name = "vet-unused-variables", commands = ALL_COMMANDS},
+	.Vet_Unused_Imports = {name = "vet-unused-imports", commands = ALL_COMMANDS},
+	.Vet_Shadowing = {name = "vet-shadowing", commands = ALL_COMMANDS},
+	.Vet_Cast = {name = "vet-cast", commands = ALL_COMMANDS},
+	.Vet_Unused_Procedures = {name = "vet-unused-procedures", commands = ALL_COMMANDS},
+	.Vet_Packages = {name = "vet-packages", kind = .Text, placeholder = "names", commands = ALL_COMMANDS},
+	.Vet_When_Shadowing = {name = "vet-when-shadowing", commands = ALL_COMMANDS},
+	.Vet_Nil_Deref = {name = "vet-nil-deref", commands = ALL_COMMANDS},
+	.Vet_Uninitialized = {name = "vet-uninitialized", commands = ALL_COMMANDS},
+	.Warnings_As_Errors = {name = "warnings-as-errors", commands = ALL_COMMANDS},
+	.Ignore_Warnings = {name = "ignore-warnings", commands = ALL_COMMANDS},
+	.Strict_Style = {name = "strict-style", commands = ALL_COMMANDS},
 }
 
 @(private = "file")
-Check_Command_Flags :: struct {
-	path:                      string `args:"pos=0"`,
-	collection:                [dynamic]string `args:"short=c"`,
-	define:                    [dynamic]string `args:"short=d"`,
-	no_entry_point:            bool,
-	ignore_unused_defineables: bool,
-	lifetime_markers:          bool,
-	show_timings:              bool,
-	disallow_do:               bool,
-	no_escape_analysis:        bool,
-	no_atomic_analysis:        bool,
-	vet_atomic_access:         bool,
-	vet_tabs:                  bool,
-	vet_style:                 bool,
-	vet_semicolon:             bool,
-	vet_using_stmt:            bool,
-	vet_using_param:           bool,
-	vet_unused:                bool,
-	vet_unused_variables:      bool,
-	vet_unused_imports:        bool,
-	vet_shadowing:             bool,
-	vet_cast:                  bool,
-	vet_unused_procedures:     bool,
-	vet_packages:              string,
-	vet:                       bool,
-	vet_when_shadowing:        bool,
-	vet_nil_deref:             bool,
-	vet_uninitialized:         bool,
-	warnings_as_errors:        bool,
-	ignore_warnings:           bool,
-	strict_style:              bool,
+Command_Model :: struct {
+	path, output, dynamic_linker, mcpu, opt, sanitize, vet_packages: string,
+	collection, define:                                              [dynamic]string,
+	thread_count, max_error_count:                                   int,
+	switches:                                                        bit_set[Flag_Id],
 }
 
+command_from_name :: proc(name: string) -> (command: Command_Name, valid: bool) {
+	switch name {
+	case "build":
+		return .Build, true
+	case "run":
+		return .Run, true
+	case "test":
+		return .Test, true
+	case "check":
+		return .Check, true
+	}
+	return {}, false
+}
+
+// Splits `--name=value`, `--name` or `-x` into a flag of the table; `found` is false for an unknown name.
 @(private = "file")
-parse_command_flag_model :: proc(model: ^$T, args: []string, allocator: runtime.Allocator) -> (help: bool, error: string) {
-	if parse_error := flags.parse(model, args, .Unix, allocator = allocator); parse_error != nil {
-		switch value in parse_error {
-		case flags.Help_Request:
-			return true, ""
-		case flags.Parse_Error:
-			return false, value.message
-		case flags.Validation_Error:
-			return false, value.message
-		case flags.Open_File_Error:
-			return false, "Cannot parse command arguments"
+flag_from_argument :: proc(argument: string) -> (id: Flag_Id, value: string, has_value, found: bool) {
+	if strings.has_prefix(argument, "--") {
+		name := argument[2:]
+		if equals := strings.index_byte(name, '='); equals >= 0 {
+			value, has_value = name[equals + 1:], true
+			name = name[:equals]
 		}
+		for candidate in Flag_Id {
+			if FLAGS[candidate].name == name { return candidate, value, has_value, true }
+		}
+		return
+	}
+	if len(argument) != 2 { return }
+	for candidate in Flag_Id {
+		if FLAGS[candidate].short == argument[1] { return candidate, "", false, true }
 	}
 	return
 }
 
+@(private = "file")
+set_flag_value :: proc(model: ^Command_Model, id: Flag_Id, value: string) -> string {
+	#partial switch id {
+	case .Output:
+		model.output = value
+	case .Dynamic_Linker:
+		model.dynamic_linker = value
+	case .Collection:
+		append(&model.collection, value)
+	case .Define:
+		append(&model.define, value)
+	case .Thread_Count:
+		count, valid := strconv.parse_int(value)
+		if !valid { return "--thread-count expects a positive integer" }
+		model.thread_count = count
+	case .Max_Error_Count:
+		count, valid := strconv.parse_int(value)
+		if !valid { return "--max-error-count expects an integer" }
+		model.max_error_count = count
+	case .Mcpu:
+		model.mcpu = value
+	case .Opt:
+		model.opt = value
+	case .Sanitize:
+		model.sanitize = value
+	case .Vet_Packages:
+		model.vet_packages = value
+	}
+	return ""
+}
+
+@(private = "file")
+parse_flags :: proc(model: ^Command_Model, name: string, command: Command_Name, args: []string) -> string {
+	for index := 0; index < len(args); index += 1 {
+		argument := args[index]
+		if !strings.has_prefix(argument, "-") {
+			if model.path != "" { return fmt.tprintf("unexpected argument '%s'", argument) }
+			model.path = argument
+			continue
+		}
+		id, value, has_value, found := flag_from_argument(argument)
+		if !found { return unknown_flag_message(argument) }
+		spec := FLAGS[id]
+		if command not_in spec.commands { return fmt.tprintf("--%s is not accepted by odinc %s", spec.name, name) }
+		if spec.kind == .Switch {
+			if has_value { return fmt.tprintf("--%s takes no value", spec.name) }
+			if id == .Warnings_As_Errors && .Ignore_Warnings in model.switches { return "--warnings-as-errors cannot be used with --ignore-warnings" }
+			if id == .Ignore_Warnings && .Warnings_As_Errors in model.switches { return "--ignore-warnings cannot be used with --warnings-as-errors" }
+			model.switches += {id}
+			continue
+		}
+		if !has_value {
+			if index + 1 >= len(args) { return fmt.tprintf("Expected a value for `%s` but none was given.", spec.name) }
+			index += 1
+			value = args[index]
+		}
+		if error := set_flag_value(model, id, value); error != "" { return error }
+	}
+	return ""
+}
+
+@(private = "file")
+unknown_flag_message :: proc(argument: string) -> string {
+	if !strings.has_prefix(argument, "--") { return fmt.tprintf("Unable to find any short flag named `%s`.", argument[1:]) }
+	name := argument[2:]
+	if equals := strings.index_byte(name, '='); equals >= 0 { name = name[:equals] }
+	return fmt.tprintf("Unable to find any flag named `%s`.", name)
+}
+
 parse_command_arguments :: proc(name: string, args: []string, allocator := context.allocator) -> (command: Command_Arguments, error: string) {
+	kind, known := command_from_name(name)
+	if !known { return command, fmt.tprintf("unknown command '%s'", name) }
 	args := args
 	command.options.defines = make(map[string]string, allocator)
 	command.collections = make([dynamic]Collection, allocator)
-	command.check_only = name == "check"
-	command.test_mode = name == "test"
-	command.run = name == "test" || name == "run"
+	command.check_only = kind == .Check
+	command.test_mode = kind == .Test
+	command.run = kind == .Test || kind == .Run
 	for argument, index in args {
 		if argument == "--" {
 			if command.run { command.run_arguments = args[index + 1:] }
@@ -126,82 +255,49 @@ parse_command_arguments :: proc(name: string, args: []string, allocator := conte
 			break
 		}
 	}
-	model := Command_Flags {
-		thread_count   = max(os.get_processor_core_count(), 1),
-		mcpu           = "x86_64_v1",
-		dynamic_linker = link.DEFAULT_INTERPRETER,
+	model := Command_Model {
+		collection      = make([dynamic]string, allocator),
+		define          = make([dynamic]string, allocator),
+		max_error_count = 36,
+		thread_count    = max(os.get_processor_core_count(), 1),
+		mcpu            = "x86_64_v1",
+		dynamic_linker  = link.DEFAULT_INTERPRETER,
 	}
 	defer delete(model.collection)
 	defer delete(model.define)
-	if command.check_only {
-		check_flags: Check_Command_Flags
-		command.help, error = parse_command_flag_model(&check_flags, args, allocator)
-		model.path = check_flags.path
-		model.collection = check_flags.collection
-		model.define = check_flags.define
-		command.no_entry_point = check_flags.no_entry_point
-		model.disallow_do = check_flags.disallow_do
-		model.no_escape_analysis = check_flags.no_escape_analysis
-		model.no_atomic_analysis = check_flags.no_atomic_analysis
-		model.vet_atomic_access = check_flags.vet_atomic_access
-		model.vet_tabs = check_flags.vet_tabs
-		model.vet_style = check_flags.vet_style
-		model.vet_semicolon = check_flags.vet_semicolon
-		model.vet_using_stmt = check_flags.vet_using_stmt
-		model.vet_using_param = check_flags.vet_using_param
-		model.vet_unused = check_flags.vet_unused
-		model.vet_unused_variables = check_flags.vet_unused_variables
-		model.vet_unused_imports = check_flags.vet_unused_imports
-		model.vet_shadowing = check_flags.vet_shadowing
-		model.vet_cast = check_flags.vet_cast
-		model.vet_unused_procedures = check_flags.vet_unused_procedures
-		model.vet_packages = check_flags.vet_packages
-		model.vet = check_flags.vet
-		model.vet_when_shadowing = check_flags.vet_when_shadowing
-		model.vet_nil_deref = check_flags.vet_nil_deref
-		model.vet_uninitialized = check_flags.vet_uninitialized
-		model.warnings_as_errors = check_flags.warnings_as_errors
-		model.ignore_warnings = check_flags.ignore_warnings
-		model.strict_style = check_flags.strict_style
-	} else {
-		command.help, error = parse_command_flag_model(&model, args, allocator)
-	}
-	if command.help || error != "" { return }
-	if model.no_atomic_analysis &&
-	   model.vet_atomic_access { return command, "--vet-atomic-access cannot be used with --no-atomic-analysis, as it is part of it" }
-	if model.no_escape_analysis &&
-	   (model.vet_nil_deref ||
-			   model.vet_uninitialized) { return command, "--vet-nil-deref and --vet-uninitialized cannot be used with --no-escape-analysis, as they are part of it" }
-	if model.ignore_warnings && model.warnings_as_errors {
-		for argument in args {
-			if argument == "--ignore-warnings" ||
-			   strings.has_prefix(argument, "--ignore-warnings=") { return command, "--warnings-as-errors cannot be used with --ignore-warnings" }
-			if argument == "--warnings-as-errors" ||
-			   strings.has_prefix(argument, "--warnings-as-errors=") { return command, "--ignore-warnings cannot be used with --warnings-as-errors" }
-		}
-	}
-
+	error = parse_flags(&model, name, kind, args)
+	command.help = .Help in model.switches
+	if command.help || error != "" { return command, error }
+	if model.max_error_count <= 0 { return command, "--max-error-count must be greater than 0" }
+	if .No_Atomic_Analysis in model.switches &&
+	   .Vet_Atomic_Access in model.switches { return command, "--vet-atomic-access cannot be used with --no-atomic-analysis, as it is part of it" }
+	if .No_Escape_Analysis in model.switches &&
+	   (.Vet_Nil_Deref in model.switches ||
+			   .Vet_Uninitialized in
+				   model.switches) { return command, "--vet-nil-deref and --vet-uninitialized cannot be used with --no-escape-analysis, as they are part of it" }
 	command.path = model.path
 	command.output = model.output
 	command.dynamic_linker = model.dynamic_linker
-	command.keep_executable = model.keep_executable
-	command.options.all_packages = model.all_packages
+	command.keep_executable = .Keep_Executable in model.switches
+	command.no_entry_point = .No_Entry_Point in model.switches
+	command.options.all_packages = .All_Packages in model.switches
 	command.options.thread_count = model.thread_count
+	command.options.max_error_count = model.max_error_count
 	vet_packages, vet_packages_error := parse_vet_packages(model.vet_packages, allocator)
 	if vet_packages_error != "" { return command, vet_packages_error }
-	if model.vet_unused_procedures && model.vet_packages == "" { return command, "--vet-unused-procedures must be used with --vet-packages" }
+	if .Vet_Unused_Procedures in model.switches && model.vet_packages == "" { return command, "--vet-unused-procedures must be used with --vet-packages" }
 	command.options.check_options = check.Check_Options {
-		warnings_as_errors = model.warnings_as_errors,
-		ignore_warnings    = model.ignore_warnings,
+		warnings_as_errors = .Warnings_As_Errors in model.switches,
+		ignore_warnings    = .Ignore_Warnings in model.switches,
 	}
 	command.options.parse_options = syntax.Parse_Options {
-		disallow_do  = model.disallow_do,
-		vet          = vet_flags_from_command(model),
+		disallow_do  = .Disallow_Do in model.switches,
+		vet          = vet_flags_from_command(model.switches),
 		vet_packages = vet_packages,
-		strict_style = model.strict_style,
+		strict_style = .Strict_Style in model.switches,
 	}
-	if model.no_escape_analysis { command.options.parse_options.no_analysis += {.Escape} }
-	if model.no_atomic_analysis { command.options.parse_options.no_analysis += {.Atomic} }
+	if .No_Escape_Analysis in model.switches { command.options.parse_options.no_analysis += {.Escape} }
+	if .No_Atomic_Analysis in model.switches { command.options.parse_options.no_analysis += {.Atomic} }
 	if command.path == "" { return command, fmt.tprintf("usage: odinc %s <file-or-directory> [options] [-- arguments]", name) }
 	if model.sanitize != "" { return command, "odinc test: sanitizers are not supported" }
 	if model.thread_count < 1 { return command, "--thread-count expects a positive integer" }
@@ -221,6 +317,25 @@ parse_command_arguments :: proc(name: string, args: []string, allocator := conte
 		if parse_define_argument(&command.options.defines, value) != .None { return command, define_argument_error_message(value) }
 	}
 	return
+}
+
+// The usage text of `name`, listing the flags its command accepts from FLAGS; the result is allocator-owned.
+command_usage :: proc(name: string, allocator := context.allocator) -> string {
+	command, _ := command_from_name(name)
+	builder := strings.builder_make(allocator)
+	fmt.sbprintfln(&builder, "usage: odinc %s <file-or-directory> [options] [-- arguments]\n\noptions:", name)
+	for id in Flag_Id {
+		spec := FLAGS[id]
+		if command not_in spec.commands { continue }
+		if spec.short != 0 {
+			fmt.sbprintf(&builder, "  -%c, --%s", rune(spec.short), spec.name)
+		} else {
+			fmt.sbprintf(&builder, "      --%s", spec.name)
+		}
+		if spec.placeholder != "" { fmt.sbprintf(&builder, " %s", spec.placeholder) }
+		strings.write_byte(&builder, '\n')
+	}
+	return strings.to_string(builder)
 }
 
 validate_command_input :: proc(command: ^Command_Arguments, root: string, allocator := context.allocator) -> string {
@@ -274,23 +389,23 @@ default_output_path :: proc(input: string, allocator := context.allocator) -> (o
 
 // `--vet` is VetFlag_All of the official build_settings.cpp, which leaves out using-param, style, semicolon and tabs.
 @(private = "file")
-vet_flags_from_command :: proc(model: Command_Flags) -> (flags: syntax.Vet_Flags) {
-	if model.vet { flags += syntax.VET_ALL }
-	if model.vet_unused { flags += syntax.VET_UNUSED }
-	if model.vet_unused_variables { flags += {.Unused_Variables} }
-	if model.vet_unused_imports { flags += {.Unused_Imports} }
-	if model.vet_unused_procedures { flags += {.Unused_Procedures} }
-	if model.vet_shadowing { flags += {.Shadowing} }
-	if model.vet_using_stmt { flags += {.Using_Stmt} }
-	if model.vet_using_param { flags += {.Using_Param} }
-	if model.vet_style { flags += {.Style} }
-	if model.vet_semicolon { flags += {.Semicolon} }
-	if model.vet_cast { flags += {.Cast} }
-	if model.vet_atomic_access { flags += {.Atomic_Access} }
-	if model.vet_tabs { flags += {.Tabs} }
-	if model.vet_when_shadowing { flags += {.When_Shadowing} }
-	if model.vet_nil_deref { flags += {.Nil_Deref} }
-	if model.vet_uninitialized { flags += {.Uninitialized} }
+vet_flags_from_command :: proc(switches: bit_set[Flag_Id]) -> (flags: syntax.Vet_Flags) {
+	if .Vet in switches { flags += syntax.VET_ALL }
+	if .Vet_Unused in switches { flags += syntax.VET_UNUSED }
+	if .Vet_Unused_Variables in switches { flags += {.Unused_Variables} }
+	if .Vet_Unused_Imports in switches { flags += {.Unused_Imports} }
+	if .Vet_Unused_Procedures in switches { flags += {.Unused_Procedures} }
+	if .Vet_Shadowing in switches { flags += {.Shadowing} }
+	if .Vet_Using_Stmt in switches { flags += {.Using_Stmt} }
+	if .Vet_Using_Param in switches { flags += {.Using_Param} }
+	if .Vet_Style in switches { flags += {.Style} }
+	if .Vet_Semicolon in switches { flags += {.Semicolon} }
+	if .Vet_Cast in switches { flags += {.Cast} }
+	if .Vet_Atomic_Access in switches { flags += {.Atomic_Access} }
+	if .Vet_Tabs in switches { flags += {.Tabs} }
+	if .Vet_When_Shadowing in switches { flags += {.When_Shadowing} }
+	if .Vet_Nil_Deref in switches { flags += {.Nil_Deref} }
+	if .Vet_Uninitialized in switches { flags += {.Uninitialized} }
 	return
 }
 

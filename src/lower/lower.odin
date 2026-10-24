@@ -32,13 +32,16 @@ DEFAULT_CONTEXT_SIZE :: 256
 // Initializes module in place; do not move it. The caller destroys it with ir.module_destroy
 // and deletes errors with allocator. Allocation failure destroys the partial module.
 // A nonempty error list means the module must not be used for code generation.
+// required_symbols borrows module's arena until ir.module_destroy.
 lower_program :: proc(
 	program: ^check.Checked_Program,
 	module: ^ir.Module,
 	allocator := context.allocator,
 	worker_count := 1,
+	library_prefixes: []string = nil,
 ) -> (
 	errors: []Lower_Error,
+	required_symbols: []check.Symbol_Id,
 	err: runtime.Allocator_Error,
 ) {
 	assert(program != nil && module != nil && check.type_store(program) != nil)
@@ -48,6 +51,7 @@ lower_program :: proc(
 		ir.module_destroy(module)
 		delete(errors, allocator)
 		errors = nil
+		required_symbols = nil
 	}
 	module.microarch = program.microarch
 	scratch: virtual.Arena
@@ -87,6 +91,7 @@ lower_program :: proc(
 			extern_names    = make([dynamic]string, virtual.arena_allocator(&module.functions[symbol.index].arena)) or_return,
 		}
 		job.function.target_features = procedure.target_features
+		job.function.disabled_target_features = procedure.disabled_target_features
 		prepare_procedure(job, scratch_allocator) or_return
 	}
 	for &job in jobs {
@@ -108,18 +113,40 @@ lower_program :: proc(
 	append_startup_procedures(program, module, symbols, declarations, layouts, &abi_plans, default_context, &collected, allocator) or_return
 	startup_roots := make([]u32, len(module.functions) - startup_base, scratch_allocator) or_return
 	for index in startup_base ..< len(module.functions) { startup_roots[index - startup_base] = u32(index) }
-	reached_globals := lower_reachable(program, module, jobs, startup_roots, symbols, worker_count, allocator, scratch_allocator) or_return
+	reached_globals, reached_externs := lower_reachable(
+		program,
+		module,
+		jobs,
+		startup_roots,
+		symbols,
+		worker_count,
+		library_prefixes,
+		allocator,
+		scratch_allocator,
+	) or_return
+	required_count := 0
+	for symbol in symbols {
+		if symbol.space == .Extern && reached_externs[symbol.index] { required_count += 1 }
+	}
+	required_symbols = make([]check.Symbol_Id, required_count, virtual.arena_allocator(&module.arena)) or_return
+	required_index := 0
+	for symbol, index in symbols {
+		if symbol.space != .Extern || !reached_externs[symbol.index] { continue }
+		required_symbols[required_index] = check.Symbol_Id(index)
+		required_index += 1
+	}
 	for &job in jobs {
 		merge_job_externs(module, &job) or_return
 	}
-	prune_unreached_global_errors(program, symbols, reached_globals, &collected) or_return
+	merge_module_externs(module, scratch_allocator) or_return
+	prune_unreached_global_errors(program, symbols, reached_globals, library_prefixes, &collected) or_return
 	for &job in jobs {
-		if job.allocation_error != nil { return nil, job.allocation_error }
+		if job.allocation_error != nil { return nil, nil, job.allocation_error }
 		append(&collected, ..job.errors[:]) or_return
 	}
 	_, merge_error := ir.blob_merge(module)
-	if merge_error != nil { return nil, merge_error }
+	if merge_error != nil { return nil, nil, merge_error }
 	errors = make([]Lower_Error, len(collected), allocator) or_return
 	copy(errors, collected[:])
-	return errors, nil
+	return errors, required_symbols, nil
 }

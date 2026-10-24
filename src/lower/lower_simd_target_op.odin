@@ -39,9 +39,11 @@ lower_simd_target_op :: proc(
 	case:
 		return lower_fail(state, node, .Builtin)
 	}
-	values, ok := lower_intrinsic_operands(state, node, plan)
+	storage: [4]ir.Node_Id
+	values, ok := lower_intrinsic_operands(state, node, plan, storage[:])
 	if !ok { return 0 }
 	count := len(plan.arguments)
+	if count != int(ir.target_op_info[operation].arg_count) { return lower_fail(state, node, .Builtin) }
 	arguments: [3]ir.Node_Id
 	for index in 0 ..< count {
 		is_immediate := kind == .X86_Aeskeygenassist && index == 1 || kind == .X86_Pclmulqdq && index == 2

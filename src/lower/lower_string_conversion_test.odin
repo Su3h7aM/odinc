@@ -42,7 +42,7 @@ string_conversion_lowers :: proc(t: ^testing.T, allocator: runtime.Allocator, st
 		allocator,
 	)
 	module: ir.Module
-	errors, err := lower_program(&program, &module)
+	errors, _, err := lower_program(&program, &module)
 	defer delete(errors)
 	if !testing.expect_value(t, err, nil) { return }
 	defer ir.module_destroy(&module)

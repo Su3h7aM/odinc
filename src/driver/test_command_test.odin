@@ -32,18 +32,7 @@ test_command_flag_syntax :: proc(t: ^testing.T) {
 	testing.expect_value(t, native.options.microarch, types.native_x86_level())
 	build, build_error := parse_command_arguments(
 		"build",
-		[]string {
-			"testdata",
-			"--disallow-do",
-			"--show-timings",
-			"--lifetime-markers",
-			"--ignore-unused-defineables",
-			"--vet-tabs",
-			"--vet-style",
-			"--strict-style",
-			"--mcpu",
-			"x86_64_v2",
-		},
+		[]string{"testdata", "--disallow-do", "--max-error-count=12", "--vet-tabs", "--vet-style", "--strict-style", "--mcpu", "x86_64_v2"},
 	)
 	defer delete(build.options.defines)
 	defer delete(build.collections)
@@ -54,8 +43,33 @@ test_command_flag_syntax :: proc(t: ^testing.T) {
 		{.Tabs, .Style} <= build.options.parse_options.vet &&
 		build.options.parse_options.strict_style &&
 		build.options.microarch == .V2 &&
+		build.options.max_error_count == 12 &&
 		!build.test_mode,
 	)
+}
+
+@(test)
+test_command_flags_come_from_one_table_per_command :: proc(t: ^testing.T) {
+	check_command, check_error := parse_command_arguments(
+		"check",
+		[]string{"testdata", "--mcpu", "x86_64_v2", "--vet-unused-variables", "--max-error-count", "7"},
+	)
+	defer delete(check_command.options.defines)
+	defer delete(check_command.collections)
+	testing.expect_value(t, check_error, "")
+	testing.expect(
+		t,
+		check_command.options.microarch == .V2 && check_command.options.max_error_count == 7 && .Unused_Variables in check_command.options.parse_options.vet,
+	)
+
+	rejected, rejected_error := parse_command_arguments("check", []string{"testdata", "--output", "tests"})
+	defer delete(rejected.options.defines)
+	defer delete(rejected.collections)
+	testing.expect_value(t, rejected_error, "--output is not accepted by odinc check")
+
+	usage := command_usage("check")
+	defer delete(usage)
+	testing.expect(t, strings.contains(usage, "--mcpu") && strings.contains(usage, "--no-entry-point") && !strings.contains(usage, "--output"), usage)
 }
 
 @(test)

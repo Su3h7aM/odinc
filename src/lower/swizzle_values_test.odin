@@ -124,7 +124,7 @@ swizzle_nested_wide_indices_preserve_values :: proc(t: ^testing.T) {
 			allocator,
 		)
 		module: ir.Module
-		errors, err := lower_program(&program, &module)
+		errors, _, err := lower_program(&program, &module)
 		defer delete(errors)
 		if !testing.expect_value(t, err, nil) { continue }
 		defer ir.module_destroy(&module)

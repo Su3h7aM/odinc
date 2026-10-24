@@ -24,7 +24,7 @@ empty_procedure_verifies :: proc(t: ^testing.T) {
 		procedure_list = {{entity = 1, symbol = 1, signature = signature, convention = .Contextless, body = {1, body}}},
 	}
 	module: ir.Module
-	errors, err := lower_program(&program, &module, context.allocator, worker_count = 2)
+	errors, _, err := lower_program(&program, &module, context.allocator, worker_count = 2)
 	defer delete(errors)
 	if !testing.expect_value(t, err, nil) { return }
 	defer ir.module_destroy(&module)
@@ -64,20 +64,30 @@ checked_target_features_copied_to_ir :: proc(t: ^testing.T) {
 		},
 		entity_symbols = {0, 1, 2},
 		procedure_list = {
-			{entity = 1, symbol = 1, signature = signature, convention = .Contextless, body = {1, first_body}, microarch = .V2},
+			{
+				entity = 1,
+				symbol = 1,
+				signature = signature,
+				convention = .Contextless,
+				body = {1, first_body},
+				disabled_target_features = types.x86_disabled_features({.Avx}),
+				microarch = .V2,
+			},
 			{entity = 2, symbol = 2, signature = signature, convention = .Contextless, body = {1, second_body}, target_features = {.Avx2}, microarch = .V2},
 		},
 		microarch      = .V2,
 	}
 	module: ir.Module
-	errors, err := lower_program(&program, &module, context.allocator, worker_count = 2)
+	errors, _, err := lower_program(&program, &module, context.allocator, worker_count = 2)
 	defer delete(errors)
 	if !testing.expect_value(t, err, nil) { return }
 	defer ir.module_destroy(&module)
 	testing.expect_value(t, len(errors), 0)
 	if !testing.expect_value(t, len(module.functions), 2) { return }
 	testing.expect(t, module.functions[0].target_features == {})
+	testing.expect(t, module.functions[0].disabled_target_features == types.x86_disabled_features({.Avx}))
 	testing.expect(t, module.functions[1].target_features == types.X86_Features{.Avx2})
+	testing.expect(t, module.functions[1].disabled_target_features == {})
 	testing.expect_value(t, module.microarch, types.X86_Level.V2)
 }
 

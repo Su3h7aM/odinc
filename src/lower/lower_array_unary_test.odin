@@ -378,7 +378,7 @@ array_unary_check :: proc(
 	}
 	program.constant_table = fixture_clone(constants, allocator)
 	module: ir.Module
-	errors, err := lower_program(&program, &module)
+	errors, _, err := lower_program(&program, &module)
 	defer delete(errors)
 	defer ir.module_destroy(&module)
 	if !testing.expect_value(t, err, nil) { return }

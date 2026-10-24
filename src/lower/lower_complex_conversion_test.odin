@@ -135,7 +135,7 @@ complex_to_quaternion_case :: proc(t: ^testing.T, source_bytes, target_bytes: i6
 		allocator,
 	)
 	module: ir.Module
-	errors, err := lower_program(&program, &module)
+	errors, _, err := lower_program(&program, &module)
 	defer delete(errors)
 	if !testing.expect_value(t, err, nil) { return }
 	defer ir.module_destroy(&module)

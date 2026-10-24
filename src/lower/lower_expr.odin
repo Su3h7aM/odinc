@@ -166,7 +166,8 @@ lower_entity_value :: proc(state: ^Procedure_State, entity: check.Entity_Id) -> 
 	symbol := check.entity_symbol(state.job.program, entity)
 	if symbol != 0 {
 		ref := state.job.symbols[symbol]
-		if ref.space == .Function || ref.space == .Extern { return ir.symbol_addr(state.job.function, ref) }
+		if ref.space == .Function ||
+		   ref.space == .Extern && state.job.program.entities[entity].kind == .Procedure { return ir.symbol_addr(state.job.function, ref) }
 		address: ir.Node_Id
 		if check.symbols(state.job.program)[int(symbol) - 1].thread_local {
 			address = ir.tls_addr(state.job.function, ref)
@@ -177,11 +178,6 @@ lower_entity_value :: proc(state: ^Procedure_State, entity: check.Entity_Id) -> 
 	}
 	if state.job.program.entities[entity].kind == .Type_Name {
 		return lower_runtime_typeid(state, state.job.procedure.body.node, state.job.program.entities[entity].type)
-	}
-	if state.job.program.entities[entity].kind == .Procedure && .Foreign in state.job.program.entities[entity].flags {
-		extern_ref, valid := extern_symbol(state, foreign_link_name(state.job.program, entity))
-		if !valid { return 0 }
-		return ir.symbol_addr(state.job.function, extern_ref)
 	}
 	return lower_fail(state, state.job.procedure.body.node, .Local)
 }

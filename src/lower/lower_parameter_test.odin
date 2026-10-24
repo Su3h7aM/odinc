@@ -54,7 +54,7 @@ caller_location_aggregate_parameter_lowers :: proc(t: ^testing.T) {
 	}
 	program := expression_fixture(&ast, &store, allocator, body, signature, entities, nil, parameter_ids)
 	module: ir.Module
-	errors, err := lower_program(&program, &module, allocator)
+	errors, _, err := lower_program(&program, &module, allocator)
 	testing.expect_value(t, err, nil)
 	testing.expect_value(t, len(errors), 0)
 	defer ir.module_destroy(&module)
@@ -78,7 +78,7 @@ enum_parameter_lowers_as_its_backing_integer :: proc(t: ^testing.T) {
 	entities := fixture_clone([]check.Entity{{}, {kind = .Procedure, type = signature}, {kind = .Variable, type = enum_type}}, allocator)
 	program := expression_fixture(&ast, &store, allocator, body, signature, entities, nil, {2})
 	module: ir.Module
-	errors, err := lower_program(&program, &module, allocator)
+	errors, _, err := lower_program(&program, &module, allocator)
 	if !testing.expect_value(t, err, nil) { return }
 	defer ir.module_destroy(&module)
 	testing.expect_value(t, len(errors), 0)
@@ -115,7 +115,7 @@ string_parameter_past_the_registers_lowers_from_the_stack :: proc(t: ^testing.T)
 	}
 	program := expression_fixture(&ast, &store, allocator, body, signature, entities, nil, parameter_ids)
 	module: ir.Module
-	errors, err := lower_program(&program, &module, allocator)
+	errors, _, err := lower_program(&program, &module, allocator)
 	if !testing.expect_value(t, err, nil) { return }
 	defer ir.module_destroy(&module)
 	testing.expect_value(t, len(errors), 0)

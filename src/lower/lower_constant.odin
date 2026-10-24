@@ -48,6 +48,12 @@ lower_constant :: proc(state: ^Procedure_State, id: check.Const_Id, target: type
 	if aggregate, is_aggregate := constant.value.(check.Aggregate_Value); is_aggregate {
 		return lower_constant_aggregate(state, constant.type, aggregate)
 	}
+	if slice, is_slice := constant.value.(check.Slice_Value); is_slice {
+		backing := check.constant(state.job.program, slice.backing)
+		plan := lower_constant_aggregate_plan(state, backing.type, backing.value.(check.Aggregate_Value))
+		if state.job.function.error != nil { return 0 }
+		return lower_slice_literal(state, state.job.procedure.body.node, check.Slice_Literal_Plan{type = type, backing = plan})
+	}
 	scalar := scalar_type(state, type)
 	if _, is_nil := constant.value.(check.Nil_Value); is_nil && scalar == .None { return lower_zeroed_aggregate(state, type) }
 	if components, is_complex := constant.value.(check.Complex_Value); is_complex { return lower_component_constant(state, components[:], type) }
@@ -61,9 +67,14 @@ lower_constant :: proc(state: ^Procedure_State, id: check.Const_Id, target: type
 	case bool:
 		return ir.const_int(function, .Bool, i64(value))
 	case big.Int:
-		if scalar < .I8 || scalar > .I64 { return lower_fail(state, state.job.procedure.body.node, .Constant) }
 		integer := value
 		allocator := virtual.arena_allocator(&function.arena)
+		if is_float_type(scalar) || is_float16(state, type) {
+			rational: big.Rat
+			if error := big.rat_set_int(&rational, &integer, allocator); error != .None { return lower_constant_error(state, error) }
+			return lower_rational_constant(state, rational, type, scalar)
+		}
+		if scalar < .I8 || scalar > .I64 { return lower_fail(state, state.job.procedure.body.node, .Constant) }
 		if signed_type(state, type) {
 			bits, error := big.int_get_i64(&integer, allocator)
 			if error != .None {
@@ -82,19 +93,7 @@ lower_constant :: proc(state: ^Procedure_State, id: check.Const_Id, target: type
 	case check.Float_Value:
 		return lower_float_constant(state, value, type, scalar)
 	case big.Rat:
-		// An untyped rational is rounded once, directly to the target float precision.
-		width: u8 = 64
-		if is_float16(state, type) {
-			width = 16
-		} else if scalar == .F32 {
-			width = 32
-		} else if scalar != .F64 {
-			return lower_fail(state, state.job.procedure.body.node, .Constant)
-		}
-		rational := value
-		rounded, _, conversion_error := check.numeric_rational_to_f64(&rational, width)
-		if conversion_error { return lower_fail(state, state.job.procedure.body.node, .Constant) }
-		return lower_float_constant(state, check.Float_Value{bits = transmute(u64)rounded, width = 64}, type, scalar)
+		return lower_rational_constant(state, value, type, scalar)
 	case check.Pointer_Value:
 		return ir.const_int(function, .Ptr, i64(value))
 	case types.Type_Id:
@@ -109,6 +108,23 @@ lower_constant :: proc(state: ^Procedure_State, id: check.Const_Id, target: type
 	case:
 		return lower_fail(state, state.job.procedure.body.node, .Constant)
 	}
+}
+
+// An untyped integer or rational is rounded once, directly to the target float precision.
+@(private)
+lower_rational_constant :: proc(state: ^Procedure_State, value: big.Rat, type: types.Type_Id, scalar: ir.Value_Type) -> ir.Node_Id {
+	width: u8 = 64
+	if is_float16(state, type) {
+		width = 16
+	} else if scalar == .F32 {
+		width = 32
+	} else if scalar != .F64 {
+		return lower_fail(state, state.job.procedure.body.node, .Constant)
+	}
+	rational := value
+	rounded, _, conversion_error := check.numeric_rational_to_f64(&rational, width)
+	if conversion_error { return lower_fail(state, state.job.procedure.body.node, .Constant) }
+	return lower_float_constant(state, check.Float_Value{bits = transmute(u64)rounded, width = 64}, type, scalar)
 }
 
 // A nil aggregate is all zero bytes, addressed like any other aggregate value.
@@ -137,27 +153,27 @@ lower_zeroed_aggregate :: proc(state: ^Procedure_State, type: types.Type_Id) -> 
 // A constant aggregate is built like a literal: a stack slot with one field store per element.
 @(private)
 lower_constant_aggregate :: proc(state: ^Procedure_State, type: types.Type_Id, aggregate: check.Aggregate_Value) -> ir.Node_Id {
+	plan := lower_constant_aggregate_plan(state, type, aggregate)
+	if state.failed || state.job.function.error != nil { return 0 }
+	layout := state.job.layouts[type]
+	if layout.error != .None || layout.size > i64(max(u32)) { return lower_fail(state, state.job.procedure.body.node, .Expression) }
+	return lower_aggregate_struct_into(state, state.job.procedure.body.node, plan, aggregate_storage(state, layout), layout.size)
+}
+
+@(private)
+lower_constant_aggregate_plan :: proc(state: ^Procedure_State, type: types.Type_Id, aggregate: check.Aggregate_Value) -> check.Aggregate_Plan {
 	allocator := virtual.arena_allocator(&state.job.function.arena)
 	values, values_error := make([]check.Operand, len(aggregate.elements), allocator)
 	indices, indices_error := make([]u32, len(aggregate.elements), allocator)
 	if values_error != nil || indices_error != nil {
 		state.job.function.error = runtime.Allocator_Error.Out_Of_Memory
-		return 0
+		return {}
 	}
 	for element, index in aggregate.elements {
 		values[index] = check.Operand(element)
 		indices[index] = u32(index)
 	}
-	node := state.job.procedure.body.node
-	plan := check.Aggregate_Plan {
-		type          = type,
-		values        = values,
-		field_indices = indices,
-	}
-	if state.failed || state.job.function.error != nil { return 0 }
-	layout := state.job.layouts[type]
-	if layout.error != .None || layout.size > i64(max(u32)) { return lower_fail(state, node, .Expression) }
-	return lower_aggregate_struct_into(state, node, plan, aggregate_storage(state, layout), layout.size)
+	return check.Aggregate_Plan{type = type, values = values, field_indices = indices}
 }
 
 @(private)

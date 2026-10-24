@@ -83,7 +83,7 @@ run_float16_edge :: proc(t: ^testing.T, test_case: Float_Edge_Case) {
 	)
 
 	module: ir.Module
-	errors, err := lower_program(&program, &module)
+	errors, _, err := lower_program(&program, &module)
 	defer delete(errors)
 	if !testing.expect_value(t, err, nil) || !testing.expect_value(t, len(errors), 0) { return }
 	defer ir.module_destroy(&module)

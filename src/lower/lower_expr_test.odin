@@ -104,7 +104,7 @@ expressions_preserve_division_modes_and_local_addresses :: proc(t: ^testing.T) {
 		for mode in ([]check.Division_By_Zero{.Trap, .Zero, .Self, .All_Bits}) {
 			program.files[1].policy.division_by_zero = mode
 			module: ir.Module
-			errors, err := lower_program(&program, &module)
+			errors, _, err := lower_program(&program, &module)
 			defer delete(errors)
 			if !testing.expect_value(t, err, nil) { continue }
 			defer ir.module_destroy(&module)
@@ -271,7 +271,7 @@ local_array_aliasing :: proc(t: ^testing.T, store: ^types.Store, allocator: runt
 	big.int_set_from_integer(&letter, i64(97), allocator = allocator)
 	program.constant_table = fixture_clone([]check.Constant{{}, {type = integer, value = five}, {type = integer, value = letter}}, allocator)
 	module: ir.Module
-	errors, err := lower_program(&program, &module)
+	errors, _, err := lower_program(&program, &module)
 	defer delete(errors)
 	if !testing.expect_value(t, err, nil) { return }
 	defer ir.module_destroy(&module)

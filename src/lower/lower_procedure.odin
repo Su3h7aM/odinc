@@ -66,7 +66,12 @@ prepare_procedure :: proc(job: ^Procedure_Job, allocator: runtime.Allocator) -> 
 	plan_error: types.Plan_Error
 	{
 		context.temp_allocator = allocator
-		plan, plan_error = types.plan_abi(store, job.procedure.signature, by_pointer, allocator = allocator)
+		if descriptor.c_vararg {
+			// The tail of a C-variadic procedure is read with `c_va_arg`; only its fixed parameters have ABI pieces.
+			plan, plan_error = types.plan_call_abi(store, job.procedure.signature, by_pointer, nil, allocator = allocator)
+		} else {
+			plan, plan_error = types.plan_abi(store, job.procedure.signature, by_pointer, allocator = allocator)
+		}
 	}
 	if plan_error == .Out_Of_Memory { return .Out_Of_Memory }
 	if plan_error != .None {
@@ -172,7 +177,7 @@ lower_procedure :: proc(job: ^Procedure_Job) -> (err: runtime.Allocator_Error) {
 		index += span
 	}
 	for entity in procedure.parameters {
-		if state.locals[entity].kind != .None { continue }
+		if state.locals[entity].kind != .None || .C_Variadic in job.program.entities[entity].flags { continue }
 		if job.layouts[job.program.entities[entity].type].size != 0 {
 			report_procedure_error(job, .Unsupported, .Parameter)
 			return job.allocation_error

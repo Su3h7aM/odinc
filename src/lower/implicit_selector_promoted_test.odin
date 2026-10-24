@@ -85,7 +85,7 @@ promoted_literal_fields_store_in_source_order :: proc(t: ^testing.T) {
 			plan.field_paths[0], plan.field_paths[1] = plan.field_paths[1], plan.field_paths[0]
 		}
 		module: ir.Module
-		errors, err := lower_program(&program, &module)
+		errors, _, err := lower_program(&program, &module)
 		defer delete(errors)
 		defer ir.module_destroy(&module)
 		if !testing.expect_value(t, err, nil) || !testing.expect_value(t, len(errors), 0) { return }

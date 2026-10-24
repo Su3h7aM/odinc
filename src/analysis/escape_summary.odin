@@ -225,7 +225,7 @@ escape_path_widen :: proc(escape: ^Escape, path: Path_Id) -> (result: Path_Id, e
 	return escape_path_from(escape, steps[:cut])
 }
 
-@(private = "file")
+@(private = "package")
 escape_path_steps :: proc(escape: ^Escape, path: Path_Id) -> (steps: [dynamic]Path_Step, err: runtime.Allocator_Error) {
 	steps = make([dynamic]Path_Step, 0, escape.allocator) or_return
 	for current := path; current != 0; current = escape.graph.paths[current].parent { append(&steps, escape.graph.paths[current].step) or_return }
@@ -373,7 +373,7 @@ escape_invoke :: proc(escape: ^Escape, expression: check.Expression_Ref) -> (res
 	resolved := call.entity if call.entity != 0 else callee.entity
 	if resolved != 0 && program.entities[resolved].kind == .Procedure { target = escape_procedure_target(escape, resolved) }
 	flows: []Flow
-	if target != 0 && int(target) < len(escape.summaries) { flows = escape.summaries[target] }
+	if target != 0 && int(target) < len(escape.summaries) && !escape.calls_unknown { flows = escape.summaries[target] }
 	if len(flows) == 0 {
 		for argument in arguments { escape_expression(escape, {expression.view, argument}) or_return }
 		return
@@ -586,7 +586,7 @@ escape_pointee_type :: proc(escape: ^Escape, type: types.Type_Id) -> types.Type_
 	return 0
 }
 
-@(private = "file")
+@(private = "package")
 escape_type_follow :: proc(escape: ^Escape, type: types.Type_Id, steps: []Path_Step) -> types.Type_Id {
 	current := type
 	for step in steps {
@@ -760,9 +760,24 @@ escape_analyse_program :: proc(escape: ^Escape, options: Options) -> runtime.All
 
 @(private = "file")
 escape_analyse_one :: proc(escape: ^Escape, id: Procedure_Id, options: Options) -> runtime.Allocator_Error {
-	escape_reset_graph(escape) or_return
 	reports := escape_report_list(escape)
 	first_report := len(reports^)
+	escape.calls_unknown = false
+	escape_analyse_procedure(escape, id, options) or_return
+	if escape.too_large {
+		resize(reports, first_report) or_return
+		escape.calls_unknown = true
+		escape_analyse_procedure(escape, id, options) or_return
+	}
+	for &report in (reports^)[first_report:] {
+		report.reason = strings.clone(report.reason, escape.run.allocator) or_return
+	}
+	return nil
+}
+
+@(private = "file")
+escape_analyse_procedure :: proc(escape: ^Escape, id: Procedure_Id, options: Options) -> runtime.Allocator_Error {
+	escape_reset_graph(escape) or_return
 	checked := escape.run.program.procedure_list[escape.run.procedures[id].checked_index]
 	file := &escape.run.program.files[checked.body.file]
 	enabled := file.ast != nil && .Escape in file.ast.analysis
@@ -782,9 +797,6 @@ escape_analyse_one :: proc(escape: ^Escape, id: Procedure_Id, options: Options) 
 	}
 	escape_statement(escape, checked.body.node) or_return
 	escape_finish_procedure(escape, checked.body.node) or_return
-	for &report in (reports^)[first_report:] {
-		report.reason = strings.clone(report.reason, escape.run.allocator) or_return
-	}
 	return nil
 }
 

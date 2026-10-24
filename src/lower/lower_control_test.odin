@@ -160,7 +160,7 @@ loop_branches_preserve_assignments_and_continue_post :: proc(t: ^testing.T) {
 			}
 		}
 		module: ir.Module
-		errors, err := lower_program(&program, &module)
+		errors, _, err := lower_program(&program, &module)
 		defer delete(errors)
 		if !testing.expect_value(t, err, nil) { continue }
 		defer ir.module_destroy(&module)

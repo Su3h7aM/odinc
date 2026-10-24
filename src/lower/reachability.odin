@@ -3,6 +3,7 @@ package lower
 import "base:runtime"
 import "core:mem/virtual"
 import "core:slice"
+import "core:strings"
 import "core:sync"
 import "core:thread"
 import "oc:check"
@@ -20,12 +21,19 @@ Reach_Marks :: struct {
 	lowered:        []bool, // by function index
 	globals:        []bool, // by module global index
 	global_scanned: []bool, // by module global index
+	externs:        []bool,
 }
 
 @(private)
-is_user_entity :: proc(program: ^check.Checked_Program, entity: check.Entity_Id) -> bool {
+is_user_entity :: proc(program: ^check.Checked_Program, entity: check.Entity_Id, library_prefixes: []string) -> bool {
 	package_id := program.entities[entity].package_id
-	return int(package_id) >= len(program.packages) || program.packages[package_id].kind == .User
+	if int(package_id) >= len(program.packages) { return true }
+	package_value := program.packages[package_id]
+	if package_value.kind != .User { return false }
+	for prefix in library_prefixes {
+		if strings.has_prefix(package_value.key, prefix) { return false }
+	}
+	return true
 }
 
 @(private)
@@ -35,7 +43,9 @@ mark_symbol :: proc(marks: ^Reach_Marks, symbol: ir.Symbol_Ref) {
 		marks.functions[symbol.index] = true
 	case .Global:
 		marks.globals[symbol.index] = true
-	case .None, .Extern, .Local_Blob:
+	case .Extern:
+		if int(symbol.index) < len(marks.externs) { marks.externs[symbol.index] = true }
+	case .None, .Local_Blob:
 	}
 }
 
@@ -99,10 +109,12 @@ lower_reachable :: proc(
 	startup_roots: []u32,
 	symbols: []ir.Symbol_Ref,
 	worker_count: int,
+	library_prefixes: []string,
 	allocator: runtime.Allocator,
 	scratch: runtime.Allocator,
 ) -> (
 	reached_globals: []bool,
+	reached_externs: []bool,
 	err: runtime.Allocator_Error,
 ) {
 	marks := Reach_Marks {
@@ -110,6 +122,7 @@ lower_reachable :: proc(
 		lowered        = make([]bool, len(module.functions), scratch) or_return,
 		globals        = make([]bool, len(module.globals), scratch) or_return,
 		global_scanned = make([]bool, len(module.globals), scratch) or_return,
+		externs        = make([]bool, len(module.externs), scratch) or_return,
 	}
 	// The generated startup procedures are already lowered, so only their references need marking. Without
 	// this, helpers used only by dynamic global initializers stay unreached and their calls trap.
@@ -118,10 +131,13 @@ lower_reachable :: proc(
 		scan_function_references(module.functions[root], &marks)
 	}
 	for &job, index in jobs {
-		if is_user_entity(program, job.procedure.entity) { marks.functions[index] = true }
+		if is_user_entity(program, job.procedure.entity, library_prefixes) { marks.functions[index] = true }
 	}
 	for global in check.globals(program) {
-		if is_user_entity(program, global.entity) { mark_symbol(&marks, symbols[global.symbol]) }
+		if is_user_entity(program, global.entity, library_prefixes) { mark_symbol(&marks, symbols[global.symbol]) }
+	}
+	for symbol, index in check.symbols(program) {
+		if .Export in program.entities[symbol.entity].flags { mark_symbol(&marks, symbols[index + 1]) }
 	}
 	runtime_requirements := check.runtime_requirements(program)
 	mark_entity(program, symbols, &marks, runtime_requirements.entry_point)
@@ -183,11 +199,11 @@ lower_reachable :: proc(
 		if marks.lowered[index] { continue }
 		clear(&job.errors)
 		if stub_error := stub_unreached_procedure(job.function); stub_error != nil {
-			if allocation_error, is_allocation := stub_error.(runtime.Allocator_Error); is_allocation { return nil, allocation_error }
+			if allocation_error, is_allocation := stub_error.(runtime.Allocator_Error); is_allocation { return nil, nil, allocation_error }
 			panic("unreached procedure stub failed verification")
 		}
 	}
-	return marks.globals, nil
+	return marks.globals, marks.externs, nil
 }
 
 // Drops initializer errors of unreached runtime globals; user globals always report.
@@ -196,13 +212,14 @@ prune_unreached_global_errors :: proc(
 	program: ^check.Checked_Program,
 	symbols: []ir.Symbol_Ref,
 	reached_globals: []bool,
+	library_prefixes: []string,
 	errors: ^[dynamic]Lower_Error,
 ) -> runtime.Allocator_Error {
 	kept := 0
 	for error in errors {
 		unreached :=
 			error.feature == .Global_Initializer &&
-			!is_user_entity(program, error.entity) &&
+			!is_user_entity(program, error.entity, library_prefixes) &&
 			!reached_globals[symbols[check.entity_symbol(program, error.entity)].index]
 		if unreached { continue }
 		errors[kept] = error

@@ -17,6 +17,7 @@ check_file :: proc(
 	defines: map[string]string,
 	parse_options: syntax.Parse_Options = {},
 	check_options: check.Check_Options = {},
+	max_error_count: int = 36,
 ) -> Driver_Error {
 	file_error: File_Error
 	defer file_error_destroy(&file_error, allocator)
@@ -32,6 +33,7 @@ check_file :: proc(
 		check_options = check_options,
 	)
 	defer session_destroy(session)
+	if session != nil { session.max_error_count = max_error_count }
 	if error == .Check_Failed && session != nil {
 		_ = check_command_entry_point(session, writer, no_entry_point)
 		return .Check_Failed

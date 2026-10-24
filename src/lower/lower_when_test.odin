@@ -62,7 +62,7 @@ when_branch_declarations_stay_visible_after_the_when :: proc(t: ^testing.T) {
 	}
 	program := expression_fixture(&ast, &store, allocator, body, signature, entities, facts, {2})
 	module: ir.Module
-	errors, err := lower_program(&program, &module, allocator)
+	errors, _, err := lower_program(&program, &module, allocator)
 	defer delete(errors)
 	if !testing.expect_value(t, err, nil) { return }
 	defer ir.module_destroy(&module)

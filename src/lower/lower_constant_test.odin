@@ -55,7 +55,7 @@ untyped_constant_past_signed_range_keeps_low_bits :: proc(t: ^testing.T) {
 	// The checker interns default types during checking, before lowering builds its layout table.
 	_ = types.default_type_of_untyped(&store, types.TYPE_UNTYPED_INTEGER)
 	module: ir.Module
-	errors, err := lower_program(&program, &module)
+	errors, _, err := lower_program(&program, &module)
 	defer delete(errors)
 	if !testing.expect_value(t, err, nil) { return }
 	defer ir.module_destroy(&module)
@@ -64,4 +64,47 @@ untyped_constant_past_signed_range_keeps_low_bits :: proc(t: ^testing.T) {
 	testing.expect_value(t, run_error, nil)
 	testing.expect_value(t, actual.outcome, ir.Interp_Outcome.Value)
 	testing.expect_value(t, actual.value, u64(9223372036854775813))
+}
+
+// A constant operand kept as an untyped integer reaches a float use through the target type, as in `t *= f64(64)`.
+@(test)
+untyped_integer_constant_converts_to_float :: proc(t: ^testing.T) {
+	arena: virtual.Arena
+	testing.expect_value(t, virtual.arena_init_growing(&arena), nil)
+	defer virtual.arena_destroy(&arena)
+	allocator := virtual.arena_allocator(&arena)
+	store := types.init()
+	defer types.destroy(&store)
+	word := types.intern(&store, types.Type{kind = .Float, count = 8})
+	signature := types.intern(&store, types.Type{kind = .Procedure, convention = .Contextless, params = {word}, results = {word}})
+	ast: syntax.Ast
+	syntax.ast_init(&ast, allocator)
+	defer syntax.ast_destroy(&ast)
+	shifted := syntax.ast_add_node(&ast, .Basic_Lit, 0, 1, syntax.Basic_Lit{})
+	result := syntax.ast_add_node(&ast, .Return_Stmt, 0, 1, syntax.Return_Stmt{results = syntax.ast_add_list(&ast, {shifted})})
+	body := syntax.ast_add_node(&ast, .Block_Stmt, 0, 1, syntax.Block_Stmt{stmts = syntax.ast_add_list(&ast, {result})})
+	entities := fixture_clone([]check.Entity{{}, {kind = .Procedure, type = signature}, {kind = .Variable, type = word}}, allocator)
+	facts := make([]check.Expression_Info, len(ast.nodes) - 1, allocator)
+	facts[int(shifted) - 1] = {
+		type     = word,
+		constant = 1,
+		mode     = .Constant,
+		state    = .Checked,
+	}
+	program := expression_fixture(&ast, &store, allocator, body, signature, entities, facts, {2})
+	sixty_four := big.Int{}
+	big.int_set_from_integer(&sixty_four, 64, allocator = allocator)
+	program.constant_table = fixture_clone([]check.Constant{{}, {type = types.TYPE_UNTYPED_INTEGER, value = sixty_four}}, allocator)
+	// The checker interns default types during checking, before lowering builds its layout table.
+	_ = types.default_type_of_untyped(&store, types.TYPE_UNTYPED_INTEGER)
+	module: ir.Module
+	errors, _, err := lower_program(&program, &module)
+	defer delete(errors)
+	if !testing.expect_value(t, err, nil) { return }
+	defer ir.module_destroy(&module)
+	if !testing.expect_value(t, len(errors), 0) { return }
+	actual, run_error := ir.interp_run(&module, module.functions[0], {0}, 1000, context.allocator)
+	testing.expect_value(t, run_error, nil)
+	testing.expect_value(t, actual.outcome, ir.Interp_Outcome.Value)
+	testing.expect_value(t, transmute(f64)actual.value, 64)
 }

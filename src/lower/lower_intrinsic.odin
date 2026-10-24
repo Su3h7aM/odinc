@@ -1,5 +1,6 @@
 package lower
 
+import "core:mem/virtual"
 import "oc:check"
 import "oc:ir"
 import "oc:syntax"
@@ -16,16 +17,17 @@ lower_intrinsic :: proc(
 	plan: check.Builtin_Plan,
 	kind: check.Builtin_Kind,
 ) -> ir.Node_Id {
-	// soa_zip takes one operand per field with no intrinsic shape; it lowers
-	// its own operands, past the five-operand intrinsic limit.
 	if kind == .Soa_Zip { return lower_soa_zip(state, node, info, plan) }
+	if kind >= .C_Va_Arg && kind <= .C_Va_Start { return lower_c_varargs(state, node, info, plan, kind) }
+	if is_scalar_extra(kind) { return lower_scalar_extra(state, node, info, plan, kind) }
 	if kind == .Type_Hasher_Proc { return lower_type_hasher_proc(state, node, plan) }
 	if len(plan.results) != 0 {
 		results: [4]ir.Node_Id
 		lower_intrinsic_tuple(state, node, plan, kind, results[:])
 		return results[0]
 	}
-	values, ok := lower_intrinsic_operands(state, node, plan)
+	storage: [4]ir.Node_Id
+	values, ok := lower_intrinsic_operands(state, node, plan, storage[:])
 	if !ok { return 0 }
 	function := state.job.function
 	arguments := values[:len(plan.arguments)]
@@ -34,12 +36,12 @@ lower_intrinsic :: proc(
 	order, order_ok := intrinsic_memory_order(state, node, kind, arguments)
 	if !order_ok { return 0 }
 	#partial switch kind {
-	case .Unaligned_Store:
+	case .Unaligned_Store, .Non_Temporal_Store:
 		if len(plan.arguments) != 2 || function.nodes.type[values[0]] != .Ptr { return lower_fail(state, node, .Builtin) }
 		pointer := lower_type(state, operand_type(state, plan.arguments[0]))
 		lower_store(state, values[0], values[1], pointer.elem)
 		return 0
-	case .Count_Ones, .Count_Zeros, .Count_Leading_Zeros, .Count_Trailing_Zeros, .Reverse_Bits, .Byte_Swap:
+	case .Count_Ones, .Count_Zeros, .Count_Leading_Zeros, .Count_Trailing_Zeros, .Count_Leading_Ones, .Count_Trailing_Ones, .Reverse_Bits, .Byte_Swap:
 		if is_wide_integer(state, operand_type(state, plan.arguments[0])) { return lower_wide_bit_intrinsic(state, node, kind, values[0]) }
 		if !is_integer_value(function, values[0]) || type != function.nodes.type[values[0]] { return lower_fail(state, node, .Builtin) }
 		return lower_bit_intrinsic(state, kind, values[0])
@@ -169,6 +171,8 @@ lower_intrinsic :: proc(
 	case .Entry_Point:
 		lower_entry_point_call(state, node)
 		return 0
+	case .Valgrind_Client_Request:
+		return lower_valgrind_client_request(state, node, values)
 	}
 	return lower_fail(state, node, .Builtin)
 }
@@ -178,11 +182,16 @@ lower_intrinsic :: proc(
 lower_intrinsic_tuple :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: check.Builtin_Plan, kind: check.Builtin_Kind, results: []ir.Node_Id) {
 	// soa_unzip lowers its own operands and fills one result per field; it
 	// takes no intrinsic shape and no fixed operand array.
+	if kind == .Simd_Deinterleave {
+		lower_simd_deinterleave(state, node, plan, results)
+		return
+	}
 	if kind == .Soa_Unzip {
 		lower_soa_unzip(state, node, plan, results)
 		return
 	}
-	values, ok := lower_intrinsic_operands(state, node, plan)
+	storage: [4]ir.Node_Id
+	values, ok := lower_intrinsic_operands(state, node, plan, storage[:])
 	if !ok { return }
 	function := state.job.function
 	arguments := values[:len(plan.arguments)]
@@ -234,7 +243,7 @@ lower_intrinsic_tuple :: proc(state: ^Procedure_State, node: syntax.Node_Index, 
 // `intrinsics.alloca` is the backend's dynamic stack allocation: the size stays a value, the alignment is a
 // constant the selector and the interpreter read from the node. Anything else fails cleanly as a builtin.
 @(private)
-lower_alloca :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: check.Builtin_Plan, type: ir.Value_Type, values: [5]ir.Node_Id) -> ir.Node_Id {
+lower_alloca :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: check.Builtin_Plan, type: ir.Value_Type, values: []ir.Node_Id) -> ir.Node_Id {
 	function := state.job.function
 	if len(plan.arguments) != 2 || type != .Ptr { return lower_fail(state, node, .Builtin) }
 	if function.nodes.type[values[0]] != .I64 { return lower_fail(state, node, .Builtin) }
@@ -244,13 +253,49 @@ lower_alloca :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: che
 	return ir.add_node(function, .Stack_Alloc, .Ptr, {state.builder.control, values[0]}, {index = u32(alignment)})
 }
 
+// The request words after the default live in a six-word array whose address the special instruction reads.
 @(private)
-lower_intrinsic_operands :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: check.Builtin_Plan) -> (values: [5]ir.Node_Id, ok: bool) {
+lower_valgrind_client_request :: proc(state: ^Procedure_State, node: syntax.Node_Index, values: []ir.Node_Id) -> ir.Node_Id {
+	function := state.job.function
+	if len(values) != 7 { return lower_fail(state, node, .Builtin) }
+	for value in values {
+		if function.nodes.type[value] != .I64 { return lower_fail(state, node, .Builtin) }
+	}
+	words := values[1:]
+	array := ir.stack_slot(function, state.entry_control, u32(len(words) * 8), 8)
+	for word, index in words {
+		lower_store_word(state, ir.ptr_offset(function, array, i64(index * 8)), word)
+	}
+	results: [1]ir.Node_Id
+	lower_target_op(state, node, .Valgrind_Client_Request, {values[0], array}, results[:])
+	return results[0]
+}
+
+@(private)
+lower_intrinsic_operands :: proc(
+	state: ^Procedure_State,
+	node: syntax.Node_Index,
+	plan: check.Builtin_Plan,
+	storage: []ir.Node_Id,
+) -> (
+	values: []ir.Node_Id,
+	ok: bool,
+) {
 	for operand in plan.arguments {
 		if !call_operand_valid(state, operand) {
 			lower_fail(state, node, .Builtin)
 			return values, false
 		}
+	}
+	if len(plan.arguments) <= len(storage) {
+		values = storage[:len(plan.arguments)]
+	} else {
+		allocated, error := make([]ir.Node_Id, len(plan.arguments), virtual.arena_allocator(&state.job.function.arena))
+		if error != nil {
+			state.job.function.error = error
+			return nil, false
+		}
+		values = allocated
 	}
 	for operand, index in plan.arguments {
 		values[index] = lower_operand(state, operand)
@@ -375,6 +420,10 @@ lower_bit_intrinsic :: proc(state: ^Procedure_State, kind: check.Builtin_Kind, v
 		return ir.binary(function, .Sub, ir.const_int(function, type, i64(scalar_bits(type))), ones)
 	case .Count_Leading_Zeros:
 		return ir.unary(function, .Clz, value)
+	case .Count_Leading_Ones:
+		return ir.unary(function, .Clz, ir.binary(function, .Xor, value, ir.const_int(function, type, -1)))
+	case .Count_Trailing_Ones:
+		return ir.unary(function, .Ctz, ir.binary(function, .Xor, value, ir.const_int(function, type, -1)))
 	case .Count_Trailing_Zeros:
 		return ir.unary(function, .Ctz, value)
 	case .Byte_Swap:

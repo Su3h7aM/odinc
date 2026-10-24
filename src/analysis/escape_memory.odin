@@ -128,11 +128,16 @@ escape_load :: proc(
 
 @(private = "package")
 escape_store_memory :: proc(escape: ^Escape, object: Object_Id, path: Path_Id, value: Value_Id, exact: bool = true) -> runtime.Allocator_Error {
+	if escape_too_large(escape) { return nil }
 	replaces := exact
 	for current := path; current != 0; current = escape.graph.paths[current].parent {
 		replaces &= escape.graph.paths[current].step.kind != .Element
 	}
-	if path == 0 && replaces { escape.memory[object] = value; return nil }
+	if path == 0 && replaces {
+		escape.live_facts += len(escape_facts(escape, value)) - len(escape_facts(escape, escape.memory[object]))
+		escape.memory[object] = value
+		return nil
+	}
 	facts := make([dynamic]Value_Fact, 0, escape.allocator) or_return
 	append(&facts, ..escape_facts(escape, escape.memory[object])) or_return
 	if replaces {
@@ -151,7 +156,9 @@ escape_store_memory :: proc(escape: ^Escape, object: Object_Id, path: Path_Id, v
 		fact.definite = false
 		escape_add_fact(&facts, fact) or_return
 	}
-	escape.memory[object] = escape_value(escape, .Store, {}, facts[:], []Value_Id{escape.memory[object], value}) or_return
+	stored := escape_value(escape, .Store, {}, facts[:], []Value_Id{escape.memory[object], value}) or_return
+	escape.live_facts += len(escape_facts(escape, stored)) - len(escape_facts(escape, escape.memory[object]))
+	escape.memory[object] = stored
 	return nil
 }
 

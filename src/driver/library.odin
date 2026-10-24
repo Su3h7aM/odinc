@@ -58,9 +58,10 @@ library_is_external :: proc(library_path: check.Library_Path, odin_root: string)
 	return !strings.has_prefix(relative, "base/") && !strings.has_prefix(relative, "core/")
 }
 
-// Reads every file named by the program's foreign imports, each file once. On error the result is already destroyed.
+// Reads libraries requested by reachable foreign declarations, each file once. On error the result is already destroyed.
 load_foreign_files :: proc(
 	program: ^check.Checked_Program,
+	required_symbols: []check.Symbol_Id,
 	odin_root: string,
 	allocator: runtime.Allocator,
 ) -> (
@@ -77,10 +78,16 @@ load_foreign_files :: proc(
 	foreign_files.shared_images = make([dynamic][]byte, allocator) or_return
 
 	has_external_library := false
+	required_libraries := make([]bool, len(program.entities), allocator) or_return
+	defer delete(required_libraries, allocator)
+	for symbol in required_symbols {
+		library := check.symbols(program)[int(symbol) - 1].library
+		if library != 0 { required_libraries[library] = true }
+	}
 	loaded := make(map[string]bool, allocator = context.temp_allocator)
-	for entity in program.entities {
+	for entity, index in program.entities {
 		library, is_library := entity.data.(check.Library_Data)
-		if !is_library || !library.used { continue }
+		if !is_library || !required_libraries[index] { continue }
 		for library_path in library.paths {
 			if library_is_external(library_path, odin_root) { has_external_library = true }
 			file_path := library_path.name

@@ -71,7 +71,7 @@ any_declaration_lowers_boxed_initial_value :: proc(t: ^testing.T) {
 	program.runtime.type_info = fixture_clone([]check.Type_Info_Entry{{type = integer, runtime_id = 7}}, allocator)
 
 	module: ir.Module
-	errors, err := lower_program(&program, &module)
+	errors, _, err := lower_program(&program, &module)
 	defer delete(errors)
 	defer ir.module_destroy(&module)
 	testing.expect_value(t, err, nil)
@@ -137,7 +137,7 @@ any_field_initializer_lowers_boxed_value :: proc(t: ^testing.T) {
 	program.runtime.type_info = fixture_clone([]check.Type_Info_Entry{{type = integer, runtime_id = 7}}, allocator)
 
 	module: ir.Module
-	errors, err := lower_program(&program, &module)
+	errors, _, err := lower_program(&program, &module)
 	defer delete(errors)
 	defer ir.module_destroy(&module)
 	testing.expect_value(t, err, nil)
@@ -194,7 +194,7 @@ any_return_lowers_boxed_result :: proc(t: ^testing.T) {
 	program.runtime.type_info = fixture_clone([]check.Type_Info_Entry{{type = integer, runtime_id = 7}}, allocator)
 
 	module: ir.Module
-	errors, err := lower_program(&program, &module)
+	errors, _, err := lower_program(&program, &module)
 	defer delete(errors)
 	defer ir.module_destroy(&module)
 	testing.expect_value(t, err, nil)
@@ -249,7 +249,7 @@ any_boxing_lowers_value_and_typeid :: proc(t: ^testing.T) {
 	program.runtime.type_info = fixture_clone([]check.Type_Info_Entry{{type = integer, runtime_id = 7}}, allocator)
 
 	module: ir.Module
-	errors, err := lower_program(&program, &module)
+	errors, _, err := lower_program(&program, &module)
 	defer delete(errors)
 	defer ir.module_destroy(&module)
 	testing.expect_value(t, err, nil)

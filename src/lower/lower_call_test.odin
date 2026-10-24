@@ -247,7 +247,7 @@ direct_calls_preserve_argument_order_conversions_and_syscall_memory :: proc(t: ^
 		allocator,
 	)
 	module: ir.Module
-	errors, err := lower_program(&program, &module, worker_count = 3)
+	errors, _, err := lower_program(&program, &module, worker_count = 3)
 	defer delete(errors)
 	if !testing.expect_value(t, err, nil) { return }
 	defer ir.module_destroy(&module)
@@ -263,7 +263,7 @@ direct_calls_preserve_argument_order_conversions_and_syscall_memory :: proc(t: ^
 	for malformed in ([]check.Call_Plan{{callee = check.Entity_Id(3), entity = 3, arguments = {{value = check.Expression_Ref{1, first_call}, parameter = 8}, {value = check.Expression_Ref{1, second_call}, parameter = 9}}, results = {byte}}, {callee = check.Entity_Id(3), entity = 3, arguments = {{value = check.Expression_Ref{1, first_call}, parameter = 999}, {value = check.Expression_Ref{1, second_call}, parameter = 9, evaluation_order = 1}}, results = {byte}}}) {
 		program.plan_table[4] = malformed
 		rejected: ir.Module
-		failures, allocation_error := lower_program(&program, &rejected)
+		failures, _, allocation_error := lower_program(&program, &rejected)
 		testing.expect_value(t, allocation_error, nil)
 		if allocation_error == nil {
 			if testing.expect_value(t, len(failures), 1) {

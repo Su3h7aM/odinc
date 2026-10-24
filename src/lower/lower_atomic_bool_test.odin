@@ -331,7 +331,7 @@ bool_atomics_store_load_and_compare_exchange_in_order :: proc(t: ^testing.T) {
 	program.global_list = fixture_clone([]check.Global{{entity = 2, symbol = 2, type = boolean, alignment = 1}}, allocator)
 	program.constant_table = fixture_clone([]check.Constant{{}, {type = boolean, value = true}, {type = boolean, value = false}}, allocator)
 	module: ir.Module
-	errors, err := lower_program(&program, &module)
+	errors, _, err := lower_program(&program, &module)
 	defer delete(errors)
 	if !testing.expect_value(t, err, nil) || !testing.expect_value(t, len(errors), 0) { return }
 	defer ir.module_destroy(&module)

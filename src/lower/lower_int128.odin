@@ -175,9 +175,14 @@ lower_wide_numeric_builtin :: proc(state: ^Procedure_State, node: syntax.Node_In
 
 // Each bit intrinsic works on the 64-bit words: counts add or select the word that is nonzero, swaps exchange the halves.
 @(private)
-lower_wide_bit_intrinsic :: proc(state: ^Procedure_State, node: syntax.Node_Index, kind: check.Builtin_Kind, address: ir.Node_Id) -> ir.Node_Id {
+lower_wide_bit_intrinsic :: proc(state: ^Procedure_State, node: syntax.Node_Index, requested: check.Builtin_Kind, address: ir.Node_Id) -> ir.Node_Id {
 	function := state.job.function
 	words := wide_load(state, address)
+	kind := requested
+	if kind == .Count_Leading_Ones || kind == .Count_Trailing_Ones {
+		words = wide_not(function, words)
+		kind = .Count_Leading_Zeros if kind == .Count_Leading_Ones else .Count_Trailing_Zeros
+	}
 	zero := ir.const_int(function, .I64, 0)
 	sixty_four := ir.const_int(function, .I64, 64)
 	#partial switch kind {

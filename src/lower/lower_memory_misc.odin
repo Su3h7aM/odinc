@@ -7,7 +7,8 @@ import "oc:syntax"
 @(private)
 lower_memory_misc :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: check.Builtin_Plan, kind: check.Builtin_Kind) -> (ir.Node_Id, bool) {
 	if kind != .Mem_Zero_Volatile && kind != .Cpu_Relax && kind != .Debug_Trap { return 0, false }
-	values, ok := lower_intrinsic_operands(state, node, plan)
+	storage: [4]ir.Node_Id
+	values, ok := lower_intrinsic_operands(state, node, plan, storage[:])
 	if !ok { return 0, true }
 	function := state.job.function
 	memory := ir.variable_get(state.builder, ir.MEMORY_VARIABLE)

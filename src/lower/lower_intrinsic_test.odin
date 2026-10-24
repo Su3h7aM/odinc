@@ -66,7 +66,7 @@ run_unary_intrinsic :: proc(t: ^testing.T, kind: check.Builtin_Kind, argument: u
 		allocator,
 	)
 	module: ir.Module
-	errors, err := lower_program(&program, &module)
+	errors, _, err := lower_program(&program, &module)
 	defer delete(errors)
 	if !testing.expect_value(t, err, nil) || !testing.expect_value(t, len(errors), 0) { return 0, false }
 	defer ir.module_destroy(&module)
@@ -240,7 +240,7 @@ memory_intrinsics_update_global_in_order :: proc(t: ^testing.T) {
 		allocator,
 	)
 	module: ir.Module
-	errors, err := lower_program(&program, &module)
+	errors, _, err := lower_program(&program, &module)
 	defer delete(errors)
 	if !testing.expect_value(t, err, nil) || !testing.expect_value(t, len(errors), 0) { return }
 	defer ir.module_destroy(&module)

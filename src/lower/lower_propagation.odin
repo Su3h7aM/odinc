@@ -66,14 +66,21 @@ lower_or_else :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: ch
 	ir.jump_to(builder, end)
 	ir.enter_arm(builder, branch, 1)
 	expression := state.ast.nodes[node].payload.(syntax.Or_Else_Expr)
-	fallback := lower_ternary_arm(state, expression.y, plan.fallback_conversion)
-	if state.failed || function.error != nil { return 0 }
-	if scalar == .None {
-		lower_store(state, slot, fallback, result_type)
+	if lower_info(state, expression.y).mode == .No_Value {
+		// A diverging fallback (noreturn call) produces no value: the call runs and the arm ends there.
+		lower_value(state, expression.y)
+		if state.failed || function.error != nil { return 0 }
+		ir.emit_unreachable(builder)
 	} else {
-		ir.variable_set(builder, result, fallback)
+		fallback := lower_ternary_arm(state, expression.y, plan.fallback_conversion)
+		if state.failed || function.error != nil { return 0 }
+		if scalar == .None {
+			lower_store(state, slot, fallback, result_type)
+		} else {
+			ir.variable_set(builder, result, fallback)
+		}
+		ir.jump_to(builder, end)
 	}
-	ir.jump_to(builder, end)
 	ir.seal_target(builder, end)
 	value := slot
 	if scalar != .None { value = ir.variable_get(builder, result) }

@@ -93,6 +93,10 @@ lower_block :: proc(state: ^Procedure_State, node: syntax.Node_Index, block: syn
 	for statement in syntax.node_list(state.ast, block.stmts) { lower_statement(state, statement) }
 	if state.failed || state.job.function.error != nil { return }
 	run_deferred(state, scope.defers)
+	if err := resize(&state.defers, scope.defers); err != nil {
+		state.job.function.error = err
+		return
+	}
 	if state.failed || state.job.function.error != nil { return }
 	ir.jump_to(state.builder, end)
 	ir.seal_target(state.builder, end)

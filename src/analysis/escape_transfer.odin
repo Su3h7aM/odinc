@@ -25,6 +25,8 @@ check_escape_returns :: proc(run: ^Run, options: Options, allocator: runtime.All
 @(private = "package")
 escape_statement :: proc(escape: ^Escape, node: syntax.Node_Index) -> runtime.Allocator_Error {
 	if node == 0 || !escape.reachable { return nil }
+	escape.stmt_visits += 1
+	if escape_too_large(escape) { return nil }
 	program := escape.run.program
 	ast := program.files[program.typed_views[escape.view].file].ast
 	info := check.expression_info(program, escape.view, node)
@@ -39,6 +41,12 @@ escape_statement :: proc(escape: ^Escape, node: syntax.Node_Index) -> runtime.Al
 		escape_declaration(escape, payload, info.plan) or_return
 		escape_note_declaration(escape, syntax.node_list(ast, payload.names), syntax.node_list(ast, payload.values)) or_return
 	case syntax.Assign_Stmt:
+		for source in syntax.node_list(ast, payload.rhs) { escape_note_expression(escape, {escape.view, source}) or_return }
+		for destination in syntax.node_list(ast, payload.lhs) {
+			if payload.op.kind == .Eq {
+				escape_note_address(escape, {escape.view, destination}) or_return
+			} else { escape_note_expression(escape, {escape.view, destination}) or_return }
+		}
 		if info.plan == 0 { return nil }
 		if assignment, ok := check.plan(program, info.plan)^.(check.Assignment_Plan); ok {
 			for destination in assignment.destinations { if !escape_retain_known_effects(escape, destination) { return nil } }
@@ -55,17 +63,17 @@ escape_statement :: proc(escape: ^Escape, node: syntax.Node_Index) -> runtime.Al
 				value: Value_Id
 				if index < len(values) { value = values[index] }
 				escape_store_operand(escape, destination, value) or_return
-				if index < len(syntax.node_list(ast, payload.rhs)) {
-					escape_note_store(
-						escape,
-						syntax.node_list(ast, payload.lhs)[index],
-						syntax.node_list(ast, payload.rhs)[index],
-						payload.op.kind == .Eq,
-					) or_return
-				}
+			}
+			left := syntax.node_list(ast, payload.lhs)
+			right := syntax.node_list(ast, payload.rhs)
+			for destination, index in left {
+				source: syntax.Node_Index
+				if len(right) == len(left) { source = right[index] }
+				escape_note_store(escape, destination, source, payload.op.kind == .Eq) or_return
 			}
 		}
 	case syntax.Return_Stmt:
+		for source in syntax.node_list(ast, payload.results) { escape_note_expression(escape, {escape.view, source}) or_return }
 		if info.plan != 0 {
 			if exit, ok := check.plan(program, info.plan)^.(check.Exit_Plan); ok {
 				for operand in exit.values { if !escape_retain_known_effects(escape, operand) { return nil } }
@@ -149,6 +157,7 @@ escape_declaration :: proc(escape: ^Escape, declaration: syntax.Value_Decl, plan
 	ast := program.files[program.typed_views[escape.view].file].ast
 	names := syntax.node_list(ast, declaration.names)
 	values := syntax.node_list(ast, declaration.values)
+	for source in values { escape_note_expression(escape, {escape.view, source}) or_return }
 	if len(values) != 0 && len(values) != len(names) { escape.reachable = false; return nil }
 	for source in values { if !escape_retain_known_effects(escape, check.Expression_Ref{escape.view, source}) { return nil } }
 	assignment: check.Assignment_Plan

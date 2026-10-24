@@ -21,9 +21,6 @@ call_declaration :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan:
 	return extern_declaration(state, node, plan)
 }
 
-// A bodyless foreign procedure has no job and no checker symbol. Its ABI comes
-// from its planned signature and its address from an extern of its link name.
-// Anything else without a declaration keeps the call failure above.
 @(private)
 extern_declaration :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: check.Call_Plan) -> (declaration: Procedure_Declaration, valid: bool) {
 	program := state.job.program
@@ -52,9 +49,12 @@ extern_declaration :: proc(state: ^Procedure_State, node: syntax.Node_Index, pla
 		state.job.function.error = signature_error
 		return {}, false
 	}
-	link_name := foreign_link_name(program, plan.entity)
-	symbol, symbol_valid := extern_symbol(state, link_name)
-	if !symbol_valid { return {}, false }
+	source_symbol := check.entity_symbol(program, plan.entity)
+	if source_symbol == 0 || state.job.symbols[source_symbol].space != .Extern {
+		lower_fail(state, node, .Call)
+		return {}, false
+	}
+	symbol := state.job.symbols[source_symbol]
 	return Procedure_Declaration {
 			type = procedure.signature,
 			parameters = procedure.parameters,
@@ -65,27 +65,19 @@ extern_declaration :: proc(state: ^Procedure_State, node: syntax.Node_Index, pla
 		true
 }
 
-// A foreign procedure's symbol name, set at collection from its link attributes.
-@(private)
-foreign_link_name :: proc(program: ^check.Checked_Program, entity: check.Entity_Id) -> string {
-	if linked := program.entities[entity].link_name; linked != "" { return linked }
-	return program.entities[entity].name
-}
-
 @(private = "file")
-extern_index :: proc(module: ^ir.Module, name: string) -> (index: u32, found: bool) {
+extern_index :: proc(module: ^ir.Module, name: string, source_count: u32) -> (index: u32, found: bool) {
 	for extern, position in module.externs {
+		if u32(position) < source_count { continue }
 		if extern.name == name { return u32(position), true }
 	}
 	return 0, false
 }
 
-// Names an extern for this job. A name already in the module keeps its index; a new name gets extern_base plus its
-// position in the job. merge_job_externs interns the new names in job order, so indices never depend on timing.
+// Compiler-generated externs stay separate from source declarations until reachability records their library provenance.
 @(private)
 extern_symbol :: proc(state: ^Procedure_State, name: string) -> (symbol: ir.Symbol_Ref, valid: bool) {
 	job := state.job
-	if index, found := extern_index(job.module, name); found { return ir.Symbol_Ref{space = .Extern, index = index}, true }
 	for existing, position in job.extern_names {
 		if existing == name { return ir.Symbol_Ref{space = .Extern, index = job.extern_base + u32(position)}, true }
 	}
@@ -110,8 +102,12 @@ merge_job_externs :: proc(module: ^ir.Module, job: ^Procedure_Job) -> runtime.Al
 	function := job.function
 	indices := make([]u32, len(job.extern_names), virtual.arena_allocator(&function.arena)) or_return
 	module_allocator := virtual.arena_allocator(&module.arena)
+	source_count: u32
+	for symbol in job.symbols {
+		if symbol.space == .Extern { source_count = max(source_count, symbol.index + 1) }
+	}
 	for name, position in job.extern_names {
-		index, found := extern_index(module, name)
+		index, found := extern_index(module, name, source_count)
 		if !found {
 			index = u32(len(module.externs))
 			append(&module.externs, ir.Extern{name = strings.clone(name, module_allocator) or_return}) or_return
@@ -131,6 +127,42 @@ merge_job_externs :: proc(module: ^ir.Module, job: ^Procedure_Job) -> runtime.Al
 			if reloc.target.space == .Extern && reloc.target.index >= job.extern_base {
 				reloc.target.index = indices[reloc.target.index - job.extern_base]
 			}
+		}
+	}
+	return nil
+}
+
+@(private)
+merge_module_externs :: proc(module: ^ir.Module, scratch: runtime.Allocator) -> runtime.Allocator_Error {
+	indices := make([]u32, len(module.externs), scratch) or_return
+	names := make(map[string]u32, len(module.externs), allocator = scratch) or_return
+	kept := 0
+	for extern, index in module.externs {
+		merged, found := names[extern.name]
+		if !found {
+			merged = u32(kept)
+			names[extern.name] = merged
+			module.externs[kept] = extern
+			kept += 1
+		}
+		indices[index] = merged
+	}
+	resize(&module.externs, kept) or_return
+	for function in module.functions {
+		for index in 1 ..< len(function.nodes) {
+			if function.nodes.kind[index] != .Symbol_Addr && function.nodes.kind[index] != .Tls_Addr { continue }
+			symbol := &function.nodes.data[index].symbol
+			if symbol.space == .Extern { symbol.index = indices[symbol.index] }
+		}
+		for &blob in function.blobs {
+			for &reloc in blob.relocs {
+				if reloc.target.space == .Extern { reloc.target.index = indices[reloc.target.index] }
+			}
+		}
+	}
+	for &global in module.globals {
+		for &reloc in global.relocs {
+			if reloc.target.space == .Extern { reloc.target.index = indices[reloc.target.index] }
 		}
 	}
 	return nil

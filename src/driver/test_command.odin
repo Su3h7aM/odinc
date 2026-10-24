@@ -12,6 +12,7 @@ import "oc:syntax"
 import "oc:types"
 
 Test_Options :: struct {
+	max_error_count:   int,
 	all_packages:      bool,
 	defines:           map[string]string,
 	optimization_mode: check.Optimization_Mode,
@@ -37,6 +38,7 @@ build_tests :: proc(
 	session.allocator = allocator
 	test_options := options
 	session.test_options = &test_options
+	session.max_error_count = options.max_error_count
 	session.parse_options = options.parse_options
 	session.check_options = options.check_options
 	defer session_destroy(session)
@@ -65,7 +67,13 @@ build_tests :: proc(
 	write_diagnostics(session, log)
 	module: ir.Module
 	worker_count := max(options.thread_count, 1)
-	errors, lower_error := lower.lower_program(&session.program, &module, allocator, worker_count = worker_count)
+	errors, required_symbols, lower_error := lower.lower_program(
+		&session.program,
+		&module,
+		allocator,
+		worker_count = worker_count,
+		library_prefixes = library_prefixes(odin_root),
+	)
 	defer delete(errors, allocator)
 	if lower_error != nil { return nil, lower_error }
 	defer ir.module_destroy(&module)
@@ -84,7 +92,7 @@ build_tests :: proc(
 		return nil, Lower_Failed{len(errors)}
 	}
 	entry := session.program.entity_symbols[session.test_entry]
-	foreign_files, foreign_err := load_foreign_files(&session.program, session.build.root, allocator)
+	foreign_files, foreign_err := load_foreign_files(&session.program, required_symbols, session.build.root, allocator)
 	if foreign_err != nil {
 		write_build_error(log, foreign_err)
 		return nil, foreign_err

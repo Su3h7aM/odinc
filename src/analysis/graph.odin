@@ -129,6 +129,10 @@ Escape :: struct {
 	entity_objects:    []Object_Id,
 	temporary_objects: map[check.Expression_Ref]Object_Id,
 	memory:            [dynamic]Value_Id,
+	live_facts:        int,
+	stmt_visits:       int,
+	too_large:         bool,
+	calls_unknown:     bool,
 	procedure:         Procedure_Id,
 	view:              check.View_Id,
 	variadic:          check.Entity_Id,
@@ -139,6 +143,7 @@ Escape :: struct {
 	nils:              [dynamic]Nil_Fact,
 	nil_uses:          [dynamic]Nil_Use,
 	uninit_entities:   [dynamic]check.Entity_Id,
+	nil_escaped:       [dynamic]check.Entity_Id,
 	defers:            [dynamic]Defer_Frame,
 	targets:           [dynamic]Control_Target,
 	reported:          [dynamic]syntax.Node_Index,
@@ -388,9 +393,11 @@ escape_reset_graph :: proc(escape: ^Escape) -> runtime.Allocator_Error {
 	escape.fact_index = make(map[u64][dynamic]Index_Range, allocator)
 	escape.temporary_objects = make(map[check.Expression_Ref]Object_Id, allocator)
 	escape.memory = make([dynamic]Value_Id, 0, allocator) or_return
+	escape.live_facts = 0
 	escape.nils = make([dynamic]Nil_Fact, 0, allocator) or_return
 	escape.nil_uses = make([dynamic]Nil_Use, 0, allocator) or_return
 	escape.uninit_entities = make([dynamic]check.Entity_Id, 0, allocator) or_return
+	escape.nil_escaped = make([dynamic]check.Entity_Id, 0, allocator) or_return
 	escape.defers = make([dynamic]Defer_Frame, 0, allocator) or_return
 	escape.targets = make([dynamic]Control_Target, 0, allocator) or_return
 	escape.reported = make([dynamic]syntax.Node_Index, 0, allocator) or_return

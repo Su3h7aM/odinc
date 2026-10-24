@@ -78,7 +78,7 @@ complex_abs_matches_magnitude :: proc(t: ^testing.T) {
 		allocator,
 	)
 	module: ir.Module
-	errors, err := lower_program(&program, &module)
+	errors, _, err := lower_program(&program, &module)
 	defer delete(errors)
 	if !testing.expect_value(t, err, nil) { return }
 	defer ir.module_destroy(&module)
@@ -187,7 +187,7 @@ quaternion_conj_keeps_real_part :: proc(t: ^testing.T) {
 		allocator,
 	)
 	module: ir.Module
-	errors, err := lower_program(&program, &module)
+	errors, _, err := lower_program(&program, &module)
 	defer delete(errors)
 	if !testing.expect_value(t, err, nil) { return }
 	defer ir.module_destroy(&module)
@@ -270,7 +270,7 @@ complex32_abs_reports_unsupported :: proc(t: ^testing.T) {
 		allocator,
 	)
 	module: ir.Module
-	errors, err := lower_program(&program, &module)
+	errors, _, err := lower_program(&program, &module)
 	defer delete(errors)
 	defer ir.module_destroy(&module)
 	if !testing.expect_value(t, err, nil) { return }

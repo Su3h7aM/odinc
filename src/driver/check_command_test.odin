@@ -1,5 +1,6 @@
 package driver
 
+import "core:fmt"
 import "core:os"
 import "core:path/filepath"
 import "core:strings"
@@ -7,6 +8,45 @@ import "core:testing"
 import "oc:analysis"
 import "oc:check"
 import "oc:syntax"
+
+@(test)
+imported_bodies_follow_explicit_lazy_policy :: proc(t: ^testing.T) {
+	root, _ := filepath.join({#directory, "..", ".."}, context.temp_allocator)
+	directory, directory_error := os.make_directory_temp("", "driver-lazy-bodies-*", context.temp_allocator)
+	if !testing.expect_value(t, directory_error, nil) { return }
+	defer os.remove_all(directory)
+	import_directory, _ := filepath.join({directory, "imported"}, context.temp_allocator)
+	if !testing.expect_value(t, os.make_directory(import_directory), nil) { return }
+	main_path, _ := filepath.join({directory, "main.odin"}, context.temp_allocator)
+	import_path, _ := filepath.join({import_directory, "body_test.odin"}, context.temp_allocator)
+	for row in ([]struct {
+			header, body, call: string,
+			reports:            bool,
+		}{{"", "bad :: proc(value: int) { _ = transmute(int)value }", "", true}, {"#+lazy\n", "bad :: proc(value: int) { _ = transmute(int)value }", "", false}, {"#+lazy\n", "bad :: proc(value: int) { _ = transmute(int)value }", "imported.bad(1)", true}, {"", "outer :: proc() { nested :: proc(value: int) { _ = transmute(int)value } }", "", true}, {"", "bad :: proc(value: $T) { unknown_generic(value) }", "", false}, {"", "when false { bad :: proc(value: int) { _ = transmute(int)value } }", "", false}, {"#+lazy\n", "@(init) bad :: proc \"contextless\" () { unknown_lazy_init() }", "", true}}) {
+		main_source := fmt.tprintf("%s%s%s", "package main\nimport \"imported\"\nmain :: proc() { ", row.call, " }\n")
+		import_source := fmt.tprintf("%spackage imported\n%s\n", row.header, row.body)
+		if !testing.expect_value(t, os.write_entire_file(main_path, transmute([]byte)main_source), nil) { return }
+		if !testing.expect_value(t, os.write_entire_file(import_path, transmute([]byte)import_source), nil) { return }
+		log := strings.builder_make()
+		error := check_file(
+			root,
+			main_path,
+			strings.to_writer(&log),
+			context.allocator,
+			false,
+			nil,
+			nil,
+			parse_options = {vet = {.Cast}},
+			max_error_count = 100000,
+		)
+		expected := Driver_Error.Check_Failed if row.reports else .None
+		text := strings.to_string(log)
+		testing.expectf(t, error == expected, "%s: got %v, expected %v: %s", row.body, error, expected, text)
+		found := strings.contains(text, "Unneeded transmute") || strings.contains(text, "Undeclared name: unknown_lazy_init")
+		testing.expect_value(t, found, row.reports)
+		strings.builder_destroy(&log)
+	}
+}
 
 @(test)
 escape_return_certainty_preserves_source_reads_and_object_fields :: proc(t: ^testing.T) {
@@ -61,6 +101,41 @@ main :: proc() {}
 	write_diagnostics(session, strings.to_writer(&log))
 	text := strings.to_string(log)
 	for expected in ([]string{"return '&local' from a procedure, as it refers to the stack memory of the local variable 'local'", "return 'pointer' from a procedure, as it may refer to the stack memory of the local variable 'local'", "return '1' from a procedure, as it refers to the stack memory of a temporary value", "return 'parameter' from a procedure, as it refers to the stack memory of a temporary value", "the variadic parameter 'arguments', which only lives for the duration of the call", "Suggestion: If this is intended, make it explicit with a conversion to 'rawptr' or 'uintptr', or a 'transmute'"}) { testing.expect(t, strings.contains(text, expected), text) }
+}
+
+@(test)
+escape_budget_skips_nil_deref_past_fact_budget_and_keeps_returns :: proc(t: ^testing.T) {
+	root, _ := filepath.join({#directory, "..", ".."}, context.temp_allocator)
+	directory, directory_error := os.make_directory_temp("", "driver-escape-budget-*", context.temp_allocator)
+	if !testing.expect_value(t, directory_error, nil) { return }
+	defer os.remove_all(directory)
+	main_path, _ := filepath.join({directory, "main.odin"}, context.temp_allocator)
+	builder := strings.builder_make(context.temp_allocator)
+	strings.write_string(&builder, "#+vet nil-deref\npackage main\nret_local :: proc() -> ^int { x := 1; return &x }\n")
+	write_escape_budget_body(&builder, "large", 9000)
+	write_escape_budget_body(&builder, "small", 100)
+	strings.write_string(&builder, "main :: proc() { large(); small(); _ = ret_local() }\n")
+	if !testing.expect_value(t, os.write_entire_file(main_path, transmute([]byte)strings.to_string(builder)), nil) { return }
+	session, error := check_program(root, main_path, context.allocator, false)
+	defer session_destroy(session)
+	if !testing.expect_value(t, error, .Check_Failed) { return }
+	nil_derefs, stack_returns := 0, 0
+	for diagnostic in session.analysis_result.diagnostics {
+		if strings.contains(diagnostic.reason, "Dereferencing 'np'") { nil_derefs += 1 }
+		if strings.contains(diagnostic.reason, "stack memory") { stack_returns += 1 }
+	}
+	testing.expect_value(t, nil_derefs, 1)
+	testing.expect_value(t, stack_returns, 1)
+}
+
+@(private = "file")
+write_escape_budget_body :: proc(builder: ^strings.Builder, name: string, locals: int) {
+	strings.write_string(builder, name)
+	strings.write_string(builder, " :: proc() {\n")
+	for index in 0 ..< locals {
+		fmt.sbprintf(builder, "\tx%d := 0\n\tp%d := &x%d\n\t_ = p%d\n", index, index, index, index)
+	}
+	strings.write_string(builder, "\tnp: ^int\n\t_ = np^\n}\n")
 }
 
 @(test)
@@ -412,6 +487,61 @@ check_command_handles_local_foreign_blocks_explicit_allocators_and_excluded_pack
 		error := check_file(root, main_path, strings.to_writer(&log), context.allocator, false, nil, nil, parse_options = {vet = row.vet})
 		testing.expect_value(t, error, row.error)
 		testing.expect(t, strings.contains(strings.to_string(log), row.text), strings.to_string(log))
+		strings.builder_destroy(&log)
+	}
+}
+
+@(test)
+check_command_tracks_uninitialized_paths_and_caps_errors :: proc(t: ^testing.T) {
+	root, _ := filepath.join({#directory, "..", ".."}, context.temp_allocator)
+	directory, directory_error := os.make_directory_temp("", "driver-check-uninitialized-*", context.temp_allocator)
+	if !testing.expect_value(t, directory_error, nil) { return }
+	defer os.remove_all(directory)
+	main_path, _ := filepath.join({directory, "main.odin"}, context.temp_allocator)
+	source := `package sample
+Pair :: struct { left, right: int }
+produce :: proc() -> (int, int) { return 0, 1 }
+inspect :: proc() {
+	value: int = ---
+	_ = &value
+	_ = value
+	pointer: ^int
+	_ = &pointer
+	pointer = nil
+	_ = pointer^
+	tuple: int = ---
+	_, tuple = produce()
+	_ = tuple
+	array: [2]int = ---
+	array[0] = 1
+	_ = array[1]
+	pair: Pair = ---
+	pair.left = 1
+	_ = pair.left
+	_ = pair.right
+	other: int = ---
+	_ = other
+}
+`
+	if !testing.expect_value(t, os.write_entire_file(main_path, transmute([]byte)source), nil) { return }
+	for maximum in 1 ..= 2 {
+		log := strings.builder_make()
+		error := check_file(
+			root,
+			main_path,
+			strings.to_writer(&log),
+			context.allocator,
+			true,
+			nil,
+			nil,
+			parse_options = {vet = {.Uninitialized, .Nil_Deref}},
+			max_error_count = maximum,
+		)
+		testing.expect_value(t, error, Driver_Error.Check_Failed)
+		text := strings.to_string(log)
+		testing.expect_value(t, strings.count(text, "before anything is stored in it"), maximum)
+		testing.expect(t, strings.contains(text, "Reading 'pair.right'"), text)
+		testing.expect(t, !strings.contains(text, "Reading 'array'") && !strings.contains(text, "Reading 'value'"), text)
 		strings.builder_destroy(&log)
 	}
 }

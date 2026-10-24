@@ -10,16 +10,9 @@ compile_command :: proc(name: string, args: []string) -> int {
 	defer delete(command.collections)
 	if argument_error != "" { fmt.eprintln(argument_error); return 1 }
 	if command.help {
-		if command.check_only {
-			fmt.println(
-				"usage: odinc check <file-or-directory> [--collection/-c name=path] [--define/-d NAME=value] [--no-entry-point] [--disallow-do] [--vet-tabs] [--vet-style] [--strict-style]",
-			)
-			return 0
-		}
-		fmt.printfln(
-			"usage: odinc %s <file-or-directory> [--output/-o path] [--dynamic-linker path] [--collection/-c name=path] [--define/-d NAME=value] [--keep-executable/-k] [--disallow-do] [--vet-tabs] [--vet-style] [--strict-style] [-- arguments]",
-			name,
-		)
+		usage := driver.command_usage(name)
+		defer delete(usage)
+		fmt.print(usage)
 		return 0
 	}
 	root, found := os.lookup_env("ODIN_ROOT", context.allocator)
@@ -39,6 +32,7 @@ compile_command :: proc(name: string, args: []string) -> int {
 			   command.options.defines,
 			   command.options.parse_options,
 			   command.options.check_options,
+			   command.options.max_error_count,
 		   ) !=
 		   .None { return 1 }
 		return 0
@@ -80,6 +74,7 @@ build_command_image :: proc(root: string, command: driver.Command_Arguments) -> 
 			command.options.parse_options,
 			command.dynamic_linker,
 			command.options.check_options,
+			command.options.max_error_count,
 		)
 	}
 	if error != nil { return 1 }

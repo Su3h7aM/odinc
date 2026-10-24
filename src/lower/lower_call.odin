@@ -220,9 +220,10 @@ lower_call_results :: proc(state: ^Procedure_State, node: syntax.Node_Index, inf
 	}
 	callee: ir.Node_Id
 	selector_owner: ir.Node_Id
+	llvm_name, is_llvm_intrinsic := llvm_intrinsic_name(state, plan)
 	if plan.entity == 0 {
 		callee, selector_owner = lower_callee_value(state, node, plan)
-	} else {
+	} else if !is_llvm_intrinsic {
 		callee = ir.symbol_addr(function, declaration.symbol)
 	}
 	if state.failed || function.error != nil { return }
@@ -281,6 +282,13 @@ lower_call_results :: proc(state: ^Procedure_State, node: syntax.Node_Index, inf
 	}
 	for argument in arguments {
 		if argument == 0 { lower_fail(state, node, .Call_Argument); return }
+	}
+	if is_llvm_intrinsic {
+		if result_count > 1 || plan.deferred != 0 { lower_fail(state, node, .Builtin); return }
+		result_type := types.TYPE_NONE if result_count == 0 else plan.results[0]
+		value := lower_llvm_intrinsic(state, node, llvm_name, result_type, arguments)
+		if result_count == 1 { values[0] = value }
+		return
 	}
 	id: ir.Signature_Id
 	if c_vararg {

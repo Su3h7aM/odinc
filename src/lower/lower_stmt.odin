@@ -74,7 +74,7 @@ lower_statement :: proc(state: ^Procedure_State, node: syntax.Node_Index) {
 		}
 		value := lower_value(state, values[0])
 		lower_last_result(state, node, value, descriptor.results[0])
-	case .Empty_Stmt:
+	case .Empty_Stmt, .Foreign_Block_Decl:
 	case:
 		lower_fail(state, node, .Body)
 	}

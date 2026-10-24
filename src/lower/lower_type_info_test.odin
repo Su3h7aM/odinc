@@ -107,7 +107,7 @@ type_info_struct_enum_and_procedure_entries_reference_their_members :: proc(t: ^
 	)
 
 	module: ir.Module
-	errors, err := lower_program(&program, &module)
+	errors, _, err := lower_program(&program, &module)
 	defer delete(errors)
 	defer ir.module_destroy(&module)
 	testing.expect_value(t, err, nil)

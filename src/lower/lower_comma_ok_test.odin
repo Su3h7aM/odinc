@@ -126,7 +126,7 @@ map_index_assignment_results_lower :: proc(t: ^testing.T) {
 		map_info        = {{type = map_type, key_cell = 7, value_cell = 8, key_hasher = 5, key_equal = 6, symbol = 4}},
 	}
 	module: ir.Module
-	errors, err := lower_program(&program, &module)
+	errors, _, err := lower_program(&program, &module)
 	defer delete(errors)
 	if !testing.expect_value(t, err, nil) { return }
 	defer ir.module_destroy(&module)

@@ -16,6 +16,7 @@ escape_retain_known_effects :: proc(escape: ^Escape, operand: check.Operand) -> 
 	}
 	if !escape_has_unknown_effects(escape, expression) { return true }
 	for &value in escape.memory { value = 0 }
+	escape.live_facts = 0
 	escape.reachable = false
 	return false
 }

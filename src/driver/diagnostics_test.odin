@@ -78,4 +78,13 @@ checker_warnings_print_and_only_fail_when_promoted :: proc(t: ^testing.T) {
 		expected := "sample.odin(1:1) Error: details \n\t( empty line ) \n" if promoted else "sample.odin(1:1) Warning: details \n\t( empty line ) \n"
 		testing.expect_value(t, strings.to_string(builder), expected)
 	}
+	append(&session.checker.diagnostics, check.Expression_Diagnostic{source = {file = 1, start = 1}, reason = "second error"})
+	session.max_error_count = 1
+	for promoted in ([2]bool{false, true}) {
+		session.check_options.warnings_as_errors = promoted
+		builder: strings.Builder
+		strings.builder_init(&builder, context.temp_allocator)
+		write_diagnostics(&session, strings.to_writer(&builder))
+		testing.expect_value(t, strings.contains(strings.to_string(builder), "second error"), !promoted)
+	}
 }

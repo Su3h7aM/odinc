@@ -21,6 +21,7 @@ lower_simd_builtin :: proc(
 ) {
 	#partial switch kind {
 	case .Unaligned_Load,
+	     .Non_Temporal_Load,
 	     .Simd_Extract,
 	     .Simd_Extract_Msbs,
 	     .Simd_Replace,
@@ -43,6 +44,8 @@ lower_simd_builtin :: proc(
 	     .Simd_Min,
 	     .Simd_Max,
 	     .Simd_Reduce_Or,
+	     .Simd_Reduce_And,
+	     .Simd_Reduce_Xor,
 	     .Simd_Shl,
 	     .Simd_Shr,
 	     .Simd_Shl_Masked,
@@ -50,6 +53,47 @@ lower_simd_builtin :: proc(
 	     .Simd_Reduce_Min,
 	     .Simd_Reduce_Max:
 		return lower_simd_operation(state, node, info, plan, kind), true
+	case .Simd_Saturating_Add,
+	     .Simd_Saturating_Sub,
+	     .Simd_Neg,
+	     .Simd_Abs,
+	     .Simd_Ceil,
+	     .Simd_Floor,
+	     .Simd_Trunc,
+	     .Simd_Nearest,
+	     .Simd_Approx_Recip,
+	     .Simd_Approx_Recip_Sqrt,
+	     .Simd_Gather,
+	     .Simd_Masked_Load,
+	     .Simd_Masked_Expand_Load,
+	     .Simd_Reduce_Add_Bisect,
+	     .Simd_Reduce_Add_Ordered,
+	     .Simd_Reduce_Add_Pairs,
+	     .Simd_Reduce_Mul_Bisect,
+	     .Simd_Reduce_Mul_Ordered,
+	     .Simd_Reduce_Mul_Pairs:
+		return lower_simd_math(state, node, info, plan, kind), true
+	case .Simd_Scatter, .Simd_Masked_Store, .Simd_Masked_Compress_Store:
+		lower_simd_masked_store(state, node, plan, kind)
+		return 0, true
+	case .Simd_Clamp,
+	     .Simd_To_Bits,
+	     .Simd_To_Bits_Signed,
+	     .Simd_Lanes_Reverse,
+	     .Simd_Lanes_Rotate_Left,
+	     .Simd_Lanes_Rotate_Right,
+	     .Simd_Odd_Even,
+	     .Simd_Sums_Of_N,
+	     .Simd_Pairwise_Add,
+	     .Simd_Pairwise_Sub,
+	     .Simd_Interleave,
+	     .Simd_Reduce_Any,
+	     .Simd_Reduce_All,
+	     .Simd_Extract_Lsbs:
+		return lower_simd_extra(state, node, info, plan, kind), true
+	case .Simd_Deinterleave:
+		if len(plan.results) != 0 { return 0, false }
+		return lower_simd_extra(state, node, info, plan, kind), true
 	case .Simd_Shuffle:
 		return lower_simd_shuffle(state, node, info, plan), true
 	case .X86_Aesenc,
@@ -78,14 +122,15 @@ lower_simd_operation :: proc(
 	kind: check.Builtin_Kind,
 ) -> ir.Node_Id {
 	if info.type == 0 || kind == .Simd_Extract && len(plan.arguments) != 2 { return lower_fail(state, node, .Builtin) }
-	values, ok := lower_intrinsic_operands(state, node, plan)
+	storage: [4]ir.Node_Id
+	values, ok := lower_intrinsic_operands(state, node, plan, storage[:])
 	if !ok { return 0 }
 	function := state.job.function
 	#partial switch kind {
 	case .Simd_Extract_Msbs:
 		if len(plan.arguments) != 1 { return lower_fail(state, node, .Builtin) }
-		return lower_simd_extract_msbs(state, node, info.type, operand_type(state, plan.arguments[0]), values[0])
-	case .Unaligned_Load:
+		return lower_simd_extract_bits(state, node, info.type, operand_type(state, plan.arguments[0]), values[0], true)
+	case .Unaligned_Load, .Non_Temporal_Load:
 		if len(plan.arguments) != 1 || function.nodes.type[values[0]] != .Ptr { return lower_fail(state, node, .Builtin) }
 		if scalar_type(state, info.type) != .None { return lower_load(state, values[0], info.type) }
 		copy := simd_slot(state, info.type)
@@ -129,7 +174,7 @@ lower_simd_operation :: proc(
 	case .Simd_Shl, .Simd_Shr, .Simd_Shl_Masked, .Simd_Shr_Masked:
 		if len(plan.arguments) != 2 { return lower_fail(state, node, .Builtin) }
 		return lower_simd_shift(state, info.type, operand_type(state, plan.arguments[1]), kind, values)
-	case .Simd_Reduce_Or, .Simd_Reduce_Min, .Simd_Reduce_Max:
+	case .Simd_Reduce_Or, .Simd_Reduce_And, .Simd_Reduce_Xor, .Simd_Reduce_Min, .Simd_Reduce_Max:
 		if len(plan.arguments) != 1 { return lower_fail(state, node, .Builtin) }
 		return lower_simd_reduce(state, node, kind, operand_type(state, plan.arguments[0]), values[0])
 	}
@@ -137,7 +182,13 @@ lower_simd_operation :: proc(
 }
 
 @(private)
-lower_simd_extract_msbs :: proc(state: ^Procedure_State, node: syntax.Node_Index, result_type, vector_type: types.Type_Id, address: ir.Node_Id) -> ir.Node_Id {
+lower_simd_extract_bits :: proc(
+	state: ^Procedure_State,
+	node: syntax.Node_Index,
+	result_type, vector_type: types.Type_Id,
+	address: ir.Node_Id,
+	most_significant: bool,
+) -> ir.Node_Id {
 	vector := lower_type(state, vector_type)
 	result := lower_type(state, result_type)
 	if vector.kind != .Simd_Vector ||
@@ -177,6 +228,7 @@ lower_simd_extract_msbs :: proc(state: ^Procedure_State, node: syntax.Node_Index
 		if layout.size == 16 { lane_address = ir.ptr_offset(function, lane_address, 8) }
 		value := lower_load_word(state, lane_address, word_type)
 		bit := ir.binary(function, .Shr, value, ir.const_int(function, .I64, min(layout.size, 8) * 8 - 1))
+		if !most_significant { bit = ir.binary(function, .And, value, ir.const_int(function, word_type, 1)) }
 		if word_type != .I64 { bit = ir.convert(function, .Zext, bit, .I64) }
 		bit = ir.binary(function, .Shl, bit, ir.const_int(function, .I64, lane % 64))
 		if lane < 64 {
@@ -227,7 +279,7 @@ simd_lane_operand :: proc(state: ^Procedure_State, operand: check.Operand, value
 }
 
 @(private)
-lower_simd_select :: proc(state: ^Procedure_State, type, mask_type: types.Type_Id, values: [5]ir.Node_Id) -> ir.Node_Id {
+lower_simd_select :: proc(state: ^Procedure_State, type, mask_type: types.Type_Id, values: []ir.Node_Id) -> ir.Node_Id {
 	function := state.job.function
 	elem, lanes := simd_shape(state, type)
 	mask_elem, _ := simd_shape(state, mask_type)
@@ -246,7 +298,7 @@ lower_simd_select :: proc(state: ^Procedure_State, type, mask_type: types.Type_I
 }
 
 @(private)
-lower_simd_lanes :: proc(state: ^Procedure_State, type, operand: types.Type_Id, kind: check.Builtin_Kind, values: [5]ir.Node_Id) -> ir.Node_Id {
+lower_simd_lanes :: proc(state: ^Procedure_State, type, operand: types.Type_Id, kind: check.Builtin_Kind, values: []ir.Node_Id) -> ir.Node_Id {
 	function := state.job.function
 	input_elem, lanes := simd_shape(state, operand)
 	output_elem, _ := simd_shape(state, type)
@@ -295,14 +347,24 @@ lower_simd_reduce :: proc(
 	floating := lower_type(state, elem).kind == .Float
 	less_kind := ir.Node_Kind.SLt if signed_type(state, elem) else ir.Node_Kind.ULt
 	half := is_float16(state, elem)
+	bitwise := ir.Node_Kind.Removed
+	#partial switch kind {
+	case .Simd_Reduce_Or:
+		bitwise = .Or
+	case .Simd_Reduce_And:
+		bitwise = .And
+	case .Simd_Reduce_Xor:
+		bitwise = .Xor
+	}
+	if bitwise != .Removed && floating { return lower_fail(state, node, .Builtin) }
 	accumulator := simd_lane_value(state, vector, 0, elem)
 	if half { accumulator = float16_widen(function, accumulator) }
 	for lane in 1 ..< lanes {
 		if state.failed || function.error != nil { return 0 }
 		next := simd_lane_value(state, vector, lane, elem)
 		if half { next = float16_widen(function, next) }
-		if kind == .Simd_Reduce_Or {
-			accumulator = ir.binary(function, .Or, accumulator, next)
+		if bitwise != .Removed {
+			accumulator = ir.binary(function, bitwise, accumulator, next)
 		} else if floating {
 			accumulator = pick_float_extreme(function, accumulator, next, kind == .Simd_Reduce_Min)
 		} else {
@@ -394,7 +456,7 @@ lower_simd_shuffle :: proc(state: ^Procedure_State, node: syntax.Node_Index, inf
 	return address
 }
 @(private)
-lower_simd_lanewise :: proc(state: ^Procedure_State, type: types.Type_Id, kind: check.Builtin_Kind, values: [5]ir.Node_Id) -> ir.Node_Id {
+lower_simd_lanewise :: proc(state: ^Procedure_State, type: types.Type_Id, kind: check.Builtin_Kind, values: []ir.Node_Id) -> ir.Node_Id {
 	function := state.job.function
 	elem, lanes := simd_shape(state, type)
 	floating := lower_type(state, elem).kind == .Float
@@ -442,7 +504,7 @@ simd_arithmetic_kind :: proc(kind: check.Builtin_Kind, floating: bool) -> ir.Nod
 }
 
 @(private)
-lower_simd_shift :: proc(state: ^Procedure_State, type, amount_type: types.Type_Id, kind: check.Builtin_Kind, values: [5]ir.Node_Id) -> ir.Node_Id {
+lower_simd_shift :: proc(state: ^Procedure_State, type, amount_type: types.Type_Id, kind: check.Builtin_Kind, values: []ir.Node_Id) -> ir.Node_Id {
 	function := state.job.function
 	elem, lanes := simd_shape(state, type)
 	amount_elem, _ := simd_shape(state, amount_type)
