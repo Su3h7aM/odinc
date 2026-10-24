@@ -98,13 +98,15 @@ push_comment :: proc(tokenizer: ^Tokenizer, kind: Comment_Kind, start, end: u32)
 
 @(private)
 advance_rune :: proc(tokenizer: ^Tokenizer) {
-	if tokenizer.next_offset < u32(len(tokenizer.source)) {
+	offset := tokenizer.next_offset
+	if offset < u32(len(tokenizer.source)) {
 		if tokenizer.current_rune == '\n' {
 			tokenizer.current_line += 1
 		}
-		tokenizer.current_offset = tokenizer.next_offset
-		if byte_value := tokenizer.source[tokenizer.next_offset]; byte_value != 0 && byte_value < utf8.RUNE_SELF {
-			tokenizer.next_offset += 1
+		tokenizer.current_offset = offset
+		// One unsigned compare: the byte is in 1 ..< RUNE_SELF, so NUL wraps to 255 and fails it.
+		if byte_value := tokenizer.source[offset]; byte_value - 1 < utf8.RUNE_SELF - 1 {
+			tokenizer.next_offset = offset + 1
 			tokenizer.current_rune = rune(byte_value)
 			return
 		}
@@ -989,7 +991,8 @@ make_line_table :: proc(source: []byte, allocator: mem.Allocator) -> (table: Lin
 			count += 1
 		}
 	}
-	starts := make([]u32, count, allocator) or_return
+	bytes := mem.alloc_bytes_non_zeroed(count * size_of(u32), align_of(u32), allocator) or_return
+	starts := ([^]u32)(raw_data(bytes))[:count]
 	starts[0] = 0
 	i := 1
 	for current_byte, offset in source {
