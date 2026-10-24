@@ -17,6 +17,7 @@ Both sides run with no optimizer: official `-o:none`, ours default (odinc has no
 
 - Tiny programs live in `/tmp/compare/w/p_<name>/` (one dir per program, one `.odin` file each; both compilers take a directory). Keep this set: `hello` (fmt), `osprog` (os/strings/strconv, no `os.exit` at end), `thread` (4 threads x atomic add), `loops` (xorshift + accumulate), `memory` (4 MB mem.copy loop), `hashsort` (1M u32 sort + FNV), plus `bounds`/`map` when testing checks/containers. Verify both binaries print identical output before timing.
 - Big input: a copy of `src/` with `*_test.odin` deleted (official mise release rejects our newer test-file syntax, so full `src/` cannot build there; both sides must compile the same tree). Compare `llvm-nm` marker probes when in doubt about file inclusion.
+- When building our `src` with the official compiler, use a private copy of its installed `ODIN_ROOT` with `core/math/big` and `core/rexcode` replaced by the repo's versions: installed `int_destroy` frees temp-allocated limbs through `context.allocator`, and installed rexcode omits the operand-size prefix on 16-bit memory/immediate stores, breaking self-hosting.
 - `_test.odin` files ARE compiled into `build` output by both compilers (verified: a `main` calling a proc defined in `zz_test.odin` links under both). Size comparisons on a directory therefore include test code on both sides.
 
 ## Commands

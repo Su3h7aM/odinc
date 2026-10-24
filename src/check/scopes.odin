@@ -184,7 +184,9 @@ scope_find :: proc(store: ^Scope_Store, scope: Scope_Id, name: string) -> (entit
 	crossed_procedure := false
 	current_scope := scope
 	for current := scope_get(store, current_scope); current != nil; current = scope_get(store, current_scope) {
-		candidate, found := current.lookup[name]
+		candidate: Entity_Id
+		found := false
+		if len(current.lookup) > 0 { candidate, found = current.lookup[name] }
 		declaration := entity_get(store, candidate) if found else nil
 		if declaration != nil {
 			visible := true
