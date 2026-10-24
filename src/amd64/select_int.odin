@@ -28,6 +28,9 @@ select_integer :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Status {
 			return emit_pseudo(output, selector.block, .Copy, destination, value)
 		}
 		if from_width < 4 {
+			if kind == .Zext && input.nodes.kind[inputs[0]] == .Load {
+				return emit_pseudo(output, selector.block, .Copy, destination, value)
+			}
 			extended := destination
 			if kind == .Sext && width == 8 { extended = new_vreg(output, .Int) or_return }
 			emit(output, selector.block, .MOVSX if kind == .Sext else .MOVZX, from_width, extended, value) or_return
