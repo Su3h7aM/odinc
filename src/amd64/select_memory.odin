@@ -306,8 +306,14 @@ select_copy_set :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Status 
 	forward := add_block(output) or_return
 	backward := add_block(output) or_return
 	done := add_block(output) or_return
+	disjoint := add_block(output) or_return
 	emit(output, selector.block, .CMP, 8, destination, source) or_return
-	select_split(selector, .JBE, forward, backward) or_return
+	select_split(selector, .JBE, forward, disjoint) or_return
+	selector.block = disjoint
+	distance := new_vreg(output, .Int) or_return
+	emit(output, disjoint, .SUB, 8, distance, destination, source) or_return
+	emit(output, disjoint, .CMP, 8, distance, count) or_return
+	select_split(selector, .JAE, forward, backward) or_return
 	selector.block = backward
 	back_source := new_vreg(output, .Int) or_return
 	back_destination := new_vreg(output, .Int) or_return
