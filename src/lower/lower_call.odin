@@ -103,6 +103,16 @@ lower_call :: proc(state: ^Procedure_State, node: syntax.Node_Index, info: check
 	return single[0]
 }
 
+// A runtime assert's call runs only when its condition fails; a passing check is a test and a branch.
+@(private)
+is_runtime_assert :: proc(state: ^Procedure_State, plan: check.Call_Plan) -> bool {
+	if plan.entity == 0 { return false }
+	entity := state.job.program.entities[plan.entity]
+	if int(entity.package_id) >= len(state.job.program.packages) { return false }
+	if state.job.program.packages[entity.package_id].kind != .Runtime { return false }
+	return entity.name == "assert" || entity.name == "assert_contextless"
+}
+
 // lower_call_results fills values with the call's results. A register-passed aggregate argument
 // spans one physical argument per piece; an aggregate result comes back through a hidden pointer
 // or in registers. Split results go through stack slots.
@@ -169,6 +179,8 @@ lower_call_results :: proc(state: ^Procedure_State, node: syntax.Node_Index, inf
 		captured_inputs = captured
 	}
 	struct_return := struct_return_index(declaration.abi_params)
+	guarded_assert := result_count == 0 && plan.deferred == 0 && is_runtime_assert(state, plan)
+	condition: ir.Node_Id
 	result_slot: ir.Node_Id
 	if result_count > 0 && scalar_type(state, plan.results[result_count - 1]) == .None {
 		layout := state.job.layouts[plan.results[result_count - 1]]
@@ -256,6 +268,7 @@ lower_call_results :: proc(state: ^Procedure_State, node: syntax.Node_Index, inf
 			value = lower_operand(state, argument.value, descriptor.params[position])
 		}
 		if state.failed || function.error != nil { return }
+		if guarded_assert && position == 0 { condition = value }
 		if plan.deferred != 0 {
 			captured_inputs[position] = value
 			if is_aggregate(state, descriptor.params[position]) {
@@ -291,6 +304,15 @@ lower_call_results :: proc(state: ^Procedure_State, node: syntax.Node_Index, inf
 		return
 	}
 	id: ir.Signature_Id
+	join: ir.Jump_Target_Id
+	if guarded_assert {
+		join = ir.jump_target_make(state.builder)
+		branch := ir.branch_if(state.builder, condition)
+		ir.enter_arm(state.builder, branch, 0)
+		ir.jump_to(state.builder, join)
+		ir.enter_arm(state.builder, branch, 1)
+		if function.error == nil { function.nodes.flags[state.builder.control] += {.Cold} }
+	}
 	if c_vararg {
 		id = ir.add_signature(function, declaration.signature)
 	} else {
@@ -302,6 +324,10 @@ lower_call_results :: proc(state: ^Procedure_State, node: syntax.Node_Index, inf
 	ir.variable_set(state.builder, ir.MEMORY_VARIABLE, memory)
 	if result_count == 0 {
 		if plan.deferred != 0 { register_deferred_call(state, node, plan, captured_inputs, nil) }
+		if guarded_assert {
+			ir.jump_to(state.builder, join)
+			ir.seal_target(state.builder, join)
+		}
 		return
 	}
 	if scalar_type(state, plan.results[result_count - 1]) != .None {
