@@ -925,6 +925,9 @@ heap_should_use_superpages :: proc "contextless" (bin_size: int) -> bool {
 	}
 
 	class := heap_get_size_class(bin_size)
+	if class == .Huge && bin_size >= max(minimum, 32 * Megabyte) {
+		return true
+	}
 	held, mapped := heap_segments_are_being_filled(class, bin_size)
 	if held < minimum {
 		return false
