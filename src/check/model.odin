@@ -1145,10 +1145,7 @@ typed_view_info :: proc(typed: ^Typed_View, node: syntax.Node_Index) -> (info: E
 		return typed.extra_rows[node]
 	}
 	index := int(node - typed.first_node)
-	nodes := typed.nodes
-	count := len(nodes.types)
-	assert(len(nodes.constants) == count && len(nodes.modes) == count && len(nodes.entities) == count)
-	assert(len(nodes.plans) == count && len(nodes.scopes) == count && len(nodes.states) == count)
+	nodes := &typed.nodes
 	return Expression_Info {
 			nodes.types[index],
 			nodes.constants[index],
