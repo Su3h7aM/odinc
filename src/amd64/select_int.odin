@@ -205,6 +205,9 @@ select_division :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Status 
 	input, output := selector.input, selector.output
 	kind := input.nodes.kind[node]
 	signed := kind == .SDiv || kind == .SRem
+	if divisor, is_constant := constant_divisor(selector, node); is_constant {
+		return select_division_by_constant(selector, node, divisor)
+	}
 	first := select_extended(selector, ir.node_input(input, node, 1), signed) or_return
 	second := select_extended(selector, ir.node_input(input, node, 2), signed) or_return
 	width := max(4, select_width(input.nodes.type[node]))

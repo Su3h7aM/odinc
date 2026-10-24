@@ -452,3 +452,173 @@ selected_address_materializes_only_value_uses :: proc(t: ^testing.T) {
 	}
 	testing.expectf(t, leas == 2, "address values stored, passed and phi-merged need one LEA each; the folded load needs none, got %d LEA", leas)
 }
+
+@(private)
+xorshift_next :: proc(state: ^u64) -> u64 {
+	value := state^
+	value ~= value << 13
+	value ~= value >> 7
+	value ~= value << 17
+	state^ = value
+	return value
+}
+
+@(private)
+sign_extend :: proc(value: i64, width_bits: u32) -> i64 {
+	shift := 64 - width_bits
+	return (value << shift) >> shift
+}
+
+// Evaluates the sequence `select_unsigned_quotient` emits, in plain Odin.
+@(private)
+simulate_unsigned_constant_division :: proc(width_bits: u32, divisor, dividend: u64) -> u64 {
+	if divisor & (divisor - 1) == 0 {
+		shift: u32
+		for divisor >> shift != 1 { shift += 1 }
+		return dividend >> shift
+	}
+	magic := unsigned_division_magic(width_bits, divisor)
+	high := u64((u128(dividend) * u128(magic.multiplier)) >> 64)
+	if !magic.add { return high >> magic.shift }
+	return (high + ((dividend - high) >> 1)) >> magic.shift
+}
+
+// Evaluates the sequence `select_signed_quotient` emits, in plain Odin.
+@(private)
+simulate_signed_constant_division :: proc(width_bits: u32, divisor, dividend: i64) -> i64 {
+	magnitude := u64(divisor)
+	if divisor < 0 { magnitude = -u64(divisor) }
+	quotient: i64
+	if magnitude & (magnitude - 1) == 0 {
+		shift: u32
+		for magnitude >> shift != 1 { shift += 1 }
+		bias := i64(u64(dividend >> 63) >> (64 - shift))
+		quotient = (dividend + bias) >> shift
+	} else {
+		magic := signed_division_magic(width_bits, divisor)
+		high := i64((i128(dividend) * i128(magic.multiplier)) >> 64)
+		quotient = ((dividend + high) >> magic.shift) - (dividend >> 63)
+	}
+	if divisor < 0 { quotient = -quotient }
+	return quotient
+}
+
+@(test)
+constant_unsigned_division_matches_hardware_division :: proc(t: ^testing.T) {
+	state := u64(0x9e3779b97f4a7c15)
+	mismatches := 0
+	first_width: u32
+	first_dividend, first_divisor: u64
+	for width in ([?]u32{8, 16, 32, 64}) {
+		mask := max(u64) >> (64 - width)
+		divisors := make([dynamic]u64, context.temp_allocator)
+		dividends := make([dynamic]u64, context.temp_allocator)
+		if width == 8 {
+			for divisor in u64(2) ..= mask { append(&divisors, divisor) }
+		} else {
+			for divisor in u64(2) ..= 300 { append(&divisors, divisor) }
+			for shift in 1 ..< width {
+				for divisor in ([?]u64{(u64(1) << shift) - 1, u64(1) << shift, (u64(1) << shift) + 1}) {
+					if divisor >= 2 && divisor <= mask { append(&divisors, divisor) }
+				}
+			}
+			append(&divisors, mask, mask - 1)
+			for _ in 0 ..< 256 {
+				divisor := xorshift_next(&state) & mask
+				if divisor >= 2 { append(&divisors, divisor) }
+			}
+		}
+		for divisor in divisors {
+			clear(&dividends)
+			if width == 8 {
+				for dividend in u64(0) ..= mask { append(&dividends, dividend) }
+			} else {
+				append(&dividends, 0, 1, mask, mask - 1)
+				for _ in 0 ..< 32 { append(&dividends, xorshift_next(&state) & mask) }
+				exact := ((xorshift_next(&state) & mask) / divisor) * divisor
+				for offset in ([?]u64{max(u64), 0, 1}) { append(&dividends, (exact + offset) & mask) }
+			}
+			for dividend in dividends {
+				quotient := simulate_unsigned_constant_division(width, divisor, dividend)
+				remainder := dividend - quotient * divisor
+				if quotient != dividend / divisor || remainder != dividend % divisor {
+					if mismatches == 0 {
+						first_width, first_dividend, first_divisor = width, dividend, divisor
+					}
+					mismatches += 1
+				}
+			}
+		}
+	}
+	testing.expectf(
+		t,
+		mismatches == 0,
+		"unsigned constant division: %d mismatches, first width %d dividend %d divisor %d",
+		mismatches,
+		first_width,
+		first_dividend,
+		first_divisor,
+	)
+}
+
+@(test)
+constant_signed_division_matches_hardware_division :: proc(t: ^testing.T) {
+	state := u64(0x2545f4914f6cdd1d)
+	mismatches := 0
+	first_width: u32
+	first_dividend, first_divisor: i64
+	for width in ([?]u32{8, 16, 32, 64}) {
+		divisors := make([dynamic]i64, context.temp_allocator)
+		dividends := make([dynamic]i64, context.temp_allocator)
+		if width == 8 {
+			for divisor in i64(-128) ..= 127 {
+				if divisor != 0 && divisor != 1 && divisor != -1 { append(&divisors, divisor) }
+			}
+		} else {
+			for magnitude in i64(2) ..= 300 { append(&divisors, magnitude, -magnitude) }
+			for shift in 1 ..< width {
+				for magnitude in ([?]u64{(u64(1) << shift) - 1, u64(1) << shift, (u64(1) << shift) + 1}) {
+					append(&divisors, sign_extend(i64(magnitude), width), sign_extend(i64(0 - magnitude), width))
+				}
+			}
+			for _ in 0 ..< 256 {
+				divisor := sign_extend(i64(xorshift_next(&state)), width)
+				if divisor != 0 && divisor != 1 && divisor != -1 { append(&divisors, divisor) }
+			}
+		}
+		for divisor in divisors {
+			if divisor == 0 || divisor == 1 || divisor == -1 { continue }
+			clear(&dividends)
+			if width == 8 {
+				for dividend in i64(-128) ..= 127 { append(&dividends, dividend) }
+			} else {
+				smallest := sign_extend(i64(1) << (width - 1), width)
+				largest := ~smallest
+				append(&dividends, 0, 1, -1, smallest, largest, sign_extend(smallest + 1, width), sign_extend(largest - 1, width))
+				for _ in 0 ..< 32 { append(&dividends, sign_extend(i64(xorshift_next(&state)), width)) }
+				quotient := sign_extend(i64(xorshift_next(&state)), width) / divisor
+				exact := quotient * divisor
+				for offset in ([?]u64{max(u64), 0, 1}) { append(&dividends, sign_extend(i64(u64(exact) + offset), width)) }
+			}
+			for dividend in dividends {
+				quotient := simulate_signed_constant_division(width, divisor, dividend)
+				remainder := dividend - quotient * divisor
+				if quotient != dividend / divisor || remainder != dividend % divisor {
+					if mismatches == 0 {
+						first_width, first_dividend, first_divisor = width, dividend, divisor
+					}
+					mismatches += 1
+				}
+			}
+		}
+	}
+	testing.expectf(
+		t,
+		mismatches == 0,
+		"signed constant division: %d mismatches, first width %d dividend %d divisor %d",
+		mismatches,
+		first_width,
+		first_dividend,
+		first_divisor,
+	)
+}
