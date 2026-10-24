@@ -249,3 +249,139 @@ memory_intrinsics_update_global_in_order :: proc(t: ^testing.T) {
 	testing.expect_value(t, actual.outcome, ir.Interp_Outcome.Value)
 	testing.expect_value(t, actual.value, u64(5))
 }
+
+// Procedure `() -> u64` running `volatile_store(&pair, transmute([2]u64)(2^64 + 5))` on the zero global `pair: [2]u64`
+// and returning `u64(transmute(u128)volatile_load(&pair))`. A non-atomic aggregate is stored and loaded whole, so the
+// low word 5 comes back.
+@(test)
+volatile_aggregate_store_and_load_round_trip :: proc(t: ^testing.T) {
+	arena: virtual.Arena
+	testing.expect_value(t, virtual.arena_init_growing(&arena), nil)
+	defer virtual.arena_destroy(&arena)
+	allocator := virtual.arena_allocator(&arena)
+	store := types.init()
+	defer types.destroy(&store)
+	wide := types.intern(&store, types.Type{kind = .Integer, count = 16})
+	word := types.intern(&store, types.Type{kind = .Integer, count = 8})
+	pair := types.intern(&store, types.Type{kind = .Array, elem = word, count = 2})
+	pointer := types.intern(&store, types.Type{kind = .Pointer, elem = pair})
+	signature := types.intern(&store, types.Type{kind = .Procedure, convention = .Contextless, results = {word}})
+	ast: syntax.Ast
+	syntax.ast_init(&ast, allocator)
+	defer syntax.ast_destroy(&ast)
+
+	global := syntax.ast_add_node(&ast, .Ident, 0, 1, syntax.Ident{})
+	address := syntax.ast_add_node(&ast, .Unary_Expr, 0, 1, syntax.Unary_Expr{op = {kind = .And}, expr = global})
+	constant := syntax.ast_add_node(&ast, .Ident, 0, 1, syntax.Ident{})
+	to_pair_callee := syntax.ast_add_node(&ast, .Ident, 0, 1, syntax.Ident{})
+	to_pair := syntax.ast_add_node(&ast, .Call_Expr, 0, 1, syntax.Call_Expr{expr = to_pair_callee, args = syntax.ast_add_list(&ast, {constant})})
+	store_callee := syntax.ast_add_node(&ast, .Ident, 0, 1, syntax.Ident{})
+	store_call := syntax.ast_add_node(&ast, .Call_Expr, 0, 1, syntax.Call_Expr{expr = store_callee, args = syntax.ast_add_list(&ast, {address, to_pair})})
+	load_callee := syntax.ast_add_node(&ast, .Ident, 0, 1, syntax.Ident{})
+	load_call := syntax.ast_add_node(&ast, .Call_Expr, 0, 1, syntax.Call_Expr{expr = load_callee, args = syntax.ast_add_list(&ast, {address})})
+	to_wide_callee := syntax.ast_add_node(&ast, .Ident, 0, 1, syntax.Ident{})
+	to_wide := syntax.ast_add_node(&ast, .Call_Expr, 0, 1, syntax.Call_Expr{expr = to_wide_callee, args = syntax.ast_add_list(&ast, {load_call})})
+	to_word_callee := syntax.ast_add_node(&ast, .Ident, 0, 1, syntax.Ident{})
+	to_word := syntax.ast_add_node(&ast, .Call_Expr, 0, 1, syntax.Call_Expr{expr = to_word_callee, args = syntax.ast_add_list(&ast, {to_wide})})
+	statement := syntax.ast_add_node(&ast, .Expr_Stmt, 0, 1, syntax.Expr_Stmt{expr = store_call})
+	result := syntax.ast_add_node(&ast, .Return_Stmt, 0, 1, syntax.Return_Stmt{results = syntax.ast_add_list(&ast, {to_word})})
+	body := syntax.ast_add_node(&ast, .Block_Stmt, 0, 1, syntax.Block_Stmt{stmts = syntax.ast_add_list(&ast, {statement, result})})
+
+	entities := fixture_clone([]check.Entity{{}, {kind = .Procedure, type = signature}, {kind = .Variable, type = pair}}, allocator)
+	facts := make([]check.Expression_Info, len(ast.nodes) - 1, allocator)
+	facts[int(global) - 1] = {
+		type   = pair,
+		mode   = .Variable,
+		entity = 2,
+		state  = .Checked,
+	}
+	facts[int(address) - 1] = {
+		type  = pointer,
+		mode  = .Value,
+		state = .Checked,
+	}
+	facts[int(constant) - 1] = {
+		type     = wide,
+		mode     = .Constant,
+		constant = 1,
+		state    = .Checked,
+	}
+	facts[int(to_pair) - 1] = {
+		type  = pair,
+		mode  = .Value,
+		plan  = 1,
+		state = .Checked,
+	}
+	facts[int(store_callee) - 1] = {
+		state = .Checked,
+	}
+	facts[int(store_call) - 1] = {
+		type  = types.Type_Id(0),
+		mode  = .No_Value,
+		plan  = 2,
+		state = .Checked,
+	}
+	facts[int(load_callee) - 1] = {
+		state = .Checked,
+	}
+	facts[int(load_call) - 1] = {
+		type  = pair,
+		mode  = .Value,
+		plan  = 3,
+		state = .Checked,
+	}
+	facts[int(to_wide) - 1] = {
+		type  = wide,
+		mode  = .Value,
+		plan  = 4,
+		state = .Checked,
+	}
+	facts[int(to_word) - 1] = {
+		type  = word,
+		mode  = .Value,
+		plan  = 5,
+		state = .Checked,
+	}
+	program := expression_fixture(&ast, &store, allocator, body, signature, entities, facts, nil)
+	program.builtin_kinds = fixture_clone([]check.Builtin_Kind{.None, .Volatile_Store, .Volatile_Load}, allocator)
+	program.plan_table = fixture_clone(
+		[]check.Plan {
+			{},
+			check.Conversion_Plan{kind = .Transmute, source = check.Expression_Ref{1, constant}, target = pair},
+			check.Builtin_Plan {
+				builtin = 1,
+				arguments = fixture_clone([]check.Operand{check.Expression_Ref{1, address}, check.Expression_Ref{1, to_pair}}, allocator),
+			},
+			check.Builtin_Plan{builtin = 2, arguments = fixture_clone([]check.Operand{check.Expression_Ref{1, address}}, allocator)},
+			check.Conversion_Plan{kind = .Transmute, source = check.Expression_Ref{1, load_call}, target = wide},
+			check.Conversion_Plan{kind = .Cast, source = check.Expression_Ref{1, to_wide}, target = word},
+		},
+		allocator,
+	)
+	program.symbol_table = fixture_clone(
+		[]check.Symbol {
+			{},
+			{entity = 1, kind = .Procedure, name = "expression", type = signature},
+			{entity = 2, kind = .Global, name = "pair", type = pair, alignment = 8},
+		},
+		allocator,
+	)
+	program.entity_symbols = fixture_clone([]check.Symbol_Id{0, 1, 2}, allocator)
+	program.global_list = fixture_clone([]check.Global{{entity = 2, symbol = 2, type = pair, alignment = 8}}, allocator)
+	value: big.Int
+	five: big.Int
+	testing.expect_value(t, big.int_pow_int(&value, 2, 64, allocator), big.Error.None)
+	testing.expect_value(t, big.int_set_from_integer(&five, 5, allocator = allocator), big.Error.None)
+	testing.expect_value(t, big.int_add(&value, &value, &five, allocator), big.Error.None)
+	program.constant_table = fixture_clone([]check.Constant{{}, {type = wide, value = value}}, allocator)
+
+	module: ir.Module
+	errors, _, err := lower_program(&program, &module)
+	defer delete(errors)
+	if !testing.expect_value(t, err, nil) || !testing.expect_value(t, len(errors), 0) { return }
+	defer ir.module_destroy(&module)
+	actual, run_error := ir.interp_run(&module, module.functions[0], nil, 1000, context.allocator)
+	testing.expect_value(t, run_error, nil)
+	testing.expect_value(t, actual.outcome, ir.Interp_Outcome.Value)
+	testing.expect_value(t, actual.value, u64(5))
+}

@@ -59,6 +59,7 @@ lower_intrinsic :: proc(
 	case .Alloca:
 		return lower_alloca(state, node, plan, type, values)
 	case .Volatile_Load, .Atomic_Load, .Atomic_Load_Explicit:
+		if kind == .Volatile_Load && !is_atomic_type(type) && function.nodes.type[values[0]] == .Ptr { return lower_load(state, values[0], info.type) }
 		if !is_atomic_type(type) || function.nodes.type[values[0]] != .Ptr { return lower_fail(state, node, .Builtin) }
 		if type == .Bool {
 			width, width_ok := atomic_bool_access_type(state, info.type)
@@ -67,7 +68,12 @@ lower_intrinsic :: proc(
 		}
 		return lower_ordered_load(state, values[0], type, order)
 	case .Volatile_Store, .Atomic_Store, .Atomic_Store_Explicit:
-		if function.nodes.type[values[0]] != .Ptr || !is_atomic_type(function.nodes.type[values[1]]) { return lower_fail(state, node, .Builtin) }
+		if function.nodes.type[values[0]] != .Ptr { return lower_fail(state, node, .Builtin) }
+		if kind == .Volatile_Store && !is_atomic_type(scalar_type(state, operand_type(state, plan.arguments[1]))) {
+			lower_store(state, values[0], values[1], operand_type(state, plan.arguments[1]))
+			return 0
+		}
+		if !is_atomic_type(function.nodes.type[values[1]]) { return lower_fail(state, node, .Builtin) }
 		stored := values[1]
 		if function.nodes.type[stored] == .Bool {
 			width, width_ok := atomic_bool_access_type(state, operand_type(state, plan.arguments[1]))

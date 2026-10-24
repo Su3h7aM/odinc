@@ -97,7 +97,9 @@ lower_conversion_value :: proc(
 		}
 		return lower_fail(state, node, .Conversion)
 	}
-	if is_wide_integer(state, plan.target) || is_wide_integer(state, source_id) {
+	wide_conversion := is_wide_integer(state, plan.target) || is_wide_integer(state, source_id)
+	aggregate_transmute := plan.kind == .Transmute && scalar_type(state, source_id) == .None && scalar_type(state, plan.target) == .None
+	if wide_conversion && !aggregate_transmute {
 		return lower_wide_conversion(state, node, source_id, plan.target, value)
 	}
 	if plan.kind == .Transmute && (scalar_type(state, source_id) == .None) != (scalar_type(state, plan.target) == .None) {
