@@ -11,7 +11,11 @@ Procedure_Job :: struct {
 	program:          ^check.Checked_Program,
 	module:           ^ir.Module,
 	procedure:        check.Checked_Procedure,
-	function:         ^ir.Function,
+	function_index:   u32,
+	name:             string,
+	linkage:          ir.Linkage,
+	abi_signature:    ir.Signature,
+	function:         ^ir.Function, // created when the procedure is first reached
 	symbols:          []ir.Symbol_Ref,
 	default_context:  ir.Symbol_Ref,
 	parameters:       []types.Abi_Param,
@@ -59,7 +63,7 @@ lower_program :: proc(
 	defer virtual.arena_destroy(&scratch)
 	scratch_allocator := virtual.arena_allocator(&scratch)
 	collected := make([dynamic]Lower_Error, scratch_allocator) or_return
-	symbols := declare_symbols(program, module, allocator) or_return
+	symbols := declare_symbols(program, module) or_return
 	fill_globals(program, module, symbols, &collected) or_return
 	default_context := ir.Symbol_Ref {
 		space = .Global,
@@ -78,20 +82,21 @@ lower_program :: proc(
 		assert(int(procedure.symbol) > 0 && int(procedure.symbol) < len(symbols))
 		symbol := symbols[procedure.symbol]
 		assert(symbol.space == .Function)
+		checked_symbol := check.symbols(program)[int(procedure.symbol) - 1]
 		job := &jobs[symbol.index]
 		assert(job.program == nil, "duplicate checked procedure")
 		job^ = Procedure_Job {
 			program         = program,
 			module          = module,
 			procedure       = procedure,
-			function        = module.functions[symbol.index],
+			function_index  = symbol.index,
+			name            = checked_symbol.name,
+			linkage         = lower_symbol_linkage(checked_symbol.linkage),
 			symbols         = symbols,
 			default_context = default_context,
-			errors          = make([dynamic]Lower_Error, virtual.arena_allocator(&module.functions[symbol.index].arena)) or_return,
-			extern_names    = make([dynamic]string, virtual.arena_allocator(&module.functions[symbol.index].arena)) or_return,
+			errors          = make([dynamic]Lower_Error, scratch_allocator) or_return,
+			extern_names    = make([dynamic]string, scratch_allocator) or_return,
 		}
-		job.function.target_features = procedure.target_features
-		job.function.disabled_target_features = procedure.disabled_target_features
 		prepare_procedure(job, scratch_allocator) or_return
 	}
 	for &job in jobs {
@@ -142,6 +147,7 @@ lower_program :: proc(
 	prune_unreached_global_errors(program, symbols, reached_globals, library_prefixes, &collected) or_return
 	for &job in jobs {
 		if job.allocation_error != nil { return nil, nil, job.allocation_error }
+		if job.function == nil { continue }
 		append(&collected, ..job.errors[:]) or_return
 	}
 	_, merge_error := ir.blob_merge(module)

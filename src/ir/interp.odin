@@ -93,6 +93,7 @@ interp_run :: proc(
 	machine.extern_addresses = make([]u64, len(module.externs), arena_allocator) or_return
 	machine.blob_addresses = make([][]u64, len(module.functions), arena_allocator) or_return
 	for function, index in module.functions {
+		if function == nil { continue }
 		machine.blob_addresses[index] = make([]u64, len(function.blobs), arena_allocator) or_return
 	}
 	size := interp_layout(&machine)

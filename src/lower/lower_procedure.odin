@@ -44,7 +44,7 @@ report_procedure_error :: proc(
 			entity = job.procedure.entity,
 			node = job.procedure.body,
 			source = job.procedure.source,
-			function_index = u32(job.function.id),
+			function_index = job.function_index,
 			verify_code = verify_code,
 			abi_error = abi_error,
 		},
@@ -79,9 +79,8 @@ prepare_procedure :: proc(job: ^Procedure_Job, allocator: runtime.Allocator) -> 
 		return job.allocation_error
 	}
 	job.parameters = plan.params
-	signature := abi_signature(plan, allocator) or_return
-	job.function.signature = ir.add_signature(job.function, signature)
-	return job.function.error
+	job.abi_signature = abi_signature(plan, allocator) or_return
+	return nil
 }
 
 @(private)

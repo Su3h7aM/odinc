@@ -22,7 +22,7 @@ run_section :: proc(t: ^testing.T, section: string) -> (result: ir.Interp_Result
 	main_name := main_symbol_name(session)
 	main_function: ^ir.Function
 	for function in module.functions {
-		if function.name == main_name { main_function = function }
+		if function != nil && function.name == main_name { main_function = function }
 	}
 	if !testing.expect(t, main_function != nil) { return }
 	entry, entry_error := ir.function_make(context.allocator, ir.Function_Id(len(module.functions)), "test.entry", 0)
@@ -36,7 +36,7 @@ run_section :: proc(t: ^testing.T, section: string) -> (result: ir.Interp_Result
 	}
 	memory := start.memory
 	for function, index in module.functions {
-		if function.name != "runtime.__init_context" { continue }
+		if function == nil || function.name != "runtime.__init_context" { continue }
 		callee := ir.symbol_addr(entry, ir.Symbol_Ref{space = .Function, index = u32(index)})
 		call := ir.call(entry, start.control, memory, callee, ir.add_signature(entry, function.signatures[function.signature]), {context_address})
 		memory = ir.add_node(entry, .Proj, .Memory, {call}, {index = 0})

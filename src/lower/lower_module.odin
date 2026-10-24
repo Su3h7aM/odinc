@@ -8,14 +8,7 @@ import "oc:ir"
 import "oc:types"
 
 @(private)
-declare_symbols :: proc(
-	program: ^check.Checked_Program,
-	module: ^ir.Module,
-	allocator: runtime.Allocator,
-) -> (
-	symbols: []ir.Symbol_Ref,
-	err: runtime.Allocator_Error,
-) {
+declare_symbols :: proc(program: ^check.Checked_Program, module: ^ir.Module) -> (symbols: []ir.Symbol_Ref, err: runtime.Allocator_Error) {
 	module_allocator := virtual.arena_allocator(&module.arena)
 	entries := check.symbols(program)
 	symbols = make([]ir.Symbol_Ref, len(entries) + 1, module_allocator) or_return
@@ -25,12 +18,7 @@ declare_symbols :: proc(
 			assert(false, "unresolved checker symbol")
 		case .Procedure:
 			function_index := u32(len(module.functions))
-			function := ir.function_make(allocator, ir.Function_Id(function_index), symbol.name, 0) or_return
-			function.linkage = lower_symbol_linkage(symbol.linkage)
-			if _, append_error := append(&module.functions, function); append_error != nil {
-				ir.function_destroy(function)
-				return nil, append_error
-			}
+			append(&module.functions, nil) or_return
 			symbols[index + 1] = {.Function, function_index}
 		case .Global:
 			symbols[index + 1] = {.Global, u32(len(module.globals))}
@@ -116,7 +104,7 @@ fill_globals :: proc(
 	return nil
 }
 
-@(private = "file")
+@(private)
 lower_symbol_linkage :: proc(linkage: check.Linkage) -> ir.Linkage {
 	switch linkage {
 	case .Internal:

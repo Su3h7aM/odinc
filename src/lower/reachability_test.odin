@@ -81,14 +81,14 @@ library_procedures_lower_only_when_reached :: proc(t: ^testing.T) {
 	defer ir.module_destroy(&library)
 	testing.expect_value(t, library_err, nil)
 	testing.expect_value(t, len(library_errors), 0)
-	testing.expect(t, has_unreachable_body(&library), "a library procedure must not lower without a reaching root")
+	testing.expect(t, library.functions[0] == nil, "a library procedure without a reaching root must have no function")
 
 	user: ir.Module
 	user_errors, _, user_err := lower_program(&program, &user, context.allocator)
 	defer delete(user_errors)
 	defer ir.module_destroy(&user)
 	testing.expect_value(t, user_err, nil)
-	testing.expect(t, !has_unreachable_body(&user), "a user package procedure is a root and must lower")
+	testing.expect(t, user.functions[0] != nil, "a user package procedure is a root and must lower")
 
 	program.runtime.init_procedures = {{entity = 1}}
 	initialized: ir.Module
@@ -96,17 +96,52 @@ library_procedures_lower_only_when_reached :: proc(t: ^testing.T) {
 	defer delete(initialized_errors)
 	defer ir.module_destroy(&initialized)
 	testing.expect_value(t, initialized_err, nil)
-	testing.expect(t, !has_unreachable_body(&initialized), "a library @(init) procedure is a root and must lower")
+	testing.expect(t, initialized.functions[0] != nil, "a library @(init) procedure is a root and must lower")
 }
 
-@(private = "file")
-has_unreachable_body :: proc(module: ^ir.Module) -> bool {
-	for function in module.functions {
-		for index in 1 ..< len(function.nodes) {
-			if function.nodes.kind[index] == .Unreachable { return true }
-		}
+// An unreached library global is still emitted, so the procedure its address names must lower.
+@(test)
+unreached_library_global_keeps_its_function_reference :: proc(t: ^testing.T) {
+	store := types.init()
+	defer types.destroy(&store)
+	ast: syntax.Ast
+	syntax.ast_init(&ast, context.allocator)
+	defer syntax.ast_destroy(&ast)
+	signature := types.intern(&store, types.Type{kind = .Procedure, convention = .Contextless})
+	pointer := types.intern(&store, types.Type{kind = .Pointer, elem = signature})
+	raw := types.intern(&store, types.Type{kind = .Raw_Pointer})
+	boolean := types.intern(&store, types.Type{kind = .Bool})
+	equal_signature := types.intern(
+		&store,
+		types.Type{kind = .Procedure, convention = .Contextless, params = []types.Type_Id{raw, raw}, results = []types.Type_Id{boolean}},
+	)
+	empty := types.intern(&store, types.Type{kind = .Struct})
+	program := check.Checked_Program {
+		type_data      = &store,
+		packages       = {{}, {kind = .User, key = "/root/core/lib"}},
+		files          = {{}, {ast = &ast}},
+		entities       = {
+			{},
+			{name = "helper", kind = .Procedure, state = .Resolved, type = signature, package_id = 1, declaration = {file = 1}},
+			{name = "G", kind = .Variable, state = .Resolved, type = pointer, package_id = 1, declaration = {file = 1}},
+		},
+		symbol_table   = {{}, {entity = 1, kind = .Procedure, name = "helper", type = signature}, {entity = 2, kind = .Global, name = "G", type = pointer}},
+		entity_symbols = {0, 1, 2},
+		procedure_list = {{entity = 1, symbol = 1, signature = equal_signature, convention = .Contextless, generated = {kind = .Equality, type = empty}}},
+		constant_table = {{}, {type = pointer, value = check.Address_Value{symbol = 1}}},
+		global_list    = {{entity = 2, symbol = 2, type = pointer, alignment = 8, initializer = 1}},
 	}
-	return false
+
+	module: ir.Module
+	errors, _, err := lower_program(&program, &module, context.allocator, library_prefixes = []string{"/root/core/"})
+	defer delete(errors)
+	defer ir.module_destroy(&module)
+	testing.expect_value(t, err, nil)
+	testing.expect_value(t, len(errors), 0)
+	global_emitted := false
+	for global in module.globals { global_emitted ||= global.name == "G" }
+	testing.expect(t, global_emitted, "the unreached library global must still be emitted")
+	testing.expect(t, module.functions[0] != nil, "a procedure named by an unreached global's address must lower")
 }
 
 @(test)

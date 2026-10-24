@@ -126,7 +126,7 @@ module_init :: proc(module: ^Module) -> (err: runtime.Allocator_Error) {
 // Destroys every function the module holds, then the module arena.
 module_destroy :: proc(module: ^Module) {
 	for function in module.functions {
-		function_destroy(function)
+		if function != nil { function_destroy(function) }
 	}
 	virtual.arena_destroy(&module.arena)
 	module^ = {}
@@ -152,6 +152,7 @@ blob_merge :: proc(module: ^Module) -> (blob_symbols: [][]Symbol_Ref, err: runti
 	key := make([dynamic]byte, scratch_allocator) or_return
 
 	for function, function_index in module.functions {
+		if function == nil { continue }
 		blobs := function.blobs[:]
 		blob_symbols[function_index] = make([]Symbol_Ref, len(blobs), module_allocator) or_return
 		for blob, blob_index in blobs {
@@ -187,6 +188,7 @@ blob_merge :: proc(module: ^Module) -> (blob_symbols: [][]Symbol_Ref, err: runti
 		}
 	}
 	for function, function_index in module.functions {
+		if function == nil { continue }
 		retarget_blob_addresses(function, blob_symbols[function_index])
 		clear(&function.blobs)
 	}

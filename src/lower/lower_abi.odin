@@ -158,7 +158,7 @@ prepare_declarations :: proc(
 			type       = job.procedure.signature,
 			parameters = job.procedure.parameters,
 			abi_params = job.parameters,
-			signature  = job.function.signatures[job.function.signature],
+			signature  = job.abi_signature,
 			symbol     = job.symbols[job.procedure.symbol],
 		}
 	}

@@ -555,7 +555,9 @@ append_key_integer :: proc(bytes: ^[dynamic]byte, value: u64) -> runtime.Allocat
 module_symbol_names :: proc(module: ^ir.Module, allocator: runtime.Allocator) -> (names: map[string]struct{}) {
 	names = make(map[string]struct{}, allocator)
 	for global in module.globals { names[global.name] = {} }
-	for function in module.functions { names[function.name] = {} }
+	for function in module.functions {
+		if function != nil { names[function.name] = {} }
+	}
 	for external in module.externs { names[external.name] = {} }
 	return names
 }

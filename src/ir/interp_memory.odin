@@ -24,6 +24,7 @@ interp_layout :: proc(machine: ^Interp_Machine) -> int {
 		address = interp_bump(&cursor, 8, 8)
 	}
 	for function, function_index in machine.module.functions {
+		if function == nil { continue }
 		for blob, blob_index in function.blobs {
 			machine.blob_addresses[function_index][blob_index] = interp_bump(&cursor, u64(len(blob.bytes)), u64(blob.align))
 		}
@@ -41,6 +42,7 @@ interp_initialize :: proc(machine: ^Interp_Machine) -> bool {
 		}
 	}
 	for function, function_index in machine.module.functions {
+		if function == nil { continue }
 		for blob, blob_index in function.blobs {
 			address := machine.blob_addresses[function_index][blob_index]
 			if !interp_write_object(machine, u32(function_index), address, blob.bytes, u32(len(blob.bytes)), blob.relocs) {

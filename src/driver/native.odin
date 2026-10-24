@@ -284,7 +284,8 @@ Module_Roots :: struct {
 Symbol_Layout :: struct {
 	function_count, global_count, blob_count, extern_count:          int,
 	global_base, blob_base, extern_base, startup_base, symbol_count: int,
-	function_symbols, global_symbols, blob_symbols, extern_symbols:  []u32,
+	function_symbols, global_symbols, blob_symbols, extern_symbols:  []u32, // function_symbols by module function id
+	function_ids:                                                    []u32, // module function id by reached position
 	module_indices:                                                  amd64.Symbol_Indices,
 	function_indices:                                                []amd64.Symbol_Indices,
 }
@@ -300,18 +301,18 @@ Native_Symbol_Table :: struct {
 find_module_roots :: proc(module: ^ir.Module, entry_name: string) -> (roots: Module_Roots, err: Build_Error) {
 	roots.main_index = -1
 	for function, index in module.functions {
-		if function.name == entry_name { roots.main_index = index }
+		if function != nil && function.name == entry_name { roots.main_index = index }
 	}
 	if roots.main_index < 0 {
 		return roots, Missing_Main{}
 	}
 	roots.init_index = -1
 	for function, index in module.functions {
-		if function.name == lower.GLOBAL_INITIALIZER_NAME { roots.init_index = index }
+		if function != nil && function.name == lower.GLOBAL_INITIALIZER_NAME { roots.init_index = index }
 	}
 	roots.fini_index = -1
 	for function, index in module.functions {
-		if function.name == lower.PROGRAM_FINALIZER_NAME { roots.fini_index = index }
+		if function != nil && function.name == lower.PROGRAM_FINALIZER_NAME { roots.fini_index = index }
 	}
 	roots.context_index = -1
 	roots.args_index = -1
@@ -327,11 +328,22 @@ find_module_roots :: proc(module: ^ir.Module, entry_name: string) -> (roots: Mod
 
 @(private = "file")
 assign_symbol_indices :: proc(module: ^ir.Module, scratch_allocator: runtime.Allocator) -> (layout: Symbol_Layout, err: runtime.Allocator_Error) {
-	layout.function_count = len(module.functions)
+	for function in module.functions {
+		if function != nil { layout.function_count += 1 }
+	}
+	layout.function_ids = make([]u32, layout.function_count, scratch_allocator) or_return
+	layout.function_symbols = make([]u32, len(module.functions), scratch_allocator) or_return
+	live_count := 0
+	for function, id in module.functions {
+		if function == nil { continue }
+		layout.function_ids[live_count] = u32(id)
+		layout.function_symbols[id] = u32(1 + live_count)
+		live_count += 1
+	}
 	layout.global_count = len(module.globals)
 	layout.blob_count = 0
 	for function in module.functions {
-		layout.blob_count += len(function.blobs)
+		if function != nil { layout.blob_count += len(function.blobs) }
 	}
 	layout.extern_count = len(module.externs)
 	layout.global_base = 1 + layout.function_count
@@ -340,11 +352,9 @@ assign_symbol_indices :: proc(module: ^ir.Module, scratch_allocator: runtime.All
 	layout.startup_base = layout.extern_base + layout.extern_count
 	layout.symbol_count = layout.startup_base + STARTUP_SLOT_COUNT + 1
 
-	layout.function_symbols = make([]u32, layout.function_count, scratch_allocator) or_return
 	layout.global_symbols = make([]u32, layout.global_count, scratch_allocator) or_return
 	layout.blob_symbols = make([]u32, layout.blob_count, scratch_allocator) or_return
 	layout.extern_symbols = make([]u32, layout.extern_count, scratch_allocator) or_return
-	for index in 0 ..< layout.function_count { layout.function_symbols[index] = u32(1 + index) }
 	for index in 0 ..< layout.global_count { layout.global_symbols[index] = u32(layout.global_base + index) }
 	for index in 0 ..< layout.blob_count { layout.blob_symbols[index] = u32(layout.blob_base + index) }
 	for index in 0 ..< layout.extern_count { layout.extern_symbols[index] = u32(layout.extern_base + index) }
@@ -354,9 +364,10 @@ assign_symbol_indices :: proc(module: ^ir.Module, scratch_allocator: runtime.All
 	layout.module_indices[.Extern] = layout.extern_symbols
 	layout.function_indices = make([]amd64.Symbol_Indices, layout.function_count, scratch_allocator) or_return
 	blob_offset := 0
-	for function, index in module.functions {
-		layout.function_indices[index] = layout.module_indices
-		layout.function_indices[index][.Local_Blob] = layout.blob_symbols[blob_offset:blob_offset + len(function.blobs)]
+	for id, position in layout.function_ids {
+		function := module.functions[id]
+		layout.function_indices[position] = layout.module_indices
+		layout.function_indices[position][.Local_Blob] = layout.blob_symbols[blob_offset:blob_offset + len(function.blobs)]
 		blob_offset += len(function.blobs)
 	}
 
@@ -377,17 +388,18 @@ build_symbol_table :: proc(
 		name = "_start",
 		atom = 0,
 	}
-	for function, index in module.functions {
+	for id, position in layout.function_ids {
+		function := module.functions[id]
 		// The name is cloned: the function's arena is destroyed once its atom is emitted.
 		name := strings.clone(function.name, scratch_allocator) or_return
-		table.symbols[1 + index] = link.Symbol {
+		table.symbols[1 + position] = link.Symbol {
 			name    = name,
-			atom    = u32(1 + index),
+			atom    = u32(1 + position),
 			binding = symbol_binding(function.linkage),
 		}
 		if function.linkage == .Link_Once {
 			group_atoms := make([]u32, 1, scratch_allocator) or_return
-			group_atoms[0] = u32(1 + index)
+			group_atoms[0] = u32(1 + position)
 			append(&table.comdats, link.Comdat{signature = name, atoms = group_atoms}) or_return
 		}
 	}
@@ -405,13 +417,13 @@ build_symbol_table :: proc(
 		table.atoms[layout.global_base + index] = global_atom(global, layout.module_indices, scratch_allocator) or_return
 	}
 	blob_index := 0
-	for function, function_index in module.functions {
-		for blob in function.blobs {
+	for id, position in layout.function_ids {
+		for blob in module.functions[id].blobs {
 			table.symbols[layout.blob_base + blob_index] = link.Symbol {
-				name = fmt.aprintf("blob.%d.%d", function_index, blob_index, allocator = scratch_allocator),
+				name = fmt.aprintf("blob.%d.%d", id, blob_index, allocator = scratch_allocator),
 				atom = u32(layout.blob_base + blob_index),
 			}
-			table.atoms[layout.blob_base + blob_index] = blob_atom(blob, layout.function_indices[function_index], scratch_allocator) or_return
+			table.atoms[layout.blob_base + blob_index] = blob_atom(blob, layout.function_indices[position], scratch_allocator) or_return
 			blob_index += 1
 		}
 	}
@@ -484,8 +496,10 @@ build_function_atoms :: proc(
 ) -> (
 	err: Build_Error,
 ) {
+	functions := make([]^ir.Function, layout.function_count, scratch_allocator) or_return
+	for id, position in layout.function_ids { functions[position] = module.functions[id] }
 	if emit_err, failed_function := emit_function_atoms(
-		module.functions[:],
+		functions,
 		layout.function_indices,
 		table.atoms[1:1 + layout.function_count],
 		guarded,
@@ -493,7 +507,7 @@ build_function_atoms :: proc(
 		scratch_allocator,
 		module.microarch,
 	); emit_err != nil {
-		if failed_function >= 0 { error_context.function_name = module.functions[failed_function].name }
+		if failed_function >= 0 { error_context.function_name = functions[failed_function].name }
 		return emit_err
 	}
 	return

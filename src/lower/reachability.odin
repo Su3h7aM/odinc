@@ -12,16 +12,23 @@ import "oc:ir"
 // Staged divergence: the official compiler lowers every procedure, we lower only what the roots reach
 // (docs/archive/05-lower-design.md section 4). Roots are user-package procedures and globals and the startup
 // procedures of the runtime requirements, plus the already-lowered generated startup procedures. Each round
-// lowers the newly reached procedures in parallel,
-// then marks the symbols their code and data reference. An unreached procedure gets an `unreachable`
-// body, so lowering errors in unused runtime code never fail the build.
+// creates the functions of the newly reached procedures serially, lowers them in parallel, then marks the
+// symbols their code and data reference. A procedure that is never reached has no job output: no function,
+// no symbol, no code.
+@(private)
+Global_Scan :: enum u8 {
+	Unscanned,
+	Functions, // only the function references of an unreached global are needed
+	All,
+}
+
 @(private)
 Reach_Marks :: struct {
-	functions:      []bool, // by function index
-	lowered:        []bool, // by function index
-	globals:        []bool, // by module global index
-	global_scanned: []bool, // by module global index
-	externs:        []bool,
+	functions:   []bool, // by function index
+	lowered:     []bool, // by function index
+	globals:     []bool, // by module global index
+	global_scan: []Global_Scan, // by module global index
+	externs:     []bool,
 }
 
 @(private)
@@ -63,9 +70,9 @@ grow_reach_marks :: proc(marks: ^Reach_Marks, count: int, allocator: runtime.All
 	globals := make([]bool, count, allocator) or_return
 	copy(globals, marks.globals)
 	marks.globals = globals
-	scanned := make([]bool, count, allocator) or_return
-	copy(scanned, marks.global_scanned)
-	marks.global_scanned = scanned
+	scans := make([]Global_Scan, count, allocator) or_return
+	copy(scans, marks.global_scan)
+	marks.global_scan = scans
 	return nil
 }
 
@@ -81,23 +88,39 @@ scan_function_references :: proc(function: ^ir.Function, marks: ^Reach_Marks) {
 	}
 }
 
+// Every global is emitted, so the functions an unreached global names are needed too. Its other relocations
+// matter only once it is reached.
 @(private)
-scan_reached_globals :: proc(module: ^ir.Module, marks: ^Reach_Marks) {
-	for index in 0 ..< len(module.globals) {
-		if !marks.globals[index] || marks.global_scanned[index] { continue }
-		marks.global_scanned[index] = true
-		for reloc in module.globals[index].relocs { mark_symbol(marks, reloc.target) }
+scan_global_references :: proc(module: ^ir.Module, marks: ^Reach_Marks) {
+	for global, index in module.globals {
+		if marks.globals[index] {
+			if marks.global_scan[index] == .All { continue }
+			marks.global_scan[index] = .All
+			for reloc in global.relocs { mark_symbol(marks, reloc.target) }
+		} else if marks.global_scan[index] == .Unscanned {
+			marks.global_scan[index] = .Functions
+			for reloc in global.relocs {
+				if reloc.target.space == .Function { mark_symbol(marks, reloc.target) }
+			}
+		}
 	}
 }
 
-// An unreached body is never run, so it only needs to be valid IR for the backend.
+// The function is created when its procedure is first reached, so the module holds no function for any other.
 @(private)
-stub_unreached_procedure :: proc(function: ^ir.Function) -> ir.Error {
-	function.signature = ir.add_signature(function, ir.Signature{})
-	if function.error != nil { return function.error }
-	entry := ir.start(function)
-	ir.unreachable(function, entry.control, entry.memory)
-	return ir.function_finish(function)
+create_procedure_function :: proc(job: ^Procedure_Job, module: ^ir.Module, allocator: runtime.Allocator) -> runtime.Allocator_Error {
+	function := ir.function_make(allocator, ir.Function_Id(job.function_index), job.name, 0) or_return
+	function.linkage = job.linkage
+	function.target_features = job.procedure.target_features
+	function.disabled_target_features = job.procedure.disabled_target_features
+	function.signature = ir.add_signature(function, job.abi_signature)
+	if function.error != nil {
+		ir.function_destroy(function)
+		return function.error
+	}
+	module.functions[job.function_index] = function
+	job.function = function
+	return nil
 }
 
 // Lowers the procedures reached from the roots and returns, per module global, whether it is reached.
@@ -118,11 +141,11 @@ lower_reachable :: proc(
 	err: runtime.Allocator_Error,
 ) {
 	marks := Reach_Marks {
-		functions      = make([]bool, len(module.functions), scratch) or_return,
-		lowered        = make([]bool, len(module.functions), scratch) or_return,
-		globals        = make([]bool, len(module.globals), scratch) or_return,
-		global_scanned = make([]bool, len(module.globals), scratch) or_return,
-		externs        = make([]bool, len(module.externs), scratch) or_return,
+		functions   = make([]bool, len(module.functions), scratch) or_return,
+		lowered     = make([]bool, len(module.functions), scratch) or_return,
+		globals     = make([]bool, len(module.globals), scratch) or_return,
+		global_scan = make([]Global_Scan, len(module.globals), scratch) or_return,
+		externs     = make([]bool, len(module.externs), scratch) or_return,
 	}
 	// The generated startup procedures are already lowered, so only their references need marking. Without
 	// this, helpers used only by dynamic global initializers stay unreached and their calls trap.
@@ -162,7 +185,7 @@ lower_reachable :: proc(
 	done: sync.Sema
 	for {
 		grow_reach_marks(&marks, len(module.globals), scratch) or_return
-		scan_reached_globals(module, &marks)
+		scan_global_references(module, &marks)
 		pending := make([dynamic]^Procedure_Job, scratch) or_return
 		for &job, index in jobs {
 			if marks.functions[index] && !marks.lowered[index] {
@@ -171,6 +194,9 @@ lower_reachable :: proc(
 			}
 		}
 		if len(pending) == 0 { break }
+		for job in pending {
+			create_procedure_function(job, module, allocator) or_return
+		}
 		slice.stable_sort_by(pending[:], larger_procedure_first)
 		for job in pending {
 			job.function.allocator = virtual.arena_allocator(&job.function.arena)
@@ -192,15 +218,6 @@ lower_reachable :: proc(
 		for job in pending {
 			job.function.allocator = allocator
 			scan_function_references(job.function, &marks)
-		}
-	}
-
-	for &job, index in jobs {
-		if marks.lowered[index] { continue }
-		clear(&job.errors)
-		if stub_error := stub_unreached_procedure(job.function); stub_error != nil {
-			if allocation_error, is_allocation := stub_error.(runtime.Allocator_Error); is_allocation { return nil, nil, allocation_error }
-			panic("unreached procedure stub failed verification")
 		}
 	}
 	return marks.globals, marks.externs, nil

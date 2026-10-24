@@ -66,7 +66,7 @@ global_address_of_literal_materializes_backing_global :: proc(t: ^testing.T) {
 	found_initializer := false
 	stores_backing_address := false
 	for function in module.functions {
-		if function.name != GLOBAL_INITIALIZER_NAME { continue }
+		if function == nil || function.name != GLOBAL_INITIALIZER_NAME { continue }
 		found_initializer = true
 		for index in 1 ..< len(function.nodes) {
 			id := ir.Node_Id(index)

@@ -25,7 +25,7 @@ logical_map_assignment_evaluates_key_per_access :: proc(t: ^testing.T) {
 	if !testing.expectf(t, lower_error == nil && len(errors) == 0, "%v %v", lower_error, errors) { return }
 	calls := 0
 	for function in module.functions {
-		if function.name != main_symbol_name(session) { continue }
+		if function == nil || function.name != main_symbol_name(session) { continue }
 		for kind, index in function.nodes.kind[:len(function.nodes)] {
 			if kind != .Call { continue }
 			callee := ir.node_inputs(function, ir.Node_Id(index))[2]

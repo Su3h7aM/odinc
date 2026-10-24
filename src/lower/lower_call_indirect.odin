@@ -149,6 +149,7 @@ merge_module_externs :: proc(module: ^ir.Module, scratch: runtime.Allocator) -> 
 	}
 	resize(&module.externs, kept) or_return
 	for function in module.functions {
+		if function == nil { continue }
 		for index in 1 ..< len(function.nodes) {
 			if function.nodes.kind[index] != .Symbol_Addr && function.nodes.kind[index] != .Tls_Addr { continue }
 			symbol := &function.nodes.data[index].symbol

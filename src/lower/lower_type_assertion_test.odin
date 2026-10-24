@@ -115,6 +115,7 @@ assertion_source_lowers :: proc(
 	defer ir.module_destroy(&module)
 	testing.expectf(t, len(errors) == 0, "source %d, typeid %v: %v", source_type, needs_typeid, errors)
 	for function in module.functions {
+		if function == nil { continue }
 		for id in 0 ..< len(function.nodes) {
 			type := function.nodes.type[id]
 			if function.nodes.kind[id] == .Const_Int && (type == .F16 || is_float_type(type)) {

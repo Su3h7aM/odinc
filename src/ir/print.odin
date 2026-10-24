@@ -74,7 +74,7 @@ print_module :: proc(w: io.Writer, module: ^Module, options := DEFAULT_PRINT_OPT
 		put(w, "\n") or_return
 	}
 	for function in module.functions {
-		print_function(w, function, options) or_return
+		if function != nil { print_function(w, function, options) or_return }
 	}
 	return nil
 }
