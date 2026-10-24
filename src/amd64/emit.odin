@@ -156,7 +156,7 @@ emit_function :: proc(
 		delete(relocations, allocator)
 		return {}, unwind_err
 	}
-	return link.Atom{section = .Text, align = 16, bytes = bytes, size = u64(len(bytes)), relocs = relocations, unwind = unwind}, nil
+	return link.Atom{section = .Text, align = 1, bytes = bytes, size = u64(len(bytes)), relocs = relocations, unwind = unwind}, nil
 }
 
 atom_destroy :: proc(atom: ^link.Atom, allocator: mem.Allocator) {

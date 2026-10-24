@@ -23,8 +23,13 @@ Both sides run with no optimizer: official `-o:none`, ours default (odinc has no
 
 - Build official: `odin build p_<name> -o:none -out:<name>.official`; build ours: `odinc build /tmp/compare/w/p_<name> --output <name>.odinc`.
 - Time with `/usr/bin/time -f "%e wall %U user %S sys %M KB"`, 3-5 runs, report median and spread. Separate `check` from `build` (ours: `odinc check <dir> -c oc=<repo>/src`); backend cost is approximately build minus check.
+- Time with the shell's `time` keyword (fish builtin, not GNU time), 3-5 runs, report median and spread: `time <compiler> <args>` gives wall/user/sys; read peak RSS from `/usr/bin/time -v` only if needed — otherwise use `perf stat -e task-clock,minor-faults,max-rss`. Separate `check` from `build` (ours: `odinc check <dir> -c oc=<repo>/src`); backend cost is approximately build minus check.
+- Time with the shell's `time` keyword (fish builtin, not GNU time), 3-5 runs, report median and spread. Separate `check` from `build` (ours: `odinc check <dir> -c oc=<repo>/src`); backend cost is approximately build minus check.
+- Time with `/usr/bin/time -f "%e wall %U user %S sys %M KB"` (userland tool, not banned toolchain), 3-5 runs, report median and spread. Separate `check` from `build` (ours: `odinc check <dir> -c oc=<repo>/src`); backend cost is approximately build minus check.
 - Size: `llvm-size -A`, `llvm-readelf -S -W`, `llvm-nm --size-sort -S --defined-only`. Compare per-section `.text/.rodata/.data/.eh_frame`, then per-procedure sizes for identically-named procedures (normalize `::` to `.`, strip `[file.odin]` tags), then ours-only/official-only symbol sets grouped by package prefix.
 - Profiles: `perf record -e cycles:u -- <compiler> <args>` then `perf report --stdio --sort symbol`; call-graph sampling is blocked (paranoid=2), so attribute hot callees with `lldb --batch -s cmds.txt` breakpoint backtraces instead. Aggregate perf symbols by package prefix (`s/::.*//`) for a phase split proxy.
+- Generated-code speed: run each binary 5x under `/usr/bin/time -f "%e/%U/%M"`, same machine, note variance (hashsort varies run to run).
+- Generated-code speed: run each binary 5x under the shell's `time` keyword, same machine, note variance (hashsort varies run to run).
 - Generated-code speed: run each binary 5x under `/usr/bin/time -f "%e/%U/%M"`, same machine, note variance (hashsort varies run to run).
 
 ## Pitfalls
