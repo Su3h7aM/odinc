@@ -150,14 +150,57 @@ lower_zeroed_aggregate :: proc(state: ^Procedure_State, type: types.Type_Id) -> 
 	return slot
 }
 
-// A constant aggregate is built like a literal: a stack slot with one field store per element.
+// A constant aggregate is copied from a read-only blob of this function into the storage a literal would use. An
+// aggregate with no static image (an address, for one) is built like a literal, with one field store per element.
 @(private)
 lower_constant_aggregate :: proc(state: ^Procedure_State, type: types.Type_Id, aggregate: check.Aggregate_Value) -> ir.Node_Id {
-	plan := lower_constant_aggregate_plan(state, type, aggregate)
 	if state.failed || state.job.function.error != nil { return 0 }
 	layout := state.job.layouts[type]
 	if layout.error != .None || layout.size > i64(max(u32)) { return lower_fail(state, state.job.procedure.body.node, .Expression) }
+	if image, found := lower_constant_blob(state, type, aggregate, layout); found {
+		storage := aggregate_storage(state, layout)
+		lower_store(state, storage, image, type)
+		return storage
+	}
+	plan := lower_constant_aggregate_plan(state, type, aggregate)
 	return lower_aggregate_struct_into(state, state.job.procedure.body.node, plan, aggregate_storage(state, layout), layout.size)
+}
+
+@(private)
+lower_constant_blob :: proc(state: ^Procedure_State, type: types.Type_Id, aggregate: check.Aggregate_Value, layout: Type_Layout) -> (ir.Node_Id, bool) {
+	function := state.job.function
+	if layout.size <= 0 { return 0, false }
+	allocator := virtual.arena_allocator(&function.arena)
+	bytes, bytes_error := make([]byte, layout.size, allocator)
+	if bytes_error != nil {
+		function.error = bytes_error
+		return 0, false
+	}
+	relocations := make([dynamic]ir.Data_Reloc, allocator)
+	encoded, image_error := aggregate_constant_image(
+		Image_Sink{function = function},
+		state.job.program,
+		type,
+		aggregate.elements,
+		bytes,
+		0,
+		&relocations,
+		allocator,
+	)
+	if image_error != nil {
+		function.error = image_error
+		return 0, false
+	}
+	if !encoded { return 0, false }
+	blob := ir.Symbol_Ref {
+		space = .Local_Blob,
+		index = u32(len(function.blobs)),
+	}
+	if _, append_error := append(&function.blobs, ir.Data_Blob{bytes = bytes, align = u32(layout.align), relocs = relocations[:]}); append_error != nil {
+		function.error = append_error
+		return 0, false
+	}
+	return ir.symbol_addr(function, blob), true
 }
 
 @(private)

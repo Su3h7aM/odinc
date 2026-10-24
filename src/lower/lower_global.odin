@@ -3,15 +3,48 @@ package lower
 import "base:runtime"
 import "core:fmt"
 import "core:math/big"
+import "core:mem/virtual"
 import "oc:check"
 import "oc:ir"
 import "oc:types"
+
+// Where a constant image puts the data of its strings: module globals for a global initializer, blobs of the function
+// for a constant aggregate built in code. Slice backings need module globals and are not encoded for a function.
+Image_Sink :: struct {
+	module:   ^ir.Module,
+	function: ^ir.Function,
+}
+
+// Returns the read-only blob that holds the bytes of text, with a terminating zero when nul_terminated.
+@(private)
+string_sink_blob :: proc(sink: Image_Sink, text: string, nul_terminated: bool, alignment: u32) -> (target: ir.Symbol_Ref, err: runtime.Allocator_Error) {
+	if sink.function == nil {
+		index: u32
+		if nul_terminated {
+			index = global_cstring_blob(sink.module, text) or_return
+		} else {
+			index = global_string_blob(sink.module, text) or_return
+		}
+		sink.module.globals[index].align = alignment
+		return ir.Symbol_Ref{space = .Global, index = index}, nil
+	}
+	allocator := virtual.arena_allocator(&sink.function.arena)
+	count := len(text) + 1 if nul_terminated else len(text)
+	bytes := make([]byte, count, allocator) or_return
+	copy(bytes, text)
+	target = ir.Symbol_Ref {
+		space = .Local_Blob,
+		index = u32(len(sink.function.blobs)),
+	}
+	append(&sink.function.blobs, ir.Data_Blob{bytes = bytes, align = alignment}) or_return
+	return target, nil
+}
 
 // Encodes a constant initializer as little-endian bytes of a global of `size` bytes. `ok` is false when a value has
 // no static image, including an address nested below the top level.
 @(private)
 global_constant_image :: proc(
-	module: ^ir.Module,
+	sink: Image_Sink,
 	program: ^check.Checked_Program,
 	id: check.Const_Id,
 	size: u32,
@@ -67,12 +100,13 @@ global_constant_image :: proc(
 		if len(elements) == 0 { break }
 		backing_size, alignment, layout_error := types.layout(check.type_store(program), backing.type)
 		if layout_error != .None || backing_size > i64(max(u32)) { return nil, nil, false, nil }
-		image, backing_relocs, encoded := global_constant_image(module, program, value.backing, u32(backing_size), symbols, nil, allocator) or_return
+		if sink.module == nil { return nil, nil, false, nil }
+		image, backing_relocs, encoded := global_constant_image(sink, program, value.backing, u32(backing_size), symbols, nil, allocator) or_return
 		if !encoded { return nil, nil, false, nil }
-		index := u32(len(module.globals))
+		index := u32(len(sink.module.globals))
 		name := fmt.aprintf("__odinc_internal_slice_backing_%d", index, allocator = allocator)
 		append(
-			&module.globals,
+			&sink.module.globals,
 			ir.Global{name = name, size = u32(backing_size), align = u32(alignment), mutable = true, anonymous = true, bytes = image, relocs = backing_relocs},
 		) or_return
 		write_scalar(bytes, 8, u64(len(elements)), 8)
@@ -84,7 +118,7 @@ global_constant_image :: proc(
 	case check.Aggregate_Value:
 		relocations := make([dynamic]ir.Data_Reloc, allocator) or_return
 		for reloc in relocs { append(&relocations, reloc) or_return }
-		encoded := aggregate_constant_image(module, program, constant.type, value.elements, bytes, 0, &relocations, allocator) or_return
+		encoded := aggregate_constant_image(sink, program, constant.type, value.elements, bytes, 0, &relocations, allocator) or_return
 		if !encoded { return nil, nil, false, nil }
 		out_relocs = relocations[:]
 	case check.Variant_Value:
@@ -100,15 +134,7 @@ global_constant_image :: proc(
 		}
 		payload_size, _, payload_layout_error := types.layout(store, payload.type)
 		if variant_index < 0 || payload_layout_error != .None || payload_size > i64(size) { return nil, nil, false, nil }
-		payload_bytes, payload_relocs, payload_ok := global_constant_image(
-			module,
-			program,
-			value.value,
-			u32(payload_size),
-			symbols,
-			relocs,
-			allocator,
-		) or_return
+		payload_bytes, payload_relocs, payload_ok := global_constant_image(sink, program, value.value, u32(payload_size), symbols, relocs, allocator) or_return
 		if !payload_ok { return nil, nil, false, nil }
 		copy(bytes, payload_bytes)
 		out_relocs = payload_relocs
@@ -135,10 +161,10 @@ global_constant_image :: proc(
 }
 
 // Writes each element of a constant aggregate at its field or element offset, relative to base. Nested aggregates
-// recurse. Strings and C strings relocate their data pointers to module blobs; addresses stay unsupported.
-@(private = "file")
+// recurse. Strings and C strings relocate their data pointers to the sink's blobs; addresses stay unsupported.
+@(private)
 aggregate_constant_image :: proc(
-	module: ^ir.Module,
+	sink: Image_Sink,
 	program: ^check.Checked_Program,
 	type: types.Type_Id,
 	elements: []check.Const_Id,
@@ -182,7 +208,7 @@ aggregate_constant_image :: proc(
 		if layout_error != .None || start + size > i64(len(bytes)) { return false, nil }
 		constant := check.constant(program, element)
 		if aggregate, is_aggregate := constant.value.(check.Aggregate_Value); is_aggregate {
-			encoded = aggregate_constant_image(module, program, element_type, aggregate.elements, bytes, start, relocations, allocator) or_return
+			encoded = aggregate_constant_image(sink, program, element_type, aggregate.elements, bytes, start, relocations, allocator) or_return
 			if !encoded { return false, nil }
 			continue
 		}
@@ -200,21 +226,20 @@ aggregate_constant_image :: proc(
 				}
 				write_scalar(bytes, start + 8, u64(count), 8)
 				if len(text) == 0 { continue }
-				blob, blob_error := global_string_blob(module, text)
-				if blob_error != nil { return false, blob_error }
-				module.globals[blob].align = alignment
-				append(relocations, ir.Data_Reloc{offset = u32(start), target = ir.Symbol_Ref{space = .Global, index = blob}}) or_return
+				target, target_error := string_sink_blob(sink, text, false, alignment)
+				if target_error != nil { return false, target_error }
+				append(relocations, ir.Data_Reloc{offset = u32(start), target = target}) or_return
 			} else if element_kind == .CString {
-				blob, blob_error := global_cstring_blob(module, text)
-				if blob_error != nil { return false, blob_error }
-				append(relocations, ir.Data_Reloc{offset = u32(start), target = ir.Symbol_Ref{space = .Global, index = blob}}) or_return
+				target, target_error := string_sink_blob(sink, text, true, 1)
+				if target_error != nil { return false, target_error }
+				append(relocations, ir.Data_Reloc{offset = u32(start), target = target}) or_return
 			} else {
 				return false, nil
 			}
 			continue
 		}
 		if _, is_address := constant.value.(check.Address_Value); is_address { return false, nil }
-		image, scalar_relocs, scalar_ok, image_error := global_constant_image(module, program, element, u32(size), nil, nil, allocator)
+		image, scalar_relocs, scalar_ok, image_error := global_constant_image(sink, program, element, u32(size), nil, nil, allocator)
 		if image_error != nil { return false, image_error }
 		if !scalar_ok { return false, nil }
 		copy(bytes[start:], image)
