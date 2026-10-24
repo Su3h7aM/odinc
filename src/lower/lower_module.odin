@@ -1,11 +1,26 @@
 package lower
 
 import "base:runtime"
+import "core:fmt"
 import "core:mem/virtual"
 import "core:strings"
 import "oc:check"
 import "oc:ir"
 import "oc:types"
+
+// Lowering reaches a procedure only through its checked symbol. The checker queues every body that checked code
+// names, so a procedure without a symbol here is a checker bug, not a user error.
+@(private)
+require_checked_procedure :: proc(program: ^check.Checked_Program, entity: check.Entity_Id) {
+	if entity == 0 || program.entities[entity].kind != .Procedure || check.entity_symbol(program, entity) != 0 { return }
+	fmt.panicf("internal compiler error: lowering reached procedure %q, which has no checked body", program.entities[entity].name)
+}
+
+@(private)
+checked_procedure_symbol :: proc(program: ^check.Checked_Program, entity: check.Entity_Id) -> check.Symbol_Id {
+	require_checked_procedure(program, entity)
+	return check.entity_symbol(program, entity)
+}
 
 @(private)
 declare_symbols :: proc(program: ^check.Checked_Program, module: ^ir.Module) -> (symbols: []ir.Symbol_Ref, err: runtime.Allocator_Error) {

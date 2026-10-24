@@ -630,7 +630,7 @@ lower_array_memory_equal :: proc(state: ^Procedure_State, node: syntax.Node_Inde
 	if state.failed { return 0 }
 	program := state.job.program
 	entity := program.runtime.helpers[.Memory_Equal]
-	if entity == 0 || program.entity_symbols[entity] == 0 { return lower_fail(state, node, .Operator) }
+	if entity == 0 || checked_procedure_symbol(program, entity) == 0 { return lower_fail(state, node, .Operator) }
 	symbol := state.job.symbols[program.entity_symbols[entity]]
 	return generated_procedure_call(state, symbol, program.entities[entity].type, []ir.Node_Id{left, right, count})
 }

@@ -320,6 +320,7 @@ check_session :: proc(
 	}
 	if error := assign_init_order(session); error != .None { return error }
 	if error := session_init_checkers(session); error != .None { return error }
+	mark_library_packages(session, odin_root)
 	session.checker.options.complete_package = main_package
 	if error := bind_whens(session); error != .None { return error }
 	if session.test_options != nil {
@@ -338,10 +339,12 @@ check_session :: proc(
 	if session.stop_at_external { libraries = library_entities(session, context.temp_allocator) }
 	for declaration in session.collection.declarations {
 		if check.declaration_is_lazy(&session.checker, declaration.entity) { continue }
+		if check.declaration_is_library_lazy(&session.checker, declaration.entity) { continue }
 		if _, resolve_error := check.resolve_entity(&session.resolver, declaration.entity); resolve_error != nil { return .Check_Failed }
 		if session.stop_at_external && any_external_library_used(session, libraries) { return .External_Library_Used }
 	}
 	directives_valid, directive_error := check.check_package_directives(&session.checker)
+	if check.resolve_runtime_roots(&session.checker) != nil { return .Check_Failed }
 	if directive_error != nil || !directives_valid { return .Check_Failed }
 	startup_valid, startup_error := check.resolve_startup_procedures(&session.checker)
 	if startup_error != nil || !startup_valid { return .Check_Failed }
@@ -758,6 +761,18 @@ add_package :: proc(session: ^Session, key, name: string, kind: check.Package_Ki
 	if scope_error != nil { return 0, 0, .Allocation_Failed }
 	if error := push(&session.packages, check.Package{key = key, name = name, kind = kind, scope = scope}); error != .None { return 0, 0, error }
 	return check.Package_Id(len(session.packages) - 1), scope, .None
+}
+
+// Packages under ODIN_ROOT's base/, core/ and vendor/ are libraries. In test mode core:testing stays eager.
+mark_library_packages :: proc(session: ^Session, odin_root: string) {
+	prefixes := library_prefixes(odin_root)
+	testing := strings.concatenate({prefixes[1], "testing"}, context.temp_allocator)
+	for &package_value in session.packages {
+		for prefix in prefixes {
+			if strings.has_prefix(package_value.key, prefix) { package_value.library = true }
+		}
+		if session.test_options != nil && package_value.key == testing { package_value.library = false }
+	}
 }
 
 @(private = "file")

@@ -101,7 +101,7 @@ lower_map_literal :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan
 lower_runtime_procedure :: proc(state: ^Procedure_State, helper: check.Runtime_Helper) -> (declaration: Procedure_Declaration, found: bool) {
 	program := state.job.program
 	target := program.runtime.helpers[helper]
-	if target == 0 || int(target) >= len(state.job.declarations) || program.entity_symbols[target] == 0 { return {}, false }
+	if target == 0 || int(target) >= len(state.job.declarations) || checked_procedure_symbol(program, target) == 0 { return {}, false }
 	return state.job.declarations[target], true
 }
 

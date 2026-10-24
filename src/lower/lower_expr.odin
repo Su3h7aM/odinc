@@ -163,7 +163,7 @@ lower_entity_value :: proc(state: ^Procedure_State, entity: check.Entity_Id) -> 
 	if binding.kind == .Address { return lower_load(state, binding.address, state.job.program.entities[entity].type) }
 	constant := state.job.program.entities[entity].constant
 	if constant != 0 { return lower_constant(state, constant, state.job.program.entities[entity].type) }
-	symbol := check.entity_symbol(state.job.program, entity)
+	symbol := checked_procedure_symbol(state.job.program, entity)
 	if symbol != 0 {
 		ref := state.job.symbols[symbol]
 		if ref.space == .Function ||
@@ -403,7 +403,7 @@ lower_address :: proc(state: ^Procedure_State, node: syntax.Node_Index) -> ir.No
 		if ast_node.kind == .Selector_Expr && info.entity == 0 { break }
 		binding := state.locals[info.entity]
 		if binding.kind == .Address { return binding.address }
-		symbol := check.entity_symbol(state.job.program, info.entity)
+		symbol := checked_procedure_symbol(state.job.program, info.entity)
 		if symbol != 0 {
 			ref := state.job.symbols[symbol]
 			if check.symbols(state.job.program)[int(symbol) - 1].thread_local { return ir.tls_addr(state.job.function, ref) }
@@ -424,7 +424,7 @@ lower_operand_address :: proc(state: ^Procedure_State, operand: check.Operand) -
 	case check.Entity_Id:
 		binding := state.locals[value]
 		if binding.kind == .Address { return binding.address }
-		symbol := check.entity_symbol(state.job.program, value)
+		symbol := checked_procedure_symbol(state.job.program, value)
 		if symbol != 0 {
 			ref := state.job.symbols[symbol]
 			if check.symbols(state.job.program)[int(symbol) - 1].thread_local { return ir.tls_addr(state.job.function, ref) }

@@ -235,7 +235,7 @@ generated_helper_call :: proc(state: ^Procedure_State, helper: check.Runtime_Hel
 	program := state.job.program
 	entity := program.runtime.helpers[helper]
 	// An unresolved helper has no type or symbol; failing cleanly beats asserting in type lookup.
-	if entity == 0 || program.entities[entity].type == types.TYPE_NONE || program.entity_symbols[entity] == 0 {
+	if entity == 0 || program.entities[entity].type == types.TYPE_NONE || checked_procedure_symbol(program, entity) == 0 {
 		return generated_unsupported(state)
 	}
 	symbol := state.job.symbols[program.entity_symbols[entity]]

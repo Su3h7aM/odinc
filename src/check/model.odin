@@ -498,6 +498,7 @@ Import_Edge :: struct {
 Package :: struct {
 	key, name:  string,
 	kind:       Package_Kind,
+	library:    bool,
 	phase:      Package_Phase,
 	scope:      Scope_Id,
 	files:      []File_Id,

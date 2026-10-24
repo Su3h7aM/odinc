@@ -29,6 +29,7 @@ extern_declaration :: proc(state: ^Procedure_State, node: syntax.Node_Index, pla
 		return {}, false
 	}
 	entity := program.entities[plan.entity]
+	require_checked_procedure(program, plan.entity)
 	if entity.kind != .Procedure || .Foreign not_in entity.flags {
 		lower_fail(state, node, .Call)
 		return {}, false
@@ -49,7 +50,7 @@ extern_declaration :: proc(state: ^Procedure_State, node: syntax.Node_Index, pla
 		state.job.function.error = signature_error
 		return {}, false
 	}
-	source_symbol := check.entity_symbol(program, plan.entity)
+	source_symbol := checked_procedure_symbol(program, plan.entity)
 	if source_symbol == 0 || state.job.symbols[source_symbol].space != .Extern {
 		lower_fail(state, node, .Call)
 		return {}, false

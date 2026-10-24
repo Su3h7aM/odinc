@@ -86,7 +86,7 @@ lower_range_decode :: proc(
 	function := state.job.function
 	program := state.job.program
 	helper := program.runtime.helpers[kind]
-	if helper == 0 || program.entity_symbols[helper] == 0 {
+	if helper == 0 || checked_procedure_symbol(program, helper) == 0 {
 		lower_fail(state, node, .Range)
 		return 0, 0
 	}

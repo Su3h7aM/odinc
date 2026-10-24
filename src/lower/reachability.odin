@@ -64,7 +64,8 @@ mark_symbol :: proc(marks: ^Reach_Marks, symbol: ir.Symbol_Ref) {
 @(private)
 mark_entity :: proc(program: ^check.Checked_Program, symbols: []ir.Symbol_Ref, marks: ^Reach_Marks, entity: check.Entity_Id) {
 	if entity == 0 { return }
-	mark_symbol(marks, symbols[check.entity_symbol(program, entity)])
+	symbol := checked_procedure_symbol(program, entity)
+	if symbol != 0 { mark_symbol(marks, symbols[symbol]) }
 }
 
 // Lowering appends globals after the mark tables are sized, so the tables grow

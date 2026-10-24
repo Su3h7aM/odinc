@@ -103,3 +103,19 @@ runtime_helper_entities :: proc(checker: ^Expression_Checker) -> (helpers: [Runt
 	}
 	return helpers
 }
+
+// Lowering and publish read these runtime entities by identity, although checked code may never name them.
+resolve_runtime_roots :: proc(checker: ^Expression_Checker) -> Resolve_Error {
+	collection := checker.type_checker.collection
+	if collection == nil || collection.runtime_scope == 0 { return nil }
+	resolver := checker.type_checker.resolver
+	for helper in Runtime_Helper {
+		entity := runtime_helper_entity(checker, helper)
+		if entity == 0 { continue }
+		if _, err := resolve_entity(resolver, entity); err != nil { return err }
+	}
+	if entity := scope_lookup_current(resolver.scopes, collection.runtime_scope, "__init_context"); entity != 0 {
+		if _, err := resolve_entity(resolver, entity); err != nil { return err }
+	}
+	return nil
+}

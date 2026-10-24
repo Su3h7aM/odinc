@@ -2,6 +2,7 @@ package check
 
 import "base:runtime"
 import "core:math/big"
+import "core:strings"
 import "oc:syntax"
 import "oc:types"
 
@@ -370,6 +371,27 @@ declaration_is_lazy :: proc(checker: ^Expression_Checker, id: Entity_Id) -> bool
 	declaration, is_value := file.ast.nodes[entity.declaration.node].payload.(syntax.Value_Decl)
 	if !is_value { return true }
 	for name in ([5]string{"test", "init", "fini", "export", "linkage"}) {
+		if collection_has_attribute(file.ast, file.source, declaration.attributes, name) { return false }
+	}
+	return true
+}
+
+// A library procedure body is checked only when checked code names the procedure. Bodies with #assert or #panic
+// stay eager: upstream reports them while checking the body, and a lazy body would report only when named.
+declaration_is_library_lazy :: proc(checker: ^Expression_Checker, id: Entity_Id) -> bool {
+	entity := entity_get(checker.type_checker.resolver.scopes, id)
+	if entity.kind != .Procedure || !checker.packages[entity.package_id].library { return false }
+	if entity.flags & {.Test, .Export, .Required} != {} { return false }
+	procedure, is_procedure := entity.data.(Procedure_Data)
+	if !is_procedure || procedure.body.node == 0 { return false }
+	body_file := checker.type_checker.files[procedure.body.file]
+	body := body_file.ast.nodes[procedure.body.node]
+	body_text := string(body_file.source[int(body.start):int(body.end)])
+	if strings.contains(body_text, "#assert") || strings.contains(body_text, "#panic") { return false }
+	file := checker.type_checker.files[entity.declaration.file]
+	declaration, is_value := file.ast.nodes[entity.declaration.node].payload.(syntax.Value_Decl)
+	if !is_value { return false }
+	for name in ([6]string{"test", "init", "fini", "export", "linkage", "require"}) {
 		if collection_has_attribute(file.ast, file.source, declaration.attributes, name) { return false }
 	}
 	return true

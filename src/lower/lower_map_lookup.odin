@@ -135,7 +135,7 @@ lower_map_index :: proc(
 lower_map_runtime_call :: proc(state: ^Procedure_State, node: syntax.Node_Index, helper: check.Runtime_Helper, arguments: []ir.Node_Id) -> ir.Node_Id {
 	program := state.job.program
 	entity := program.runtime.helpers[helper]
-	if entity == 0 || program.entity_symbols[entity] == 0 { return lower_fail(state, node, .Expression) }
+	if entity == 0 || checked_procedure_symbol(program, entity) == 0 { return lower_fail(state, node, .Expression) }
 	symbol := state.job.symbols[program.entity_symbols[entity]]
 	return generated_procedure_call(state, symbol, program.entities[entity].type, arguments)
 }
@@ -194,7 +194,7 @@ lower_map_store :: proc(state: ^Procedure_State, node: syntax.Node_Index, plan: 
 lower_map_set_call :: proc(state: ^Procedure_State, node: syntax.Node_Index, map_value, map_info_value, hash, key_address, value_address: ir.Node_Id) {
 	program := state.job.program
 	helper := program.runtime.helpers[.Dynamic_Map_Set]
-	if helper == 0 || int(helper) >= len(state.job.declarations) || program.entity_symbols[helper] == 0 {
+	if helper == 0 || int(helper) >= len(state.job.declarations) || checked_procedure_symbol(program, helper) == 0 {
 		lower_fail(state, node, .Expression)
 		return
 	}

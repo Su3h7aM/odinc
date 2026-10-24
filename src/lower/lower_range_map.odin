@@ -127,7 +127,7 @@ lower_map_range_data :: proc(
 	ok: bool,
 ) {
 	helper := lower_map_range_helper(state, check.Runtime_Helper.Map_Kvh_Data_Dynamic)
-	if helper == 0 || int(helper) >= len(state.job.declarations) || state.job.program.entity_symbols[helper] == 0 {
+	if helper == 0 || int(helper) >= len(state.job.declarations) || checked_procedure_symbol(state.job.program, helper) == 0 {
 		lower_fail(state, node, .Range)
 		return
 	}
