@@ -119,6 +119,8 @@ Expression_Checker :: struct {
 	procedure_infos:      [dynamic]Procedure_Info_Entry,
 	procedure_info_index: map[Procedure_Info_Origin]types.Procedure_Info_Id,
 	view_lookup:          map[View_Key]View_Id,
+	// Dense file-indexed views for instance 0; zero means not yet created.
+	root_views:           [dynamic]View_Id,
 	invalid_rows:         [dynamic]Invalid_Row,
 	stored_rows:          [dynamic]Expression_Ref,
 	speculation_depth:    int,
@@ -170,6 +172,7 @@ expression_checker_init :: proc(
 	checker.procedure_infos.allocator = allocator
 	checker.procedure_info_index.allocator = allocator
 	checker.view_lookup.allocator = allocator
+	checker.root_views.allocator = allocator
 	checker.soa_loop_vars.allocator = allocator
 	defer if err != nil { expression_checker_destroy(checker) }
 	virtual.arena_init_growing(&checker.view_arena) or_return
@@ -206,6 +209,7 @@ expression_checker_destroy :: proc(checker: ^Expression_Checker) {
 	delete(checker.procedure_infos)
 	delete(checker.procedure_info_index)
 	delete(checker.view_lookup)
+	delete(checker.root_views)
 	delete(checker.soa_loop_vars)
 	mem.dynamic_arena_destroy(&checker.arena)
 	virtual.arena_destroy(&checker.view_arena)
@@ -229,6 +233,9 @@ expression_checker_publish :: proc(checker: ^Expression_Checker, program: ^Check
 expression_file_view :: proc(checker: ^Expression_Checker, file: File_Id) -> (view: View_Id, err: runtime.Allocator_Error) {
 	instance := checker.active_instance
 	if checker.type_checker.record_instance != 0 { instance = checker.type_checker.record_instance }
+	if instance == 0 && file != 0 && int(file) < len(checker.root_views) && checker.root_views[file] != 0 {
+		return checker.root_views[file], nil
+	}
 	if file != 0 {
 		if found, ok := checker.view_lookup[View_Key{file = file, instance = instance}]; ok { return found, nil }
 	}
@@ -251,6 +258,10 @@ expression_file_view :: proc(checker: ^Expression_Checker, file: File_Id) -> (vi
 	view = View_Id(len(checker.views))
 	append(&checker.views, typed) or_return
 	checker.view_lookup[View_Key{file = file, instance = instance}] = view
+	if instance == 0 && file != 0 {
+		for int(file) >= len(checker.root_views) { append(&checker.root_views, 0) or_return }
+		checker.root_views[file] = view
+	}
 	return view, nil
 }
 
