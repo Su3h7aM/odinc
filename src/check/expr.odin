@@ -121,6 +121,8 @@ Expression_Checker :: struct {
 	view_lookup:          map[View_Key]View_Id,
 	// Dense file-indexed views for instance 0; zero means not yet created.
 	root_views:           [dynamic]View_Id,
+	// Node span of each declaration's instance views; instances of one generic declaration share it.
+	view_spans:           map[View_Span_Key]View_Span,
 	invalid_rows:         [dynamic]Invalid_Row,
 	stored_rows:          [dynamic]Expression_Ref,
 	speculation_depth:    int,
@@ -132,6 +134,16 @@ Expression_Checker :: struct {
 Invalid_Row :: struct {
 	view: View_Id,
 	node: syntax.Node_Index,
+}
+
+View_Span_Key :: struct {
+	file:        File_Id,
+	declaration: syntax.Node_Index,
+}
+
+View_Span :: struct {
+	first: syntax.Node_Index,
+	count: int,
 }
 
 Speculation :: struct {
@@ -173,6 +185,7 @@ expression_checker_init :: proc(
 	checker.procedure_info_index.allocator = allocator
 	checker.view_lookup.allocator = allocator
 	checker.root_views.allocator = allocator
+	checker.view_spans.allocator = allocator
 	checker.soa_loop_vars.allocator = allocator
 	defer if err != nil { expression_checker_destroy(checker) }
 	virtual.arena_init_growing(&checker.view_arena) or_return
@@ -210,6 +223,7 @@ expression_checker_destroy :: proc(checker: ^Expression_Checker) {
 	delete(checker.procedure_info_index)
 	delete(checker.view_lookup)
 	delete(checker.root_views)
+	delete(checker.view_spans)
 	delete(checker.soa_loop_vars)
 	mem.dynamic_arena_destroy(&checker.arena)
 	virtual.arena_destroy(&checker.view_arena)
@@ -240,7 +254,8 @@ expression_file_view :: proc(checker: ^Expression_Checker, file: File_Id) -> (vi
 		if found, ok := checker.view_lookup[View_Key{file = file, instance = instance}]; ok { return found, nil }
 	}
 	assert(file != 0 && int(file) < len(checker.type_checker.files))
-	first, count := expression_view_span(checker, file, instance)
+	first, count, span_error := expression_view_span(checker, file, instance)
+	if span_error != nil { return 0, span_error }
 	allocator := virtual.arena_allocator(&checker.view_arena)
 	typed := Typed_View {
 		file       = file,
@@ -266,12 +281,25 @@ expression_file_view :: proc(checker: ^Expression_Checker, file: File_Id) -> (vi
 }
 
 @(private = "file")
-expression_view_span :: proc(checker: ^Expression_Checker, file: File_Id, instance: Instance_Id) -> (first: syntax.Node_Index, count: int) {
+expression_view_span :: proc(
+	checker: ^Expression_Checker,
+	file: File_Id,
+	instance: Instance_Id,
+) -> (
+	first: syntax.Node_Index,
+	count: int,
+	err: runtime.Allocator_Error,
+) {
 	ast := checker.type_checker.files[file].ast
-	if instance == 0 { return 0, len(ast.nodes) }
+	if instance == 0 { return 0, len(ast.nodes), nil }
 	entity := entity_get(checker.type_checker.resolver.scopes, Entity_Id(instance))
-	if entity == nil || entity.declaration.node == 0 { return 0, len(ast.nodes) }
-	if entity.declaration.file != file { return 0, 0 }
+	if entity == nil || entity.declaration.node == 0 { return 0, len(ast.nodes), nil }
+	if entity.declaration.file != file { return 0, 0, nil }
+	key := View_Span_Key {
+		file        = file,
+		declaration = entity.declaration.node,
+	}
+	if span, ok := checker.view_spans[key]; ok { return span.first, span.count, nil }
 	declaration := ast.nodes[entity.declaration.node]
 	first = entity.declaration.node
 	last := entity.declaration.node
@@ -281,7 +309,12 @@ expression_view_span :: proc(checker: ^Expression_Checker, file: File_Id, instan
 			last = max(last, syntax.Node_Index(index + 1))
 		}
 	}
-	return first, int(last - first) + 1
+	count = int(last - first) + 1
+	checker.view_spans[key] = View_Span {
+		first = first,
+		count = count,
+	}
+	return first, count, nil
 }
 
 @(require_results)
