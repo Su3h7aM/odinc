@@ -81,21 +81,37 @@ call_graph_target :: proc(graph: ^Call_Graph, program: ^check.Checked_Program, e
 }
 
 adjacency_build :: proc(edges: []Edge, count: int, reversed: bool, allocator: runtime.Allocator) -> (adjacency: Adjacency, err: runtime.Allocator_Error) {
-	ordered := make([]Edge, len(edges), allocator) or_return
-	for edge, index in edges { ordered[index] = Edge{edge.to, edge.from} if reversed else edge }
-	slice.sort_by(ordered, proc(a, b: Edge) -> bool { return a.from < b.from || a.from == b.from && a.to < b.to })
 	adjacency.offsets = make([]u32, count + 1, allocator) or_return
-	adjacency.targets = make([]Procedure_Id, len(ordered), allocator) or_return
-	used := 0
-	for edge in ordered {
-		if used > 0 && ordered[used - 1] == edge { continue }
-		ordered[used] = edge
-		adjacency.targets[used] = edge.to
-		adjacency.offsets[int(edge.from) + 1] += 1
-		used += 1
+	cursor := make([]u32, count + 1, allocator) or_return
+	defer delete(cursor, allocator)
+	for edge in edges {
+		row := edge.to if reversed else edge.from
+		adjacency.offsets[int(row) + 1] += 1
 	}
 	for index in 1 ..< len(adjacency.offsets) { adjacency.offsets[index] += adjacency.offsets[index - 1] }
-	adjacency.targets = adjacency.targets[:used]
+	copy(cursor, adjacency.offsets)
+	raw := make([]Procedure_Id, len(edges), allocator) or_return
+	for edge in edges {
+		row := edge.to if reversed else edge.from
+		raw[cursor[row]] = edge.from if reversed else edge.to
+		cursor[row] += 1
+	}
+	adjacency.targets = raw
+	used := 0
+	input_start := u32(0)
+	for row in 0 ..< count {
+		end := adjacency.offsets[row + 1]
+		slice.sort(raw[input_start:end])
+		row_start := used
+		for target in raw[input_start:end] {
+			if used > row_start && raw[used - 1] == target { continue }
+			raw[used] = target
+			used += 1
+		}
+		adjacency.offsets[row + 1] = u32(used)
+		input_start = end
+	}
+	adjacency.targets = raw[:used]
 	return
 }
 
