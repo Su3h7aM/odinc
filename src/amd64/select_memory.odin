@@ -342,8 +342,9 @@ select_copy_set :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Status 
 	return nil
 }
 
-// Each chunk moves through one register; a copy loads its source bytes, a fill stores its
-// single value byte by byte.
+// Each chunk moves through one register. A copy loads its source bytes; a constant fill stores
+// its byte replicated across each chunk, widest chunks first; a computed fill stores its byte
+// one at a time.
 @(private)
 select_inline_copy_set :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_Status {
 	input, output := selector.input, selector.output
@@ -351,6 +352,10 @@ select_inline_copy_set :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_
 	is_copy := input.nodes.kind[node] == .Mem_Copy
 	size, _ := inline_copy_size(selector, node)
 	destination := select_address(selector, inputs[2]) or_return
+	if !is_copy && input.nodes.kind[inputs[3]] == .Const_Int {
+		byte_value := u64(u8(input.nodes.data[inputs[3]].int_value))
+		return select_constant_fill(selector, destination, size, byte_value * 0x0101_0101_0101_0101)
+	}
 	source: Memory_Ref
 	fill: Vreg
 	if is_copy {
@@ -382,6 +387,28 @@ select_inline_copy_set :: proc(selector: ^Selector, node: ir.Node_Id) -> Select_
 		store := destination
 		store.displacement += positions[index]
 		emit(output, selector.block, .MOV, widths[index], store, values[index]) or_return
+	}
+	return nil
+}
+
+// `pattern` holds the fill byte in all eight bytes; each chunk stores its low `width` bytes.
+@(private)
+select_constant_fill :: proc(selector: ^Selector, destination: Memory_Ref, size: u64, pattern: u64) -> Select_Status {
+	output, block := selector.output, selector.block
+	for position := u64(0); position < size; {
+		width := u64(8)
+		for width > size - position { width /= 2 }
+		chunk := pattern if width == 8 else pattern & ((u64(1) << (width * 8)) - 1)
+		value := new_vreg(output, .Int) or_return
+		if width == 8 && !fits_immediate(i64(chunk), 8) {
+			emit(output, block, .MOVABS, 8, value, Immediate(i64(chunk))) or_return
+		} else {
+			emit(output, block, .MOV, u8(width), value, Immediate(i64(chunk))) or_return
+		}
+		store := destination
+		store.displacement += i32(position)
+		emit(output, block, .MOV, u8(width), store, value) or_return
+		position += width
 	}
 	return nil
 }
