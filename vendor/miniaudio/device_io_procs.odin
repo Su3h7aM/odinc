@@ -1,20 +1,20 @@
 package miniaudio
 
-foreign import lib { LIB }
+foreign import lib {LIB}
 
 import "core:c"
 
-@(default_calling_convention="c", link_prefix="ma_")
+@(default_calling_convention = "c", link_prefix = "ma_")
 foreign lib {
 	device_job_thread_config_init :: proc() -> device_job_thread_config ---
 
-	device_job_thread_init   :: proc(pConfig: ^device_job_thread_config, pAllocationCallbacks: ^allocation_callbacks, pJobThread: ^device_job_thread) -> result ---
+	device_job_thread_init :: proc(pConfig: ^device_job_thread_config, pAllocationCallbacks: ^allocation_callbacks, pJobThread: ^device_job_thread) -> result ---
 	device_job_thread_uninit :: proc(pJobThread: ^device_job_thread, pAllocationCallbacks: ^allocation_callbacks) ---
-	device_job_thread_post   :: proc(pJobThread: ^device_job_thread, pJob: ^job) -> result ---
-	device_job_thread_next   :: proc(pJobThread: ^device_job_thread, pJob: ^job) -> result ---
+	device_job_thread_post :: proc(pJobThread: ^device_job_thread, pJob: ^job) -> result ---
+	device_job_thread_next :: proc(pJobThread: ^device_job_thread, pJob: ^job) -> result ---
 
 	device_id_equal :: proc(pA: ^device_id, pB: ^device_id) -> b32 ---
-	
+
 	/*
 	Initializes a `ma_context_config` object.
 
@@ -477,7 +477,6 @@ foreign lib {
 	MA_TRUE if the context supports loopback mode; MA_FALSE otherwise.
 	*/
 	context_is_loopback_supported :: proc(pContext: ^context_type) -> b32 ---
-
 
 
 	/*
@@ -1582,7 +1581,6 @@ foreign lib {
 	calculate_buffer_size_in_frames_from_descriptor :: proc(pDescriptor: ^device_descriptor, nativeSampleRate: u32, performanceProfile: performance_profile) -> u32 ---
 
 
-
 	/*
 	Retrieves a friendly name for a backend.
 	*/
@@ -1676,4 +1674,3 @@ foreign lib {
 	*/
 	is_loopback_supported :: proc(backend: backend) -> b32 ---
 }
-

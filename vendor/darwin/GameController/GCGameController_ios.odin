@@ -2,31 +2,33 @@
 #+build darwin:ios
 package darwin_GameController
 
-import NS "core:sys/darwin/Foundation"
 import "base:intrinsics"
+import NS "core:sys/darwin/Foundation"
 import UI "vendor:darwin/UIKit"
 
-@(objc_class="GCGameControllerActivationContext", objc_superclass=NS.Object)
-GameControllerActivationContext :: struct { using _: NS.Object}
+@(objc_class = "GCGameControllerActivationContext", objc_superclass = NS.Object)
+GameControllerActivationContext :: struct {
+	using _: NS.Object,
+}
 
-@(default_calling_convention="c")
+@(default_calling_convention = "c")
 foreign lib {
-	@(objc_type=GameControllerActivationContext, objc_selector="init", objc_name="init")
+	@(objc_type = GameControllerActivationContext, objc_selector = "init", objc_name = "init")
 	GameControllerActivationContext_init :: proc(self: ^GameControllerActivationContext) -> instancetype ---
 
-	@(objc_type=GameControllerActivationContext, objc_selector="previousApplicationBundleID", objc_name="previousApplicationBundleID")
+	@(objc_type = GameControllerActivationContext, objc_selector = "previousApplicationBundleID", objc_name = "previousApplicationBundleID")
 	GameControllerActivationContext_previousApplicationBundleID :: proc(self: ^GameControllerActivationContext) -> ^NS.String ---
 }
 
 
-@(objc_class="GCGameControllerSceneDelegate")
+@(objc_class = "GCGameControllerSceneDelegate")
 GameControllerSceneDelegate :: struct {
 	using _: intrinsics.objc_object,
 	using _: NS.ObjectProtocol,
 }
 
-@(default_calling_convention="c")
+@(default_calling_convention = "c")
 foreign lib {
-	@(objc_type=GameControllerSceneDelegate, objc_selector="scene:didActivateGameControllerWithContext:", objc_name="scene")
+	@(objc_type = GameControllerSceneDelegate, objc_selector = "scene:didActivateGameControllerWithContext:", objc_name = "scene")
 	GameControllerSceneDelegate_scene :: proc(self: ^GameControllerSceneDelegate, scene: ^UI.Scene, _context: ^GameControllerActivationContext) ---
 }

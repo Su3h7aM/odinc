@@ -9,393 +9,388 @@ import CG "core:sys/darwin/CoreGraphics"
 import NS "core:sys/darwin/Foundation"
 import MTL "vendor:darwin/Metal"
 
-id            :: ^intrinsics.objc_object
-SEL           :: ^intrinsics.objc_selector
-Class         :: ^intrinsics.objc_class
-IMP           :: rawptr
-Protocol      :: distinct id
-instancetype  :: intrinsics.objc_instancetype
+id :: ^intrinsics.objc_object
+SEL :: ^intrinsics.objc_selector
+Class :: ^intrinsics.objc_class
+IMP :: rawptr
+Protocol :: distinct id
+instancetype :: intrinsics.objc_instancetype
 
 @(export, require)
-foreign import lib {
-	"system:QuartzCore.framework",
-}
+foreign import lib "system:QuartzCore.framework"
 
 
-
-
-MTLDevice       :: MTL.Device
-MTLTexture      :: MTL.Texture
-MTLDrawable     :: MTL.Drawable
+MTLDevice :: MTL.Device
+MTLTexture :: MTL.Texture
+MTLDrawable :: MTL.Drawable
 MTLResidencySet :: MTL.ResidencySet
-MTLPixelFormat  :: MTL.PixelFormat
-CVTimeStamp     :: struct {}
-
+MTLPixelFormat :: MTL.PixelFormat
+CVTimeStamp :: struct {}
 
 
 foreign lib {
-	@(link_name="CATransform3DIdentity")
+	@(link_name = "CATransform3DIdentity")
 	Transform3DIdentity: Transform3D
 
-	@(link_name="kCAFillModeForwards")
+	@(link_name = "kCAFillModeForwards")
 	FillModeForwards: ^NS.String
 
-	@(link_name="kCAFillModeBackwards")
+	@(link_name = "kCAFillModeBackwards")
 	FillModeBackwards: ^NS.String
 
-	@(link_name="kCAFillModeBoth")
+	@(link_name = "kCAFillModeBoth")
 	FillModeBoth: ^NS.String
 
-	@(link_name="kCAFillModeRemoved")
+	@(link_name = "kCAFillModeRemoved")
 	FillModeRemoved: ^NS.String
 
-	@(link_name="CAToneMapModeAutomatic")
+	@(link_name = "CAToneMapModeAutomatic")
 	ToneMapModeAutomatic: ^NS.String
 
-	@(link_name="CAToneMapModeNever")
+	@(link_name = "CAToneMapModeNever")
 	ToneMapModeNever: ^NS.String
 
-	@(link_name="CAToneMapModeIfSupported")
+	@(link_name = "CAToneMapModeIfSupported")
 	ToneMapModeIfSupported: ^NS.String
 
-	@(link_name="CADynamicRangeAutomatic")
+	@(link_name = "CADynamicRangeAutomatic")
 	DynamicRangeAutomatic: ^NS.String
 
-	@(link_name="CADynamicRangeStandard")
+	@(link_name = "CADynamicRangeStandard")
 	DynamicRangeStandard: ^NS.String
 
-	@(link_name="CADynamicRangeConstrainedHigh")
+	@(link_name = "CADynamicRangeConstrainedHigh")
 	DynamicRangeConstrainedHigh: ^NS.String
 
-	@(link_name="CADynamicRangeHigh")
+	@(link_name = "CADynamicRangeHigh")
 	DynamicRangeHigh: ^NS.String
 
-	@(link_name="kCAGravityCenter")
+	@(link_name = "kCAGravityCenter")
 	GravityCenter: ^NS.String
 
-	@(link_name="kCAGravityTop")
+	@(link_name = "kCAGravityTop")
 	GravityTop: ^NS.String
 
-	@(link_name="kCAGravityBottom")
+	@(link_name = "kCAGravityBottom")
 	GravityBottom: ^NS.String
 
-	@(link_name="kCAGravityLeft")
+	@(link_name = "kCAGravityLeft")
 	GravityLeft: ^NS.String
 
-	@(link_name="kCAGravityRight")
+	@(link_name = "kCAGravityRight")
 	GravityRight: ^NS.String
 
-	@(link_name="kCAGravityTopLeft")
+	@(link_name = "kCAGravityTopLeft")
 	GravityTopLeft: ^NS.String
 
-	@(link_name="kCAGravityTopRight")
+	@(link_name = "kCAGravityTopRight")
 	GravityTopRight: ^NS.String
 
-	@(link_name="kCAGravityBottomLeft")
+	@(link_name = "kCAGravityBottomLeft")
 	GravityBottomLeft: ^NS.String
 
-	@(link_name="kCAGravityBottomRight")
+	@(link_name = "kCAGravityBottomRight")
 	GravityBottomRight: ^NS.String
 
-	@(link_name="kCAGravityResize")
+	@(link_name = "kCAGravityResize")
 	GravityResize: ^NS.String
 
-	@(link_name="kCAGravityResizeAspect")
+	@(link_name = "kCAGravityResizeAspect")
 	GravityResizeAspect: ^NS.String
 
-	@(link_name="kCAGravityResizeAspectFill")
+	@(link_name = "kCAGravityResizeAspectFill")
 	GravityResizeAspectFill: ^NS.String
 
-	@(link_name="kCAContentsFormatRGBA8Uint")
+	@(link_name = "kCAContentsFormatRGBA8Uint")
 	ContentsFormatRGBA8Uint: ^NS.String
 
-	@(link_name="kCAContentsFormatRGBA16Float")
+	@(link_name = "kCAContentsFormatRGBA16Float")
 	ContentsFormatRGBA16Float: ^NS.String
 
-	@(link_name="kCAContentsFormatGray8Uint")
+	@(link_name = "kCAContentsFormatGray8Uint")
 	ContentsFormatGray8Uint: ^NS.String
 
-	@(link_name="kCAContentsFormatAutomatic")
+	@(link_name = "kCAContentsFormatAutomatic")
 	ContentsFormatAutomatic: ^NS.String
 
-	@(link_name="kCAFilterNearest")
+	@(link_name = "kCAFilterNearest")
 	FilterNearest: ^NS.String
 
-	@(link_name="kCAFilterLinear")
+	@(link_name = "kCAFilterLinear")
 	FilterLinear: ^NS.String
 
-	@(link_name="kCAFilterTrilinear")
+	@(link_name = "kCAFilterTrilinear")
 	FilterTrilinear: ^NS.String
 
-	@(link_name="kCACornerCurveCircular")
+	@(link_name = "kCACornerCurveCircular")
 	CornerCurveCircular: ^NS.String
 
-	@(link_name="kCACornerCurveContinuous")
+	@(link_name = "kCACornerCurveContinuous")
 	CornerCurveContinuous: ^NS.String
 
-	@(link_name="kCAOnOrderIn")
+	@(link_name = "kCAOnOrderIn")
 	OnOrderIn: ^NS.String
 
-	@(link_name="kCAOnOrderOut")
+	@(link_name = "kCAOnOrderOut")
 	OnOrderOut: ^NS.String
 
-	@(link_name="kCATransition")
+	@(link_name = "kCATransition")
 	kTransition: ^NS.String
 
-	@(link_name="CAFrameRateRangeDefault")
+	@(link_name = "CAFrameRateRangeDefault")
 	FrameRateRangeDefault: FrameRateRange
 
-	@(link_name="kCAAnimationLinear")
+	@(link_name = "kCAAnimationLinear")
 	AnimationLinear: ^NS.String
 
-	@(link_name="kCAAnimationDiscrete")
+	@(link_name = "kCAAnimationDiscrete")
 	AnimationDiscrete: ^NS.String
 
-	@(link_name="kCAAnimationPaced")
+	@(link_name = "kCAAnimationPaced")
 	AnimationPaced: ^NS.String
 
 	when ODIN_PLATFORM_SUBTARGET_IOS {
-		@(link_name="kEAGLDrawablePropertyRetainedBacking")
+		@(link_name = "kEAGLDrawablePropertyRetainedBacking")
 		kEAGLDrawablePropertyRetainedBacking: ^NS.String
 	}
 
-	@(link_name="kCAAnimationCubic")
+	@(link_name = "kCAAnimationCubic")
 	AnimationCubic: ^NS.String
 
-	@(link_name="kCAAnimationCubicPaced")
+	@(link_name = "kCAAnimationCubicPaced")
 	AnimationCubicPaced: ^NS.String
 
 	when ODIN_PLATFORM_SUBTARGET_IOS {
-		@(link_name="kEAGLDrawablePropertyColorFormat")
+		@(link_name = "kEAGLDrawablePropertyColorFormat")
 		kEAGLDrawablePropertyColorFormat: ^NS.String
 	}
 
-	@(link_name="kCAAnimationRotateAuto")
+	@(link_name = "kCAAnimationRotateAuto")
 	AnimationRotateAuto: ^NS.String
 
 	when ODIN_PLATFORM_SUBTARGET_IOS {
-		@(link_name="kEAGLColorFormatRGBA8")
+		@(link_name = "kEAGLColorFormatRGBA8")
 		kEAGLColorFormatRGBA8: ^NS.String
 	}
 
-	@(link_name="kCAAnimationRotateAutoReverse")
+	@(link_name = "kCAAnimationRotateAutoReverse")
 	AnimationRotateAutoReverse: ^NS.String
 
 	when ODIN_PLATFORM_SUBTARGET_IOS {
-		@(link_name="kEAGLColorFormatRGB565")
+		@(link_name = "kEAGLColorFormatRGB565")
 		kEAGLColorFormatRGB565: ^NS.String
 	}
 
-	@(link_name="kCATransitionFade")
+	@(link_name = "kCATransitionFade")
 	TransitionFade: ^NS.String
 
 	when ODIN_PLATFORM_SUBTARGET_IOS {
-		@(link_name="kEAGLColorFormatSRGBA8")
+		@(link_name = "kEAGLColorFormatSRGBA8")
 		kEAGLColorFormatSRGBA8: ^NS.String
 	}
 
-	@(link_name="kCATransitionMoveIn")
+	@(link_name = "kCATransitionMoveIn")
 	TransitionMoveIn: ^NS.String
 
-	@(link_name="kCATransitionPush")
+	@(link_name = "kCATransitionPush")
 	TransitionPush: ^NS.String
 
-	@(link_name="kCATransitionReveal")
+	@(link_name = "kCATransitionReveal")
 	TransitionReveal: ^NS.String
 
-	@(link_name="kCATransitionFromRight")
+	@(link_name = "kCATransitionFromRight")
 	TransitionFromRight: ^NS.String
 
-	@(link_name="kCATransitionFromLeft")
+	@(link_name = "kCATransitionFromLeft")
 	TransitionFromLeft: ^NS.String
 
-	@(link_name="kCATransitionFromTop")
+	@(link_name = "kCATransitionFromTop")
 	TransitionFromTop: ^NS.String
 
-	@(link_name="kCATransitionFromBottom")
+	@(link_name = "kCATransitionFromBottom")
 	TransitionFromBottom: ^NS.String
 
-	@(link_name="kCAEmitterLayerPoint")
+	@(link_name = "kCAEmitterLayerPoint")
 	EmitterLayerPoint: ^NS.String
 
-	@(link_name="kCAEmitterLayerLine")
+	@(link_name = "kCAEmitterLayerLine")
 	EmitterLayerLine: ^NS.String
 
-	@(link_name="kCAEmitterLayerRectangle")
+	@(link_name = "kCAEmitterLayerRectangle")
 	EmitterLayerRectangle: ^NS.String
 
-	@(link_name="kCAEmitterLayerCuboid")
+	@(link_name = "kCAEmitterLayerCuboid")
 	EmitterLayerCuboid: ^NS.String
 
-	@(link_name="kCAEmitterLayerCircle")
+	@(link_name = "kCAEmitterLayerCircle")
 	EmitterLayerCircle: ^NS.String
 
-	@(link_name="kCAEmitterLayerSphere")
+	@(link_name = "kCAEmitterLayerSphere")
 	EmitterLayerSphere: ^NS.String
 
-	@(link_name="kCAEmitterLayerPoints")
+	@(link_name = "kCAEmitterLayerPoints")
 	EmitterLayerPoints: ^NS.String
 
-	@(link_name="kCAEmitterLayerOutline")
+	@(link_name = "kCAEmitterLayerOutline")
 	EmitterLayerOutline: ^NS.String
 
-	@(link_name="kCAEmitterLayerSurface")
+	@(link_name = "kCAEmitterLayerSurface")
 	EmitterLayerSurface: ^NS.String
 
-	@(link_name="kCAEmitterLayerVolume")
+	@(link_name = "kCAEmitterLayerVolume")
 	EmitterLayerVolume: ^NS.String
 
-	@(link_name="kCAEmitterLayerUnordered")
+	@(link_name = "kCAEmitterLayerUnordered")
 	EmitterLayerUnordered: ^NS.String
 
-	@(link_name="kCAEmitterLayerOldestFirst")
+	@(link_name = "kCAEmitterLayerOldestFirst")
 	EmitterLayerOldestFirst: ^NS.String
 
-	@(link_name="kCAEmitterLayerOldestLast")
+	@(link_name = "kCAEmitterLayerOldestLast")
 	EmitterLayerOldestLast: ^NS.String
 
-	@(link_name="kCAEmitterLayerBackToFront")
+	@(link_name = "kCAEmitterLayerBackToFront")
 	EmitterLayerBackToFront: ^NS.String
 
-	@(link_name="kCAEmitterLayerAdditive")
+	@(link_name = "kCAEmitterLayerAdditive")
 	EmitterLayerAdditive: ^NS.String
 
-	@(link_name="kCAMediaTimingFunctionLinear")
+	@(link_name = "kCAMediaTimingFunctionLinear")
 	MediaTimingFunctionLinear: ^NS.String
 
-	@(link_name="kCAMediaTimingFunctionEaseIn")
+	@(link_name = "kCAMediaTimingFunctionEaseIn")
 	MediaTimingFunctionEaseIn: ^NS.String
 
-	@(link_name="kCAMediaTimingFunctionEaseOut")
+	@(link_name = "kCAMediaTimingFunctionEaseOut")
 	MediaTimingFunctionEaseOut: ^NS.String
 
-	@(link_name="kCAMediaTimingFunctionEaseInEaseOut")
+	@(link_name = "kCAMediaTimingFunctionEaseInEaseOut")
 	MediaTimingFunctionEaseInEaseOut: ^NS.String
 
-	@(link_name="kCAMediaTimingFunctionDefault")
+	@(link_name = "kCAMediaTimingFunctionDefault")
 	MediaTimingFunctionDefault: ^NS.String
 
-	@(link_name="kCAGradientLayerAxial")
+	@(link_name = "kCAGradientLayerAxial")
 	GradientLayerAxial: ^NS.String
 
-	@(link_name="kCAGradientLayerRadial")
+	@(link_name = "kCAGradientLayerRadial")
 	GradientLayerRadial: ^NS.String
 
-	@(link_name="kCAGradientLayerConic")
+	@(link_name = "kCAGradientLayerConic")
 	GradientLayerConic: ^NS.String
 
-	@(link_name="kCARendererColorSpace")
+	@(link_name = "kCARendererColorSpace")
 	RendererColorSpace: ^NS.String
 
-	@(link_name="kCARendererMetalCommandQueue")
+	@(link_name = "kCARendererMetalCommandQueue")
 	RendererMetalCommandQueue: ^NS.String
 
-	@(link_name="kCAScrollNone")
+	@(link_name = "kCAScrollNone")
 	ScrollNone: ^NS.String
 
-	@(link_name="kCAScrollVertically")
+	@(link_name = "kCAScrollVertically")
 	ScrollVertically: ^NS.String
 
-	@(link_name="kCAScrollHorizontally")
+	@(link_name = "kCAScrollHorizontally")
 	ScrollHorizontally: ^NS.String
 
-	@(link_name="kCAScrollBoth")
+	@(link_name = "kCAScrollBoth")
 	ScrollBoth: ^NS.String
 
-	@(link_name="kCAFillRuleNonZero")
+	@(link_name = "kCAFillRuleNonZero")
 	FillRuleNonZero: ^NS.String
 
-	@(link_name="kCAFillRuleEvenOdd")
+	@(link_name = "kCAFillRuleEvenOdd")
 	FillRuleEvenOdd: ^NS.String
 
-	@(link_name="kCALineJoinMiter")
+	@(link_name = "kCALineJoinMiter")
 	LineJoinMiter: ^NS.String
 
-	@(link_name="kCALineJoinRound")
+	@(link_name = "kCALineJoinRound")
 	LineJoinRound: ^NS.String
 
-	@(link_name="kCALineJoinBevel")
+	@(link_name = "kCALineJoinBevel")
 	LineJoinBevel: ^NS.String
 
-	@(link_name="kCALineCapButt")
+	@(link_name = "kCALineCapButt")
 	LineCapButt: ^NS.String
 
-	@(link_name="kCALineCapRound")
+	@(link_name = "kCALineCapRound")
 	LineCapRound: ^NS.String
 
-	@(link_name="kCALineCapSquare")
+	@(link_name = "kCALineCapSquare")
 	LineCapSquare: ^NS.String
 
-	@(link_name="kCATruncationNone")
+	@(link_name = "kCATruncationNone")
 	TruncationNone: ^NS.String
 
-	@(link_name="kCATruncationStart")
+	@(link_name = "kCATruncationStart")
 	TruncationStart: ^NS.String
 
-	@(link_name="kCATruncationEnd")
+	@(link_name = "kCATruncationEnd")
 	TruncationEnd: ^NS.String
 
-	@(link_name="kCATruncationMiddle")
+	@(link_name = "kCATruncationMiddle")
 	TruncationMiddle: ^NS.String
 
-	@(link_name="kCAAlignmentNatural")
+	@(link_name = "kCAAlignmentNatural")
 	AlignmentNatural: ^NS.String
 
-	@(link_name="kCAAlignmentLeft")
+	@(link_name = "kCAAlignmentLeft")
 	AlignmentLeft: ^NS.String
 
-	@(link_name="kCAAlignmentRight")
+	@(link_name = "kCAAlignmentRight")
 	AlignmentRight: ^NS.String
 
-	@(link_name="kCAAlignmentCenter")
+	@(link_name = "kCAAlignmentCenter")
 	AlignmentCenter: ^NS.String
 
-	@(link_name="kCAAlignmentJustified")
+	@(link_name = "kCAAlignmentJustified")
 	AlignmentJustified: ^NS.String
 
-	@(link_name="kCATransactionAnimationDuration")
+	@(link_name = "kCATransactionAnimationDuration")
 	TransactionAnimationDuration: ^NS.String
 
-	@(link_name="kCATransactionDisableActions")
+	@(link_name = "kCATransactionDisableActions")
 	TransactionDisableActions: ^NS.String
 
-	@(link_name="kCATransactionAnimationTimingFunction")
+	@(link_name = "kCATransactionAnimationTimingFunction")
 	TransactionAnimationTimingFunction: ^NS.String
 
-	@(link_name="kCATransactionCompletionBlock")
+	@(link_name = "kCATransactionCompletionBlock")
 	TransactionCompletionBlock: ^NS.String
 
-	@(link_name="kCAValueFunctionRotateX")
+	@(link_name = "kCAValueFunctionRotateX")
 	ValueFunctionRotateX: ^NS.String
 
-	@(link_name="kCAValueFunctionRotateY")
+	@(link_name = "kCAValueFunctionRotateY")
 	ValueFunctionRotateY: ^NS.String
 
-	@(link_name="kCAValueFunctionRotateZ")
+	@(link_name = "kCAValueFunctionRotateZ")
 	ValueFunctionRotateZ: ^NS.String
 
-	@(link_name="kCAValueFunctionScale")
+	@(link_name = "kCAValueFunctionScale")
 	ValueFunctionScale: ^NS.String
 
-	@(link_name="kCAValueFunctionScaleX")
+	@(link_name = "kCAValueFunctionScaleX")
 	ValueFunctionScaleX: ^NS.String
 
-	@(link_name="kCAValueFunctionScaleY")
+	@(link_name = "kCAValueFunctionScaleY")
 	ValueFunctionScaleY: ^NS.String
 
-	@(link_name="kCAValueFunctionScaleZ")
+	@(link_name = "kCAValueFunctionScaleZ")
 	ValueFunctionScaleZ: ^NS.String
 
-	@(link_name="kCAValueFunctionTranslate")
+	@(link_name = "kCAValueFunctionTranslate")
 	ValueFunctionTranslate: ^NS.String
 
-	@(link_name="kCAValueFunctionTranslateX")
+	@(link_name = "kCAValueFunctionTranslateX")
 	ValueFunctionTranslateX: ^NS.String
 
-	@(link_name="kCAValueFunctionTranslateY")
+	@(link_name = "kCAValueFunctionTranslateY")
 	ValueFunctionTranslateY: ^NS.String
 
-	@(link_name="kCAValueFunctionTranslateZ")
+	@(link_name = "kCAValueFunctionTranslateZ")
 	ValueFunctionTranslateZ: ^NS.String
 
 	when ODIN_PLATFORM_SUBTARGET == .Default {
@@ -504,82 +499,81 @@ foreign lib {
 		CGLErrorString :: proc(error: CGLError) -> cstring ---
 	}
 
-	@(link_name="CACurrentMediaTime")
+	@(link_name = "CACurrentMediaTime")
 	CurrentMediaTime :: proc() -> CF.TimeInterval ---
 
-	@(link_name="CATransform3DIsIdentity")
+	@(link_name = "CATransform3DIsIdentity")
 	Transform3DIsIdentity :: proc(t: Transform3D) -> cffi.bool ---
 
-	@(link_name="CATransform3DEqualToTransform")
+	@(link_name = "CATransform3DEqualToTransform")
 	Transform3DEqualToTransform :: proc(a: Transform3D, b: Transform3D) -> cffi.bool ---
 
-	@(link_name="CATransform3DMakeTranslation")
+	@(link_name = "CATransform3DMakeTranslation")
 	Transform3DMakeTranslation :: proc(tx: CG.Float, ty: CG.Float, tz: CG.Float) -> Transform3D ---
 
-	@(link_name="CATransform3DMakeScale")
+	@(link_name = "CATransform3DMakeScale")
 	Transform3DMakeScale :: proc(sx: CG.Float, sy: CG.Float, sz: CG.Float) -> Transform3D ---
 
-	@(link_name="CATransform3DMakeRotation")
+	@(link_name = "CATransform3DMakeRotation")
 	Transform3DMakeRotation :: proc(angle: CG.Float, x: CG.Float, y: CG.Float, z: CG.Float) -> Transform3D ---
 
-	@(link_name="CATransform3DTranslate")
+	@(link_name = "CATransform3DTranslate")
 	Transform3DTranslate :: proc(t: Transform3D, tx: CG.Float, ty: CG.Float, tz: CG.Float) -> Transform3D ---
 
-	@(link_name="CATransform3DScale")
+	@(link_name = "CATransform3DScale")
 	Transform3DScale :: proc(t: Transform3D, sx: CG.Float, sy: CG.Float, sz: CG.Float) -> Transform3D ---
 
-	@(link_name="CATransform3DRotate")
+	@(link_name = "CATransform3DRotate")
 	Transform3DRotate :: proc(t: Transform3D, angle: CG.Float, x: CG.Float, y: CG.Float, z: CG.Float) -> Transform3D ---
 
-	@(link_name="CATransform3DConcat")
+	@(link_name = "CATransform3DConcat")
 	Transform3DConcat :: proc(a: Transform3D, b: Transform3D) -> Transform3D ---
 
-	@(link_name="CATransform3DInvert")
+	@(link_name = "CATransform3DInvert")
 	Transform3DInvert :: proc(t: Transform3D) -> Transform3D ---
 
-	@(link_name="CATransform3DMakeAffineTransform")
+	@(link_name = "CATransform3DMakeAffineTransform")
 	Transform3DMakeAffineTransform :: proc(m: CG.AffineTransform) -> Transform3D ---
 
-	@(link_name="CATransform3DIsAffine")
+	@(link_name = "CATransform3DIsAffine")
 	Transform3DIsAffine :: proc(t: Transform3D) -> cffi.bool ---
 
-	@(link_name="CATransform3DGetAffineTransform")
+	@(link_name = "CATransform3DGetAffineTransform")
 	Transform3DGetAffineTransform :: proc(t: Transform3D) -> CG.AffineTransform ---
 
-	@(link_name="CAFrameRateRangeMake")
+	@(link_name = "CAFrameRateRangeMake")
 	FrameRateRangeMake :: proc(minimum: cffi.float, maximum: cffi.float, preferred: cffi.float) -> FrameRateRange ---
 
-	@(link_name="CAFrameRateRangeIsEqualToRange")
+	@(link_name = "CAFrameRateRangeIsEqualToRange")
 	FrameRateRangeIsEqualToRange :: proc(range: FrameRateRange, other: FrameRateRange) -> cffi.bool ---
 }
 
 
-
 when ODIN_PLATFORM_SUBTARGET == .Default {
-	GLRendererGenericID        :: 131584
-	GLRendererGenericFloatID   :: 132096
-	GLRendererAppleSWID        :: 132608
-	GLRendererATIRage128ID     :: 135168
-	GLRendererATIRadeonID      :: 135680
-	GLRendererATIRageProID     :: 136192
-	GLRendererATIRadeon8500ID  :: 136704
-	GLRendererATIRadeon9700ID  :: 137216
+	GLRendererGenericID :: 131584
+	GLRendererGenericFloatID :: 132096
+	GLRendererAppleSWID :: 132608
+	GLRendererATIRage128ID :: 135168
+	GLRendererATIRadeonID :: 135680
+	GLRendererATIRageProID :: 136192
+	GLRendererATIRadeon8500ID :: 136704
+	GLRendererATIRadeon9700ID :: 137216
 	GLRendererATIRadeonX1000ID :: 137472
 	GLRendererATIRadeonX2000ID :: 137728
 	GLRendererATIRadeonX3000ID :: 137984
 	GLRendererATIRadeonX4000ID :: 138240
-	GLRendererGeForce2MXID     :: 139264
-	GLRendererGeForce3ID       :: 139776
-	GLRendererGeForceFXID      :: 140288
-	GLRendererGeForce8xxxID    :: 140800
-	GLRendererGeForceID        :: 141056
-	GLRendererVTBladeXP2ID     :: 143360
-	GLRendererIntel900ID       :: 147456
-	GLRendererIntelX3100ID     :: 147968
-	GLRendererIntelHDID        :: 148224
-	GLRendererIntelHD4000ID    :: 148480
-	GLRendererIntelHD5000ID    :: 148736
-	GLRendererMesa3DFXID       :: 262144
+	GLRendererGeForce2MXID :: 139264
+	GLRendererGeForce3ID :: 139776
+	GLRendererGeForceFXID :: 140288
+	GLRendererGeForce8xxxID :: 140800
+	GLRendererGeForceID :: 141056
+	GLRendererVTBladeXP2ID :: 143360
+	GLRendererIntel900ID :: 147456
+	GLRendererIntelX3100ID :: 147968
+	GLRendererIntelHDID :: 148224
+	GLRendererIntelHD4000ID :: 148480
+	GLRendererIntelHD5000ID :: 148736
+	GLRendererMesa3DFXID :: 262144
 	CGLContextObj :: distinct ^_CGLContextObject
 	CGLPixelFormatObj :: distinct ^_CGLPixelFormatObject
 	CGLRendererInfoObj :: distinct ^_CGLRendererInfoObject
@@ -826,7 +820,7 @@ AutoresizingMaskFlag :: enum cffi.uint {
 	MaxYMargin    = 5,
 }
 
-AutoresizingMask :: bit_set[AutoresizingMaskFlag; cffi.uint]
+AutoresizingMask :: bit_set[AutoresizingMaskFlag;cffi.uint]
 
 EdgeAntialiasingMaskFlag :: enum cffi.uint {
 	LeftEdge   = 0,
@@ -835,7 +829,7 @@ EdgeAntialiasingMaskFlag :: enum cffi.uint {
 	TopEdge    = 3,
 }
 
-EdgeAntialiasingMask :: bit_set[EdgeAntialiasingMaskFlag; cffi.uint]
+EdgeAntialiasingMask :: bit_set[EdgeAntialiasingMaskFlag;cffi.uint]
 
 CornerMaskFlag :: enum cffi.ulong {
 	MinXMinYCorner = 0,
@@ -844,7 +838,7 @@ CornerMaskFlag :: enum cffi.ulong {
 	MaxXMaxYCorner = 3,
 }
 
-CornerMask :: bit_set[CornerMaskFlag; cffi.ulong]
+CornerMask :: bit_set[CornerMaskFlag;cffi.ulong]
 
 ConstraintAttribute :: enum cffi.int {
 	MinX   = 0,

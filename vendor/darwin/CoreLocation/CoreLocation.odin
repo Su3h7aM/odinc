@@ -6,78 +6,72 @@ import "base:intrinsics"
 import cffi "core:c"
 import NS "core:sys/darwin/Foundation"
 
-id            :: ^intrinsics.objc_object
-SEL           :: ^intrinsics.objc_selector
-Class         :: ^intrinsics.objc_class
-IMP           :: rawptr
-Protocol      :: distinct id
-instancetype  :: intrinsics.objc_instancetype
+id :: ^intrinsics.objc_object
+SEL :: ^intrinsics.objc_selector
+Class :: ^intrinsics.objc_class
+IMP :: rawptr
+Protocol :: distinct id
+instancetype :: intrinsics.objc_instancetype
 
 @(export, require)
-foreign import lib {
-	"system:CoreLocation.framework",
-}
-
-
+foreign import lib "system:CoreLocation.framework"
 
 
 CNPostalAddress :: NS.Object
 
 
-
 foreign lib {
-	@(link_name="kCLErrorDomain")
+	@(link_name = "kCLErrorDomain")
 	kCLErrorDomain: ^NS.String
 
-	@(link_name="kCLErrorUserInfoAlternateRegionKey")
+	@(link_name = "kCLErrorUserInfoAlternateRegionKey")
 	kCLErrorUserInfoAlternateRegionKey: ^NS.String
 
-	@(link_name="kCLDistanceFilterNone")
+	@(link_name = "kCLDistanceFilterNone")
 	kCLDistanceFilterNone: LocationDistance
 
-	@(link_name="kCLLocationAccuracyBestForNavigation")
+	@(link_name = "kCLLocationAccuracyBestForNavigation")
 	kCLLocationAccuracyBestForNavigation: LocationAccuracy
 
-	@(link_name="kCLLocationAccuracyBest")
+	@(link_name = "kCLLocationAccuracyBest")
 	kCLLocationAccuracyBest: LocationAccuracy
 
-	@(link_name="kCLLocationAccuracyNearestTenMeters")
+	@(link_name = "kCLLocationAccuracyNearestTenMeters")
 	kCLLocationAccuracyNearestTenMeters: LocationAccuracy
 
-	@(link_name="kCLLocationAccuracyHundredMeters")
+	@(link_name = "kCLLocationAccuracyHundredMeters")
 	kCLLocationAccuracyHundredMeters: LocationAccuracy
 
-	@(link_name="kCLLocationAccuracyKilometer")
+	@(link_name = "kCLLocationAccuracyKilometer")
 	kCLLocationAccuracyKilometer: LocationAccuracy
 
-	@(link_name="kCLLocationAccuracyThreeKilometers")
+	@(link_name = "kCLLocationAccuracyThreeKilometers")
 	kCLLocationAccuracyThreeKilometers: LocationAccuracy
 
-	@(link_name="kCLLocationAccuracyReduced")
+	@(link_name = "kCLLocationAccuracyReduced")
 	kCLLocationAccuracyReduced: LocationAccuracy
 
-	@(link_name="CLLocationDistanceMax")
+	@(link_name = "CLLocationDistanceMax")
 	LocationDistanceMax: LocationDistance
 
-	@(link_name="CLTimeIntervalMax")
+	@(link_name = "CLTimeIntervalMax")
 	TimeIntervalMax: NS.TimeInterval
 
-	@(link_name="kCLLocationCoordinate2DInvalid")
+	@(link_name = "kCLLocationCoordinate2DInvalid")
 	kCLLocationCoordinate2DInvalid: LocationCoordinate2D
 
-	@(link_name="kCLHeadingFilterNone")
+	@(link_name = "kCLHeadingFilterNone")
 	kCLHeadingFilterNone: LocationDegrees
 
-	@(link_name="CLLocationPushServiceErrorDomain")
+	@(link_name = "CLLocationPushServiceErrorDomain")
 	LocationPushServiceErrorDomain: ^NS.String
 
-	@(link_name="CLLocationCoordinate2DIsValid")
+	@(link_name = "CLLocationCoordinate2DIsValid")
 	LocationCoordinate2DIsValid :: proc(coord: LocationCoordinate2D) -> bool ---
 
-	@(link_name="CLLocationCoordinate2DMake")
+	@(link_name = "CLLocationCoordinate2DMake")
 	LocationCoordinate2DMake :: proc(latitude: LocationDegrees, longitude: LocationDegrees) -> LocationCoordinate2D ---
 }
-
 
 
 LocationDegrees :: distinct cffi.double
@@ -90,7 +84,7 @@ LocationDistance :: distinct cffi.double
 BeaconMajorValue :: distinct cffi.uint16_t
 BeaconMinorValue :: distinct cffi.uint16_t
 HeadingComponentValue :: distinct cffi.double
-GeocodeCompletionHandler :: ^Objc_Block(proc "c" ( placemarks: ^NS.Array, error: ^NS.Error ))
+GeocodeCompletionHandler :: ^Objc_Block(proc "c" (placemarks: ^NS.Array, error: ^NS.Error))
 
 Error :: enum cffi.long {
 	LocationUnknown                 = 0,

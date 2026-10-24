@@ -6,26 +6,26 @@ import "base:intrinsics"
 import CG "core:sys/darwin/CoreGraphics"
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class="UICoordinateSpace")
+@(objc_class = "UICoordinateSpace")
 CoordinateSpace :: struct {
 	using _: intrinsics.objc_object,
 	using _: NS.ObjectProtocol,
 }
 
-@(default_calling_convention="c")
+@(default_calling_convention = "c")
 foreign lib {
-	@(objc_type=CoordinateSpace, objc_selector="convertPoint:toCoordinateSpace:", objc_name="convertPoint_toCoordinateSpace")
+	@(objc_type = CoordinateSpace, objc_selector = "convertPoint:toCoordinateSpace:", objc_name = "convertPoint_toCoordinateSpace")
 	CoordinateSpace_convertPoint_toCoordinateSpace :: proc(self: ^CoordinateSpace, point: CG.Point, coordinateSpace: ^CoordinateSpace) -> CG.Point ---
 
-	@(objc_type=CoordinateSpace, objc_selector="convertPoint:fromCoordinateSpace:", objc_name="convertPoint_fromCoordinateSpace")
+	@(objc_type = CoordinateSpace, objc_selector = "convertPoint:fromCoordinateSpace:", objc_name = "convertPoint_fromCoordinateSpace")
 	CoordinateSpace_convertPoint_fromCoordinateSpace :: proc(self: ^CoordinateSpace, point: CG.Point, coordinateSpace: ^CoordinateSpace) -> CG.Point ---
 
-	@(objc_type=CoordinateSpace, objc_selector="convertRect:toCoordinateSpace:", objc_name="convertRect_toCoordinateSpace")
+	@(objc_type = CoordinateSpace, objc_selector = "convertRect:toCoordinateSpace:", objc_name = "convertRect_toCoordinateSpace")
 	CoordinateSpace_convertRect_toCoordinateSpace :: proc(self: ^CoordinateSpace, rect: CG.Rect, coordinateSpace: ^CoordinateSpace) -> CG.Rect ---
 
-	@(objc_type=CoordinateSpace, objc_selector="convertRect:fromCoordinateSpace:", objc_name="convertRect_fromCoordinateSpace")
+	@(objc_type = CoordinateSpace, objc_selector = "convertRect:fromCoordinateSpace:", objc_name = "convertRect_fromCoordinateSpace")
 	CoordinateSpace_convertRect_fromCoordinateSpace :: proc(self: ^CoordinateSpace, rect: CG.Rect, coordinateSpace: ^CoordinateSpace) -> CG.Rect ---
 
-	@(objc_type=CoordinateSpace, objc_selector="bounds", objc_name="bounds")
+	@(objc_type = CoordinateSpace, objc_selector = "bounds", objc_name = "bounds")
 	CoordinateSpace_bounds :: proc(self: ^CoordinateSpace) -> CG.Rect ---
 }

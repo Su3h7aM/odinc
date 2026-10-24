@@ -1,73 +1,73 @@
 package miniaudio
 
-foreign import lib { LIB }
+foreign import lib {LIB}
 
-@(default_calling_convention="c", link_prefix="ma_")
+@(default_calling_convention = "c", link_prefix = "ma_")
 foreign lib {
 	/*
 	Locks a spinlock.
 	*/
-	spinlock_lock :: proc(/*volatile*/ pSpinlock: ^spinlock) -> result ---
+	spinlock_lock :: proc( /*volatile*/pSpinlock: ^spinlock,) -> result ---
 
 	/*
 	Locks a spinlock, but does not yield() when looping.
 	*/
-	spinlock_lock_noyield :: proc(/*volatile*/ pSpinlock: ^spinlock) -> result ---
+	spinlock_lock_noyield :: proc( /*volatile*/pSpinlock: ^spinlock,) -> result ---
 
 	/*
 	Unlocks a spinlock.
 	*/
-	spinlock_unlock :: proc(/*volatile*/ pSpinlock: ^spinlock) -> result ---
+	spinlock_unlock :: proc( /*volatile*/pSpinlock: ^spinlock,) -> result ---
 
-when !NO_THREADING {
-	/*
+	when !NO_THREADING {
+		/*
 	Creates a mutex.
 
 	A mutex must be created from a valid context. A mutex is initially unlocked.
 	*/
-	mutex_init :: proc(pMutex: ^mutex) -> result ---
+		mutex_init :: proc(pMutex: ^mutex) -> result ---
 
-	/*
+		/*
 	Deletes a mutex.
 	*/
-	mutex_uninit :: proc(pMutex: ^mutex) ---
+		mutex_uninit :: proc(pMutex: ^mutex) ---
 
-	/*
+		/*
 	Locks a mutex with an infinite timeout.
 	*/
-	mutex_lock :: proc(pMutex: ^mutex) ---
+		mutex_lock :: proc(pMutex: ^mutex) ---
 
-	/*
+		/*
 	Unlocks a mutex.
 	*/
-	mutex_unlock :: proc(pMutex: ^mutex) ---
+		mutex_unlock :: proc(pMutex: ^mutex) ---
 
 
-	/*
+		/*
 	Initializes an auto-reset event.
 	*/
-	event_init :: proc(pEvent: ^event) -> result ---
+		event_init :: proc(pEvent: ^event) -> result ---
 
-	/*
+		/*
 	Uninitializes an auto-reset event.
 	*/
-	event_uninit :: proc(pEvent: ^event) ---
+		event_uninit :: proc(pEvent: ^event) ---
 
-	/*
+		/*
 	Waits for the specified auto-reset event to become signalled.
 	*/
-	event_wait :: proc(pEvent: ^event) -> result ---
+		event_wait :: proc(pEvent: ^event) -> result ---
 
-	/*
+		/*
 	Signals the specified auto-reset event.
 	*/
-	event_signal :: proc(pEvent: ^event) -> result ---
+		event_signal :: proc(pEvent: ^event) -> result ---
 
-	semaphore_init    :: proc(initialValue: i32, pSemaphore: ^semaphore) -> result ---
-	semaphore_uninit  :: proc(pSemaphore: ^semaphore) ---
-	semaphore_wait    :: proc(pSemaphore: ^semaphore) -> result ---
-	semaphore_release :: proc(pSemaphore: ^semaphore) -> result ---
-} /* NO_THREADING */
+		semaphore_init :: proc(initialValue: i32, pSemaphore: ^semaphore) -> result ---
+		semaphore_uninit :: proc(pSemaphore: ^semaphore) ---
+		semaphore_wait :: proc(pSemaphore: ^semaphore) -> result ---
+		semaphore_release :: proc(pSemaphore: ^semaphore) -> result ---
+	} /* NO_THREADING */
 
 }
 
@@ -86,17 +86,17 @@ counter hits zero.
 If threading is disabled, ma_fence_wait() will spin on the counter.
 */
 fence :: struct {
-	e:       (struct {} when NO_THREADING else event),
-	counter: (u32 when NO_THREADING else struct {}),
+	e:       (struct{} when NO_THREADING else event),
+	counter: (u32 when NO_THREADING else struct{}),
 }
 
-@(default_calling_convention="c", link_prefix="ma_")
+@(default_calling_convention = "c", link_prefix = "ma_")
 foreign lib {
-	fence_init    :: proc(pFence: ^fence) -> result ---
-	fence_uninit  :: proc(pFence: ^fence) ---
-	fence_acquire :: proc(pFence: ^fence) -> result ---    /* Increment counter. */
-	fence_release :: proc(pFence: ^fence) -> result ---    /* Decrement counter. */
-	fence_wait    :: proc(pFence: ^fence) -> result ---    /* Wait for counter to reach 0. */
+	fence_init :: proc(pFence: ^fence) -> result ---
+	fence_uninit :: proc(pFence: ^fence) ---
+	fence_acquire :: proc(pFence: ^fence) -> result --- /* Increment counter. */
+	fence_release :: proc(pFence: ^fence) -> result --- /* Decrement counter. */
+	fence_wait :: proc(pFence: ^fence) -> result --- /* Wait for counter to reach 0. */
 }
 
 
@@ -109,7 +109,7 @@ async_notification_callbacks :: struct {
 	onSignal: proc "c" (pNotification: ^async_notification),
 }
 
-@(default_calling_convention="c", link_prefix="ma_")
+@(default_calling_convention = "c", link_prefix = "ma_")
 foreign lib {
 	async_notification_signal :: proc(pNotification: ^async_notification) -> result ---
 }
@@ -121,13 +121,13 @@ Simple polling notification.
 This just sets a variable when the notification has been signalled which is then polled with ma_async_notification_poll_is_signalled()
 */
 async_notification_poll :: struct {
-		cb:        async_notification_callbacks,
-		signalled: b32,
+	cb:        async_notification_callbacks,
+	signalled: b32,
 }
 
-@(default_calling_convention="c", link_prefix="ma_")
+@(default_calling_convention = "c", link_prefix = "ma_")
 foreign lib {
-	async_notification_poll_init         :: proc(pNotificationPoll: ^async_notification_poll) -> result ---
+	async_notification_poll_init :: proc(pNotificationPoll: ^async_notification_poll) -> result ---
 	async_notification_poll_is_signalled :: proc(pNotificationPoll: ^async_notification_poll) -> b32 ---
 }
 
@@ -139,13 +139,13 @@ This uses an ma_event. If threading is disabled (MA_NO_THREADING), initializatio
 */
 async_notification_event :: struct {
 	cb: async_notification_callbacks,
-	e:  (struct {} when NO_THREADING else event),
+	e:  (struct{} when NO_THREADING else event),
 }
 
-@(default_calling_convention="c", link_prefix="ma_")
+@(default_calling_convention = "c", link_prefix = "ma_")
 foreign lib {
-	async_notification_event_init   :: proc(pNotificationEvent: ^async_notification_event) -> result ---
+	async_notification_event_init :: proc(pNotificationEvent: ^async_notification_event) -> result ---
 	async_notification_event_uninit :: proc(pNotificationEvent: ^async_notification_event) -> result ---
-	async_notification_event_wait   :: proc(pNotificationEvent: ^async_notification_event) -> result ---
+	async_notification_event_wait :: proc(pNotificationEvent: ^async_notification_event) -> result ---
 	async_notification_event_signal :: proc(pNotificationEvent: ^async_notification_event) -> result ---
 }

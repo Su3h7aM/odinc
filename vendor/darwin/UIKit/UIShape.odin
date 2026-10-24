@@ -2,76 +2,76 @@
 #+build darwin:ios
 package darwin_UIKit
 
+import "base:intrinsics"
 import CG "core:sys/darwin/CoreGraphics"
 import NS "core:sys/darwin/Foundation"
-import "base:intrinsics"
 
-@(objc_class="UIShape", objc_superclass=NS.Object)
+@(objc_class = "UIShape", objc_superclass = NS.Object)
 Shape :: struct {
 	using _: NS.Object,
 	using _: ShapeProvider,
 	using _: NS.Copying,
 }
 
-@(default_calling_convention="c")
+@(default_calling_convention = "c")
 foreign lib {
-	@(objc_type=Shape, objc_selector="rectShapeWithCornerRadius:", objc_name="rectShapeWithCornerRadius_", objc_is_class_method=true)
+	@(objc_type = Shape, objc_selector = "rectShapeWithCornerRadius:", objc_name = "rectShapeWithCornerRadius_", objc_is_class_method = true)
 	Shape_rectShapeWithCornerRadius_ :: proc(cornerRadius: CG.Float) -> instancetype ---
 
-	@(objc_type=Shape, objc_selector="rectShapeWithCornerRadius:cornerCurve:", objc_name="rectShapeWithCornerRadius_cornerCurve", objc_is_class_method=true)
+	@(objc_type = Shape, objc_selector = "rectShapeWithCornerRadius:cornerCurve:", objc_name = "rectShapeWithCornerRadius_cornerCurve", objc_is_class_method = true)
 	Shape_rectShapeWithCornerRadius_cornerCurve :: proc(cornerRadius: CG.Float, cornerCurve: CornerCurve) -> instancetype ---
 
-	@(objc_type=Shape, objc_selector="rectShapeWithCornerRadius:cornerCurve:maskedCorners:", objc_name="rectShapeWithCornerRadius_cornerCurve_maskedCorners", objc_is_class_method=true)
+	@(objc_type = Shape, objc_selector = "rectShapeWithCornerRadius:cornerCurve:maskedCorners:", objc_name = "rectShapeWithCornerRadius_cornerCurve_maskedCorners", objc_is_class_method = true)
 	Shape_rectShapeWithCornerRadius_cornerCurve_maskedCorners :: proc(cornerRadius: CG.Float, cornerCurve: CornerCurve, maskedCorners: RectCorner) -> instancetype ---
 
-	@(objc_type=Shape, objc_selector="fixedRectShapeWithRect:", objc_name="fixedRectShapeWithRect_", objc_is_class_method=true)
+	@(objc_type = Shape, objc_selector = "fixedRectShapeWithRect:", objc_name = "fixedRectShapeWithRect_", objc_is_class_method = true)
 	Shape_fixedRectShapeWithRect_ :: proc(rect: CG.Rect) -> instancetype ---
 
-	@(objc_type=Shape, objc_selector="fixedRectShapeWithRect:cornerRadius:", objc_name="fixedRectShapeWithRect_cornerRadius", objc_is_class_method=true)
+	@(objc_type = Shape, objc_selector = "fixedRectShapeWithRect:cornerRadius:", objc_name = "fixedRectShapeWithRect_cornerRadius", objc_is_class_method = true)
 	Shape_fixedRectShapeWithRect_cornerRadius :: proc(rect: CG.Rect, cornerRadius: CG.Float) -> instancetype ---
 
-	@(objc_type=Shape, objc_selector="fixedRectShapeWithRect:cornerRadius:cornerCurve:maskedCorners:", objc_name="fixedRectShapeWithRect_cornerRadius_cornerCurve_maskedCorners", objc_is_class_method=true)
+	@(objc_type = Shape, objc_selector = "fixedRectShapeWithRect:cornerRadius:cornerCurve:maskedCorners:", objc_name = "fixedRectShapeWithRect_cornerRadius_cornerCurve_maskedCorners", objc_is_class_method = true)
 	Shape_fixedRectShapeWithRect_cornerRadius_cornerCurve_maskedCorners :: proc(rect: CG.Rect, cornerRadius: CG.Float, cornerCurve: CornerCurve, maskedCorners: RectCorner) -> instancetype ---
 
-	@(objc_type=Shape, objc_selector="shapeWithBezierPath:", objc_name="shapeWithBezierPath", objc_is_class_method=true)
+	@(objc_type = Shape, objc_selector = "shapeWithBezierPath:", objc_name = "shapeWithBezierPath", objc_is_class_method = true)
 	Shape_shapeWithBezierPath :: proc(path: ^BezierPath) -> instancetype ---
 
-	@(objc_type=Shape, objc_selector="shapeWithProvider:", objc_name="shapeWithProvider", objc_is_class_method=true)
+	@(objc_type = Shape, objc_selector = "shapeWithProvider:", objc_name = "shapeWithProvider", objc_is_class_method = true)
 	Shape_shapeWithProvider :: proc(provider: ^ShapeProvider) -> instancetype ---
 
-	@(objc_type=Shape, objc_selector="shapeByApplyingInsets:", objc_name="shapeByApplyingInsets")
+	@(objc_type = Shape, objc_selector = "shapeByApplyingInsets:", objc_name = "shapeByApplyingInsets")
 	Shape_shapeByApplyingInsets :: proc(self: ^Shape, insets: EdgeInsets) -> ^Shape ---
 
-	@(objc_type=Shape, objc_selector="shapeByApplyingInset:", objc_name="shapeByApplyingInset")
+	@(objc_type = Shape, objc_selector = "shapeByApplyingInset:", objc_name = "shapeByApplyingInset")
 	Shape_shapeByApplyingInset :: proc(self: ^Shape, inset: CG.Float) -> ^Shape ---
 
-	@(objc_type=Shape, objc_selector="resolvedShapeInContext:", objc_name="resolvedShapeInContext")
+	@(objc_type = Shape, objc_selector = "resolvedShapeInContext:", objc_name = "resolvedShapeInContext")
 	Shape_resolvedShapeInContext :: proc(self: ^Shape, _context: ^ShapeResolutionContext) -> ^ResolvedShape ---
 
-	@(objc_type=Shape, objc_selector="init", objc_name="init")
+	@(objc_type = Shape, objc_selector = "init", objc_name = "init")
 	Shape_init :: proc(self: ^Shape) -> instancetype ---
 
-	@(objc_type=Shape, objc_selector="new", objc_name="new", objc_is_class_method=true)
+	@(objc_type = Shape, objc_selector = "new", objc_name = "new", objc_is_class_method = true)
 	Shape_new :: proc() -> ^Shape ---
 
-	@(objc_type=Shape, objc_selector="rectShape", objc_name="rectShape", objc_is_class_method=true)
+	@(objc_type = Shape, objc_selector = "rectShape", objc_name = "rectShape", objc_is_class_method = true)
 	Shape_rectShape :: proc() -> ^Shape ---
 
-	@(objc_type=Shape, objc_selector="capsuleShape", objc_name="capsuleShape", objc_is_class_method=true)
+	@(objc_type = Shape, objc_selector = "capsuleShape", objc_name = "capsuleShape", objc_is_class_method = true)
 	Shape_capsuleShape :: proc() -> ^Shape ---
 
-	@(objc_type=Shape, objc_selector="circleShape", objc_name="circleShape", objc_is_class_method=true)
+	@(objc_type = Shape, objc_selector = "circleShape", objc_name = "circleShape", objc_is_class_method = true)
 	Shape_circleShape :: proc() -> ^Shape ---
 }
 
-@(objc_type=Shape, objc_name="rectShapeWithCornerRadius", objc_is_class_method=true)
+@(objc_type = Shape, objc_name = "rectShapeWithCornerRadius", objc_is_class_method = true)
 Shape_rectShapeWithCornerRadius :: proc {
 	Shape_rectShapeWithCornerRadius_,
 	Shape_rectShapeWithCornerRadius_cornerCurve,
 	Shape_rectShapeWithCornerRadius_cornerCurve_maskedCorners,
 }
 
-@(objc_type=Shape, objc_name="fixedRectShapeWithRect", objc_is_class_method=true)
+@(objc_type = Shape, objc_name = "fixedRectShapeWithRect", objc_is_class_method = true)
 Shape_fixedRectShapeWithRect :: proc {
 	Shape_fixedRectShapeWithRect_,
 	Shape_fixedRectShapeWithRect_cornerRadius,
@@ -79,30 +79,32 @@ Shape_fixedRectShapeWithRect :: proc {
 }
 
 
-@(objc_class="UIShapeProvider")
+@(objc_class = "UIShapeProvider")
 ShapeProvider :: struct {
 	using _: intrinsics.objc_object,
 	using _: NS.ObjectProtocol,
 }
 
-@(default_calling_convention="c")
+@(default_calling_convention = "c")
 foreign lib {
-	@(objc_type=ShapeProvider, objc_selector="resolvedShapeInContext:", objc_name="resolvedShapeInContext")
+	@(objc_type = ShapeProvider, objc_selector = "resolvedShapeInContext:", objc_name = "resolvedShapeInContext")
 	ShapeProvider_resolvedShapeInContext :: proc(self: ^ShapeProvider, _context: ^ShapeResolutionContext) -> ^ResolvedShape ---
 }
 
 
-@(objc_class="UIShapeResolutionContext", objc_superclass=NS.Object)
-ShapeResolutionContext :: struct { using _: NS.Object}
+@(objc_class = "UIShapeResolutionContext", objc_superclass = NS.Object)
+ShapeResolutionContext :: struct {
+	using _: NS.Object,
+}
 
-@(default_calling_convention="c")
+@(default_calling_convention = "c")
 foreign lib {
-	@(objc_type=ShapeResolutionContext, objc_selector="init", objc_name="init")
+	@(objc_type = ShapeResolutionContext, objc_selector = "init", objc_name = "init")
 	ShapeResolutionContext_init :: proc(self: ^ShapeResolutionContext) -> instancetype ---
 
-	@(objc_type=ShapeResolutionContext, objc_selector="new", objc_name="new", objc_is_class_method=true)
+	@(objc_type = ShapeResolutionContext, objc_selector = "new", objc_name = "new", objc_is_class_method = true)
 	ShapeResolutionContext_new :: proc() -> ^ShapeResolutionContext ---
 
-	@(objc_type=ShapeResolutionContext, objc_selector="contentShape", objc_name="contentShape")
+	@(objc_type = ShapeResolutionContext, objc_selector = "contentShape", objc_name = "contentShape")
 	ShapeResolutionContext_contentShape :: proc(self: ^ShapeResolutionContext) -> ^ResolvedShape ---
 }

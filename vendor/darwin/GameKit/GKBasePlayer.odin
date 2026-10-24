@@ -4,25 +4,27 @@ package darwin_GameKit
 
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class="GKBasePlayer", objc_superclass=NS.Object)
+@(objc_class = "GKBasePlayer", objc_superclass = NS.Object)
 BasePlayer :: struct {
 	using _: NS.Object,
 	using _: NS.Copying,
 }
 
 foreign lib {
-	@(objc_type=BasePlayer, objc_selector="playerID", objc_name="playerID")
+	@(objc_type = BasePlayer, objc_selector = "playerID", objc_name = "playerID")
 	BasePlayer_playerID :: proc(self: ^BasePlayer) -> ^NS.String ---
 
-	@(objc_type=BasePlayer, objc_selector="displayName", objc_name="displayName")
+	@(objc_type = BasePlayer, objc_selector = "displayName", objc_name = "displayName")
 	BasePlayer_displayName :: proc(self: ^BasePlayer) -> ^NS.String ---
 }
 
 
-@(objc_class="GKCloudPlayer", objc_superclass=BasePlayer)
-CloudPlayer :: struct { using _: BasePlayer}
+@(objc_class = "GKCloudPlayer", objc_superclass = BasePlayer)
+CloudPlayer :: struct {
+	using _: BasePlayer,
+}
 
 foreign lib {
-	@(objc_type=CloudPlayer, objc_selector="getCurrentSignedInPlayerForContainer:completionHandler:", objc_name="getCurrentSignedInPlayerForContainer", objc_is_class_method=true)
-	CloudPlayer_getCurrentSignedInPlayerForContainer :: proc(containerName: ^NS.String, handler: ^Objc_Block(proc "c" ( player: ^CloudPlayer, error: ^NS.Error ))) ---
+	@(objc_type = CloudPlayer, objc_selector = "getCurrentSignedInPlayerForContainer:completionHandler:", objc_name = "getCurrentSignedInPlayerForContainer", objc_is_class_method = true)
+	CloudPlayer_getCurrentSignedInPlayerForContainer :: proc(containerName: ^NS.String, handler: ^Objc_Block(proc "c" (player: ^CloudPlayer, error: ^NS.Error))) ---
 }

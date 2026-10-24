@@ -8,10 +8,12 @@ import NS "core:sys/darwin/Foundation"
 _ :: NS
 
 when ODIN_PLATFORM_SUBTARGET == .Default {
-	@(objc_class="CASpatialAudioExperience")
-	SpatialAudioExperience :: struct { using _: intrinsics.objc_object}
+	@(objc_class = "CASpatialAudioExperience")
+	SpatialAudioExperience :: struct {
+		using _: intrinsics.objc_object,
+	}
 } else when ODIN_PLATFORM_SUBTARGET_IOS {
-	@(objc_class="CASpatialAudioExperience", objc_superclass=NS.Object)
+	@(objc_class = "CASpatialAudioExperience", objc_superclass = NS.Object)
 	SpatialAudioExperience :: struct {
 		using _: NS.Object,
 		using _: NS.SecureCoding,
@@ -21,10 +23,10 @@ when ODIN_PLATFORM_SUBTARGET == .Default {
 
 foreign lib {
 	when ODIN_PLATFORM_SUBTARGET_IOS {
-		@(objc_type=SpatialAudioExperience, objc_selector="init", objc_name="init")
+		@(objc_type = SpatialAudioExperience, objc_selector = "init", objc_name = "init")
 		SpatialAudioExperience_init :: proc(self: ^SpatialAudioExperience) -> instancetype ---
 
-		@(objc_type=SpatialAudioExperience, objc_selector="new", objc_name="new", objc_is_class_method=true)
+		@(objc_type = SpatialAudioExperience, objc_selector = "new", objc_name = "new", objc_is_class_method = true)
 		SpatialAudioExperience_new :: proc() -> ^SpatialAudioExperience ---
 	}
 }

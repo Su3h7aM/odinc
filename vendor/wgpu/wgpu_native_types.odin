@@ -2,7 +2,7 @@ package wgpu
 
 import "base:runtime"
 
-BINDINGS_VERSION        :: [4]u8{29, 0, 1, 1}
+BINDINGS_VERSION :: [4]u8{29, 0, 1, 1}
 BINDINGS_VERSION_STRING :: "29.0.1.1"
 
 LogLevel :: enum i32 {
@@ -22,10 +22,10 @@ InstanceBackend :: enum i32 {
 	// DX11,
 	BrowserWebGPU = 5,
 }
-InstanceBackendFlags :: bit_set[InstanceBackend; Flags]
+InstanceBackendFlags :: bit_set[InstanceBackend;Flags]
 InstanceBackendFlags_All :: InstanceBackendFlags{}
-InstanceBackendFlags_Primary :: InstanceBackendFlags{ .Vulkan, .Metal, .DX12, .BrowserWebGPU }
-InstanceBackendFlags_Secondary :: InstanceBackendFlags{ .GL }
+InstanceBackendFlags_Primary :: InstanceBackendFlags{.Vulkan, .Metal, .DX12, .BrowserWebGPU}
+InstanceBackendFlags_Secondary :: InstanceBackendFlags{.GL}
 
 InstanceFlag :: enum i32 {
 	Debug,
@@ -40,7 +40,7 @@ InstanceFlag :: enum i32 {
 	AdvancedDebugging,
 	WithEnv,
 }
-InstanceFlags :: bit_set[InstanceFlag; Flags]
+InstanceFlags :: bit_set[InstanceFlag;Flags]
 InstanceFlags_Empty :: InstanceFlags{}
 
 Dx12Compiler :: enum i32 {
@@ -95,12 +95,12 @@ NativeDisplayHandleType :: enum i32 {
 
 XlibDisplayHandle :: struct {
 	display: rawptr,
-	screen: i32,
+	screen:  i32,
 }
 
 XcbDisplayHandle :: struct {
 	connection: rawptr,
-	screen: i32,
+	screen:     i32,
 }
 
 WaylandDisplayHandle :: struct {
@@ -108,130 +108,130 @@ WaylandDisplayHandle :: struct {
 }
 
 NativeDisplayHandle :: struct {
-	type: NativeDisplayHandleType,
+	type:       NativeDisplayHandleType,
 	using data: struct #raw_union {
-		xlib: XlibDisplayHandle,
-		xcb: XcbDisplayHandle,
+		xlib:    XlibDisplayHandle,
+		xcb:     XcbDisplayHandle,
 		wayland: WaylandDisplayHandle,
 	},
 }
 
 InstanceExtras :: struct {
-	using chain: ChainedStruct,
-	backends: InstanceBackendFlags,
-	flags: InstanceFlags,
-	dx12ShaderCompiler: Dx12Compiler,
-	gles3MinorVersion: Gles3MinorVersion,
-	glFenceBehaviour: GLFenceBehaviour,
-	dxcPath: StringView,
-	dcxMaxShaderModel: DxcMaxShaderModel,
-	dx12PresentationSystem: Dx12SwapchainKind,
+	using chain:             ChainedStruct,
+	backends:                InstanceBackendFlags,
+	flags:                   InstanceFlags,
+	dx12ShaderCompiler:      Dx12Compiler,
+	gles3MinorVersion:       Gles3MinorVersion,
+	glFenceBehaviour:        GLFenceBehaviour,
+	dxcPath:                 StringView,
+	dcxMaxShaderModel:       DxcMaxShaderModel,
+	dx12PresentationSystem:  Dx12SwapchainKind,
 	budgetForDeviceCreation: ^u8,
-	budgetForDeviceLoss: ^u8,
-	displayHandle: NativeDisplayHandle,
+	budgetForDeviceLoss:     ^u8,
+	displayHandle:           NativeDisplayHandle,
 }
 
 DeviceExtras :: struct {
 	using chain: ChainedStruct,
-	tracePath: StringView,
+	tracePath:   StringView,
 }
 
 NativeLimits :: struct {
-	using chain: ChainedStruct,
-	maxNonSamplerBindings: u32,
-	maxBindingArrayElementsPerShaderStage: u32,
+	using chain:                                  ChainedStruct,
+	maxNonSamplerBindings:                        u32,
+	maxBindingArrayElementsPerShaderStage:        u32,
 	maxBindingArraySamplerElementsPerShaderStage: u32,
-	maxMultiviewCount: u32,
+	maxMultiviewCount:                            u32,
 }
 
 SubmissionIndex :: distinct u64
 
 ShaderDefine :: struct {
-	name: StringView,
+	name:  StringView,
 	value: StringView,
 }
 
 ShaderSourceGLSL :: struct {
 	using chain: ChainedStruct,
-	stage: ShaderStage,
-	code: StringView,
+	stage:       ShaderStage,
+	code:        StringView,
 	defineCount: uint,
-	defines: /* const */ [^]ShaderDefine `fmt:"v,defineCount"`,
+	defines:      /* const */[^]ShaderDefine `fmt:"v,defineCount"`,
 }
 
 ShaderModuleDescriptorSpirV :: struct {
-	label: StringView,
+	label:      StringView,
 	sourceSize: u32,
-	source: /* const */ [^]u32 `fmt:"v,sourceSize"`,
+	source:      /* const */[^]u32 `fmt:"v,sourceSize"`,
 }
 
 RegistryReport :: struct {
-	numAllocated: uint,
-	numKeptFromUser: uint,
+	numAllocated:        uint,
+	numKeptFromUser:     uint,
 	numReleasedFromUser: uint,
-	elementSize: uint,
+	elementSize:         uint,
 }
 
 HubReport :: struct {
-	adapters: RegistryReport,
-	devices: RegistryReport,
-	queues: RegistryReport,
-	pipelineLayouts: RegistryReport,
-	shaderModules: RegistryReport,
+	adapters:         RegistryReport,
+	devices:          RegistryReport,
+	queues:           RegistryReport,
+	pipelineLayouts:  RegistryReport,
+	shaderModules:    RegistryReport,
 	bindGroupLayouts: RegistryReport,
-	bindGroups: RegistryReport,
-	commandBuffers: RegistryReport,
-	renderBundles: RegistryReport,
-	renderPipelines: RegistryReport,
+	bindGroups:       RegistryReport,
+	commandBuffers:   RegistryReport,
+	renderBundles:    RegistryReport,
+	renderPipelines:  RegistryReport,
 	computePipelines: RegistryReport,
-	pipelineCaches: RegistryReport,
-	querySets: RegistryReport,
-	buffers: RegistryReport,
-	textures: RegistryReport,
-	textureViews: RegistryReport,
-	samplers: RegistryReport,
+	pipelineCaches:   RegistryReport,
+	querySets:        RegistryReport,
+	buffers:          RegistryReport,
+	textures:         RegistryReport,
+	textureViews:     RegistryReport,
+	samplers:         RegistryReport,
 }
 
 GlobalReport :: struct {
 	surfaces: RegistryReport,
-	hub: HubReport,
+	hub:      HubReport,
 }
 
 InstanceEnumerateAdapterOptions :: struct {
 	nextInChain: ^ChainedStruct,
-	backends: InstanceBackendFlags,
+	backends:    InstanceBackendFlags,
 }
 
 BindGroupEntryExtras :: struct {
-	using chain: ChainedStruct,
-	buffers: [^]Buffer `fmt:"v,bufferCount"`,
-	bufferCount: uint,
-	samplers: [^]Sampler `fmt:"v,samplerCount"`,
-	samplerCount: uint,
-	textureViews: [^]TextureView `fmt:"v,textureViewCount"`,
+	using chain:      ChainedStruct,
+	buffers:          [^]Buffer `fmt:"v,bufferCount"`,
+	bufferCount:      uint,
+	samplers:         [^]Sampler `fmt:"v,samplerCount"`,
+	samplerCount:     uint,
+	textureViews:     [^]TextureView `fmt:"v,textureViewCount"`,
 	textureViewCount: uint,
 }
 
 BindGroupLayoutEntryExtras :: struct {
 	using chain: ChainedStruct,
-	count: u32,
+	count:       u32,
 }
 
 QuerySetDescriptorExtras :: struct {
-	using chain: ChainedStruct,
-	pipelineStatistics: [^]PipelineStatisticName `fmt:"v,pipelineStatisticCount"`,
+	using chain:            ChainedStruct,
+	pipelineStatistics:     [^]PipelineStatisticName `fmt:"v,pipelineStatisticCount"`,
 	pipelineStatisticCount: uint,
 }
 
 SurfaceConfigurationExtras :: struct {
-	using chain: ChainedStruct,
+	using chain:                ChainedStruct,
 	desiredMaximumFrameLatency: u32,
 }
 
 // Chained in `SurfaceDescriptor` to make a `Surface` wrapping a WinUI [[ SwapChainPanel ; https://learn.microsoft.com/en-us/windows/windows-app-sdk/api/winrt/microsoft.ui.xaml.controls.swapchainpanel ]].
 SurfaceSourceSwapChainPanel :: struct {
 	using chain: ChainedStruct,
-    /**
+	/**
      * A pointer to the [[ ISwapChainPanelNative ; https://learn.microsoft.com/en-us/windows/windows-app-sdk/api/win32/microsoft.ui.xaml.media.dxinterop/nn-microsoft-ui-xaml-media-dxinterop-iswapchainpanelnative ]]
      * interface of the `SwapChainPanel` that will be wrapped by the `Surface`.
      */
@@ -245,8 +245,8 @@ PolygonMode :: enum i32 {
 }
 
 PrimitiveStateExtras :: struct {
-	using chain: ChainedStruct,
-	polygonMode: PolygonMode,
+	using chain:  ChainedStruct,
+	polygonMode:  PolygonMode,
 	conservative: b32,
 }
 
@@ -267,7 +267,7 @@ ShaderRuntimeCheck :: enum i32 {
 	TaskShaderDispatchTracking,
 	MeshShaderPrimitiveIndicesClamp,
 }
-ShaderRuntimeChecks :: bit_set[ShaderRuntimeCheck; Flags]
+ShaderRuntimeChecks :: bit_set[ShaderRuntimeCheck;Flags]
 
 SamplerBorderColor :: enum i32 {
 	Undefined,
@@ -286,21 +286,31 @@ SamplerDescriptorExtras :: struct {
 
 ConvertOdinToWGPULogLevel :: proc(level: runtime.Logger_Level) -> LogLevel {
 	switch {
-	case level < .Debug:   return .Trace
-	case level < .Info:    return .Debug
-	case level < .Warning: return .Info
-	case level < .Error:   return .Warn
-	case:                  return .Error
+	case level < .Debug:
+		return .Trace
+	case level < .Info:
+		return .Debug
+	case level < .Warning:
+		return .Info
+	case level < .Error:
+		return .Warn
+	case:
+		return .Error
 	}
 }
 
 ConvertWGPUToOdinLogLevel :: proc(level: LogLevel) -> runtime.Logger_Level {
 	switch level {
-	case .Off, .Trace, .Debug: return .Debug
-	case .Info:                return .Info
-	case .Warn:                return .Warning
-	case .Error:               return .Error
-	case:                      return .Error
+	case .Off, .Trace, .Debug:
+		return .Debug
+	case .Info:
+		return .Info
+	case .Warn:
+		return .Warning
+	case .Error:
+		return .Error
+	case:
+		return .Error
 	}
 }
 
@@ -308,4 +318,3 @@ ConvertLogLevel :: proc {
 	ConvertOdinToWGPULogLevel,
 	ConvertWGPUToOdinLogLevel,
 }
-

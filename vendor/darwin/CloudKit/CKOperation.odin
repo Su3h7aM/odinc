@@ -4,238 +4,256 @@ package darwin_CloudKit
 
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class="CKOperation", objc_superclass=NS.Operation)
-Operation :: struct { using _: NS.Operation}
+@(objc_class = "CKOperation", objc_superclass = NS.Operation)
+Operation :: struct {
+	using _: NS.Operation,
+}
 
 foreign lib {
-	@(objc_type=Operation, objc_selector="init", objc_name="init")
+	@(objc_type = Operation, objc_selector = "init", objc_name = "init")
 	Operation_init :: proc(self: ^Operation) -> instancetype ---
 
-	@(objc_type=Operation, objc_selector="configuration", objc_name="configuration")
+	@(objc_type = Operation, objc_selector = "configuration", objc_name = "configuration")
 	Operation_configuration :: proc(self: ^Operation) -> ^OperationConfiguration ---
 
-	@(objc_type=Operation, objc_selector="setConfiguration:", objc_name="setConfiguration")
+	@(objc_type = Operation, objc_selector = "setConfiguration:", objc_name = "setConfiguration")
 	Operation_setConfiguration :: proc(self: ^Operation, configuration: ^OperationConfiguration) ---
 
-	@(objc_type=Operation, objc_selector="group", objc_name="group")
+	@(objc_type = Operation, objc_selector = "group", objc_name = "group")
 	Operation_group :: proc(self: ^Operation) -> ^OperationGroup ---
 
-	@(objc_type=Operation, objc_selector="setGroup:", objc_name="setGroup")
+	@(objc_type = Operation, objc_selector = "setGroup:", objc_name = "setGroup")
 	Operation_setGroup :: proc(self: ^Operation, group: ^OperationGroup) ---
 
-	@(objc_type=Operation, objc_selector="operationID", objc_name="operationID")
+	@(objc_type = Operation, objc_selector = "operationID", objc_name = "operationID")
 	Operation_operationID :: proc(self: ^Operation) -> ^NS.String ---
 
-	@(objc_type=Operation, objc_selector="longLivedOperationWasPersistedBlock", objc_name="longLivedOperationWasPersistedBlock")
+	@(objc_type = Operation, objc_selector = "longLivedOperationWasPersistedBlock", objc_name = "longLivedOperationWasPersistedBlock")
 	Operation_longLivedOperationWasPersistedBlock :: proc(self: ^Operation) -> ^Objc_Block(proc "c" ()) ---
 
-	@(objc_type=Operation, objc_selector="setLongLivedOperationWasPersistedBlock:", objc_name="setLongLivedOperationWasPersistedBlock")
+	@(objc_type = Operation, objc_selector = "setLongLivedOperationWasPersistedBlock:", objc_name = "setLongLivedOperationWasPersistedBlock")
 	Operation_setLongLivedOperationWasPersistedBlock :: proc(self: ^Operation, longLivedOperationWasPersistedBlock: ^Objc_Block(proc "c" ())) ---
 
-	@(objc_type=Operation, objc_selector="container", objc_name="container")
+	@(objc_type = Operation, objc_selector = "container", objc_name = "container")
 	Operation_container :: proc(self: ^Operation) -> ^Container ---
 
-	@(objc_type=Operation, objc_selector="setContainer:", objc_name="setContainer")
+	@(objc_type = Operation, objc_selector = "setContainer:", objc_name = "setContainer")
 	Operation_setContainer :: proc(self: ^Operation, container: ^Container) ---
 
-	@(objc_type=Operation, objc_selector="allowsCellularAccess", objc_name="allowsCellularAccess")
+	@(objc_type = Operation, objc_selector = "allowsCellularAccess", objc_name = "allowsCellularAccess")
 	Operation_allowsCellularAccess :: proc(self: ^Operation) -> bool ---
 
-	@(objc_type=Operation, objc_selector="setAllowsCellularAccess:", objc_name="setAllowsCellularAccess")
+	@(objc_type = Operation, objc_selector = "setAllowsCellularAccess:", objc_name = "setAllowsCellularAccess")
 	Operation_setAllowsCellularAccess :: proc(self: ^Operation, allowsCellularAccess: bool) ---
 
-	@(objc_type=Operation, objc_selector="isLongLived", objc_name="isLongLived")
+	@(objc_type = Operation, objc_selector = "isLongLived", objc_name = "isLongLived")
 	Operation_isLongLived :: proc(self: ^Operation) -> bool ---
 
-	@(objc_type=Operation, objc_selector="setLongLived:", objc_name="setLongLived")
+	@(objc_type = Operation, objc_selector = "setLongLived:", objc_name = "setLongLived")
 	Operation_setLongLived :: proc(self: ^Operation, longLived: bool) ---
 
-	@(objc_type=Operation, objc_selector="timeoutIntervalForRequest", objc_name="timeoutIntervalForRequest")
+	@(objc_type = Operation, objc_selector = "timeoutIntervalForRequest", objc_name = "timeoutIntervalForRequest")
 	Operation_timeoutIntervalForRequest :: proc(self: ^Operation) -> NS.TimeInterval ---
 
-	@(objc_type=Operation, objc_selector="setTimeoutIntervalForRequest:", objc_name="setTimeoutIntervalForRequest")
+	@(objc_type = Operation, objc_selector = "setTimeoutIntervalForRequest:", objc_name = "setTimeoutIntervalForRequest")
 	Operation_setTimeoutIntervalForRequest :: proc(self: ^Operation, timeoutIntervalForRequest: NS.TimeInterval) ---
 
-	@(objc_type=Operation, objc_selector="timeoutIntervalForResource", objc_name="timeoutIntervalForResource")
+	@(objc_type = Operation, objc_selector = "timeoutIntervalForResource", objc_name = "timeoutIntervalForResource")
 	Operation_timeoutIntervalForResource :: proc(self: ^Operation) -> NS.TimeInterval ---
 
-	@(objc_type=Operation, objc_selector="setTimeoutIntervalForResource:", objc_name="setTimeoutIntervalForResource")
+	@(objc_type = Operation, objc_selector = "setTimeoutIntervalForResource:", objc_name = "setTimeoutIntervalForResource")
 	Operation_setTimeoutIntervalForResource :: proc(self: ^Operation, timeoutIntervalForResource: NS.TimeInterval) ---
 }
 
 
-@(objc_class="CKOperationConfiguration", objc_superclass=NS.Object)
-OperationConfiguration :: struct { using _: NS.Object}
+@(objc_class = "CKOperationConfiguration", objc_superclass = NS.Object)
+OperationConfiguration :: struct {
+	using _: NS.Object,
+}
 
 foreign lib {
-	@(objc_type=OperationConfiguration, objc_selector="container", objc_name="container")
+	@(objc_type = OperationConfiguration, objc_selector = "container", objc_name = "container")
 	OperationConfiguration_container :: proc(self: ^OperationConfiguration) -> ^Container ---
 
-	@(objc_type=OperationConfiguration, objc_selector="setContainer:", objc_name="setContainer")
+	@(objc_type = OperationConfiguration, objc_selector = "setContainer:", objc_name = "setContainer")
 	OperationConfiguration_setContainer :: proc(self: ^OperationConfiguration, container: ^Container) ---
 
-	@(objc_type=OperationConfiguration, objc_selector="qualityOfService", objc_name="qualityOfService")
+	@(objc_type = OperationConfiguration, objc_selector = "qualityOfService", objc_name = "qualityOfService")
 	OperationConfiguration_qualityOfService :: proc(self: ^OperationConfiguration) -> NS.QualityOfService ---
 
-	@(objc_type=OperationConfiguration, objc_selector="setQualityOfService:", objc_name="setQualityOfService")
+	@(objc_type = OperationConfiguration, objc_selector = "setQualityOfService:", objc_name = "setQualityOfService")
 	OperationConfiguration_setQualityOfService :: proc(self: ^OperationConfiguration, qualityOfService: NS.QualityOfService) ---
 
-	@(objc_type=OperationConfiguration, objc_selector="allowsCellularAccess", objc_name="allowsCellularAccess")
+	@(objc_type = OperationConfiguration, objc_selector = "allowsCellularAccess", objc_name = "allowsCellularAccess")
 	OperationConfiguration_allowsCellularAccess :: proc(self: ^OperationConfiguration) -> bool ---
 
-	@(objc_type=OperationConfiguration, objc_selector="setAllowsCellularAccess:", objc_name="setAllowsCellularAccess")
+	@(objc_type = OperationConfiguration, objc_selector = "setAllowsCellularAccess:", objc_name = "setAllowsCellularAccess")
 	OperationConfiguration_setAllowsCellularAccess :: proc(self: ^OperationConfiguration, allowsCellularAccess: bool) ---
 
-	@(objc_type=OperationConfiguration, objc_selector="isLongLived", objc_name="isLongLived")
+	@(objc_type = OperationConfiguration, objc_selector = "isLongLived", objc_name = "isLongLived")
 	OperationConfiguration_isLongLived :: proc(self: ^OperationConfiguration) -> bool ---
 
-	@(objc_type=OperationConfiguration, objc_selector="setLongLived:", objc_name="setLongLived")
+	@(objc_type = OperationConfiguration, objc_selector = "setLongLived:", objc_name = "setLongLived")
 	OperationConfiguration_setLongLived :: proc(self: ^OperationConfiguration, longLived: bool) ---
 
-	@(objc_type=OperationConfiguration, objc_selector="timeoutIntervalForRequest", objc_name="timeoutIntervalForRequest")
+	@(objc_type = OperationConfiguration, objc_selector = "timeoutIntervalForRequest", objc_name = "timeoutIntervalForRequest")
 	OperationConfiguration_timeoutIntervalForRequest :: proc(self: ^OperationConfiguration) -> NS.TimeInterval ---
 
-	@(objc_type=OperationConfiguration, objc_selector="setTimeoutIntervalForRequest:", objc_name="setTimeoutIntervalForRequest")
+	@(objc_type = OperationConfiguration, objc_selector = "setTimeoutIntervalForRequest:", objc_name = "setTimeoutIntervalForRequest")
 	OperationConfiguration_setTimeoutIntervalForRequest :: proc(self: ^OperationConfiguration, timeoutIntervalForRequest: NS.TimeInterval) ---
 
-	@(objc_type=OperationConfiguration, objc_selector="timeoutIntervalForResource", objc_name="timeoutIntervalForResource")
+	@(objc_type = OperationConfiguration, objc_selector = "timeoutIntervalForResource", objc_name = "timeoutIntervalForResource")
 	OperationConfiguration_timeoutIntervalForResource :: proc(self: ^OperationConfiguration) -> NS.TimeInterval ---
 
-	@(objc_type=OperationConfiguration, objc_selector="setTimeoutIntervalForResource:", objc_name="setTimeoutIntervalForResource")
+	@(objc_type = OperationConfiguration, objc_selector = "setTimeoutIntervalForResource:", objc_name = "setTimeoutIntervalForResource")
 	OperationConfiguration_setTimeoutIntervalForResource :: proc(self: ^OperationConfiguration, timeoutIntervalForResource: NS.TimeInterval) ---
 }
 
 
-@(objc_class="CKAcceptSharesOperation", objc_superclass=Operation)
-AcceptSharesOperation :: struct { using _: Operation}
+@(objc_class = "CKAcceptSharesOperation", objc_superclass = Operation)
+AcceptSharesOperation :: struct {
+	using _: Operation,
+}
 
 foreign lib {
-	@(objc_type=AcceptSharesOperation, objc_selector="init", objc_name="init")
+	@(objc_type = AcceptSharesOperation, objc_selector = "init", objc_name = "init")
 	AcceptSharesOperation_init :: proc(self: ^AcceptSharesOperation) -> instancetype ---
 
-	@(objc_type=AcceptSharesOperation, objc_selector="initWithShareMetadatas:", objc_name="initWithShareMetadatas")
+	@(objc_type = AcceptSharesOperation, objc_selector = "initWithShareMetadatas:", objc_name = "initWithShareMetadatas")
 	AcceptSharesOperation_initWithShareMetadatas :: proc(self: ^AcceptSharesOperation, shareMetadatas: ^NS.Array) -> instancetype ---
 
-	@(objc_type=AcceptSharesOperation, objc_selector="shareMetadatas", objc_name="shareMetadatas")
+	@(objc_type = AcceptSharesOperation, objc_selector = "shareMetadatas", objc_name = "shareMetadatas")
 	AcceptSharesOperation_shareMetadatas :: proc(self: ^AcceptSharesOperation) -> ^NS.Array ---
 
-	@(objc_type=AcceptSharesOperation, objc_selector="setShareMetadatas:", objc_name="setShareMetadatas")
+	@(objc_type = AcceptSharesOperation, objc_selector = "setShareMetadatas:", objc_name = "setShareMetadatas")
 	AcceptSharesOperation_setShareMetadatas :: proc(self: ^AcceptSharesOperation, shareMetadatas: ^NS.Array) ---
 
-	@(objc_type=AcceptSharesOperation, objc_selector="perShareCompletionBlock", objc_name="perShareCompletionBlock")
+	@(objc_type = AcceptSharesOperation, objc_selector = "perShareCompletionBlock", objc_name = "perShareCompletionBlock")
 	AcceptSharesOperation_perShareCompletionBlock :: proc(self: ^AcceptSharesOperation) -> ^Objc_Block(proc "c" ()) ---
 
-	@(objc_type=AcceptSharesOperation, objc_selector="setPerShareCompletionBlock:", objc_name="setPerShareCompletionBlock")
+	@(objc_type = AcceptSharesOperation, objc_selector = "setPerShareCompletionBlock:", objc_name = "setPerShareCompletionBlock")
 	AcceptSharesOperation_setPerShareCompletionBlock :: proc(self: ^AcceptSharesOperation, perShareCompletionBlock: ^Objc_Block(proc "c" ())) ---
 
-	@(objc_type=AcceptSharesOperation, objc_selector="acceptSharesCompletionBlock", objc_name="acceptSharesCompletionBlock")
+	@(objc_type = AcceptSharesOperation, objc_selector = "acceptSharesCompletionBlock", objc_name = "acceptSharesCompletionBlock")
 	AcceptSharesOperation_acceptSharesCompletionBlock :: proc(self: ^AcceptSharesOperation) -> ^Objc_Block(proc "c" ()) ---
 
-	@(objc_type=AcceptSharesOperation, objc_selector="setAcceptSharesCompletionBlock:", objc_name="setAcceptSharesCompletionBlock")
+	@(objc_type = AcceptSharesOperation, objc_selector = "setAcceptSharesCompletionBlock:", objc_name = "setAcceptSharesCompletionBlock")
 	AcceptSharesOperation_setAcceptSharesCompletionBlock :: proc(self: ^AcceptSharesOperation, acceptSharesCompletionBlock: ^Objc_Block(proc "c" ())) ---
 }
 
 
-@(objc_class="CKDiscoverAllUserIdentitiesOperation", objc_superclass=Operation)
-DiscoverAllUserIdentitiesOperation :: struct { using _: Operation}
+@(objc_class = "CKDiscoverAllUserIdentitiesOperation", objc_superclass = Operation)
+DiscoverAllUserIdentitiesOperation :: struct {
+	using _: Operation,
+}
 
 foreign lib {
-	@(objc_type=DiscoverAllUserIdentitiesOperation, objc_selector="init", objc_name="init")
+	@(objc_type = DiscoverAllUserIdentitiesOperation, objc_selector = "init", objc_name = "init")
 	DiscoverAllUserIdentitiesOperation_init :: proc(self: ^DiscoverAllUserIdentitiesOperation) -> instancetype ---
 
-	@(objc_type=DiscoverAllUserIdentitiesOperation, objc_selector="userIdentityDiscoveredBlock", objc_name="userIdentityDiscoveredBlock")
+	@(objc_type = DiscoverAllUserIdentitiesOperation, objc_selector = "userIdentityDiscoveredBlock", objc_name = "userIdentityDiscoveredBlock")
 	DiscoverAllUserIdentitiesOperation_userIdentityDiscoveredBlock :: proc(self: ^DiscoverAllUserIdentitiesOperation) -> ^Objc_Block(proc "c" ()) ---
 
-	@(objc_type=DiscoverAllUserIdentitiesOperation, objc_selector="setUserIdentityDiscoveredBlock:", objc_name="setUserIdentityDiscoveredBlock")
+	@(objc_type = DiscoverAllUserIdentitiesOperation, objc_selector = "setUserIdentityDiscoveredBlock:", objc_name = "setUserIdentityDiscoveredBlock")
 	DiscoverAllUserIdentitiesOperation_setUserIdentityDiscoveredBlock :: proc(self: ^DiscoverAllUserIdentitiesOperation, userIdentityDiscoveredBlock: ^Objc_Block(proc "c" ())) ---
 
-	@(objc_type=DiscoverAllUserIdentitiesOperation, objc_selector="discoverAllUserIdentitiesCompletionBlock", objc_name="discoverAllUserIdentitiesCompletionBlock")
+	@(objc_type = DiscoverAllUserIdentitiesOperation, objc_selector = "discoverAllUserIdentitiesCompletionBlock", objc_name = "discoverAllUserIdentitiesCompletionBlock")
 	DiscoverAllUserIdentitiesOperation_discoverAllUserIdentitiesCompletionBlock :: proc(self: ^DiscoverAllUserIdentitiesOperation) -> ^Objc_Block(proc "c" ()) ---
 
-	@(objc_type=DiscoverAllUserIdentitiesOperation, objc_selector="setDiscoverAllUserIdentitiesCompletionBlock:", objc_name="setDiscoverAllUserIdentitiesCompletionBlock")
+	@(objc_type = DiscoverAllUserIdentitiesOperation, objc_selector = "setDiscoverAllUserIdentitiesCompletionBlock:", objc_name = "setDiscoverAllUserIdentitiesCompletionBlock")
 	DiscoverAllUserIdentitiesOperation_setDiscoverAllUserIdentitiesCompletionBlock :: proc(self: ^DiscoverAllUserIdentitiesOperation, discoverAllUserIdentitiesCompletionBlock: ^Objc_Block(proc "c" ())) ---
 }
 
 
-@(objc_class="CKDiscoverUserIdentitiesOperation", objc_superclass=Operation)
-DiscoverUserIdentitiesOperation :: struct { using _: Operation}
+@(objc_class = "CKDiscoverUserIdentitiesOperation", objc_superclass = Operation)
+DiscoverUserIdentitiesOperation :: struct {
+	using _: Operation,
+}
 
 foreign lib {
-	@(objc_type=DiscoverUserIdentitiesOperation, objc_selector="init", objc_name="init")
+	@(objc_type = DiscoverUserIdentitiesOperation, objc_selector = "init", objc_name = "init")
 	DiscoverUserIdentitiesOperation_init :: proc(self: ^DiscoverUserIdentitiesOperation) -> instancetype ---
 
-	@(objc_type=DiscoverUserIdentitiesOperation, objc_selector="initWithUserIdentityLookupInfos:", objc_name="initWithUserIdentityLookupInfos")
+	@(objc_type = DiscoverUserIdentitiesOperation, objc_selector = "initWithUserIdentityLookupInfos:", objc_name = "initWithUserIdentityLookupInfos")
 	DiscoverUserIdentitiesOperation_initWithUserIdentityLookupInfos :: proc(self: ^DiscoverUserIdentitiesOperation, userIdentityLookupInfos: ^NS.Array) -> instancetype ---
 
-	@(objc_type=DiscoverUserIdentitiesOperation, objc_selector="userIdentityLookupInfos", objc_name="userIdentityLookupInfos")
+	@(objc_type = DiscoverUserIdentitiesOperation, objc_selector = "userIdentityLookupInfos", objc_name = "userIdentityLookupInfos")
 	DiscoverUserIdentitiesOperation_userIdentityLookupInfos :: proc(self: ^DiscoverUserIdentitiesOperation) -> ^NS.Array ---
 
-	@(objc_type=DiscoverUserIdentitiesOperation, objc_selector="setUserIdentityLookupInfos:", objc_name="setUserIdentityLookupInfos")
+	@(objc_type = DiscoverUserIdentitiesOperation, objc_selector = "setUserIdentityLookupInfos:", objc_name = "setUserIdentityLookupInfos")
 	DiscoverUserIdentitiesOperation_setUserIdentityLookupInfos :: proc(self: ^DiscoverUserIdentitiesOperation, userIdentityLookupInfos: ^NS.Array) ---
 
-	@(objc_type=DiscoverUserIdentitiesOperation, objc_selector="userIdentityDiscoveredBlock", objc_name="userIdentityDiscoveredBlock")
+	@(objc_type = DiscoverUserIdentitiesOperation, objc_selector = "userIdentityDiscoveredBlock", objc_name = "userIdentityDiscoveredBlock")
 	DiscoverUserIdentitiesOperation_userIdentityDiscoveredBlock :: proc(self: ^DiscoverUserIdentitiesOperation) -> ^Objc_Block(proc "c" ()) ---
 
-	@(objc_type=DiscoverUserIdentitiesOperation, objc_selector="setUserIdentityDiscoveredBlock:", objc_name="setUserIdentityDiscoveredBlock")
+	@(objc_type = DiscoverUserIdentitiesOperation, objc_selector = "setUserIdentityDiscoveredBlock:", objc_name = "setUserIdentityDiscoveredBlock")
 	DiscoverUserIdentitiesOperation_setUserIdentityDiscoveredBlock :: proc(self: ^DiscoverUserIdentitiesOperation, userIdentityDiscoveredBlock: ^Objc_Block(proc "c" ())) ---
 
-	@(objc_type=DiscoverUserIdentitiesOperation, objc_selector="discoverUserIdentitiesCompletionBlock", objc_name="discoverUserIdentitiesCompletionBlock")
+	@(objc_type = DiscoverUserIdentitiesOperation, objc_selector = "discoverUserIdentitiesCompletionBlock", objc_name = "discoverUserIdentitiesCompletionBlock")
 	DiscoverUserIdentitiesOperation_discoverUserIdentitiesCompletionBlock :: proc(self: ^DiscoverUserIdentitiesOperation) -> ^Objc_Block(proc "c" ()) ---
 
-	@(objc_type=DiscoverUserIdentitiesOperation, objc_selector="setDiscoverUserIdentitiesCompletionBlock:", objc_name="setDiscoverUserIdentitiesCompletionBlock")
+	@(objc_type = DiscoverUserIdentitiesOperation, objc_selector = "setDiscoverUserIdentitiesCompletionBlock:", objc_name = "setDiscoverUserIdentitiesCompletionBlock")
 	DiscoverUserIdentitiesOperation_setDiscoverUserIdentitiesCompletionBlock :: proc(self: ^DiscoverUserIdentitiesOperation, discoverUserIdentitiesCompletionBlock: ^Objc_Block(proc "c" ())) ---
 }
 
 
-@(objc_class="CKFetchNotificationChangesOperation", objc_superclass=Operation)
-FetchNotificationChangesOperation :: struct { using _: Operation}
+@(objc_class = "CKFetchNotificationChangesOperation", objc_superclass = Operation)
+FetchNotificationChangesOperation :: struct {
+	using _: Operation,
+}
 
 
-@(objc_class="CKFetchShareParticipantsOperation", objc_superclass=Operation)
-FetchShareParticipantsOperation :: struct { using _: Operation}
+@(objc_class = "CKFetchShareParticipantsOperation", objc_superclass = Operation)
+FetchShareParticipantsOperation :: struct {
+	using _: Operation,
+}
 
 foreign lib {
-	@(objc_type=FetchShareParticipantsOperation, objc_selector="init", objc_name="init")
+	@(objc_type = FetchShareParticipantsOperation, objc_selector = "init", objc_name = "init")
 	FetchShareParticipantsOperation_init :: proc(self: ^FetchShareParticipantsOperation) -> instancetype ---
 
-	@(objc_type=FetchShareParticipantsOperation, objc_selector="initWithUserIdentityLookupInfos:", objc_name="initWithUserIdentityLookupInfos")
+	@(objc_type = FetchShareParticipantsOperation, objc_selector = "initWithUserIdentityLookupInfos:", objc_name = "initWithUserIdentityLookupInfos")
 	FetchShareParticipantsOperation_initWithUserIdentityLookupInfos :: proc(self: ^FetchShareParticipantsOperation, userIdentityLookupInfos: ^NS.Array) -> instancetype ---
 
-	@(objc_type=FetchShareParticipantsOperation, objc_selector="userIdentityLookupInfos", objc_name="userIdentityLookupInfos")
+	@(objc_type = FetchShareParticipantsOperation, objc_selector = "userIdentityLookupInfos", objc_name = "userIdentityLookupInfos")
 	FetchShareParticipantsOperation_userIdentityLookupInfos :: proc(self: ^FetchShareParticipantsOperation) -> ^NS.Array ---
 
-	@(objc_type=FetchShareParticipantsOperation, objc_selector="setUserIdentityLookupInfos:", objc_name="setUserIdentityLookupInfos")
+	@(objc_type = FetchShareParticipantsOperation, objc_selector = "setUserIdentityLookupInfos:", objc_name = "setUserIdentityLookupInfos")
 	FetchShareParticipantsOperation_setUserIdentityLookupInfos :: proc(self: ^FetchShareParticipantsOperation, userIdentityLookupInfos: ^NS.Array) ---
 
-	@(objc_type=FetchShareParticipantsOperation, objc_selector="shareParticipantFetchedBlock", objc_name="shareParticipantFetchedBlock")
+	@(objc_type = FetchShareParticipantsOperation, objc_selector = "shareParticipantFetchedBlock", objc_name = "shareParticipantFetchedBlock")
 	FetchShareParticipantsOperation_shareParticipantFetchedBlock :: proc(self: ^FetchShareParticipantsOperation) -> ^Objc_Block(proc "c" ()) ---
 
-	@(objc_type=FetchShareParticipantsOperation, objc_selector="setShareParticipantFetchedBlock:", objc_name="setShareParticipantFetchedBlock")
+	@(objc_type = FetchShareParticipantsOperation, objc_selector = "setShareParticipantFetchedBlock:", objc_name = "setShareParticipantFetchedBlock")
 	FetchShareParticipantsOperation_setShareParticipantFetchedBlock :: proc(self: ^FetchShareParticipantsOperation, shareParticipantFetchedBlock: ^Objc_Block(proc "c" ())) ---
 
-	@(objc_type=FetchShareParticipantsOperation, objc_selector="perShareParticipantCompletionBlock", objc_name="perShareParticipantCompletionBlock")
+	@(objc_type = FetchShareParticipantsOperation, objc_selector = "perShareParticipantCompletionBlock", objc_name = "perShareParticipantCompletionBlock")
 	FetchShareParticipantsOperation_perShareParticipantCompletionBlock :: proc(self: ^FetchShareParticipantsOperation) -> ^Objc_Block(proc "c" ()) ---
 
-	@(objc_type=FetchShareParticipantsOperation, objc_selector="setPerShareParticipantCompletionBlock:", objc_name="setPerShareParticipantCompletionBlock")
+	@(objc_type = FetchShareParticipantsOperation, objc_selector = "setPerShareParticipantCompletionBlock:", objc_name = "setPerShareParticipantCompletionBlock")
 	FetchShareParticipantsOperation_setPerShareParticipantCompletionBlock :: proc(self: ^FetchShareParticipantsOperation, perShareParticipantCompletionBlock: ^Objc_Block(proc "c" ())) ---
 
-	@(objc_type=FetchShareParticipantsOperation, objc_selector="fetchShareParticipantsCompletionBlock", objc_name="fetchShareParticipantsCompletionBlock")
+	@(objc_type = FetchShareParticipantsOperation, objc_selector = "fetchShareParticipantsCompletionBlock", objc_name = "fetchShareParticipantsCompletionBlock")
 	FetchShareParticipantsOperation_fetchShareParticipantsCompletionBlock :: proc(self: ^FetchShareParticipantsOperation) -> ^Objc_Block(proc "c" ()) ---
 
-	@(objc_type=FetchShareParticipantsOperation, objc_selector="setFetchShareParticipantsCompletionBlock:", objc_name="setFetchShareParticipantsCompletionBlock")
+	@(objc_type = FetchShareParticipantsOperation, objc_selector = "setFetchShareParticipantsCompletionBlock:", objc_name = "setFetchShareParticipantsCompletionBlock")
 	FetchShareParticipantsOperation_setFetchShareParticipantsCompletionBlock :: proc(self: ^FetchShareParticipantsOperation, fetchShareParticipantsCompletionBlock: ^Objc_Block(proc "c" ())) ---
 }
 
 
-@(objc_class="CKMarkNotificationsReadOperation", objc_superclass=Operation)
-MarkNotificationsReadOperation :: struct { using _: Operation}
+@(objc_class = "CKMarkNotificationsReadOperation", objc_superclass = Operation)
+MarkNotificationsReadOperation :: struct {
+	using _: Operation,
+}
 
 
-@(objc_class="CKModifyBadgeOperation", objc_superclass=Operation)
-ModifyBadgeOperation :: struct { using _: Operation}
+@(objc_class = "CKModifyBadgeOperation", objc_superclass = Operation)
+ModifyBadgeOperation :: struct {
+	using _: Operation,
+}
 
 
-@(objc_class="CKOperationGroup", objc_superclass=NS.Object)
+@(objc_class = "CKOperationGroup", objc_superclass = NS.Object)
 OperationGroup :: struct {
 	using _: NS.Object,
 	using _: NS.SecureCoding,
@@ -243,42 +261,42 @@ OperationGroup :: struct {
 }
 
 foreign lib {
-	@(objc_type=OperationGroup, objc_selector="init", objc_name="init")
+	@(objc_type = OperationGroup, objc_selector = "init", objc_name = "init")
 	OperationGroup_init :: proc(self: ^OperationGroup) -> instancetype ---
 
-	@(objc_type=OperationGroup, objc_selector="initWithCoder:", objc_name="initWithCoder")
+	@(objc_type = OperationGroup, objc_selector = "initWithCoder:", objc_name = "initWithCoder")
 	OperationGroup_initWithCoder :: proc(self: ^OperationGroup, aDecoder: ^NS.Coder) -> instancetype ---
 
-	@(objc_type=OperationGroup, objc_selector="operationGroupID", objc_name="operationGroupID")
+	@(objc_type = OperationGroup, objc_selector = "operationGroupID", objc_name = "operationGroupID")
 	OperationGroup_operationGroupID :: proc(self: ^OperationGroup) -> ^NS.String ---
 
-	@(objc_type=OperationGroup, objc_selector="defaultConfiguration", objc_name="defaultConfiguration")
+	@(objc_type = OperationGroup, objc_selector = "defaultConfiguration", objc_name = "defaultConfiguration")
 	OperationGroup_defaultConfiguration :: proc(self: ^OperationGroup) -> ^OperationConfiguration ---
 
-	@(objc_type=OperationGroup, objc_selector="setDefaultConfiguration:", objc_name="setDefaultConfiguration")
+	@(objc_type = OperationGroup, objc_selector = "setDefaultConfiguration:", objc_name = "setDefaultConfiguration")
 	OperationGroup_setDefaultConfiguration :: proc(self: ^OperationGroup, defaultConfiguration: ^OperationConfiguration) ---
 
-	@(objc_type=OperationGroup, objc_selector="name", objc_name="name")
+	@(objc_type = OperationGroup, objc_selector = "name", objc_name = "name")
 	OperationGroup_name :: proc(self: ^OperationGroup) -> ^NS.String ---
 
-	@(objc_type=OperationGroup, objc_selector="setName:", objc_name="setName")
+	@(objc_type = OperationGroup, objc_selector = "setName:", objc_name = "setName")
 	OperationGroup_setName :: proc(self: ^OperationGroup, name: ^NS.String) ---
 
-	@(objc_type=OperationGroup, objc_selector="quantity", objc_name="quantity")
+	@(objc_type = OperationGroup, objc_selector = "quantity", objc_name = "quantity")
 	OperationGroup_quantity :: proc(self: ^OperationGroup) -> NS.UInteger ---
 
-	@(objc_type=OperationGroup, objc_selector="setQuantity:", objc_name="setQuantity")
+	@(objc_type = OperationGroup, objc_selector = "setQuantity:", objc_name = "setQuantity")
 	OperationGroup_setQuantity :: proc(self: ^OperationGroup, quantity: NS.UInteger) ---
 
-	@(objc_type=OperationGroup, objc_selector="expectedSendSize", objc_name="expectedSendSize")
+	@(objc_type = OperationGroup, objc_selector = "expectedSendSize", objc_name = "expectedSendSize")
 	OperationGroup_expectedSendSize :: proc(self: ^OperationGroup) -> OperationGroupTransferSize ---
 
-	@(objc_type=OperationGroup, objc_selector="setExpectedSendSize:", objc_name="setExpectedSendSize")
+	@(objc_type = OperationGroup, objc_selector = "setExpectedSendSize:", objc_name = "setExpectedSendSize")
 	OperationGroup_setExpectedSendSize :: proc(self: ^OperationGroup, expectedSendSize: OperationGroupTransferSize) ---
 
-	@(objc_type=OperationGroup, objc_selector="expectedReceiveSize", objc_name="expectedReceiveSize")
+	@(objc_type = OperationGroup, objc_selector = "expectedReceiveSize", objc_name = "expectedReceiveSize")
 	OperationGroup_expectedReceiveSize :: proc(self: ^OperationGroup) -> OperationGroupTransferSize ---
 
-	@(objc_type=OperationGroup, objc_selector="setExpectedReceiveSize:", objc_name="setExpectedReceiveSize")
+	@(objc_type = OperationGroup, objc_selector = "setExpectedReceiveSize:", objc_name = "setExpectedReceiveSize")
 	OperationGroup_setExpectedReceiveSize :: proc(self: ^OperationGroup, expectedReceiveSize: OperationGroupTransferSize) ---
 }

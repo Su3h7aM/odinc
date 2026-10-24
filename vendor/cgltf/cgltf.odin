@@ -2,13 +2,12 @@
 package cgltf
 
 @(private)
-LIB :: (
-	     "lib/cgltf.lib"      when ODIN_OS == .Windows
-	else "lib/cgltf.a"        when ODIN_OS == .Linux
-	else "lib/darwin/cgltf.a" when ODIN_OS == .Darwin
-	else "lib/cgltf_wasm.o"   when ODIN_ARCH == .wasm32 || ODIN_ARCH == .wasm64p32
-	else ""
-)
+LIB ::
+	("lib/cgltf.lib" when ODIN_OS ==
+		.Windows else "lib/cgltf.a" when ODIN_OS ==
+		.Linux else "lib/darwin/cgltf.a" when ODIN_OS ==
+		.Darwin else "lib/cgltf_wasm.o" when ODIN_ARCH == .wasm32 ||
+		ODIN_ARCH == .wasm64p32 else "")
 
 when LIB != "" {
 	when !#exists(LIB) {
@@ -20,7 +19,7 @@ when LIB != "" {
 when ODIN_ARCH == .wasm32 || ODIN_ARCH == .wasm64p32 {
 	foreign import lib "lib/cgltf_wasm.o"
 } else when LIB != "" {
-	foreign import lib { LIB }
+	foreign import lib {LIB}
 } else {
 	foreign import lib "system:cgltf"
 }
@@ -54,14 +53,24 @@ memory_options :: struct {
 }
 
 file_options :: struct {
-	read:      proc "c" (memory_options: ^/*const*/memory_options, file_options: ^/*const*/file_options, path: cstring, size: ^uint, data: ^rawptr) -> result,
-	release:   proc "c" (memory_options: ^/*const*/memory_options, file_options: ^/*const*/file_options, data: rawptr),
+	read:      proc "c" (
+		memory_options: ^ /*const*/memory_options,
+		file_options: ^ /*const*/file_options,
+		path: cstring,
+		size: ^uint,
+		data: ^rawptr,
+	) -> result,
+	release:   proc "c" (
+		memory_options: ^ /*const*/memory_options,
+		file_options: ^ /*const*/file_options,
+		data: rawptr,
+	),
 	user_data: rawptr,
 }
 
 options :: struct {
 	type:             file_type, /* invalid == auto detect */
-	json_token_count: uint,      /* 0 == auto */
+	json_token_count: uint, /* 0 == auto */
 	memory:           memory_options,
 	file:             file_options,
 }
@@ -86,9 +95,9 @@ attribute_type :: enum c.int {
 
 component_type :: enum c.int {
 	invalid,
-	r_8,   /* BYTE */
-	r_8u,  /* UNSIGNED_BYTE */
-	r_16,  /* SHORT */
+	r_8, /* BYTE */
+	r_8u, /* UNSIGNED_BYTE */
+	r_16, /* SHORT */
 	r_16u, /* UNSIGNED_SHORT */
 	r_32u, /* UNSIGNED_INT */
 	r_32f, /* FLOAT */
@@ -158,8 +167,7 @@ data_free_method :: enum c.int {
 extras_t :: struct {
 	start_offset: uint, /* this field is deprecated and will be removed in the future; use data instead */
 	end_offset:   uint, /* this field is deprecated and will be removed in the future; use data instead */
-
-	data: [^]byte,
+	data:         [^]byte,
 }
 
 extension :: struct {
@@ -218,12 +226,12 @@ buffer_view :: struct {
 }
 
 accessor_sparse :: struct {
-	count:                    uint,
-	indices_buffer_view:      ^buffer_view,
-	indices_byte_offset:      uint,
-	indices_component_type:   component_type,
-	values_buffer_view:       ^buffer_view,
-	values_byte_offset:       uint,
+	count:                  uint,
+	indices_buffer_view:    ^buffer_view,
+	indices_byte_offset:    uint,
+	indices_component_type: component_type,
+	values_buffer_view:     ^buffer_view,
+	values_byte_offset:     uint,
 }
 
 accessor :: struct {
@@ -294,7 +302,7 @@ texture :: struct {
 	name:             cstring,
 	image_:           ^image,
 	sampler:          ^sampler,
-	has_basisu:       b32 ,
+	has_basisu:       b32,
 	basisu_image:     ^image,
 	extras:           extras_t,
 	extensions_count: uint,
@@ -310,38 +318,35 @@ texture_transform :: struct {
 }
 
 texture_view :: struct {
-	texture:          ^texture,
-	texcoord:         c.int,
-	scale:            f32, /* equivalent to strength for occlusion_texture */
-	has_transform:    b32,
-	transform:        texture_transform,
+	texture:       ^texture,
+	texcoord:      c.int,
+	scale:         f32, /* equivalent to strength for occlusion_texture */
+	has_transform: b32,
+	transform:     texture_transform,
 }
 
 pbr_metallic_roughness :: struct {
 	base_color_texture:         texture_view,
 	metallic_roughness_texture: texture_view,
-
-	base_color_factor: [4]f32,
-	metallic_factor:   f32,
-	roughness_factor:  f32,
+	base_color_factor:          [4]f32,
+	metallic_factor:            f32,
+	roughness_factor:           f32,
 }
 
 pbr_specular_glossiness :: struct {
 	diffuse_texture:             texture_view,
 	specular_glossiness_texture: texture_view,
-
-	diffuse_factor:    [4]f32,
-	specular_factor:   [3]f32,
-	glossiness_factor: f32,
+	diffuse_factor:              [4]f32,
+	specular_factor:             [3]f32,
+	glossiness_factor:           f32,
 }
 
 clearcoat :: struct {
 	clearcoat_texture:           texture_view,
 	clearcoat_roughness_texture: texture_view,
 	clearcoat_normal_texture:    texture_view,
-
-	clearcoat_factor:           f32,
-	clearcoat_roughness_factor: f32,
+	clearcoat_factor:            f32,
+	clearcoat_roughness_factor:  f32,
 }
 
 transmission :: struct {
@@ -398,7 +403,7 @@ dispersion :: struct {
 }
 
 material :: struct {
-	name: cstring,
+	name:                        cstring,
 	has_pbr_metallic_roughness:  b32,
 	has_pbr_specular_glossiness: b32,
 	has_clearcoat:               b32,
@@ -452,7 +457,7 @@ draco_mesh_compression :: struct {
 }
 
 mesh_gpu_instancing :: struct {
-	attributes:  []attribute,
+	attributes: []attribute,
 }
 
 primitive :: struct {
@@ -470,13 +475,13 @@ primitive :: struct {
 }
 
 mesh :: struct {
-	name:               cstring,
-	primitives:         []primitive,
-	weights:            []f32,
-	target_names:       []cstring,
-	extras:             extras_t,
-	extensions_count:   uint,
-	extensions:         [^]extension `fmt:"v,extensions_count"`,
+	name:             cstring,
+	primitives:       []primitive,
+	weights:          []f32,
+	target_names:     []cstring,
+	extras:           extras_t,
+	extensions_count: uint,
+	extensions:       [^]extension `fmt:"v,extensions_count"`,
 }
 
 skin :: struct {
@@ -508,10 +513,10 @@ camera_orthographic :: struct {
 }
 
 camera :: struct {
-	name: cstring,
-	type: camera_type,
-	data: struct #raw_union {
-		perspective:  camera_perspective  `raw_union_tag:"type=.perspective"`,
+	name:             cstring,
+	type:             camera_type,
+	data:             struct #raw_union {
+		perspective:  camera_perspective `raw_union_tag:"type=.perspective"`,
 		orthographic: camera_orthographic `raw_union_tag:"type=.orthographic"`,
 	},
 	extras:           extras_t,
@@ -605,55 +610,40 @@ asset :: struct {
 }
 
 data :: struct {
-	file_type: file_type,
-	file_data: rawptr,
-
-	asset: asset,
-
-	meshes:       []mesh,
-	materials:    []material,
-	accessors:    []accessor,
-	buffer_views: []buffer_view,
-	buffers:      []buffer,
-	images:       []image,
-	textures:     []texture,
-	samplers:     []sampler,
-	skins:        []skin,
-	cameras:      []camera,
-	lights:       []light,
-	nodes:        []node,
-	scenes:       []scene,
-
-	scene: ^scene,
-
-	animations: []animation,
-
-	variants: []material_variant,
-
-	extras: extras_t,
-
+	file_type:             file_type,
+	file_data:             rawptr,
+	asset:                 asset,
+	meshes:                []mesh,
+	materials:             []material,
+	accessors:             []accessor,
+	buffer_views:          []buffer_view,
+	buffers:               []buffer,
+	images:                []image,
+	textures:              []texture,
+	samplers:              []sampler,
+	skins:                 []skin,
+	cameras:               []camera,
+	lights:                []light,
+	nodes:                 []node,
+	scenes:                []scene,
+	scene:                 ^scene,
+	animations:            []animation,
+	variants:              []material_variant,
+	extras:                extras_t,
 	data_extensions_count: uint,
 	data_extensions:       [^]extension `fmt:"v,extensions_count"`,
-
-	extensions_used:     []cstring,
-	extensions_required: []cstring,
-
-	json: string,
-
-	bin: []byte,
-
-	memory: memory_options,
-	file:   file_options,
+	extensions_used:       []cstring,
+	extensions_required:   []cstring,
+	json:                  string,
+	bin:                   []byte,
+	memory:                memory_options,
+	file:                  file_options,
 }
 
 @(require_results)
 parse :: proc "c" (#by_ptr options: options, data_ptr: rawptr, size: uint) -> (out_data: ^data, res: result) {
 	foreign lib {
-		cgltf_parse :: proc "c" (
-			#by_ptr options: options,
-			data_ptr: rawptr,
-			size: uint,
-			out_data: ^^data) -> result ---
+		cgltf_parse :: proc "c" (#by_ptr options: options, data_ptr: rawptr, size: uint, out_data: ^^data) -> result ---
 	}
 	res = cgltf_parse(options, data_ptr, size, &out_data)
 	return
@@ -662,10 +652,7 @@ parse :: proc "c" (#by_ptr options: options, data_ptr: rawptr, size: uint) -> (o
 @(require_results)
 parse_file :: proc "c" (#by_ptr options: options, path: cstring) -> (out_data: ^data, res: result) {
 	foreign lib {
-		cgltf_parse_file :: proc "c" (
-			#by_ptr options: options,
-			path: cstring,
-			out_data: ^^data) -> result ---
+		cgltf_parse_file :: proc "c" (#by_ptr options: options, path: cstring, out_data: ^^data) -> result ---
 	}
 	res = cgltf_parse_file(options, path, &out_data)
 	return
@@ -680,19 +667,16 @@ load_buffer_base64 :: proc "c" (#by_ptr options: options, size: uint, base64: cs
 	return
 }
 
-@(default_calling_convention="c")
-@(link_prefix="cgltf_")
+@(default_calling_convention = "c")
+@(link_prefix = "cgltf_")
 foreign lib {
 	@(require_results)
-	load_buffers :: proc(
-		#by_ptr options: options,
-		data: ^data,
-		gltf_path: cstring) -> result ---
+	load_buffers :: proc(#by_ptr options: options, data: ^data, gltf_path: cstring) -> result ---
 
 	@(require_results)
 	decode_string :: proc(string: [^]byte) -> uint ---
 	@(require_results)
-	decode_uri    :: proc(uri: [^]byte) -> uint ---
+	decode_uri :: proc(uri: [^]byte) -> uint ---
 
 	@(require_results)
 	validate :: proc(data: ^data) -> result ---
@@ -703,14 +687,21 @@ foreign lib {
 	node_transform_world :: proc(node: ^node, out_matrix: [^]f32) ---
 
 	@(require_results)
-	buffer_view_data :: proc(view: ^/*const*/buffer_view) -> [^]byte ---
+	buffer_view_data :: proc(view: ^ /*const*/buffer_view,) -> [^]byte ---
 
 	@(require_results)
-	accessor_read_float :: proc(accessor: ^/*const*/accessor, index: uint, out: [^]f32,    element_size: uint) -> b32 ---
+	accessor_read_float :: proc(accessor: ^ /*const*/accessor,
+		index: uint,
+		out: [^]f32,
+		element_size: uint,) -> b32 ---
 	@(require_results)
-	accessor_read_uint  :: proc(accessor: ^/*const*/accessor, index: uint, out: [^]c.uint, element_size: uint) -> b32 ---
+	accessor_read_uint :: proc(accessor: ^ /*const*/accessor,
+		index: uint,
+		out: [^]c.uint,
+		element_size: uint,) -> b32 ---
 	@(require_results)
-	accessor_read_index :: proc(accessor: ^/*const*/accessor, index: uint) -> uint ---
+	accessor_read_index :: proc(accessor: ^ /*const*/accessor,
+		index: uint,) -> uint ---
 
 	@(require_results)
 	num_components :: proc(type: type) -> uint ---
@@ -721,49 +712,70 @@ foreign lib {
 	calc_size :: proc(type: type, component_type: component_type) -> uint ---
 
 	@(require_results)
-	accessor_unpack_floats :: proc(accessor: ^/*const*/accessor, out: [^]f32, float_count: uint) -> uint ---
+	accessor_unpack_floats :: proc(accessor: ^ /*const*/accessor,
+		out: [^]f32,
+		float_count: uint,) -> uint ---
 	@(require_results)
-	accessor_unpack_indices :: proc(accessor: ^/*const*/accessor , out: rawptr, out_component_size: uint, index_count: uint) -> uint ---
+	accessor_unpack_indices :: proc(accessor: ^ /*const*/accessor,
+		out: rawptr,
+		out_component_size: uint,
+		index_count: uint,) -> uint ---
 
 	/* this function is deprecated and will be removed in the future; use cgltf_extras::data instead */
 	@(require_results)
 	copy_extras_json :: proc(data: ^data, extras: ^extras_t, dest: [^]byte, dest_size: ^uint) -> result ---
 
 	@(require_results)
-	mesh_index        :: proc(data: ^/*const*/data, object: ^/*const*/mesh) -> uint ---
+	mesh_index :: proc(data: ^ /*const*/data,
+		object: ^ /*const*/mesh,) -> uint ---
 	@(require_results)
-	material_index    :: proc(data: ^/*const*/data, object: ^/*const*/material) -> uint ---
+	material_index :: proc(data: ^ /*const*/data,
+		object: ^ /*const*/material,) -> uint ---
 	@(require_results)
-	accessor_index    :: proc(data: ^/*const*/data, object: ^/*const*/accessor) -> uint ---
+	accessor_index :: proc(data: ^ /*const*/data,
+		object: ^ /*const*/accessor,) -> uint ---
 	@(require_results)
-	buffer_view_index :: proc(data: ^/*const*/data, object: ^/*const*/buffer_view) -> uint ---
+	buffer_view_index :: proc(data: ^ /*const*/data,
+		object: ^ /*const*/buffer_view,) -> uint ---
 	@(require_results)
-	buffer_index      :: proc(data: ^/*const*/data, object: ^/*const*/buffer) -> uint ---
+	buffer_index :: proc(data: ^ /*const*/data,
+		object: ^ /*const*/buffer,) -> uint ---
 	@(require_results)
-	image_index       :: proc(data: ^/*const*/data, object: ^/*const*/image) -> uint ---
+	image_index :: proc(data: ^ /*const*/data,
+		object: ^ /*const*/image,) -> uint ---
 	@(require_results)
-	texture_index     :: proc(data: ^/*const*/data, object: ^/*const*/texture) -> uint ---
+	texture_index :: proc(data: ^ /*const*/data,
+		object: ^ /*const*/texture,) -> uint ---
 	@(require_results)
-	sampler_index     :: proc(data: ^/*const*/data, object: ^/*const*/sampler) -> uint ---
+	sampler_index :: proc(data: ^ /*const*/data,
+		object: ^ /*const*/sampler,) -> uint ---
 	@(require_results)
-	skin_index        :: proc(data: ^/*const*/data, object: ^/*const*/skin) -> uint ---
+	skin_index :: proc(data: ^ /*const*/data,
+		object: ^ /*const*/skin,) -> uint ---
 	@(require_results)
-	camera_index      :: proc(data: ^/*const*/data, object: ^/*const*/camera) -> uint ---
+	camera_index :: proc(data: ^ /*const*/data,
+		object: ^ /*const*/camera,) -> uint ---
 	@(require_results)
-	light_index       :: proc(data: ^/*const*/data, object: ^/*const*/light) -> uint ---
+	light_index :: proc(data: ^ /*const*/data,
+		object: ^ /*const*/light,) -> uint ---
 	@(require_results)
-	node_index        :: proc(data: ^/*const*/data, object: ^/*const*/node) -> uint ---
+	node_index :: proc(data: ^ /*const*/data,
+		object: ^ /*const*/node,) -> uint ---
 	@(require_results)
-	scene_index       :: proc(data: ^/*const*/data, object: ^/*const*/scene) -> uint ---
+	scene_index :: proc(data: ^ /*const*/data,
+		object: ^ /*const*/scene,) -> uint ---
 	@(require_results)
-	animation_index   :: proc(data: ^/*const*/data, object: ^/*const*/animation) -> uint ---
+	animation_index :: proc(data: ^ /*const*/data,
+		object: ^ /*const*/animation,) -> uint ---
 	@(require_results)
-	animation_sampler_index :: proc(animation: ^/*const*/animation, object: ^/*const*/animation_sampler) -> uint ---
+	animation_sampler_index :: proc(animation: ^ /*const*/animation,
+		object: ^ /*const*/animation_sampler,) -> uint ---
 	@(require_results)
-	animation_channel_index :: proc(animation: ^/*const*/animation, object: ^/*const*/animation_channel) -> uint ---
-	
+	animation_channel_index :: proc(animation: ^ /*const*/animation,
+		object: ^ /*const*/animation_channel,) -> uint ---
+
 	@(require_results)
-	write_file :: proc(#by_ptr options: options, path:   cstring,             data: ^data) -> result ---
+	write_file :: proc(#by_ptr options: options, path: cstring, data: ^data) -> result ---
 	@(require_results)
-	write      :: proc(#by_ptr options: options, buffer: [^]byte, size: uint, data: ^data) -> uint ---
+	write :: proc(#by_ptr options: options, buffer: [^]byte, size: uint, data: ^data) -> uint ---
 }

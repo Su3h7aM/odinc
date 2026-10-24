@@ -12,67 +12,67 @@ FILE :: rawptr
 
 EOF :: -1
 
-@(require, linkage="strong", link_name="fopen")
+@(require, linkage = "strong", link_name = "fopen")
 fopen :: proc "c" (path: cstring, mode: cstring) -> FILE {
 	context = g_ctx
 	return _fopen(path, mode)
 }
 
-@(require, linkage="strong", link_name="fseek")
+@(require, linkage = "strong", link_name = "fseek")
 fseek :: proc "c" (file: FILE, offset: c.long, whence: i32) -> i32 {
 	context = g_ctx
 	return _fseek(file, offset, whence)
 }
 
-@(require, linkage="strong", link_name="ftell")
+@(require, linkage = "strong", link_name = "ftell")
 ftell :: proc "c" (file: FILE) -> c.long {
 	context = g_ctx
 	return _ftell(file)
 }
 
-@(require, linkage="strong", link_name="fclose")
+@(require, linkage = "strong", link_name = "fclose")
 fclose :: proc "c" (file: FILE) -> i32 {
 	context = g_ctx
 	return _fclose(file)
 }
 
-@(require, linkage="strong", link_name="fread")
+@(require, linkage = "strong", link_name = "fread")
 fread :: proc "c" (buffer: [^]byte, size: uint, count: uint, file: FILE) -> uint {
 	context = g_ctx
 	return _fread(buffer, size, count, file)
 }
 
-@(require, linkage="strong", link_name="fwrite")
+@(require, linkage = "strong", link_name = "fwrite")
 fwrite :: proc "c" (buffer: [^]byte, size: uint, count: uint, file: FILE) -> uint {
 	context = g_ctx
 	return _fwrite(buffer, size, count, file)
 }
 
-@(require, linkage="strong", link_name="putchar")
+@(require, linkage = "strong", link_name = "putchar")
 putchar :: proc "c" (char: c.int) -> c.int {
 	context = g_ctx
 	return _putchar(char)
 }
 
-@(require, linkage="strong", link_name="getchar")
+@(require, linkage = "strong", link_name = "getchar")
 getchar :: proc "c" () -> c.int {
 	context = g_ctx
 	return _getchar()
 }
 
-@(require, linkage="strong", link_name="vsnprintf")
+@(require, linkage = "strong", link_name = "vsnprintf")
 vsnprintf :: proc "c" (buf: [^]byte, count: uint, fmt: cstring, args: ^c.va_list) -> i32 {
 	i32_count := i32(count)
 	assert_contextless(i32_count >= 0)
 	return stb.vsnprintf(buf, i32_count, fmt, args)
 }
 
-@(require, linkage="strong", link_name="vsprintf")
+@(require, linkage = "strong", link_name = "vsprintf")
 vsprintf :: proc "c" (buf: [^]byte, fmt: cstring, args: ^c.va_list) -> i32 {
 	return stb.vsprintf(buf, fmt, args)
 }
 
-@(require, linkage="strong", link_name="vfprintf")
+@(require, linkage = "strong", link_name = "vfprintf")
 vfprintf :: proc "c" (file: FILE, fmt: cstring, args: ^c.va_list) -> i32 {
 	context = g_ctx
 
@@ -112,7 +112,7 @@ vfprintf :: proc "c" (file: FILE, fmt: cstring, args: ^c.va_list) -> i32 {
 /*
 Derived from musl libc - MIT licensed - Copyright © 2005-2020 Rich Felker, et al.
 */
-@(require, linkage="strong", link_name="__sscanf")
+@(require, linkage = "strong", link_name = "__sscanf")
 _sscanf :: proc "c" (str, fmt: [^]byte, orig_ptrs: [^]rawptr) -> i32 {
 	Size :: enum u8 {
 		None,
@@ -235,11 +235,7 @@ _sscanf :: proc "c" (str, fmt: [^]byte, orig_ptrs: [^]rawptr) -> i32 {
 			size = .l
 		case 'L':
 			size = .L
-		case 'd', 'i', 'o', 'u', 'x',
-		     'a', 'e', 'f', 'g',
-		     'A', 'E', 'F', 'G', 'X',
-			 's', 'c', '[',
-		     'S', 'C', 'p', 'n':
+		case 'd', 'i', 'o', 'u', 'x', 'a', 'e', 'f', 'g', 'A', 'E', 'F', 'G', 'X', 's', 'c', '[', 'S', 'C', 'p', 'n':
 			p = p[-1:]
 		case:
 			fmt_fail = true
@@ -293,7 +289,7 @@ _sscanf :: proc "c" (str, fmt: [^]byte, orig_ptrs: [^]rawptr) -> i32 {
 					scanset['\v'] = 0
 					scanset['\f'] = 0
 					scanset['\r'] = 0
-					scanset[' ']  = 0
+					scanset[' '] = 0
 				}
 			} else {
 				p = p[1:]
@@ -370,7 +366,7 @@ _sscanf :: proc "c" (str, fmt: [^]byte, orig_ptrs: [^]rawptr) -> i32 {
 						ch = str[0]
 					}
 				} else {
-					for ; scanset[str[0]] != 0 && i < width; str = str[1:] {}
+					for ; scanset[str[0]] != 0 && i < width; str = str[1:] {  }
 				}
 			}
 
@@ -391,7 +387,7 @@ _sscanf :: proc "c" (str, fmt: [^]byte, orig_ptrs: [^]rawptr) -> i32 {
 			}
 
 			if t != 'c' {
-				if s != nil {s[i] = 0}
+				if s != nil { s[i] = 0 }
 			}
 		case:
 			base := -1
@@ -413,7 +409,7 @@ _sscanf :: proc "c" (str, fmt: [^]byte, orig_ptrs: [^]rawptr) -> i32 {
 			}
 
 			odin_str := string(cstring(str))
-			odin_str  = odin_str[:min(len(odin_str), width-i)]
+			odin_str = odin_str[:min(len(odin_str), width - i)]
 			cnt: int
 			if base >= 0 {
 				x: i64

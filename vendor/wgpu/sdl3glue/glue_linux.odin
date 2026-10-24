@@ -8,11 +8,9 @@ GetSurface :: proc(instance: wgpu.Instance, window: ^sdl3.Window) -> wgpu.Surfac
 	case "wayland":
 		return wgpu.InstanceCreateSurface(
 			instance,
-			&wgpu.SurfaceDescriptor{
-				nextInChain = &wgpu.SurfaceSourceWaylandSurface{
-					chain = {
-						sType = .SurfaceSourceWaylandSurface,
-					},
+			&wgpu.SurfaceDescriptor {
+				nextInChain = &wgpu.SurfaceSourceWaylandSurface {
+					chain = {sType = .SurfaceSourceWaylandSurface},
 					display = sdl3.GetPointerProperty(sdl3.GetWindowProperties(window), sdl3.PROP_WINDOW_WAYLAND_DISPLAY_POINTER, nil),
 					surface = sdl3.GetPointerProperty(sdl3.GetWindowProperties(window), sdl3.PROP_WINDOW_WAYLAND_SURFACE_POINTER, nil),
 				},
@@ -21,13 +19,11 @@ GetSurface :: proc(instance: wgpu.Instance, window: ^sdl3.Window) -> wgpu.Surfac
 	case "x11":
 		return wgpu.InstanceCreateSurface(
 			instance,
-			&wgpu.SurfaceDescriptor{
-				nextInChain = &wgpu.SurfaceSourceXlibWindow{
-					chain = {
-						sType = .SurfaceSourceXlibWindow,
-					},
+			&wgpu.SurfaceDescriptor {
+				nextInChain = &wgpu.SurfaceSourceXlibWindow {
+					chain = {sType = .SurfaceSourceXlibWindow},
 					display = sdl3.GetPointerProperty(sdl3.GetWindowProperties(window), sdl3.PROP_WINDOW_X11_DISPLAY_POINTER, nil),
-					window  = cast(u64)sdl3.GetNumberProperty(sdl3.GetWindowProperties(window), sdl3.PROP_WINDOW_X11_WINDOW_NUMBER, 0),
+					window = cast(u64)sdl3.GetNumberProperty(sdl3.GetWindowProperties(window), sdl3.PROP_WINDOW_X11_WINDOW_NUMBER, 0),
 				},
 			},
 		)

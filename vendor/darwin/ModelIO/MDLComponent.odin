@@ -5,14 +5,14 @@ package darwin_ModelIO
 import "base:intrinsics"
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class="MDLComponent")
+@(objc_class = "MDLComponent")
 Component :: struct {
 	using _: intrinsics.objc_object,
 	using _: NS.ObjectProtocol,
 }
 
 
-@(objc_class="MDLAnimationBindComponent", objc_superclass=NS.Object)
+@(objc_class = "MDLAnimationBindComponent", objc_superclass = NS.Object)
 AnimationBindComponent :: struct {
 	using _: NS.Object,
 	using _: NS.Copying,
@@ -20,27 +20,27 @@ AnimationBindComponent :: struct {
 }
 
 foreign lib {
-	@(objc_type=AnimationBindComponent, objc_selector="skeleton", objc_name="skeleton")
+	@(objc_type = AnimationBindComponent, objc_selector = "skeleton", objc_name = "skeleton")
 	AnimationBindComponent_skeleton :: proc(self: ^AnimationBindComponent) -> ^Skeleton ---
 
-	@(objc_type=AnimationBindComponent, objc_selector="setSkeleton:", objc_name="setSkeleton")
+	@(objc_type = AnimationBindComponent, objc_selector = "setSkeleton:", objc_name = "setSkeleton")
 	AnimationBindComponent_setSkeleton :: proc(self: ^AnimationBindComponent, skeleton: ^Skeleton) ---
 
-	@(objc_type=AnimationBindComponent, objc_selector="jointAnimation", objc_name="jointAnimation")
+	@(objc_type = AnimationBindComponent, objc_selector = "jointAnimation", objc_name = "jointAnimation")
 	AnimationBindComponent_jointAnimation :: proc(self: ^AnimationBindComponent) -> ^JointAnimation ---
 
-	@(objc_type=AnimationBindComponent, objc_selector="setJointAnimation:", objc_name="setJointAnimation")
+	@(objc_type = AnimationBindComponent, objc_selector = "setJointAnimation:", objc_name = "setJointAnimation")
 	AnimationBindComponent_setJointAnimation :: proc(self: ^AnimationBindComponent, jointAnimation: ^JointAnimation) ---
 
-	@(objc_type=AnimationBindComponent, objc_selector="jointPaths", objc_name="jointPaths")
+	@(objc_type = AnimationBindComponent, objc_selector = "jointPaths", objc_name = "jointPaths")
 	AnimationBindComponent_jointPaths :: proc(self: ^AnimationBindComponent) -> ^NS.Array ---
 
-	@(objc_type=AnimationBindComponent, objc_selector="setJointPaths:", objc_name="setJointPaths")
+	@(objc_type = AnimationBindComponent, objc_selector = "setJointPaths:", objc_name = "setJointPaths")
 	AnimationBindComponent_setJointPaths :: proc(self: ^AnimationBindComponent, jointPaths: ^NS.Array) ---
 
-	@(objc_type=AnimationBindComponent, objc_selector="geometryBindTransform", objc_name="geometryBindTransform")
-	AnimationBindComponent_geometryBindTransform :: proc(self: ^AnimationBindComponent) -> matrix[4,4]f64 ---
+	@(objc_type = AnimationBindComponent, objc_selector = "geometryBindTransform", objc_name = "geometryBindTransform")
+	AnimationBindComponent_geometryBindTransform :: proc(self: ^AnimationBindComponent) -> matrix[4, 4]f64 ---
 
-	@(objc_type=AnimationBindComponent, objc_selector="setGeometryBindTransform:", objc_name="setGeometryBindTransform")
-	AnimationBindComponent_setGeometryBindTransform :: proc(self: ^AnimationBindComponent, geometryBindTransform: matrix[4,4]f64) ---
+	@(objc_type = AnimationBindComponent, objc_selector = "setGeometryBindTransform:", objc_name = "setGeometryBindTransform")
+	AnimationBindComponent_setGeometryBindTransform :: proc(self: ^AnimationBindComponent, geometryBindTransform: matrix[4, 4]f64) ---
 }

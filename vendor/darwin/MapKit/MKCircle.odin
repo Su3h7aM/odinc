@@ -2,52 +2,54 @@
 #+build darwin
 package darwin_MapKit
 
-import CL "vendor:darwin/CoreLocation"
 import CG "core:sys/darwin/CoreGraphics"
+import CL "vendor:darwin/CoreLocation"
 
-@(objc_class="MKCircle", objc_superclass=Shape)
+@(objc_class = "MKCircle", objc_superclass = Shape)
 Circle :: struct {
 	using _: Shape,
 	using _: Overlay,
 }
 
 foreign lib {
-	@(objc_type=Circle, objc_selector="circleWithCenterCoordinate:radius:", objc_name="circleWithCenterCoordinate", objc_is_class_method=true)
+	@(objc_type = Circle, objc_selector = "circleWithCenterCoordinate:radius:", objc_name = "circleWithCenterCoordinate", objc_is_class_method = true)
 	Circle_circleWithCenterCoordinate :: proc(coord: CL.LocationCoordinate2D, radius: CL.LocationDistance) -> instancetype ---
 
-	@(objc_type=Circle, objc_selector="circleWithMapRect:", objc_name="circleWithMapRect", objc_is_class_method=true)
+	@(objc_type = Circle, objc_selector = "circleWithMapRect:", objc_name = "circleWithMapRect", objc_is_class_method = true)
 	Circle_circleWithMapRect :: proc(mapRect: MapRect) -> instancetype ---
 
-	@(objc_type=Circle, objc_selector="coordinate", objc_name="coordinate")
+	@(objc_type = Circle, objc_selector = "coordinate", objc_name = "coordinate")
 	Circle_coordinate :: proc(self: ^Circle) -> CL.LocationCoordinate2D ---
 
-	@(objc_type=Circle, objc_selector="radius", objc_name="radius")
+	@(objc_type = Circle, objc_selector = "radius", objc_name = "radius")
 	Circle_radius :: proc(self: ^Circle) -> CL.LocationDistance ---
 
-	@(objc_type=Circle, objc_selector="boundingMapRect", objc_name="boundingMapRect")
+	@(objc_type = Circle, objc_selector = "boundingMapRect", objc_name = "boundingMapRect")
 	Circle_boundingMapRect :: proc(self: ^Circle) -> MapRect ---
 }
 
 
-@(objc_class="MKCircleRenderer", objc_superclass=OverlayPathRenderer)
-CircleRenderer :: struct { using _: OverlayPathRenderer}
+@(objc_class = "MKCircleRenderer", objc_superclass = OverlayPathRenderer)
+CircleRenderer :: struct {
+	using _: OverlayPathRenderer,
+}
 
 foreign lib {
-	@(objc_type=CircleRenderer, objc_selector="initWithCircle:", objc_name="initWithCircle")
+	@(objc_type = CircleRenderer, objc_selector = "initWithCircle:", objc_name = "initWithCircle")
 	CircleRenderer_initWithCircle :: proc(self: ^CircleRenderer, circle: ^Circle) -> instancetype ---
 
-	@(objc_type=CircleRenderer, objc_selector="circle", objc_name="circle")
+	@(objc_type = CircleRenderer, objc_selector = "circle", objc_name = "circle")
 	CircleRenderer_circle :: proc(self: ^CircleRenderer) -> ^Circle ---
 
-	@(objc_type=CircleRenderer, objc_selector="strokeStart", objc_name="strokeStart")
+	@(objc_type = CircleRenderer, objc_selector = "strokeStart", objc_name = "strokeStart")
 	CircleRenderer_strokeStart :: proc(self: ^CircleRenderer) -> CG.Float ---
 
-	@(objc_type=CircleRenderer, objc_selector="setStrokeStart:", objc_name="setStrokeStart")
+	@(objc_type = CircleRenderer, objc_selector = "setStrokeStart:", objc_name = "setStrokeStart")
 	CircleRenderer_setStrokeStart :: proc(self: ^CircleRenderer, strokeStart: CG.Float) ---
 
-	@(objc_type=CircleRenderer, objc_selector="strokeEnd", objc_name="strokeEnd")
+	@(objc_type = CircleRenderer, objc_selector = "strokeEnd", objc_name = "strokeEnd")
 	CircleRenderer_strokeEnd :: proc(self: ^CircleRenderer) -> CG.Float ---
 
-	@(objc_type=CircleRenderer, objc_selector="setStrokeEnd:", objc_name="setStrokeEnd")
+	@(objc_type = CircleRenderer, objc_selector = "setStrokeEnd:", objc_name = "setStrokeEnd")
 	CircleRenderer_setStrokeEnd :: proc(self: ^CircleRenderer, strokeEnd: CG.Float) ---
 }

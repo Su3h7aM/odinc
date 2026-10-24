@@ -38,56 +38,56 @@ Plane :: struct {
 
 PI :: math.PI
 
-Vec2_zero          :: Vec2{0, 0}
-Rot_identity       :: Rot{1, 0}
+Vec2_zero :: Vec2{0, 0}
+Rot_identity :: Rot{1, 0}
 Transform_identity :: Transform{{0, 0}, {1, 0}}
-Mat22_zero         :: Mat22{0, 0, 0, 0}
+Mat22_zero :: Mat22{0, 0, 0, 0}
 
 // @return the minimum of two integers
-@(deprecated="Prefer the built-in 'min(a, b)'", require_results)
+@(deprecated = "Prefer the built-in 'min(a, b)'", require_results)
 MinInt :: proc "c" (a, b: c.int) -> c.int {
 	return min(a, b)
 }
 
 // @return the maximum of two integers
-@(deprecated="Prefer the built-in 'max(a, b)'", require_results)
+@(deprecated = "Prefer the built-in 'max(a, b)'", require_results)
 MaxInt :: proc "c" (a, b: c.int) -> c.int {
 	return max(a, b)
 }
 
 // @return the absolute value of an integer
-@(deprecated="Prefer the built-in 'abs(a)'", require_results)
+@(deprecated = "Prefer the built-in 'abs(a)'", require_results)
 AbsInt :: proc "c" (a: c.int) -> c.int {
 	return abs(a)
 }
 
 // @return an integer clamped between a lower and upper bound
-@(deprecated="Prefer the built-in 'clamp(a, lower, upper)'", require_results)
+@(deprecated = "Prefer the built-in 'clamp(a, lower, upper)'", require_results)
 ClampInt :: proc "c" (a, lower, upper: c.int) -> c.int {
 	return clamp(a, lower, upper)
 }
 
 
 // @return the minimum of two floats
-@(deprecated="Prefer the built-in 'min(a, b)'", require_results)
+@(deprecated = "Prefer the built-in 'min(a, b)'", require_results)
 MinFloat :: proc "c" (a, b: f32) -> f32 {
 	return min(a, b)
 }
 
 // @return the maximum of two floats
-@(deprecated="Prefer the built-in 'max(a, b)'", require_results)
+@(deprecated = "Prefer the built-in 'max(a, b)'", require_results)
 MaxFloat :: proc "c" (a, b: f32) -> f32 {
 	return max(a, b)
 }
 
 // @return the absolute value of a float
-@(deprecated="Prefer the built-in 'abs(a)'", require_results)
+@(deprecated = "Prefer the built-in 'abs(a)'", require_results)
 AbsFloat :: proc "c" (a: f32) -> f32 {
 	return abs(a)
 }
 
 // @return a f32 clamped between a lower and upper bound
-@(deprecated="Prefer the built-in 'clamp(a, lower, upper)'", require_results)
+@(deprecated = "Prefer the built-in 'clamp(a, lower, upper)'", require_results)
 ClampFloat :: proc "c" (a, lower, upper: f32) -> f32 {
 	return clamp(a, lower, upper)
 }
@@ -140,19 +140,19 @@ RightPerp :: proc "c" (v: Vec2) -> Vec2 {
 }
 
 // Vector addition
-@(deprecated="Prefer 'a + b'", require_results)
+@(deprecated = "Prefer 'a + b'", require_results)
 Add :: proc "c" (a, b: Vec2) -> Vec2 {
 	return a + b
 }
 
 // Vector subtraction
-@(deprecated="Prefer 'a - b'", require_results)
+@(deprecated = "Prefer 'a - b'", require_results)
 Sub :: proc "c" (a, b: Vec2) -> Vec2 {
 	return a - b
 }
 
 // Vector negation
-@(deprecated="Prefer '-a'", require_results)
+@(deprecated = "Prefer '-a'", require_results)
 Neg :: proc "c" (a: Vec2) -> Vec2 {
 	return -a
 }
@@ -165,25 +165,25 @@ Lerp :: proc "c" (a, b: Vec2, t: f32) -> Vec2 {
 }
 
 // Component-wise multiplication
-@(deprecated="Prefer 'a * b'", require_results)
+@(deprecated = "Prefer 'a * b'", require_results)
 Mul :: proc "c" (a, b: Vec2) -> Vec2 {
 	return a * b
 }
 
 // Multiply a scalar and vector
-@(deprecated="Prefer 's * v'", require_results)
+@(deprecated = "Prefer 's * v'", require_results)
 MulSV :: proc "c" (s: f32, v: Vec2) -> Vec2 {
 	return s * v
 }
 
 // a + s * b
-@(deprecated="Prefer 'a + s * b'", require_results)
+@(deprecated = "Prefer 'a + s * b'", require_results)
 MulAdd :: proc "c" (a: Vec2, s: f32, b: Vec2) -> Vec2 {
 	return a + s * b
 }
 
 // a - s * b
-@(deprecated="Prefer 'a - s * b'", require_results)
+@(deprecated = "Prefer 'a - s * b'", require_results)
 MulSub :: proc "c" (a: Vec2, s: f32, b: Vec2) -> Vec2 {
 	return a - s * b
 }
@@ -303,16 +303,13 @@ DistanceSquared :: proc "c" (a, b: Vec2) -> f32 {
 @(require_results)
 MakeRot :: proc "c" (angle: f32) -> Rot {
 	cs := ComputeCosSin(angle)
-	return Rot{c=cs.cosine, s=cs.sine}
+	return Rot{c = cs.cosine, s = cs.sine}
 }
 
 // Compute the rotation between two unit vectors
 @(require_results)
 ComputeRotationBetweenUnitVectors :: proc(v1, v2: Vec2) -> Rot {
-	return NormalizeRot({
-		c = Dot(v1, v2),
-		s = Cross(v1, v2),
-	})
+	return NormalizeRot({c = Dot(v1, v2), s = Cross(v1, v2)})
 }
 
 // Is this rotation normalized?
@@ -337,10 +334,7 @@ NormalizeRot :: proc "c" (q: Rot) -> Rot {
 @(require_results)
 NLerp :: proc "c" (q1: Rot, q2: Rot, t: f32) -> Rot {
 	omt := 1 - t
-	return NormalizeRot({
-		omt * q1.c + t * q2.c,
-		omt * q1.s + t * q2.s,
-	})
+	return NormalizeRot({omt * q1.c + t * q2.c, omt * q1.s + t * q2.s})
 }
 
 // Compute the angular velocity necessary to rotate between two rotations over a give time
@@ -467,12 +461,12 @@ MulTransforms :: proc "c" (A, B: Transform) -> (C: Transform) {
 @(require_results)
 InvMulTransforms :: proc "c" (A, B: Transform) -> (C: Transform) {
 	C.q = InvMulRot(A.q, B.q)
-	C.p = InvRotateVector(A.q, B.p-A.p)
+	C.p = InvRotateVector(A.q, B.p - A.p)
 	return
 }
 
 // Multiply a 2-by-2 matrix times a 2D vector
-@(deprecated="Prefer 'A * v'", require_results)
+@(deprecated = "Prefer 'A * v'", require_results)
 MulMV :: proc "c" (A: Mat22, v: Vec2) -> Vec2 {
 	return A * v
 }
@@ -489,10 +483,7 @@ GetInverse22 :: proc "c" (A: Mat22) -> Mat22 {
 		det = 1 / det
 	}
 
-	return Mat22{
-		 det * d, -det * b,
-		-det * c,  det * a,
-	}
+	return Mat22{det * d, -det * b, -det * c, det * a}
 }
 
 // Solve A * x = b, where b is a column vector. This is more efficient
@@ -545,12 +536,7 @@ AABB_Union :: proc "c" (a, b: AABB) -> (c: AABB) {
 // Do a and b overlap
 @(require_results)
 AABB_Overlaps :: proc "c" (a, b: AABB) -> bool {
-	return !(
-		b.lowerBound.x > a.upperBound.x ||
-		b.lowerBound.y > a.upperBound.y ||
-		a.lowerBound.x > b.upperBound.x ||
-		a.lowerBound.y > b.upperBound.y \
-	)
+	return !(b.lowerBound.x > a.upperBound.x || b.lowerBound.y > a.upperBound.y || a.lowerBound.x > b.upperBound.x || a.lowerBound.y > b.upperBound.y)
 }
 
 // Compute the bounding box of an array of circles
@@ -578,8 +564,10 @@ PlaneSeparation :: proc "c" (plane: Plane, point: Vec2) -> f32 {
 @(require_results)
 IsValidFloat :: proc "c" (a: f32) -> bool {
 	#partial switch math.classify(a) {
-	case .NaN, .Inf, .Neg_Inf: return false
-	case:                      return true
+	case .NaN, .Inf, .Neg_Inf:
+		return false
+	case:
+		return true
 	}
 }
 
@@ -611,7 +599,7 @@ IsValidAABB :: proc "c" (aabb: AABB) -> bool {
 @(require_results)
 IsValidPlane :: proc "c" (plane: Plane) -> bool {
 	IsValidFloat(plane.offset) or_return
-	IsValidVec2(plane.normal)  or_return
+	IsValidVec2(plane.normal) or_return
 	IsNormalized(plane.normal) or_return
 	return true
 }
@@ -623,7 +611,7 @@ IsValidPlane :: proc "c" (plane: Plane) -> bool {
 // that doesn't require transcendental functions.
 @(require_results)
 b2SpringDamper :: proc "c" (hertz, dampingRatio, position, velocity, timeStep: f32) -> f32 {
-	omega  := 2. * PI * hertz
+	omega := 2. * PI * hertz
 	omegaH := omega * timeStep
 	return (velocity - omega * omegaH * position) / (1. + 2. * dampingRatio * omegaH + omegaH * omegaH)
 }

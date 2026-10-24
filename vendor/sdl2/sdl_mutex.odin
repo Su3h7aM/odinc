@@ -11,7 +11,7 @@ when ODIN_OS == .Windows {
 }
 
 MUTEX_TIMEDOUT :: 1
-MUTEX_MAXWAIT  :: ~u32(0)
+MUTEX_MAXWAIT :: ~u32(0)
 
 mutex :: struct {}
 
@@ -23,33 +23,33 @@ cond :: struct {}
 mutexP :: LockMutex
 mutexV :: UnlockMutex
 
-@(default_calling_convention="c", link_prefix="SDL_")
+@(default_calling_convention = "c", link_prefix = "SDL_")
 foreign lib {
-	CreateMutex  :: proc() -> ^mutex ---
-	@(synchronizes=.Acquire)
-	LockMutex    :: proc(m: ^mutex) -> c.int ---
-	@(synchronizes=.Acquire)
+	CreateMutex :: proc() -> ^mutex ---
+	@(synchronizes = .Acquire)
+	LockMutex :: proc(m: ^mutex) -> c.int ---
+	@(synchronizes = .Acquire)
 	TryLockMutex :: proc(m: ^mutex) -> c.int ---
-	@(synchronizes=.Release)
-	UnlockMutex  :: proc(m: ^mutex) -> c.int ---
+	@(synchronizes = .Release)
+	UnlockMutex :: proc(m: ^mutex) -> c.int ---
 	DestroyMutex :: proc(m: ^mutex) ---
 
-	CreateSemaphore  :: proc(initial_value: u32) -> ^sem ---
+	CreateSemaphore :: proc(initial_value: u32) -> ^sem ---
 	DestroySemaphore :: proc(s: ^sem) ---
-	@(synchronizes=.Acquire)
-	SemWait          :: proc(s: ^sem) -> c.int ---
-	@(synchronizes=.Acquire)
-	SemTryWait       :: proc(s: ^sem) -> c.int ---
-	@(synchronizes=.Acquire)
-	SemWaitTimeout   :: proc(s: ^sem, ms: u32) -> c.int ---
-	@(synchronizes=.Release)
-	SemPost          :: proc(s: ^sem) -> c.int ---
-	SemValue         :: proc(s: ^sem) -> u32 ---
+	@(synchronizes = .Acquire)
+	SemWait :: proc(s: ^sem) -> c.int ---
+	@(synchronizes = .Acquire)
+	SemTryWait :: proc(s: ^sem) -> c.int ---
+	@(synchronizes = .Acquire)
+	SemWaitTimeout :: proc(s: ^sem, ms: u32) -> c.int ---
+	@(synchronizes = .Release)
+	SemPost :: proc(s: ^sem) -> c.int ---
+	SemValue :: proc(s: ^sem) -> u32 ---
 
-	CreateCond      :: proc() -> ^cond ---
-	DestroyCond     :: proc(cv: ^cond) ---
-	CondSignal      :: proc(cv: ^cond) -> c.int ---
-	CondBroadcast   :: proc(cv: ^cond) -> c.int ---
-	CondWait        :: proc(cv: ^cond, m: ^mutex) -> c.int ---
+	CreateCond :: proc() -> ^cond ---
+	DestroyCond :: proc(cv: ^cond) ---
+	CondSignal :: proc(cv: ^cond) -> c.int ---
+	CondBroadcast :: proc(cv: ^cond) -> c.int ---
+	CondWait :: proc(cv: ^cond, m: ^mutex) -> c.int ---
 	CondWaitTimeout :: proc(cv: ^cond, m: ^mutex, ms: u32) -> c.int ---
 }

@@ -31,7 +31,7 @@ _fwrite :: proc(buffer: [^]byte, size: uint, count: uint, file: FILE) -> uint {
 		return 0
 	}
 
-	__write(fd, buffer[:size*count])
+	__write(fd, buffer[:size * count])
 	return count
 }
 
@@ -44,17 +44,20 @@ _getchar :: proc() -> c.int {
 	return EOF
 }
 
-@(private="file")
+@(private = "file")
 foreign odin_env {
-	@(link_name="write")
+	@(link_name = "write")
 	__write :: proc "contextless" (fd: u32, p: []byte) ---
 }
 
-@(private="file")
+@(private = "file")
 __fd :: proc(file: FILE) -> (u32, bool) {
 	switch (uint(uintptr(file))) {
-	case 2: return 1, true // stdout
-	case 3: return 2, true // stderr
-	case:   return 0, false
+	case 2:
+		return 1, true // stdout
+	case 3:
+		return 2, true // stderr
+	case:
+		return 0, false
 	}
 }

@@ -31,10 +31,10 @@ lineorder_t :: enum c.int {
 
 // Enum declaring allowed values for part type.
 storage_t :: enum c.int {
-	SCANLINE = 0,  // Corresponds to type of \c scanlineimage.
-	TILED,         // Corresponds to type of \c tiledimage.
+	SCANLINE = 0, // Corresponds to type of \c scanlineimage.
+	TILED, // Corresponds to type of \c tiledimage.
 	DEEP_SCANLINE, // Corresponds to type of \c deepscanline.
-	DEEP_TILED,    // Corresponds to type of \c deeptile.
+	DEEP_TILED, // Corresponds to type of \c deeptile.
 }
 
 // @brief Enum representing what type of tile information is contained.
@@ -113,7 +113,7 @@ attr_m44d_t :: struct #packed {
 
 /** @brief Struct to hold an integer ratio value. */
 attr_rational_t :: struct #packed {
-	num: i32,
+	num:   i32,
 	denom: u32,
 }
 
@@ -148,7 +148,7 @@ attr_box2i_t :: struct #packed {
 }
 
 /** @brief Struct to hold a floating-point box/region definition. */
-attr_box2f_t:: struct #packed {
+attr_box2f_t :: struct #packed {
 	min: attr_v2f_t,
 	max: attr_v2f_t,
 }
@@ -159,8 +159,8 @@ attr_box2f_t:: struct #packed {
  * careful it doesn't become padded to the next \c uint32_t boundary.
  */
 attr_tiledesc_t :: struct #packed {
-	x_size: u32,
-	y_size: u32,
+	x_size:          u32,
+	y_size:          u32,
 	level_and_round: u8,
 }
 
@@ -183,29 +183,26 @@ PACK_TILE_LEVEL_ROUND :: #force_inline proc "c" (lvl: tile_level_mode_t, mode: t
 
 /** Storage for a string. */
 attr_string_t :: struct {
-	length: i32,
+	length:     i32,
 	/** If this is non-zero, the string owns the data, if 0, is a const ref to a static string. */
 	alloc_size: i32,
-
-	str: cstring,
+	str:        cstring,
 }
 
 /** Storage for a string vector. */
 attr_string_vector_t :: struct {
-	n_strings: i32,
+	n_strings:  i32,
 	/** If this is non-zero, the string vector owns the data, if 0, is a const ref. */
 	alloc_size: i32,
-
-	strings: [^]attr_string_t,
+	strings:    [^]attr_string_t,
 }
 
 /** Float vector storage struct. */
 attr_float_vector_t :: struct {
-	length: i32,
+	length:     i32,
 	/** If this is non-zero, the float vector owns the data, if 0, is a const ref. */
 	alloc_size: i32,
-
-	arr: [^]f32,
+	arr:        [^]f32,
 }
 
 /** Hint for lossy compression methods about how to treat values
@@ -221,12 +218,12 @@ perceptual_treatment_t :: enum c.int {
 
 /** Individual channel information. */
 attr_chlist_entry_t :: struct {
-	name: attr_string_t,
+	name:       attr_string_t,
 	/** Data representation for these pixels: uint, half, float. */
 	pixel_type: pixel_type_t,
 	/** Possible values are 0 and 1 per docs perceptual_treatment_t. */
-	p_linear: u8,
-	reserved: [3]u8,
+	p_linear:   u8,
+	reserved:   [3]u8,
 	x_sampling: i32,
 	y_sampling: i32,
 }
@@ -235,18 +232,16 @@ attr_chlist_entry_t :: struct {
 attr_chlist_t :: struct {
 	num_channels: c.int,
 	num_alloced:  c.int,
-
-	entries: [^]attr_chlist_entry_t,
+	entries:      [^]attr_chlist_entry_t,
 }
 
 /** @brief Struct to define attributes of an embedded preview image. */
 attr_preview_t :: struct {
-	width: u32,
-	height: u32,
+	width:      u32,
+	height:     u32,
 	/** If this is non-zero, the preview owns the data, if 0, is a const ref. */
 	alloc_size: c.size_t,
-
-	rgba: [^]u8,
+	rgba:       [^]u8,
 }
 
 /** Custom storage structure for opaque data.
@@ -258,39 +253,27 @@ attr_preview_t :: struct {
  * @sa register_attr_type_handler
  */
 attr_opaquedata_t :: struct {
-	size:              i32,
-	unpacked_size:     i32,
+	size:                      i32,
+	unpacked_size:             i32,
 	/** If this is non-zero, the struct owns the data, if 0, is a const ref. */
-	packed_alloc_size: i32,
-	pad: [4]u8,
-
-	packed_data: rawptr,
+	packed_alloc_size:         i32,
+	pad:                       [4]u8,
+	packed_data:               rawptr,
 
 	/** When an application wants to have custom data, they can store
 	 * an unpacked form here which will be requested to be destroyed
 	 * upon destruction of the attribute.
 	 */
-	unpacked_data: rawptr,
+	unpacked_data:             rawptr,
 
 	/** An application can register an attribute handler which then
 	 * fills in these function pointers. This allows a user to delay
 	 * the expansion of the custom type until access is desired, and
 	 * similarly, to delay the packing of the data until write time.
 	 */
-	unpack_func_ptr: proc "c" (
-		ctxt: context_t,
-		data: rawptr,
-		attrsize: i32,
-		outsize: ^i32,
-		outbuffer: ^rawptr) -> result_t,
-	pack_func_ptr: proc "c" (
-		ctxt: context_t,
-		data: rawptr,
-		datasize: i32,
-		outsize: ^i32,
-		outbuffer: rawptr) -> result_t,
-	destroy_unpacked_func_ptr: proc "c" (
-		ctxt: context_t, data: rawptr, attrsize: i32),
+	unpack_func_ptr:           proc "c" (ctxt: context_t, data: rawptr, attrsize: i32, outsize: ^i32, outbuffer: ^rawptr) -> result_t,
+	pack_func_ptr:             proc "c" (ctxt: context_t, data: rawptr, datasize: i32, outsize: ^i32, outbuffer: rawptr) -> result_t,
+	destroy_unpacked_func_ptr: proc "c" (ctxt: context_t, data: rawptr, attrsize: i32),
 }
 
 /* /////////////////////////////////////// */
@@ -301,37 +284,37 @@ attr_opaquedata_t :: struct {
  * attributes.
  */
 attribute_type_t :: enum c.int {
-	UNKNOWN = 0,      // Type indicating an error or uninitialized attribute.
-	BOX2I,            // Integer region definition. @see attr_box2i_t.
-	BOX2F,            // Float region definition. @see attr_box2f_t.
-	CHLIST,           // Definition of channels in file @see chlist_entry.
-	CHROMATICITIES,   // Values to specify color space of colors in file @see attr_chromaticities_t.
-	COMPRESSION,      // ``u8`` declaring compression present.
-	DOUBLE,           // Double precision floating point number.
-	ENVMAP,           // ``u8`` declaring environment map type.
-	FLOAT,            // Normal (4 byte) precision floating point number.
-	FLOAT_VECTOR,     // List of normal (4 byte) precision floating point numbers.
-	INT,              // 32-bit signed integer value.
-	KEYCODE,          // Struct recording keycode @see attr_keycode_t.
-	LINEORDER,        // ``u8`` declaring scanline ordering.
-	M33F,             // 9 32-bit floats representing a 3x3 matrix.
-	M33D,             // 9 64-bit floats representing a 3x3 matrix.
-	M44F,             // 16 32-bit floats representing a 4x4 matrix.
-	M44D,             // 16 64-bit floats representing a 4x4 matrix.
-	PREVIEW,          // 2 ``unsigned ints`` followed by 4 x w x h ``u8`` image.
-	RATIONAL,         // \c int followed by ``unsigned int``
-	STRING,           // ``int`` (length) followed by char string data.
-	STRING_VECTOR,    // 0 or more text strings (int + string). number is based on attribute size.
-	TILEDESC,         // 2 ``unsigned ints`` ``xSize``, ``ySize`` followed by mode.
-	TIMECODE,         // 2 ``unsigned ints`` time and flags, user data.
-	V2I,              // Pair of 32-bit integers.
-	V2F,              // Pair of 32-bit floats.
-	V2D,              // Pair of 64-bit floats.
-	V3I,              // Set of 3 32-bit integers.
-	V3F,              // Set of 3 32-bit floats.
-	V3D,              // Set of 3 64-bit floats.
+	UNKNOWN = 0, // Type indicating an error or uninitialized attribute.
+	BOX2I, // Integer region definition. @see attr_box2i_t.
+	BOX2F, // Float region definition. @see attr_box2f_t.
+	CHLIST, // Definition of channels in file @see chlist_entry.
+	CHROMATICITIES, // Values to specify color space of colors in file @see attr_chromaticities_t.
+	COMPRESSION, // ``u8`` declaring compression present.
+	DOUBLE, // Double precision floating point number.
+	ENVMAP, // ``u8`` declaring environment map type.
+	FLOAT, // Normal (4 byte) precision floating point number.
+	FLOAT_VECTOR, // List of normal (4 byte) precision floating point numbers.
+	INT, // 32-bit signed integer value.
+	KEYCODE, // Struct recording keycode @see attr_keycode_t.
+	LINEORDER, // ``u8`` declaring scanline ordering.
+	M33F, // 9 32-bit floats representing a 3x3 matrix.
+	M33D, // 9 64-bit floats representing a 3x3 matrix.
+	M44F, // 16 32-bit floats representing a 4x4 matrix.
+	M44D, // 16 64-bit floats representing a 4x4 matrix.
+	PREVIEW, // 2 ``unsigned ints`` followed by 4 x w x h ``u8`` image.
+	RATIONAL, // \c int followed by ``unsigned int``
+	STRING, // ``int`` (length) followed by char string data.
+	STRING_VECTOR, // 0 or more text strings (int + string). number is based on attribute size.
+	TILEDESC, // 2 ``unsigned ints`` ``xSize``, ``ySize`` followed by mode.
+	TIMECODE, // 2 ``unsigned ints`` time and flags, user data.
+	V2I, // Pair of 32-bit integers.
+	V2F, // Pair of 32-bit floats.
+	V2D, // Pair of 64-bit floats.
+	V3I, // Set of 3 32-bit integers.
+	V3F, // Set of 3 32-bit floats.
+	V3D, // Set of 3 64-bit floats.
 	DEEP_IMAGE_STATE, // ``uint8_t`` declaring deep image state.
-	OPAQUE,           // User/unknown provided type.
+	OPAQUE, // User/unknown provided type.
 }
 
 /** @brief Storage, name and type information for an attribute.
@@ -355,11 +338,10 @@ attribute_t :: struct {
 	name_length:      u8,
 	/** Length of type string (short flag is 31 max, long allows 255). */
 	type_name_length: u8,
-
-	pad: [2]u8,
+	pad:              [2]u8,
 
 	/** Enum of the attribute type. */
-	type: attribute_type_t,
+	type:             attribute_type_t,
 
 	/** Union of pointers of different types that can be used to type
 	 * pun to an appropriate type for builtins. Do note that while
@@ -371,13 +353,12 @@ attribute_t :: struct {
 	 * The attribute type \c type should directly correlate to one
 	 * of these entries.
 	 */
-	using _: struct #raw_union {
+	using _:          struct #raw_union {
 		// NB: not pointers for POD types
-		uc: u8,
-		d: f64,
-		f: f32,
-		i: i32,
-
+		uc:             u8,
+		d:              f64,
+		f:              f32,
+		i:              i32,
 		box2i:          ^attr_box2i_t,
 		box2f:          ^attr_box2f_t,
 		chlist:         ^attr_chlist_t,

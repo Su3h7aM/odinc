@@ -2,43 +2,47 @@
 #+build darwin
 package darwin_AVFoundation
 
+import "base:intrinsics"
 import cffi "core:c"
 import CG "core:sys/darwin/CoreGraphics"
 import NS "core:sys/darwin/Foundation"
-import "base:intrinsics"
 
-@(objc_class="AVCameraCalibrationData", objc_superclass=NS.Object)
-CameraCalibrationData :: struct { using _: NS.Object}
+@(objc_class = "AVCameraCalibrationData", objc_superclass = NS.Object)
+CameraCalibrationData :: struct {
+	using _: NS.Object,
+}
 
 foreign lib {
-	@(objc_type=CameraCalibrationData, objc_selector="init", objc_name="init")
+	@(objc_type = CameraCalibrationData, objc_selector = "init", objc_name = "init")
 	CameraCalibrationData_init :: proc(self: ^CameraCalibrationData) -> instancetype ---
 
-	@(objc_type=CameraCalibrationData, objc_selector="new", objc_name="new", objc_is_class_method=true)
+	@(objc_type = CameraCalibrationData, objc_selector = "new", objc_name = "new", objc_is_class_method = true)
 	CameraCalibrationData_new :: proc() -> ^CameraCalibrationData ---
 
-	@(objc_type=CameraCalibrationData, objc_selector="intrinsicMatrix", objc_name="intrinsicMatrix")
+	@(objc_type = CameraCalibrationData, objc_selector = "intrinsicMatrix", objc_name = "intrinsicMatrix")
 	CameraCalibrationData_intrinsicMatrix :: proc(self: ^CameraCalibrationData) -> matrix[3, 3]f32 ---
 
-	@(objc_type=CameraCalibrationData, objc_selector="intrinsicMatrixReferenceDimensions", objc_name="intrinsicMatrixReferenceDimensions")
+	@(objc_type = CameraCalibrationData, objc_selector = "intrinsicMatrixReferenceDimensions", objc_name = "intrinsicMatrixReferenceDimensions")
 	CameraCalibrationData_intrinsicMatrixReferenceDimensions :: proc(self: ^CameraCalibrationData) -> CG.Size ---
 
-	@(objc_type=CameraCalibrationData, objc_selector="extrinsicMatrix", objc_name="extrinsicMatrix")
+	@(objc_type = CameraCalibrationData, objc_selector = "extrinsicMatrix", objc_name = "extrinsicMatrix")
 	CameraCalibrationData_extrinsicMatrix :: proc(self: ^CameraCalibrationData) -> matrix[3, 4]f32 ---
 
-	@(objc_type=CameraCalibrationData, objc_selector="pixelSize", objc_name="pixelSize")
+	@(objc_type = CameraCalibrationData, objc_selector = "pixelSize", objc_name = "pixelSize")
 	CameraCalibrationData_pixelSize :: proc(self: ^CameraCalibrationData) -> cffi.float ---
 
-	@(objc_type=CameraCalibrationData, objc_selector="lensDistortionLookupTable", objc_name="lensDistortionLookupTable")
+	@(objc_type = CameraCalibrationData, objc_selector = "lensDistortionLookupTable", objc_name = "lensDistortionLookupTable")
 	CameraCalibrationData_lensDistortionLookupTable :: proc(self: ^CameraCalibrationData) -> ^NS.Data ---
 
-	@(objc_type=CameraCalibrationData, objc_selector="inverseLensDistortionLookupTable", objc_name="inverseLensDistortionLookupTable")
+	@(objc_type = CameraCalibrationData, objc_selector = "inverseLensDistortionLookupTable", objc_name = "inverseLensDistortionLookupTable")
 	CameraCalibrationData_inverseLensDistortionLookupTable :: proc(self: ^CameraCalibrationData) -> ^NS.Data ---
 
-	@(objc_type=CameraCalibrationData, objc_selector="lensDistortionCenter", objc_name="lensDistortionCenter")
+	@(objc_type = CameraCalibrationData, objc_selector = "lensDistortionCenter", objc_name = "lensDistortionCenter")
 	CameraCalibrationData_lensDistortionCenter :: proc(self: ^CameraCalibrationData) -> CG.Point ---
 }
 
 
-@(objc_class="AVCameraCalibrationDataInternal")
-CameraCalibrationDataInternal :: struct { using _: intrinsics.objc_object}
+@(objc_class = "AVCameraCalibrationDataInternal")
+CameraCalibrationDataInternal :: struct {
+	using _: intrinsics.objc_object,
+}

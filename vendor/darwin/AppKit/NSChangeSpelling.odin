@@ -4,11 +4,13 @@ package darwin_AppKit
 
 import "base:intrinsics"
 
-@(objc_class="NSChangeSpelling")
-ChangeSpelling :: struct { using _: intrinsics.objc_object}
+@(objc_class = "NSChangeSpelling")
+ChangeSpelling :: struct {
+	using _: intrinsics.objc_object,
+}
 
-@(default_calling_convention="c")
+@(default_calling_convention = "c")
 foreign lib {
-	@(objc_type=ChangeSpelling, objc_selector="changeSpelling:", objc_name="changeSpelling")
+	@(objc_type = ChangeSpelling, objc_selector = "changeSpelling:", objc_name = "changeSpelling")
 	ChangeSpelling_changeSpelling :: proc(self: ^ChangeSpelling, sender: id) ---
 }

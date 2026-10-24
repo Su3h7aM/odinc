@@ -2,10 +2,10 @@
 #+build darwin
 package darwin_GameKit
 
-import NS "core:sys/darwin/Foundation"
 import "base:intrinsics"
+import NS "core:sys/darwin/Foundation"
 
-@(objc_class="GKScene", objc_superclass=NS.Object)
+@(objc_class = "GKScene", objc_superclass = NS.Object)
 Scene :: struct {
 	using _: NS.Object,
 	using _: NS.Copying,
@@ -13,47 +13,46 @@ Scene :: struct {
 }
 
 foreign lib {
-	@(objc_type=Scene, objc_selector="sceneWithFileNamed:", objc_name="sceneWithFileNamed_", objc_is_class_method=true)
+	@(objc_type = Scene, objc_selector = "sceneWithFileNamed:", objc_name = "sceneWithFileNamed_", objc_is_class_method = true)
 	Scene_sceneWithFileNamed_ :: proc(filename: ^NS.String) -> instancetype ---
 
-	@(objc_type=Scene, objc_selector="sceneWithFileNamed:rootNode:", objc_name="sceneWithFileNamed_rootNode", objc_is_class_method=true)
+	@(objc_type = Scene, objc_selector = "sceneWithFileNamed:rootNode:", objc_name = "sceneWithFileNamed_rootNode", objc_is_class_method = true)
 	Scene_sceneWithFileNamed_rootNode :: proc(filename: ^NS.String, rootNode: ^SceneRootNodeType) -> instancetype ---
 
-	@(objc_type=Scene, objc_selector="addEntity:", objc_name="addEntity")
+	@(objc_type = Scene, objc_selector = "addEntity:", objc_name = "addEntity")
 	Scene_addEntity :: proc(self: ^Scene, entity: ^Entity) ---
 
-	@(objc_type=Scene, objc_selector="removeEntity:", objc_name="removeEntity")
+	@(objc_type = Scene, objc_selector = "removeEntity:", objc_name = "removeEntity")
 	Scene_removeEntity :: proc(self: ^Scene, entity: ^Entity) ---
 
-	@(objc_type=Scene, objc_selector="addGraph:name:", objc_name="addGraph")
+	@(objc_type = Scene, objc_selector = "addGraph:name:", objc_name = "addGraph")
 	Scene_addGraph :: proc(self: ^Scene, graph: ^Graph, name: ^NS.String) ---
 
-	@(objc_type=Scene, objc_selector="removeGraph:", objc_name="removeGraph")
+	@(objc_type = Scene, objc_selector = "removeGraph:", objc_name = "removeGraph")
 	Scene_removeGraph :: proc(self: ^Scene, name: ^NS.String) ---
 
-	@(objc_type=Scene, objc_selector="entities", objc_name="entities")
+	@(objc_type = Scene, objc_selector = "entities", objc_name = "entities")
 	Scene_entities :: proc(self: ^Scene) -> ^NS.Array ---
 
-	@(objc_type=Scene, objc_selector="rootNode", objc_name="rootNode")
+	@(objc_type = Scene, objc_selector = "rootNode", objc_name = "rootNode")
 	Scene_rootNode :: proc(self: ^Scene) -> ^SceneRootNodeType ---
 
-	@(objc_type=Scene, objc_selector="setRootNode:", objc_name="setRootNode")
+	@(objc_type = Scene, objc_selector = "setRootNode:", objc_name = "setRootNode")
 	Scene_setRootNode :: proc(self: ^Scene, rootNode: ^SceneRootNodeType) ---
 
-	@(objc_type=Scene, objc_selector="graphs", objc_name="graphs")
+	@(objc_type = Scene, objc_selector = "graphs", objc_name = "graphs")
 	Scene_graphs :: proc(self: ^Scene) -> ^NS.Dictionary ---
 }
 
 
-
-@(objc_type=Scene, objc_name="sceneWithFileNamed", objc_is_class_method=true)
+@(objc_type = Scene, objc_name = "sceneWithFileNamed", objc_is_class_method = true)
 Scene_sceneWithFileNamed :: proc {
 	Scene_sceneWithFileNamed_,
 	Scene_sceneWithFileNamed_rootNode,
 }
 
 
-@(objc_class="GKSceneRootNodeType")
+@(objc_class = "GKSceneRootNodeType")
 SceneRootNodeType :: struct {
 	using _: intrinsics.objc_object,
 	using _: NS.ObjectProtocol,

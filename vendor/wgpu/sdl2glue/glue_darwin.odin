@@ -1,26 +1,21 @@
 #+build darwin:default
 package wgpu_sdl2_glue
 
-import    "vendor:sdl2"
-import    "vendor:wgpu"
-import CA "vendor:darwin/QuartzCore"
 import NS "vendor:darwin/AppKit"
+import CA "vendor:darwin/QuartzCore"
+import "vendor:sdl2"
+import "vendor:wgpu"
 
 GetSurface :: proc(instance: wgpu.Instance, window: ^sdl2.Window) -> wgpu.Surface {
-	window_info: sdl2.SysWMinfo 
+	window_info: sdl2.SysWMinfo
 	sdl2.GetWindowWMInfo(window, &window_info)
 	ns_window := cast(^NS.Window)window_info.info.cocoa.window
 	metal_layer := CA.MetalLayer.layer()
 	ns_window->contentView()->setLayer(metal_layer)
 	return wgpu.InstanceCreateSurface(
 		instance,
-		&wgpu.SurfaceDescriptor{
-			nextInChain = &wgpu.SurfaceSourceMetalLayer{
-				chain = wgpu.ChainedStruct{
-					sType = .SurfaceSourceMetalLayer,
-				},
-				layer = rawptr(metal_layer),
-			},
+		&wgpu.SurfaceDescriptor {
+			nextInChain = &wgpu.SurfaceSourceMetalLayer{chain = wgpu.ChainedStruct{sType = .SurfaceSourceMetalLayer}, layer = rawptr(metal_layer)},
 		},
 	)
 }

@@ -4,7 +4,7 @@ import "base:intrinsics"
 import "core:c"
 
 TriggerBreakpoint :: intrinsics.debug_trap
-AssertBreakpoint  :: TriggerBreakpoint
+AssertBreakpoint :: TriggerBreakpoint
 
 /**
  * Possible outcomes from a triggered assertion.
@@ -20,10 +20,10 @@ AssertBreakpoint  :: TriggerBreakpoint
  * \since This enum is available since SDL 3.2.0.
  */
 AssertState :: enum c.int {
-	RETRY,         /**< Retry the assert immediately. */
-	BREAK,         /**< Make the debugger trigger a breakpoint. */
-	ABORT,         /**< Terminate the program. */
-	IGNORE,        /**< Ignore the assert. */
+	RETRY, /**< Retry the assert immediately. */
+	BREAK, /**< Make the debugger trigger a breakpoint. */
+	ABORT, /**< Terminate the program. */
+	IGNORE, /**< Ignore the assert. */
 	ALWAYS_IGNORE, /**< Ignore the assert from now on. */
 }
 
@@ -37,25 +37,25 @@ AssertState :: enum c.int {
  * \since This struct is available since SDL 3.2.0.
  */
 AssertData :: struct {
-	always_ignore: bool,        /**< true if app should always continue when assertion is triggered. */
-	trigger_count: c.uint,      /**< Number of times this assertion has been triggered. */
-	condition:     cstring,     /**< A string of this assert's test code. */
-	filename:      cstring,     /**< The source file where this assert lives. */
-	linenum:       c.int,       /**< The line in `filename` where this assert lives. */
-	function:      cstring,     /**< The name of the function where this assert lives. */
+	always_ignore: bool, /**< true if app should always continue when assertion is triggered. */
+	trigger_count: c.uint, /**< Number of times this assertion has been triggered. */
+	condition:     cstring, /**< A string of this assert's test code. */
+	filename:      cstring, /**< The source file where this assert lives. */
+	linenum:       c.int, /**< The line in `filename` where this assert lives. */
+	function:      cstring, /**< The name of the function where this assert lives. */
 	next:          ^AssertData, /**< next item in the linked list. */
 }
 
 AssertionHandler :: #type proc "c" (data: ^AssertData, userdata: rawptr) -> AssertState
 
-@(default_calling_convention="c", link_prefix="SDL_")
+@(default_calling_convention = "c", link_prefix = "SDL_")
 foreign lib {
 	ReportAssertion :: proc(data: ^AssertData, func, file: cstring, line: c.int) -> AssertState ---
 
-	SetAssertionHandler        :: proc(handler: AssertionHandler, userdata: rawptr) ---
+	SetAssertionHandler :: proc(handler: AssertionHandler, userdata: rawptr) ---
 	GetDefaultAssertionHandler :: proc() -> AssertionHandler ---
-	GetAssertionReport         :: proc() -> AssertData ---
-	ResetAssertionReport       :: proc() ---
+	GetAssertionReport :: proc() -> AssertData ---
+	ResetAssertionReport :: proc() ---
 }
 
 
@@ -74,8 +74,7 @@ enabled_assert :: proc "c" (condition: bool, loc := #caller_location, _message :
 	f := cstring(raw_data(loc.file_path))
 
 	for {
-		@(static)
-		sdl_assert_data: AssertData
+		@(static) sdl_assert_data: AssertData
 		sdl_assert_data.condition = c
 		sdl_assert_state := ReportAssertion(&sdl_assert_data, p, f, loc.line)
 		if sdl_assert_state == .RETRY {
@@ -87,12 +86,10 @@ enabled_assert :: proc "c" (condition: bool, loc := #caller_location, _message :
 	}
 }
 
-@(disabled=ODIN_DISABLE_ASSERT)
+@(disabled = ODIN_DISABLE_ASSERT)
 assert :: proc "c" (condition: bool, loc := #caller_location, _message := #caller_expression(condition)) {
 	enabled_assert(condition, loc, _message)
 }
 
 assert_release :: assert
-assert_always  :: enabled_assert
-
-
+assert_always :: enabled_assert

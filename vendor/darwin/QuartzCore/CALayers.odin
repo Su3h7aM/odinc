@@ -2,283 +2,297 @@
 #+build darwin
 package darwin_QuartzCore
 
-import CG "core:sys/darwin/CoreGraphics"
-import NS "core:sys/darwin/Foundation"
 import cffi "core:c"
 import CF "core:sys/darwin/CoreFoundation"
+import CG "core:sys/darwin/CoreGraphics"
+import NS "core:sys/darwin/Foundation"
 
-@(objc_class="CAGradientLayer", objc_superclass=Layer)
-GradientLayer :: struct { using _: Layer}
+@(objc_class = "CAGradientLayer", objc_superclass = Layer)
+GradientLayer :: struct {
+	using _: Layer,
+}
 
 foreign lib {
-	@(objc_type=GradientLayer, objc_selector="colors", objc_name="colors")
+	@(objc_type = GradientLayer, objc_selector = "colors", objc_name = "colors")
 	GradientLayer_colors :: proc(self: ^GradientLayer) -> ^NS.Array ---
 
-	@(objc_type=GradientLayer, objc_selector="setColors:", objc_name="setColors")
+	@(objc_type = GradientLayer, objc_selector = "setColors:", objc_name = "setColors")
 	GradientLayer_setColors :: proc(self: ^GradientLayer, colors: ^NS.Array) ---
 
-	@(objc_type=GradientLayer, objc_selector="locations", objc_name="locations")
+	@(objc_type = GradientLayer, objc_selector = "locations", objc_name = "locations")
 	GradientLayer_locations :: proc(self: ^GradientLayer) -> ^NS.Array ---
 
-	@(objc_type=GradientLayer, objc_selector="setLocations:", objc_name="setLocations")
+	@(objc_type = GradientLayer, objc_selector = "setLocations:", objc_name = "setLocations")
 	GradientLayer_setLocations :: proc(self: ^GradientLayer, locations: ^NS.Array) ---
 
-	@(objc_type=GradientLayer, objc_selector="startPoint", objc_name="startPoint")
+	@(objc_type = GradientLayer, objc_selector = "startPoint", objc_name = "startPoint")
 	GradientLayer_startPoint :: proc(self: ^GradientLayer) -> CG.Point ---
 
-	@(objc_type=GradientLayer, objc_selector="setStartPoint:", objc_name="setStartPoint")
+	@(objc_type = GradientLayer, objc_selector = "setStartPoint:", objc_name = "setStartPoint")
 	GradientLayer_setStartPoint :: proc(self: ^GradientLayer, startPoint: CG.Point) ---
 
-	@(objc_type=GradientLayer, objc_selector="endPoint", objc_name="endPoint")
+	@(objc_type = GradientLayer, objc_selector = "endPoint", objc_name = "endPoint")
 	GradientLayer_endPoint :: proc(self: ^GradientLayer) -> CG.Point ---
 
-	@(objc_type=GradientLayer, objc_selector="setEndPoint:", objc_name="setEndPoint")
+	@(objc_type = GradientLayer, objc_selector = "setEndPoint:", objc_name = "setEndPoint")
 	GradientLayer_setEndPoint :: proc(self: ^GradientLayer, endPoint: CG.Point) ---
 
-	@(objc_type=GradientLayer, objc_selector="type", objc_name="type")
+	@(objc_type = GradientLayer, objc_selector = "type", objc_name = "type")
 	GradientLayer_type :: proc(self: ^GradientLayer) -> ^NS.String ---
 
-	@(objc_type=GradientLayer, objc_selector="setType:", objc_name="setType")
+	@(objc_type = GradientLayer, objc_selector = "setType:", objc_name = "setType")
 	GradientLayer_setType :: proc(self: ^GradientLayer, type: ^NS.String) ---
 }
 
 
-@(objc_class="CAReplicatorLayer", objc_superclass=Layer)
-ReplicatorLayer :: struct { using _: Layer}
+@(objc_class = "CAReplicatorLayer", objc_superclass = Layer)
+ReplicatorLayer :: struct {
+	using _: Layer,
+}
 
 foreign lib {
-	@(objc_type=ReplicatorLayer, objc_selector="instanceCount", objc_name="instanceCount")
+	@(objc_type = ReplicatorLayer, objc_selector = "instanceCount", objc_name = "instanceCount")
 	ReplicatorLayer_instanceCount :: proc(self: ^ReplicatorLayer) -> NS.Integer ---
 
-	@(objc_type=ReplicatorLayer, objc_selector="setInstanceCount:", objc_name="setInstanceCount")
+	@(objc_type = ReplicatorLayer, objc_selector = "setInstanceCount:", objc_name = "setInstanceCount")
 	ReplicatorLayer_setInstanceCount :: proc(self: ^ReplicatorLayer, instanceCount: NS.Integer) ---
 
-	@(objc_type=ReplicatorLayer, objc_selector="preservesDepth", objc_name="preservesDepth")
+	@(objc_type = ReplicatorLayer, objc_selector = "preservesDepth", objc_name = "preservesDepth")
 	ReplicatorLayer_preservesDepth :: proc(self: ^ReplicatorLayer) -> bool ---
 
-	@(objc_type=ReplicatorLayer, objc_selector="setPreservesDepth:", objc_name="setPreservesDepth")
+	@(objc_type = ReplicatorLayer, objc_selector = "setPreservesDepth:", objc_name = "setPreservesDepth")
 	ReplicatorLayer_setPreservesDepth :: proc(self: ^ReplicatorLayer, preservesDepth: bool) ---
 
-	@(objc_type=ReplicatorLayer, objc_selector="instanceDelay", objc_name="instanceDelay")
+	@(objc_type = ReplicatorLayer, objc_selector = "instanceDelay", objc_name = "instanceDelay")
 	ReplicatorLayer_instanceDelay :: proc(self: ^ReplicatorLayer) -> CF.TimeInterval ---
 
-	@(objc_type=ReplicatorLayer, objc_selector="setInstanceDelay:", objc_name="setInstanceDelay")
+	@(objc_type = ReplicatorLayer, objc_selector = "setInstanceDelay:", objc_name = "setInstanceDelay")
 	ReplicatorLayer_setInstanceDelay :: proc(self: ^ReplicatorLayer, instanceDelay: CF.TimeInterval) ---
 
-	@(objc_type=ReplicatorLayer, objc_selector="instanceTransform", objc_name="instanceTransform")
+	@(objc_type = ReplicatorLayer, objc_selector = "instanceTransform", objc_name = "instanceTransform")
 	ReplicatorLayer_instanceTransform :: proc(self: ^ReplicatorLayer) -> Transform3D ---
 
-	@(objc_type=ReplicatorLayer, objc_selector="setInstanceTransform:", objc_name="setInstanceTransform")
+	@(objc_type = ReplicatorLayer, objc_selector = "setInstanceTransform:", objc_name = "setInstanceTransform")
 	ReplicatorLayer_setInstanceTransform :: proc(self: ^ReplicatorLayer, instanceTransform: Transform3D) ---
 
-	@(objc_type=ReplicatorLayer, objc_selector="instanceColor", objc_name="instanceColor")
+	@(objc_type = ReplicatorLayer, objc_selector = "instanceColor", objc_name = "instanceColor")
 	ReplicatorLayer_instanceColor :: proc(self: ^ReplicatorLayer) -> CG.ColorRef ---
 
-	@(objc_type=ReplicatorLayer, objc_selector="setInstanceColor:", objc_name="setInstanceColor")
+	@(objc_type = ReplicatorLayer, objc_selector = "setInstanceColor:", objc_name = "setInstanceColor")
 	ReplicatorLayer_setInstanceColor :: proc(self: ^ReplicatorLayer, instanceColor: CG.ColorRef) ---
 
-	@(objc_type=ReplicatorLayer, objc_selector="instanceRedOffset", objc_name="instanceRedOffset")
+	@(objc_type = ReplicatorLayer, objc_selector = "instanceRedOffset", objc_name = "instanceRedOffset")
 	ReplicatorLayer_instanceRedOffset :: proc(self: ^ReplicatorLayer) -> cffi.float ---
 
-	@(objc_type=ReplicatorLayer, objc_selector="setInstanceRedOffset:", objc_name="setInstanceRedOffset")
+	@(objc_type = ReplicatorLayer, objc_selector = "setInstanceRedOffset:", objc_name = "setInstanceRedOffset")
 	ReplicatorLayer_setInstanceRedOffset :: proc(self: ^ReplicatorLayer, instanceRedOffset: cffi.float) ---
 
-	@(objc_type=ReplicatorLayer, objc_selector="instanceGreenOffset", objc_name="instanceGreenOffset")
+	@(objc_type = ReplicatorLayer, objc_selector = "instanceGreenOffset", objc_name = "instanceGreenOffset")
 	ReplicatorLayer_instanceGreenOffset :: proc(self: ^ReplicatorLayer) -> cffi.float ---
 
-	@(objc_type=ReplicatorLayer, objc_selector="setInstanceGreenOffset:", objc_name="setInstanceGreenOffset")
+	@(objc_type = ReplicatorLayer, objc_selector = "setInstanceGreenOffset:", objc_name = "setInstanceGreenOffset")
 	ReplicatorLayer_setInstanceGreenOffset :: proc(self: ^ReplicatorLayer, instanceGreenOffset: cffi.float) ---
 
-	@(objc_type=ReplicatorLayer, objc_selector="instanceBlueOffset", objc_name="instanceBlueOffset")
+	@(objc_type = ReplicatorLayer, objc_selector = "instanceBlueOffset", objc_name = "instanceBlueOffset")
 	ReplicatorLayer_instanceBlueOffset :: proc(self: ^ReplicatorLayer) -> cffi.float ---
 
-	@(objc_type=ReplicatorLayer, objc_selector="setInstanceBlueOffset:", objc_name="setInstanceBlueOffset")
+	@(objc_type = ReplicatorLayer, objc_selector = "setInstanceBlueOffset:", objc_name = "setInstanceBlueOffset")
 	ReplicatorLayer_setInstanceBlueOffset :: proc(self: ^ReplicatorLayer, instanceBlueOffset: cffi.float) ---
 
-	@(objc_type=ReplicatorLayer, objc_selector="instanceAlphaOffset", objc_name="instanceAlphaOffset")
+	@(objc_type = ReplicatorLayer, objc_selector = "instanceAlphaOffset", objc_name = "instanceAlphaOffset")
 	ReplicatorLayer_instanceAlphaOffset :: proc(self: ^ReplicatorLayer) -> cffi.float ---
 
-	@(objc_type=ReplicatorLayer, objc_selector="setInstanceAlphaOffset:", objc_name="setInstanceAlphaOffset")
+	@(objc_type = ReplicatorLayer, objc_selector = "setInstanceAlphaOffset:", objc_name = "setInstanceAlphaOffset")
 	ReplicatorLayer_setInstanceAlphaOffset :: proc(self: ^ReplicatorLayer, instanceAlphaOffset: cffi.float) ---
 }
 
 
-@(objc_class="CAScrollLayer", objc_superclass=Layer)
-ScrollLayer :: struct { using _: Layer}
+@(objc_class = "CAScrollLayer", objc_superclass = Layer)
+ScrollLayer :: struct {
+	using _: Layer,
+}
 
 foreign lib {
-	@(objc_type=ScrollLayer, objc_selector="scrollToPoint:", objc_name="scrollToPoint")
+	@(objc_type = ScrollLayer, objc_selector = "scrollToPoint:", objc_name = "scrollToPoint")
 	ScrollLayer_scrollToPoint :: proc(self: ^ScrollLayer, p: CG.Point) ---
 
-	@(objc_type=ScrollLayer, objc_selector="scrollToRect:", objc_name="scrollToRect")
+	@(objc_type = ScrollLayer, objc_selector = "scrollToRect:", objc_name = "scrollToRect")
 	ScrollLayer_scrollToRect :: proc(self: ^ScrollLayer, r: CG.Rect) ---
 
-	@(objc_type=ScrollLayer, objc_selector="scrollMode", objc_name="scrollMode")
+	@(objc_type = ScrollLayer, objc_selector = "scrollMode", objc_name = "scrollMode")
 	ScrollLayer_scrollMode :: proc(self: ^ScrollLayer) -> ^NS.String ---
 
-	@(objc_type=ScrollLayer, objc_selector="setScrollMode:", objc_name="setScrollMode")
+	@(objc_type = ScrollLayer, objc_selector = "setScrollMode:", objc_name = "setScrollMode")
 	ScrollLayer_setScrollMode :: proc(self: ^ScrollLayer, scrollMode: ^NS.String) ---
 }
 
 
-@(objc_class="CAShapeLayer", objc_superclass=Layer)
-ShapeLayer :: struct { using _: Layer}
+@(objc_class = "CAShapeLayer", objc_superclass = Layer)
+ShapeLayer :: struct {
+	using _: Layer,
+}
 
 foreign lib {
-	@(objc_type=ShapeLayer, objc_selector="path", objc_name="path")
+	@(objc_type = ShapeLayer, objc_selector = "path", objc_name = "path")
 	ShapeLayer_path :: proc(self: ^ShapeLayer) -> CG.PathRef ---
 
-	@(objc_type=ShapeLayer, objc_selector="setPath:", objc_name="setPath")
+	@(objc_type = ShapeLayer, objc_selector = "setPath:", objc_name = "setPath")
 	ShapeLayer_setPath :: proc(self: ^ShapeLayer, path: CG.PathRef) ---
 
-	@(objc_type=ShapeLayer, objc_selector="fillColor", objc_name="fillColor")
+	@(objc_type = ShapeLayer, objc_selector = "fillColor", objc_name = "fillColor")
 	ShapeLayer_fillColor :: proc(self: ^ShapeLayer) -> CG.ColorRef ---
 
-	@(objc_type=ShapeLayer, objc_selector="setFillColor:", objc_name="setFillColor")
+	@(objc_type = ShapeLayer, objc_selector = "setFillColor:", objc_name = "setFillColor")
 	ShapeLayer_setFillColor :: proc(self: ^ShapeLayer, fillColor: CG.ColorRef) ---
 
-	@(objc_type=ShapeLayer, objc_selector="fillRule", objc_name="fillRule")
+	@(objc_type = ShapeLayer, objc_selector = "fillRule", objc_name = "fillRule")
 	ShapeLayer_fillRule :: proc(self: ^ShapeLayer) -> ^NS.String ---
 
-	@(objc_type=ShapeLayer, objc_selector="setFillRule:", objc_name="setFillRule")
+	@(objc_type = ShapeLayer, objc_selector = "setFillRule:", objc_name = "setFillRule")
 	ShapeLayer_setFillRule :: proc(self: ^ShapeLayer, fillRule: ^NS.String) ---
 
-	@(objc_type=ShapeLayer, objc_selector="strokeColor", objc_name="strokeColor")
+	@(objc_type = ShapeLayer, objc_selector = "strokeColor", objc_name = "strokeColor")
 	ShapeLayer_strokeColor :: proc(self: ^ShapeLayer) -> CG.ColorRef ---
 
-	@(objc_type=ShapeLayer, objc_selector="setStrokeColor:", objc_name="setStrokeColor")
+	@(objc_type = ShapeLayer, objc_selector = "setStrokeColor:", objc_name = "setStrokeColor")
 	ShapeLayer_setStrokeColor :: proc(self: ^ShapeLayer, strokeColor: CG.ColorRef) ---
 
-	@(objc_type=ShapeLayer, objc_selector="strokeStart", objc_name="strokeStart")
+	@(objc_type = ShapeLayer, objc_selector = "strokeStart", objc_name = "strokeStart")
 	ShapeLayer_strokeStart :: proc(self: ^ShapeLayer) -> CG.Float ---
 
-	@(objc_type=ShapeLayer, objc_selector="setStrokeStart:", objc_name="setStrokeStart")
+	@(objc_type = ShapeLayer, objc_selector = "setStrokeStart:", objc_name = "setStrokeStart")
 	ShapeLayer_setStrokeStart :: proc(self: ^ShapeLayer, strokeStart: CG.Float) ---
 
-	@(objc_type=ShapeLayer, objc_selector="strokeEnd", objc_name="strokeEnd")
+	@(objc_type = ShapeLayer, objc_selector = "strokeEnd", objc_name = "strokeEnd")
 	ShapeLayer_strokeEnd :: proc(self: ^ShapeLayer) -> CG.Float ---
 
-	@(objc_type=ShapeLayer, objc_selector="setStrokeEnd:", objc_name="setStrokeEnd")
+	@(objc_type = ShapeLayer, objc_selector = "setStrokeEnd:", objc_name = "setStrokeEnd")
 	ShapeLayer_setStrokeEnd :: proc(self: ^ShapeLayer, strokeEnd: CG.Float) ---
 
-	@(objc_type=ShapeLayer, objc_selector="lineWidth", objc_name="lineWidth")
+	@(objc_type = ShapeLayer, objc_selector = "lineWidth", objc_name = "lineWidth")
 	ShapeLayer_lineWidth :: proc(self: ^ShapeLayer) -> CG.Float ---
 
-	@(objc_type=ShapeLayer, objc_selector="setLineWidth:", objc_name="setLineWidth")
+	@(objc_type = ShapeLayer, objc_selector = "setLineWidth:", objc_name = "setLineWidth")
 	ShapeLayer_setLineWidth :: proc(self: ^ShapeLayer, lineWidth: CG.Float) ---
 
-	@(objc_type=ShapeLayer, objc_selector="miterLimit", objc_name="miterLimit")
+	@(objc_type = ShapeLayer, objc_selector = "miterLimit", objc_name = "miterLimit")
 	ShapeLayer_miterLimit :: proc(self: ^ShapeLayer) -> CG.Float ---
 
-	@(objc_type=ShapeLayer, objc_selector="setMiterLimit:", objc_name="setMiterLimit")
+	@(objc_type = ShapeLayer, objc_selector = "setMiterLimit:", objc_name = "setMiterLimit")
 	ShapeLayer_setMiterLimit :: proc(self: ^ShapeLayer, miterLimit: CG.Float) ---
 
-	@(objc_type=ShapeLayer, objc_selector="lineCap", objc_name="lineCap")
+	@(objc_type = ShapeLayer, objc_selector = "lineCap", objc_name = "lineCap")
 	ShapeLayer_lineCap :: proc(self: ^ShapeLayer) -> ^NS.String ---
 
-	@(objc_type=ShapeLayer, objc_selector="setLineCap:", objc_name="setLineCap")
+	@(objc_type = ShapeLayer, objc_selector = "setLineCap:", objc_name = "setLineCap")
 	ShapeLayer_setLineCap :: proc(self: ^ShapeLayer, lineCap: ^NS.String) ---
 
-	@(objc_type=ShapeLayer, objc_selector="lineJoin", objc_name="lineJoin")
+	@(objc_type = ShapeLayer, objc_selector = "lineJoin", objc_name = "lineJoin")
 	ShapeLayer_lineJoin :: proc(self: ^ShapeLayer) -> ^NS.String ---
 
-	@(objc_type=ShapeLayer, objc_selector="setLineJoin:", objc_name="setLineJoin")
+	@(objc_type = ShapeLayer, objc_selector = "setLineJoin:", objc_name = "setLineJoin")
 	ShapeLayer_setLineJoin :: proc(self: ^ShapeLayer, lineJoin: ^NS.String) ---
 
-	@(objc_type=ShapeLayer, objc_selector="lineDashPhase", objc_name="lineDashPhase")
+	@(objc_type = ShapeLayer, objc_selector = "lineDashPhase", objc_name = "lineDashPhase")
 	ShapeLayer_lineDashPhase :: proc(self: ^ShapeLayer) -> CG.Float ---
 
-	@(objc_type=ShapeLayer, objc_selector="setLineDashPhase:", objc_name="setLineDashPhase")
+	@(objc_type = ShapeLayer, objc_selector = "setLineDashPhase:", objc_name = "setLineDashPhase")
 	ShapeLayer_setLineDashPhase :: proc(self: ^ShapeLayer, lineDashPhase: CG.Float) ---
 
-	@(objc_type=ShapeLayer, objc_selector="lineDashPattern", objc_name="lineDashPattern")
+	@(objc_type = ShapeLayer, objc_selector = "lineDashPattern", objc_name = "lineDashPattern")
 	ShapeLayer_lineDashPattern :: proc(self: ^ShapeLayer) -> ^NS.Array ---
 
-	@(objc_type=ShapeLayer, objc_selector="setLineDashPattern:", objc_name="setLineDashPattern")
+	@(objc_type = ShapeLayer, objc_selector = "setLineDashPattern:", objc_name = "setLineDashPattern")
 	ShapeLayer_setLineDashPattern :: proc(self: ^ShapeLayer, lineDashPattern: ^NS.Array) ---
 }
 
 
-@(objc_class="CATextLayer", objc_superclass=Layer)
-TextLayer :: struct { using _: Layer}
+@(objc_class = "CATextLayer", objc_superclass = Layer)
+TextLayer :: struct {
+	using _: Layer,
+}
 
 foreign lib {
-	@(objc_type=TextLayer, objc_selector="string", objc_name="string")
+	@(objc_type = TextLayer, objc_selector = "string", objc_name = "string")
 	TextLayer_string :: proc(self: ^TextLayer) -> id ---
 
-	@(objc_type=TextLayer, objc_selector="setString:", objc_name="setString")
+	@(objc_type = TextLayer, objc_selector = "setString:", objc_name = "setString")
 	TextLayer_setString :: proc(self: ^TextLayer, string: id) ---
 
-	@(objc_type=TextLayer, objc_selector="font", objc_name="font")
+	@(objc_type = TextLayer, objc_selector = "font", objc_name = "font")
 	TextLayer_font :: proc(self: ^TextLayer) -> CF.TypeRef ---
 
-	@(objc_type=TextLayer, objc_selector="setFont:", objc_name="setFont")
+	@(objc_type = TextLayer, objc_selector = "setFont:", objc_name = "setFont")
 	TextLayer_setFont :: proc(self: ^TextLayer, font: CF.TypeRef) ---
 
-	@(objc_type=TextLayer, objc_selector="fontSize", objc_name="fontSize")
+	@(objc_type = TextLayer, objc_selector = "fontSize", objc_name = "fontSize")
 	TextLayer_fontSize :: proc(self: ^TextLayer) -> CG.Float ---
 
-	@(objc_type=TextLayer, objc_selector="setFontSize:", objc_name="setFontSize")
+	@(objc_type = TextLayer, objc_selector = "setFontSize:", objc_name = "setFontSize")
 	TextLayer_setFontSize :: proc(self: ^TextLayer, fontSize: CG.Float) ---
 
-	@(objc_type=TextLayer, objc_selector="foregroundColor", objc_name="foregroundColor")
+	@(objc_type = TextLayer, objc_selector = "foregroundColor", objc_name = "foregroundColor")
 	TextLayer_foregroundColor :: proc(self: ^TextLayer) -> CG.ColorRef ---
 
-	@(objc_type=TextLayer, objc_selector="setForegroundColor:", objc_name="setForegroundColor")
+	@(objc_type = TextLayer, objc_selector = "setForegroundColor:", objc_name = "setForegroundColor")
 	TextLayer_setForegroundColor :: proc(self: ^TextLayer, foregroundColor: CG.ColorRef) ---
 
-	@(objc_type=TextLayer, objc_selector="isWrapped", objc_name="isWrapped")
+	@(objc_type = TextLayer, objc_selector = "isWrapped", objc_name = "isWrapped")
 	TextLayer_isWrapped :: proc(self: ^TextLayer) -> bool ---
 
-	@(objc_type=TextLayer, objc_selector="setWrapped:", objc_name="setWrapped")
+	@(objc_type = TextLayer, objc_selector = "setWrapped:", objc_name = "setWrapped")
 	TextLayer_setWrapped :: proc(self: ^TextLayer, wrapped: bool) ---
 
-	@(objc_type=TextLayer, objc_selector="truncationMode", objc_name="truncationMode")
+	@(objc_type = TextLayer, objc_selector = "truncationMode", objc_name = "truncationMode")
 	TextLayer_truncationMode :: proc(self: ^TextLayer) -> ^NS.String ---
 
-	@(objc_type=TextLayer, objc_selector="setTruncationMode:", objc_name="setTruncationMode")
+	@(objc_type = TextLayer, objc_selector = "setTruncationMode:", objc_name = "setTruncationMode")
 	TextLayer_setTruncationMode :: proc(self: ^TextLayer, truncationMode: ^NS.String) ---
 
-	@(objc_type=TextLayer, objc_selector="alignmentMode", objc_name="alignmentMode")
+	@(objc_type = TextLayer, objc_selector = "alignmentMode", objc_name = "alignmentMode")
 	TextLayer_alignmentMode :: proc(self: ^TextLayer) -> ^NS.String ---
 
-	@(objc_type=TextLayer, objc_selector="setAlignmentMode:", objc_name="setAlignmentMode")
+	@(objc_type = TextLayer, objc_selector = "setAlignmentMode:", objc_name = "setAlignmentMode")
 	TextLayer_setAlignmentMode :: proc(self: ^TextLayer, alignmentMode: ^NS.String) ---
 
-	@(objc_type=TextLayer, objc_selector="allowsFontSubpixelQuantization", objc_name="allowsFontSubpixelQuantization")
+	@(objc_type = TextLayer, objc_selector = "allowsFontSubpixelQuantization", objc_name = "allowsFontSubpixelQuantization")
 	TextLayer_allowsFontSubpixelQuantization :: proc(self: ^TextLayer) -> bool ---
 
-	@(objc_type=TextLayer, objc_selector="setAllowsFontSubpixelQuantization:", objc_name="setAllowsFontSubpixelQuantization")
+	@(objc_type = TextLayer, objc_selector = "setAllowsFontSubpixelQuantization:", objc_name = "setAllowsFontSubpixelQuantization")
 	TextLayer_setAllowsFontSubpixelQuantization :: proc(self: ^TextLayer, allowsFontSubpixelQuantization: bool) ---
 }
 
 
-@(objc_class="CATiledLayer", objc_superclass=Layer)
-TiledLayer :: struct { using _: Layer}
+@(objc_class = "CATiledLayer", objc_superclass = Layer)
+TiledLayer :: struct {
+	using _: Layer,
+}
 
 foreign lib {
-	@(objc_type=TiledLayer, objc_selector="fadeDuration", objc_name="fadeDuration", objc_is_class_method=true)
+	@(objc_type = TiledLayer, objc_selector = "fadeDuration", objc_name = "fadeDuration", objc_is_class_method = true)
 	TiledLayer_fadeDuration :: proc() -> CF.TimeInterval ---
 
-	@(objc_type=TiledLayer, objc_selector="levelsOfDetail", objc_name="levelsOfDetail")
+	@(objc_type = TiledLayer, objc_selector = "levelsOfDetail", objc_name = "levelsOfDetail")
 	TiledLayer_levelsOfDetail :: proc(self: ^TiledLayer) -> cffi.size_t ---
 
-	@(objc_type=TiledLayer, objc_selector="setLevelsOfDetail:", objc_name="setLevelsOfDetail")
+	@(objc_type = TiledLayer, objc_selector = "setLevelsOfDetail:", objc_name = "setLevelsOfDetail")
 	TiledLayer_setLevelsOfDetail :: proc(self: ^TiledLayer, levelsOfDetail: cffi.size_t) ---
 
-	@(objc_type=TiledLayer, objc_selector="levelsOfDetailBias", objc_name="levelsOfDetailBias")
+	@(objc_type = TiledLayer, objc_selector = "levelsOfDetailBias", objc_name = "levelsOfDetailBias")
 	TiledLayer_levelsOfDetailBias :: proc(self: ^TiledLayer) -> cffi.size_t ---
 
-	@(objc_type=TiledLayer, objc_selector="setLevelsOfDetailBias:", objc_name="setLevelsOfDetailBias")
+	@(objc_type = TiledLayer, objc_selector = "setLevelsOfDetailBias:", objc_name = "setLevelsOfDetailBias")
 	TiledLayer_setLevelsOfDetailBias :: proc(self: ^TiledLayer, levelsOfDetailBias: cffi.size_t) ---
 
-	@(objc_type=TiledLayer, objc_selector="tileSize", objc_name="tileSize")
+	@(objc_type = TiledLayer, objc_selector = "tileSize", objc_name = "tileSize")
 	TiledLayer_tileSize :: proc(self: ^TiledLayer) -> CG.Size ---
 
-	@(objc_type=TiledLayer, objc_selector="setTileSize:", objc_name="setTileSize")
+	@(objc_type = TiledLayer, objc_selector = "setTileSize:", objc_name = "setTileSize")
 	TiledLayer_setTileSize :: proc(self: ^TiledLayer, tileSize: CG.Size) ---
 }
 
 
-@(objc_class="CATransformLayer", objc_superclass=Layer)
-TransformLayer :: struct { using _: Layer}
+@(objc_class = "CATransformLayer", objc_superclass = Layer)
+TransformLayer :: struct {
+	using _: Layer,
+}

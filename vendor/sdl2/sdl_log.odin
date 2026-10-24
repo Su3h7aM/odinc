@@ -60,20 +60,20 @@ LogPriority :: enum c.int {
 LogOutputFunction :: proc "c" (userdata: rawptr, category: LogCategory, priority: LogPriority, message: cstring)
 
 
-@(default_calling_convention="c", link_prefix="SDL_")
+@(default_calling_convention = "c", link_prefix = "SDL_")
 foreign lib {
-	LogSetAllPriority    :: proc(priority: LogPriority) ---
-	LogSetPriority       :: proc(category: c.int, priority: LogPriority) ---
-	LogGetPriority       :: proc(category: c.int) -> LogPriority ---
-	LogResetPriorities   :: proc() ---
-	Log                  :: proc(fmt: cstring, #c_vararg args: ..any) ---
-	LogVerbose           :: proc(category: c.int, fmt: cstring, #c_vararg args: ..any) ---
-	LogDebug             :: proc(category: c.int, fmt: cstring, #c_vararg args: ..any) ---
-	LogInfo              :: proc(category: c.int, fmt: cstring, #c_vararg args: ..any) ---
-	LogWarn              :: proc(category: c.int, fmt: cstring, #c_vararg args: ..any) ---
-	LogError             :: proc(category: c.int, fmt: cstring, #c_vararg args: ..any) ---
-	LogCritical          :: proc(category: c.int, fmt: cstring, #c_vararg args: ..any) ---
-	LogMessage           :: proc(category: c.int, priority: LogPriority, fmt: cstring, #c_vararg args: ..any) ---
+	LogSetAllPriority :: proc(priority: LogPriority) ---
+	LogSetPriority :: proc(category: c.int, priority: LogPriority) ---
+	LogGetPriority :: proc(category: c.int) -> LogPriority ---
+	LogResetPriorities :: proc() ---
+	Log :: proc(fmt: cstring, #c_vararg args: ..any) ---
+	LogVerbose :: proc(category: c.int, fmt: cstring, #c_vararg args: ..any) ---
+	LogDebug :: proc(category: c.int, fmt: cstring, #c_vararg args: ..any) ---
+	LogInfo :: proc(category: c.int, fmt: cstring, #c_vararg args: ..any) ---
+	LogWarn :: proc(category: c.int, fmt: cstring, #c_vararg args: ..any) ---
+	LogError :: proc(category: c.int, fmt: cstring, #c_vararg args: ..any) ---
+	LogCritical :: proc(category: c.int, fmt: cstring, #c_vararg args: ..any) ---
+	LogMessage :: proc(category: c.int, priority: LogPriority, fmt: cstring, #c_vararg args: ..any) ---
 	// LogMessageV          :: proc(category: c.int, priority: LogPriority, fmt: cstring, ap: va_list) ---
 	LogGetOutputFunction :: proc(callback: ^LogOutputFunction, userdata: ^rawptr) ---
 	LogSetOutputFunction :: proc(callback: LogOutputFunction, userdata: rawptr) ---

@@ -4,20 +4,22 @@ package darwin_UIKit
 
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class="UISwipeActionsConfiguration", objc_superclass=NS.Object)
-SwipeActionsConfiguration :: struct { using _: NS.Object}
+@(objc_class = "UISwipeActionsConfiguration", objc_superclass = NS.Object)
+SwipeActionsConfiguration :: struct {
+	using _: NS.Object,
+}
 
-@(default_calling_convention="c")
+@(default_calling_convention = "c")
 foreign lib {
-	@(objc_type=SwipeActionsConfiguration, objc_selector="configurationWithActions:", objc_name="configurationWithActions", objc_is_class_method=true)
+	@(objc_type = SwipeActionsConfiguration, objc_selector = "configurationWithActions:", objc_name = "configurationWithActions", objc_is_class_method = true)
 	SwipeActionsConfiguration_configurationWithActions :: proc(actions: ^NS.Array) -> instancetype ---
 
-	@(objc_type=SwipeActionsConfiguration, objc_selector="actions", objc_name="actions")
+	@(objc_type = SwipeActionsConfiguration, objc_selector = "actions", objc_name = "actions")
 	SwipeActionsConfiguration_actions :: proc(self: ^SwipeActionsConfiguration) -> ^NS.Array ---
 
-	@(objc_type=SwipeActionsConfiguration, objc_selector="performsFirstActionWithFullSwipe", objc_name="performsFirstActionWithFullSwipe")
+	@(objc_type = SwipeActionsConfiguration, objc_selector = "performsFirstActionWithFullSwipe", objc_name = "performsFirstActionWithFullSwipe")
 	SwipeActionsConfiguration_performsFirstActionWithFullSwipe :: proc(self: ^SwipeActionsConfiguration) -> bool ---
 
-	@(objc_type=SwipeActionsConfiguration, objc_selector="setPerformsFirstActionWithFullSwipe:", objc_name="setPerformsFirstActionWithFullSwipe")
+	@(objc_type = SwipeActionsConfiguration, objc_selector = "setPerformsFirstActionWithFullSwipe:", objc_name = "setPerformsFirstActionWithFullSwipe")
 	SwipeActionsConfiguration_setPerformsFirstActionWithFullSwipe :: proc(self: ^SwipeActionsConfiguration, performsFirstActionWithFullSwipe: bool) ---
 }

@@ -5,36 +5,36 @@ package darwin_AppKit
 import CG "core:sys/darwin/CoreGraphics"
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class="NSShadow", objc_superclass=NS.Object)
+@(objc_class = "NSShadow", objc_superclass = NS.Object)
 Shadow :: struct {
 	using _: NS.Object,
 	using _: NS.Copying,
 	using _: NS.SecureCoding,
 }
 
-@(default_calling_convention="c")
+@(default_calling_convention = "c")
 foreign lib {
-	@(objc_type=Shadow, objc_selector="init", objc_name="init")
+	@(objc_type = Shadow, objc_selector = "init", objc_name = "init")
 	Shadow_init :: proc(self: ^Shadow) -> instancetype ---
 
-	@(objc_type=Shadow, objc_selector="set", objc_name="set")
+	@(objc_type = Shadow, objc_selector = "set", objc_name = "set")
 	Shadow_set :: proc(self: ^Shadow) ---
 
-	@(objc_type=Shadow, objc_selector="shadowOffset", objc_name="shadowOffset")
+	@(objc_type = Shadow, objc_selector = "shadowOffset", objc_name = "shadowOffset")
 	Shadow_shadowOffset :: proc(self: ^Shadow) -> NS.Size ---
 
-	@(objc_type=Shadow, objc_selector="setShadowOffset:", objc_name="setShadowOffset")
+	@(objc_type = Shadow, objc_selector = "setShadowOffset:", objc_name = "setShadowOffset")
 	Shadow_setShadowOffset :: proc(self: ^Shadow, shadowOffset: NS.Size) ---
 
-	@(objc_type=Shadow, objc_selector="shadowBlurRadius", objc_name="shadowBlurRadius")
+	@(objc_type = Shadow, objc_selector = "shadowBlurRadius", objc_name = "shadowBlurRadius")
 	Shadow_shadowBlurRadius :: proc(self: ^Shadow) -> CG.Float ---
 
-	@(objc_type=Shadow, objc_selector="setShadowBlurRadius:", objc_name="setShadowBlurRadius")
+	@(objc_type = Shadow, objc_selector = "setShadowBlurRadius:", objc_name = "setShadowBlurRadius")
 	Shadow_setShadowBlurRadius :: proc(self: ^Shadow, shadowBlurRadius: CG.Float) ---
 
-	@(objc_type=Shadow, objc_selector="shadowColor", objc_name="shadowColor")
+	@(objc_type = Shadow, objc_selector = "shadowColor", objc_name = "shadowColor")
 	Shadow_shadowColor :: proc(self: ^Shadow) -> ^Color ---
 
-	@(objc_type=Shadow, objc_selector="setShadowColor:", objc_name="setShadowColor")
+	@(objc_type = Shadow, objc_selector = "setShadowColor:", objc_name = "setShadowColor")
 	Shadow_setShadowColor :: proc(self: ^Shadow, shadowColor: ^Color) ---
 }

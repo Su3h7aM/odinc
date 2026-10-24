@@ -3,170 +3,178 @@
 package darwin_GameController
 
 import "base:intrinsics"
-import NS "core:sys/darwin/Foundation"
 import cffi "core:c"
+import NS "core:sys/darwin/Foundation"
 
-@(objc_class="GCDevice")
+@(objc_class = "GCDevice")
 Device :: struct {
 	using _: intrinsics.objc_object,
 	using _: NS.ObjectProtocol,
 }
 
 foreign lib {
-	@(objc_type=Device, objc_selector="handlerQueue", objc_name="handlerQueue")
+	@(objc_type = Device, objc_selector = "handlerQueue", objc_name = "handlerQueue")
 	Device_handlerQueue :: proc(self: ^Device) -> ^NS.Object ---
 
-	@(objc_type=Device, objc_selector="setHandlerQueue:", objc_name="setHandlerQueue")
+	@(objc_type = Device, objc_selector = "setHandlerQueue:", objc_name = "setHandlerQueue")
 	Device_setHandlerQueue :: proc(self: ^Device, handlerQueue: ^NS.Object) ---
 
-	@(objc_type=Device, objc_selector="vendorName", objc_name="vendorName")
+	@(objc_type = Device, objc_selector = "vendorName", objc_name = "vendorName")
 	Device_vendorName :: proc(self: ^Device) -> ^NS.String ---
 
-	@(objc_type=Device, objc_selector="productCategory", objc_name="productCategory")
+	@(objc_type = Device, objc_selector = "productCategory", objc_name = "productCategory")
 	Device_productCategory :: proc(self: ^Device) -> ^NS.String ---
 
-	@(objc_type=Device, objc_selector="physicalInputProfile", objc_name="physicalInputProfile")
+	@(objc_type = Device, objc_selector = "physicalInputProfile", objc_name = "physicalInputProfile")
 	Device_physicalInputProfile :: proc(self: ^Device) -> ^PhysicalInputProfile ---
 }
 
 
-@(objc_class="GCDeviceBattery", objc_superclass=NS.Object)
-DeviceBattery :: struct { using _: NS.Object}
+@(objc_class = "GCDeviceBattery", objc_superclass = NS.Object)
+DeviceBattery :: struct {
+	using _: NS.Object,
+}
 
 foreign lib {
-	@(objc_type=DeviceBattery, objc_selector="init", objc_name="init")
+	@(objc_type = DeviceBattery, objc_selector = "init", objc_name = "init")
 	DeviceBattery_init :: proc(self: ^DeviceBattery) -> instancetype ---
 
-	@(objc_type=DeviceBattery, objc_selector="batteryLevel", objc_name="batteryLevel")
+	@(objc_type = DeviceBattery, objc_selector = "batteryLevel", objc_name = "batteryLevel")
 	DeviceBattery_batteryLevel :: proc(self: ^DeviceBattery) -> cffi.float ---
 
-	@(objc_type=DeviceBattery, objc_selector="batteryState", objc_name="batteryState")
+	@(objc_type = DeviceBattery, objc_selector = "batteryState", objc_name = "batteryState")
 	DeviceBattery_batteryState :: proc(self: ^DeviceBattery) -> DeviceBatteryState ---
 }
 
 
-@(objc_class="GCDeviceCursor", objc_superclass=ControllerDirectionPad)
-DeviceCursor :: struct { using _: ControllerDirectionPad}
+@(objc_class = "GCDeviceCursor", objc_superclass = ControllerDirectionPad)
+DeviceCursor :: struct {
+	using _: ControllerDirectionPad,
+}
 
 
-@(objc_class="GCDeviceHaptics", objc_superclass=NS.Object)
-DeviceHaptics :: struct { using _: NS.Object}
+@(objc_class = "GCDeviceHaptics", objc_superclass = NS.Object)
+DeviceHaptics :: struct {
+	using _: NS.Object,
+}
 
 foreign lib {
-	@(objc_type=DeviceHaptics, objc_selector="init", objc_name="init")
+	@(objc_type = DeviceHaptics, objc_selector = "init", objc_name = "init")
 	DeviceHaptics_init :: proc(self: ^DeviceHaptics) -> instancetype ---
 
-	@(objc_type=DeviceHaptics, objc_selector="createEngineWithLocality:", objc_name="createEngineWithLocality")
+	@(objc_type = DeviceHaptics, objc_selector = "createEngineWithLocality:", objc_name = "createEngineWithLocality")
 	DeviceHaptics_createEngineWithLocality :: proc(self: ^DeviceHaptics, locality: ^NS.String) -> ^CHHapticEngine ---
 
-	@(objc_type=DeviceHaptics, objc_selector="supportedLocalities", objc_name="supportedLocalities")
+	@(objc_type = DeviceHaptics, objc_selector = "supportedLocalities", objc_name = "supportedLocalities")
 	DeviceHaptics_supportedLocalities :: proc(self: ^DeviceHaptics) -> ^NS.Set ---
 }
 
 
-@(objc_class="GCDeviceLight", objc_superclass=NS.Object)
-DeviceLight :: struct { using _: NS.Object}
+@(objc_class = "GCDeviceLight", objc_superclass = NS.Object)
+DeviceLight :: struct {
+	using _: NS.Object,
+}
 
 foreign lib {
-	@(objc_type=DeviceLight, objc_selector="init", objc_name="init")
+	@(objc_type = DeviceLight, objc_selector = "init", objc_name = "init")
 	DeviceLight_init :: proc(self: ^DeviceLight) -> instancetype ---
 
-	@(objc_type=DeviceLight, objc_selector="color", objc_name="color")
+	@(objc_type = DeviceLight, objc_selector = "color", objc_name = "color")
 	DeviceLight_color :: proc(self: ^DeviceLight) -> ^Color ---
 
-	@(objc_type=DeviceLight, objc_selector="setColor:", objc_name="setColor")
+	@(objc_type = DeviceLight, objc_selector = "setColor:", objc_name = "setColor")
 	DeviceLight_setColor :: proc(self: ^DeviceLight, color: ^Color) ---
 }
 
 
-@(objc_class="GCDevicePhysicalInput")
+@(objc_class = "GCDevicePhysicalInput")
 DevicePhysicalInput :: struct {
 	using _: intrinsics.objc_object,
 	using _: DevicePhysicalInputState,
 }
 
 foreign lib {
-	@(objc_type=DevicePhysicalInput, objc_selector="capture", objc_name="capture")
+	@(objc_type = DevicePhysicalInput, objc_selector = "capture", objc_name = "capture")
 	DevicePhysicalInput_capture :: proc(self: ^DevicePhysicalInput) -> ^DevicePhysicalInputState ---
 
-	@(objc_type=DevicePhysicalInput, objc_selector="nextInputState", objc_name="nextInputState")
+	@(objc_type = DevicePhysicalInput, objc_selector = "nextInputState", objc_name = "nextInputState")
 	DevicePhysicalInput_nextInputState :: proc(self: ^DevicePhysicalInput) -> ^id ---
 
-	@(objc_type=DevicePhysicalInput, objc_selector="device", objc_name="device")
+	@(objc_type = DevicePhysicalInput, objc_selector = "device", objc_name = "device")
 	DevicePhysicalInput_device :: proc(self: ^DevicePhysicalInput) -> ^Device ---
 
-	@(objc_type=DevicePhysicalInput, objc_selector="queue", objc_name="queue")
+	@(objc_type = DevicePhysicalInput, objc_selector = "queue", objc_name = "queue")
 	DevicePhysicalInput_queue :: proc(self: ^DevicePhysicalInput) -> ^NS.Object ---
 
-	@(objc_type=DevicePhysicalInput, objc_selector="setQueue:", objc_name="setQueue")
+	@(objc_type = DevicePhysicalInput, objc_selector = "setQueue:", objc_name = "setQueue")
 	DevicePhysicalInput_setQueue :: proc(self: ^DevicePhysicalInput, queue: ^NS.Object) ---
 
-	@(objc_type=DevicePhysicalInput, objc_selector="elementValueDidChangeHandler", objc_name="elementValueDidChangeHandler")
+	@(objc_type = DevicePhysicalInput, objc_selector = "elementValueDidChangeHandler", objc_name = "elementValueDidChangeHandler")
 	DevicePhysicalInput_elementValueDidChangeHandler :: proc(self: ^DevicePhysicalInput) -> ^Objc_Block(proc "c" ()) ---
 
-	@(objc_type=DevicePhysicalInput, objc_selector="setElementValueDidChangeHandler:", objc_name="setElementValueDidChangeHandler")
+	@(objc_type = DevicePhysicalInput, objc_selector = "setElementValueDidChangeHandler:", objc_name = "setElementValueDidChangeHandler")
 	DevicePhysicalInput_setElementValueDidChangeHandler :: proc(self: ^DevicePhysicalInput, elementValueDidChangeHandler: ^Objc_Block(proc "c" ())) ---
 
-	@(objc_type=DevicePhysicalInput, objc_selector="inputStateAvailableHandler", objc_name="inputStateAvailableHandler")
+	@(objc_type = DevicePhysicalInput, objc_selector = "inputStateAvailableHandler", objc_name = "inputStateAvailableHandler")
 	DevicePhysicalInput_inputStateAvailableHandler :: proc(self: ^DevicePhysicalInput) -> ^Objc_Block(proc "c" ()) ---
 
-	@(objc_type=DevicePhysicalInput, objc_selector="setInputStateAvailableHandler:", objc_name="setInputStateAvailableHandler")
+	@(objc_type = DevicePhysicalInput, objc_selector = "setInputStateAvailableHandler:", objc_name = "setInputStateAvailableHandler")
 	DevicePhysicalInput_setInputStateAvailableHandler :: proc(self: ^DevicePhysicalInput, inputStateAvailableHandler: ^Objc_Block(proc "c" ())) ---
 
-	@(objc_type=DevicePhysicalInput, objc_selector="inputStateQueueDepth", objc_name="inputStateQueueDepth")
+	@(objc_type = DevicePhysicalInput, objc_selector = "inputStateQueueDepth", objc_name = "inputStateQueueDepth")
 	DevicePhysicalInput_inputStateQueueDepth :: proc(self: ^DevicePhysicalInput) -> NS.Integer ---
 
-	@(objc_type=DevicePhysicalInput, objc_selector="setInputStateQueueDepth:", objc_name="setInputStateQueueDepth")
+	@(objc_type = DevicePhysicalInput, objc_selector = "setInputStateQueueDepth:", objc_name = "setInputStateQueueDepth")
 	DevicePhysicalInput_setInputStateQueueDepth :: proc(self: ^DevicePhysicalInput, inputStateQueueDepth: NS.Integer) ---
 }
 
 
-@(objc_class="GCDevicePhysicalInputState")
+@(objc_class = "GCDevicePhysicalInputState")
 DevicePhysicalInputState :: struct {
 	using _: intrinsics.objc_object,
 	using _: NS.ObjectProtocol,
 }
 
 foreign lib {
-	@(objc_type=DevicePhysicalInputState, objc_selector="objectForKeyedSubscript:", objc_name="objectForKeyedSubscript")
+	@(objc_type = DevicePhysicalInputState, objc_selector = "objectForKeyedSubscript:", objc_name = "objectForKeyedSubscript")
 	DevicePhysicalInputState_objectForKeyedSubscript :: proc(self: ^DevicePhysicalInputState, key: ^NS.String) -> ^PhysicalInputElement ---
 
-	@(objc_type=DevicePhysicalInputState, objc_selector="device", objc_name="device")
+	@(objc_type = DevicePhysicalInputState, objc_selector = "device", objc_name = "device")
 	DevicePhysicalInputState_device :: proc(self: ^DevicePhysicalInputState) -> ^Device ---
 
-	@(objc_type=DevicePhysicalInputState, objc_selector="lastEventTimestamp", objc_name="lastEventTimestamp")
+	@(objc_type = DevicePhysicalInputState, objc_selector = "lastEventTimestamp", objc_name = "lastEventTimestamp")
 	DevicePhysicalInputState_lastEventTimestamp :: proc(self: ^DevicePhysicalInputState) -> NS.TimeInterval ---
 
-	@(objc_type=DevicePhysicalInputState, objc_selector="lastEventLatency", objc_name="lastEventLatency")
+	@(objc_type = DevicePhysicalInputState, objc_selector = "lastEventLatency", objc_name = "lastEventLatency")
 	DevicePhysicalInputState_lastEventLatency :: proc(self: ^DevicePhysicalInputState) -> NS.TimeInterval ---
 
-	@(objc_type=DevicePhysicalInputState, objc_selector="elements", objc_name="elements")
+	@(objc_type = DevicePhysicalInputState, objc_selector = "elements", objc_name = "elements")
 	DevicePhysicalInputState_elements :: proc(self: ^DevicePhysicalInputState) -> ^PhysicalInputElementCollection ---
 
-	@(objc_type=DevicePhysicalInputState, objc_selector="buttons", objc_name="buttons")
+	@(objc_type = DevicePhysicalInputState, objc_selector = "buttons", objc_name = "buttons")
 	DevicePhysicalInputState_buttons :: proc(self: ^DevicePhysicalInputState) -> ^PhysicalInputElementCollection ---
 
-	@(objc_type=DevicePhysicalInputState, objc_selector="axes", objc_name="axes")
+	@(objc_type = DevicePhysicalInputState, objc_selector = "axes", objc_name = "axes")
 	DevicePhysicalInputState_axes :: proc(self: ^DevicePhysicalInputState) -> ^PhysicalInputElementCollection ---
 
-	@(objc_type=DevicePhysicalInputState, objc_selector="switches", objc_name="switches")
+	@(objc_type = DevicePhysicalInputState, objc_selector = "switches", objc_name = "switches")
 	DevicePhysicalInputState_switches :: proc(self: ^DevicePhysicalInputState) -> ^PhysicalInputElementCollection ---
 
-	@(objc_type=DevicePhysicalInputState, objc_selector="dpads", objc_name="dpads")
+	@(objc_type = DevicePhysicalInputState, objc_selector = "dpads", objc_name = "dpads")
 	DevicePhysicalInputState_dpads :: proc(self: ^DevicePhysicalInputState) -> ^PhysicalInputElementCollection ---
 }
 
 
-@(objc_class="GCDevicePhysicalInputStateDiff")
+@(objc_class = "GCDevicePhysicalInputStateDiff")
 DevicePhysicalInputStateDiff :: struct {
 	using _: intrinsics.objc_object,
 	using _: NS.ObjectProtocol,
 }
 
 foreign lib {
-	@(objc_type=DevicePhysicalInputStateDiff, objc_selector="changeForElement:", objc_name="changeForElement")
+	@(objc_type = DevicePhysicalInputStateDiff, objc_selector = "changeForElement:", objc_name = "changeForElement")
 	DevicePhysicalInputStateDiff_changeForElement :: proc(self: ^DevicePhysicalInputStateDiff, element: ^PhysicalInputElement) -> DevicePhysicalInputElementChange ---
 
-	@(objc_type=DevicePhysicalInputStateDiff, objc_selector="changedElements", objc_name="changedElements")
+	@(objc_type = DevicePhysicalInputStateDiff, objc_selector = "changedElements", objc_name = "changedElements")
 	DevicePhysicalInputStateDiff_changedElements :: proc(self: ^DevicePhysicalInputStateDiff) -> ^NS.Enumerator ---
 }

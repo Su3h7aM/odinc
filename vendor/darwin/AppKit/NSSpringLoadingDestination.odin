@@ -5,29 +5,29 @@ package darwin_AppKit
 import "base:intrinsics"
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class="NSSpringLoadingDestination")
+@(objc_class = "NSSpringLoadingDestination")
 SpringLoadingDestination :: struct {
 	using _: intrinsics.objc_object,
 	using _: NS.ObjectProtocol,
 }
 
-@(default_calling_convention="c")
+@(default_calling_convention = "c")
 foreign lib {
-	@(objc_type=SpringLoadingDestination, objc_selector="springLoadingActivated:draggingInfo:", objc_name="springLoadingActivated")
+	@(objc_type = SpringLoadingDestination, objc_selector = "springLoadingActivated:draggingInfo:", objc_name = "springLoadingActivated")
 	SpringLoadingDestination_springLoadingActivated :: proc(self: ^SpringLoadingDestination, activated: bool, draggingInfo: ^DraggingInfo) ---
 
-	@(objc_type=SpringLoadingDestination, objc_selector="springLoadingHighlightChanged:", objc_name="springLoadingHighlightChanged")
+	@(objc_type = SpringLoadingDestination, objc_selector = "springLoadingHighlightChanged:", objc_name = "springLoadingHighlightChanged")
 	SpringLoadingDestination_springLoadingHighlightChanged :: proc(self: ^SpringLoadingDestination, draggingInfo: ^DraggingInfo) ---
 
-	@(objc_type=SpringLoadingDestination, objc_selector="springLoadingEntered:", objc_name="springLoadingEntered")
+	@(objc_type = SpringLoadingDestination, objc_selector = "springLoadingEntered:", objc_name = "springLoadingEntered")
 	SpringLoadingDestination_springLoadingEntered :: proc(self: ^SpringLoadingDestination, draggingInfo: ^DraggingInfo) -> SpringLoadingOptions ---
 
-	@(objc_type=SpringLoadingDestination, objc_selector="springLoadingUpdated:", objc_name="springLoadingUpdated")
+	@(objc_type = SpringLoadingDestination, objc_selector = "springLoadingUpdated:", objc_name = "springLoadingUpdated")
 	SpringLoadingDestination_springLoadingUpdated :: proc(self: ^SpringLoadingDestination, draggingInfo: ^DraggingInfo) -> SpringLoadingOptions ---
 
-	@(objc_type=SpringLoadingDestination, objc_selector="springLoadingExited:", objc_name="springLoadingExited")
+	@(objc_type = SpringLoadingDestination, objc_selector = "springLoadingExited:", objc_name = "springLoadingExited")
 	SpringLoadingDestination_springLoadingExited :: proc(self: ^SpringLoadingDestination, draggingInfo: ^DraggingInfo) ---
 
-	@(objc_type=SpringLoadingDestination, objc_selector="draggingEnded:", objc_name="draggingEnded")
+	@(objc_type = SpringLoadingDestination, objc_selector = "draggingEnded:", objc_name = "draggingEnded")
 	SpringLoadingDestination_draggingEnded :: proc(self: ^SpringLoadingDestination, draggingInfo: ^DraggingInfo) ---
 }

@@ -3,158 +3,162 @@
 package darwin_GameController
 
 import "base:intrinsics"
-import NS "core:sys/darwin/Foundation"
 import cffi "core:c"
+import NS "core:sys/darwin/Foundation"
 
-@(objc_class="GCPhysicalInputElement")
+@(objc_class = "GCPhysicalInputElement")
 PhysicalInputElement :: struct {
 	using _: intrinsics.objc_object,
 	using _: NS.ObjectProtocol,
 }
 
 foreign lib {
-	@(objc_type=PhysicalInputElement, objc_selector="aliases", objc_name="aliases")
+	@(objc_type = PhysicalInputElement, objc_selector = "aliases", objc_name = "aliases")
 	PhysicalInputElement_aliases :: proc(self: ^PhysicalInputElement) -> ^NS.Set ---
 
-	@(objc_type=PhysicalInputElement, objc_selector="localizedName", objc_name="localizedName")
+	@(objc_type = PhysicalInputElement, objc_selector = "localizedName", objc_name = "localizedName")
 	PhysicalInputElement_localizedName :: proc(self: ^PhysicalInputElement) -> ^NS.String ---
 
-	@(objc_type=PhysicalInputElement, objc_selector="sfSymbolsName", objc_name="sfSymbolsName")
+	@(objc_type = PhysicalInputElement, objc_selector = "sfSymbolsName", objc_name = "sfSymbolsName")
 	PhysicalInputElement_sfSymbolsName :: proc(self: ^PhysicalInputElement) -> ^NS.String ---
 }
 
 
-@(objc_class="GCPhysicalInputElementCollection", objc_superclass=NS.Object)
+@(objc_class = "GCPhysicalInputElementCollection", objc_superclass = NS.Object)
 PhysicalInputElementCollection :: struct {
 	using _: NS.Object,
 	using _: NS.FastEnumeration,
 }
 
 foreign lib {
-	@(objc_type=PhysicalInputElementCollection, objc_selector="new", objc_name="new", objc_is_class_method=true)
+	@(objc_type = PhysicalInputElementCollection, objc_selector = "new", objc_name = "new", objc_is_class_method = true)
 	PhysicalInputElementCollection_new :: proc() -> ^PhysicalInputElementCollection ---
 
-	@(objc_type=PhysicalInputElementCollection, objc_selector="init", objc_name="init")
+	@(objc_type = PhysicalInputElementCollection, objc_selector = "init", objc_name = "init")
 	PhysicalInputElementCollection_init :: proc(self: ^PhysicalInputElementCollection) -> instancetype ---
 
-	@(objc_type=PhysicalInputElementCollection, objc_selector="elementForAlias:", objc_name="elementForAlias")
+	@(objc_type = PhysicalInputElementCollection, objc_selector = "elementForAlias:", objc_name = "elementForAlias")
 	PhysicalInputElementCollection_elementForAlias :: proc(self: ^PhysicalInputElementCollection, alias: id) -> id ---
 
-	@(objc_type=PhysicalInputElementCollection, objc_selector="objectForKeyedSubscript:", objc_name="objectForKeyedSubscript")
+	@(objc_type = PhysicalInputElementCollection, objc_selector = "objectForKeyedSubscript:", objc_name = "objectForKeyedSubscript")
 	PhysicalInputElementCollection_objectForKeyedSubscript :: proc(self: ^PhysicalInputElementCollection, key: id) -> id ---
 
-	@(objc_type=PhysicalInputElementCollection, objc_selector="elementEnumerator", objc_name="elementEnumerator")
+	@(objc_type = PhysicalInputElementCollection, objc_selector = "elementEnumerator", objc_name = "elementEnumerator")
 	PhysicalInputElementCollection_elementEnumerator :: proc(self: ^PhysicalInputElementCollection) -> ^NS.Enumerator ---
 
-	@(objc_type=PhysicalInputElementCollection, objc_selector="count", objc_name="count")
+	@(objc_type = PhysicalInputElementCollection, objc_selector = "count", objc_name = "count")
 	PhysicalInputElementCollection_count :: proc(self: ^PhysicalInputElementCollection) -> NS.UInteger ---
 }
 
 
-@(objc_class="GCPhysicalInputElementName")
-PhysicalInputElementName :: struct { using _: intrinsics.objc_object}
+@(objc_class = "GCPhysicalInputElementName")
+PhysicalInputElementName :: struct {
+	using _: intrinsics.objc_object,
+}
 
 
-@(objc_class="GCPhysicalInputExtents")
+@(objc_class = "GCPhysicalInputExtents")
 PhysicalInputExtents :: struct {
 	using _: intrinsics.objc_object,
 	using _: NS.ObjectProtocol,
 }
 
 foreign lib {
-	@(objc_type=PhysicalInputExtents, objc_selector="scaledValue", objc_name="scaledValue")
+	@(objc_type = PhysicalInputExtents, objc_selector = "scaledValue", objc_name = "scaledValue")
 	PhysicalInputExtents_scaledValue :: proc(self: ^PhysicalInputExtents) -> cffi.double ---
 
-	@(objc_type=PhysicalInputExtents, objc_selector="minimumValue", objc_name="minimumValue")
+	@(objc_type = PhysicalInputExtents, objc_selector = "minimumValue", objc_name = "minimumValue")
 	PhysicalInputExtents_minimumValue :: proc(self: ^PhysicalInputExtents) -> cffi.double ---
 
-	@(objc_type=PhysicalInputExtents, objc_selector="maximumValue", objc_name="maximumValue")
+	@(objc_type = PhysicalInputExtents, objc_selector = "maximumValue", objc_name = "maximumValue")
 	PhysicalInputExtents_maximumValue :: proc(self: ^PhysicalInputExtents) -> cffi.double ---
 }
 
 
-@(objc_class="GCPhysicalInputProfile", objc_superclass=NS.Object)
-PhysicalInputProfile :: struct { using _: NS.Object}
+@(objc_class = "GCPhysicalInputProfile", objc_superclass = NS.Object)
+PhysicalInputProfile :: struct {
+	using _: NS.Object,
+}
 
 foreign lib {
-	@(objc_type=PhysicalInputProfile, objc_selector="objectForKeyedSubscript:", objc_name="objectForKeyedSubscript")
+	@(objc_type = PhysicalInputProfile, objc_selector = "objectForKeyedSubscript:", objc_name = "objectForKeyedSubscript")
 	PhysicalInputProfile_objectForKeyedSubscript :: proc(self: ^PhysicalInputProfile, key: ^NS.String) -> ^ControllerElement ---
 
-	@(objc_type=PhysicalInputProfile, objc_selector="capture", objc_name="capture")
+	@(objc_type = PhysicalInputProfile, objc_selector = "capture", objc_name = "capture")
 	PhysicalInputProfile_capture :: proc(self: ^PhysicalInputProfile) -> instancetype ---
 
-	@(objc_type=PhysicalInputProfile, objc_selector="setStateFromPhysicalInput:", objc_name="setStateFromPhysicalInput")
+	@(objc_type = PhysicalInputProfile, objc_selector = "setStateFromPhysicalInput:", objc_name = "setStateFromPhysicalInput")
 	PhysicalInputProfile_setStateFromPhysicalInput :: proc(self: ^PhysicalInputProfile, physicalInput: ^PhysicalInputProfile) ---
 
-	@(objc_type=PhysicalInputProfile, objc_selector="mappedElementAliasForPhysicalInputName:", objc_name="mappedElementAliasForPhysicalInputName")
+	@(objc_type = PhysicalInputProfile, objc_selector = "mappedElementAliasForPhysicalInputName:", objc_name = "mappedElementAliasForPhysicalInputName")
 	PhysicalInputProfile_mappedElementAliasForPhysicalInputName :: proc(self: ^PhysicalInputProfile, inputName: ^NS.String) -> ^NS.String ---
 
-	@(objc_type=PhysicalInputProfile, objc_selector="mappedPhysicalInputNamesForElementAlias:", objc_name="mappedPhysicalInputNamesForElementAlias")
+	@(objc_type = PhysicalInputProfile, objc_selector = "mappedPhysicalInputNamesForElementAlias:", objc_name = "mappedPhysicalInputNamesForElementAlias")
 	PhysicalInputProfile_mappedPhysicalInputNamesForElementAlias :: proc(self: ^PhysicalInputProfile, elementAlias: ^NS.String) -> ^NS.Set ---
 
-	@(objc_type=PhysicalInputProfile, objc_selector="device", objc_name="device")
+	@(objc_type = PhysicalInputProfile, objc_selector = "device", objc_name = "device")
 	PhysicalInputProfile_device :: proc(self: ^PhysicalInputProfile) -> ^Device ---
 
-	@(objc_type=PhysicalInputProfile, objc_selector="lastEventTimestamp", objc_name="lastEventTimestamp")
+	@(objc_type = PhysicalInputProfile, objc_selector = "lastEventTimestamp", objc_name = "lastEventTimestamp")
 	PhysicalInputProfile_lastEventTimestamp :: proc(self: ^PhysicalInputProfile) -> NS.TimeInterval ---
 
-	@(objc_type=PhysicalInputProfile, objc_selector="hasRemappedElements", objc_name="hasRemappedElements")
+	@(objc_type = PhysicalInputProfile, objc_selector = "hasRemappedElements", objc_name = "hasRemappedElements")
 	PhysicalInputProfile_hasRemappedElements :: proc(self: ^PhysicalInputProfile) -> bool ---
 
-	@(objc_type=PhysicalInputProfile, objc_selector="valueDidChangeHandler", objc_name="valueDidChangeHandler")
+	@(objc_type = PhysicalInputProfile, objc_selector = "valueDidChangeHandler", objc_name = "valueDidChangeHandler")
 	PhysicalInputProfile_valueDidChangeHandler :: proc(self: ^PhysicalInputProfile) -> ^Objc_Block(proc "c" ()) ---
 
-	@(objc_type=PhysicalInputProfile, objc_selector="setValueDidChangeHandler:", objc_name="setValueDidChangeHandler")
+	@(objc_type = PhysicalInputProfile, objc_selector = "setValueDidChangeHandler:", objc_name = "setValueDidChangeHandler")
 	PhysicalInputProfile_setValueDidChangeHandler :: proc(self: ^PhysicalInputProfile, valueDidChangeHandler: ^Objc_Block(proc "c" ())) ---
 
-	@(objc_type=PhysicalInputProfile, objc_selector="elements", objc_name="elements")
+	@(objc_type = PhysicalInputProfile, objc_selector = "elements", objc_name = "elements")
 	PhysicalInputProfile_elements :: proc(self: ^PhysicalInputProfile) -> ^NS.Dictionary ---
 
-	@(objc_type=PhysicalInputProfile, objc_selector="buttons", objc_name="buttons")
+	@(objc_type = PhysicalInputProfile, objc_selector = "buttons", objc_name = "buttons")
 	PhysicalInputProfile_buttons :: proc(self: ^PhysicalInputProfile) -> ^NS.Dictionary ---
 
-	@(objc_type=PhysicalInputProfile, objc_selector="axes", objc_name="axes")
+	@(objc_type = PhysicalInputProfile, objc_selector = "axes", objc_name = "axes")
 	PhysicalInputProfile_axes :: proc(self: ^PhysicalInputProfile) -> ^NS.Dictionary ---
 
-	@(objc_type=PhysicalInputProfile, objc_selector="dpads", objc_name="dpads")
+	@(objc_type = PhysicalInputProfile, objc_selector = "dpads", objc_name = "dpads")
 	PhysicalInputProfile_dpads :: proc(self: ^PhysicalInputProfile) -> ^NS.Dictionary ---
 
-	@(objc_type=PhysicalInputProfile, objc_selector="touchpads", objc_name="touchpads")
+	@(objc_type = PhysicalInputProfile, objc_selector = "touchpads", objc_name = "touchpads")
 	PhysicalInputProfile_touchpads :: proc(self: ^PhysicalInputProfile) -> ^NS.Dictionary ---
 
-	@(objc_type=PhysicalInputProfile, objc_selector="allElements", objc_name="allElements")
+	@(objc_type = PhysicalInputProfile, objc_selector = "allElements", objc_name = "allElements")
 	PhysicalInputProfile_allElements :: proc(self: ^PhysicalInputProfile) -> ^NS.Set ---
 
-	@(objc_type=PhysicalInputProfile, objc_selector="allButtons", objc_name="allButtons")
+	@(objc_type = PhysicalInputProfile, objc_selector = "allButtons", objc_name = "allButtons")
 	PhysicalInputProfile_allButtons :: proc(self: ^PhysicalInputProfile) -> ^NS.Set ---
 
-	@(objc_type=PhysicalInputProfile, objc_selector="allAxes", objc_name="allAxes")
+	@(objc_type = PhysicalInputProfile, objc_selector = "allAxes", objc_name = "allAxes")
 	PhysicalInputProfile_allAxes :: proc(self: ^PhysicalInputProfile) -> ^NS.Set ---
 
-	@(objc_type=PhysicalInputProfile, objc_selector="allDpads", objc_name="allDpads")
+	@(objc_type = PhysicalInputProfile, objc_selector = "allDpads", objc_name = "allDpads")
 	PhysicalInputProfile_allDpads :: proc(self: ^PhysicalInputProfile) -> ^NS.Set ---
 
-	@(objc_type=PhysicalInputProfile, objc_selector="allTouchpads", objc_name="allTouchpads")
+	@(objc_type = PhysicalInputProfile, objc_selector = "allTouchpads", objc_name = "allTouchpads")
 	PhysicalInputProfile_allTouchpads :: proc(self: ^PhysicalInputProfile) -> ^NS.Set ---
 }
 
 
-@(objc_class="GCPhysicalInputSource")
+@(objc_class = "GCPhysicalInputSource")
 PhysicalInputSource :: struct {
 	using _: intrinsics.objc_object,
 	using _: NS.ObjectProtocol,
 }
 
 foreign lib {
-	@(objc_type=PhysicalInputSource, objc_selector="elementAliases", objc_name="elementAliases")
+	@(objc_type = PhysicalInputSource, objc_selector = "elementAliases", objc_name = "elementAliases")
 	PhysicalInputSource_elementAliases :: proc(self: ^PhysicalInputSource) -> ^NS.Set ---
 
-	@(objc_type=PhysicalInputSource, objc_selector="elementLocalizedName", objc_name="elementLocalizedName")
+	@(objc_type = PhysicalInputSource, objc_selector = "elementLocalizedName", objc_name = "elementLocalizedName")
 	PhysicalInputSource_elementLocalizedName :: proc(self: ^PhysicalInputSource) -> ^NS.String ---
 
-	@(objc_type=PhysicalInputSource, objc_selector="sfSymbolsName", objc_name="sfSymbolsName")
+	@(objc_type = PhysicalInputSource, objc_selector = "sfSymbolsName", objc_name = "sfSymbolsName")
 	PhysicalInputSource_sfSymbolsName :: proc(self: ^PhysicalInputSource) -> ^NS.String ---
 
-	@(objc_type=PhysicalInputSource, objc_selector="direction", objc_name="direction")
+	@(objc_type = PhysicalInputSource, objc_selector = "direction", objc_name = "direction")
 	PhysicalInputSource_direction :: proc(self: ^PhysicalInputSource) -> PhysicalInputSourceDirection ---
 }

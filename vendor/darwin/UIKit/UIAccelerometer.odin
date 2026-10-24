@@ -2,39 +2,41 @@
 #+build darwin:ios
 package darwin_UIKit
 
-import NS "core:sys/darwin/Foundation"
 import "base:intrinsics"
+import NS "core:sys/darwin/Foundation"
 
-@(objc_class="UIAccelerometer", objc_superclass=NS.Object)
-Accelerometer :: struct { using _: NS.Object}
+@(objc_class = "UIAccelerometer", objc_superclass = NS.Object)
+Accelerometer :: struct {
+	using _: NS.Object,
+}
 
-@(default_calling_convention="c")
+@(default_calling_convention = "c")
 foreign lib {
-	@(objc_type=Accelerometer, objc_selector="sharedAccelerometer", objc_name="sharedAccelerometer", objc_is_class_method=true)
+	@(objc_type = Accelerometer, objc_selector = "sharedAccelerometer", objc_name = "sharedAccelerometer", objc_is_class_method = true)
 	Accelerometer_sharedAccelerometer :: proc() -> ^Accelerometer ---
 
-	@(objc_type=Accelerometer, objc_selector="updateInterval", objc_name="updateInterval")
+	@(objc_type = Accelerometer, objc_selector = "updateInterval", objc_name = "updateInterval")
 	Accelerometer_updateInterval :: proc(self: ^Accelerometer) -> NS.TimeInterval ---
 
-	@(objc_type=Accelerometer, objc_selector="setUpdateInterval:", objc_name="setUpdateInterval")
+	@(objc_type = Accelerometer, objc_selector = "setUpdateInterval:", objc_name = "setUpdateInterval")
 	Accelerometer_setUpdateInterval :: proc(self: ^Accelerometer, updateInterval: NS.TimeInterval) ---
 
-	@(objc_type=Accelerometer, objc_selector="delegate", objc_name="delegate")
+	@(objc_type = Accelerometer, objc_selector = "delegate", objc_name = "delegate")
 	Accelerometer_delegate :: proc(self: ^Accelerometer) -> ^AccelerometerDelegate ---
 
-	@(objc_type=Accelerometer, objc_selector="setDelegate:", objc_name="setDelegate")
+	@(objc_type = Accelerometer, objc_selector = "setDelegate:", objc_name = "setDelegate")
 	Accelerometer_setDelegate :: proc(self: ^Accelerometer, delegate: ^AccelerometerDelegate) ---
 }
 
 
-@(objc_class="UIAccelerometerDelegate")
+@(objc_class = "UIAccelerometerDelegate")
 AccelerometerDelegate :: struct {
 	using _: intrinsics.objc_object,
 	using _: NS.ObjectProtocol,
 }
 
-@(default_calling_convention="c")
+@(default_calling_convention = "c")
 foreign lib {
-	@(objc_type=AccelerometerDelegate, objc_selector="accelerometer:didAccelerate:", objc_name="accelerometer")
+	@(objc_type = AccelerometerDelegate, objc_selector = "accelerometer:didAccelerate:", objc_name = "accelerometer")
 	AccelerometerDelegate_accelerometer :: proc(self: ^AccelerometerDelegate, accelerometer: ^Accelerometer, acceleration: ^Acceleration) ---
 }

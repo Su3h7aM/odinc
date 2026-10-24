@@ -2,85 +2,85 @@
 #+build darwin:default
 package darwin_AppKit
 
-import NS "core:sys/darwin/Foundation"
 import "base:intrinsics"
+import NS "core:sys/darwin/Foundation"
 
-@(objc_class="NSFilePromiseProvider", objc_superclass=NS.Object)
+@(objc_class = "NSFilePromiseProvider", objc_superclass = NS.Object)
 FilePromiseProvider :: struct {
 	using _: NS.Object,
 	using _: PasteboardWriting,
 }
 
-@(default_calling_convention="c")
+@(default_calling_convention = "c")
 foreign lib {
-	@(objc_type=FilePromiseProvider, objc_selector="initWithFileType:delegate:", objc_name="initWithFileType")
+	@(objc_type = FilePromiseProvider, objc_selector = "initWithFileType:delegate:", objc_name = "initWithFileType")
 	FilePromiseProvider_initWithFileType :: proc(self: ^FilePromiseProvider, fileType: ^NS.String, delegate: ^FilePromiseProviderDelegate) -> instancetype ---
 
-	@(objc_type=FilePromiseProvider, objc_selector="init", objc_name="init")
+	@(objc_type = FilePromiseProvider, objc_selector = "init", objc_name = "init")
 	FilePromiseProvider_init :: proc(self: ^FilePromiseProvider) -> instancetype ---
 
-	@(objc_type=FilePromiseProvider, objc_selector="fileType", objc_name="fileType")
+	@(objc_type = FilePromiseProvider, objc_selector = "fileType", objc_name = "fileType")
 	FilePromiseProvider_fileType :: proc(self: ^FilePromiseProvider) -> ^NS.String ---
 
-	@(objc_type=FilePromiseProvider, objc_selector="setFileType:", objc_name="setFileType")
+	@(objc_type = FilePromiseProvider, objc_selector = "setFileType:", objc_name = "setFileType")
 	FilePromiseProvider_setFileType :: proc(self: ^FilePromiseProvider, fileType: ^NS.String) ---
 
-	@(objc_type=FilePromiseProvider, objc_selector="delegate", objc_name="delegate")
+	@(objc_type = FilePromiseProvider, objc_selector = "delegate", objc_name = "delegate")
 	FilePromiseProvider_delegate :: proc(self: ^FilePromiseProvider) -> ^FilePromiseProviderDelegate ---
 
-	@(objc_type=FilePromiseProvider, objc_selector="setDelegate:", objc_name="setDelegate")
+	@(objc_type = FilePromiseProvider, objc_selector = "setDelegate:", objc_name = "setDelegate")
 	FilePromiseProvider_setDelegate :: proc(self: ^FilePromiseProvider, delegate: ^FilePromiseProviderDelegate) ---
 
-	@(objc_type=FilePromiseProvider, objc_selector="userInfo", objc_name="userInfo")
+	@(objc_type = FilePromiseProvider, objc_selector = "userInfo", objc_name = "userInfo")
 	FilePromiseProvider_userInfo :: proc(self: ^FilePromiseProvider) -> id ---
 
-	@(objc_type=FilePromiseProvider, objc_selector="setUserInfo:", objc_name="setUserInfo")
+	@(objc_type = FilePromiseProvider, objc_selector = "setUserInfo:", objc_name = "setUserInfo")
 	FilePromiseProvider_setUserInfo :: proc(self: ^FilePromiseProvider, userInfo: id) ---
 }
 
 
-@(objc_class="NSFilePromiseProviderDelegate")
+@(objc_class = "NSFilePromiseProviderDelegate")
 FilePromiseProviderDelegate :: struct {
 	using _: intrinsics.objc_object,
 	using _: NS.ObjectProtocol,
 }
 
-@(default_calling_convention="c")
+@(default_calling_convention = "c")
 foreign lib {
-	@(objc_type=FilePromiseProviderDelegate, objc_selector="filePromiseProvider:fileNameForType:", objc_name="filePromiseProvider_fileNameForType")
+	@(objc_type = FilePromiseProviderDelegate, objc_selector = "filePromiseProvider:fileNameForType:", objc_name = "filePromiseProvider_fileNameForType")
 	FilePromiseProviderDelegate_filePromiseProvider_fileNameForType :: proc(self: ^FilePromiseProviderDelegate, filePromiseProvider: ^FilePromiseProvider, fileType: ^NS.String) -> ^NS.String ---
 
-	@(objc_type=FilePromiseProviderDelegate, objc_selector="filePromiseProvider:writePromiseToURL:completionHandler:", objc_name="filePromiseProvider_writePromiseToURL_completionHandler")
-	FilePromiseProviderDelegate_filePromiseProvider_writePromiseToURL_completionHandler :: proc(self: ^FilePromiseProviderDelegate, filePromiseProvider: ^FilePromiseProvider, url: ^NS.URL, completionHandler: ^Objc_Block(proc "c" ( errorOrNil: ^NS.Error ))) ---
+	@(objc_type = FilePromiseProviderDelegate, objc_selector = "filePromiseProvider:writePromiseToURL:completionHandler:", objc_name = "filePromiseProvider_writePromiseToURL_completionHandler")
+	FilePromiseProviderDelegate_filePromiseProvider_writePromiseToURL_completionHandler :: proc(self: ^FilePromiseProviderDelegate, filePromiseProvider: ^FilePromiseProvider, url: ^NS.URL, completionHandler: ^Objc_Block(proc "c" (errorOrNil: ^NS.Error))) ---
 
-	@(objc_type=FilePromiseProviderDelegate, objc_selector="operationQueueForFilePromiseProvider:", objc_name="operationQueueForFilePromiseProvider")
+	@(objc_type = FilePromiseProviderDelegate, objc_selector = "operationQueueForFilePromiseProvider:", objc_name = "operationQueueForFilePromiseProvider")
 	FilePromiseProviderDelegate_operationQueueForFilePromiseProvider :: proc(self: ^FilePromiseProviderDelegate, filePromiseProvider: ^FilePromiseProvider) -> ^NS.OperationQueue ---
 }
 
-@(objc_type=FilePromiseProviderDelegate, objc_name="filePromiseProvider")
+@(objc_type = FilePromiseProviderDelegate, objc_name = "filePromiseProvider")
 FilePromiseProviderDelegate_filePromiseProvider :: proc {
 	FilePromiseProviderDelegate_filePromiseProvider_fileNameForType,
 	FilePromiseProviderDelegate_filePromiseProvider_writePromiseToURL_completionHandler,
 }
 
 
-@(objc_class="NSFilePromiseReceiver", objc_superclass=NS.Object)
+@(objc_class = "NSFilePromiseReceiver", objc_superclass = NS.Object)
 FilePromiseReceiver :: struct {
 	using _: NS.Object,
 	using _: PasteboardReading,
 }
 
-@(default_calling_convention="c")
+@(default_calling_convention = "c")
 foreign lib {
-	@(objc_type=FilePromiseReceiver, objc_selector="receivePromisedFilesAtDestination:options:operationQueue:reader:", objc_name="receivePromisedFilesAtDestination")
-	FilePromiseReceiver_receivePromisedFilesAtDestination :: proc(self: ^FilePromiseReceiver, destinationDir: ^NS.URL, options: ^NS.Dictionary, operationQueue: ^NS.OperationQueue, reader: ^Objc_Block(proc "c" ( fileURL: ^NS.URL, errorOrNil: ^NS.Error ))) ---
+	@(objc_type = FilePromiseReceiver, objc_selector = "receivePromisedFilesAtDestination:options:operationQueue:reader:", objc_name = "receivePromisedFilesAtDestination")
+	FilePromiseReceiver_receivePromisedFilesAtDestination :: proc(self: ^FilePromiseReceiver, destinationDir: ^NS.URL, options: ^NS.Dictionary, operationQueue: ^NS.OperationQueue, reader: ^Objc_Block(proc "c" (fileURL: ^NS.URL, errorOrNil: ^NS.Error))) ---
 
-	@(objc_type=FilePromiseReceiver, objc_selector="readableDraggedTypes", objc_name="readableDraggedTypes", objc_is_class_method=true)
+	@(objc_type = FilePromiseReceiver, objc_selector = "readableDraggedTypes", objc_name = "readableDraggedTypes", objc_is_class_method = true)
 	FilePromiseReceiver_readableDraggedTypes :: proc() -> ^NS.Array ---
 
-	@(objc_type=FilePromiseReceiver, objc_selector="fileTypes", objc_name="fileTypes")
+	@(objc_type = FilePromiseReceiver, objc_selector = "fileTypes", objc_name = "fileTypes")
 	FilePromiseReceiver_fileTypes :: proc(self: ^FilePromiseReceiver) -> ^NS.Array ---
 
-	@(objc_type=FilePromiseReceiver, objc_selector="fileNames", objc_name="fileNames")
+	@(objc_type = FilePromiseReceiver, objc_selector = "fileNames", objc_name = "fileNames")
 	FilePromiseReceiver_fileNames :: proc(self: ^FilePromiseReceiver) -> ^NS.Array ---
 }

@@ -6,21 +6,25 @@ package ENet
 // {
 foreign import WinSock2 "system:Ws2_32.lib"
 
-@(private="file", default_calling_convention="c")
+@(private = "file", default_calling_convention = "c")
 foreign WinSock2 {
 	__WSAFDIsSet :: proc(fd: SOCKET, s: ^fd_set) -> i32 ---
 }
 
-@(private="file") SOCKET :: uintptr
+@(private = "file")
+SOCKET :: uintptr
 
-@(private="file") FD_SETSIZE :: 64
+@(private = "file")
+FD_SETSIZE :: 64
 
-@(private="file") fd_set :: struct {
+@(private = "file")
+fd_set :: struct {
 	fd_count: u32,
 	fd_array: [FD_SETSIZE]SOCKET,
 }
 
-@(private="file") FD_CLR :: proc "contextless" (fd: SOCKET, s: ^fd_set) {
+@(private = "file")
+FD_CLR :: proc "contextless" (fd: SOCKET, s: ^fd_set) {
 	for i := u32(0); i < s.fd_count; i += 1 {
 		if s.fd_array[i] == fd {
 			for i < s.fd_count - 1 {
@@ -33,7 +37,8 @@ foreign WinSock2 {
 	}
 }
 
-@(private="file") FD_SET :: proc "contextless" (fd: SOCKET, s: ^fd_set) {
+@(private = "file")
+FD_SET :: proc "contextless" (fd: SOCKET, s: ^fd_set) {
 	for i := u32(0); i < s.fd_count; i += 1 {
 		if s.fd_array[i] == fd {
 			return
@@ -46,11 +51,13 @@ foreign WinSock2 {
 	s.fd_count += 1
 }
 
-@(private="file") FD_ZERO :: #force_inline proc "contextless" (s: ^fd_set) {
+@(private = "file")
+FD_ZERO :: #force_inline proc "contextless" (s: ^fd_set) {
 	s.fd_count = 0
 }
 
-@(private="file") FD_ISSET :: #force_inline proc "contextless" (fd: SOCKET, s: ^fd_set) -> bool {
+@(private = "file")
+FD_ISSET :: #force_inline proc "contextless" (fd: SOCKET, s: ^fd_set) -> bool {
 	return __WSAFDIsSet(fd, s) != 0
 }
 // }

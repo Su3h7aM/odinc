@@ -1,7 +1,7 @@
 package vendor_box3d
 
 
-@(link_prefix="b3", default_calling_convention="c")
+@(link_prefix = "b3", default_calling_convention = "c")
 foreign lib {
 	// Box3D bases all length units on meters, but you may need different units for your game.
 	// You can set this value to use different units. This should be done at application startup
@@ -144,9 +144,9 @@ PARALLEL_EDGE_TOL :: 0.005
 MAX_SHAPE_CAST_POINTS :: MAX_HULL_VERTICES
 
 // These generous limits allow for easy hashing. See b3ShapePairKey.
-SHAPE_POWER      :: 22
-CHILD_POWER      :: 64 - 2 * SHAPE_POWER
-MAX_SHAPES       :: 1 << SHAPE_POWER
+SHAPE_POWER :: 22
+CHILD_POWER :: 64 - 2 * SHAPE_POWER
+MAX_SHAPES :: 1 << SHAPE_POWER
 MAX_CHILD_SHAPES :: 1 << CHILD_POWER
 
 // Increase this if your application needs more accurate restitution. Doing so will

@@ -11,2486 +11,3960 @@ import NS "core:sys/darwin/Foundation"
 import CA "vendor:darwin/QuartzCore"
 
 
-
-id            :: ^intrinsics.objc_object
-SEL           :: ^intrinsics.objc_selector
-Class         :: ^intrinsics.objc_class
-IMP           :: rawptr
-Protocol      :: distinct id
-instancetype  :: intrinsics.objc_instancetype
+id :: ^intrinsics.objc_object
+SEL :: ^intrinsics.objc_selector
+Class :: ^intrinsics.objc_class
+IMP :: rawptr
+Protocol :: distinct id
+instancetype :: intrinsics.objc_instancetype
 
 @(export, require)
-foreign import lib {
-	"system:AppKit.framework",
-}
+foreign import lib "system:AppKit.framework"
 
 
 OpaqueSecTransformImplementation :: struct {}
-OpaqueSecIdentitySearchRef       :: struct {}
-OpaquePolicySearchRef            :: struct {}
-CVTimeStamp                      :: struct {}
+OpaqueSecIdentitySearchRef :: struct {}
+OpaquePolicySearchRef :: struct {}
+CVTimeStamp :: struct {}
 
 CIBarcodeDescriptor :: NS.Object
-CKShare             :: NS.Object
-CKContainer         :: NS.Object
-CIImage             :: NS.Object
-INIntent            :: NS.Object
-CIColor             :: NS.Object
-CIFilter            :: NS.Object
-CIContext           :: NS.Object
-CKShareMetadata     :: NS.Object
-QTMovie             :: NS.Object
-UTType              :: NS.Object
+CKShare :: NS.Object
+CKContainer :: NS.Object
+CIImage :: NS.Object
+INIntent :: NS.Object
+CIColor :: NS.Object
+CIFilter :: NS.Object
+CIContext :: NS.Object
+CKShareMetadata :: NS.Object
+QTMovie :: NS.Object
+UTType :: NS.Object
 
-GCGamepadSnapShotDataV100         :: struct {}
-GCExtendedGamepadSnapshotData     :: struct {}
+GCGamepadSnapShotDataV100 :: struct {}
+GCExtendedGamepadSnapshotData :: struct {}
 GCExtendedGamepadSnapShotDataV100 :: struct {}
-GCMicroGamepadSnapshotData        :: struct {}
-GCMicroGamepadSnapShotDataV100    :: struct {}
+GCMicroGamepadSnapshotData :: struct {}
+GCMicroGamepadSnapShotDataV100 :: struct {}
 
 Array_Iterator :: struct($T: typeid) {
-	array: ^NS.Array,
+	array:  ^NS.Array,
 	length: int,
 	index:  int,
 }
 
-array_iter :: proc( $T: typeid, array: ^NS.Array ) -> Array_Iterator(T) {
-	return Array_Iterator(T) {
-		array  = array,
-		length = int(array->count()),
-		index  = 0,
-	}
+array_iter :: proc($T: typeid, array: ^NS.Array) -> Array_Iterator(T) {
+	return Array_Iterator(T){array = array, length = int(array->count()), index = 0}
 }
 
-array_next :: proc( it: ^Array_Iterator($T) ) -> (val: ^T, idx: int, cond: bool) {
+array_next :: proc(it: ^Array_Iterator($T)) -> (val: ^T, idx: int, cond: bool) {
 	if it.index >= it.length {
 		return
 	}
 
-	val      = auto_cast it.array->objectAtIndex(auto_cast it.index)
-	idx      = it.index
-	cond     = true
+	val = auto_cast it.array->objectAtIndex(auto_cast it.index)
+	idx = it.index
+	cond = true
 	it.index += 1
 	return
 }
 
-to_ns_string :: #force_inline proc "contextless" ( str: string ) -> ^String {
+to_ns_string :: #force_inline proc "contextless" (str: string) -> ^String {
 	return String.alloc()->initWithBytes(raw_data(str), UInteger(len(str)), UTF8StringEncoding)
 }
 
-to_ns_string_no_copy :: #force_inline proc "contextless" ( str: string ) -> ^String {
+to_ns_string_no_copy :: #force_inline proc "contextless" (str: string) -> ^String {
 	return String.alloc()->initWithBytesNoCopy(raw_data(str), UInteger(len(str)), UTF8StringEncoding, false)
 }
 
-to_odin_string :: proc( ns_str: ^String, allocator := context.allocator ) -> string {
+to_odin_string :: proc(ns_str: ^String, allocator := context.allocator) -> string {
 	length := ns_str->lengthOfBytesUsingEncoding(UTF8StringEncoding)
-	dest := make([]u8, int(length)+1, allocator)
+	dest := make([]u8, int(length) + 1, allocator)
 
 	runtime.mem_copy_non_overlapping(raw_data(dest), rawptr(ns_str->UTF8String()), int(length))
 	return string(dest[:length])
 }
 
-tmp_to_odin_string :: #force_inline proc ( ns_str: ^String ) -> string {
+tmp_to_odin_string :: #force_inline proc(ns_str: ^String) -> string {
 	return to_odin_string(ns_str, context.temp_allocator)
 }
 
-STR :: #force_inline proc "contextless" ( #const s: cstring ) -> ^String {
+STR :: #force_inline proc "contextless" (s: cstring) -> ^String {
 	return auto_cast CF.STR(s)
 }
 
 
-
-TextReadInapplicableDocumentTypeError               :: 65806
-TextWriteInapplicableDocumentTypeError              :: 66062
-TextReadWriteErrorMinimum                           :: 65792
-TextReadWriteErrorMaximum                           :: 66303
-FontAssetDownloadError                              :: 66304
-FontErrorMinimum                                    :: 66304
-FontErrorMaximum                                    :: 66335
-ServiceApplicationNotFoundError                     :: 66560
-ServiceApplicationLaunchFailedError                 :: 66561
-ServiceRequestTimedOutError                         :: 66562
-ServiceInvalidPasteboardDataError                   :: 66563
-ServiceMalformedServiceDictionaryError              :: 66564
-ServiceMiscellaneousError                           :: 66800
-ServiceErrorMinimum                                 :: 66560
-ServiceErrorMaximum                                 :: 66817
-SharingServiceNotConfiguredError                    :: 67072
-SharingServiceErrorMinimum                          :: 67072
-SharingServiceErrorMaximum                          :: 67327
-WorkspaceAuthorizationInvalidError                  :: 67328
-WorkspaceErrorMinimum                               :: 67328
-WorkspaceErrorMaximum                               :: 67455
-WindowSharingRequestAlreadyRequested                :: 67456
-WindowSharingRequestNoEligibleSession               :: 67457
-WindowSharingRequestUnspecifiedError                :: 67458
-WindowSharingErrorMinimum                           :: 67456
-WindowSharingErrorMaximum                           :: 67466
-PasteboardMiscellaneousError                        :: 67584
-PasteboardCommunicationError                        :: 67585
-PasteboardInvalidArgumentError                      :: 67586
-PasteboardContentsNotAvailableError                 :: 67587
-PasteboardErrorMinimum                              :: 67584
-PasteboardErrorMaximum                              :: 67839
-AccessibilityHourMinuteDateTimeComponentsFlag       :: 12
+TextReadInapplicableDocumentTypeError :: 65806
+TextWriteInapplicableDocumentTypeError :: 66062
+TextReadWriteErrorMinimum :: 65792
+TextReadWriteErrorMaximum :: 66303
+FontAssetDownloadError :: 66304
+FontErrorMinimum :: 66304
+FontErrorMaximum :: 66335
+ServiceApplicationNotFoundError :: 66560
+ServiceApplicationLaunchFailedError :: 66561
+ServiceRequestTimedOutError :: 66562
+ServiceInvalidPasteboardDataError :: 66563
+ServiceMalformedServiceDictionaryError :: 66564
+ServiceMiscellaneousError :: 66800
+ServiceErrorMinimum :: 66560
+ServiceErrorMaximum :: 66817
+SharingServiceNotConfiguredError :: 67072
+SharingServiceErrorMinimum :: 67072
+SharingServiceErrorMaximum :: 67327
+WorkspaceAuthorizationInvalidError :: 67328
+WorkspaceErrorMinimum :: 67328
+WorkspaceErrorMaximum :: 67455
+WindowSharingRequestAlreadyRequested :: 67456
+WindowSharingRequestNoEligibleSession :: 67457
+WindowSharingRequestUnspecifiedError :: 67458
+WindowSharingErrorMinimum :: 67456
+WindowSharingErrorMaximum :: 67466
+PasteboardMiscellaneousError :: 67584
+PasteboardCommunicationError :: 67585
+PasteboardInvalidArgumentError :: 67586
+PasteboardContentsNotAvailableError :: 67587
+PasteboardErrorMinimum :: 67584
+PasteboardErrorMaximum :: 67839
+AccessibilityHourMinuteDateTimeComponentsFlag :: 12
 AccessibilityHourMinuteSecondDateTimeComponentsFlag :: 14
-AccessibilityYearMonthDateTimeComponentsFlag        :: 192
-AccessibilityYearMonthDayDateTimeComponentsFlag     :: 224
-UpArrowFunctionKey                                  :: 63232
-DownArrowFunctionKey                                :: 63233
-LeftArrowFunctionKey                                :: 63234
-RightArrowFunctionKey                               :: 63235
-F1FunctionKey                                       :: 63236
-F2FunctionKey                                       :: 63237
-F3FunctionKey                                       :: 63238
-F4FunctionKey                                       :: 63239
-F5FunctionKey                                       :: 63240
-F6FunctionKey                                       :: 63241
-F7FunctionKey                                       :: 63242
-F8FunctionKey                                       :: 63243
-F9FunctionKey                                       :: 63244
-F10FunctionKey                                      :: 63245
-F11FunctionKey                                      :: 63246
-F12FunctionKey                                      :: 63247
-F13FunctionKey                                      :: 63248
-F14FunctionKey                                      :: 63249
-F15FunctionKey                                      :: 63250
-F16FunctionKey                                      :: 63251
-F17FunctionKey                                      :: 63252
-F18FunctionKey                                      :: 63253
-F19FunctionKey                                      :: 63254
-F20FunctionKey                                      :: 63255
-F21FunctionKey                                      :: 63256
-F22FunctionKey                                      :: 63257
-F23FunctionKey                                      :: 63258
-F24FunctionKey                                      :: 63259
-F25FunctionKey                                      :: 63260
-F26FunctionKey                                      :: 63261
-F27FunctionKey                                      :: 63262
-F28FunctionKey                                      :: 63263
-F29FunctionKey                                      :: 63264
-F30FunctionKey                                      :: 63265
-F31FunctionKey                                      :: 63266
-F32FunctionKey                                      :: 63267
-F33FunctionKey                                      :: 63268
-F34FunctionKey                                      :: 63269
-F35FunctionKey                                      :: 63270
-InsertFunctionKey                                   :: 63271
-DeleteFunctionKey                                   :: 63272
-HomeFunctionKey                                     :: 63273
-BeginFunctionKey                                    :: 63274
-EndFunctionKey                                      :: 63275
-PageUpFunctionKey                                   :: 63276
-PageDownFunctionKey                                 :: 63277
-PrintScreenFunctionKey                              :: 63278
-ScrollLockFunctionKey                               :: 63279
-PauseFunctionKey                                    :: 63280
-SysReqFunctionKey                                   :: 63281
-BreakFunctionKey                                    :: 63282
-ResetFunctionKey                                    :: 63283
-StopFunctionKey                                     :: 63284
-MenuFunctionKey                                     :: 63285
-UserFunctionKey                                     :: 63286
-SystemFunctionKey                                   :: 63287
-PrintFunctionKey                                    :: 63288
-ClearLineFunctionKey                                :: 63289
-ClearDisplayFunctionKey                             :: 63290
-InsertLineFunctionKey                               :: 63291
-DeleteLineFunctionKey                               :: 63292
-InsertCharFunctionKey                               :: 63293
-DeleteCharFunctionKey                               :: 63294
-PrevFunctionKey                                     :: 63295
-NextFunctionKey                                     :: 63296
-SelectFunctionKey                                   :: 63297
-ExecuteFunctionKey                                  :: 63298
-UndoFunctionKey                                     :: 63299
-RedoFunctionKey                                     :: 63300
-FindFunctionKey                                     :: 63301
-HelpFunctionKey                                     :: 63302
-ModeSwitchFunctionKey                               :: 63303
-EnterCharacter                                      :: 3
-BackspaceCharacter                                  :: 8
-TabCharacter                                        :: 9
-NewlineCharacter                                    :: 10
-FormFeedCharacter                                   :: 12
-CarriageReturnCharacter                             :: 13
-BackTabCharacter                                    :: 25
-DeleteCharacter                                     :: 127
-LineSeparatorCharacter                              :: 8232
-ParagraphSeparatorCharacter                         :: 8233
-IllegalTextMovement                                 :: 0
-ReturnTextMovement                                  :: 16
-TabTextMovement                                     :: 17
-BacktabTextMovement                                 :: 18
-LeftTextMovement                                    :: 19
-RightTextMovement                                   :: 20
-UpTextMovement                                      :: 21
-DownTextMovement                                    :: 22
-CancelTextMovement                                  :: 23
-OtherTextMovement                                   :: 0
-TextWritingDirectionEmbedding                       :: 0
-TextWritingDirectionOverride                        :: 2
-AnyType                                             :: 0
-IntType                                             :: 1
-PositiveIntType                                     :: 2
-FloatType                                           :: 3
-PositiveFloatType                                   :: 4
-DoubleType                                          :: 6
-PositiveDoubleType                                  :: 7
-UpdateWindowsRunLoopOrdering                        :: 500000
-RunStoppedResponse                                  :: -1000
-RunAbortedResponse                                  :: -1001
-RunContinuesResponse                                :: -1002
-FontUnknownClass                                    :: 0
-FontOldStyleSerifsClass                             :: 268435456
-FontTransitionalSerifsClass                         :: 536870912
-FontModernSerifsClass                               :: 805306368
-FontClarendonSerifsClass                            :: 1073741824
-FontSlabSerifsClass                                 :: 1342177280
-FontFreeformSerifsClass                             :: 1879048192
-FontSansSerifClass                                  :: -2147483648
-FontOrnamentalsClass                                :: -1879048192
-FontScriptsClass                                    :: -1610612736
-FontSymbolicClass                                   :: -1073741824
-FontFamilyClassMask                                 :: 4026531840
-FontItalicTrait                                     :: 1
-FontBoldTrait                                       :: 2
-FontExpandedTrait                                   :: 32
-FontCondensedTrait                                  :: 64
-FontMonoSpaceTrait                                  :: 1024
-FontVerticalTrait                                   :: 2048
-FontUIOptimizedTrait                                :: 4096
-ControlGlyph                                        :: 16777215
-NullGlyph                                           :: 0
-DisplayWindowRunLoopOrdering                        :: 600000
-ResetCursorRectsRunLoopOrdering                     :: 700000
-AlertDefaultReturn                                  :: 1
-AlertAlternateReturn                                :: 0
-AlertOtherReturn                                    :: -1
-AlertErrorReturn                                    :: -2
-OKButton                                            :: 1
-CancelButton                                        :: 0
-FontPanelFaceModeMask                               :: 1
-FontPanelSizeModeMask                               :: 2
-FontPanelCollectionModeMask                         :: 4
-FontPanelUnderlineEffectModeMask                    :: 256
-FontPanelStrikethroughEffectModeMask                :: 512
-FontPanelTextColorEffectModeMask                    :: 1024
-FontPanelDocumentColorEffectModeMask                :: 2048
-FontPanelShadowEffectModeMask                       :: 4096
-FontPanelAllEffectsModeMask                         :: 1048320
-FontPanelStandardModesMask                          :: 65535
-FontPanelAllModesMask                               :: 4294967295
-FPPreviewButton                                     :: 131
-FPRevertButton                                      :: 130
-FPSetButton                                         :: 132
-FPPreviewField                                      :: 128
-FPSizeField                                         :: 129
-FPSizeTitle                                         :: 133
-FPCurrentField                                      :: 134
-ImageRepMatchesDevice                               :: 0
-FileHandlingPanelCancelButton                       :: 0
-FileHandlingPanelOKButton                           :: 1
-NoUnderlineStyle                                    :: 0
-SingleUnderlineStyle                                :: 1
-ShowControlGlyphs                                   :: 1
-ShowInvisibleGlyphs                                 :: 2
-WantsBidiLevels                                     :: 4
-GlyphAttributeSoft                                  :: 0
-GlyphAttributeElastic                               :: 1
-GlyphAttributeBidiLevel                             :: 2
-GlyphAttributeInscribe                              :: 5
-AttachmentCharacter                                 :: 65532
-OutlineViewDropOnItemIndex                          :: -1
-NoInterfaceStyle                                    :: 0
-NextStepInterfaceStyle                              :: 1
-Windows95InterfaceStyle                             :: 2
-MacintoshInterfaceStyle                             :: 3
-OpenGLPFAAllRenderers                               :: 1
-OpenGLPFATripleBuffer                               :: 3
-OpenGLPFADoubleBuffer                               :: 5
-OpenGLPFAAuxBuffers                                 :: 7
-OpenGLPFAColorSize                                  :: 8
-OpenGLPFAAlphaSize                                  :: 11
-OpenGLPFADepthSize                                  :: 12
-OpenGLPFAStencilSize                                :: 13
-OpenGLPFAAccumSize                                  :: 14
-OpenGLPFAMinimumPolicy                              :: 51
-OpenGLPFAMaximumPolicy                              :: 52
-OpenGLPFASampleBuffers                              :: 55
-OpenGLPFASamples                                    :: 56
-OpenGLPFAAuxDepthStencil                            :: 57
-OpenGLPFAColorFloat                                 :: 58
-OpenGLPFAMultisample                                :: 59
-OpenGLPFASupersample                                :: 60
-OpenGLPFASampleAlpha                                :: 61
-OpenGLPFARendererID                                 :: 70
-OpenGLPFANoRecovery                                 :: 72
-OpenGLPFAAccelerated                                :: 73
-OpenGLPFAClosestPolicy                              :: 74
-OpenGLPFABackingStore                               :: 76
-OpenGLPFAScreenMask                                 :: 84
-OpenGLPFAAllowOfflineRenderers                      :: 96
-OpenGLPFAAcceleratedCompute                         :: 97
-OpenGLPFAOpenGLProfile                              :: 99
-OpenGLPFAVirtualScreenCount                         :: 128
-OpenGLPFAStereo                                     :: 6
-OpenGLPFAOffScreen                                  :: 53
-OpenGLPFAFullScreen                                 :: 54
-OpenGLPFASingleRenderer                             :: 71
-OpenGLPFARobust                                     :: 75
-OpenGLPFAMPSafe                                     :: 78
-OpenGLPFAWindow                                     :: 80
-OpenGLPFAMultiScreen                                :: 81
-OpenGLPFACompliant                                  :: 83
-OpenGLPFAPixelBuffer                                :: 90
-OpenGLPFARemotePixelBuffer                          :: 91
-OpenGLProfileVersionLegacy                          :: 4096
-OpenGLProfileVersion3_2Core                         :: 12800
-OpenGLProfileVersion4_1Core                         :: 16640
-CompositeClear                                      :: 0
-CompositeCopy                                       :: 1
-CompositeSourceOver                                 :: 2
-CompositeSourceIn                                   :: 3
-CompositeSourceOut                                  :: 4
-CompositeSourceAtop                                 :: 5
-CompositeDestinationOver                            :: 6
-CompositeDestinationIn                              :: 7
-CompositeDestinationOut                             :: 8
-CompositeDestinationAtop                            :: 9
-CompositeXOR                                        :: 10
-CompositePlusDarker                                 :: 11
-CompositeHighlight                                  :: 12
-CompositePlusLighter                                :: 13
-CompositeMultiply                                   :: 14
-CompositeScreen                                     :: 15
-CompositeOverlay                                    :: 16
-CompositeDarken                                     :: 17
-CompositeLighten                                    :: 18
-CompositeColorDodge                                 :: 19
-CompositeColorBurn                                  :: 20
-CompositeSoftLight                                  :: 21
-CompositeHardLight                                  :: 22
-CompositeDifference                                 :: 23
-CompositeExclusion                                  :: 24
-CompositeHue                                        :: 25
-CompositeSaturation                                 :: 26
-CompositeColor                                      :: 27
-CompositeLuminosity                                 :: 28
-LeftMouseDown                                       :: 1
-LeftMouseUp                                         :: 2
-RightMouseDown                                      :: 3
-RightMouseUp                                        :: 4
-MouseMoved                                          :: 5
-LeftMouseDragged                                    :: 6
-RightMouseDragged                                   :: 7
-MouseEntered                                        :: 8
-MouseExited                                         :: 9
-KeyDown                                             :: 10
-KeyUp                                               :: 11
-FlagsChanged                                        :: 12
-AppKitDefined                                       :: 13
-SystemDefined                                       :: 14
-ApplicationDefined                                  :: 15
-Periodic                                            :: 16
-CursorUpdate                                        :: 17
-ScrollWheel                                         :: 22
-TabletPoint                                         :: 23
-TabletProximity                                     :: 24
-OtherMouseDown                                      :: 25
-OtherMouseUp                                        :: 26
-OtherMouseDragged                                   :: 27
-LeftMouseDownMask                                   :: 2
-LeftMouseUpMask                                     :: 4
-RightMouseDownMask                                  :: 8
-RightMouseUpMask                                    :: 16
-MouseMovedMask                                      :: 32
-LeftMouseDraggedMask                                :: 64
-RightMouseDraggedMask                               :: 128
-MouseEnteredMask                                    :: 256
-MouseExitedMask                                     :: 512
-KeyDownMask                                         :: 1024
-KeyUpMask                                           :: 2048
-FlagsChangedMask                                    :: 4096
-AppKitDefinedMask                                   :: 8192
-SystemDefinedMask                                   :: 16384
-ApplicationDefinedMask                              :: 32768
-PeriodicMask                                        :: 65536
-CursorUpdateMask                                    :: 131072
-ScrollWheelMask                                     :: 4194304
-TabletPointMask                                     :: 8388608
-TabletProximityMask                                 :: 16777216
-OtherMouseDownMask                                  :: 33554432
-OtherMouseUpMask                                    :: 67108864
-OtherMouseDraggedMask                               :: 134217728
-AnyEventMask                                        :: 18446744073709551615
-AlphaShiftKeyMask                                   :: 65536
-ShiftKeyMask                                        :: 131072
-ControlKeyMask                                      :: 262144
-AlternateKeyMask                                    :: 524288
-CommandKeyMask                                      :: 1048576
-NumericPadKeyMask                                   :: 2097152
-HelpKeyMask                                         :: 4194304
-FunctionKeyMask                                     :: 8388608
-DeviceIndependentModifierFlagsMask                  :: 4294901760
-UnknownPointingDevice                               :: 0
-PenPointingDevice                                   :: 1
-CursorPointingDevice                                :: 2
-EraserPointingDevice                                :: 3
-PenTipMask                                          :: 1
-PenLowerSideMask                                    :: 2
-PenUpperSideMask                                    :: 4
-WindowExposedEventType                              :: 0
-ApplicationActivatedEventType                       :: 1
-ApplicationDeactivatedEventType                     :: 2
-WindowMovedEventType                                :: 4
-ScreenChangedEventType                              :: 8
-AWTEventType                                        :: 16
-PowerOffEventType                                   :: 1
-MouseEventSubtype                                   :: 0
-TabletPointEventSubtype                             :: 1
-TabletProximityEventSubtype                         :: 2
-TouchEventSubtype                                   :: 3
-LeftTextAlignment                                   :: 0
-RightTextAlignment                                  :: 2
-CenterTextAlignment                                 :: 1
-JustifiedTextAlignment                              :: 3
-NaturalTextAlignment                                :: 4
-ControlStateValueMixed                              :: -1
-ControlStateValueOff                                :: 0
-ControlStateValueOn                                 :: 1
-BackgroundStyleLight                                :: 0
-BackgroundStyleDark                                 :: 1
-MixedState                                          :: -1
-OffState                                            :: 0
-OnState                                             :: 1
-RegularControlSize                                  :: 0
-SmallControlSize                                    :: 1
-MiniControlSize                                     :: 2
-AutoPagination                                      :: 0
-FitPagination                                       :: 1
-ClipPagination                                      :: 2
-AppKitVersionNumber10_0                             :: 577.000000
-AppKitVersionNumber10_1                             :: 620.000000
-AppKitVersionNumber10_2                             :: 663.000000
-AppKitVersionNumber10_2_3                           :: 663.600000
-AppKitVersionNumber10_3                             :: 743.000000
-AppKitVersionNumber10_3_2                           :: 743.140000
-AppKitVersionNumber10_3_3                           :: 743.200000
-AppKitVersionNumber10_3_5                           :: 743.240000
-AppKitVersionNumber10_3_7                           :: 743.330000
-AppKitVersionNumber10_3_9                           :: 743.360000
-AppKitVersionNumber10_4                             :: 824.000000
-AppKitVersionNumber10_4_1                           :: 824.100000
-AppKitVersionNumber10_4_3                           :: 824.230000
-AppKitVersionNumber10_4_4                           :: 824.330000
-AppKitVersionNumber10_4_7                           :: 824.410000
-AppKitVersionNumber10_5                             :: 949.000000
-AppKitVersionNumber10_5_2                           :: 949.270000
-AppKitVersionNumber10_5_3                           :: 949.330000
-AppKitVersionNumber10_6                             :: 1038.000000
-AppKitVersionNumber10_7                             :: 1138.000000
-AppKitVersionNumber10_7_2                           :: 1138.230000
-AppKitVersionNumber10_7_3                           :: 1138.320000
-AppKitVersionNumber10_7_4                           :: 1138.470000
-AppKitVersionNumber10_8                             :: 1187.000000
-AppKitVersionNumber10_9                             :: 1265.000000
-AppKitVersionNumber10_10                            :: 1343.000000
-AppKitVersionNumber10_10_2                          :: 1344.000000
-AppKitVersionNumber10_10_3                          :: 1347.000000
-AppKitVersionNumber10_10_4                          :: 1348.000000
-AppKitVersionNumber10_10_5                          :: 1348.000000
-AppKitVersionNumber10_10_Max                        :: 1349.000000
-AppKitVersionNumber10_11                            :: 1404.000000
-AppKitVersionNumber10_11_1                          :: 1404.130000
-AppKitVersionNumber10_11_2                          :: 1404.340000
-AppKitVersionNumber10_11_3                          :: 1404.340000
-AppKitVersionNumber10_12                            :: 1504.000000
-AppKitVersionNumber10_12_1                          :: 1504.600000
-AppKitVersionNumber10_12_2                          :: 1504.760000
-AppKitVersionNumber10_13                            :: 1561.000000
-AppKitVersionNumber10_13_1                          :: 1561.100000
-AppKitVersionNumber10_13_2                          :: 1561.200000
-AppKitVersionNumber10_13_4                          :: 1561.400000
-AppKitVersionNumber10_14                            :: 1671.000000
-AppKitVersionNumber10_14_1                          :: 1671.100000
-AppKitVersionNumber10_14_2                          :: 1671.200000
-AppKitVersionNumber10_14_3                          :: 1671.300000
-AppKitVersionNumber10_14_4                          :: 1671.400000
-AppKitVersionNumber10_14_5                          :: 1671.500000
-AppKitVersionNumber10_15                            :: 1894.000000
-AppKitVersionNumber10_15_1                          :: 1894.100000
-AppKitVersionNumber10_15_2                          :: 1894.200000
-AppKitVersionNumber10_15_3                          :: 1894.300000
-AppKitVersionNumber10_15_4                          :: 1894.400000
-AppKitVersionNumber10_15_5                          :: 1894.500000
-AppKitVersionNumber10_15_6                          :: 1894.600000
-AppKitVersionNumber11_0                             :: 2022.000000
-AppKitVersionNumber11_1                             :: 2022.200000
-AppKitVersionNumber11_2                             :: 2022.300000
-AppKitVersionNumber11_3                             :: 2022.400000
-AppKitVersionNumber11_4                             :: 2022.500000
-AppKitVersionNumber11_5                             :: 2022.600000
-AppKitVersionNumber12_0                             :: 2113.000000
-AppKitVersionNumber12_1                             :: 2113.200000
-AppKitVersionNumber12_2                             :: 2113.300000
-AppKitVersionNumber12_3                             :: 2113.400000
-AppKitVersionNumber12_4                             :: 2113.500000
-AppKitVersionNumber12_5                             :: 2113.600000
-AppKitVersionNumber13_0                             :: 2299.000000
-AppKitVersionNumber13_1                             :: 2299.300000
-AppKitVersionNumber13_2                             :: 2299.300000
-AppKitVersionNumber13_3                             :: 2299.400000
-AppKitVersionNumber13_4                             :: 2299.500000
-AppKitVersionNumber13_5                             :: 2299.600000
-AppKitVersionNumber13_6                             :: 2299.700000
-AppKitVersionNumber14_0                             :: 2487.000000
-AppKitVersionNumber14_1                             :: 2487.200000
-ModalResponseStop                                   :: -1000
-ModalResponseAbort                                  :: -1001
-ModalResponseContinue                               :: -1002
-AppKitVersionNumberWithPatternColorLeakFix          :: 641.000000
-AlertFirstButtonReturn                              :: 1000
-AlertSecondButtonReturn                             :: 1001
-AlertThirdButtonReturn                              :: 1002
-WarningAlertStyle                                   :: 0
-InformationalAlertStyle                             :: 1
-CriticalAlertStyle                                  :: 2
-BoxSecondary                                        :: 1
-BoxOldStyle                                         :: 3
-MomentaryLightButton                                :: 0
-PushOnPushOffButton                                 :: 1
-ToggleButton                                        :: 2
-SwitchButton                                        :: 3
-RadioButton                                         :: 4
-MomentaryChangeButton                               :: 5
-OnOffButton                                         :: 6
-MomentaryPushInButton                               :: 7
-AcceleratorButton                                   :: 8
-MultiLevelAcceleratorButton                         :: 9
-MomentaryPushButton                                 :: 0
-MomentaryLight                                      :: 7
-RoundedBezelStyle                                   :: 1
-RegularSquareBezelStyle                             :: 2
-DisclosureBezelStyle                                :: 5
-ShadowlessSquareBezelStyle                          :: 6
-CircularBezelStyle                                  :: 7
-TexturedSquareBezelStyle                            :: 8
-HelpButtonBezelStyle                                :: 9
-SmallSquareBezelStyle                               :: 10
-TexturedRoundedBezelStyle                           :: 11
-RoundRectBezelStyle                                 :: 12
-RecessedBezelStyle                                  :: 13
-RoundedDisclosureBezelStyle                         :: 14
-InlineBezelStyle                                    :: 15
-SmallIconButtonBezelStyle                           :: 2
-ThickSquareBezelStyle                               :: 3
-ThickerSquareBezelStyle                             :: 4
-TouchBarItemPriorityHigh                            :: 1000.000000
-TouchBarItemPriorityNormal                          :: 0.000000
-TouchBarItemPriorityLow                             :: -1000.000000
-AppKitVersionNumberWithDockTilePlugInSupport        :: 1001.000000
-AppKitVersionNumberWithCustomSheetPosition          :: 686.000000
+AccessibilityYearMonthDateTimeComponentsFlag :: 192
+AccessibilityYearMonthDayDateTimeComponentsFlag :: 224
+UpArrowFunctionKey :: 63232
+DownArrowFunctionKey :: 63233
+LeftArrowFunctionKey :: 63234
+RightArrowFunctionKey :: 63235
+F1FunctionKey :: 63236
+F2FunctionKey :: 63237
+F3FunctionKey :: 63238
+F4FunctionKey :: 63239
+F5FunctionKey :: 63240
+F6FunctionKey :: 63241
+F7FunctionKey :: 63242
+F8FunctionKey :: 63243
+F9FunctionKey :: 63244
+F10FunctionKey :: 63245
+F11FunctionKey :: 63246
+F12FunctionKey :: 63247
+F13FunctionKey :: 63248
+F14FunctionKey :: 63249
+F15FunctionKey :: 63250
+F16FunctionKey :: 63251
+F17FunctionKey :: 63252
+F18FunctionKey :: 63253
+F19FunctionKey :: 63254
+F20FunctionKey :: 63255
+F21FunctionKey :: 63256
+F22FunctionKey :: 63257
+F23FunctionKey :: 63258
+F24FunctionKey :: 63259
+F25FunctionKey :: 63260
+F26FunctionKey :: 63261
+F27FunctionKey :: 63262
+F28FunctionKey :: 63263
+F29FunctionKey :: 63264
+F30FunctionKey :: 63265
+F31FunctionKey :: 63266
+F32FunctionKey :: 63267
+F33FunctionKey :: 63268
+F34FunctionKey :: 63269
+F35FunctionKey :: 63270
+InsertFunctionKey :: 63271
+DeleteFunctionKey :: 63272
+HomeFunctionKey :: 63273
+BeginFunctionKey :: 63274
+EndFunctionKey :: 63275
+PageUpFunctionKey :: 63276
+PageDownFunctionKey :: 63277
+PrintScreenFunctionKey :: 63278
+ScrollLockFunctionKey :: 63279
+PauseFunctionKey :: 63280
+SysReqFunctionKey :: 63281
+BreakFunctionKey :: 63282
+ResetFunctionKey :: 63283
+StopFunctionKey :: 63284
+MenuFunctionKey :: 63285
+UserFunctionKey :: 63286
+SystemFunctionKey :: 63287
+PrintFunctionKey :: 63288
+ClearLineFunctionKey :: 63289
+ClearDisplayFunctionKey :: 63290
+InsertLineFunctionKey :: 63291
+DeleteLineFunctionKey :: 63292
+InsertCharFunctionKey :: 63293
+DeleteCharFunctionKey :: 63294
+PrevFunctionKey :: 63295
+NextFunctionKey :: 63296
+SelectFunctionKey :: 63297
+ExecuteFunctionKey :: 63298
+UndoFunctionKey :: 63299
+RedoFunctionKey :: 63300
+FindFunctionKey :: 63301
+HelpFunctionKey :: 63302
+ModeSwitchFunctionKey :: 63303
+EnterCharacter :: 3
+BackspaceCharacter :: 8
+TabCharacter :: 9
+NewlineCharacter :: 10
+FormFeedCharacter :: 12
+CarriageReturnCharacter :: 13
+BackTabCharacter :: 25
+DeleteCharacter :: 127
+LineSeparatorCharacter :: 8232
+ParagraphSeparatorCharacter :: 8233
+IllegalTextMovement :: 0
+ReturnTextMovement :: 16
+TabTextMovement :: 17
+BacktabTextMovement :: 18
+LeftTextMovement :: 19
+RightTextMovement :: 20
+UpTextMovement :: 21
+DownTextMovement :: 22
+CancelTextMovement :: 23
+OtherTextMovement :: 0
+TextWritingDirectionEmbedding :: 0
+TextWritingDirectionOverride :: 2
+AnyType :: 0
+IntType :: 1
+PositiveIntType :: 2
+FloatType :: 3
+PositiveFloatType :: 4
+DoubleType :: 6
+PositiveDoubleType :: 7
+UpdateWindowsRunLoopOrdering :: 500000
+RunStoppedResponse :: -1000
+RunAbortedResponse :: -1001
+RunContinuesResponse :: -1002
+FontUnknownClass :: 0
+FontOldStyleSerifsClass :: 268435456
+FontTransitionalSerifsClass :: 536870912
+FontModernSerifsClass :: 805306368
+FontClarendonSerifsClass :: 1073741824
+FontSlabSerifsClass :: 1342177280
+FontFreeformSerifsClass :: 1879048192
+FontSansSerifClass :: -2147483648
+FontOrnamentalsClass :: -1879048192
+FontScriptsClass :: -1610612736
+FontSymbolicClass :: -1073741824
+FontFamilyClassMask :: 4026531840
+FontItalicTrait :: 1
+FontBoldTrait :: 2
+FontExpandedTrait :: 32
+FontCondensedTrait :: 64
+FontMonoSpaceTrait :: 1024
+FontVerticalTrait :: 2048
+FontUIOptimizedTrait :: 4096
+ControlGlyph :: 16777215
+NullGlyph :: 0
+DisplayWindowRunLoopOrdering :: 600000
+ResetCursorRectsRunLoopOrdering :: 700000
+AlertDefaultReturn :: 1
+AlertAlternateReturn :: 0
+AlertOtherReturn :: -1
+AlertErrorReturn :: -2
+OKButton :: 1
+CancelButton :: 0
+FontPanelFaceModeMask :: 1
+FontPanelSizeModeMask :: 2
+FontPanelCollectionModeMask :: 4
+FontPanelUnderlineEffectModeMask :: 256
+FontPanelStrikethroughEffectModeMask :: 512
+FontPanelTextColorEffectModeMask :: 1024
+FontPanelDocumentColorEffectModeMask :: 2048
+FontPanelShadowEffectModeMask :: 4096
+FontPanelAllEffectsModeMask :: 1048320
+FontPanelStandardModesMask :: 65535
+FontPanelAllModesMask :: 4294967295
+FPPreviewButton :: 131
+FPRevertButton :: 130
+FPSetButton :: 132
+FPPreviewField :: 128
+FPSizeField :: 129
+FPSizeTitle :: 133
+FPCurrentField :: 134
+ImageRepMatchesDevice :: 0
+FileHandlingPanelCancelButton :: 0
+FileHandlingPanelOKButton :: 1
+NoUnderlineStyle :: 0
+SingleUnderlineStyle :: 1
+ShowControlGlyphs :: 1
+ShowInvisibleGlyphs :: 2
+WantsBidiLevels :: 4
+GlyphAttributeSoft :: 0
+GlyphAttributeElastic :: 1
+GlyphAttributeBidiLevel :: 2
+GlyphAttributeInscribe :: 5
+AttachmentCharacter :: 65532
+OutlineViewDropOnItemIndex :: -1
+NoInterfaceStyle :: 0
+NextStepInterfaceStyle :: 1
+Windows95InterfaceStyle :: 2
+MacintoshInterfaceStyle :: 3
+OpenGLPFAAllRenderers :: 1
+OpenGLPFATripleBuffer :: 3
+OpenGLPFADoubleBuffer :: 5
+OpenGLPFAAuxBuffers :: 7
+OpenGLPFAColorSize :: 8
+OpenGLPFAAlphaSize :: 11
+OpenGLPFADepthSize :: 12
+OpenGLPFAStencilSize :: 13
+OpenGLPFAAccumSize :: 14
+OpenGLPFAMinimumPolicy :: 51
+OpenGLPFAMaximumPolicy :: 52
+OpenGLPFASampleBuffers :: 55
+OpenGLPFASamples :: 56
+OpenGLPFAAuxDepthStencil :: 57
+OpenGLPFAColorFloat :: 58
+OpenGLPFAMultisample :: 59
+OpenGLPFASupersample :: 60
+OpenGLPFASampleAlpha :: 61
+OpenGLPFARendererID :: 70
+OpenGLPFANoRecovery :: 72
+OpenGLPFAAccelerated :: 73
+OpenGLPFAClosestPolicy :: 74
+OpenGLPFABackingStore :: 76
+OpenGLPFAScreenMask :: 84
+OpenGLPFAAllowOfflineRenderers :: 96
+OpenGLPFAAcceleratedCompute :: 97
+OpenGLPFAOpenGLProfile :: 99
+OpenGLPFAVirtualScreenCount :: 128
+OpenGLPFAStereo :: 6
+OpenGLPFAOffScreen :: 53
+OpenGLPFAFullScreen :: 54
+OpenGLPFASingleRenderer :: 71
+OpenGLPFARobust :: 75
+OpenGLPFAMPSafe :: 78
+OpenGLPFAWindow :: 80
+OpenGLPFAMultiScreen :: 81
+OpenGLPFACompliant :: 83
+OpenGLPFAPixelBuffer :: 90
+OpenGLPFARemotePixelBuffer :: 91
+OpenGLProfileVersionLegacy :: 4096
+OpenGLProfileVersion3_2Core :: 12800
+OpenGLProfileVersion4_1Core :: 16640
+CompositeClear :: 0
+CompositeCopy :: 1
+CompositeSourceOver :: 2
+CompositeSourceIn :: 3
+CompositeSourceOut :: 4
+CompositeSourceAtop :: 5
+CompositeDestinationOver :: 6
+CompositeDestinationIn :: 7
+CompositeDestinationOut :: 8
+CompositeDestinationAtop :: 9
+CompositeXOR :: 10
+CompositePlusDarker :: 11
+CompositeHighlight :: 12
+CompositePlusLighter :: 13
+CompositeMultiply :: 14
+CompositeScreen :: 15
+CompositeOverlay :: 16
+CompositeDarken :: 17
+CompositeLighten :: 18
+CompositeColorDodge :: 19
+CompositeColorBurn :: 20
+CompositeSoftLight :: 21
+CompositeHardLight :: 22
+CompositeDifference :: 23
+CompositeExclusion :: 24
+CompositeHue :: 25
+CompositeSaturation :: 26
+CompositeColor :: 27
+CompositeLuminosity :: 28
+LeftMouseDown :: 1
+LeftMouseUp :: 2
+RightMouseDown :: 3
+RightMouseUp :: 4
+MouseMoved :: 5
+LeftMouseDragged :: 6
+RightMouseDragged :: 7
+MouseEntered :: 8
+MouseExited :: 9
+KeyDown :: 10
+KeyUp :: 11
+FlagsChanged :: 12
+AppKitDefined :: 13
+SystemDefined :: 14
+ApplicationDefined :: 15
+Periodic :: 16
+CursorUpdate :: 17
+ScrollWheel :: 22
+TabletPoint :: 23
+TabletProximity :: 24
+OtherMouseDown :: 25
+OtherMouseUp :: 26
+OtherMouseDragged :: 27
+LeftMouseDownMask :: 2
+LeftMouseUpMask :: 4
+RightMouseDownMask :: 8
+RightMouseUpMask :: 16
+MouseMovedMask :: 32
+LeftMouseDraggedMask :: 64
+RightMouseDraggedMask :: 128
+MouseEnteredMask :: 256
+MouseExitedMask :: 512
+KeyDownMask :: 1024
+KeyUpMask :: 2048
+FlagsChangedMask :: 4096
+AppKitDefinedMask :: 8192
+SystemDefinedMask :: 16384
+ApplicationDefinedMask :: 32768
+PeriodicMask :: 65536
+CursorUpdateMask :: 131072
+ScrollWheelMask :: 4194304
+TabletPointMask :: 8388608
+TabletProximityMask :: 16777216
+OtherMouseDownMask :: 33554432
+OtherMouseUpMask :: 67108864
+OtherMouseDraggedMask :: 134217728
+AnyEventMask :: 18446744073709551615
+AlphaShiftKeyMask :: 65536
+ShiftKeyMask :: 131072
+ControlKeyMask :: 262144
+AlternateKeyMask :: 524288
+CommandKeyMask :: 1048576
+NumericPadKeyMask :: 2097152
+HelpKeyMask :: 4194304
+FunctionKeyMask :: 8388608
+DeviceIndependentModifierFlagsMask :: 4294901760
+UnknownPointingDevice :: 0
+PenPointingDevice :: 1
+CursorPointingDevice :: 2
+EraserPointingDevice :: 3
+PenTipMask :: 1
+PenLowerSideMask :: 2
+PenUpperSideMask :: 4
+WindowExposedEventType :: 0
+ApplicationActivatedEventType :: 1
+ApplicationDeactivatedEventType :: 2
+WindowMovedEventType :: 4
+ScreenChangedEventType :: 8
+AWTEventType :: 16
+PowerOffEventType :: 1
+MouseEventSubtype :: 0
+TabletPointEventSubtype :: 1
+TabletProximityEventSubtype :: 2
+TouchEventSubtype :: 3
+LeftTextAlignment :: 0
+RightTextAlignment :: 2
+CenterTextAlignment :: 1
+JustifiedTextAlignment :: 3
+NaturalTextAlignment :: 4
+ControlStateValueMixed :: -1
+ControlStateValueOff :: 0
+ControlStateValueOn :: 1
+BackgroundStyleLight :: 0
+BackgroundStyleDark :: 1
+MixedState :: -1
+OffState :: 0
+OnState :: 1
+RegularControlSize :: 0
+SmallControlSize :: 1
+MiniControlSize :: 2
+AutoPagination :: 0
+FitPagination :: 1
+ClipPagination :: 2
+AppKitVersionNumber10_0 :: 577.000000
+AppKitVersionNumber10_1 :: 620.000000
+AppKitVersionNumber10_2 :: 663.000000
+AppKitVersionNumber10_2_3 :: 663.600000
+AppKitVersionNumber10_3 :: 743.000000
+AppKitVersionNumber10_3_2 :: 743.140000
+AppKitVersionNumber10_3_3 :: 743.200000
+AppKitVersionNumber10_3_5 :: 743.240000
+AppKitVersionNumber10_3_7 :: 743.330000
+AppKitVersionNumber10_3_9 :: 743.360000
+AppKitVersionNumber10_4 :: 824.000000
+AppKitVersionNumber10_4_1 :: 824.100000
+AppKitVersionNumber10_4_3 :: 824.230000
+AppKitVersionNumber10_4_4 :: 824.330000
+AppKitVersionNumber10_4_7 :: 824.410000
+AppKitVersionNumber10_5 :: 949.000000
+AppKitVersionNumber10_5_2 :: 949.270000
+AppKitVersionNumber10_5_3 :: 949.330000
+AppKitVersionNumber10_6 :: 1038.000000
+AppKitVersionNumber10_7 :: 1138.000000
+AppKitVersionNumber10_7_2 :: 1138.230000
+AppKitVersionNumber10_7_3 :: 1138.320000
+AppKitVersionNumber10_7_4 :: 1138.470000
+AppKitVersionNumber10_8 :: 1187.000000
+AppKitVersionNumber10_9 :: 1265.000000
+AppKitVersionNumber10_10 :: 1343.000000
+AppKitVersionNumber10_10_2 :: 1344.000000
+AppKitVersionNumber10_10_3 :: 1347.000000
+AppKitVersionNumber10_10_4 :: 1348.000000
+AppKitVersionNumber10_10_5 :: 1348.000000
+AppKitVersionNumber10_10_Max :: 1349.000000
+AppKitVersionNumber10_11 :: 1404.000000
+AppKitVersionNumber10_11_1 :: 1404.130000
+AppKitVersionNumber10_11_2 :: 1404.340000
+AppKitVersionNumber10_11_3 :: 1404.340000
+AppKitVersionNumber10_12 :: 1504.000000
+AppKitVersionNumber10_12_1 :: 1504.600000
+AppKitVersionNumber10_12_2 :: 1504.760000
+AppKitVersionNumber10_13 :: 1561.000000
+AppKitVersionNumber10_13_1 :: 1561.100000
+AppKitVersionNumber10_13_2 :: 1561.200000
+AppKitVersionNumber10_13_4 :: 1561.400000
+AppKitVersionNumber10_14 :: 1671.000000
+AppKitVersionNumber10_14_1 :: 1671.100000
+AppKitVersionNumber10_14_2 :: 1671.200000
+AppKitVersionNumber10_14_3 :: 1671.300000
+AppKitVersionNumber10_14_4 :: 1671.400000
+AppKitVersionNumber10_14_5 :: 1671.500000
+AppKitVersionNumber10_15 :: 1894.000000
+AppKitVersionNumber10_15_1 :: 1894.100000
+AppKitVersionNumber10_15_2 :: 1894.200000
+AppKitVersionNumber10_15_3 :: 1894.300000
+AppKitVersionNumber10_15_4 :: 1894.400000
+AppKitVersionNumber10_15_5 :: 1894.500000
+AppKitVersionNumber10_15_6 :: 1894.600000
+AppKitVersionNumber11_0 :: 2022.000000
+AppKitVersionNumber11_1 :: 2022.200000
+AppKitVersionNumber11_2 :: 2022.300000
+AppKitVersionNumber11_3 :: 2022.400000
+AppKitVersionNumber11_4 :: 2022.500000
+AppKitVersionNumber11_5 :: 2022.600000
+AppKitVersionNumber12_0 :: 2113.000000
+AppKitVersionNumber12_1 :: 2113.200000
+AppKitVersionNumber12_2 :: 2113.300000
+AppKitVersionNumber12_3 :: 2113.400000
+AppKitVersionNumber12_4 :: 2113.500000
+AppKitVersionNumber12_5 :: 2113.600000
+AppKitVersionNumber13_0 :: 2299.000000
+AppKitVersionNumber13_1 :: 2299.300000
+AppKitVersionNumber13_2 :: 2299.300000
+AppKitVersionNumber13_3 :: 2299.400000
+AppKitVersionNumber13_4 :: 2299.500000
+AppKitVersionNumber13_5 :: 2299.600000
+AppKitVersionNumber13_6 :: 2299.700000
+AppKitVersionNumber14_0 :: 2487.000000
+AppKitVersionNumber14_1 :: 2487.200000
+ModalResponseStop :: -1000
+ModalResponseAbort :: -1001
+ModalResponseContinue :: -1002
+AppKitVersionNumberWithPatternColorLeakFix :: 641.000000
+AlertFirstButtonReturn :: 1000
+AlertSecondButtonReturn :: 1001
+AlertThirdButtonReturn :: 1002
+WarningAlertStyle :: 0
+InformationalAlertStyle :: 1
+CriticalAlertStyle :: 2
+BoxSecondary :: 1
+BoxOldStyle :: 3
+MomentaryLightButton :: 0
+PushOnPushOffButton :: 1
+ToggleButton :: 2
+SwitchButton :: 3
+RadioButton :: 4
+MomentaryChangeButton :: 5
+OnOffButton :: 6
+MomentaryPushInButton :: 7
+AcceleratorButton :: 8
+MultiLevelAcceleratorButton :: 9
+MomentaryPushButton :: 0
+MomentaryLight :: 7
+RoundedBezelStyle :: 1
+RegularSquareBezelStyle :: 2
+DisclosureBezelStyle :: 5
+ShadowlessSquareBezelStyle :: 6
+CircularBezelStyle :: 7
+TexturedSquareBezelStyle :: 8
+HelpButtonBezelStyle :: 9
+SmallSquareBezelStyle :: 10
+TexturedRoundedBezelStyle :: 11
+RoundRectBezelStyle :: 12
+RecessedBezelStyle :: 13
+RoundedDisclosureBezelStyle :: 14
+InlineBezelStyle :: 15
+SmallIconButtonBezelStyle :: 2
+ThickSquareBezelStyle :: 3
+ThickerSquareBezelStyle :: 4
+TouchBarItemPriorityHigh :: 1000.000000
+TouchBarItemPriorityNormal :: 0.000000
+TouchBarItemPriorityLow :: -1000.000000
+AppKitVersionNumberWithDockTilePlugInSupport :: 1001.000000
+AppKitVersionNumberWithCustomSheetPosition :: 686.000000
 AppKitVersionNumberWithDeferredWindowDisplaySupport :: 1019.000000
-ModalResponseOK                                     :: 1
-ModalResponseCancel                                 :: 0
-NormalWindowLevel                                   :: 0
-FloatingWindowLevel                                 :: 3
-SubmenuWindowLevel                                  :: 3
-TornOffMenuWindowLevel                              :: 3
-MainMenuWindowLevel                                 :: 24
-StatusWindowLevel                                   :: 25
-ModalPanelWindowLevel                               :: 8
-PopUpMenuWindowLevel                                :: 101
-ScreenSaverWindowLevel                              :: 1000
-EventDurationForever                                :: 179769313486231570814527423731704356798070567525844996598917476803157260780028538760589558632766878171540458953514382464234321326889464182768467546703537516986049910576551282076245490090389328944075868508455133942304583236903222948165808559332123348274797826204144723168738177180919299881250404026184124858368.000000
-BorderlessWindowMask                                :: 0
-TitledWindowMask                                    :: 1
-ClosableWindowMask                                  :: 2
-MiniaturizableWindowMask                            :: 4
-ResizableWindowMask                                 :: 8
-TexturedBackgroundWindowMask                        :: 256
-UnifiedTitleAndToolbarWindowMask                    :: 4096
-FullScreenWindowMask                                :: 16384
-FullSizeContentViewWindowMask                       :: 32768
-UtilityWindowMask                                   :: 16
-DocModalWindowMask                                  :: 64
-NonactivatingPanelMask                              :: 128
-HUDWindowMask                                       :: 8192
-UnscaledWindowMask                                  :: 2048
-WindowFullScreenButton                              :: 7
-DockWindowLevel                                     :: 20
-WindowSharingReadWrite                              :: 2
-UnknownColorSpaceModel                              :: -1
-GrayColorSpaceModel                                 :: 0
-RGBColorSpaceModel                                  :: 1
-CMYKColorSpaceModel                                 :: 2
-LABColorSpaceModel                                  :: 3
-DeviceNColorSpaceModel                              :: 4
-IndexedColorSpaceModel                              :: 5
-PatternColorSpaceModel                              :: 6
-TIFFFileType                                        :: 0
-BMPFileType                                         :: 1
-GIFFileType                                         :: 2
-JPEGFileType                                        :: 3
-PNGFileType                                         :: 4
-JPEG2000FileType                                    :: 5
-AlphaFirstBitmapFormat                              :: 1
-AlphaNonpremultipliedBitmapFormat                   :: 2
-FloatingPointSamplesBitmapFormat                    :: 4
-_16BitLittleEndianBitmapFormat                      :: 256
-_32BitLittleEndianBitmapFormat                      :: 512
-_16BitBigEndianBitmapFormat                         :: 1024
-_32BitBigEndianBitmapFormat                         :: 2048
-AppKitVersionNumberWithContinuousScrollingBrowser   :: 680.000000
-AppKitVersionNumberWithColumnResizingBrowser        :: 685.000000
-NoModeColorPanel                                    :: -1
-GrayModeColorPanel                                  :: 0
-RGBModeColorPanel                                   :: 1
-CMYKModeColorPanel                                  :: 2
-HSBModeColorPanel                                   :: 3
-CustomPaletteModeColorPanel                         :: 4
-ColorListModeColorPanel                             :: 5
-WheelModeColorPanel                                 :: 6
-CrayonModeColorPanel                                :: 7
-AppKitVersionNumberWithCursorSizeSupport            :: 682.000000
-LayoutPriorityRequired                              :: 1000.000000
-LayoutPriorityDefaultHigh                           :: 750.000000
-LayoutPriorityDragThatCanResizeWindow               :: 510.000000
-LayoutPriorityWindowSizeStayPut                     :: 500.000000
-LayoutPriorityDragThatCannotResizeWindow            :: 490.000000
-LayoutPriorityDefaultLow                            :: 250.000000
-LayoutPriorityFittingSizeCompression                :: 50.000000
-TickMarkBelow                                       :: 0
-TickMarkAbove                                       :: 1
-TickMarkLeft                                        :: 1
-TickMarkRight                                       :: 0
-LinearSlider                                        :: 0
-CircularSlider                                      :: 1
-StackViewVisibilityPriorityMustHold                 :: 1000.000000
-StackViewVisibilityPriorityDetachOnlyIfNecessary    :: 900.000000
-StackViewVisibilityPriorityNotVisible               :: 0.000000
-StackViewSpacingUseDefault                          :: 340282346638528859811704183484516925440.000000
-UnderlinePatternSolid                               :: 0
-UnderlinePatternDot                                 :: 256
-UnderlinePatternDash                                :: 512
-UnderlinePatternDashDot                             :: 768
-UnderlinePatternDashDotDot                          :: 1024
-UnderlineByWord                                     :: 32768
-DefaultTokenStyle                                   :: 0
-PlainTextTokenStyle                                 :: 1
-RoundedTokenStyle                                   :: 2
-ToolbarItemVisibilityPriorityStandard               :: 0
-ToolbarItemVisibilityPriorityLow                    :: -1000
-ToolbarItemVisibilityPriorityHigh                   :: 1000
-ToolbarItemVisibilityPriorityUser                   :: 2000
-ProgressIndicatorBarStyle                           :: 0
-ProgressIndicatorSpinningStyle                      :: 1
-AppKitVersionNumberWithDirectionalTabs              :: 631.000000
-ButtLineCapStyle                                    :: 0
-RoundLineCapStyle                                   :: 1
-SquareLineCapStyle                                  :: 2
-MiterLineJoinStyle                                  :: 0
-RoundLineJoinStyle                                  :: 1
-BevelLineJoinStyle                                  :: 2
-NonZeroWindingRule                                  :: 0
-EvenOddWindingRule                                  :: 1
-MoveToBezierPathElement                             :: 0
-LineToBezierPathElement                             :: 1
-CurveToBezierPathElement                            :: 2
-ClosePathBezierPathElement                          :: 3
-VariableStatusItemLength                            :: -1.000000
-SquareStatusItemLength                              :: -2.000000
-OpenGLCPSwapInterval                                :: 222
-OpenGLCPSurfaceOrder                                :: 235
-OpenGLCPSurfaceOpacity                              :: 236
-OpenGLCPSurfaceBackingSize                          :: 304
-OpenGLCPReclaimResources                            :: 308
-OpenGLCPCurrentRendererID                           :: 309
-OpenGLCPGPUVertexProcessing                         :: 310
-OpenGLCPGPUFragmentProcessing                       :: 311
-OpenGLCPHasDrawable                                 :: 314
-OpenGLCPMPSwapsInFlight                             :: 315
-OpenGLCPSwapRectangle                               :: 200
-OpenGLCPSwapRectangleEnable                         :: 201
-OpenGLCPRasterizationEnable                         :: 221
-OpenGLCPStateValidation                             :: 301
-OpenGLCPSurfaceSurfaceVolatile                      :: 306
-SearchFieldRecentsTitleMenuItemTag                  :: 1000
-SearchFieldRecentsMenuItemTag                       :: 1001
-SearchFieldClearRecentsMenuItemTag                  :: 1002
-SearchFieldNoRecentsMenuItemTag                     :: 1003
-TextFieldAndStepperDatePickerStyle                  :: 0
-ClockAndCalendarDatePickerStyle                     :: 1
-TextFieldDatePickerStyle                            :: 2
-SingleDateMode                                      :: 0
-RangeDateMode                                       :: 1
-HourMinuteDatePickerElementFlag                     :: 12
-HourMinuteSecondDatePickerElementFlag               :: 14
-TimeZoneDatePickerElementFlag                       :: 16
-YearMonthDatePickerElementFlag                      :: 192
-YearMonthDayDatePickerElementFlag                   :: 224
-EraDatePickerElementFlag                            :: 256
-RelevancyLevelIndicatorStyle                        :: 0
-ContinuousCapacityLevelIndicatorStyle               :: 1
-DiscreteCapacityLevelIndicatorStyle                 :: 2
-RatingLevelIndicatorStyle                           :: 3
+ModalResponseOK :: 1
+ModalResponseCancel :: 0
+NormalWindowLevel :: 0
+FloatingWindowLevel :: 3
+SubmenuWindowLevel :: 3
+TornOffMenuWindowLevel :: 3
+MainMenuWindowLevel :: 24
+StatusWindowLevel :: 25
+ModalPanelWindowLevel :: 8
+PopUpMenuWindowLevel :: 101
+ScreenSaverWindowLevel :: 1000
+EventDurationForever :: 179769313486231570814527423731704356798070567525844996598917476803157260780028538760589558632766878171540458953514382464234321326889464182768467546703537516986049910576551282076245490090389328944075868508455133942304583236903222948165808559332123348274797826204144723168738177180919299881250404026184124858368.000000
+BorderlessWindowMask :: 0
+TitledWindowMask :: 1
+ClosableWindowMask :: 2
+MiniaturizableWindowMask :: 4
+ResizableWindowMask :: 8
+TexturedBackgroundWindowMask :: 256
+UnifiedTitleAndToolbarWindowMask :: 4096
+FullScreenWindowMask :: 16384
+FullSizeContentViewWindowMask :: 32768
+UtilityWindowMask :: 16
+DocModalWindowMask :: 64
+NonactivatingPanelMask :: 128
+HUDWindowMask :: 8192
+UnscaledWindowMask :: 2048
+WindowFullScreenButton :: 7
+DockWindowLevel :: 20
+WindowSharingReadWrite :: 2
+UnknownColorSpaceModel :: -1
+GrayColorSpaceModel :: 0
+RGBColorSpaceModel :: 1
+CMYKColorSpaceModel :: 2
+LABColorSpaceModel :: 3
+DeviceNColorSpaceModel :: 4
+IndexedColorSpaceModel :: 5
+PatternColorSpaceModel :: 6
+TIFFFileType :: 0
+BMPFileType :: 1
+GIFFileType :: 2
+JPEGFileType :: 3
+PNGFileType :: 4
+JPEG2000FileType :: 5
+AlphaFirstBitmapFormat :: 1
+AlphaNonpremultipliedBitmapFormat :: 2
+FloatingPointSamplesBitmapFormat :: 4
+_16BitLittleEndianBitmapFormat :: 256
+_32BitLittleEndianBitmapFormat :: 512
+_16BitBigEndianBitmapFormat :: 1024
+_32BitBigEndianBitmapFormat :: 2048
+AppKitVersionNumberWithContinuousScrollingBrowser :: 680.000000
+AppKitVersionNumberWithColumnResizingBrowser :: 685.000000
+NoModeColorPanel :: -1
+GrayModeColorPanel :: 0
+RGBModeColorPanel :: 1
+CMYKModeColorPanel :: 2
+HSBModeColorPanel :: 3
+CustomPaletteModeColorPanel :: 4
+ColorListModeColorPanel :: 5
+WheelModeColorPanel :: 6
+CrayonModeColorPanel :: 7
+AppKitVersionNumberWithCursorSizeSupport :: 682.000000
+LayoutPriorityRequired :: 1000.000000
+LayoutPriorityDefaultHigh :: 750.000000
+LayoutPriorityDragThatCanResizeWindow :: 510.000000
+LayoutPriorityWindowSizeStayPut :: 500.000000
+LayoutPriorityDragThatCannotResizeWindow :: 490.000000
+LayoutPriorityDefaultLow :: 250.000000
+LayoutPriorityFittingSizeCompression :: 50.000000
+TickMarkBelow :: 0
+TickMarkAbove :: 1
+TickMarkLeft :: 1
+TickMarkRight :: 0
+LinearSlider :: 0
+CircularSlider :: 1
+StackViewVisibilityPriorityMustHold :: 1000.000000
+StackViewVisibilityPriorityDetachOnlyIfNecessary :: 900.000000
+StackViewVisibilityPriorityNotVisible :: 0.000000
+StackViewSpacingUseDefault :: 340282346638528859811704183484516925440.000000
+UnderlinePatternSolid :: 0
+UnderlinePatternDot :: 256
+UnderlinePatternDash :: 512
+UnderlinePatternDashDot :: 768
+UnderlinePatternDashDotDot :: 1024
+UnderlineByWord :: 32768
+DefaultTokenStyle :: 0
+PlainTextTokenStyle :: 1
+RoundedTokenStyle :: 2
+ToolbarItemVisibilityPriorityStandard :: 0
+ToolbarItemVisibilityPriorityLow :: -1000
+ToolbarItemVisibilityPriorityHigh :: 1000
+ToolbarItemVisibilityPriorityUser :: 2000
+ProgressIndicatorBarStyle :: 0
+ProgressIndicatorSpinningStyle :: 1
+AppKitVersionNumberWithDirectionalTabs :: 631.000000
+ButtLineCapStyle :: 0
+RoundLineCapStyle :: 1
+SquareLineCapStyle :: 2
+MiterLineJoinStyle :: 0
+RoundLineJoinStyle :: 1
+BevelLineJoinStyle :: 2
+NonZeroWindingRule :: 0
+EvenOddWindingRule :: 1
+MoveToBezierPathElement :: 0
+LineToBezierPathElement :: 1
+CurveToBezierPathElement :: 2
+ClosePathBezierPathElement :: 3
+VariableStatusItemLength :: -1.000000
+SquareStatusItemLength :: -2.000000
+OpenGLCPSwapInterval :: 222
+OpenGLCPSurfaceOrder :: 235
+OpenGLCPSurfaceOpacity :: 236
+OpenGLCPSurfaceBackingSize :: 304
+OpenGLCPReclaimResources :: 308
+OpenGLCPCurrentRendererID :: 309
+OpenGLCPGPUVertexProcessing :: 310
+OpenGLCPGPUFragmentProcessing :: 311
+OpenGLCPHasDrawable :: 314
+OpenGLCPMPSwapsInFlight :: 315
+OpenGLCPSwapRectangle :: 200
+OpenGLCPSwapRectangleEnable :: 201
+OpenGLCPRasterizationEnable :: 221
+OpenGLCPStateValidation :: 301
+OpenGLCPSurfaceSurfaceVolatile :: 306
+SearchFieldRecentsTitleMenuItemTag :: 1000
+SearchFieldRecentsMenuItemTag :: 1001
+SearchFieldClearRecentsMenuItemTag :: 1002
+SearchFieldNoRecentsMenuItemTag :: 1003
+TextFieldAndStepperDatePickerStyle :: 0
+ClockAndCalendarDatePickerStyle :: 1
+TextFieldDatePickerStyle :: 2
+SingleDateMode :: 0
+RangeDateMode :: 1
+HourMinuteDatePickerElementFlag :: 12
+HourMinuteSecondDatePickerElementFlag :: 14
+TimeZoneDatePickerElementFlag :: 16
+YearMonthDatePickerElementFlag :: 192
+YearMonthDayDatePickerElementFlag :: 224
+EraDatePickerElementFlag :: 256
+RelevancyLevelIndicatorStyle :: 0
+ContinuousCapacityLevelIndicatorStyle :: 1
+DiscreteCapacityLevelIndicatorStyle :: 2
+RatingLevelIndicatorStyle :: 3
 
 foreign lib {
-	@(link_name="NSCalibratedWhiteColorSpace") CalibratedWhiteColorSpace: ^NS.String
-	@(link_name="NSCalibratedRGBColorSpace") CalibratedRGBColorSpace: ^NS.String
-	@(link_name="NSDeviceWhiteColorSpace") DeviceWhiteColorSpace: ^NS.String
-	@(link_name="NSDeviceRGBColorSpace") DeviceRGBColorSpace: ^NS.String
-	@(link_name="NSDeviceCMYKColorSpace") DeviceCMYKColorSpace: ^NS.String
-	@(link_name="NSNamedColorSpace") NamedColorSpace: ^NS.String
-	@(link_name="NSPatternColorSpace") PatternColorSpace: ^NS.String
-	@(link_name="NSCustomColorSpace") CustomColorSpace: ^NS.String
-	@(link_name="NSCalibratedBlackColorSpace") CalibratedBlackColorSpace: ^NS.String
-	@(link_name="NSDeviceBlackColorSpace") DeviceBlackColorSpace: ^NS.String
-	@(link_name="NSWhite") White: CG.Float
-	@(link_name="NSLightGray") LightGray: CG.Float
-	@(link_name="NSDarkGray") DarkGray: CG.Float
-	@(link_name="NSBlack") Black: CG.Float
-	@(link_name="NSDeviceResolution") DeviceResolution: ^NS.String
-	@(link_name="NSDeviceColorSpaceName") DeviceColorSpaceName: ^NS.String
-	@(link_name="NSDeviceBitsPerSample") DeviceBitsPerSample: ^NS.String
-	@(link_name="NSDeviceIsScreen") DeviceIsScreen: ^NS.String
-	@(link_name="NSDeviceIsPrinter") DeviceIsPrinter: ^NS.String
-	@(link_name="NSDeviceSize") DeviceSize: ^NS.String
-	@(link_name="NSGraphicsContextDestinationAttributeName") GraphicsContextDestinationAttributeName: ^NS.String
-	@(link_name="NSGraphicsContextRepresentationFormatAttributeName") GraphicsContextRepresentationFormatAttributeName: ^NS.String
-	@(link_name="NSGraphicsContextPSFormat") GraphicsContextPSFormat: ^NS.String
-	@(link_name="NSGraphicsContextPDFFormat") GraphicsContextPDFFormat: ^NS.String
-	@(link_name="NSTextLineTooLongException") TextLineTooLongException: ^NS.String
-	@(link_name="NSTextNoSelectionException") TextNoSelectionException: ^NS.String
-	@(link_name="NSWordTablesWriteException") WordTablesWriteException: ^NS.String
-	@(link_name="NSWordTablesReadException") WordTablesReadException: ^NS.String
-	@(link_name="NSTextReadException") TextReadException: ^NS.String
-	@(link_name="NSTextWriteException") TextWriteException: ^NS.String
-	@(link_name="NSPasteboardCommunicationException") PasteboardCommunicationException: ^NS.String
-	@(link_name="NSPrintingCommunicationException") PrintingCommunicationException: ^NS.String
-	@(link_name="NSAbortModalException") AbortModalException: ^NS.String
-	@(link_name="NSAbortPrintingException") AbortPrintingException: ^NS.String
-	@(link_name="NSIllegalSelectorException") IllegalSelectorException: ^NS.String
-	@(link_name="NSAppKitVirtualMemoryException") AppKitVirtualMemoryException: ^NS.String
-	@(link_name="NSBadRTFDirectiveException") BadRTFDirectiveException: ^NS.String
-	@(link_name="NSBadRTFFontTableException") BadRTFFontTableException: ^NS.String
-	@(link_name="NSBadRTFStyleSheetException") BadRTFStyleSheetException: ^NS.String
-	@(link_name="NSTypedStreamVersionException") TypedStreamVersionException: ^NS.String
-	@(link_name="NSTIFFException") TIFFException: ^NS.String
-	@(link_name="NSPrintPackageException") PrintPackageException: ^NS.String
-	@(link_name="NSBadRTFColorTableException") BadRTFColorTableException: ^NS.String
-	@(link_name="NSDraggingException") DraggingException: ^NS.String
-	@(link_name="NSColorListIOException") ColorListIOException: ^NS.String
-	@(link_name="NSColorListNotEditableException") ColorListNotEditableException: ^NS.String
-	@(link_name="NSBadBitmapParametersException") BadBitmapParametersException: ^NS.String
-	@(link_name="NSWindowServerCommunicationException") WindowServerCommunicationException: ^NS.String
-	@(link_name="NSFontUnavailableException") FontUnavailableException: ^NS.String
-	@(link_name="NSPPDIncludeNotFoundException") PPDIncludeNotFoundException: ^NS.String
-	@(link_name="NSPPDParseException") PPDParseException: ^NS.String
-	@(link_name="NSPPDIncludeStackOverflowException") PPDIncludeStackOverflowException: ^NS.String
-	@(link_name="NSPPDIncludeStackUnderflowException") PPDIncludeStackUnderflowException: ^NS.String
-	@(link_name="NSRTFPropertyStackOverflowException") RTFPropertyStackOverflowException: ^NS.String
-	@(link_name="NSAppKitIgnoredException") AppKitIgnoredException: ^NS.String
-	@(link_name="NSBadComparisonException") BadComparisonException: ^NS.String
-	@(link_name="NSImageCacheException") ImageCacheException: ^NS.String
-	@(link_name="NSNibLoadingException") NibLoadingException: ^NS.String
-	@(link_name="NSBrowserIllegalDelegateException") BrowserIllegalDelegateException: ^NS.String
-	@(link_name="NSAccessibilityException") AccessibilityException: ^NS.String
-	@(link_name="NSAccessibilityErrorCodeExceptionInfo") AccessibilityErrorCodeExceptionInfo: ^NS.String
-	@(link_name="NSAccessibilityRoleAttribute") AccessibilityRoleAttribute: ^NS.String
-	@(link_name="NSAccessibilityRoleDescriptionAttribute") AccessibilityRoleDescriptionAttribute: ^NS.String
-	@(link_name="NSAccessibilitySubroleAttribute") AccessibilitySubroleAttribute: ^NS.String
-	@(link_name="NSAccessibilityHelpAttribute") AccessibilityHelpAttribute: ^NS.String
-	@(link_name="NSAccessibilityValueAttribute") AccessibilityValueAttribute: ^NS.String
-	@(link_name="NSAccessibilityMinValueAttribute") AccessibilityMinValueAttribute: ^NS.String
-	@(link_name="NSAccessibilityMaxValueAttribute") AccessibilityMaxValueAttribute: ^NS.String
-	@(link_name="NSAccessibilityEnabledAttribute") AccessibilityEnabledAttribute: ^NS.String
-	@(link_name="NSAccessibilityFocusedAttribute") AccessibilityFocusedAttribute: ^NS.String
-	@(link_name="NSAccessibilityParentAttribute") AccessibilityParentAttribute: ^NS.String
-	@(link_name="NSAccessibilityChildrenAttribute") AccessibilityChildrenAttribute: ^NS.String
-	@(link_name="NSAccessibilityWindowAttribute") AccessibilityWindowAttribute: ^NS.String
-	@(link_name="NSAccessibilityTopLevelUIElementAttribute") AccessibilityTopLevelUIElementAttribute: ^NS.String
-	@(link_name="NSAccessibilitySelectedChildrenAttribute") AccessibilitySelectedChildrenAttribute: ^NS.String
-	@(link_name="NSAccessibilityVisibleChildrenAttribute") AccessibilityVisibleChildrenAttribute: ^NS.String
-	@(link_name="NSAccessibilityPositionAttribute") AccessibilityPositionAttribute: ^NS.String
-	@(link_name="NSAccessibilitySizeAttribute") AccessibilitySizeAttribute: ^NS.String
-	@(link_name="NSAccessibilityContentsAttribute") AccessibilityContentsAttribute: ^NS.String
-	@(link_name="NSAccessibilityTitleAttribute") AccessibilityTitleAttribute: ^NS.String
-	@(link_name="NSAccessibilityDescriptionAttribute") AccessibilityDescriptionAttribute: ^NS.String
-	@(link_name="NSAccessibilityShownMenuAttribute") AccessibilityShownMenuAttribute: ^NS.String
-	@(link_name="NSAccessibilityValueDescriptionAttribute") AccessibilityValueDescriptionAttribute: ^NS.String
-	@(link_name="NSAccessibilitySharedFocusElementsAttribute") AccessibilitySharedFocusElementsAttribute: ^NS.String
-	@(link_name="NSAccessibilityPreviousContentsAttribute") AccessibilityPreviousContentsAttribute: ^NS.String
-	@(link_name="NSAccessibilityNextContentsAttribute") AccessibilityNextContentsAttribute: ^NS.String
-	@(link_name="NSAccessibilityHeaderAttribute") AccessibilityHeaderAttribute: ^NS.String
-	@(link_name="NSAccessibilityEditedAttribute") AccessibilityEditedAttribute: ^NS.String
-	@(link_name="NSAccessibilityTabsAttribute") AccessibilityTabsAttribute: ^NS.String
-	@(link_name="NSAccessibilityHorizontalScrollBarAttribute") AccessibilityHorizontalScrollBarAttribute: ^NS.String
-	@(link_name="NSAccessibilityVerticalScrollBarAttribute") AccessibilityVerticalScrollBarAttribute: ^NS.String
-	@(link_name="NSAccessibilityOverflowButtonAttribute") AccessibilityOverflowButtonAttribute: ^NS.String
-	@(link_name="NSAccessibilityIncrementButtonAttribute") AccessibilityIncrementButtonAttribute: ^NS.String
-	@(link_name="NSAccessibilityDecrementButtonAttribute") AccessibilityDecrementButtonAttribute: ^NS.String
-	@(link_name="NSAccessibilityFilenameAttribute") AccessibilityFilenameAttribute: ^NS.String
-	@(link_name="NSAccessibilityExpandedAttribute") AccessibilityExpandedAttribute: ^NS.String
-	@(link_name="NSAccessibilitySelectedAttribute") AccessibilitySelectedAttribute: ^NS.String
-	@(link_name="NSAccessibilitySplittersAttribute") AccessibilitySplittersAttribute: ^NS.String
-	@(link_name="NSAccessibilityDocumentAttribute") AccessibilityDocumentAttribute: ^NS.String
-	@(link_name="NSAccessibilityActivationPointAttribute") AccessibilityActivationPointAttribute: ^NS.String
-	@(link_name="NSAccessibilityURLAttribute") AccessibilityURLAttribute: ^NS.String
-	@(link_name="NSAccessibilityIndexAttribute") AccessibilityIndexAttribute: ^NS.String
-	@(link_name="NSAccessibilityRowCountAttribute") AccessibilityRowCountAttribute: ^NS.String
-	@(link_name="NSAccessibilityColumnCountAttribute") AccessibilityColumnCountAttribute: ^NS.String
-	@(link_name="NSAccessibilityOrderedByRowAttribute") AccessibilityOrderedByRowAttribute: ^NS.String
-	@(link_name="NSAccessibilityWarningValueAttribute") AccessibilityWarningValueAttribute: ^NS.String
-	@(link_name="NSAccessibilityCriticalValueAttribute") AccessibilityCriticalValueAttribute: ^NS.String
-	@(link_name="NSAccessibilityPlaceholderValueAttribute") AccessibilityPlaceholderValueAttribute: ^NS.String
-	@(link_name="NSAccessibilityContainsProtectedContentAttribute") AccessibilityContainsProtectedContentAttribute: ^NS.String
-	@(link_name="NSAccessibilityAlternateUIVisibleAttribute") AccessibilityAlternateUIVisibleAttribute: ^NS.String
-	@(link_name="NSAccessibilityRequiredAttribute") AccessibilityRequiredAttribute: ^NS.String
-	@(link_name="NSAccessibilityAutoInteractableAttribute") AccessibilityAutoInteractableAttribute: ^NS.String
-	@(link_name="NSAccessibilityDateTimeComponentsAttribute") AccessibilityDateTimeComponentsAttribute: ^NS.String
-	@(link_name="NSAccessibilityEmbeddedImageDescriptionAttribute") AccessibilityEmbeddedImageDescriptionAttribute: ^NS.String
-	@(link_name="NSAccessibilityPathAttribute") AccessibilityPathAttribute: ^NS.String
-	@(link_name="NSAccessibilityTextInputMarkedRangeAttribute") AccessibilityTextInputMarkedRangeAttribute: ^NS.String
-	@(link_name="NSAccessibilityBlockQuoteLevelAttribute") AccessibilityBlockQuoteLevelAttribute: ^NS.String
-	@(link_name="NSAccessibilityHeadingLevelAttribute") AccessibilityHeadingLevelAttribute: ^NS.String
-	@(link_name="NSAccessibilityLanguageAttribute") AccessibilityLanguageAttribute: ^NS.String
-	@(link_name="NSAccessibilityVisitedAttribute") AccessibilityVisitedAttribute: ^NS.String
-	@(link_name="NSAccessibilityTitleUIElementAttribute") AccessibilityTitleUIElementAttribute: ^NS.String
-	@(link_name="NSAccessibilityServesAsTitleForUIElementsAttribute") AccessibilityServesAsTitleForUIElementsAttribute: ^NS.String
-	@(link_name="NSAccessibilityLinkedUIElementsAttribute") AccessibilityLinkedUIElementsAttribute: ^NS.String
-	@(link_name="NSAccessibilitySelectedTextAttribute") AccessibilitySelectedTextAttribute: ^NS.String
-	@(link_name="NSAccessibilitySelectedTextRangeAttribute") AccessibilitySelectedTextRangeAttribute: ^NS.String
-	@(link_name="NSAccessibilityNumberOfCharactersAttribute") AccessibilityNumberOfCharactersAttribute: ^NS.String
-	@(link_name="NSAccessibilityVisibleCharacterRangeAttribute") AccessibilityVisibleCharacterRangeAttribute: ^NS.String
-	@(link_name="NSAccessibilitySharedTextUIElementsAttribute") AccessibilitySharedTextUIElementsAttribute: ^NS.String
-	@(link_name="NSAccessibilitySharedCharacterRangeAttribute") AccessibilitySharedCharacterRangeAttribute: ^NS.String
-	@(link_name="NSAccessibilityInsertionPointLineNumberAttribute") AccessibilityInsertionPointLineNumberAttribute: ^NS.String
-	@(link_name="NSAccessibilitySelectedTextRangesAttribute") AccessibilitySelectedTextRangesAttribute: ^NS.String
-	@(link_name="NSAccessibilityLineForIndexParameterizedAttribute") AccessibilityLineForIndexParameterizedAttribute: ^NS.String
-	@(link_name="NSAccessibilityRangeForLineParameterizedAttribute") AccessibilityRangeForLineParameterizedAttribute: ^NS.String
-	@(link_name="NSAccessibilityStringForRangeParameterizedAttribute") AccessibilityStringForRangeParameterizedAttribute: ^NS.String
-	@(link_name="NSAccessibilityRangeForPositionParameterizedAttribute") AccessibilityRangeForPositionParameterizedAttribute: ^NS.String
-	@(link_name="NSAccessibilityRangeForIndexParameterizedAttribute") AccessibilityRangeForIndexParameterizedAttribute: ^NS.String
-	@(link_name="NSAccessibilityBoundsForRangeParameterizedAttribute") AccessibilityBoundsForRangeParameterizedAttribute: ^NS.String
-	@(link_name="NSAccessibilityRTFForRangeParameterizedAttribute") AccessibilityRTFForRangeParameterizedAttribute: ^NS.String
-	@(link_name="NSAccessibilityStyleRangeForIndexParameterizedAttribute") AccessibilityStyleRangeForIndexParameterizedAttribute: ^NS.String
-	@(link_name="NSAccessibilityAttributedStringForRangeParameterizedAttribute") AccessibilityAttributedStringForRangeParameterizedAttribute: ^NS.String
-	@(link_name="NSAccessibilityFontTextAttribute") AccessibilityFontTextAttribute: ^NS.String
-	@(link_name="NSAccessibilityForegroundColorTextAttribute") AccessibilityForegroundColorTextAttribute: ^NS.String
-	@(link_name="NSAccessibilityBackgroundColorTextAttribute") AccessibilityBackgroundColorTextAttribute: ^NS.String
-	@(link_name="NSAccessibilityUnderlineColorTextAttribute") AccessibilityUnderlineColorTextAttribute: ^NS.String
-	@(link_name="NSAccessibilityStrikethroughColorTextAttribute") AccessibilityStrikethroughColorTextAttribute: ^NS.String
-	@(link_name="NSAccessibilityUnderlineTextAttribute") AccessibilityUnderlineTextAttribute: ^NS.String
-	@(link_name="NSAccessibilitySuperscriptTextAttribute") AccessibilitySuperscriptTextAttribute: ^NS.String
-	@(link_name="NSAccessibilityStrikethroughTextAttribute") AccessibilityStrikethroughTextAttribute: ^NS.String
-	@(link_name="NSAccessibilityShadowTextAttribute") AccessibilityShadowTextAttribute: ^NS.String
-	@(link_name="NSAccessibilityAttachmentTextAttribute") AccessibilityAttachmentTextAttribute: ^NS.String
-	@(link_name="NSAccessibilityLinkTextAttribute") AccessibilityLinkTextAttribute: ^NS.String
-	@(link_name="NSAccessibilityAutocorrectedTextAttribute") AccessibilityAutocorrectedTextAttribute: ^NS.String
-	@(link_name="NSAccessibilityTextAlignmentAttribute") AccessibilityTextAlignmentAttribute: ^NS.String
-	@(link_name="NSAccessibilityFontBoldAttribute") AccessibilityFontBoldAttribute: ^NS.String
-	@(link_name="NSAccessibilityFontItalicAttribute") AccessibilityFontItalicAttribute: ^NS.String
-	@(link_name="NSAccessibilityChildrenInNavigationOrderAttribute") AccessibilityChildrenInNavigationOrderAttribute: ^NS.String
-	@(link_name="NSAccessibilityIndexForChildUIElementAttribute") AccessibilityIndexForChildUIElementAttribute: ^NS.String
-	@(link_name="NSAccessibilityIndexForChildUIElementInNavigationOrderAttribute") AccessibilityIndexForChildUIElementInNavigationOrderAttribute: ^NS.String
-	@(link_name="NSAccessibilityListItemPrefixTextAttribute") AccessibilityListItemPrefixTextAttribute: ^NS.String
-	@(link_name="NSAccessibilityListItemIndexTextAttribute") AccessibilityListItemIndexTextAttribute: ^NS.String
-	@(link_name="NSAccessibilityListItemLevelTextAttribute") AccessibilityListItemLevelTextAttribute: ^NS.String
-	@(link_name="NSAccessibilityMisspelledTextAttribute") AccessibilityMisspelledTextAttribute: ^NS.String
-	@(link_name="NSAccessibilityMarkedMisspelledTextAttribute") AccessibilityMarkedMisspelledTextAttribute: ^NS.String
-	@(link_name="NSAccessibilityLanguageTextAttribute") AccessibilityLanguageTextAttribute: ^NS.String
-	@(link_name="NSAccessibilityCustomTextAttribute") AccessibilityCustomTextAttribute: ^NS.String
-	@(link_name="NSAccessibilityAnnotationTextAttribute") AccessibilityAnnotationTextAttribute: ^NS.String
-	@(link_name="NSAccessibilityTextCompletionAttribute") AccessibilityTextCompletionAttribute: ^NS.String
-	@(link_name="NSAccessibilityAnnotationLabel") AccessibilityAnnotationLabel: ^NS.String
-	@(link_name="NSAccessibilityAnnotationElement") AccessibilityAnnotationElement: ^NS.String
-	@(link_name="NSAccessibilityAnnotationLocation") AccessibilityAnnotationLocation: ^NS.String
-	@(link_name="NSAccessibilityFontNameKey") AccessibilityFontNameKey: ^NS.String
-	@(link_name="NSAccessibilityFontFamilyKey") AccessibilityFontFamilyKey: ^NS.String
-	@(link_name="NSAccessibilityVisibleNameKey") AccessibilityVisibleNameKey: ^NS.String
-	@(link_name="NSAccessibilityFontSizeKey") AccessibilityFontSizeKey: ^NS.String
-	@(link_name="NSAccessibilityMainAttribute") AccessibilityMainAttribute: ^NS.String
-	@(link_name="NSAccessibilityMinimizedAttribute") AccessibilityMinimizedAttribute: ^NS.String
-	@(link_name="NSAccessibilityCloseButtonAttribute") AccessibilityCloseButtonAttribute: ^NS.String
-	@(link_name="NSAccessibilityZoomButtonAttribute") AccessibilityZoomButtonAttribute: ^NS.String
-	@(link_name="NSAccessibilityMinimizeButtonAttribute") AccessibilityMinimizeButtonAttribute: ^NS.String
-	@(link_name="NSAccessibilityToolbarButtonAttribute") AccessibilityToolbarButtonAttribute: ^NS.String
-	@(link_name="NSAccessibilityProxyAttribute") AccessibilityProxyAttribute: ^NS.String
-	@(link_name="NSAccessibilityGrowAreaAttribute") AccessibilityGrowAreaAttribute: ^NS.String
-	@(link_name="NSAccessibilityModalAttribute") AccessibilityModalAttribute: ^NS.String
-	@(link_name="NSAccessibilityDefaultButtonAttribute") AccessibilityDefaultButtonAttribute: ^NS.String
-	@(link_name="NSAccessibilityCancelButtonAttribute") AccessibilityCancelButtonAttribute: ^NS.String
-	@(link_name="NSAccessibilityFullScreenButtonAttribute") AccessibilityFullScreenButtonAttribute: ^NS.String
-	@(link_name="NSAccessibilityMenuBarAttribute") AccessibilityMenuBarAttribute: ^NS.String
-	@(link_name="NSAccessibilityWindowsAttribute") AccessibilityWindowsAttribute: ^NS.String
-	@(link_name="NSAccessibilityFrontmostAttribute") AccessibilityFrontmostAttribute: ^NS.String
-	@(link_name="NSAccessibilityHiddenAttribute") AccessibilityHiddenAttribute: ^NS.String
-	@(link_name="NSAccessibilityMainWindowAttribute") AccessibilityMainWindowAttribute: ^NS.String
-	@(link_name="NSAccessibilityFocusedWindowAttribute") AccessibilityFocusedWindowAttribute: ^NS.String
-	@(link_name="NSAccessibilityFocusedUIElementAttribute") AccessibilityFocusedUIElementAttribute: ^NS.String
-	@(link_name="NSAccessibilityExtrasMenuBarAttribute") AccessibilityExtrasMenuBarAttribute: ^NS.String
-	@(link_name="NSAccessibilityOrientationAttribute") AccessibilityOrientationAttribute: ^NS.String
-	@(link_name="NSAccessibilityVerticalOrientationValue") AccessibilityVerticalOrientationValue: ^NS.String
-	@(link_name="NSAccessibilityHorizontalOrientationValue") AccessibilityHorizontalOrientationValue: ^NS.String
-	@(link_name="NSAccessibilityUnknownOrientationValue") AccessibilityUnknownOrientationValue: ^NS.String
-	@(link_name="NSAccessibilityColumnTitlesAttribute") AccessibilityColumnTitlesAttribute: ^NS.String
-	@(link_name="NSAccessibilitySearchButtonAttribute") AccessibilitySearchButtonAttribute: ^NS.String
-	@(link_name="NSAccessibilitySearchMenuAttribute") AccessibilitySearchMenuAttribute: ^NS.String
-	@(link_name="NSAccessibilityClearButtonAttribute") AccessibilityClearButtonAttribute: ^NS.String
-	@(link_name="NSAccessibilityRowsAttribute") AccessibilityRowsAttribute: ^NS.String
-	@(link_name="NSAccessibilityVisibleRowsAttribute") AccessibilityVisibleRowsAttribute: ^NS.String
-	@(link_name="NSAccessibilitySelectedRowsAttribute") AccessibilitySelectedRowsAttribute: ^NS.String
-	@(link_name="NSAccessibilityColumnsAttribute") AccessibilityColumnsAttribute: ^NS.String
-	@(link_name="NSAccessibilityVisibleColumnsAttribute") AccessibilityVisibleColumnsAttribute: ^NS.String
-	@(link_name="NSAccessibilitySelectedColumnsAttribute") AccessibilitySelectedColumnsAttribute: ^NS.String
-	@(link_name="NSAccessibilitySortDirectionAttribute") AccessibilitySortDirectionAttribute: ^NS.String
-	@(link_name="NSAccessibilitySelectedCellsAttribute") AccessibilitySelectedCellsAttribute: ^NS.String
-	@(link_name="NSAccessibilityVisibleCellsAttribute") AccessibilityVisibleCellsAttribute: ^NS.String
-	@(link_name="NSAccessibilityRowHeaderUIElementsAttribute") AccessibilityRowHeaderUIElementsAttribute: ^NS.String
-	@(link_name="NSAccessibilityColumnHeaderUIElementsAttribute") AccessibilityColumnHeaderUIElementsAttribute: ^NS.String
-	@(link_name="NSAccessibilityCellForColumnAndRowParameterizedAttribute") AccessibilityCellForColumnAndRowParameterizedAttribute: ^NS.String
-	@(link_name="NSAccessibilityRowIndexRangeAttribute") AccessibilityRowIndexRangeAttribute: ^NS.String
-	@(link_name="NSAccessibilityColumnIndexRangeAttribute") AccessibilityColumnIndexRangeAttribute: ^NS.String
-	@(link_name="NSAccessibilityHorizontalUnitsAttribute") AccessibilityHorizontalUnitsAttribute: ^NS.String
-	@(link_name="NSAccessibilityVerticalUnitsAttribute") AccessibilityVerticalUnitsAttribute: ^NS.String
-	@(link_name="NSAccessibilityHorizontalUnitDescriptionAttribute") AccessibilityHorizontalUnitDescriptionAttribute: ^NS.String
-	@(link_name="NSAccessibilityVerticalUnitDescriptionAttribute") AccessibilityVerticalUnitDescriptionAttribute: ^NS.String
-	@(link_name="NSAccessibilityLayoutPointForScreenPointParameterizedAttribute") AccessibilityLayoutPointForScreenPointParameterizedAttribute: ^NS.String
-	@(link_name="NSAccessibilityLayoutSizeForScreenSizeParameterizedAttribute") AccessibilityLayoutSizeForScreenSizeParameterizedAttribute: ^NS.String
-	@(link_name="NSAccessibilityScreenPointForLayoutPointParameterizedAttribute") AccessibilityScreenPointForLayoutPointParameterizedAttribute: ^NS.String
-	@(link_name="NSAccessibilityScreenSizeForLayoutSizeParameterizedAttribute") AccessibilityScreenSizeForLayoutSizeParameterizedAttribute: ^NS.String
-	@(link_name="NSAccessibilityHandlesAttribute") AccessibilityHandlesAttribute: ^NS.String
-	@(link_name="NSAccessibilityAscendingSortDirectionValue") AccessibilityAscendingSortDirectionValue: ^NS.String
-	@(link_name="NSAccessibilityDescendingSortDirectionValue") AccessibilityDescendingSortDirectionValue: ^NS.String
-	@(link_name="NSAccessibilityUnknownSortDirectionValue") AccessibilityUnknownSortDirectionValue: ^NS.String
-	@(link_name="NSAccessibilityDisclosingAttribute") AccessibilityDisclosingAttribute: ^NS.String
-	@(link_name="NSAccessibilityDisclosedRowsAttribute") AccessibilityDisclosedRowsAttribute: ^NS.String
-	@(link_name="NSAccessibilityDisclosedByRowAttribute") AccessibilityDisclosedByRowAttribute: ^NS.String
-	@(link_name="NSAccessibilityDisclosureLevelAttribute") AccessibilityDisclosureLevelAttribute: ^NS.String
-	@(link_name="NSAccessibilityAllowedValuesAttribute") AccessibilityAllowedValuesAttribute: ^NS.String
-	@(link_name="NSAccessibilityLabelUIElementsAttribute") AccessibilityLabelUIElementsAttribute: ^NS.String
-	@(link_name="NSAccessibilityLabelValueAttribute") AccessibilityLabelValueAttribute: ^NS.String
-	@(link_name="NSAccessibilityMatteHoleAttribute") AccessibilityMatteHoleAttribute: ^NS.String
-	@(link_name="NSAccessibilityMatteContentUIElementAttribute") AccessibilityMatteContentUIElementAttribute: ^NS.String
-	@(link_name="NSAccessibilityMarkerUIElementsAttribute") AccessibilityMarkerUIElementsAttribute: ^NS.String
-	@(link_name="NSAccessibilityMarkerValuesAttribute") AccessibilityMarkerValuesAttribute: ^NS.String
-	@(link_name="NSAccessibilityMarkerGroupUIElementAttribute") AccessibilityMarkerGroupUIElementAttribute: ^NS.String
-	@(link_name="NSAccessibilityUnitsAttribute") AccessibilityUnitsAttribute: ^NS.String
-	@(link_name="NSAccessibilityUnitDescriptionAttribute") AccessibilityUnitDescriptionAttribute: ^NS.String
-	@(link_name="NSAccessibilityMarkerTypeAttribute") AccessibilityMarkerTypeAttribute: ^NS.String
-	@(link_name="NSAccessibilityMarkerTypeDescriptionAttribute") AccessibilityMarkerTypeDescriptionAttribute: ^NS.String
-	@(link_name="NSAccessibilityIdentifierAttribute") AccessibilityIdentifierAttribute: ^NS.String
-	@(link_name="NSAccessibilityLeftTabStopMarkerTypeValue") AccessibilityLeftTabStopMarkerTypeValue: ^NS.String
-	@(link_name="NSAccessibilityRightTabStopMarkerTypeValue") AccessibilityRightTabStopMarkerTypeValue: ^NS.String
-	@(link_name="NSAccessibilityCenterTabStopMarkerTypeValue") AccessibilityCenterTabStopMarkerTypeValue: ^NS.String
-	@(link_name="NSAccessibilityDecimalTabStopMarkerTypeValue") AccessibilityDecimalTabStopMarkerTypeValue: ^NS.String
-	@(link_name="NSAccessibilityHeadIndentMarkerTypeValue") AccessibilityHeadIndentMarkerTypeValue: ^NS.String
-	@(link_name="NSAccessibilityTailIndentMarkerTypeValue") AccessibilityTailIndentMarkerTypeValue: ^NS.String
-	@(link_name="NSAccessibilityFirstLineIndentMarkerTypeValue") AccessibilityFirstLineIndentMarkerTypeValue: ^NS.String
-	@(link_name="NSAccessibilityUnknownMarkerTypeValue") AccessibilityUnknownMarkerTypeValue: ^NS.String
-	@(link_name="NSAccessibilityInchesUnitValue") AccessibilityInchesUnitValue: ^NS.String
-	@(link_name="NSAccessibilityCentimetersUnitValue") AccessibilityCentimetersUnitValue: ^NS.String
-	@(link_name="NSAccessibilityPointsUnitValue") AccessibilityPointsUnitValue: ^NS.String
-	@(link_name="NSAccessibilityPicasUnitValue") AccessibilityPicasUnitValue: ^NS.String
-	@(link_name="NSAccessibilityUnknownUnitValue") AccessibilityUnknownUnitValue: ^NS.String
-	@(link_name="NSAccessibilityPressAction") AccessibilityPressAction: ^NS.String
-	@(link_name="NSAccessibilityIncrementAction") AccessibilityIncrementAction: ^NS.String
-	@(link_name="NSAccessibilityDecrementAction") AccessibilityDecrementAction: ^NS.String
-	@(link_name="NSAccessibilityConfirmAction") AccessibilityConfirmAction: ^NS.String
-	@(link_name="NSAccessibilityPickAction") AccessibilityPickAction: ^NS.String
-	@(link_name="NSAccessibilityCancelAction") AccessibilityCancelAction: ^NS.String
-	@(link_name="NSAccessibilityRaiseAction") AccessibilityRaiseAction: ^NS.String
-	@(link_name="NSAccessibilityShowMenuAction") AccessibilityShowMenuAction: ^NS.String
-	@(link_name="NSAccessibilityDeleteAction") AccessibilityDeleteAction: ^NS.String
-	@(link_name="NSAccessibilityScrollToVisibleAction") AccessibilityScrollToVisibleAction: ^NS.String
-	@(link_name="NSAccessibilityShowAlternateUIAction") AccessibilityShowAlternateUIAction: ^NS.String
-	@(link_name="NSAccessibilityShowDefaultUIAction") AccessibilityShowDefaultUIAction: ^NS.String
-	@(link_name="NSAccessibilityMainWindowChangedNotification") AccessibilityMainWindowChangedNotification: ^NS.String
-	@(link_name="NSAccessibilityFocusedWindowChangedNotification") AccessibilityFocusedWindowChangedNotification: ^NS.String
-	@(link_name="NSAccessibilityFocusedUIElementChangedNotification") AccessibilityFocusedUIElementChangedNotification: ^NS.String
-	@(link_name="NSAccessibilityApplicationActivatedNotification") AccessibilityApplicationActivatedNotification: ^NS.String
-	@(link_name="NSAccessibilityApplicationDeactivatedNotification") AccessibilityApplicationDeactivatedNotification: ^NS.String
-	@(link_name="NSAccessibilityApplicationHiddenNotification") AccessibilityApplicationHiddenNotification: ^NS.String
-	@(link_name="NSAccessibilityApplicationShownNotification") AccessibilityApplicationShownNotification: ^NS.String
-	@(link_name="NSAccessibilityWindowCreatedNotification") AccessibilityWindowCreatedNotification: ^NS.String
-	@(link_name="NSAccessibilityWindowMovedNotification") AccessibilityWindowMovedNotification: ^NS.String
-	@(link_name="NSAccessibilityWindowResizedNotification") AccessibilityWindowResizedNotification: ^NS.String
-	@(link_name="NSAccessibilityWindowMiniaturizedNotification") AccessibilityWindowMiniaturizedNotification: ^NS.String
-	@(link_name="NSAccessibilityWindowDeminiaturizedNotification") AccessibilityWindowDeminiaturizedNotification: ^NS.String
-	@(link_name="NSAccessibilityDrawerCreatedNotification") AccessibilityDrawerCreatedNotification: ^NS.String
-	@(link_name="NSAccessibilitySheetCreatedNotification") AccessibilitySheetCreatedNotification: ^NS.String
-	@(link_name="NSAccessibilityUIElementDestroyedNotification") AccessibilityUIElementDestroyedNotification: ^NS.String
-	@(link_name="NSAccessibilityValueChangedNotification") AccessibilityValueChangedNotification: ^NS.String
-	@(link_name="NSAccessibilityTitleChangedNotification") AccessibilityTitleChangedNotification: ^NS.String
-	@(link_name="NSAccessibilityResizedNotification") AccessibilityResizedNotification: ^NS.String
-	@(link_name="NSAccessibilityMovedNotification") AccessibilityMovedNotification: ^NS.String
-	@(link_name="NSAccessibilityCreatedNotification") AccessibilityCreatedNotification: ^NS.String
-	@(link_name="NSAccessibilityLayoutChangedNotification") AccessibilityLayoutChangedNotification: ^NS.String
-	@(link_name="NSAccessibilityHelpTagCreatedNotification") AccessibilityHelpTagCreatedNotification: ^NS.String
-	@(link_name="NSAccessibilitySelectedTextChangedNotification") AccessibilitySelectedTextChangedNotification: ^NS.String
-	@(link_name="NSAccessibilityRowCountChangedNotification") AccessibilityRowCountChangedNotification: ^NS.String
-	@(link_name="NSAccessibilitySelectedChildrenChangedNotification") AccessibilitySelectedChildrenChangedNotification: ^NS.String
-	@(link_name="NSAccessibilitySelectedRowsChangedNotification") AccessibilitySelectedRowsChangedNotification: ^NS.String
-	@(link_name="NSAccessibilitySelectedColumnsChangedNotification") AccessibilitySelectedColumnsChangedNotification: ^NS.String
-	@(link_name="NSAccessibilityRowExpandedNotification") AccessibilityRowExpandedNotification: ^NS.String
-	@(link_name="NSAccessibilityRowCollapsedNotification") AccessibilityRowCollapsedNotification: ^NS.String
-	@(link_name="NSAccessibilityAutocorrectionOccurredNotification") AccessibilityAutocorrectionOccurredNotification: ^NS.String
-	@(link_name="NSAccessibilityTextInputMarkingSessionBeganNotification") AccessibilityTextInputMarkingSessionBeganNotification: ^NS.String
-	@(link_name="NSAccessibilityTextInputMarkingSessionEndedNotification") AccessibilityTextInputMarkingSessionEndedNotification: ^NS.String
-	@(link_name="NSAccessibilityDraggingSourceDragBeganNotification") AccessibilityDraggingSourceDragBeganNotification: ^NS.String
-	@(link_name="NSAccessibilityDraggingSourceDragEndedNotification") AccessibilityDraggingSourceDragEndedNotification: ^NS.String
-	@(link_name="NSAccessibilityDraggingDestinationDropAllowedNotification") AccessibilityDraggingDestinationDropAllowedNotification: ^NS.String
-	@(link_name="NSAccessibilityDraggingDestinationDropNotAllowedNotification") AccessibilityDraggingDestinationDropNotAllowedNotification: ^NS.String
-	@(link_name="NSAccessibilityDraggingDestinationDragAcceptedNotification") AccessibilityDraggingDestinationDragAcceptedNotification: ^NS.String
-	@(link_name="NSAccessibilityDraggingDestinationDragNotAcceptedNotification") AccessibilityDraggingDestinationDragNotAcceptedNotification: ^NS.String
-	@(link_name="NSAccessibilitySelectedCellsChangedNotification") AccessibilitySelectedCellsChangedNotification: ^NS.String
-	@(link_name="NSAccessibilityUnitsChangedNotification") AccessibilityUnitsChangedNotification: ^NS.String
-	@(link_name="NSAccessibilitySelectedChildrenMovedNotification") AccessibilitySelectedChildrenMovedNotification: ^NS.String
-	@(link_name="NSAccessibilityAnnouncementRequestedNotification") AccessibilityAnnouncementRequestedNotification: ^NS.String
-	@(link_name="NSAccessibilityUnknownRole") AccessibilityUnknownRole: ^NS.String
-	@(link_name="NSAccessibilityButtonRole") AccessibilityButtonRole: ^NS.String
-	@(link_name="NSAccessibilityRadioButtonRole") AccessibilityRadioButtonRole: ^NS.String
-	@(link_name="NSAccessibilityCheckBoxRole") AccessibilityCheckBoxRole: ^NS.String
-	@(link_name="NSAccessibilitySliderRole") AccessibilitySliderRole: ^NS.String
-	@(link_name="NSAccessibilityTabGroupRole") AccessibilityTabGroupRole: ^NS.String
-	@(link_name="NSAccessibilityTextFieldRole") AccessibilityTextFieldRole: ^NS.String
-	@(link_name="NSAccessibilityStaticTextRole") AccessibilityStaticTextRole: ^NS.String
-	@(link_name="NSAccessibilityTextAreaRole") AccessibilityTextAreaRole: ^NS.String
-	@(link_name="NSAccessibilityScrollAreaRole") AccessibilityScrollAreaRole: ^NS.String
-	@(link_name="NSAccessibilityPopUpButtonRole") AccessibilityPopUpButtonRole: ^NS.String
-	@(link_name="NSAccessibilityMenuButtonRole") AccessibilityMenuButtonRole: ^NS.String
-	@(link_name="NSAccessibilityTableRole") AccessibilityTableRole: ^NS.String
-	@(link_name="NSAccessibilityApplicationRole") AccessibilityApplicationRole: ^NS.String
-	@(link_name="NSAccessibilityGroupRole") AccessibilityGroupRole: ^NS.String
-	@(link_name="NSAccessibilityRadioGroupRole") AccessibilityRadioGroupRole: ^NS.String
-	@(link_name="NSAccessibilityListRole") AccessibilityListRole: ^NS.String
-	@(link_name="NSAccessibilityScrollBarRole") AccessibilityScrollBarRole: ^NS.String
-	@(link_name="NSAccessibilityValueIndicatorRole") AccessibilityValueIndicatorRole: ^NS.String
-	@(link_name="NSAccessibilityImageRole") AccessibilityImageRole: ^NS.String
-	@(link_name="NSAccessibilityMenuBarRole") AccessibilityMenuBarRole: ^NS.String
-	@(link_name="NSAccessibilityMenuBarItemRole") AccessibilityMenuBarItemRole: ^NS.String
-	@(link_name="NSAccessibilityMenuRole") AccessibilityMenuRole: ^NS.String
-	@(link_name="NSAccessibilityMenuItemRole") AccessibilityMenuItemRole: ^NS.String
-	@(link_name="NSAccessibilityColumnRole") AccessibilityColumnRole: ^NS.String
-	@(link_name="NSAccessibilityRowRole") AccessibilityRowRole: ^NS.String
-	@(link_name="NSAccessibilityToolbarRole") AccessibilityToolbarRole: ^NS.String
-	@(link_name="NSAccessibilityBusyIndicatorRole") AccessibilityBusyIndicatorRole: ^NS.String
-	@(link_name="NSAccessibilityProgressIndicatorRole") AccessibilityProgressIndicatorRole: ^NS.String
-	@(link_name="NSAccessibilityWindowRole") AccessibilityWindowRole: ^NS.String
-	@(link_name="NSAccessibilityDrawerRole") AccessibilityDrawerRole: ^NS.String
-	@(link_name="NSAccessibilitySystemWideRole") AccessibilitySystemWideRole: ^NS.String
-	@(link_name="NSAccessibilityOutlineRole") AccessibilityOutlineRole: ^NS.String
-	@(link_name="NSAccessibilityIncrementorRole") AccessibilityIncrementorRole: ^NS.String
-	@(link_name="NSAccessibilityBrowserRole") AccessibilityBrowserRole: ^NS.String
-	@(link_name="NSAccessibilityComboBoxRole") AccessibilityComboBoxRole: ^NS.String
-	@(link_name="NSAccessibilitySplitGroupRole") AccessibilitySplitGroupRole: ^NS.String
-	@(link_name="NSAccessibilitySplitterRole") AccessibilitySplitterRole: ^NS.String
-	@(link_name="NSAccessibilityColorWellRole") AccessibilityColorWellRole: ^NS.String
-	@(link_name="NSAccessibilityGrowAreaRole") AccessibilityGrowAreaRole: ^NS.String
-	@(link_name="NSAccessibilitySheetRole") AccessibilitySheetRole: ^NS.String
-	@(link_name="NSAccessibilityHelpTagRole") AccessibilityHelpTagRole: ^NS.String
-	@(link_name="NSAccessibilityMatteRole") AccessibilityMatteRole: ^NS.String
-	@(link_name="NSAccessibilityRulerRole") AccessibilityRulerRole: ^NS.String
-	@(link_name="NSAccessibilityRulerMarkerRole") AccessibilityRulerMarkerRole: ^NS.String
-	@(link_name="NSAccessibilityLinkRole") AccessibilityLinkRole: ^NS.String
-	@(link_name="NSAccessibilityDisclosureTriangleRole") AccessibilityDisclosureTriangleRole: ^NS.String
-	@(link_name="NSAccessibilityGridRole") AccessibilityGridRole: ^NS.String
-	@(link_name="NSAccessibilityRelevanceIndicatorRole") AccessibilityRelevanceIndicatorRole: ^NS.String
-	@(link_name="NSAccessibilityDateTimeAreaRole") AccessibilityDateTimeAreaRole: ^NS.String
-	@(link_name="NSAccessibilityLevelIndicatorRole") AccessibilityLevelIndicatorRole: ^NS.String
-	@(link_name="NSAccessibilityCellRole") AccessibilityCellRole: ^NS.String
-	@(link_name="NSAccessibilityPopoverRole") AccessibilityPopoverRole: ^NS.String
-	@(link_name="NSAccessibilityPageRole") AccessibilityPageRole: ^NS.String
-	@(link_name="NSAccessibilityHeadingRole") AccessibilityHeadingRole: ^NS.String
-	@(link_name="NSAccessibilityListMarkerRole") AccessibilityListMarkerRole: ^NS.String
-	@(link_name="NSAccessibilityWebAreaRole") AccessibilityWebAreaRole: ^NS.String
-	@(link_name="NSAccessibilityLayoutAreaRole") AccessibilityLayoutAreaRole: ^NS.String
-	@(link_name="NSAccessibilityLayoutItemRole") AccessibilityLayoutItemRole: ^NS.String
-	@(link_name="NSAccessibilityHandleRole") AccessibilityHandleRole: ^NS.String
-	@(link_name="NSAccessibilityUnknownSubrole") AccessibilityUnknownSubrole: ^NS.String
-	@(link_name="NSAccessibilityCloseButtonSubrole") AccessibilityCloseButtonSubrole: ^NS.String
-	@(link_name="NSAccessibilityZoomButtonSubrole") AccessibilityZoomButtonSubrole: ^NS.String
-	@(link_name="NSAccessibilityMinimizeButtonSubrole") AccessibilityMinimizeButtonSubrole: ^NS.String
-	@(link_name="NSAccessibilityToolbarButtonSubrole") AccessibilityToolbarButtonSubrole: ^NS.String
-	@(link_name="NSAccessibilityTableRowSubrole") AccessibilityTableRowSubrole: ^NS.String
-	@(link_name="NSAccessibilityOutlineRowSubrole") AccessibilityOutlineRowSubrole: ^NS.String
-	@(link_name="NSAccessibilitySecureTextFieldSubrole") AccessibilitySecureTextFieldSubrole: ^NS.String
-	@(link_name="NSAccessibilityStandardWindowSubrole") AccessibilityStandardWindowSubrole: ^NS.String
-	@(link_name="NSAccessibilityDialogSubrole") AccessibilityDialogSubrole: ^NS.String
-	@(link_name="NSAccessibilitySystemDialogSubrole") AccessibilitySystemDialogSubrole: ^NS.String
-	@(link_name="NSAccessibilityFloatingWindowSubrole") AccessibilityFloatingWindowSubrole: ^NS.String
-	@(link_name="NSAccessibilitySystemFloatingWindowSubrole") AccessibilitySystemFloatingWindowSubrole: ^NS.String
-	@(link_name="NSAccessibilityIncrementArrowSubrole") AccessibilityIncrementArrowSubrole: ^NS.String
-	@(link_name="NSAccessibilityDecrementArrowSubrole") AccessibilityDecrementArrowSubrole: ^NS.String
-	@(link_name="NSAccessibilityIncrementPageSubrole") AccessibilityIncrementPageSubrole: ^NS.String
-	@(link_name="NSAccessibilityDecrementPageSubrole") AccessibilityDecrementPageSubrole: ^NS.String
-	@(link_name="NSAccessibilitySearchFieldSubrole") AccessibilitySearchFieldSubrole: ^NS.String
-	@(link_name="NSAccessibilityTextAttachmentSubrole") AccessibilityTextAttachmentSubrole: ^NS.String
-	@(link_name="NSAccessibilityTextLinkSubrole") AccessibilityTextLinkSubrole: ^NS.String
-	@(link_name="NSAccessibilityTimelineSubrole") AccessibilityTimelineSubrole: ^NS.String
-	@(link_name="NSAccessibilitySortButtonSubrole") AccessibilitySortButtonSubrole: ^NS.String
-	@(link_name="NSAccessibilityRatingIndicatorSubrole") AccessibilityRatingIndicatorSubrole: ^NS.String
-	@(link_name="NSAccessibilityContentListSubrole") AccessibilityContentListSubrole: ^NS.String
-	@(link_name="NSAccessibilityDefinitionListSubrole") AccessibilityDefinitionListSubrole: ^NS.String
-	@(link_name="NSAccessibilityFullScreenButtonSubrole") AccessibilityFullScreenButtonSubrole: ^NS.String
-	@(link_name="NSAccessibilityToggleSubrole") AccessibilityToggleSubrole: ^NS.String
-	@(link_name="NSAccessibilitySwitchSubrole") AccessibilitySwitchSubrole: ^NS.String
-	@(link_name="NSAccessibilityDescriptionListSubrole") AccessibilityDescriptionListSubrole: ^NS.String
-	@(link_name="NSAccessibilityTabButtonSubrole") AccessibilityTabButtonSubrole: ^NS.String
-	@(link_name="NSAccessibilityCollectionListSubrole") AccessibilityCollectionListSubrole: ^NS.String
-	@(link_name="NSAccessibilitySectionListSubrole") AccessibilitySectionListSubrole: ^NS.String
-	@(link_name="NSAccessibilitySuggestionSubrole") AccessibilitySuggestionSubrole: ^NS.String
-	@(link_name="NSAccessibilityUIElementsKey") AccessibilityUIElementsKey: ^NS.String
-	@(link_name="NSAccessibilityPriorityKey") AccessibilityPriorityKey: ^NS.String
-	@(link_name="NSAccessibilityAnnouncementKey") AccessibilityAnnouncementKey: ^NS.String
-	@(link_name="NSAccessibilityUIElementsForSearchPredicateParameterizedAttribute") AccessibilityUIElementsForSearchPredicateParameterizedAttribute: ^NS.String
-	@(link_name="NSAccessibilityResultsForSearchPredicateParameterizedAttribute") AccessibilityResultsForSearchPredicateParameterizedAttribute: ^NS.String
-	@(link_name="NSAccessibilitySearchIdentifiersKey") AccessibilitySearchIdentifiersKey: ^NS.String
-	@(link_name="NSAccessibilitySearchCurrentElementKey") AccessibilitySearchCurrentElementKey: ^NS.String
-	@(link_name="NSAccessibilitySearchCurrentRangeKey") AccessibilitySearchCurrentRangeKey: ^NS.String
-	@(link_name="NSAccessibilitySearchDirectionKey") AccessibilitySearchDirectionKey: ^NS.String
-	@(link_name="NSAccessibilitySearchResultsLimitKey") AccessibilitySearchResultsLimitKey: ^NS.String
-	@(link_name="NSAccessibilitySearchTextKey") AccessibilitySearchTextKey: ^NS.String
-	@(link_name="NSAccessibilitySearchDirectionNext") AccessibilitySearchDirectionNext: ^NS.String
-	@(link_name="NSAccessibilitySearchDirectionPrevious") AccessibilitySearchDirectionPrevious: ^NS.String
-	@(link_name="NSAccessibilitySearchResultElementKey") AccessibilitySearchResultElementKey: ^NS.String
-	@(link_name="NSAccessibilitySearchResultRangeKey") AccessibilitySearchResultRangeKey: ^NS.String
-	@(link_name="NSAccessibilitySearchResultDescriptionOverrideKey") AccessibilitySearchResultDescriptionOverrideKey: ^NS.String
-	@(link_name="NSAccessibilitySearchResultLoaderKey") AccessibilitySearchResultLoaderKey: ^NS.String
-	@(link_name="NSAccessibilityAnyTypeSearchKey") AccessibilityAnyTypeSearchKey: ^NS.String
-	@(link_name="NSAccessibilityArticleSearchKey") AccessibilityArticleSearchKey: ^NS.String
-	@(link_name="NSAccessibilityBlockquoteSameLevelSearchKey") AccessibilityBlockquoteSameLevelSearchKey: ^NS.String
-	@(link_name="NSAccessibilityBlockquoteSearchKey") AccessibilityBlockquoteSearchKey: ^NS.String
-	@(link_name="NSAccessibilityBoldFontSearchKey") AccessibilityBoldFontSearchKey: ^NS.String
-	@(link_name="NSAccessibilityButtonSearchKey") AccessibilityButtonSearchKey: ^NS.String
-	@(link_name="NSAccessibilityCheckBoxSearchKey") AccessibilityCheckBoxSearchKey: ^NS.String
-	@(link_name="NSAccessibilityControlSearchKey") AccessibilityControlSearchKey: ^NS.String
-	@(link_name="NSAccessibilityDifferentTypeSearchKey") AccessibilityDifferentTypeSearchKey: ^NS.String
-	@(link_name="NSAccessibilityFontChangeSearchKey") AccessibilityFontChangeSearchKey: ^NS.String
-	@(link_name="NSAccessibilityFontColorChangeSearchKey") AccessibilityFontColorChangeSearchKey: ^NS.String
-	@(link_name="NSAccessibilityFrameSearchKey") AccessibilityFrameSearchKey: ^NS.String
-	@(link_name="NSAccessibilityGraphicSearchKey") AccessibilityGraphicSearchKey: ^NS.String
-	@(link_name="NSAccessibilityHeadingLevel1SearchKey") AccessibilityHeadingLevel1SearchKey: ^NS.String
-	@(link_name="NSAccessibilityHeadingLevel2SearchKey") AccessibilityHeadingLevel2SearchKey: ^NS.String
-	@(link_name="NSAccessibilityHeadingLevel3SearchKey") AccessibilityHeadingLevel3SearchKey: ^NS.String
-	@(link_name="NSAccessibilityHeadingLevel4SearchKey") AccessibilityHeadingLevel4SearchKey: ^NS.String
-	@(link_name="NSAccessibilityHeadingLevel5SearchKey") AccessibilityHeadingLevel5SearchKey: ^NS.String
-	@(link_name="NSAccessibilityHeadingLevel6SearchKey") AccessibilityHeadingLevel6SearchKey: ^NS.String
-	@(link_name="NSAccessibilityHeadingSameLevelSearchKey") AccessibilityHeadingSameLevelSearchKey: ^NS.String
-	@(link_name="NSAccessibilityHeadingSearchKey") AccessibilityHeadingSearchKey: ^NS.String
-	@(link_name="NSAccessibilityItalicFontSearchKey") AccessibilityItalicFontSearchKey: ^NS.String
-	@(link_name="NSAccessibilityKeyboardFocusableSearchKey") AccessibilityKeyboardFocusableSearchKey: ^NS.String
-	@(link_name="NSAccessibilityLandmarkSearchKey") AccessibilityLandmarkSearchKey: ^NS.String
-	@(link_name="NSAccessibilityLinkSearchKey") AccessibilityLinkSearchKey: ^NS.String
-	@(link_name="NSAccessibilityListSearchKey") AccessibilityListSearchKey: ^NS.String
-	@(link_name="NSAccessibilityLiveRegionSearchKey") AccessibilityLiveRegionSearchKey: ^NS.String
-	@(link_name="NSAccessibilityMisspelledWordSearchKey") AccessibilityMisspelledWordSearchKey: ^NS.String
-	@(link_name="NSAccessibilityOutlineSearchKey") AccessibilityOutlineSearchKey: ^NS.String
-	@(link_name="NSAccessibilityPlainTextSearchKey") AccessibilityPlainTextSearchKey: ^NS.String
-	@(link_name="NSAccessibilityRadioGroupSearchKey") AccessibilityRadioGroupSearchKey: ^NS.String
-	@(link_name="NSAccessibilitySameTypeSearchKey") AccessibilitySameTypeSearchKey: ^NS.String
-	@(link_name="NSAccessibilityStaticTextSearchKey") AccessibilityStaticTextSearchKey: ^NS.String
-	@(link_name="NSAccessibilityStyleChangeSearchKey") AccessibilityStyleChangeSearchKey: ^NS.String
-	@(link_name="NSAccessibilityTableSameLevelSearchKey") AccessibilityTableSameLevelSearchKey: ^NS.String
-	@(link_name="NSAccessibilityTableSearchKey") AccessibilityTableSearchKey: ^NS.String
-	@(link_name="NSAccessibilityTextFieldSearchKey") AccessibilityTextFieldSearchKey: ^NS.String
-	@(link_name="NSAccessibilityTextStateChangeTypeKey") AccessibilityTextStateChangeTypeKey: ^NS.String
-	@(link_name="NSAccessibilityTextStateSyncKey") AccessibilityTextStateSyncKey: ^NS.String
-	@(link_name="NSAccessibilityUnderlineSearchKey") AccessibilityUnderlineSearchKey: ^NS.String
-	@(link_name="NSAccessibilityUnvisitedLinkSearchKey") AccessibilityUnvisitedLinkSearchKey: ^NS.String
-	@(link_name="NSAccessibilityVisitedLinkSearchKey") AccessibilityVisitedLinkSearchKey: ^NS.String
-	@(link_name="NSAccessibilitySortButtonRole") AccessibilitySortButtonRole: ^NS.String
-	@(link_name="NSWorkspaceDesktopImageScalingKey") WorkspaceDesktopImageScalingKey: ^NS.String
-	@(link_name="NSWorkspaceDesktopImageAllowClippingKey") WorkspaceDesktopImageAllowClippingKey: ^NS.String
-	@(link_name="NSWorkspaceDesktopImageFillColorKey") WorkspaceDesktopImageFillColorKey: ^NS.String
-	@(link_name="NSWorkspaceApplicationKey") WorkspaceApplicationKey: ^NS.String
-	@(link_name="NSWorkspaceWillLaunchApplicationNotification") WorkspaceWillLaunchApplicationNotification: ^NS.String
-	@(link_name="NSWorkspaceDidLaunchApplicationNotification") WorkspaceDidLaunchApplicationNotification: ^NS.String
-	@(link_name="NSWorkspaceDidTerminateApplicationNotification") WorkspaceDidTerminateApplicationNotification: ^NS.String
-	@(link_name="NSWorkspaceDidHideApplicationNotification") WorkspaceDidHideApplicationNotification: ^NS.String
-	@(link_name="NSWorkspaceDidUnhideApplicationNotification") WorkspaceDidUnhideApplicationNotification: ^NS.String
-	@(link_name="NSWorkspaceDidActivateApplicationNotification") WorkspaceDidActivateApplicationNotification: ^NS.String
-	@(link_name="NSWorkspaceDidDeactivateApplicationNotification") WorkspaceDidDeactivateApplicationNotification: ^NS.String
-	@(link_name="NSWorkspaceVolumeLocalizedNameKey") WorkspaceVolumeLocalizedNameKey: ^NS.String
-	@(link_name="NSWorkspaceVolumeURLKey") WorkspaceVolumeURLKey: ^NS.String
-	@(link_name="NSWorkspaceVolumeOldLocalizedNameKey") WorkspaceVolumeOldLocalizedNameKey: ^NS.String
-	@(link_name="NSWorkspaceVolumeOldURLKey") WorkspaceVolumeOldURLKey: ^NS.String
-	@(link_name="NSWorkspaceDidMountNotification") WorkspaceDidMountNotification: ^NS.String
-	@(link_name="NSWorkspaceDidUnmountNotification") WorkspaceDidUnmountNotification: ^NS.String
-	@(link_name="NSWorkspaceWillUnmountNotification") WorkspaceWillUnmountNotification: ^NS.String
-	@(link_name="NSWorkspaceDidRenameVolumeNotification") WorkspaceDidRenameVolumeNotification: ^NS.String
-	@(link_name="NSWorkspaceWillPowerOffNotification") WorkspaceWillPowerOffNotification: ^NS.String
-	@(link_name="NSWorkspaceWillSleepNotification") WorkspaceWillSleepNotification: ^NS.String
-	@(link_name="NSWorkspaceDidWakeNotification") WorkspaceDidWakeNotification: ^NS.String
-	@(link_name="NSWorkspaceScreensDidSleepNotification") WorkspaceScreensDidSleepNotification: ^NS.String
-	@(link_name="NSWorkspaceScreensDidWakeNotification") WorkspaceScreensDidWakeNotification: ^NS.String
-	@(link_name="NSWorkspaceSessionDidBecomeActiveNotification") WorkspaceSessionDidBecomeActiveNotification: ^NS.String
-	@(link_name="NSWorkspaceSessionDidResignActiveNotification") WorkspaceSessionDidResignActiveNotification: ^NS.String
-	@(link_name="NSWorkspaceDidChangeFileLabelsNotification") WorkspaceDidChangeFileLabelsNotification: ^NS.String
-	@(link_name="NSWorkspaceActiveSpaceDidChangeNotification") WorkspaceActiveSpaceDidChangeNotification: ^NS.String
-	@(link_name="NSWorkspaceLaunchConfigurationAppleEvent") WorkspaceLaunchConfigurationAppleEvent: ^NS.String
-	@(link_name="NSWorkspaceLaunchConfigurationArguments") WorkspaceLaunchConfigurationArguments: ^NS.String
-	@(link_name="NSWorkspaceLaunchConfigurationEnvironment") WorkspaceLaunchConfigurationEnvironment: ^NS.String
-	@(link_name="NSWorkspaceLaunchConfigurationArchitecture") WorkspaceLaunchConfigurationArchitecture: ^NS.String
-	@(link_name="NSWorkspaceMoveOperation") WorkspaceMoveOperation: ^NS.String
-	@(link_name="NSWorkspaceCopyOperation") WorkspaceCopyOperation: ^NS.String
-	@(link_name="NSWorkspaceLinkOperation") WorkspaceLinkOperation: ^NS.String
-	@(link_name="NSWorkspaceCompressOperation") WorkspaceCompressOperation: ^NS.String
-	@(link_name="NSWorkspaceDecompressOperation") WorkspaceDecompressOperation: ^NS.String
-	@(link_name="NSWorkspaceEncryptOperation") WorkspaceEncryptOperation: ^NS.String
-	@(link_name="NSWorkspaceDecryptOperation") WorkspaceDecryptOperation: ^NS.String
-	@(link_name="NSWorkspaceDestroyOperation") WorkspaceDestroyOperation: ^NS.String
-	@(link_name="NSWorkspaceRecycleOperation") WorkspaceRecycleOperation: ^NS.String
-	@(link_name="NSWorkspaceDuplicateOperation") WorkspaceDuplicateOperation: ^NS.String
-	@(link_name="NSWorkspaceDidPerformFileOperationNotification") WorkspaceDidPerformFileOperationNotification: ^NS.String
-	@(link_name="NSPlainFileType") PlainFileType: ^NS.String
-	@(link_name="NSDirectoryFileType") DirectoryFileType: ^NS.String
-	@(link_name="NSApplicationFileType") ApplicationFileType: ^NS.String
-	@(link_name="NSFilesystemFileType") FilesystemFileType: ^NS.String
-	@(link_name="NSShellCommandFileType") ShellCommandFileType: ^NS.String
-	@(link_name="NSWorkspaceAccessibilityDisplayOptionsDidChangeNotification") WorkspaceAccessibilityDisplayOptionsDidChangeNotification: ^NS.String
-	@(link_name="NSPasteboardTypeString") PasteboardTypeString: ^NS.String
-	@(link_name="NSPasteboardTypePDF") PasteboardTypePDF: ^NS.String
-	@(link_name="NSPasteboardTypeTIFF") PasteboardTypeTIFF: ^NS.String
-	@(link_name="NSPasteboardTypePNG") PasteboardTypePNG: ^NS.String
-	@(link_name="NSPasteboardTypeRTF") PasteboardTypeRTF: ^NS.String
-	@(link_name="NSPasteboardTypeRTFD") PasteboardTypeRTFD: ^NS.String
-	@(link_name="NSPasteboardTypeHTML") PasteboardTypeHTML: ^NS.String
-	@(link_name="NSPasteboardTypeTabularText") PasteboardTypeTabularText: ^NS.String
-	@(link_name="NSPasteboardTypeFont") PasteboardTypeFont: ^NS.String
-	@(link_name="NSPasteboardTypeRuler") PasteboardTypeRuler: ^NS.String
-	@(link_name="NSPasteboardTypeColor") PasteboardTypeColor: ^NS.String
-	@(link_name="NSPasteboardTypeSound") PasteboardTypeSound: ^NS.String
-	@(link_name="NSPasteboardTypeMultipleTextSelection") PasteboardTypeMultipleTextSelection: ^NS.String
-	@(link_name="NSPasteboardTypeTextFinderOptions") PasteboardTypeTextFinderOptions: ^NS.String
-	@(link_name="NSPasteboardTypeURL") PasteboardTypeURL: ^NS.String
-	@(link_name="NSPasteboardTypeFileURL") PasteboardTypeFileURL: ^NS.String
-	@(link_name="NSPasteboardNameGeneral") PasteboardNameGeneral: ^NS.String
-	@(link_name="NSPasteboardNameFont") PasteboardNameFont: ^NS.String
-	@(link_name="NSPasteboardNameRuler") PasteboardNameRuler: ^NS.String
-	@(link_name="NSPasteboardNameFind") PasteboardNameFind: ^NS.String
-	@(link_name="NSPasteboardNameDrag") PasteboardNameDrag: ^NS.String
-	@(link_name="NSPasteboardDetectionPatternProbableWebURL") PasteboardDetectionPatternProbableWebURL: ^NS.String
-	@(link_name="NSPasteboardDetectionPatternProbableWebSearch") PasteboardDetectionPatternProbableWebSearch: ^NS.String
-	@(link_name="NSPasteboardDetectionPatternNumber") PasteboardDetectionPatternNumber: ^NS.String
-	@(link_name="NSPasteboardDetectionPatternLink") PasteboardDetectionPatternLink: ^NS.String
-	@(link_name="NSPasteboardDetectionPatternPhoneNumber") PasteboardDetectionPatternPhoneNumber: ^NS.String
-	@(link_name="NSPasteboardDetectionPatternEmailAddress") PasteboardDetectionPatternEmailAddress: ^NS.String
-	@(link_name="NSPasteboardDetectionPatternPostalAddress") PasteboardDetectionPatternPostalAddress: ^NS.String
-	@(link_name="NSPasteboardDetectionPatternCalendarEvent") PasteboardDetectionPatternCalendarEvent: ^NS.String
-	@(link_name="NSPasteboardDetectionPatternShipmentTrackingNumber") PasteboardDetectionPatternShipmentTrackingNumber: ^NS.String
-	@(link_name="NSPasteboardDetectionPatternFlightNumber") PasteboardDetectionPatternFlightNumber: ^NS.String
-	@(link_name="NSPasteboardDetectionPatternMoneyAmount") PasteboardDetectionPatternMoneyAmount: ^NS.String
-	@(link_name="NSPasteboardMetadataTypeContentType") PasteboardMetadataTypeContentType: ^NS.String
-	@(link_name="NSPasteboardURLReadingFileURLsOnlyKey") PasteboardURLReadingFileURLsOnlyKey: ^NS.String
-	@(link_name="NSPasteboardURLReadingContentsConformToTypesKey") PasteboardURLReadingContentsConformToTypesKey: ^NS.String
-	@(link_name="NSFileContentsPboardType") FileContentsPboardType: ^NS.String
-	@(link_name="NSStringPboardType") StringPboardType: ^NS.String
-	@(link_name="NSFilenamesPboardType") FilenamesPboardType: ^NS.String
-	@(link_name="NSTIFFPboardType") TIFFPboardType: ^NS.String
-	@(link_name="NSRTFPboardType") RTFPboardType: ^NS.String
-	@(link_name="NSTabularTextPboardType") TabularTextPboardType: ^NS.String
-	@(link_name="NSFontPboardType") FontPboardType: ^NS.String
-	@(link_name="NSRulerPboardType") RulerPboardType: ^NS.String
-	@(link_name="NSColorPboardType") ColorPboardType: ^NS.String
-	@(link_name="NSRTFDPboardType") RTFDPboardType: ^NS.String
-	@(link_name="NSHTMLPboardType") HTMLPboardType: ^NS.String
-	@(link_name="NSURLPboardType") URLPboardType: ^NS.String
-	@(link_name="NSPDFPboardType") PDFPboardType: ^NS.String
-	@(link_name="NSMultipleTextSelectionPboardType") MultipleTextSelectionPboardType: ^NS.String
-	@(link_name="NSPostScriptPboardType") PostScriptPboardType: ^NS.String
-	@(link_name="NSVCardPboardType") VCardPboardType: ^NS.String
-	@(link_name="NSInkTextPboardType") InkTextPboardType: ^NS.String
-	@(link_name="NSFilesPromisePboardType") FilesPromisePboardType: ^NS.String
-	@(link_name="NSPasteboardTypeFindPanelSearchOptions") PasteboardTypeFindPanelSearchOptions: ^NS.String
-	@(link_name="NSGeneralPboard") GeneralPboard: ^NS.String
-	@(link_name="NSFontPboard") FontPboard: ^NS.String
-	@(link_name="NSRulerPboard") RulerPboard: ^NS.String
-	@(link_name="NSFindPboard") FindPboard: ^NS.String
-	@(link_name="NSDragPboard") DragPboard: ^NS.String
-	@(link_name="NSPICTPboardType") PICTPboardType: ^NS.String
-	@(link_name="NSNibOwner") NibOwner: ^NS.String
-	@(link_name="NSNibTopLevelObjects") NibTopLevelObjects: ^NS.String
-	@(link_name="NSAnimationProgressMarkNotification") AnimationProgressMarkNotification: ^NS.String
-	@(link_name="NSAnimationProgressMark") AnimationProgressMark: ^NS.String
-	@(link_name="NSViewAnimationTargetKey") ViewAnimationTargetKey: ^NS.String
-	@(link_name="NSViewAnimationStartFrameKey") ViewAnimationStartFrameKey: ^NS.String
-	@(link_name="NSViewAnimationEndFrameKey") ViewAnimationEndFrameKey: ^NS.String
-	@(link_name="NSViewAnimationEffectKey") ViewAnimationEffectKey: ^NS.String
-	@(link_name="NSViewAnimationFadeInEffect") ViewAnimationFadeInEffect: ^NS.String
-	@(link_name="NSViewAnimationFadeOutEffect") ViewAnimationFadeOutEffect: ^NS.String
-	@(link_name="NSAnimationTriggerOrderIn") AnimationTriggerOrderIn: ^NS.String
-	@(link_name="NSAnimationTriggerOrderOut") AnimationTriggerOrderOut: ^NS.String
-	@(link_name="NSAppearanceNameAqua") AppearanceNameAqua: ^NS.String
-	@(link_name="NSAppearanceNameDarkAqua") AppearanceNameDarkAqua: ^NS.String
-	@(link_name="NSAppearanceNameLightContent") AppearanceNameLightContent: ^NS.String
-	@(link_name="NSAppearanceNameVibrantDark") AppearanceNameVibrantDark: ^NS.String
-	@(link_name="NSAppearanceNameVibrantLight") AppearanceNameVibrantLight: ^NS.String
-	@(link_name="NSAppearanceNameAccessibilityHighContrastAqua") AppearanceNameAccessibilityHighContrastAqua: ^NS.String
-	@(link_name="NSAppearanceNameAccessibilityHighContrastDarkAqua") AppearanceNameAccessibilityHighContrastDarkAqua: ^NS.String
-	@(link_name="NSAppearanceNameAccessibilityHighContrastVibrantLight") AppearanceNameAccessibilityHighContrastVibrantLight: ^NS.String
-	@(link_name="NSAppearanceNameAccessibilityHighContrastVibrantDark") AppearanceNameAccessibilityHighContrastVibrantDark: ^NS.String
-	@(link_name="NSFullScreenModeAllScreens") FullScreenModeAllScreens: ^NS.String
-	@(link_name="NSFullScreenModeSetting") FullScreenModeSetting: ^NS.String
-	@(link_name="NSFullScreenModeWindowLevel") FullScreenModeWindowLevel: ^NS.String
-	@(link_name="NSFullScreenModeApplicationPresentationOptions") FullScreenModeApplicationPresentationOptions: ^NS.String
-	@(link_name="NSDefinitionPresentationTypeKey") DefinitionPresentationTypeKey: ^NS.String
-	@(link_name="NSDefinitionPresentationTypeOverlay") DefinitionPresentationTypeOverlay: ^NS.String
-	@(link_name="NSDefinitionPresentationTypeDictionaryApplication") DefinitionPresentationTypeDictionaryApplication: ^NS.String
-	@(link_name="NSViewFrameDidChangeNotification") ViewFrameDidChangeNotification: ^NS.String
-	@(link_name="NSViewFocusDidChangeNotification") ViewFocusDidChangeNotification: ^NS.String
-	@(link_name="NSViewBoundsDidChangeNotification") ViewBoundsDidChangeNotification: ^NS.String
-	@(link_name="NSViewGlobalFrameDidChangeNotification") ViewGlobalFrameDidChangeNotification: ^NS.String
-	@(link_name="NSViewDidUpdateTrackingAreasNotification") ViewDidUpdateTrackingAreasNotification: ^NS.String
-	@(link_name="NSTextDidBeginEditingNotification") TextDidBeginEditingNotification: ^NS.String
-	@(link_name="NSTextDidEndEditingNotification") TextDidEndEditingNotification: ^NS.String
-	@(link_name="NSTextDidChangeNotification") TextDidChangeNotification: ^NS.String
-	@(link_name="NSTextMovementUserInfoKey") TextMovementUserInfoKey: ^NS.String
-	@(link_name="NSTabColumnTerminatorsAttributeName") TabColumnTerminatorsAttributeName: ^NS.String
-	@(link_name="NSControlTintDidChangeNotification") ControlTintDidChangeNotification: ^NS.String
-	@(link_name="NSMenuItemImportFromDeviceIdentifier") MenuItemImportFromDeviceIdentifier: ^NS.String
-	@(link_name="NSMenuWillSendActionNotification") MenuWillSendActionNotification: ^NS.String
-	@(link_name="NSMenuDidSendActionNotification") MenuDidSendActionNotification: ^NS.String
-	@(link_name="NSMenuDidAddItemNotification") MenuDidAddItemNotification: ^NS.String
-	@(link_name="NSMenuDidRemoveItemNotification") MenuDidRemoveItemNotification: ^NS.String
-	@(link_name="NSMenuDidChangeItemNotification") MenuDidChangeItemNotification: ^NS.String
-	@(link_name="NSMenuDidBeginTrackingNotification") MenuDidBeginTrackingNotification: ^NS.String
-	@(link_name="NSMenuDidEndTrackingNotification") MenuDidEndTrackingNotification: ^NS.String
-	@(link_name="NSPrintPaperName") PrintPaperName: ^NS.String
-	@(link_name="NSPrintPaperSize") PrintPaperSize: ^NS.String
-	@(link_name="NSPrintOrientation") PrintOrientation: ^NS.String
-	@(link_name="NSPrintScalingFactor") PrintScalingFactor: ^NS.String
-	@(link_name="NSPrintLeftMargin") PrintLeftMargin: ^NS.String
-	@(link_name="NSPrintRightMargin") PrintRightMargin: ^NS.String
-	@(link_name="NSPrintTopMargin") PrintTopMargin: ^NS.String
-	@(link_name="NSPrintBottomMargin") PrintBottomMargin: ^NS.String
-	@(link_name="NSPrintHorizontallyCentered") PrintHorizontallyCentered: ^NS.String
-	@(link_name="NSPrintVerticallyCentered") PrintVerticallyCentered: ^NS.String
-	@(link_name="NSPrintHorizontalPagination") PrintHorizontalPagination: ^NS.String
-	@(link_name="NSPrintVerticalPagination") PrintVerticalPagination: ^NS.String
-	@(link_name="NSPrintPrinter") PrintPrinter: ^NS.String
-	@(link_name="NSPrintCopies") PrintCopies: ^NS.String
-	@(link_name="NSPrintAllPages") PrintAllPages: ^NS.String
-	@(link_name="NSPrintFirstPage") PrintFirstPage: ^NS.String
-	@(link_name="NSPrintLastPage") PrintLastPage: ^NS.String
-	@(link_name="NSPrintMustCollate") PrintMustCollate: ^NS.String
-	@(link_name="NSPrintReversePageOrder") PrintReversePageOrder: ^NS.String
-	@(link_name="NSPrintJobDisposition") PrintJobDisposition: ^NS.String
-	@(link_name="NSPrintPagesAcross") PrintPagesAcross: ^NS.String
-	@(link_name="NSPrintPagesDown") PrintPagesDown: ^NS.String
-	@(link_name="NSPrintTime") PrintTime: ^NS.String
-	@(link_name="NSPrintDetailedErrorReporting") PrintDetailedErrorReporting: ^NS.String
-	@(link_name="NSPrintFaxNumber") PrintFaxNumber: ^NS.String
-	@(link_name="NSPrintPrinterName") PrintPrinterName: ^NS.String
-	@(link_name="NSPrintSelectionOnly") PrintSelectionOnly: ^NS.String
-	@(link_name="NSPrintJobSavingURL") PrintJobSavingURL: ^NS.String
-	@(link_name="NSPrintJobSavingFileNameExtensionHidden") PrintJobSavingFileNameExtensionHidden: ^NS.String
-	@(link_name="NSPrintHeaderAndFooter") PrintHeaderAndFooter: ^NS.String
-	@(link_name="NSPrintSpoolJob") PrintSpoolJob: ^NS.String
-	@(link_name="NSPrintPreviewJob") PrintPreviewJob: ^NS.String
-	@(link_name="NSPrintSaveJob") PrintSaveJob: ^NS.String
-	@(link_name="NSPrintCancelJob") PrintCancelJob: ^NS.String
-	@(link_name="NSPrintFormName") PrintFormName: ^NS.String
-	@(link_name="NSPrintJobFeatures") PrintJobFeatures: ^NS.String
-	@(link_name="NSPrintManualFeed") PrintManualFeed: ^NS.String
-	@(link_name="NSPrintPagesPerSheet") PrintPagesPerSheet: ^NS.String
-	@(link_name="NSPrintPaperFeed") PrintPaperFeed: ^NS.String
-	@(link_name="NSPrintSavePath") PrintSavePath: ^NS.String
-	@(link_name="NSCoreDataVersionNumber") CoreDataVersionNumber: cffi.double
-	@(link_name="NSManagedObjectContextWillSaveNotification") ManagedObjectContextWillSaveNotification: ^NS.String
-	@(link_name="NSManagedObjectContextDidSaveNotification") ManagedObjectContextDidSaveNotification: ^NS.String
-	@(link_name="NSManagedObjectContextObjectsDidChangeNotification") ManagedObjectContextObjectsDidChangeNotification: ^NS.String
-	@(link_name="NSManagedObjectContextDidSaveObjectIDsNotification") ManagedObjectContextDidSaveObjectIDsNotification: ^NS.String
-	@(link_name="NSManagedObjectContextDidMergeChangesObjectIDsNotification") ManagedObjectContextDidMergeChangesObjectIDsNotification: ^NS.String
-	@(link_name="NSInsertedObjectsKey") InsertedObjectsKey: ^NS.String
-	@(link_name="NSUpdatedObjectsKey") UpdatedObjectsKey: ^NS.String
-	@(link_name="NSDeletedObjectsKey") DeletedObjectsKey: ^NS.String
-	@(link_name="NSRefreshedObjectsKey") RefreshedObjectsKey: ^NS.String
-	@(link_name="NSInvalidatedObjectsKey") InvalidatedObjectsKey: ^NS.String
-	@(link_name="NSManagedObjectContextQueryGenerationKey") ManagedObjectContextQueryGenerationKey: ^NS.String
-	@(link_name="NSInvalidatedAllObjectsKey") InvalidatedAllObjectsKey: ^NS.String
-	@(link_name="NSInsertedObjectIDsKey") InsertedObjectIDsKey: ^NS.String
-	@(link_name="NSUpdatedObjectIDsKey") UpdatedObjectIDsKey: ^NS.String
-	@(link_name="NSDeletedObjectIDsKey") DeletedObjectIDsKey: ^NS.String
-	@(link_name="NSRefreshedObjectIDsKey") RefreshedObjectIDsKey: ^NS.String
-	@(link_name="NSInvalidatedObjectIDsKey") InvalidatedObjectIDsKey: ^NS.String
-	@(link_name="NSErrorMergePolicy") ErrorMergePolicy: id
-	@(link_name="NSMergeByPropertyStoreTrumpMergePolicy") MergeByPropertyStoreTrumpMergePolicy: id
-	@(link_name="NSMergeByPropertyObjectTrumpMergePolicy") MergeByPropertyObjectTrumpMergePolicy: id
-	@(link_name="NSOverwriteMergePolicy") OverwriteMergePolicy: id
-	@(link_name="NSRollbackMergePolicy") RollbackMergePolicy: id
-	@(link_name="NSMultipleValuesMarker") MultipleValuesMarker: id
-	@(link_name="NSNoSelectionMarker") NoSelectionMarker: id
-	@(link_name="NSNotApplicableMarker") NotApplicableMarker: id
-	@(link_name="NSObservedObjectKey") ObservedObjectKey: ^NS.String
-	@(link_name="NSObservedKeyPathKey") ObservedKeyPathKey: ^NS.String
-	@(link_name="NSOptionsKey") OptionsKey: ^NS.String
-	@(link_name="NSAlignmentBinding") AlignmentBinding: ^NS.String
-	@(link_name="NSAlternateImageBinding") AlternateImageBinding: ^NS.String
-	@(link_name="NSAlternateTitleBinding") AlternateTitleBinding: ^NS.String
-	@(link_name="NSAnimateBinding") AnimateBinding: ^NS.String
-	@(link_name="NSAnimationDelayBinding") AnimationDelayBinding: ^NS.String
-	@(link_name="NSArgumentBinding") ArgumentBinding: ^NS.String
-	@(link_name="NSAttributedStringBinding") AttributedStringBinding: ^NS.String
-	@(link_name="NSContentArrayBinding") ContentArrayBinding: ^NS.String
-	@(link_name="NSContentArrayForMultipleSelectionBinding") ContentArrayForMultipleSelectionBinding: ^NS.String
-	@(link_name="NSContentBinding") ContentBinding: ^NS.String
-	@(link_name="NSContentDictionaryBinding") ContentDictionaryBinding: ^NS.String
-	@(link_name="NSContentHeightBinding") ContentHeightBinding: ^NS.String
-	@(link_name="NSContentObjectBinding") ContentObjectBinding: ^NS.String
-	@(link_name="NSContentObjectsBinding") ContentObjectsBinding: ^NS.String
-	@(link_name="NSContentSetBinding") ContentSetBinding: ^NS.String
-	@(link_name="NSContentValuesBinding") ContentValuesBinding: ^NS.String
-	@(link_name="NSContentWidthBinding") ContentWidthBinding: ^NS.String
-	@(link_name="NSCriticalValueBinding") CriticalValueBinding: ^NS.String
-	@(link_name="NSDataBinding") DataBinding: ^NS.String
-	@(link_name="NSDisplayPatternTitleBinding") DisplayPatternTitleBinding: ^NS.String
-	@(link_name="NSDisplayPatternValueBinding") DisplayPatternValueBinding: ^NS.String
-	@(link_name="NSDocumentEditedBinding") DocumentEditedBinding: ^NS.String
-	@(link_name="NSDoubleClickArgumentBinding") DoubleClickArgumentBinding: ^NS.String
-	@(link_name="NSDoubleClickTargetBinding") DoubleClickTargetBinding: ^NS.String
-	@(link_name="NSEditableBinding") EditableBinding: ^NS.String
-	@(link_name="NSEnabledBinding") EnabledBinding: ^NS.String
-	@(link_name="NSExcludedKeysBinding") ExcludedKeysBinding: ^NS.String
-	@(link_name="NSFilterPredicateBinding") FilterPredicateBinding: ^NS.String
-	@(link_name="NSFontBinding") FontBinding: ^NS.String
-	@(link_name="NSFontBoldBinding") FontBoldBinding: ^NS.String
-	@(link_name="NSFontFamilyNameBinding") FontFamilyNameBinding: ^NS.String
-	@(link_name="NSFontItalicBinding") FontItalicBinding: ^NS.String
-	@(link_name="NSFontNameBinding") FontNameBinding: ^NS.String
-	@(link_name="NSFontSizeBinding") FontSizeBinding: ^NS.String
-	@(link_name="NSHeaderTitleBinding") HeaderTitleBinding: ^NS.String
-	@(link_name="NSHiddenBinding") HiddenBinding: ^NS.String
-	@(link_name="NSImageBinding") ImageBinding: ^NS.String
-	@(link_name="NSIncludedKeysBinding") IncludedKeysBinding: ^NS.String
-	@(link_name="NSInitialKeyBinding") InitialKeyBinding: ^NS.String
-	@(link_name="NSInitialValueBinding") InitialValueBinding: ^NS.String
-	@(link_name="NSIsIndeterminateBinding") IsIndeterminateBinding: ^NS.String
-	@(link_name="NSLabelBinding") LabelBinding: ^NS.String
-	@(link_name="NSLocalizedKeyDictionaryBinding") LocalizedKeyDictionaryBinding: ^NS.String
-	@(link_name="NSManagedObjectContextBinding") ManagedObjectContextBinding: ^NS.String
-	@(link_name="NSMaximumRecentsBinding") MaximumRecentsBinding: ^NS.String
-	@(link_name="NSMaxValueBinding") MaxValueBinding: ^NS.String
-	@(link_name="NSMaxWidthBinding") MaxWidthBinding: ^NS.String
-	@(link_name="NSMinValueBinding") MinValueBinding: ^NS.String
-	@(link_name="NSMinWidthBinding") MinWidthBinding: ^NS.String
-	@(link_name="NSMixedStateImageBinding") MixedStateImageBinding: ^NS.String
-	@(link_name="NSOffStateImageBinding") OffStateImageBinding: ^NS.String
-	@(link_name="NSOnStateImageBinding") OnStateImageBinding: ^NS.String
-	@(link_name="NSPositioningRectBinding") PositioningRectBinding: ^NS.String
-	@(link_name="NSPredicateBinding") PredicateBinding: ^NS.String
-	@(link_name="NSRecentSearchesBinding") RecentSearchesBinding: ^NS.String
-	@(link_name="NSRepresentedFilenameBinding") RepresentedFilenameBinding: ^NS.String
-	@(link_name="NSRowHeightBinding") RowHeightBinding: ^NS.String
-	@(link_name="NSSelectedIdentifierBinding") SelectedIdentifierBinding: ^NS.String
-	@(link_name="NSSelectedIndexBinding") SelectedIndexBinding: ^NS.String
-	@(link_name="NSSelectedLabelBinding") SelectedLabelBinding: ^NS.String
-	@(link_name="NSSelectedObjectBinding") SelectedObjectBinding: ^NS.String
-	@(link_name="NSSelectedObjectsBinding") SelectedObjectsBinding: ^NS.String
-	@(link_name="NSSelectedTagBinding") SelectedTagBinding: ^NS.String
-	@(link_name="NSSelectedValueBinding") SelectedValueBinding: ^NS.String
-	@(link_name="NSSelectedValuesBinding") SelectedValuesBinding: ^NS.String
-	@(link_name="NSSelectionIndexesBinding") SelectionIndexesBinding: ^NS.String
-	@(link_name="NSSelectionIndexPathsBinding") SelectionIndexPathsBinding: ^NS.String
-	@(link_name="NSSortDescriptorsBinding") SortDescriptorsBinding: ^NS.String
-	@(link_name="NSTargetBinding") TargetBinding: ^NS.String
-	@(link_name="NSTextColorBinding") TextColorBinding: ^NS.String
-	@(link_name="NSTitleBinding") TitleBinding: ^NS.String
-	@(link_name="NSToolTipBinding") ToolTipBinding: ^NS.String
-	@(link_name="NSTransparentBinding") TransparentBinding: ^NS.String
-	@(link_name="NSValueBinding") ValueBinding: ^NS.String
-	@(link_name="NSValuePathBinding") ValuePathBinding: ^NS.String
-	@(link_name="NSValueURLBinding") ValueURLBinding: ^NS.String
-	@(link_name="NSVisibleBinding") VisibleBinding: ^NS.String
-	@(link_name="NSWarningValueBinding") WarningValueBinding: ^NS.String
-	@(link_name="NSWidthBinding") WidthBinding: ^NS.String
-	@(link_name="NSAllowsEditingMultipleValuesSelectionBindingOption") AllowsEditingMultipleValuesSelectionBindingOption: ^NS.String
-	@(link_name="NSAllowsNullArgumentBindingOption") AllowsNullArgumentBindingOption: ^NS.String
-	@(link_name="NSAlwaysPresentsApplicationModalAlertsBindingOption") AlwaysPresentsApplicationModalAlertsBindingOption: ^NS.String
-	@(link_name="NSConditionallySetsEditableBindingOption") ConditionallySetsEditableBindingOption: ^NS.String
-	@(link_name="NSConditionallySetsEnabledBindingOption") ConditionallySetsEnabledBindingOption: ^NS.String
-	@(link_name="NSConditionallySetsHiddenBindingOption") ConditionallySetsHiddenBindingOption: ^NS.String
-	@(link_name="NSContinuouslyUpdatesValueBindingOption") ContinuouslyUpdatesValueBindingOption: ^NS.String
-	@(link_name="NSCreatesSortDescriptorBindingOption") CreatesSortDescriptorBindingOption: ^NS.String
-	@(link_name="NSDeletesObjectsOnRemoveBindingsOption") DeletesObjectsOnRemoveBindingsOption: ^NS.String
-	@(link_name="NSDisplayNameBindingOption") DisplayNameBindingOption: ^NS.String
-	@(link_name="NSDisplayPatternBindingOption") DisplayPatternBindingOption: ^NS.String
-	@(link_name="NSContentPlacementTagBindingOption") ContentPlacementTagBindingOption: ^NS.String
-	@(link_name="NSHandlesContentAsCompoundValueBindingOption") HandlesContentAsCompoundValueBindingOption: ^NS.String
-	@(link_name="NSInsertsNullPlaceholderBindingOption") InsertsNullPlaceholderBindingOption: ^NS.String
-	@(link_name="NSInvokesSeparatelyWithArrayObjectsBindingOption") InvokesSeparatelyWithArrayObjectsBindingOption: ^NS.String
-	@(link_name="NSMultipleValuesPlaceholderBindingOption") MultipleValuesPlaceholderBindingOption: ^NS.String
-	@(link_name="NSNoSelectionPlaceholderBindingOption") NoSelectionPlaceholderBindingOption: ^NS.String
-	@(link_name="NSNotApplicablePlaceholderBindingOption") NotApplicablePlaceholderBindingOption: ^NS.String
-	@(link_name="NSNullPlaceholderBindingOption") NullPlaceholderBindingOption: ^NS.String
-	@(link_name="NSRaisesForNotApplicableKeysBindingOption") RaisesForNotApplicableKeysBindingOption: ^NS.String
-	@(link_name="NSPredicateFormatBindingOption") PredicateFormatBindingOption: ^NS.String
-	@(link_name="NSSelectorNameBindingOption") SelectorNameBindingOption: ^NS.String
-	@(link_name="NSSelectsAllWhenSettingContentBindingOption") SelectsAllWhenSettingContentBindingOption: ^NS.String
-	@(link_name="NSValidatesImmediatelyBindingOption") ValidatesImmediatelyBindingOption: ^NS.String
-	@(link_name="NSValueTransformerNameBindingOption") ValueTransformerNameBindingOption: ^NS.String
-	@(link_name="NSValueTransformerBindingOption") ValueTransformerBindingOption: ^NS.String
-	@(link_name="NSUserActivityDocumentURLKey") UserActivityDocumentURLKey: ^NS.String
-	@(link_name="NSAppKitVersionNumber") AppKitVersionNumber: AppKitVersion
-	@(link_name="NSModalPanelRunLoopMode") ModalPanelRunLoopMode: ^NS.String
-	@(link_name="NSEventTrackingRunLoopMode") EventTrackingRunLoopMode: ^NS.String
-	@(link_name="NSApp") App: ^Application
-	@(link_name="NSAboutPanelOptionCredits") AboutPanelOptionCredits: ^NS.String
-	@(link_name="NSAboutPanelOptionApplicationName") AboutPanelOptionApplicationName: ^NS.String
-	@(link_name="NSAboutPanelOptionApplicationIcon") AboutPanelOptionApplicationIcon: ^NS.String
-	@(link_name="NSAboutPanelOptionVersion") AboutPanelOptionVersion: ^NS.String
-	@(link_name="NSAboutPanelOptionApplicationVersion") AboutPanelOptionApplicationVersion: ^NS.String
-	@(link_name="NSApplicationDidBecomeActiveNotification") ApplicationDidBecomeActiveNotification: ^NS.String
-	@(link_name="NSApplicationDidHideNotification") ApplicationDidHideNotification: ^NS.String
-	@(link_name="NSApplicationDidFinishLaunchingNotification") ApplicationDidFinishLaunchingNotification: ^NS.String
-	@(link_name="NSApplicationDidResignActiveNotification") ApplicationDidResignActiveNotification: ^NS.String
-	@(link_name="NSApplicationDidUnhideNotification") ApplicationDidUnhideNotification: ^NS.String
-	@(link_name="NSApplicationDidUpdateNotification") ApplicationDidUpdateNotification: ^NS.String
-	@(link_name="NSApplicationWillBecomeActiveNotification") ApplicationWillBecomeActiveNotification: ^NS.String
-	@(link_name="NSApplicationWillHideNotification") ApplicationWillHideNotification: ^NS.String
-	@(link_name="NSApplicationWillFinishLaunchingNotification") ApplicationWillFinishLaunchingNotification: ^NS.String
-	@(link_name="NSApplicationWillResignActiveNotification") ApplicationWillResignActiveNotification: ^NS.String
-	@(link_name="NSApplicationWillUnhideNotification") ApplicationWillUnhideNotification: ^NS.String
-	@(link_name="NSApplicationWillUpdateNotification") ApplicationWillUpdateNotification: ^NS.String
-	@(link_name="NSApplicationWillTerminateNotification") ApplicationWillTerminateNotification: ^NS.String
-	@(link_name="NSApplicationDidChangeScreenParametersNotification") ApplicationDidChangeScreenParametersNotification: ^NS.String
-	@(link_name="NSApplicationProtectedDataWillBecomeUnavailableNotification") ApplicationProtectedDataWillBecomeUnavailableNotification: ^NS.String
-	@(link_name="NSApplicationProtectedDataDidBecomeAvailableNotification") ApplicationProtectedDataDidBecomeAvailableNotification: ^NS.String
-	@(link_name="NSApplicationShouldBeginSuppressingHighDynamicRangeContentNotification") ApplicationShouldBeginSuppressingHighDynamicRangeContentNotification: ^NS.String
-	@(link_name="NSApplicationShouldEndSuppressingHighDynamicRangeContentNotification") ApplicationShouldEndSuppressingHighDynamicRangeContentNotification: ^NS.String
-	@(link_name="NSApplicationLaunchIsDefaultLaunchKey") ApplicationLaunchIsDefaultLaunchKey: ^NS.String
-	@(link_name="NSApplicationLaunchUserNotificationKey") ApplicationLaunchUserNotificationKey: ^NS.String
-	@(link_name="NSApplicationLaunchRemoteNotificationKey") ApplicationLaunchRemoteNotificationKey: ^NS.String
-	@(link_name="NSApplicationDidChangeOcclusionStateNotification") ApplicationDidChangeOcclusionStateNotification: ^NS.String
-	@(link_name="NSColorListDidChangeNotification") ColorListDidChangeNotification: ^NS.String
-	@(link_name="NSSystemColorsDidChangeNotification") SystemColorsDidChangeNotification: ^NS.String
-	@(link_name="NSContextHelpModeDidActivateNotification") ContextHelpModeDidActivateNotification: ^NS.String
-	@(link_name="NSContextHelpModeDidDeactivateNotification") ContextHelpModeDidDeactivateNotification: ^NS.String
-	@(link_name="NSControlTextDidBeginEditingNotification") ControlTextDidBeginEditingNotification: ^NS.String
-	@(link_name="NSControlTextDidEndEditingNotification") ControlTextDidEndEditingNotification: ^NS.String
-	@(link_name="NSControlTextDidChangeNotification") ControlTextDidChangeNotification: ^NS.String
-	@(link_name="NSTouchBarItemIdentifierFixedSpaceSmall") TouchBarItemIdentifierFixedSpaceSmall: ^NS.String
-	@(link_name="NSTouchBarItemIdentifierFixedSpaceLarge") TouchBarItemIdentifierFixedSpaceLarge: ^NS.String
-	@(link_name="NSTouchBarItemIdentifierFlexibleSpace") TouchBarItemIdentifierFlexibleSpace: ^NS.String
-	@(link_name="NSTouchBarItemIdentifierOtherItemsProxy") TouchBarItemIdentifierOtherItemsProxy: ^NS.String
-	@(link_name="NSTouchBarItemIdentifierCandidateList") TouchBarItemIdentifierCandidateList: ^NS.String
-	@(link_name="NSPopoverCloseReasonKey") PopoverCloseReasonKey: ^NS.String
-	@(link_name="NSPopoverCloseReasonStandard") PopoverCloseReasonStandard: ^NS.String
-	@(link_name="NSPopoverCloseReasonDetachToWindow") PopoverCloseReasonDetachToWindow: ^NS.String
-	@(link_name="NSPopoverWillShowNotification") PopoverWillShowNotification: ^NS.String
-	@(link_name="NSPopoverDidShowNotification") PopoverDidShowNotification: ^NS.String
-	@(link_name="NSPopoverWillCloseNotification") PopoverWillCloseNotification: ^NS.String
-	@(link_name="NSPopoverDidCloseNotification") PopoverDidCloseNotification: ^NS.String
-	@(link_name="NSCollectionElementKindInterItemGapIndicator") CollectionElementKindInterItemGapIndicator: ^NS.String
-	@(link_name="NSCollectionElementKindSectionHeader") CollectionElementKindSectionHeader: ^NS.String
-	@(link_name="NSCollectionElementKindSectionFooter") CollectionElementKindSectionFooter: ^NS.String
-	@(link_name="NSDirectionalEdgeInsetsZero") DirectionalEdgeInsetsZero: DirectionalEdgeInsets
-	@(link_name="NSFontFamilyAttribute") FontFamilyAttribute: ^NS.String
-	@(link_name="NSFontNameAttribute") FontNameAttribute: ^NS.String
-	@(link_name="NSFontFaceAttribute") FontFaceAttribute: ^NS.String
-	@(link_name="NSFontSizeAttribute") FontSizeAttribute: ^NS.String
-	@(link_name="NSFontVisibleNameAttribute") FontVisibleNameAttribute: ^NS.String
-	@(link_name="NSFontMatrixAttribute") FontMatrixAttribute: ^NS.String
-	@(link_name="NSFontVariationAttribute") FontVariationAttribute: ^NS.String
-	@(link_name="NSFontCharacterSetAttribute") FontCharacterSetAttribute: ^NS.String
-	@(link_name="NSFontCascadeListAttribute") FontCascadeListAttribute: ^NS.String
-	@(link_name="NSFontTraitsAttribute") FontTraitsAttribute: ^NS.String
-	@(link_name="NSFontFixedAdvanceAttribute") FontFixedAdvanceAttribute: ^NS.String
-	@(link_name="NSFontFeatureSettingsAttribute") FontFeatureSettingsAttribute: ^NS.String
-	@(link_name="NSFontSymbolicTrait") FontSymbolicTrait: ^NS.String
-	@(link_name="NSFontWeightTrait") FontWeightTrait: ^NS.String
-	@(link_name="NSFontWidthTrait") FontWidthTrait: ^NS.String
-	@(link_name="NSFontSlantTrait") FontSlantTrait: ^NS.String
-	@(link_name="NSFontVariationAxisIdentifierKey") FontVariationAxisIdentifierKey: ^NS.String
-	@(link_name="NSFontVariationAxisMinimumValueKey") FontVariationAxisMinimumValueKey: ^NS.String
-	@(link_name="NSFontVariationAxisMaximumValueKey") FontVariationAxisMaximumValueKey: ^NS.String
-	@(link_name="NSFontVariationAxisDefaultValueKey") FontVariationAxisDefaultValueKey: ^NS.String
-	@(link_name="NSFontVariationAxisNameKey") FontVariationAxisNameKey: ^NS.String
-	@(link_name="NSFontFeatureTypeIdentifierKey") FontFeatureTypeIdentifierKey: ^NS.String
-	@(link_name="NSFontFeatureSelectorIdentifierKey") FontFeatureSelectorIdentifierKey: ^NS.String
-	@(link_name="NSFontWeightUltraLight") FontWeightUltraLight: FontWeight
-	@(link_name="NSFontWeightThin") FontWeightThin: FontWeight
-	@(link_name="NSFontWeightLight") FontWeightLight: FontWeight
-	@(link_name="NSFontWeightRegular") FontWeightRegular: FontWeight
-	@(link_name="NSFontWeightMedium") FontWeightMedium: FontWeight
-	@(link_name="NSFontWeightSemibold") FontWeightSemibold: FontWeight
-	@(link_name="NSFontWeightBold") FontWeightBold: FontWeight
-	@(link_name="NSFontWeightHeavy") FontWeightHeavy: FontWeight
-	@(link_name="NSFontWeightBlack") FontWeightBlack: FontWeight
-	@(link_name="NSFontWidthCompressed") FontWidthCompressed: FontWidth
-	@(link_name="NSFontWidthCondensed") FontWidthCondensed: FontWidth
-	@(link_name="NSFontWidthStandard") FontWidthStandard: FontWidth
-	@(link_name="NSFontWidthExpanded") FontWidthExpanded: FontWidth
-	@(link_name="NSFontDescriptorSystemDesignDefault") FontDescriptorSystemDesignDefault: ^NS.String
-	@(link_name="NSFontDescriptorSystemDesignSerif") FontDescriptorSystemDesignSerif: ^NS.String
-	@(link_name="NSFontDescriptorSystemDesignMonospaced") FontDescriptorSystemDesignMonospaced: ^NS.String
-	@(link_name="NSFontDescriptorSystemDesignRounded") FontDescriptorSystemDesignRounded: ^NS.String
-	@(link_name="NSFontTextStyleLargeTitle") FontTextStyleLargeTitle: ^NS.String
-	@(link_name="NSFontTextStyleTitle1") FontTextStyleTitle1: ^NS.String
-	@(link_name="NSFontTextStyleTitle2") FontTextStyleTitle2: ^NS.String
-	@(link_name="NSFontTextStyleTitle3") FontTextStyleTitle3: ^NS.String
-	@(link_name="NSFontTextStyleHeadline") FontTextStyleHeadline: ^NS.String
-	@(link_name="NSFontTextStyleSubheadline") FontTextStyleSubheadline: ^NS.String
-	@(link_name="NSFontTextStyleBody") FontTextStyleBody: ^NS.String
-	@(link_name="NSFontTextStyleCallout") FontTextStyleCallout: ^NS.String
-	@(link_name="NSFontTextStyleFootnote") FontTextStyleFootnote: ^NS.String
-	@(link_name="NSFontTextStyleCaption1") FontTextStyleCaption1: ^NS.String
-	@(link_name="NSFontTextStyleCaption2") FontTextStyleCaption2: ^NS.String
-	@(link_name="NSFontColorAttribute") FontColorAttribute: ^NS.String
-	@(link_name="NSFontIdentityMatrix") FontIdentityMatrix: ^CG.Float
-	@(link_name="NSAntialiasThresholdChangedNotification") AntialiasThresholdChangedNotification: ^NS.String
-	@(link_name="NSFontSetChangedNotification") FontSetChangedNotification: ^NS.String
-	@(link_name="NSFontCollectionIncludeDisabledFontsOption") FontCollectionIncludeDisabledFontsOption: ^NS.String
-	@(link_name="NSFontCollectionRemoveDuplicatesOption") FontCollectionRemoveDuplicatesOption: ^NS.String
-	@(link_name="NSFontCollectionDisallowAutoActivationOption") FontCollectionDisallowAutoActivationOption: ^NS.String
-	@(link_name="NSFontCollectionDidChangeNotification") FontCollectionDidChangeNotification: ^NS.String
-	@(link_name="NSFontCollectionActionKey") FontCollectionActionKey: ^NS.String
-	@(link_name="NSFontCollectionNameKey") FontCollectionNameKey: ^NS.String
-	@(link_name="NSFontCollectionOldNameKey") FontCollectionOldNameKey: ^NS.String
-	@(link_name="NSFontCollectionVisibilityKey") FontCollectionVisibilityKey: ^NS.String
-	@(link_name="NSFontCollectionWasShown") FontCollectionWasShown: ^NS.String
-	@(link_name="NSFontCollectionWasHidden") FontCollectionWasHidden: ^NS.String
-	@(link_name="NSFontCollectionWasRenamed") FontCollectionWasRenamed: ^NS.String
-	@(link_name="NSFontCollectionAllFonts") FontCollectionAllFonts: ^NS.String
-	@(link_name="NSFontCollectionUser") FontCollectionUser: ^NS.String
-	@(link_name="NSFontCollectionFavorites") FontCollectionFavorites: ^NS.String
-	@(link_name="NSFontCollectionRecentlyUsed") FontCollectionRecentlyUsed: ^NS.String
-	@(link_name="NSWindowDidBecomeKeyNotification") WindowDidBecomeKeyNotification: ^NS.String
-	@(link_name="NSWindowDidBecomeMainNotification") WindowDidBecomeMainNotification: ^NS.String
-	@(link_name="NSWindowDidChangeScreenNotification") WindowDidChangeScreenNotification: ^NS.String
-	@(link_name="NSWindowDidDeminiaturizeNotification") WindowDidDeminiaturizeNotification: ^NS.String
-	@(link_name="NSWindowDidExposeNotification") WindowDidExposeNotification: ^NS.String
-	@(link_name="NSWindowDidMiniaturizeNotification") WindowDidMiniaturizeNotification: ^NS.String
-	@(link_name="NSWindowDidMoveNotification") WindowDidMoveNotification: ^NS.String
-	@(link_name="NSWindowDidResignKeyNotification") WindowDidResignKeyNotification: ^NS.String
-	@(link_name="NSWindowDidResignMainNotification") WindowDidResignMainNotification: ^NS.String
-	@(link_name="NSWindowDidResizeNotification") WindowDidResizeNotification: ^NS.String
-	@(link_name="NSWindowDidUpdateNotification") WindowDidUpdateNotification: ^NS.String
-	@(link_name="NSWindowWillCloseNotification") WindowWillCloseNotification: ^NS.String
-	@(link_name="NSWindowWillMiniaturizeNotification") WindowWillMiniaturizeNotification: ^NS.String
-	@(link_name="NSWindowWillMoveNotification") WindowWillMoveNotification: ^NS.String
-	@(link_name="NSWindowWillBeginSheetNotification") WindowWillBeginSheetNotification: ^NS.String
-	@(link_name="NSWindowDidEndSheetNotification") WindowDidEndSheetNotification: ^NS.String
-	@(link_name="NSWindowDidChangeBackingPropertiesNotification") WindowDidChangeBackingPropertiesNotification: ^NS.String
-	@(link_name="NSBackingPropertyOldScaleFactorKey") BackingPropertyOldScaleFactorKey: ^NS.String
-	@(link_name="NSBackingPropertyOldColorSpaceKey") BackingPropertyOldColorSpaceKey: ^NS.String
-	@(link_name="NSWindowDidChangeScreenProfileNotification") WindowDidChangeScreenProfileNotification: ^NS.String
-	@(link_name="NSWindowWillStartLiveResizeNotification") WindowWillStartLiveResizeNotification: ^NS.String
-	@(link_name="NSWindowDidEndLiveResizeNotification") WindowDidEndLiveResizeNotification: ^NS.String
-	@(link_name="NSWindowWillEnterFullScreenNotification") WindowWillEnterFullScreenNotification: ^NS.String
-	@(link_name="NSWindowDidEnterFullScreenNotification") WindowDidEnterFullScreenNotification: ^NS.String
-	@(link_name="NSWindowWillExitFullScreenNotification") WindowWillExitFullScreenNotification: ^NS.String
-	@(link_name="NSWindowDidExitFullScreenNotification") WindowDidExitFullScreenNotification: ^NS.String
-	@(link_name="NSWindowWillEnterVersionBrowserNotification") WindowWillEnterVersionBrowserNotification: ^NS.String
-	@(link_name="NSWindowDidEnterVersionBrowserNotification") WindowDidEnterVersionBrowserNotification: ^NS.String
-	@(link_name="NSWindowWillExitVersionBrowserNotification") WindowWillExitVersionBrowserNotification: ^NS.String
-	@(link_name="NSWindowDidExitVersionBrowserNotification") WindowDidExitVersionBrowserNotification: ^NS.String
-	@(link_name="NSWindowDidChangeOcclusionStateNotification") WindowDidChangeOcclusionStateNotification: ^NS.String
-	@(link_name="NSImageRepRegistryDidChangeNotification") ImageRepRegistryDidChangeNotification: ^NS.String
-	@(link_name="NSImageCompressionMethod") ImageCompressionMethod: ^NS.String
-	@(link_name="NSImageCompressionFactor") ImageCompressionFactor: ^NS.String
-	@(link_name="NSImageDitherTransparency") ImageDitherTransparency: ^NS.String
-	@(link_name="NSImageRGBColorTable") ImageRGBColorTable: ^NS.String
-	@(link_name="NSImageInterlaced") ImageInterlaced: ^NS.String
-	@(link_name="NSImageColorSyncProfileData") ImageColorSyncProfileData: ^NS.String
-	@(link_name="NSImageFrameCount") ImageFrameCount: ^NS.String
-	@(link_name="NSImageCurrentFrame") ImageCurrentFrame: ^NS.String
-	@(link_name="NSImageCurrentFrameDuration") ImageCurrentFrameDuration: ^NS.String
-	@(link_name="NSImageLoopCount") ImageLoopCount: ^NS.String
-	@(link_name="NSImageGamma") ImageGamma: ^NS.String
-	@(link_name="NSImageProgressive") ImageProgressive: ^NS.String
-	@(link_name="NSImageEXIFData") ImageEXIFData: ^NS.String
-	@(link_name="NSImageIPTCData") ImageIPTCData: ^NS.String
-	@(link_name="NSImageFallbackBackgroundColor") ImageFallbackBackgroundColor: ^NS.String
-	@(link_name="NSBrowserColumnConfigurationDidChangeNotification") BrowserColumnConfigurationDidChangeNotification: ^NS.String
-	@(link_name="NSColorPanelColorDidChangeNotification") ColorPanelColorDidChangeNotification: ^NS.String
-	@(link_name="NSDraggingImageComponentIconKey") DraggingImageComponentIconKey: ^NS.String
-	@(link_name="NSDraggingImageComponentLabelKey") DraggingImageComponentLabelKey: ^NS.String
-	@(link_name="NSViewNoInstrinsicMetric") ViewNoInstrinsicMetric: CG.Float
-	@(link_name="NSViewNoIntrinsicMetric") ViewNoIntrinsicMetric: CG.Float
-	@(link_name="NSImageHintCTM") ImageHintCTM: ^NS.String
-	@(link_name="NSImageHintInterpolation") ImageHintInterpolation: ^NS.String
-	@(link_name="NSImageHintUserInterfaceLayoutDirection") ImageHintUserInterfaceLayoutDirection: ^NS.String
-	@(link_name="NSImageNameAddTemplate") ImageNameAddTemplate: ^NS.String
-	@(link_name="NSImageNameBluetoothTemplate") ImageNameBluetoothTemplate: ^NS.String
-	@(link_name="NSImageNameBonjour") ImageNameBonjour: ^NS.String
-	@(link_name="NSImageNameBookmarksTemplate") ImageNameBookmarksTemplate: ^NS.String
-	@(link_name="NSImageNameCaution") ImageNameCaution: ^NS.String
-	@(link_name="NSImageNameComputer") ImageNameComputer: ^NS.String
-	@(link_name="NSImageNameEnterFullScreenTemplate") ImageNameEnterFullScreenTemplate: ^NS.String
-	@(link_name="NSImageNameExitFullScreenTemplate") ImageNameExitFullScreenTemplate: ^NS.String
-	@(link_name="NSImageNameFolder") ImageNameFolder: ^NS.String
-	@(link_name="NSImageNameFolderBurnable") ImageNameFolderBurnable: ^NS.String
-	@(link_name="NSImageNameFolderSmart") ImageNameFolderSmart: ^NS.String
-	@(link_name="NSImageNameFollowLinkFreestandingTemplate") ImageNameFollowLinkFreestandingTemplate: ^NS.String
-	@(link_name="NSImageNameHomeTemplate") ImageNameHomeTemplate: ^NS.String
-	@(link_name="NSImageNameIChatTheaterTemplate") ImageNameIChatTheaterTemplate: ^NS.String
-	@(link_name="NSImageNameLockLockedTemplate") ImageNameLockLockedTemplate: ^NS.String
-	@(link_name="NSImageNameLockUnlockedTemplate") ImageNameLockUnlockedTemplate: ^NS.String
-	@(link_name="NSImageNameNetwork") ImageNameNetwork: ^NS.String
-	@(link_name="NSImageNamePathTemplate") ImageNamePathTemplate: ^NS.String
-	@(link_name="NSImageNameQuickLookTemplate") ImageNameQuickLookTemplate: ^NS.String
-	@(link_name="NSImageNameRefreshFreestandingTemplate") ImageNameRefreshFreestandingTemplate: ^NS.String
-	@(link_name="NSImageNameRefreshTemplate") ImageNameRefreshTemplate: ^NS.String
-	@(link_name="NSImageNameRemoveTemplate") ImageNameRemoveTemplate: ^NS.String
-	@(link_name="NSImageNameRevealFreestandingTemplate") ImageNameRevealFreestandingTemplate: ^NS.String
-	@(link_name="NSImageNameShareTemplate") ImageNameShareTemplate: ^NS.String
-	@(link_name="NSImageNameSlideshowTemplate") ImageNameSlideshowTemplate: ^NS.String
-	@(link_name="NSImageNameStatusAvailable") ImageNameStatusAvailable: ^NS.String
-	@(link_name="NSImageNameStatusNone") ImageNameStatusNone: ^NS.String
-	@(link_name="NSImageNameStatusPartiallyAvailable") ImageNameStatusPartiallyAvailable: ^NS.String
-	@(link_name="NSImageNameStatusUnavailable") ImageNameStatusUnavailable: ^NS.String
-	@(link_name="NSImageNameStopProgressFreestandingTemplate") ImageNameStopProgressFreestandingTemplate: ^NS.String
-	@(link_name="NSImageNameStopProgressTemplate") ImageNameStopProgressTemplate: ^NS.String
-	@(link_name="NSImageNameTrashEmpty") ImageNameTrashEmpty: ^NS.String
-	@(link_name="NSImageNameTrashFull") ImageNameTrashFull: ^NS.String
-	@(link_name="NSImageNameActionTemplate") ImageNameActionTemplate: ^NS.String
-	@(link_name="NSImageNameSmartBadgeTemplate") ImageNameSmartBadgeTemplate: ^NS.String
-	@(link_name="NSImageNameIconViewTemplate") ImageNameIconViewTemplate: ^NS.String
-	@(link_name="NSImageNameListViewTemplate") ImageNameListViewTemplate: ^NS.String
-	@(link_name="NSImageNameColumnViewTemplate") ImageNameColumnViewTemplate: ^NS.String
-	@(link_name="NSImageNameFlowViewTemplate") ImageNameFlowViewTemplate: ^NS.String
-	@(link_name="NSImageNameInvalidDataFreestandingTemplate") ImageNameInvalidDataFreestandingTemplate: ^NS.String
-	@(link_name="NSImageNameGoForwardTemplate") ImageNameGoForwardTemplate: ^NS.String
-	@(link_name="NSImageNameGoBackTemplate") ImageNameGoBackTemplate: ^NS.String
-	@(link_name="NSImageNameGoRightTemplate") ImageNameGoRightTemplate: ^NS.String
-	@(link_name="NSImageNameGoLeftTemplate") ImageNameGoLeftTemplate: ^NS.String
-	@(link_name="NSImageNameRightFacingTriangleTemplate") ImageNameRightFacingTriangleTemplate: ^NS.String
-	@(link_name="NSImageNameLeftFacingTriangleTemplate") ImageNameLeftFacingTriangleTemplate: ^NS.String
-	@(link_name="NSImageNameDotMac") ImageNameDotMac: ^NS.String
-	@(link_name="NSImageNameMobileMe") ImageNameMobileMe: ^NS.String
-	@(link_name="NSImageNameMultipleDocuments") ImageNameMultipleDocuments: ^NS.String
-	@(link_name="NSImageNameUserAccounts") ImageNameUserAccounts: ^NS.String
-	@(link_name="NSImageNamePreferencesGeneral") ImageNamePreferencesGeneral: ^NS.String
-	@(link_name="NSImageNameAdvanced") ImageNameAdvanced: ^NS.String
-	@(link_name="NSImageNameInfo") ImageNameInfo: ^NS.String
-	@(link_name="NSImageNameFontPanel") ImageNameFontPanel: ^NS.String
-	@(link_name="NSImageNameColorPanel") ImageNameColorPanel: ^NS.String
-	@(link_name="NSImageNameUser") ImageNameUser: ^NS.String
-	@(link_name="NSImageNameUserGroup") ImageNameUserGroup: ^NS.String
-	@(link_name="NSImageNameEveryone") ImageNameEveryone: ^NS.String
-	@(link_name="NSImageNameUserGuest") ImageNameUserGuest: ^NS.String
-	@(link_name="NSImageNameMenuOnStateTemplate") ImageNameMenuOnStateTemplate: ^NS.String
-	@(link_name="NSImageNameMenuMixedStateTemplate") ImageNameMenuMixedStateTemplate: ^NS.String
-	@(link_name="NSImageNameApplicationIcon") ImageNameApplicationIcon: ^NS.String
-	@(link_name="NSImageNameTouchBarAddDetailTemplate") ImageNameTouchBarAddDetailTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarAddTemplate") ImageNameTouchBarAddTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarAlarmTemplate") ImageNameTouchBarAlarmTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarAudioInputMuteTemplate") ImageNameTouchBarAudioInputMuteTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarAudioInputTemplate") ImageNameTouchBarAudioInputTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarAudioOutputMuteTemplate") ImageNameTouchBarAudioOutputMuteTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarAudioOutputVolumeHighTemplate") ImageNameTouchBarAudioOutputVolumeHighTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarAudioOutputVolumeLowTemplate") ImageNameTouchBarAudioOutputVolumeLowTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarAudioOutputVolumeMediumTemplate") ImageNameTouchBarAudioOutputVolumeMediumTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarAudioOutputVolumeOffTemplate") ImageNameTouchBarAudioOutputVolumeOffTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarBookmarksTemplate") ImageNameTouchBarBookmarksTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarColorPickerFill") ImageNameTouchBarColorPickerFill: ^NS.String
-	@(link_name="NSImageNameTouchBarColorPickerFont") ImageNameTouchBarColorPickerFont: ^NS.String
-	@(link_name="NSImageNameTouchBarColorPickerStroke") ImageNameTouchBarColorPickerStroke: ^NS.String
-	@(link_name="NSImageNameTouchBarCommunicationAudioTemplate") ImageNameTouchBarCommunicationAudioTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarCommunicationVideoTemplate") ImageNameTouchBarCommunicationVideoTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarComposeTemplate") ImageNameTouchBarComposeTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarDeleteTemplate") ImageNameTouchBarDeleteTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarDownloadTemplate") ImageNameTouchBarDownloadTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarEnterFullScreenTemplate") ImageNameTouchBarEnterFullScreenTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarExitFullScreenTemplate") ImageNameTouchBarExitFullScreenTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarFastForwardTemplate") ImageNameTouchBarFastForwardTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarFolderCopyToTemplate") ImageNameTouchBarFolderCopyToTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarFolderMoveToTemplate") ImageNameTouchBarFolderMoveToTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarFolderTemplate") ImageNameTouchBarFolderTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarGetInfoTemplate") ImageNameTouchBarGetInfoTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarGoBackTemplate") ImageNameTouchBarGoBackTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarGoDownTemplate") ImageNameTouchBarGoDownTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarGoForwardTemplate") ImageNameTouchBarGoForwardTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarGoUpTemplate") ImageNameTouchBarGoUpTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarHistoryTemplate") ImageNameTouchBarHistoryTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarIconViewTemplate") ImageNameTouchBarIconViewTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarListViewTemplate") ImageNameTouchBarListViewTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarMailTemplate") ImageNameTouchBarMailTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarNewFolderTemplate") ImageNameTouchBarNewFolderTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarNewMessageTemplate") ImageNameTouchBarNewMessageTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarOpenInBrowserTemplate") ImageNameTouchBarOpenInBrowserTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarPauseTemplate") ImageNameTouchBarPauseTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarPlayPauseTemplate") ImageNameTouchBarPlayPauseTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarPlayTemplate") ImageNameTouchBarPlayTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarQuickLookTemplate") ImageNameTouchBarQuickLookTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarRecordStartTemplate") ImageNameTouchBarRecordStartTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarRecordStopTemplate") ImageNameTouchBarRecordStopTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarRefreshTemplate") ImageNameTouchBarRefreshTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarRemoveTemplate") ImageNameTouchBarRemoveTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarRewindTemplate") ImageNameTouchBarRewindTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarRotateLeftTemplate") ImageNameTouchBarRotateLeftTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarRotateRightTemplate") ImageNameTouchBarRotateRightTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarSearchTemplate") ImageNameTouchBarSearchTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarShareTemplate") ImageNameTouchBarShareTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarSidebarTemplate") ImageNameTouchBarSidebarTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarSkipAhead15SecondsTemplate") ImageNameTouchBarSkipAhead15SecondsTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarSkipAhead30SecondsTemplate") ImageNameTouchBarSkipAhead30SecondsTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarSkipAheadTemplate") ImageNameTouchBarSkipAheadTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarSkipBack15SecondsTemplate") ImageNameTouchBarSkipBack15SecondsTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarSkipBack30SecondsTemplate") ImageNameTouchBarSkipBack30SecondsTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarSkipBackTemplate") ImageNameTouchBarSkipBackTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarSkipToEndTemplate") ImageNameTouchBarSkipToEndTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarSkipToStartTemplate") ImageNameTouchBarSkipToStartTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarSlideshowTemplate") ImageNameTouchBarSlideshowTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarTagIconTemplate") ImageNameTouchBarTagIconTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarTextBoldTemplate") ImageNameTouchBarTextBoldTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarTextBoxTemplate") ImageNameTouchBarTextBoxTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarTextCenterAlignTemplate") ImageNameTouchBarTextCenterAlignTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarTextItalicTemplate") ImageNameTouchBarTextItalicTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarTextJustifiedAlignTemplate") ImageNameTouchBarTextJustifiedAlignTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarTextLeftAlignTemplate") ImageNameTouchBarTextLeftAlignTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarTextListTemplate") ImageNameTouchBarTextListTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarTextRightAlignTemplate") ImageNameTouchBarTextRightAlignTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarTextStrikethroughTemplate") ImageNameTouchBarTextStrikethroughTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarTextUnderlineTemplate") ImageNameTouchBarTextUnderlineTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarUserAddTemplate") ImageNameTouchBarUserAddTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarUserGroupTemplate") ImageNameTouchBarUserGroupTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarUserTemplate") ImageNameTouchBarUserTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarVolumeDownTemplate") ImageNameTouchBarVolumeDownTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarVolumeUpTemplate") ImageNameTouchBarVolumeUpTemplate: ^NS.String
-	@(link_name="NSImageNameTouchBarPlayheadTemplate") ImageNameTouchBarPlayheadTemplate: ^NS.String
-	@(link_name="NSSharingServiceNameComposeEmail") SharingServiceNameComposeEmail: ^NS.String
-	@(link_name="NSSharingServiceNameComposeMessage") SharingServiceNameComposeMessage: ^NS.String
-	@(link_name="NSSharingServiceNameSendViaAirDrop") SharingServiceNameSendViaAirDrop: ^NS.String
-	@(link_name="NSSharingServiceNameAddToSafariReadingList") SharingServiceNameAddToSafariReadingList: ^NS.String
-	@(link_name="NSSharingServiceNameAddToIPhoto") SharingServiceNameAddToIPhoto: ^NS.String
-	@(link_name="NSSharingServiceNameAddToAperture") SharingServiceNameAddToAperture: ^NS.String
-	@(link_name="NSSharingServiceNameUseAsDesktopPicture") SharingServiceNameUseAsDesktopPicture: ^NS.String
-	@(link_name="NSSharingServiceNamePostOnFacebook") SharingServiceNamePostOnFacebook: ^NS.String
-	@(link_name="NSSharingServiceNamePostOnTwitter") SharingServiceNamePostOnTwitter: ^NS.String
-	@(link_name="NSSharingServiceNamePostOnSinaWeibo") SharingServiceNamePostOnSinaWeibo: ^NS.String
-	@(link_name="NSSharingServiceNamePostOnTencentWeibo") SharingServiceNamePostOnTencentWeibo: ^NS.String
-	@(link_name="NSSharingServiceNamePostOnLinkedIn") SharingServiceNamePostOnLinkedIn: ^NS.String
-	@(link_name="NSSharingServiceNameUseAsTwitterProfileImage") SharingServiceNameUseAsTwitterProfileImage: ^NS.String
-	@(link_name="NSSharingServiceNameUseAsFacebookProfileImage") SharingServiceNameUseAsFacebookProfileImage: ^NS.String
-	@(link_name="NSSharingServiceNameUseAsLinkedInProfileImage") SharingServiceNameUseAsLinkedInProfileImage: ^NS.String
-	@(link_name="NSSharingServiceNamePostImageOnFlickr") SharingServiceNamePostImageOnFlickr: ^NS.String
-	@(link_name="NSSharingServiceNamePostVideoOnVimeo") SharingServiceNamePostVideoOnVimeo: ^NS.String
-	@(link_name="NSSharingServiceNamePostVideoOnYouku") SharingServiceNamePostVideoOnYouku: ^NS.String
-	@(link_name="NSSharingServiceNamePostVideoOnTudou") SharingServiceNamePostVideoOnTudou: ^NS.String
-	@(link_name="NSSharingServiceNameCloudSharing") SharingServiceNameCloudSharing: ^NS.String
-	@(link_name="NSSliderAccessoryWidthDefault") SliderAccessoryWidthDefault: SliderAccessoryWidth
-	@(link_name="NSSliderAccessoryWidthWide") SliderAccessoryWidthWide: SliderAccessoryWidth
-	@(link_name="NSVoiceName") VoiceName: ^NS.String
-	@(link_name="NSVoiceIdentifier") VoiceIdentifier: ^NS.String
-	@(link_name="NSVoiceAge") VoiceAge: ^NS.String
-	@(link_name="NSVoiceGender") VoiceGender: ^NS.String
-	@(link_name="NSVoiceDemoText") VoiceDemoText: ^NS.String
-	@(link_name="NSVoiceLocaleIdentifier") VoiceLocaleIdentifier: ^NS.String
-	@(link_name="NSVoiceSupportedCharacters") VoiceSupportedCharacters: ^NS.String
-	@(link_name="NSVoiceIndividuallySpokenCharacters") VoiceIndividuallySpokenCharacters: ^NS.String
-	@(link_name="NSSpeechDictionaryLocaleIdentifier") SpeechDictionaryLocaleIdentifier: ^NS.String
-	@(link_name="NSSpeechDictionaryModificationDate") SpeechDictionaryModificationDate: ^NS.String
-	@(link_name="NSSpeechDictionaryPronunciations") SpeechDictionaryPronunciations: ^NS.String
-	@(link_name="NSSpeechDictionaryAbbreviations") SpeechDictionaryAbbreviations: ^NS.String
-	@(link_name="NSSpeechDictionaryEntrySpelling") SpeechDictionaryEntrySpelling: ^NS.String
-	@(link_name="NSSpeechDictionaryEntryPhonemes") SpeechDictionaryEntryPhonemes: ^NS.String
-	@(link_name="NSVoiceGenderNeuter") VoiceGenderNeuter: ^NS.String
-	@(link_name="NSVoiceGenderMale") VoiceGenderMale: ^NS.String
-	@(link_name="NSVoiceGenderFemale") VoiceGenderFemale: ^NS.String
-	@(link_name="NSVoiceGenderNeutral") VoiceGenderNeutral: ^NS.String
-	@(link_name="NSSpeechStatusProperty") SpeechStatusProperty: ^NS.String
-	@(link_name="NSSpeechErrorsProperty") SpeechErrorsProperty: ^NS.String
-	@(link_name="NSSpeechInputModeProperty") SpeechInputModeProperty: ^NS.String
-	@(link_name="NSSpeechCharacterModeProperty") SpeechCharacterModeProperty: ^NS.String
-	@(link_name="NSSpeechNumberModeProperty") SpeechNumberModeProperty: ^NS.String
-	@(link_name="NSSpeechRateProperty") SpeechRateProperty: ^NS.String
-	@(link_name="NSSpeechPitchBaseProperty") SpeechPitchBaseProperty: ^NS.String
-	@(link_name="NSSpeechPitchModProperty") SpeechPitchModProperty: ^NS.String
-	@(link_name="NSSpeechVolumeProperty") SpeechVolumeProperty: ^NS.String
-	@(link_name="NSSpeechSynthesizerInfoProperty") SpeechSynthesizerInfoProperty: ^NS.String
-	@(link_name="NSSpeechRecentSyncProperty") SpeechRecentSyncProperty: ^NS.String
-	@(link_name="NSSpeechPhonemeSymbolsProperty") SpeechPhonemeSymbolsProperty: ^NS.String
-	@(link_name="NSSpeechCurrentVoiceProperty") SpeechCurrentVoiceProperty: ^NS.String
-	@(link_name="NSSpeechCommandDelimiterProperty") SpeechCommandDelimiterProperty: ^NS.String
-	@(link_name="NSSpeechResetProperty") SpeechResetProperty: ^NS.String
-	@(link_name="NSSpeechOutputToFileURLProperty") SpeechOutputToFileURLProperty: ^NS.String
-	@(link_name="NSVoiceLanguage") VoiceLanguage: ^NS.String
-	@(link_name="NSSpeechModeText") SpeechModeText: ^NS.String
-	@(link_name="NSSpeechModePhoneme") SpeechModePhoneme: ^NS.String
-	@(link_name="NSSpeechModeNormal") SpeechModeNormal: ^NS.String
-	@(link_name="NSSpeechModeLiteral") SpeechModeLiteral: ^NS.String
-	@(link_name="NSSpeechStatusOutputBusy") SpeechStatusOutputBusy: ^NS.String
-	@(link_name="NSSpeechStatusOutputPaused") SpeechStatusOutputPaused: ^NS.String
-	@(link_name="NSSpeechStatusNumberOfCharactersLeft") SpeechStatusNumberOfCharactersLeft: ^NS.String
-	@(link_name="NSSpeechStatusPhonemeCode") SpeechStatusPhonemeCode: ^NS.String
-	@(link_name="NSSpeechErrorCount") SpeechErrorCount: ^NS.String
-	@(link_name="NSSpeechErrorOldestCode") SpeechErrorOldestCode: ^NS.String
-	@(link_name="NSSpeechErrorOldestCharacterOffset") SpeechErrorOldestCharacterOffset: ^NS.String
-	@(link_name="NSSpeechErrorNewestCode") SpeechErrorNewestCode: ^NS.String
-	@(link_name="NSSpeechErrorNewestCharacterOffset") SpeechErrorNewestCharacterOffset: ^NS.String
-	@(link_name="NSSpeechSynthesizerInfoIdentifier") SpeechSynthesizerInfoIdentifier: ^NS.String
-	@(link_name="NSSpeechSynthesizerInfoVersion") SpeechSynthesizerInfoVersion: ^NS.String
-	@(link_name="NSSpeechPhonemeInfoOpcode") SpeechPhonemeInfoOpcode: ^NS.String
-	@(link_name="NSSpeechPhonemeInfoSymbol") SpeechPhonemeInfoSymbol: ^NS.String
-	@(link_name="NSSpeechPhonemeInfoExample") SpeechPhonemeInfoExample: ^NS.String
-	@(link_name="NSSpeechPhonemeInfoHiliteStart") SpeechPhonemeInfoHiliteStart: ^NS.String
-	@(link_name="NSSpeechPhonemeInfoHiliteEnd") SpeechPhonemeInfoHiliteEnd: ^NS.String
-	@(link_name="NSSpeechCommandPrefix") SpeechCommandPrefix: ^NS.String
-	@(link_name="NSSpeechCommandSuffix") SpeechCommandSuffix: ^NS.String
-	@(link_name="NSTextCheckingOrthographyKey") TextCheckingOrthographyKey: ^NS.String
-	@(link_name="NSTextCheckingQuotesKey") TextCheckingQuotesKey: ^NS.String
-	@(link_name="NSTextCheckingReplacementsKey") TextCheckingReplacementsKey: ^NS.String
-	@(link_name="NSTextCheckingReferenceDateKey") TextCheckingReferenceDateKey: ^NS.String
-	@(link_name="NSTextCheckingReferenceTimeZoneKey") TextCheckingReferenceTimeZoneKey: ^NS.String
-	@(link_name="NSTextCheckingDocumentURLKey") TextCheckingDocumentURLKey: ^NS.String
-	@(link_name="NSTextCheckingDocumentTitleKey") TextCheckingDocumentTitleKey: ^NS.String
-	@(link_name="NSTextCheckingDocumentAuthorKey") TextCheckingDocumentAuthorKey: ^NS.String
-	@(link_name="NSTextCheckingRegularExpressionsKey") TextCheckingRegularExpressionsKey: ^NS.String
-	@(link_name="NSTextCheckingSelectedRangeKey") TextCheckingSelectedRangeKey: ^NS.String
-	@(link_name="NSTextCheckingGenerateInlinePredictionsKey") TextCheckingGenerateInlinePredictionsKey: ^NS.String
-	@(link_name="NSSpellCheckerDidChangeAutomaticSpellingCorrectionNotification") SpellCheckerDidChangeAutomaticSpellingCorrectionNotification: ^NS.String
-	@(link_name="NSSpellCheckerDidChangeAutomaticTextReplacementNotification") SpellCheckerDidChangeAutomaticTextReplacementNotification: ^NS.String
-	@(link_name="NSSpellCheckerDidChangeAutomaticQuoteSubstitutionNotification") SpellCheckerDidChangeAutomaticQuoteSubstitutionNotification: ^NS.String
-	@(link_name="NSSpellCheckerDidChangeAutomaticDashSubstitutionNotification") SpellCheckerDidChangeAutomaticDashSubstitutionNotification: ^NS.String
-	@(link_name="NSSpellCheckerDidChangeAutomaticCapitalizationNotification") SpellCheckerDidChangeAutomaticCapitalizationNotification: ^NS.String
-	@(link_name="NSSpellCheckerDidChangeAutomaticPeriodSubstitutionNotification") SpellCheckerDidChangeAutomaticPeriodSubstitutionNotification: ^NS.String
-	@(link_name="NSSpellCheckerDidChangeAutomaticTextCompletionNotification") SpellCheckerDidChangeAutomaticTextCompletionNotification: ^NS.String
-	@(link_name="NSSpellCheckerDidChangeAutomaticInlinePredictionNotification") SpellCheckerDidChangeAutomaticInlinePredictionNotification: ^NS.String
-	@(link_name="NSSplitViewWillResizeSubviewsNotification") SplitViewWillResizeSubviewsNotification: ^NS.String
-	@(link_name="NSSplitViewDidResizeSubviewsNotification") SplitViewDidResizeSubviewsNotification: ^NS.String
-	@(link_name="NSSplitViewItemUnspecifiedDimension") SplitViewItemUnspecifiedDimension: CG.Float
-	@(link_name="NSSplitViewControllerAutomaticDimension") SplitViewControllerAutomaticDimension: CG.Float
-	@(link_name="NSPopUpButtonCellWillPopUpNotification") PopUpButtonCellWillPopUpNotification: ^NS.String
-	@(link_name="NSPopUpButtonWillPopUpNotification") PopUpButtonWillPopUpNotification: ^NS.String
-	@(link_name="NSPrintOperationExistsException") PrintOperationExistsException: ^NS.String
-	@(link_name="NSPrintPhotoJobStyleHint") PrintPhotoJobStyleHint: ^NS.String
-	@(link_name="NSPrintAllPresetsJobStyleHint") PrintAllPresetsJobStyleHint: ^NS.String
-	@(link_name="NSPrintNoPresetsJobStyleHint") PrintNoPresetsJobStyleHint: ^NS.String
-	@(link_name="NSPrintPanelAccessorySummaryItemNameKey") PrintPanelAccessorySummaryItemNameKey: ^NS.String
-	@(link_name="NSPrintPanelAccessorySummaryItemDescriptionKey") PrintPanelAccessorySummaryItemDescriptionKey: ^NS.String
-	@(link_name="NSScreenColorSpaceDidChangeNotification") ScreenColorSpaceDidChangeNotification: ^NS.String
-	@(link_name="NSPreferredScrollerStyleDidChangeNotification") PreferredScrollerStyleDidChangeNotification: ^NS.String
-	@(link_name="NSTextFinderCaseInsensitiveKey") TextFinderCaseInsensitiveKey: ^NS.String
-	@(link_name="NSTextFinderMatchingTypeKey") TextFinderMatchingTypeKey: ^NS.String
-	@(link_name="NSScrollViewWillStartLiveMagnifyNotification") ScrollViewWillStartLiveMagnifyNotification: ^NS.String
-	@(link_name="NSScrollViewDidEndLiveMagnifyNotification") ScrollViewDidEndLiveMagnifyNotification: ^NS.String
-	@(link_name="NSScrollViewWillStartLiveScrollNotification") ScrollViewWillStartLiveScrollNotification: ^NS.String
-	@(link_name="NSScrollViewDidLiveScrollNotification") ScrollViewDidLiveScrollNotification: ^NS.String
-	@(link_name="NSScrollViewDidEndLiveScrollNotification") ScrollViewDidEndLiveScrollNotification: ^NS.String
-	@(link_name="NSGridViewSizeForContent") GridViewSizeForContent: CG.Float
-	@(link_name="NSTextContentTypeUsername") TextContentTypeUsername: ^NS.String
-	@(link_name="NSTextContentTypePassword") TextContentTypePassword: ^NS.String
-	@(link_name="NSTextContentTypeOneTimeCode") TextContentTypeOneTimeCode: ^NS.String
-	@(link_name="NSTextContentTypeNewPassword") TextContentTypeNewPassword: ^NS.String
-	@(link_name="NSTextContentTypeName") TextContentTypeName: ^NS.String
-	@(link_name="NSTextContentTypeNamePrefix") TextContentTypeNamePrefix: ^NS.String
-	@(link_name="NSTextContentTypeGivenName") TextContentTypeGivenName: ^NS.String
-	@(link_name="NSTextContentTypeMiddleName") TextContentTypeMiddleName: ^NS.String
-	@(link_name="NSTextContentTypeFamilyName") TextContentTypeFamilyName: ^NS.String
-	@(link_name="NSTextContentTypeNameSuffix") TextContentTypeNameSuffix: ^NS.String
-	@(link_name="NSTextContentTypeNickname") TextContentTypeNickname: ^NS.String
-	@(link_name="NSTextContentTypeJobTitle") TextContentTypeJobTitle: ^NS.String
-	@(link_name="NSTextContentTypeOrganizationName") TextContentTypeOrganizationName: ^NS.String
-	@(link_name="NSTextContentTypeLocation") TextContentTypeLocation: ^NS.String
-	@(link_name="NSTextContentTypeFullStreetAddress") TextContentTypeFullStreetAddress: ^NS.String
-	@(link_name="NSTextContentTypeStreetAddressLine1") TextContentTypeStreetAddressLine1: ^NS.String
-	@(link_name="NSTextContentTypeStreetAddressLine2") TextContentTypeStreetAddressLine2: ^NS.String
-	@(link_name="NSTextContentTypeAddressCity") TextContentTypeAddressCity: ^NS.String
-	@(link_name="NSTextContentTypeAddressState") TextContentTypeAddressState: ^NS.String
-	@(link_name="NSTextContentTypeAddressCityAndState") TextContentTypeAddressCityAndState: ^NS.String
-	@(link_name="NSTextContentTypeSublocality") TextContentTypeSublocality: ^NS.String
-	@(link_name="NSTextContentTypeCountryName") TextContentTypeCountryName: ^NS.String
-	@(link_name="NSTextContentTypePostalCode") TextContentTypePostalCode: ^NS.String
-	@(link_name="NSTextContentTypeTelephoneNumber") TextContentTypeTelephoneNumber: ^NS.String
-	@(link_name="NSTextContentTypeEmailAddress") TextContentTypeEmailAddress: ^NS.String
-	@(link_name="NSTextContentTypeURL") TextContentTypeURL: ^NS.String
-	@(link_name="NSTextContentTypeCreditCardNumber") TextContentTypeCreditCardNumber: ^NS.String
-	@(link_name="NSTextContentTypeCreditCardName") TextContentTypeCreditCardName: ^NS.String
-	@(link_name="NSTextContentTypeCreditCardGivenName") TextContentTypeCreditCardGivenName: ^NS.String
-	@(link_name="NSTextContentTypeCreditCardMiddleName") TextContentTypeCreditCardMiddleName: ^NS.String
-	@(link_name="NSTextContentTypeCreditCardFamilyName") TextContentTypeCreditCardFamilyName: ^NS.String
-	@(link_name="NSTextContentTypeCreditCardSecurityCode") TextContentTypeCreditCardSecurityCode: ^NS.String
-	@(link_name="NSTextContentTypeCreditCardExpiration") TextContentTypeCreditCardExpiration: ^NS.String
-	@(link_name="NSTextContentTypeCreditCardExpirationMonth") TextContentTypeCreditCardExpirationMonth: ^NS.String
-	@(link_name="NSTextContentTypeCreditCardExpirationYear") TextContentTypeCreditCardExpirationYear: ^NS.String
-	@(link_name="NSTextContentTypeCreditCardType") TextContentTypeCreditCardType: ^NS.String
-	@(link_name="NSTextContentTypeShipmentTrackingNumber") TextContentTypeShipmentTrackingNumber: ^NS.String
-	@(link_name="NSTextContentTypeFlightNumber") TextContentTypeFlightNumber: ^NS.String
-	@(link_name="NSTextContentTypeDateTime") TextContentTypeDateTime: ^NS.String
-	@(link_name="NSTextContentTypeBirthdate") TextContentTypeBirthdate: ^NS.String
-	@(link_name="NSTextContentTypeBirthdateDay") TextContentTypeBirthdateDay: ^NS.String
-	@(link_name="NSTextContentTypeBirthdateMonth") TextContentTypeBirthdateMonth: ^NS.String
-	@(link_name="NSTextContentTypeBirthdateYear") TextContentTypeBirthdateYear: ^NS.String
-	@(link_name="NSFontAttributeName") FontAttributeName: ^NS.String
-	@(link_name="NSParagraphStyleAttributeName") ParagraphStyleAttributeName: ^NS.String
-	@(link_name="NSForegroundColorAttributeName") ForegroundColorAttributeName: ^NS.String
-	@(link_name="NSBackgroundColorAttributeName") BackgroundColorAttributeName: ^NS.String
-	@(link_name="NSLigatureAttributeName") LigatureAttributeName: ^NS.String
-	@(link_name="NSKernAttributeName") KernAttributeName: ^NS.String
-	@(link_name="NSTrackingAttributeName") TrackingAttributeName: ^NS.String
-	@(link_name="NSStrikethroughStyleAttributeName") StrikethroughStyleAttributeName: ^NS.String
-	@(link_name="NSUnderlineStyleAttributeName") UnderlineStyleAttributeName: ^NS.String
-	@(link_name="NSStrokeColorAttributeName") StrokeColorAttributeName: ^NS.String
-	@(link_name="NSStrokeWidthAttributeName") StrokeWidthAttributeName: ^NS.String
-	@(link_name="NSShadowAttributeName") ShadowAttributeName: ^NS.String
-	@(link_name="NSTextEffectAttributeName") TextEffectAttributeName: ^NS.String
-	@(link_name="NSAttachmentAttributeName") AttachmentAttributeName: ^NS.String
-	@(link_name="NSLinkAttributeName") LinkAttributeName: ^NS.String
-	@(link_name="NSBaselineOffsetAttributeName") BaselineOffsetAttributeName: ^NS.String
-	@(link_name="NSUnderlineColorAttributeName") UnderlineColorAttributeName: ^NS.String
-	@(link_name="NSStrikethroughColorAttributeName") StrikethroughColorAttributeName: ^NS.String
-	@(link_name="NSWritingDirectionAttributeName") WritingDirectionAttributeName: ^NS.String
-	@(link_name="NSTextHighlightStyleAttributeName") TextHighlightStyleAttributeName: ^NS.String
-	@(link_name="NSTextHighlightColorSchemeAttributeName") TextHighlightColorSchemeAttributeName: ^NS.String
-	@(link_name="NSAdaptiveImageGlyphAttributeName") AdaptiveImageGlyphAttributeName: ^NS.String
-	@(link_name="NSWritingToolsExclusionAttributeName") WritingToolsExclusionAttributeName: ^NS.String
-	@(link_name="NSTextEffectLetterpressStyle") TextEffectLetterpressStyle: ^NS.String
-	@(link_name="NSTextHighlightStyleDefault") TextHighlightStyleDefault: ^NS.String
-	@(link_name="NSTextHighlightColorSchemeDefault") TextHighlightColorSchemeDefault: ^NS.String
-	@(link_name="NSTextHighlightColorSchemePurple") TextHighlightColorSchemePurple: ^NS.String
-	@(link_name="NSTextHighlightColorSchemePink") TextHighlightColorSchemePink: ^NS.String
-	@(link_name="NSTextHighlightColorSchemeOrange") TextHighlightColorSchemeOrange: ^NS.String
-	@(link_name="NSTextHighlightColorSchemeMint") TextHighlightColorSchemeMint: ^NS.String
-	@(link_name="NSTextHighlightColorSchemeBlue") TextHighlightColorSchemeBlue: ^NS.String
-	@(link_name="NSPlainTextDocumentType") PlainTextDocumentType: ^NS.String
-	@(link_name="NSRTFTextDocumentType") RTFTextDocumentType: ^NS.String
-	@(link_name="NSRTFDTextDocumentType") RTFDTextDocumentType: ^NS.String
-	@(link_name="NSHTMLTextDocumentType") HTMLTextDocumentType: ^NS.String
-	@(link_name="NSTextLayoutSectionOrientation") TextLayoutSectionOrientation: ^NS.String
-	@(link_name="NSTextLayoutSectionRange") TextLayoutSectionRange: ^NS.String
-	@(link_name="NSDocumentTypeDocumentAttribute") DocumentTypeDocumentAttribute: ^NS.String
-	@(link_name="NSCharacterEncodingDocumentAttribute") CharacterEncodingDocumentAttribute: ^NS.String
-	@(link_name="NSDefaultAttributesDocumentAttribute") DefaultAttributesDocumentAttribute: ^NS.String
-	@(link_name="NSPaperSizeDocumentAttribute") PaperSizeDocumentAttribute: ^NS.String
-	@(link_name="NSViewSizeDocumentAttribute") ViewSizeDocumentAttribute: ^NS.String
-	@(link_name="NSViewZoomDocumentAttribute") ViewZoomDocumentAttribute: ^NS.String
-	@(link_name="NSViewModeDocumentAttribute") ViewModeDocumentAttribute: ^NS.String
-	@(link_name="NSDefaultFontExcludedDocumentAttribute") DefaultFontExcludedDocumentAttribute: ^NS.String
-	@(link_name="NSReadOnlyDocumentAttribute") ReadOnlyDocumentAttribute: ^NS.String
-	@(link_name="NSBackgroundColorDocumentAttribute") BackgroundColorDocumentAttribute: ^NS.String
-	@(link_name="NSHyphenationFactorDocumentAttribute") HyphenationFactorDocumentAttribute: ^NS.String
-	@(link_name="NSDefaultTabIntervalDocumentAttribute") DefaultTabIntervalDocumentAttribute: ^NS.String
-	@(link_name="NSTextLayoutSectionsAttribute") TextLayoutSectionsAttribute: ^NS.String
-	@(link_name="NSTextScalingDocumentAttribute") TextScalingDocumentAttribute: ^NS.String
-	@(link_name="NSSourceTextScalingDocumentAttribute") SourceTextScalingDocumentAttribute: ^NS.String
-	@(link_name="NSCocoaVersionDocumentAttribute") CocoaVersionDocumentAttribute: ^NS.String
-	@(link_name="NSDocumentTypeDocumentOption") DocumentTypeDocumentOption: ^NS.String
-	@(link_name="NSDefaultAttributesDocumentOption") DefaultAttributesDocumentOption: ^NS.String
-	@(link_name="NSCharacterEncodingDocumentOption") CharacterEncodingDocumentOption: ^NS.String
-	@(link_name="NSTargetTextScalingDocumentOption") TargetTextScalingDocumentOption: ^NS.String
-	@(link_name="NSSourceTextScalingDocumentOption") SourceTextScalingDocumentOption: ^NS.String
-	@(link_name="NSTextKit1ListMarkerFormatDocumentOption") TextKit1ListMarkerFormatDocumentOption: ^NS.String
-	@(link_name="NSCursorAttributeName") CursorAttributeName: ^NS.String
-	@(link_name="NSToolTipAttributeName") ToolTipAttributeName: ^NS.String
-	@(link_name="NSMarkedClauseSegmentAttributeName") MarkedClauseSegmentAttributeName: ^NS.String
-	@(link_name="NSTextAlternativesAttributeName") TextAlternativesAttributeName: ^NS.String
-	@(link_name="NSSpellingStateAttributeName") SpellingStateAttributeName: ^NS.String
-	@(link_name="NSSuperscriptAttributeName") SuperscriptAttributeName: ^NS.String
-	@(link_name="NSGlyphInfoAttributeName") GlyphInfoAttributeName: ^NS.String
-	@(link_name="NSMacSimpleTextDocumentType") MacSimpleTextDocumentType: ^NS.String
-	@(link_name="NSDocFormatTextDocumentType") DocFormatTextDocumentType: ^NS.String
-	@(link_name="NSWordMLTextDocumentType") WordMLTextDocumentType: ^NS.String
-	@(link_name="NSWebArchiveTextDocumentType") WebArchiveTextDocumentType: ^NS.String
-	@(link_name="NSOfficeOpenXMLTextDocumentType") OfficeOpenXMLTextDocumentType: ^NS.String
-	@(link_name="NSOpenDocumentTextDocumentType") OpenDocumentTextDocumentType: ^NS.String
-	@(link_name="NSConvertedDocumentAttribute") ConvertedDocumentAttribute: ^NS.String
-	@(link_name="NSFileTypeDocumentAttribute") FileTypeDocumentAttribute: ^NS.String
-	@(link_name="NSTitleDocumentAttribute") TitleDocumentAttribute: ^NS.String
-	@(link_name="NSCompanyDocumentAttribute") CompanyDocumentAttribute: ^NS.String
-	@(link_name="NSCopyrightDocumentAttribute") CopyrightDocumentAttribute: ^NS.String
-	@(link_name="NSSubjectDocumentAttribute") SubjectDocumentAttribute: ^NS.String
-	@(link_name="NSAuthorDocumentAttribute") AuthorDocumentAttribute: ^NS.String
-	@(link_name="NSKeywordsDocumentAttribute") KeywordsDocumentAttribute: ^NS.String
-	@(link_name="NSCommentDocumentAttribute") CommentDocumentAttribute: ^NS.String
-	@(link_name="NSEditorDocumentAttribute") EditorDocumentAttribute: ^NS.String
-	@(link_name="NSCreationTimeDocumentAttribute") CreationTimeDocumentAttribute: ^NS.String
-	@(link_name="NSModificationTimeDocumentAttribute") ModificationTimeDocumentAttribute: ^NS.String
-	@(link_name="NSManagerDocumentAttribute") ManagerDocumentAttribute: ^NS.String
-	@(link_name="NSCategoryDocumentAttribute") CategoryDocumentAttribute: ^NS.String
-	@(link_name="NSAppearanceDocumentAttribute") AppearanceDocumentAttribute: ^NS.String
-	@(link_name="NSExcludedElementsDocumentAttribute") ExcludedElementsDocumentAttribute: ^NS.String
-	@(link_name="NSTextEncodingNameDocumentAttribute") TextEncodingNameDocumentAttribute: ^NS.String
-	@(link_name="NSPrefixSpacesDocumentAttribute") PrefixSpacesDocumentAttribute: ^NS.String
-	@(link_name="NSLeftMarginDocumentAttribute") LeftMarginDocumentAttribute: ^NS.String
-	@(link_name="NSRightMarginDocumentAttribute") RightMarginDocumentAttribute: ^NS.String
-	@(link_name="NSTopMarginDocumentAttribute") TopMarginDocumentAttribute: ^NS.String
-	@(link_name="NSBottomMarginDocumentAttribute") BottomMarginDocumentAttribute: ^NS.String
-	@(link_name="NSTextEncodingNameDocumentOption") TextEncodingNameDocumentOption: ^NS.String
-	@(link_name="NSBaseURLDocumentOption") BaseURLDocumentOption: ^NS.String
-	@(link_name="NSTimeoutDocumentOption") TimeoutDocumentOption: ^NS.String
-	@(link_name="NSWebPreferencesDocumentOption") WebPreferencesDocumentOption: ^NS.String
-	@(link_name="NSWebResourceLoadDelegateDocumentOption") WebResourceLoadDelegateDocumentOption: ^NS.String
-	@(link_name="NSTextSizeMultiplierDocumentOption") TextSizeMultiplierDocumentOption: ^NS.String
-	@(link_name="NSFileTypeDocumentOption") FileTypeDocumentOption: ^NS.String
-	@(link_name="NSCharacterShapeAttributeName") CharacterShapeAttributeName: ^NS.String
-	@(link_name="NSUsesScreenFontsDocumentAttribute") UsesScreenFontsDocumentAttribute: ^NS.String
-	@(link_name="NSObliquenessAttributeName") ObliquenessAttributeName: ^NS.String
-	@(link_name="NSExpansionAttributeName") ExpansionAttributeName: ^NS.String
-	@(link_name="NSVerticalGlyphFormAttributeName") VerticalGlyphFormAttributeName: ^NS.String
-	@(link_name="NSUnderlineStrikethroughMask") UnderlineStrikethroughMask: NS.UInteger
-	@(link_name="NSUnderlineByWordMask") UnderlineByWordMask: NS.UInteger
-	@(link_name="NSTextStorageWillProcessEditingNotification") TextStorageWillProcessEditingNotification: ^NS.String
-	@(link_name="NSTextStorageDidProcessEditingNotification") TextStorageDidProcessEditingNotification: ^NS.String
-	@(link_name="NSToolbarItemKey") ToolbarItemKey: ^NS.String
-	@(link_name="NSToolbarNewIndexKey") ToolbarNewIndexKey: ^NS.String
-	@(link_name="NSToolbarWillAddItemNotification") ToolbarWillAddItemNotification: ^NS.String
-	@(link_name="NSToolbarDidRemoveItemNotification") ToolbarDidRemoveItemNotification: ^NS.String
-	@(link_name="NSToolbarSpaceItemIdentifier") ToolbarSpaceItemIdentifier: ^NS.String
-	@(link_name="NSToolbarFlexibleSpaceItemIdentifier") ToolbarFlexibleSpaceItemIdentifier: ^NS.String
-	@(link_name="NSToolbarShowColorsItemIdentifier") ToolbarShowColorsItemIdentifier: ^NS.String
-	@(link_name="NSToolbarShowFontsItemIdentifier") ToolbarShowFontsItemIdentifier: ^NS.String
-	@(link_name="NSToolbarPrintItemIdentifier") ToolbarPrintItemIdentifier: ^NS.String
-	@(link_name="NSToolbarToggleSidebarItemIdentifier") ToolbarToggleSidebarItemIdentifier: ^NS.String
-	@(link_name="NSToolbarToggleInspectorItemIdentifier") ToolbarToggleInspectorItemIdentifier: ^NS.String
-	@(link_name="NSToolbarCloudSharingItemIdentifier") ToolbarCloudSharingItemIdentifier: ^NS.String
-	@(link_name="NSToolbarWritingToolsItemIdentifier") ToolbarWritingToolsItemIdentifier: ^NS.String
-	@(link_name="NSToolbarSidebarTrackingSeparatorItemIdentifier") ToolbarSidebarTrackingSeparatorItemIdentifier: ^NS.String
-	@(link_name="NSToolbarInspectorTrackingSeparatorItemIdentifier") ToolbarInspectorTrackingSeparatorItemIdentifier: ^NS.String
-	@(link_name="NSToolbarSeparatorItemIdentifier") ToolbarSeparatorItemIdentifier: ^NS.String
-	@(link_name="NSToolbarCustomizeToolbarItemIdentifier") ToolbarCustomizeToolbarItemIdentifier: ^NS.String
-	@(link_name="NSComboBoxWillPopUpNotification") ComboBoxWillPopUpNotification: ^NS.String
-	@(link_name="NSComboBoxWillDismissNotification") ComboBoxWillDismissNotification: ^NS.String
-	@(link_name="NSComboBoxSelectionDidChangeNotification") ComboBoxSelectionDidChangeNotification: ^NS.String
-	@(link_name="NSComboBoxSelectionIsChangingNotification") ComboBoxSelectionIsChangingNotification: ^NS.String
-	@(link_name="NSAllRomanInputSourcesLocaleIdentifier") AllRomanInputSourcesLocaleIdentifier: ^NS.String
-	@(link_name="NSTouchBarItemIdentifierCharacterPicker") TouchBarItemIdentifierCharacterPicker: ^NS.String
-	@(link_name="NSTouchBarItemIdentifierTextColorPicker") TouchBarItemIdentifierTextColorPicker: ^NS.String
-	@(link_name="NSTouchBarItemIdentifierTextStyle") TouchBarItemIdentifierTextStyle: ^NS.String
-	@(link_name="NSTouchBarItemIdentifierTextAlignment") TouchBarItemIdentifierTextAlignment: ^NS.String
-	@(link_name="NSTouchBarItemIdentifierTextList") TouchBarItemIdentifierTextList: ^NS.String
-	@(link_name="NSTouchBarItemIdentifierTextFormat") TouchBarItemIdentifierTextFormat: ^NS.String
-	@(link_name="NSTextViewWillChangeNotifyingTextViewNotification") TextViewWillChangeNotifyingTextViewNotification: ^NS.String
-	@(link_name="NSTextViewDidChangeSelectionNotification") TextViewDidChangeSelectionNotification: ^NS.String
-	@(link_name="NSTextViewDidChangeTypingAttributesNotification") TextViewDidChangeTypingAttributesNotification: ^NS.String
-	@(link_name="NSTextViewWillSwitchToNSLayoutManagerNotification") TextViewWillSwitchToNSLayoutManagerNotification: ^NS.String
-	@(link_name="NSTextViewDidSwitchToNSLayoutManagerNotification") TextViewDidSwitchToNSLayoutManagerNotification: ^NS.String
-	@(link_name="NSFindPanelSearchOptionsPboardType") FindPanelSearchOptionsPboardType: ^NS.String
-	@(link_name="NSFindPanelCaseInsensitiveSearch") FindPanelCaseInsensitiveSearch: ^NS.String
-	@(link_name="NSFindPanelSubstringMatch") FindPanelSubstringMatch: ^NS.String
-	@(link_name="NSTableViewSelectionDidChangeNotification") TableViewSelectionDidChangeNotification: ^NS.String
-	@(link_name="NSTableViewColumnDidMoveNotification") TableViewColumnDidMoveNotification: ^NS.String
-	@(link_name="NSTableViewColumnDidResizeNotification") TableViewColumnDidResizeNotification: ^NS.String
-	@(link_name="NSTableViewSelectionIsChangingNotification") TableViewSelectionIsChangingNotification: ^NS.String
-	@(link_name="NSTableViewRowViewKey") TableViewRowViewKey: ^NS.String
-	@(link_name="NSOutlineViewDisclosureButtonKey") OutlineViewDisclosureButtonKey: ^NS.String
-	@(link_name="NSOutlineViewShowHideButtonKey") OutlineViewShowHideButtonKey: ^NS.String
-	@(link_name="NSOutlineViewSelectionDidChangeNotification") OutlineViewSelectionDidChangeNotification: ^NS.String
-	@(link_name="NSOutlineViewColumnDidMoveNotification") OutlineViewColumnDidMoveNotification: ^NS.String
-	@(link_name="NSOutlineViewColumnDidResizeNotification") OutlineViewColumnDidResizeNotification: ^NS.String
-	@(link_name="NSOutlineViewSelectionIsChangingNotification") OutlineViewSelectionIsChangingNotification: ^NS.String
-	@(link_name="NSOutlineViewItemWillExpandNotification") OutlineViewItemWillExpandNotification: ^NS.String
-	@(link_name="NSOutlineViewItemDidExpandNotification") OutlineViewItemDidExpandNotification: ^NS.String
-	@(link_name="NSOutlineViewItemWillCollapseNotification") OutlineViewItemWillCollapseNotification: ^NS.String
-	@(link_name="NSOutlineViewItemDidCollapseNotification") OutlineViewItemDidCollapseNotification: ^NS.String
-	@(link_name="NSRulerViewUnitInches") RulerViewUnitInches: ^NS.String
-	@(link_name="NSRulerViewUnitCentimeters") RulerViewUnitCentimeters: ^NS.String
-	@(link_name="NSRulerViewUnitPoints") RulerViewUnitPoints: ^NS.String
-	@(link_name="NSRulerViewUnitPicas") RulerViewUnitPicas: ^NS.String
-	@(link_name="NSInterfaceStyleDefault") InterfaceStyleDefault: ^NS.String
-	@(link_name="NSSoundPboardType") SoundPboardType: ^NS.String
-	@(link_name="NSDrawerWillOpenNotification") DrawerWillOpenNotification: ^NS.String
-	@(link_name="NSDrawerDidOpenNotification") DrawerDidOpenNotification: ^NS.String
-	@(link_name="NSDrawerWillCloseNotification") DrawerWillCloseNotification: ^NS.String
-	@(link_name="NSDrawerDidCloseNotification") DrawerDidCloseNotification: ^NS.String
-	@(link_name="NSTextListMarkerBox") TextListMarkerBox: ^NS.String
-	@(link_name="NSTextListMarkerCheck") TextListMarkerCheck: ^NS.String
-	@(link_name="NSTextListMarkerCircle") TextListMarkerCircle: ^NS.String
-	@(link_name="NSTextListMarkerDiamond") TextListMarkerDiamond: ^NS.String
-	@(link_name="NSTextListMarkerDisc") TextListMarkerDisc: ^NS.String
-	@(link_name="NSTextListMarkerHyphen") TextListMarkerHyphen: ^NS.String
-	@(link_name="NSTextListMarkerSquare") TextListMarkerSquare: ^NS.String
-	@(link_name="NSTextListMarkerLowercaseHexadecimal") TextListMarkerLowercaseHexadecimal: ^NS.String
-	@(link_name="NSTextListMarkerUppercaseHexadecimal") TextListMarkerUppercaseHexadecimal: ^NS.String
-	@(link_name="NSTextListMarkerOctal") TextListMarkerOctal: ^NS.String
-	@(link_name="NSTextListMarkerLowercaseAlpha") TextListMarkerLowercaseAlpha: ^NS.String
-	@(link_name="NSTextListMarkerUppercaseAlpha") TextListMarkerUppercaseAlpha: ^NS.String
-	@(link_name="NSTextListMarkerLowercaseLatin") TextListMarkerLowercaseLatin: ^NS.String
-	@(link_name="NSTextListMarkerUppercaseLatin") TextListMarkerUppercaseLatin: ^NS.String
-	@(link_name="NSTextListMarkerLowercaseRoman") TextListMarkerLowercaseRoman: ^NS.String
-	@(link_name="NSTextListMarkerUppercaseRoman") TextListMarkerUppercaseRoman: ^NS.String
-	@(link_name="NSTextListMarkerDecimal") TextListMarkerDecimal: ^NS.String
-	@(link_name="NSRuleEditorPredicateLeftExpression") RuleEditorPredicateLeftExpression: ^NS.String
-	@(link_name="NSRuleEditorPredicateRightExpression") RuleEditorPredicateRightExpression: ^NS.String
-	@(link_name="NSRuleEditorPredicateComparisonModifier") RuleEditorPredicateComparisonModifier: ^NS.String
-	@(link_name="NSRuleEditorPredicateOptions") RuleEditorPredicateOptions: ^NS.String
-	@(link_name="NSRuleEditorPredicateOperatorType") RuleEditorPredicateOperatorType: ^NS.String
-	@(link_name="NSRuleEditorPredicateCustomSelector") RuleEditorPredicateCustomSelector: ^NS.String
-	@(link_name="NSRuleEditorPredicateCompoundType") RuleEditorPredicateCompoundType: ^NS.String
-	@(link_name="NSRuleEditorRowsDidChangeNotification") RuleEditorRowsDidChangeNotification: ^NS.String
-	@(link_name="NSTextInputContextKeyboardSelectionDidChangeNotification") TextInputContextKeyboardSelectionDidChangeNotification: ^NS.String
-	@(link_name="NSApplicationDidFinishRestoringWindowsNotification") ApplicationDidFinishRestoringWindowsNotification: ^NS.String
-	@(link_name="NSTextAlternativesSelectedAlternativeStringNotification") TextAlternativesSelectedAlternativeStringNotification: ^NS.String
-	@(link_name="NSTypeIdentifierDateText") TypeIdentifierDateText: ^NS.String
-	@(link_name="NSTypeIdentifierAddressText") TypeIdentifierAddressText: ^NS.String
-	@(link_name="NSTypeIdentifierPhoneNumberText") TypeIdentifierPhoneNumberText: ^NS.String
-	@(link_name="NSTypeIdentifierTransitInformationText") TypeIdentifierTransitInformationText: ^NS.String
-	@(link_name="NSTextContentStorageUnsupportedAttributeAddedNotification") TextContentStorageUnsupportedAttributeAddedNotification: ^NS.String
+	@(link_name = "NSCalibratedWhiteColorSpace")
+	CalibratedWhiteColorSpace: ^NS.String
+	@(link_name = "NSCalibratedRGBColorSpace")
+	CalibratedRGBColorSpace: ^NS.String
+	@(link_name = "NSDeviceWhiteColorSpace")
+	DeviceWhiteColorSpace: ^NS.String
+	@(link_name = "NSDeviceRGBColorSpace")
+	DeviceRGBColorSpace: ^NS.String
+	@(link_name = "NSDeviceCMYKColorSpace")
+	DeviceCMYKColorSpace: ^NS.String
+	@(link_name = "NSNamedColorSpace")
+	NamedColorSpace: ^NS.String
+	@(link_name = "NSPatternColorSpace")
+	PatternColorSpace: ^NS.String
+	@(link_name = "NSCustomColorSpace")
+	CustomColorSpace: ^NS.String
+	@(link_name = "NSCalibratedBlackColorSpace")
+	CalibratedBlackColorSpace: ^NS.String
+	@(link_name = "NSDeviceBlackColorSpace")
+	DeviceBlackColorSpace: ^NS.String
+	@(link_name = "NSWhite")
+	White: CG.Float
+	@(link_name = "NSLightGray")
+	LightGray: CG.Float
+	@(link_name = "NSDarkGray")
+	DarkGray: CG.Float
+	@(link_name = "NSBlack")
+	Black: CG.Float
+	@(link_name = "NSDeviceResolution")
+	DeviceResolution: ^NS.String
+	@(link_name = "NSDeviceColorSpaceName")
+	DeviceColorSpaceName: ^NS.String
+	@(link_name = "NSDeviceBitsPerSample")
+	DeviceBitsPerSample: ^NS.String
+	@(link_name = "NSDeviceIsScreen")
+	DeviceIsScreen: ^NS.String
+	@(link_name = "NSDeviceIsPrinter")
+	DeviceIsPrinter: ^NS.String
+	@(link_name = "NSDeviceSize")
+	DeviceSize: ^NS.String
+	@(link_name = "NSGraphicsContextDestinationAttributeName")
+	GraphicsContextDestinationAttributeName: ^NS.String
+	@(link_name = "NSGraphicsContextRepresentationFormatAttributeName")
+	GraphicsContextRepresentationFormatAttributeName: ^NS.String
+	@(link_name = "NSGraphicsContextPSFormat")
+	GraphicsContextPSFormat: ^NS.String
+	@(link_name = "NSGraphicsContextPDFFormat")
+	GraphicsContextPDFFormat: ^NS.String
+	@(link_name = "NSTextLineTooLongException")
+	TextLineTooLongException: ^NS.String
+	@(link_name = "NSTextNoSelectionException")
+	TextNoSelectionException: ^NS.String
+	@(link_name = "NSWordTablesWriteException")
+	WordTablesWriteException: ^NS.String
+	@(link_name = "NSWordTablesReadException")
+	WordTablesReadException: ^NS.String
+	@(link_name = "NSTextReadException")
+	TextReadException: ^NS.String
+	@(link_name = "NSTextWriteException")
+	TextWriteException: ^NS.String
+	@(link_name = "NSPasteboardCommunicationException")
+	PasteboardCommunicationException: ^NS.String
+	@(link_name = "NSPrintingCommunicationException")
+	PrintingCommunicationException: ^NS.String
+	@(link_name = "NSAbortModalException")
+	AbortModalException: ^NS.String
+	@(link_name = "NSAbortPrintingException")
+	AbortPrintingException: ^NS.String
+	@(link_name = "NSIllegalSelectorException")
+	IllegalSelectorException: ^NS.String
+	@(link_name = "NSAppKitVirtualMemoryException")
+	AppKitVirtualMemoryException: ^NS.String
+	@(link_name = "NSBadRTFDirectiveException")
+	BadRTFDirectiveException: ^NS.String
+	@(link_name = "NSBadRTFFontTableException")
+	BadRTFFontTableException: ^NS.String
+	@(link_name = "NSBadRTFStyleSheetException")
+	BadRTFStyleSheetException: ^NS.String
+	@(link_name = "NSTypedStreamVersionException")
+	TypedStreamVersionException: ^NS.String
+	@(link_name = "NSTIFFException")
+	TIFFException: ^NS.String
+	@(link_name = "NSPrintPackageException")
+	PrintPackageException: ^NS.String
+	@(link_name = "NSBadRTFColorTableException")
+	BadRTFColorTableException: ^NS.String
+	@(link_name = "NSDraggingException")
+	DraggingException: ^NS.String
+	@(link_name = "NSColorListIOException")
+	ColorListIOException: ^NS.String
+	@(link_name = "NSColorListNotEditableException")
+	ColorListNotEditableException: ^NS.String
+	@(link_name = "NSBadBitmapParametersException")
+	BadBitmapParametersException: ^NS.String
+	@(link_name = "NSWindowServerCommunicationException")
+	WindowServerCommunicationException: ^NS.String
+	@(link_name = "NSFontUnavailableException")
+	FontUnavailableException: ^NS.String
+	@(link_name = "NSPPDIncludeNotFoundException")
+	PPDIncludeNotFoundException: ^NS.String
+	@(link_name = "NSPPDParseException")
+	PPDParseException: ^NS.String
+	@(link_name = "NSPPDIncludeStackOverflowException")
+	PPDIncludeStackOverflowException: ^NS.String
+	@(link_name = "NSPPDIncludeStackUnderflowException")
+	PPDIncludeStackUnderflowException: ^NS.String
+	@(link_name = "NSRTFPropertyStackOverflowException")
+	RTFPropertyStackOverflowException: ^NS.String
+	@(link_name = "NSAppKitIgnoredException")
+	AppKitIgnoredException: ^NS.String
+	@(link_name = "NSBadComparisonException")
+	BadComparisonException: ^NS.String
+	@(link_name = "NSImageCacheException")
+	ImageCacheException: ^NS.String
+	@(link_name = "NSNibLoadingException")
+	NibLoadingException: ^NS.String
+	@(link_name = "NSBrowserIllegalDelegateException")
+	BrowserIllegalDelegateException: ^NS.String
+	@(link_name = "NSAccessibilityException")
+	AccessibilityException: ^NS.String
+	@(link_name = "NSAccessibilityErrorCodeExceptionInfo")
+	AccessibilityErrorCodeExceptionInfo: ^NS.String
+	@(link_name = "NSAccessibilityRoleAttribute")
+	AccessibilityRoleAttribute: ^NS.String
+	@(link_name = "NSAccessibilityRoleDescriptionAttribute")
+	AccessibilityRoleDescriptionAttribute: ^NS.String
+	@(link_name = "NSAccessibilitySubroleAttribute")
+	AccessibilitySubroleAttribute: ^NS.String
+	@(link_name = "NSAccessibilityHelpAttribute")
+	AccessibilityHelpAttribute: ^NS.String
+	@(link_name = "NSAccessibilityValueAttribute")
+	AccessibilityValueAttribute: ^NS.String
+	@(link_name = "NSAccessibilityMinValueAttribute")
+	AccessibilityMinValueAttribute: ^NS.String
+	@(link_name = "NSAccessibilityMaxValueAttribute")
+	AccessibilityMaxValueAttribute: ^NS.String
+	@(link_name = "NSAccessibilityEnabledAttribute")
+	AccessibilityEnabledAttribute: ^NS.String
+	@(link_name = "NSAccessibilityFocusedAttribute")
+	AccessibilityFocusedAttribute: ^NS.String
+	@(link_name = "NSAccessibilityParentAttribute")
+	AccessibilityParentAttribute: ^NS.String
+	@(link_name = "NSAccessibilityChildrenAttribute")
+	AccessibilityChildrenAttribute: ^NS.String
+	@(link_name = "NSAccessibilityWindowAttribute")
+	AccessibilityWindowAttribute: ^NS.String
+	@(link_name = "NSAccessibilityTopLevelUIElementAttribute")
+	AccessibilityTopLevelUIElementAttribute: ^NS.String
+	@(link_name = "NSAccessibilitySelectedChildrenAttribute")
+	AccessibilitySelectedChildrenAttribute: ^NS.String
+	@(link_name = "NSAccessibilityVisibleChildrenAttribute")
+	AccessibilityVisibleChildrenAttribute: ^NS.String
+	@(link_name = "NSAccessibilityPositionAttribute")
+	AccessibilityPositionAttribute: ^NS.String
+	@(link_name = "NSAccessibilitySizeAttribute")
+	AccessibilitySizeAttribute: ^NS.String
+	@(link_name = "NSAccessibilityContentsAttribute")
+	AccessibilityContentsAttribute: ^NS.String
+	@(link_name = "NSAccessibilityTitleAttribute")
+	AccessibilityTitleAttribute: ^NS.String
+	@(link_name = "NSAccessibilityDescriptionAttribute")
+	AccessibilityDescriptionAttribute: ^NS.String
+	@(link_name = "NSAccessibilityShownMenuAttribute")
+	AccessibilityShownMenuAttribute: ^NS.String
+	@(link_name = "NSAccessibilityValueDescriptionAttribute")
+	AccessibilityValueDescriptionAttribute: ^NS.String
+	@(link_name = "NSAccessibilitySharedFocusElementsAttribute")
+	AccessibilitySharedFocusElementsAttribute: ^NS.String
+	@(link_name = "NSAccessibilityPreviousContentsAttribute")
+	AccessibilityPreviousContentsAttribute: ^NS.String
+	@(link_name = "NSAccessibilityNextContentsAttribute")
+	AccessibilityNextContentsAttribute: ^NS.String
+	@(link_name = "NSAccessibilityHeaderAttribute")
+	AccessibilityHeaderAttribute: ^NS.String
+	@(link_name = "NSAccessibilityEditedAttribute")
+	AccessibilityEditedAttribute: ^NS.String
+	@(link_name = "NSAccessibilityTabsAttribute")
+	AccessibilityTabsAttribute: ^NS.String
+	@(link_name = "NSAccessibilityHorizontalScrollBarAttribute")
+	AccessibilityHorizontalScrollBarAttribute: ^NS.String
+	@(link_name = "NSAccessibilityVerticalScrollBarAttribute")
+	AccessibilityVerticalScrollBarAttribute: ^NS.String
+	@(link_name = "NSAccessibilityOverflowButtonAttribute")
+	AccessibilityOverflowButtonAttribute: ^NS.String
+	@(link_name = "NSAccessibilityIncrementButtonAttribute")
+	AccessibilityIncrementButtonAttribute: ^NS.String
+	@(link_name = "NSAccessibilityDecrementButtonAttribute")
+	AccessibilityDecrementButtonAttribute: ^NS.String
+	@(link_name = "NSAccessibilityFilenameAttribute")
+	AccessibilityFilenameAttribute: ^NS.String
+	@(link_name = "NSAccessibilityExpandedAttribute")
+	AccessibilityExpandedAttribute: ^NS.String
+	@(link_name = "NSAccessibilitySelectedAttribute")
+	AccessibilitySelectedAttribute: ^NS.String
+	@(link_name = "NSAccessibilitySplittersAttribute")
+	AccessibilitySplittersAttribute: ^NS.String
+	@(link_name = "NSAccessibilityDocumentAttribute")
+	AccessibilityDocumentAttribute: ^NS.String
+	@(link_name = "NSAccessibilityActivationPointAttribute")
+	AccessibilityActivationPointAttribute: ^NS.String
+	@(link_name = "NSAccessibilityURLAttribute")
+	AccessibilityURLAttribute: ^NS.String
+	@(link_name = "NSAccessibilityIndexAttribute")
+	AccessibilityIndexAttribute: ^NS.String
+	@(link_name = "NSAccessibilityRowCountAttribute")
+	AccessibilityRowCountAttribute: ^NS.String
+	@(link_name = "NSAccessibilityColumnCountAttribute")
+	AccessibilityColumnCountAttribute: ^NS.String
+	@(link_name = "NSAccessibilityOrderedByRowAttribute")
+	AccessibilityOrderedByRowAttribute: ^NS.String
+	@(link_name = "NSAccessibilityWarningValueAttribute")
+	AccessibilityWarningValueAttribute: ^NS.String
+	@(link_name = "NSAccessibilityCriticalValueAttribute")
+	AccessibilityCriticalValueAttribute: ^NS.String
+	@(link_name = "NSAccessibilityPlaceholderValueAttribute")
+	AccessibilityPlaceholderValueAttribute: ^NS.String
+	@(link_name = "NSAccessibilityContainsProtectedContentAttribute")
+	AccessibilityContainsProtectedContentAttribute: ^NS.String
+	@(link_name = "NSAccessibilityAlternateUIVisibleAttribute")
+	AccessibilityAlternateUIVisibleAttribute: ^NS.String
+	@(link_name = "NSAccessibilityRequiredAttribute")
+	AccessibilityRequiredAttribute: ^NS.String
+	@(link_name = "NSAccessibilityAutoInteractableAttribute")
+	AccessibilityAutoInteractableAttribute: ^NS.String
+	@(link_name = "NSAccessibilityDateTimeComponentsAttribute")
+	AccessibilityDateTimeComponentsAttribute: ^NS.String
+	@(link_name = "NSAccessibilityEmbeddedImageDescriptionAttribute")
+	AccessibilityEmbeddedImageDescriptionAttribute: ^NS.String
+	@(link_name = "NSAccessibilityPathAttribute")
+	AccessibilityPathAttribute: ^NS.String
+	@(link_name = "NSAccessibilityTextInputMarkedRangeAttribute")
+	AccessibilityTextInputMarkedRangeAttribute: ^NS.String
+	@(link_name = "NSAccessibilityBlockQuoteLevelAttribute")
+	AccessibilityBlockQuoteLevelAttribute: ^NS.String
+	@(link_name = "NSAccessibilityHeadingLevelAttribute")
+	AccessibilityHeadingLevelAttribute: ^NS.String
+	@(link_name = "NSAccessibilityLanguageAttribute")
+	AccessibilityLanguageAttribute: ^NS.String
+	@(link_name = "NSAccessibilityVisitedAttribute")
+	AccessibilityVisitedAttribute: ^NS.String
+	@(link_name = "NSAccessibilityTitleUIElementAttribute")
+	AccessibilityTitleUIElementAttribute: ^NS.String
+	@(link_name = "NSAccessibilityServesAsTitleForUIElementsAttribute")
+	AccessibilityServesAsTitleForUIElementsAttribute: ^NS.String
+	@(link_name = "NSAccessibilityLinkedUIElementsAttribute")
+	AccessibilityLinkedUIElementsAttribute: ^NS.String
+	@(link_name = "NSAccessibilitySelectedTextAttribute")
+	AccessibilitySelectedTextAttribute: ^NS.String
+	@(link_name = "NSAccessibilitySelectedTextRangeAttribute")
+	AccessibilitySelectedTextRangeAttribute: ^NS.String
+	@(link_name = "NSAccessibilityNumberOfCharactersAttribute")
+	AccessibilityNumberOfCharactersAttribute: ^NS.String
+	@(link_name = "NSAccessibilityVisibleCharacterRangeAttribute")
+	AccessibilityVisibleCharacterRangeAttribute: ^NS.String
+	@(link_name = "NSAccessibilitySharedTextUIElementsAttribute")
+	AccessibilitySharedTextUIElementsAttribute: ^NS.String
+	@(link_name = "NSAccessibilitySharedCharacterRangeAttribute")
+	AccessibilitySharedCharacterRangeAttribute: ^NS.String
+	@(link_name = "NSAccessibilityInsertionPointLineNumberAttribute")
+	AccessibilityInsertionPointLineNumberAttribute: ^NS.String
+	@(link_name = "NSAccessibilitySelectedTextRangesAttribute")
+	AccessibilitySelectedTextRangesAttribute: ^NS.String
+	@(link_name = "NSAccessibilityLineForIndexParameterizedAttribute")
+	AccessibilityLineForIndexParameterizedAttribute: ^NS.String
+	@(link_name = "NSAccessibilityRangeForLineParameterizedAttribute")
+	AccessibilityRangeForLineParameterizedAttribute: ^NS.String
+	@(link_name = "NSAccessibilityStringForRangeParameterizedAttribute")
+	AccessibilityStringForRangeParameterizedAttribute: ^NS.String
+	@(link_name = "NSAccessibilityRangeForPositionParameterizedAttribute")
+	AccessibilityRangeForPositionParameterizedAttribute: ^NS.String
+	@(link_name = "NSAccessibilityRangeForIndexParameterizedAttribute")
+	AccessibilityRangeForIndexParameterizedAttribute: ^NS.String
+	@(link_name = "NSAccessibilityBoundsForRangeParameterizedAttribute")
+	AccessibilityBoundsForRangeParameterizedAttribute: ^NS.String
+	@(link_name = "NSAccessibilityRTFForRangeParameterizedAttribute")
+	AccessibilityRTFForRangeParameterizedAttribute: ^NS.String
+	@(link_name = "NSAccessibilityStyleRangeForIndexParameterizedAttribute")
+	AccessibilityStyleRangeForIndexParameterizedAttribute: ^NS.String
+	@(link_name = "NSAccessibilityAttributedStringForRangeParameterizedAttribute")
+	AccessibilityAttributedStringForRangeParameterizedAttribute: ^NS.String
+	@(link_name = "NSAccessibilityFontTextAttribute")
+	AccessibilityFontTextAttribute: ^NS.String
+	@(link_name = "NSAccessibilityForegroundColorTextAttribute")
+	AccessibilityForegroundColorTextAttribute: ^NS.String
+	@(link_name = "NSAccessibilityBackgroundColorTextAttribute")
+	AccessibilityBackgroundColorTextAttribute: ^NS.String
+	@(link_name = "NSAccessibilityUnderlineColorTextAttribute")
+	AccessibilityUnderlineColorTextAttribute: ^NS.String
+	@(link_name = "NSAccessibilityStrikethroughColorTextAttribute")
+	AccessibilityStrikethroughColorTextAttribute: ^NS.String
+	@(link_name = "NSAccessibilityUnderlineTextAttribute")
+	AccessibilityUnderlineTextAttribute: ^NS.String
+	@(link_name = "NSAccessibilitySuperscriptTextAttribute")
+	AccessibilitySuperscriptTextAttribute: ^NS.String
+	@(link_name = "NSAccessibilityStrikethroughTextAttribute")
+	AccessibilityStrikethroughTextAttribute: ^NS.String
+	@(link_name = "NSAccessibilityShadowTextAttribute")
+	AccessibilityShadowTextAttribute: ^NS.String
+	@(link_name = "NSAccessibilityAttachmentTextAttribute")
+	AccessibilityAttachmentTextAttribute: ^NS.String
+	@(link_name = "NSAccessibilityLinkTextAttribute")
+	AccessibilityLinkTextAttribute: ^NS.String
+	@(link_name = "NSAccessibilityAutocorrectedTextAttribute")
+	AccessibilityAutocorrectedTextAttribute: ^NS.String
+	@(link_name = "NSAccessibilityTextAlignmentAttribute")
+	AccessibilityTextAlignmentAttribute: ^NS.String
+	@(link_name = "NSAccessibilityFontBoldAttribute")
+	AccessibilityFontBoldAttribute: ^NS.String
+	@(link_name = "NSAccessibilityFontItalicAttribute")
+	AccessibilityFontItalicAttribute: ^NS.String
+	@(link_name = "NSAccessibilityChildrenInNavigationOrderAttribute")
+	AccessibilityChildrenInNavigationOrderAttribute: ^NS.String
+	@(link_name = "NSAccessibilityIndexForChildUIElementAttribute")
+	AccessibilityIndexForChildUIElementAttribute: ^NS.String
+	@(link_name = "NSAccessibilityIndexForChildUIElementInNavigationOrderAttribute")
+	AccessibilityIndexForChildUIElementInNavigationOrderAttribute: ^NS.String
+	@(link_name = "NSAccessibilityListItemPrefixTextAttribute")
+	AccessibilityListItemPrefixTextAttribute: ^NS.String
+	@(link_name = "NSAccessibilityListItemIndexTextAttribute")
+	AccessibilityListItemIndexTextAttribute: ^NS.String
+	@(link_name = "NSAccessibilityListItemLevelTextAttribute")
+	AccessibilityListItemLevelTextAttribute: ^NS.String
+	@(link_name = "NSAccessibilityMisspelledTextAttribute")
+	AccessibilityMisspelledTextAttribute: ^NS.String
+	@(link_name = "NSAccessibilityMarkedMisspelledTextAttribute")
+	AccessibilityMarkedMisspelledTextAttribute: ^NS.String
+	@(link_name = "NSAccessibilityLanguageTextAttribute")
+	AccessibilityLanguageTextAttribute: ^NS.String
+	@(link_name = "NSAccessibilityCustomTextAttribute")
+	AccessibilityCustomTextAttribute: ^NS.String
+	@(link_name = "NSAccessibilityAnnotationTextAttribute")
+	AccessibilityAnnotationTextAttribute: ^NS.String
+	@(link_name = "NSAccessibilityTextCompletionAttribute")
+	AccessibilityTextCompletionAttribute: ^NS.String
+	@(link_name = "NSAccessibilityAnnotationLabel")
+	AccessibilityAnnotationLabel: ^NS.String
+	@(link_name = "NSAccessibilityAnnotationElement")
+	AccessibilityAnnotationElement: ^NS.String
+	@(link_name = "NSAccessibilityAnnotationLocation")
+	AccessibilityAnnotationLocation: ^NS.String
+	@(link_name = "NSAccessibilityFontNameKey")
+	AccessibilityFontNameKey: ^NS.String
+	@(link_name = "NSAccessibilityFontFamilyKey")
+	AccessibilityFontFamilyKey: ^NS.String
+	@(link_name = "NSAccessibilityVisibleNameKey")
+	AccessibilityVisibleNameKey: ^NS.String
+	@(link_name = "NSAccessibilityFontSizeKey")
+	AccessibilityFontSizeKey: ^NS.String
+	@(link_name = "NSAccessibilityMainAttribute")
+	AccessibilityMainAttribute: ^NS.String
+	@(link_name = "NSAccessibilityMinimizedAttribute")
+	AccessibilityMinimizedAttribute: ^NS.String
+	@(link_name = "NSAccessibilityCloseButtonAttribute")
+	AccessibilityCloseButtonAttribute: ^NS.String
+	@(link_name = "NSAccessibilityZoomButtonAttribute")
+	AccessibilityZoomButtonAttribute: ^NS.String
+	@(link_name = "NSAccessibilityMinimizeButtonAttribute")
+	AccessibilityMinimizeButtonAttribute: ^NS.String
+	@(link_name = "NSAccessibilityToolbarButtonAttribute")
+	AccessibilityToolbarButtonAttribute: ^NS.String
+	@(link_name = "NSAccessibilityProxyAttribute")
+	AccessibilityProxyAttribute: ^NS.String
+	@(link_name = "NSAccessibilityGrowAreaAttribute")
+	AccessibilityGrowAreaAttribute: ^NS.String
+	@(link_name = "NSAccessibilityModalAttribute")
+	AccessibilityModalAttribute: ^NS.String
+	@(link_name = "NSAccessibilityDefaultButtonAttribute")
+	AccessibilityDefaultButtonAttribute: ^NS.String
+	@(link_name = "NSAccessibilityCancelButtonAttribute")
+	AccessibilityCancelButtonAttribute: ^NS.String
+	@(link_name = "NSAccessibilityFullScreenButtonAttribute")
+	AccessibilityFullScreenButtonAttribute: ^NS.String
+	@(link_name = "NSAccessibilityMenuBarAttribute")
+	AccessibilityMenuBarAttribute: ^NS.String
+	@(link_name = "NSAccessibilityWindowsAttribute")
+	AccessibilityWindowsAttribute: ^NS.String
+	@(link_name = "NSAccessibilityFrontmostAttribute")
+	AccessibilityFrontmostAttribute: ^NS.String
+	@(link_name = "NSAccessibilityHiddenAttribute")
+	AccessibilityHiddenAttribute: ^NS.String
+	@(link_name = "NSAccessibilityMainWindowAttribute")
+	AccessibilityMainWindowAttribute: ^NS.String
+	@(link_name = "NSAccessibilityFocusedWindowAttribute")
+	AccessibilityFocusedWindowAttribute: ^NS.String
+	@(link_name = "NSAccessibilityFocusedUIElementAttribute")
+	AccessibilityFocusedUIElementAttribute: ^NS.String
+	@(link_name = "NSAccessibilityExtrasMenuBarAttribute")
+	AccessibilityExtrasMenuBarAttribute: ^NS.String
+	@(link_name = "NSAccessibilityOrientationAttribute")
+	AccessibilityOrientationAttribute: ^NS.String
+	@(link_name = "NSAccessibilityVerticalOrientationValue")
+	AccessibilityVerticalOrientationValue: ^NS.String
+	@(link_name = "NSAccessibilityHorizontalOrientationValue")
+	AccessibilityHorizontalOrientationValue: ^NS.String
+	@(link_name = "NSAccessibilityUnknownOrientationValue")
+	AccessibilityUnknownOrientationValue: ^NS.String
+	@(link_name = "NSAccessibilityColumnTitlesAttribute")
+	AccessibilityColumnTitlesAttribute: ^NS.String
+	@(link_name = "NSAccessibilitySearchButtonAttribute")
+	AccessibilitySearchButtonAttribute: ^NS.String
+	@(link_name = "NSAccessibilitySearchMenuAttribute")
+	AccessibilitySearchMenuAttribute: ^NS.String
+	@(link_name = "NSAccessibilityClearButtonAttribute")
+	AccessibilityClearButtonAttribute: ^NS.String
+	@(link_name = "NSAccessibilityRowsAttribute")
+	AccessibilityRowsAttribute: ^NS.String
+	@(link_name = "NSAccessibilityVisibleRowsAttribute")
+	AccessibilityVisibleRowsAttribute: ^NS.String
+	@(link_name = "NSAccessibilitySelectedRowsAttribute")
+	AccessibilitySelectedRowsAttribute: ^NS.String
+	@(link_name = "NSAccessibilityColumnsAttribute")
+	AccessibilityColumnsAttribute: ^NS.String
+	@(link_name = "NSAccessibilityVisibleColumnsAttribute")
+	AccessibilityVisibleColumnsAttribute: ^NS.String
+	@(link_name = "NSAccessibilitySelectedColumnsAttribute")
+	AccessibilitySelectedColumnsAttribute: ^NS.String
+	@(link_name = "NSAccessibilitySortDirectionAttribute")
+	AccessibilitySortDirectionAttribute: ^NS.String
+	@(link_name = "NSAccessibilitySelectedCellsAttribute")
+	AccessibilitySelectedCellsAttribute: ^NS.String
+	@(link_name = "NSAccessibilityVisibleCellsAttribute")
+	AccessibilityVisibleCellsAttribute: ^NS.String
+	@(link_name = "NSAccessibilityRowHeaderUIElementsAttribute")
+	AccessibilityRowHeaderUIElementsAttribute: ^NS.String
+	@(link_name = "NSAccessibilityColumnHeaderUIElementsAttribute")
+	AccessibilityColumnHeaderUIElementsAttribute: ^NS.String
+	@(link_name = "NSAccessibilityCellForColumnAndRowParameterizedAttribute")
+	AccessibilityCellForColumnAndRowParameterizedAttribute: ^NS.String
+	@(link_name = "NSAccessibilityRowIndexRangeAttribute")
+	AccessibilityRowIndexRangeAttribute: ^NS.String
+	@(link_name = "NSAccessibilityColumnIndexRangeAttribute")
+	AccessibilityColumnIndexRangeAttribute: ^NS.String
+	@(link_name = "NSAccessibilityHorizontalUnitsAttribute")
+	AccessibilityHorizontalUnitsAttribute: ^NS.String
+	@(link_name = "NSAccessibilityVerticalUnitsAttribute")
+	AccessibilityVerticalUnitsAttribute: ^NS.String
+	@(link_name = "NSAccessibilityHorizontalUnitDescriptionAttribute")
+	AccessibilityHorizontalUnitDescriptionAttribute: ^NS.String
+	@(link_name = "NSAccessibilityVerticalUnitDescriptionAttribute")
+	AccessibilityVerticalUnitDescriptionAttribute: ^NS.String
+	@(link_name = "NSAccessibilityLayoutPointForScreenPointParameterizedAttribute")
+	AccessibilityLayoutPointForScreenPointParameterizedAttribute: ^NS.String
+	@(link_name = "NSAccessibilityLayoutSizeForScreenSizeParameterizedAttribute")
+	AccessibilityLayoutSizeForScreenSizeParameterizedAttribute: ^NS.String
+	@(link_name = "NSAccessibilityScreenPointForLayoutPointParameterizedAttribute")
+	AccessibilityScreenPointForLayoutPointParameterizedAttribute: ^NS.String
+	@(link_name = "NSAccessibilityScreenSizeForLayoutSizeParameterizedAttribute")
+	AccessibilityScreenSizeForLayoutSizeParameterizedAttribute: ^NS.String
+	@(link_name = "NSAccessibilityHandlesAttribute")
+	AccessibilityHandlesAttribute: ^NS.String
+	@(link_name = "NSAccessibilityAscendingSortDirectionValue")
+	AccessibilityAscendingSortDirectionValue: ^NS.String
+	@(link_name = "NSAccessibilityDescendingSortDirectionValue")
+	AccessibilityDescendingSortDirectionValue: ^NS.String
+	@(link_name = "NSAccessibilityUnknownSortDirectionValue")
+	AccessibilityUnknownSortDirectionValue: ^NS.String
+	@(link_name = "NSAccessibilityDisclosingAttribute")
+	AccessibilityDisclosingAttribute: ^NS.String
+	@(link_name = "NSAccessibilityDisclosedRowsAttribute")
+	AccessibilityDisclosedRowsAttribute: ^NS.String
+	@(link_name = "NSAccessibilityDisclosedByRowAttribute")
+	AccessibilityDisclosedByRowAttribute: ^NS.String
+	@(link_name = "NSAccessibilityDisclosureLevelAttribute")
+	AccessibilityDisclosureLevelAttribute: ^NS.String
+	@(link_name = "NSAccessibilityAllowedValuesAttribute")
+	AccessibilityAllowedValuesAttribute: ^NS.String
+	@(link_name = "NSAccessibilityLabelUIElementsAttribute")
+	AccessibilityLabelUIElementsAttribute: ^NS.String
+	@(link_name = "NSAccessibilityLabelValueAttribute")
+	AccessibilityLabelValueAttribute: ^NS.String
+	@(link_name = "NSAccessibilityMatteHoleAttribute")
+	AccessibilityMatteHoleAttribute: ^NS.String
+	@(link_name = "NSAccessibilityMatteContentUIElementAttribute")
+	AccessibilityMatteContentUIElementAttribute: ^NS.String
+	@(link_name = "NSAccessibilityMarkerUIElementsAttribute")
+	AccessibilityMarkerUIElementsAttribute: ^NS.String
+	@(link_name = "NSAccessibilityMarkerValuesAttribute")
+	AccessibilityMarkerValuesAttribute: ^NS.String
+	@(link_name = "NSAccessibilityMarkerGroupUIElementAttribute")
+	AccessibilityMarkerGroupUIElementAttribute: ^NS.String
+	@(link_name = "NSAccessibilityUnitsAttribute")
+	AccessibilityUnitsAttribute: ^NS.String
+	@(link_name = "NSAccessibilityUnitDescriptionAttribute")
+	AccessibilityUnitDescriptionAttribute: ^NS.String
+	@(link_name = "NSAccessibilityMarkerTypeAttribute")
+	AccessibilityMarkerTypeAttribute: ^NS.String
+	@(link_name = "NSAccessibilityMarkerTypeDescriptionAttribute")
+	AccessibilityMarkerTypeDescriptionAttribute: ^NS.String
+	@(link_name = "NSAccessibilityIdentifierAttribute")
+	AccessibilityIdentifierAttribute: ^NS.String
+	@(link_name = "NSAccessibilityLeftTabStopMarkerTypeValue")
+	AccessibilityLeftTabStopMarkerTypeValue: ^NS.String
+	@(link_name = "NSAccessibilityRightTabStopMarkerTypeValue")
+	AccessibilityRightTabStopMarkerTypeValue: ^NS.String
+	@(link_name = "NSAccessibilityCenterTabStopMarkerTypeValue")
+	AccessibilityCenterTabStopMarkerTypeValue: ^NS.String
+	@(link_name = "NSAccessibilityDecimalTabStopMarkerTypeValue")
+	AccessibilityDecimalTabStopMarkerTypeValue: ^NS.String
+	@(link_name = "NSAccessibilityHeadIndentMarkerTypeValue")
+	AccessibilityHeadIndentMarkerTypeValue: ^NS.String
+	@(link_name = "NSAccessibilityTailIndentMarkerTypeValue")
+	AccessibilityTailIndentMarkerTypeValue: ^NS.String
+	@(link_name = "NSAccessibilityFirstLineIndentMarkerTypeValue")
+	AccessibilityFirstLineIndentMarkerTypeValue: ^NS.String
+	@(link_name = "NSAccessibilityUnknownMarkerTypeValue")
+	AccessibilityUnknownMarkerTypeValue: ^NS.String
+	@(link_name = "NSAccessibilityInchesUnitValue")
+	AccessibilityInchesUnitValue: ^NS.String
+	@(link_name = "NSAccessibilityCentimetersUnitValue")
+	AccessibilityCentimetersUnitValue: ^NS.String
+	@(link_name = "NSAccessibilityPointsUnitValue")
+	AccessibilityPointsUnitValue: ^NS.String
+	@(link_name = "NSAccessibilityPicasUnitValue")
+	AccessibilityPicasUnitValue: ^NS.String
+	@(link_name = "NSAccessibilityUnknownUnitValue")
+	AccessibilityUnknownUnitValue: ^NS.String
+	@(link_name = "NSAccessibilityPressAction")
+	AccessibilityPressAction: ^NS.String
+	@(link_name = "NSAccessibilityIncrementAction")
+	AccessibilityIncrementAction: ^NS.String
+	@(link_name = "NSAccessibilityDecrementAction")
+	AccessibilityDecrementAction: ^NS.String
+	@(link_name = "NSAccessibilityConfirmAction")
+	AccessibilityConfirmAction: ^NS.String
+	@(link_name = "NSAccessibilityPickAction")
+	AccessibilityPickAction: ^NS.String
+	@(link_name = "NSAccessibilityCancelAction")
+	AccessibilityCancelAction: ^NS.String
+	@(link_name = "NSAccessibilityRaiseAction")
+	AccessibilityRaiseAction: ^NS.String
+	@(link_name = "NSAccessibilityShowMenuAction")
+	AccessibilityShowMenuAction: ^NS.String
+	@(link_name = "NSAccessibilityDeleteAction")
+	AccessibilityDeleteAction: ^NS.String
+	@(link_name = "NSAccessibilityScrollToVisibleAction")
+	AccessibilityScrollToVisibleAction: ^NS.String
+	@(link_name = "NSAccessibilityShowAlternateUIAction")
+	AccessibilityShowAlternateUIAction: ^NS.String
+	@(link_name = "NSAccessibilityShowDefaultUIAction")
+	AccessibilityShowDefaultUIAction: ^NS.String
+	@(link_name = "NSAccessibilityMainWindowChangedNotification")
+	AccessibilityMainWindowChangedNotification: ^NS.String
+	@(link_name = "NSAccessibilityFocusedWindowChangedNotification")
+	AccessibilityFocusedWindowChangedNotification: ^NS.String
+	@(link_name = "NSAccessibilityFocusedUIElementChangedNotification")
+	AccessibilityFocusedUIElementChangedNotification: ^NS.String
+	@(link_name = "NSAccessibilityApplicationActivatedNotification")
+	AccessibilityApplicationActivatedNotification: ^NS.String
+	@(link_name = "NSAccessibilityApplicationDeactivatedNotification")
+	AccessibilityApplicationDeactivatedNotification: ^NS.String
+	@(link_name = "NSAccessibilityApplicationHiddenNotification")
+	AccessibilityApplicationHiddenNotification: ^NS.String
+	@(link_name = "NSAccessibilityApplicationShownNotification")
+	AccessibilityApplicationShownNotification: ^NS.String
+	@(link_name = "NSAccessibilityWindowCreatedNotification")
+	AccessibilityWindowCreatedNotification: ^NS.String
+	@(link_name = "NSAccessibilityWindowMovedNotification")
+	AccessibilityWindowMovedNotification: ^NS.String
+	@(link_name = "NSAccessibilityWindowResizedNotification")
+	AccessibilityWindowResizedNotification: ^NS.String
+	@(link_name = "NSAccessibilityWindowMiniaturizedNotification")
+	AccessibilityWindowMiniaturizedNotification: ^NS.String
+	@(link_name = "NSAccessibilityWindowDeminiaturizedNotification")
+	AccessibilityWindowDeminiaturizedNotification: ^NS.String
+	@(link_name = "NSAccessibilityDrawerCreatedNotification")
+	AccessibilityDrawerCreatedNotification: ^NS.String
+	@(link_name = "NSAccessibilitySheetCreatedNotification")
+	AccessibilitySheetCreatedNotification: ^NS.String
+	@(link_name = "NSAccessibilityUIElementDestroyedNotification")
+	AccessibilityUIElementDestroyedNotification: ^NS.String
+	@(link_name = "NSAccessibilityValueChangedNotification")
+	AccessibilityValueChangedNotification: ^NS.String
+	@(link_name = "NSAccessibilityTitleChangedNotification")
+	AccessibilityTitleChangedNotification: ^NS.String
+	@(link_name = "NSAccessibilityResizedNotification")
+	AccessibilityResizedNotification: ^NS.String
+	@(link_name = "NSAccessibilityMovedNotification")
+	AccessibilityMovedNotification: ^NS.String
+	@(link_name = "NSAccessibilityCreatedNotification")
+	AccessibilityCreatedNotification: ^NS.String
+	@(link_name = "NSAccessibilityLayoutChangedNotification")
+	AccessibilityLayoutChangedNotification: ^NS.String
+	@(link_name = "NSAccessibilityHelpTagCreatedNotification")
+	AccessibilityHelpTagCreatedNotification: ^NS.String
+	@(link_name = "NSAccessibilitySelectedTextChangedNotification")
+	AccessibilitySelectedTextChangedNotification: ^NS.String
+	@(link_name = "NSAccessibilityRowCountChangedNotification")
+	AccessibilityRowCountChangedNotification: ^NS.String
+	@(link_name = "NSAccessibilitySelectedChildrenChangedNotification")
+	AccessibilitySelectedChildrenChangedNotification: ^NS.String
+	@(link_name = "NSAccessibilitySelectedRowsChangedNotification")
+	AccessibilitySelectedRowsChangedNotification: ^NS.String
+	@(link_name = "NSAccessibilitySelectedColumnsChangedNotification")
+	AccessibilitySelectedColumnsChangedNotification: ^NS.String
+	@(link_name = "NSAccessibilityRowExpandedNotification")
+	AccessibilityRowExpandedNotification: ^NS.String
+	@(link_name = "NSAccessibilityRowCollapsedNotification")
+	AccessibilityRowCollapsedNotification: ^NS.String
+	@(link_name = "NSAccessibilityAutocorrectionOccurredNotification")
+	AccessibilityAutocorrectionOccurredNotification: ^NS.String
+	@(link_name = "NSAccessibilityTextInputMarkingSessionBeganNotification")
+	AccessibilityTextInputMarkingSessionBeganNotification: ^NS.String
+	@(link_name = "NSAccessibilityTextInputMarkingSessionEndedNotification")
+	AccessibilityTextInputMarkingSessionEndedNotification: ^NS.String
+	@(link_name = "NSAccessibilityDraggingSourceDragBeganNotification")
+	AccessibilityDraggingSourceDragBeganNotification: ^NS.String
+	@(link_name = "NSAccessibilityDraggingSourceDragEndedNotification")
+	AccessibilityDraggingSourceDragEndedNotification: ^NS.String
+	@(link_name = "NSAccessibilityDraggingDestinationDropAllowedNotification")
+	AccessibilityDraggingDestinationDropAllowedNotification: ^NS.String
+	@(link_name = "NSAccessibilityDraggingDestinationDropNotAllowedNotification")
+	AccessibilityDraggingDestinationDropNotAllowedNotification: ^NS.String
+	@(link_name = "NSAccessibilityDraggingDestinationDragAcceptedNotification")
+	AccessibilityDraggingDestinationDragAcceptedNotification: ^NS.String
+	@(link_name = "NSAccessibilityDraggingDestinationDragNotAcceptedNotification")
+	AccessibilityDraggingDestinationDragNotAcceptedNotification: ^NS.String
+	@(link_name = "NSAccessibilitySelectedCellsChangedNotification")
+	AccessibilitySelectedCellsChangedNotification: ^NS.String
+	@(link_name = "NSAccessibilityUnitsChangedNotification")
+	AccessibilityUnitsChangedNotification: ^NS.String
+	@(link_name = "NSAccessibilitySelectedChildrenMovedNotification")
+	AccessibilitySelectedChildrenMovedNotification: ^NS.String
+	@(link_name = "NSAccessibilityAnnouncementRequestedNotification")
+	AccessibilityAnnouncementRequestedNotification: ^NS.String
+	@(link_name = "NSAccessibilityUnknownRole")
+	AccessibilityUnknownRole: ^NS.String
+	@(link_name = "NSAccessibilityButtonRole")
+	AccessibilityButtonRole: ^NS.String
+	@(link_name = "NSAccessibilityRadioButtonRole")
+	AccessibilityRadioButtonRole: ^NS.String
+	@(link_name = "NSAccessibilityCheckBoxRole")
+	AccessibilityCheckBoxRole: ^NS.String
+	@(link_name = "NSAccessibilitySliderRole")
+	AccessibilitySliderRole: ^NS.String
+	@(link_name = "NSAccessibilityTabGroupRole")
+	AccessibilityTabGroupRole: ^NS.String
+	@(link_name = "NSAccessibilityTextFieldRole")
+	AccessibilityTextFieldRole: ^NS.String
+	@(link_name = "NSAccessibilityStaticTextRole")
+	AccessibilityStaticTextRole: ^NS.String
+	@(link_name = "NSAccessibilityTextAreaRole")
+	AccessibilityTextAreaRole: ^NS.String
+	@(link_name = "NSAccessibilityScrollAreaRole")
+	AccessibilityScrollAreaRole: ^NS.String
+	@(link_name = "NSAccessibilityPopUpButtonRole")
+	AccessibilityPopUpButtonRole: ^NS.String
+	@(link_name = "NSAccessibilityMenuButtonRole")
+	AccessibilityMenuButtonRole: ^NS.String
+	@(link_name = "NSAccessibilityTableRole")
+	AccessibilityTableRole: ^NS.String
+	@(link_name = "NSAccessibilityApplicationRole")
+	AccessibilityApplicationRole: ^NS.String
+	@(link_name = "NSAccessibilityGroupRole")
+	AccessibilityGroupRole: ^NS.String
+	@(link_name = "NSAccessibilityRadioGroupRole")
+	AccessibilityRadioGroupRole: ^NS.String
+	@(link_name = "NSAccessibilityListRole")
+	AccessibilityListRole: ^NS.String
+	@(link_name = "NSAccessibilityScrollBarRole")
+	AccessibilityScrollBarRole: ^NS.String
+	@(link_name = "NSAccessibilityValueIndicatorRole")
+	AccessibilityValueIndicatorRole: ^NS.String
+	@(link_name = "NSAccessibilityImageRole")
+	AccessibilityImageRole: ^NS.String
+	@(link_name = "NSAccessibilityMenuBarRole")
+	AccessibilityMenuBarRole: ^NS.String
+	@(link_name = "NSAccessibilityMenuBarItemRole")
+	AccessibilityMenuBarItemRole: ^NS.String
+	@(link_name = "NSAccessibilityMenuRole")
+	AccessibilityMenuRole: ^NS.String
+	@(link_name = "NSAccessibilityMenuItemRole")
+	AccessibilityMenuItemRole: ^NS.String
+	@(link_name = "NSAccessibilityColumnRole")
+	AccessibilityColumnRole: ^NS.String
+	@(link_name = "NSAccessibilityRowRole")
+	AccessibilityRowRole: ^NS.String
+	@(link_name = "NSAccessibilityToolbarRole")
+	AccessibilityToolbarRole: ^NS.String
+	@(link_name = "NSAccessibilityBusyIndicatorRole")
+	AccessibilityBusyIndicatorRole: ^NS.String
+	@(link_name = "NSAccessibilityProgressIndicatorRole")
+	AccessibilityProgressIndicatorRole: ^NS.String
+	@(link_name = "NSAccessibilityWindowRole")
+	AccessibilityWindowRole: ^NS.String
+	@(link_name = "NSAccessibilityDrawerRole")
+	AccessibilityDrawerRole: ^NS.String
+	@(link_name = "NSAccessibilitySystemWideRole")
+	AccessibilitySystemWideRole: ^NS.String
+	@(link_name = "NSAccessibilityOutlineRole")
+	AccessibilityOutlineRole: ^NS.String
+	@(link_name = "NSAccessibilityIncrementorRole")
+	AccessibilityIncrementorRole: ^NS.String
+	@(link_name = "NSAccessibilityBrowserRole")
+	AccessibilityBrowserRole: ^NS.String
+	@(link_name = "NSAccessibilityComboBoxRole")
+	AccessibilityComboBoxRole: ^NS.String
+	@(link_name = "NSAccessibilitySplitGroupRole")
+	AccessibilitySplitGroupRole: ^NS.String
+	@(link_name = "NSAccessibilitySplitterRole")
+	AccessibilitySplitterRole: ^NS.String
+	@(link_name = "NSAccessibilityColorWellRole")
+	AccessibilityColorWellRole: ^NS.String
+	@(link_name = "NSAccessibilityGrowAreaRole")
+	AccessibilityGrowAreaRole: ^NS.String
+	@(link_name = "NSAccessibilitySheetRole")
+	AccessibilitySheetRole: ^NS.String
+	@(link_name = "NSAccessibilityHelpTagRole")
+	AccessibilityHelpTagRole: ^NS.String
+	@(link_name = "NSAccessibilityMatteRole")
+	AccessibilityMatteRole: ^NS.String
+	@(link_name = "NSAccessibilityRulerRole")
+	AccessibilityRulerRole: ^NS.String
+	@(link_name = "NSAccessibilityRulerMarkerRole")
+	AccessibilityRulerMarkerRole: ^NS.String
+	@(link_name = "NSAccessibilityLinkRole")
+	AccessibilityLinkRole: ^NS.String
+	@(link_name = "NSAccessibilityDisclosureTriangleRole")
+	AccessibilityDisclosureTriangleRole: ^NS.String
+	@(link_name = "NSAccessibilityGridRole")
+	AccessibilityGridRole: ^NS.String
+	@(link_name = "NSAccessibilityRelevanceIndicatorRole")
+	AccessibilityRelevanceIndicatorRole: ^NS.String
+	@(link_name = "NSAccessibilityDateTimeAreaRole")
+	AccessibilityDateTimeAreaRole: ^NS.String
+	@(link_name = "NSAccessibilityLevelIndicatorRole")
+	AccessibilityLevelIndicatorRole: ^NS.String
+	@(link_name = "NSAccessibilityCellRole")
+	AccessibilityCellRole: ^NS.String
+	@(link_name = "NSAccessibilityPopoverRole")
+	AccessibilityPopoverRole: ^NS.String
+	@(link_name = "NSAccessibilityPageRole")
+	AccessibilityPageRole: ^NS.String
+	@(link_name = "NSAccessibilityHeadingRole")
+	AccessibilityHeadingRole: ^NS.String
+	@(link_name = "NSAccessibilityListMarkerRole")
+	AccessibilityListMarkerRole: ^NS.String
+	@(link_name = "NSAccessibilityWebAreaRole")
+	AccessibilityWebAreaRole: ^NS.String
+	@(link_name = "NSAccessibilityLayoutAreaRole")
+	AccessibilityLayoutAreaRole: ^NS.String
+	@(link_name = "NSAccessibilityLayoutItemRole")
+	AccessibilityLayoutItemRole: ^NS.String
+	@(link_name = "NSAccessibilityHandleRole")
+	AccessibilityHandleRole: ^NS.String
+	@(link_name = "NSAccessibilityUnknownSubrole")
+	AccessibilityUnknownSubrole: ^NS.String
+	@(link_name = "NSAccessibilityCloseButtonSubrole")
+	AccessibilityCloseButtonSubrole: ^NS.String
+	@(link_name = "NSAccessibilityZoomButtonSubrole")
+	AccessibilityZoomButtonSubrole: ^NS.String
+	@(link_name = "NSAccessibilityMinimizeButtonSubrole")
+	AccessibilityMinimizeButtonSubrole: ^NS.String
+	@(link_name = "NSAccessibilityToolbarButtonSubrole")
+	AccessibilityToolbarButtonSubrole: ^NS.String
+	@(link_name = "NSAccessibilityTableRowSubrole")
+	AccessibilityTableRowSubrole: ^NS.String
+	@(link_name = "NSAccessibilityOutlineRowSubrole")
+	AccessibilityOutlineRowSubrole: ^NS.String
+	@(link_name = "NSAccessibilitySecureTextFieldSubrole")
+	AccessibilitySecureTextFieldSubrole: ^NS.String
+	@(link_name = "NSAccessibilityStandardWindowSubrole")
+	AccessibilityStandardWindowSubrole: ^NS.String
+	@(link_name = "NSAccessibilityDialogSubrole")
+	AccessibilityDialogSubrole: ^NS.String
+	@(link_name = "NSAccessibilitySystemDialogSubrole")
+	AccessibilitySystemDialogSubrole: ^NS.String
+	@(link_name = "NSAccessibilityFloatingWindowSubrole")
+	AccessibilityFloatingWindowSubrole: ^NS.String
+	@(link_name = "NSAccessibilitySystemFloatingWindowSubrole")
+	AccessibilitySystemFloatingWindowSubrole: ^NS.String
+	@(link_name = "NSAccessibilityIncrementArrowSubrole")
+	AccessibilityIncrementArrowSubrole: ^NS.String
+	@(link_name = "NSAccessibilityDecrementArrowSubrole")
+	AccessibilityDecrementArrowSubrole: ^NS.String
+	@(link_name = "NSAccessibilityIncrementPageSubrole")
+	AccessibilityIncrementPageSubrole: ^NS.String
+	@(link_name = "NSAccessibilityDecrementPageSubrole")
+	AccessibilityDecrementPageSubrole: ^NS.String
+	@(link_name = "NSAccessibilitySearchFieldSubrole")
+	AccessibilitySearchFieldSubrole: ^NS.String
+	@(link_name = "NSAccessibilityTextAttachmentSubrole")
+	AccessibilityTextAttachmentSubrole: ^NS.String
+	@(link_name = "NSAccessibilityTextLinkSubrole")
+	AccessibilityTextLinkSubrole: ^NS.String
+	@(link_name = "NSAccessibilityTimelineSubrole")
+	AccessibilityTimelineSubrole: ^NS.String
+	@(link_name = "NSAccessibilitySortButtonSubrole")
+	AccessibilitySortButtonSubrole: ^NS.String
+	@(link_name = "NSAccessibilityRatingIndicatorSubrole")
+	AccessibilityRatingIndicatorSubrole: ^NS.String
+	@(link_name = "NSAccessibilityContentListSubrole")
+	AccessibilityContentListSubrole: ^NS.String
+	@(link_name = "NSAccessibilityDefinitionListSubrole")
+	AccessibilityDefinitionListSubrole: ^NS.String
+	@(link_name = "NSAccessibilityFullScreenButtonSubrole")
+	AccessibilityFullScreenButtonSubrole: ^NS.String
+	@(link_name = "NSAccessibilityToggleSubrole")
+	AccessibilityToggleSubrole: ^NS.String
+	@(link_name = "NSAccessibilitySwitchSubrole")
+	AccessibilitySwitchSubrole: ^NS.String
+	@(link_name = "NSAccessibilityDescriptionListSubrole")
+	AccessibilityDescriptionListSubrole: ^NS.String
+	@(link_name = "NSAccessibilityTabButtonSubrole")
+	AccessibilityTabButtonSubrole: ^NS.String
+	@(link_name = "NSAccessibilityCollectionListSubrole")
+	AccessibilityCollectionListSubrole: ^NS.String
+	@(link_name = "NSAccessibilitySectionListSubrole")
+	AccessibilitySectionListSubrole: ^NS.String
+	@(link_name = "NSAccessibilitySuggestionSubrole")
+	AccessibilitySuggestionSubrole: ^NS.String
+	@(link_name = "NSAccessibilityUIElementsKey")
+	AccessibilityUIElementsKey: ^NS.String
+	@(link_name = "NSAccessibilityPriorityKey")
+	AccessibilityPriorityKey: ^NS.String
+	@(link_name = "NSAccessibilityAnnouncementKey")
+	AccessibilityAnnouncementKey: ^NS.String
+	@(link_name = "NSAccessibilityUIElementsForSearchPredicateParameterizedAttribute")
+	AccessibilityUIElementsForSearchPredicateParameterizedAttribute: ^NS.String
+	@(link_name = "NSAccessibilityResultsForSearchPredicateParameterizedAttribute")
+	AccessibilityResultsForSearchPredicateParameterizedAttribute: ^NS.String
+	@(link_name = "NSAccessibilitySearchIdentifiersKey")
+	AccessibilitySearchIdentifiersKey: ^NS.String
+	@(link_name = "NSAccessibilitySearchCurrentElementKey")
+	AccessibilitySearchCurrentElementKey: ^NS.String
+	@(link_name = "NSAccessibilitySearchCurrentRangeKey")
+	AccessibilitySearchCurrentRangeKey: ^NS.String
+	@(link_name = "NSAccessibilitySearchDirectionKey")
+	AccessibilitySearchDirectionKey: ^NS.String
+	@(link_name = "NSAccessibilitySearchResultsLimitKey")
+	AccessibilitySearchResultsLimitKey: ^NS.String
+	@(link_name = "NSAccessibilitySearchTextKey")
+	AccessibilitySearchTextKey: ^NS.String
+	@(link_name = "NSAccessibilitySearchDirectionNext")
+	AccessibilitySearchDirectionNext: ^NS.String
+	@(link_name = "NSAccessibilitySearchDirectionPrevious")
+	AccessibilitySearchDirectionPrevious: ^NS.String
+	@(link_name = "NSAccessibilitySearchResultElementKey")
+	AccessibilitySearchResultElementKey: ^NS.String
+	@(link_name = "NSAccessibilitySearchResultRangeKey")
+	AccessibilitySearchResultRangeKey: ^NS.String
+	@(link_name = "NSAccessibilitySearchResultDescriptionOverrideKey")
+	AccessibilitySearchResultDescriptionOverrideKey: ^NS.String
+	@(link_name = "NSAccessibilitySearchResultLoaderKey")
+	AccessibilitySearchResultLoaderKey: ^NS.String
+	@(link_name = "NSAccessibilityAnyTypeSearchKey")
+	AccessibilityAnyTypeSearchKey: ^NS.String
+	@(link_name = "NSAccessibilityArticleSearchKey")
+	AccessibilityArticleSearchKey: ^NS.String
+	@(link_name = "NSAccessibilityBlockquoteSameLevelSearchKey")
+	AccessibilityBlockquoteSameLevelSearchKey: ^NS.String
+	@(link_name = "NSAccessibilityBlockquoteSearchKey")
+	AccessibilityBlockquoteSearchKey: ^NS.String
+	@(link_name = "NSAccessibilityBoldFontSearchKey")
+	AccessibilityBoldFontSearchKey: ^NS.String
+	@(link_name = "NSAccessibilityButtonSearchKey")
+	AccessibilityButtonSearchKey: ^NS.String
+	@(link_name = "NSAccessibilityCheckBoxSearchKey")
+	AccessibilityCheckBoxSearchKey: ^NS.String
+	@(link_name = "NSAccessibilityControlSearchKey")
+	AccessibilityControlSearchKey: ^NS.String
+	@(link_name = "NSAccessibilityDifferentTypeSearchKey")
+	AccessibilityDifferentTypeSearchKey: ^NS.String
+	@(link_name = "NSAccessibilityFontChangeSearchKey")
+	AccessibilityFontChangeSearchKey: ^NS.String
+	@(link_name = "NSAccessibilityFontColorChangeSearchKey")
+	AccessibilityFontColorChangeSearchKey: ^NS.String
+	@(link_name = "NSAccessibilityFrameSearchKey")
+	AccessibilityFrameSearchKey: ^NS.String
+	@(link_name = "NSAccessibilityGraphicSearchKey")
+	AccessibilityGraphicSearchKey: ^NS.String
+	@(link_name = "NSAccessibilityHeadingLevel1SearchKey")
+	AccessibilityHeadingLevel1SearchKey: ^NS.String
+	@(link_name = "NSAccessibilityHeadingLevel2SearchKey")
+	AccessibilityHeadingLevel2SearchKey: ^NS.String
+	@(link_name = "NSAccessibilityHeadingLevel3SearchKey")
+	AccessibilityHeadingLevel3SearchKey: ^NS.String
+	@(link_name = "NSAccessibilityHeadingLevel4SearchKey")
+	AccessibilityHeadingLevel4SearchKey: ^NS.String
+	@(link_name = "NSAccessibilityHeadingLevel5SearchKey")
+	AccessibilityHeadingLevel5SearchKey: ^NS.String
+	@(link_name = "NSAccessibilityHeadingLevel6SearchKey")
+	AccessibilityHeadingLevel6SearchKey: ^NS.String
+	@(link_name = "NSAccessibilityHeadingSameLevelSearchKey")
+	AccessibilityHeadingSameLevelSearchKey: ^NS.String
+	@(link_name = "NSAccessibilityHeadingSearchKey")
+	AccessibilityHeadingSearchKey: ^NS.String
+	@(link_name = "NSAccessibilityItalicFontSearchKey")
+	AccessibilityItalicFontSearchKey: ^NS.String
+	@(link_name = "NSAccessibilityKeyboardFocusableSearchKey")
+	AccessibilityKeyboardFocusableSearchKey: ^NS.String
+	@(link_name = "NSAccessibilityLandmarkSearchKey")
+	AccessibilityLandmarkSearchKey: ^NS.String
+	@(link_name = "NSAccessibilityLinkSearchKey")
+	AccessibilityLinkSearchKey: ^NS.String
+	@(link_name = "NSAccessibilityListSearchKey")
+	AccessibilityListSearchKey: ^NS.String
+	@(link_name = "NSAccessibilityLiveRegionSearchKey")
+	AccessibilityLiveRegionSearchKey: ^NS.String
+	@(link_name = "NSAccessibilityMisspelledWordSearchKey")
+	AccessibilityMisspelledWordSearchKey: ^NS.String
+	@(link_name = "NSAccessibilityOutlineSearchKey")
+	AccessibilityOutlineSearchKey: ^NS.String
+	@(link_name = "NSAccessibilityPlainTextSearchKey")
+	AccessibilityPlainTextSearchKey: ^NS.String
+	@(link_name = "NSAccessibilityRadioGroupSearchKey")
+	AccessibilityRadioGroupSearchKey: ^NS.String
+	@(link_name = "NSAccessibilitySameTypeSearchKey")
+	AccessibilitySameTypeSearchKey: ^NS.String
+	@(link_name = "NSAccessibilityStaticTextSearchKey")
+	AccessibilityStaticTextSearchKey: ^NS.String
+	@(link_name = "NSAccessibilityStyleChangeSearchKey")
+	AccessibilityStyleChangeSearchKey: ^NS.String
+	@(link_name = "NSAccessibilityTableSameLevelSearchKey")
+	AccessibilityTableSameLevelSearchKey: ^NS.String
+	@(link_name = "NSAccessibilityTableSearchKey")
+	AccessibilityTableSearchKey: ^NS.String
+	@(link_name = "NSAccessibilityTextFieldSearchKey")
+	AccessibilityTextFieldSearchKey: ^NS.String
+	@(link_name = "NSAccessibilityTextStateChangeTypeKey")
+	AccessibilityTextStateChangeTypeKey: ^NS.String
+	@(link_name = "NSAccessibilityTextStateSyncKey")
+	AccessibilityTextStateSyncKey: ^NS.String
+	@(link_name = "NSAccessibilityUnderlineSearchKey")
+	AccessibilityUnderlineSearchKey: ^NS.String
+	@(link_name = "NSAccessibilityUnvisitedLinkSearchKey")
+	AccessibilityUnvisitedLinkSearchKey: ^NS.String
+	@(link_name = "NSAccessibilityVisitedLinkSearchKey")
+	AccessibilityVisitedLinkSearchKey: ^NS.String
+	@(link_name = "NSAccessibilitySortButtonRole")
+	AccessibilitySortButtonRole: ^NS.String
+	@(link_name = "NSWorkspaceDesktopImageScalingKey")
+	WorkspaceDesktopImageScalingKey: ^NS.String
+	@(link_name = "NSWorkspaceDesktopImageAllowClippingKey")
+	WorkspaceDesktopImageAllowClippingKey: ^NS.String
+	@(link_name = "NSWorkspaceDesktopImageFillColorKey")
+	WorkspaceDesktopImageFillColorKey: ^NS.String
+	@(link_name = "NSWorkspaceApplicationKey")
+	WorkspaceApplicationKey: ^NS.String
+	@(link_name = "NSWorkspaceWillLaunchApplicationNotification")
+	WorkspaceWillLaunchApplicationNotification: ^NS.String
+	@(link_name = "NSWorkspaceDidLaunchApplicationNotification")
+	WorkspaceDidLaunchApplicationNotification: ^NS.String
+	@(link_name = "NSWorkspaceDidTerminateApplicationNotification")
+	WorkspaceDidTerminateApplicationNotification: ^NS.String
+	@(link_name = "NSWorkspaceDidHideApplicationNotification")
+	WorkspaceDidHideApplicationNotification: ^NS.String
+	@(link_name = "NSWorkspaceDidUnhideApplicationNotification")
+	WorkspaceDidUnhideApplicationNotification: ^NS.String
+	@(link_name = "NSWorkspaceDidActivateApplicationNotification")
+	WorkspaceDidActivateApplicationNotification: ^NS.String
+	@(link_name = "NSWorkspaceDidDeactivateApplicationNotification")
+	WorkspaceDidDeactivateApplicationNotification: ^NS.String
+	@(link_name = "NSWorkspaceVolumeLocalizedNameKey")
+	WorkspaceVolumeLocalizedNameKey: ^NS.String
+	@(link_name = "NSWorkspaceVolumeURLKey")
+	WorkspaceVolumeURLKey: ^NS.String
+	@(link_name = "NSWorkspaceVolumeOldLocalizedNameKey")
+	WorkspaceVolumeOldLocalizedNameKey: ^NS.String
+	@(link_name = "NSWorkspaceVolumeOldURLKey")
+	WorkspaceVolumeOldURLKey: ^NS.String
+	@(link_name = "NSWorkspaceDidMountNotification")
+	WorkspaceDidMountNotification: ^NS.String
+	@(link_name = "NSWorkspaceDidUnmountNotification")
+	WorkspaceDidUnmountNotification: ^NS.String
+	@(link_name = "NSWorkspaceWillUnmountNotification")
+	WorkspaceWillUnmountNotification: ^NS.String
+	@(link_name = "NSWorkspaceDidRenameVolumeNotification")
+	WorkspaceDidRenameVolumeNotification: ^NS.String
+	@(link_name = "NSWorkspaceWillPowerOffNotification")
+	WorkspaceWillPowerOffNotification: ^NS.String
+	@(link_name = "NSWorkspaceWillSleepNotification")
+	WorkspaceWillSleepNotification: ^NS.String
+	@(link_name = "NSWorkspaceDidWakeNotification")
+	WorkspaceDidWakeNotification: ^NS.String
+	@(link_name = "NSWorkspaceScreensDidSleepNotification")
+	WorkspaceScreensDidSleepNotification: ^NS.String
+	@(link_name = "NSWorkspaceScreensDidWakeNotification")
+	WorkspaceScreensDidWakeNotification: ^NS.String
+	@(link_name = "NSWorkspaceSessionDidBecomeActiveNotification")
+	WorkspaceSessionDidBecomeActiveNotification: ^NS.String
+	@(link_name = "NSWorkspaceSessionDidResignActiveNotification")
+	WorkspaceSessionDidResignActiveNotification: ^NS.String
+	@(link_name = "NSWorkspaceDidChangeFileLabelsNotification")
+	WorkspaceDidChangeFileLabelsNotification: ^NS.String
+	@(link_name = "NSWorkspaceActiveSpaceDidChangeNotification")
+	WorkspaceActiveSpaceDidChangeNotification: ^NS.String
+	@(link_name = "NSWorkspaceLaunchConfigurationAppleEvent")
+	WorkspaceLaunchConfigurationAppleEvent: ^NS.String
+	@(link_name = "NSWorkspaceLaunchConfigurationArguments")
+	WorkspaceLaunchConfigurationArguments: ^NS.String
+	@(link_name = "NSWorkspaceLaunchConfigurationEnvironment")
+	WorkspaceLaunchConfigurationEnvironment: ^NS.String
+	@(link_name = "NSWorkspaceLaunchConfigurationArchitecture")
+	WorkspaceLaunchConfigurationArchitecture: ^NS.String
+	@(link_name = "NSWorkspaceMoveOperation")
+	WorkspaceMoveOperation: ^NS.String
+	@(link_name = "NSWorkspaceCopyOperation")
+	WorkspaceCopyOperation: ^NS.String
+	@(link_name = "NSWorkspaceLinkOperation")
+	WorkspaceLinkOperation: ^NS.String
+	@(link_name = "NSWorkspaceCompressOperation")
+	WorkspaceCompressOperation: ^NS.String
+	@(link_name = "NSWorkspaceDecompressOperation")
+	WorkspaceDecompressOperation: ^NS.String
+	@(link_name = "NSWorkspaceEncryptOperation")
+	WorkspaceEncryptOperation: ^NS.String
+	@(link_name = "NSWorkspaceDecryptOperation")
+	WorkspaceDecryptOperation: ^NS.String
+	@(link_name = "NSWorkspaceDestroyOperation")
+	WorkspaceDestroyOperation: ^NS.String
+	@(link_name = "NSWorkspaceRecycleOperation")
+	WorkspaceRecycleOperation: ^NS.String
+	@(link_name = "NSWorkspaceDuplicateOperation")
+	WorkspaceDuplicateOperation: ^NS.String
+	@(link_name = "NSWorkspaceDidPerformFileOperationNotification")
+	WorkspaceDidPerformFileOperationNotification: ^NS.String
+	@(link_name = "NSPlainFileType")
+	PlainFileType: ^NS.String
+	@(link_name = "NSDirectoryFileType")
+	DirectoryFileType: ^NS.String
+	@(link_name = "NSApplicationFileType")
+	ApplicationFileType: ^NS.String
+	@(link_name = "NSFilesystemFileType")
+	FilesystemFileType: ^NS.String
+	@(link_name = "NSShellCommandFileType")
+	ShellCommandFileType: ^NS.String
+	@(link_name = "NSWorkspaceAccessibilityDisplayOptionsDidChangeNotification")
+	WorkspaceAccessibilityDisplayOptionsDidChangeNotification: ^NS.String
+	@(link_name = "NSPasteboardTypeString")
+	PasteboardTypeString: ^NS.String
+	@(link_name = "NSPasteboardTypePDF")
+	PasteboardTypePDF: ^NS.String
+	@(link_name = "NSPasteboardTypeTIFF")
+	PasteboardTypeTIFF: ^NS.String
+	@(link_name = "NSPasteboardTypePNG")
+	PasteboardTypePNG: ^NS.String
+	@(link_name = "NSPasteboardTypeRTF")
+	PasteboardTypeRTF: ^NS.String
+	@(link_name = "NSPasteboardTypeRTFD")
+	PasteboardTypeRTFD: ^NS.String
+	@(link_name = "NSPasteboardTypeHTML")
+	PasteboardTypeHTML: ^NS.String
+	@(link_name = "NSPasteboardTypeTabularText")
+	PasteboardTypeTabularText: ^NS.String
+	@(link_name = "NSPasteboardTypeFont")
+	PasteboardTypeFont: ^NS.String
+	@(link_name = "NSPasteboardTypeRuler")
+	PasteboardTypeRuler: ^NS.String
+	@(link_name = "NSPasteboardTypeColor")
+	PasteboardTypeColor: ^NS.String
+	@(link_name = "NSPasteboardTypeSound")
+	PasteboardTypeSound: ^NS.String
+	@(link_name = "NSPasteboardTypeMultipleTextSelection")
+	PasteboardTypeMultipleTextSelection: ^NS.String
+	@(link_name = "NSPasteboardTypeTextFinderOptions")
+	PasteboardTypeTextFinderOptions: ^NS.String
+	@(link_name = "NSPasteboardTypeURL")
+	PasteboardTypeURL: ^NS.String
+	@(link_name = "NSPasteboardTypeFileURL")
+	PasteboardTypeFileURL: ^NS.String
+	@(link_name = "NSPasteboardNameGeneral")
+	PasteboardNameGeneral: ^NS.String
+	@(link_name = "NSPasteboardNameFont")
+	PasteboardNameFont: ^NS.String
+	@(link_name = "NSPasteboardNameRuler")
+	PasteboardNameRuler: ^NS.String
+	@(link_name = "NSPasteboardNameFind")
+	PasteboardNameFind: ^NS.String
+	@(link_name = "NSPasteboardNameDrag")
+	PasteboardNameDrag: ^NS.String
+	@(link_name = "NSPasteboardDetectionPatternProbableWebURL")
+	PasteboardDetectionPatternProbableWebURL: ^NS.String
+	@(link_name = "NSPasteboardDetectionPatternProbableWebSearch")
+	PasteboardDetectionPatternProbableWebSearch: ^NS.String
+	@(link_name = "NSPasteboardDetectionPatternNumber")
+	PasteboardDetectionPatternNumber: ^NS.String
+	@(link_name = "NSPasteboardDetectionPatternLink")
+	PasteboardDetectionPatternLink: ^NS.String
+	@(link_name = "NSPasteboardDetectionPatternPhoneNumber")
+	PasteboardDetectionPatternPhoneNumber: ^NS.String
+	@(link_name = "NSPasteboardDetectionPatternEmailAddress")
+	PasteboardDetectionPatternEmailAddress: ^NS.String
+	@(link_name = "NSPasteboardDetectionPatternPostalAddress")
+	PasteboardDetectionPatternPostalAddress: ^NS.String
+	@(link_name = "NSPasteboardDetectionPatternCalendarEvent")
+	PasteboardDetectionPatternCalendarEvent: ^NS.String
+	@(link_name = "NSPasteboardDetectionPatternShipmentTrackingNumber")
+	PasteboardDetectionPatternShipmentTrackingNumber: ^NS.String
+	@(link_name = "NSPasteboardDetectionPatternFlightNumber")
+	PasteboardDetectionPatternFlightNumber: ^NS.String
+	@(link_name = "NSPasteboardDetectionPatternMoneyAmount")
+	PasteboardDetectionPatternMoneyAmount: ^NS.String
+	@(link_name = "NSPasteboardMetadataTypeContentType")
+	PasteboardMetadataTypeContentType: ^NS.String
+	@(link_name = "NSPasteboardURLReadingFileURLsOnlyKey")
+	PasteboardURLReadingFileURLsOnlyKey: ^NS.String
+	@(link_name = "NSPasteboardURLReadingContentsConformToTypesKey")
+	PasteboardURLReadingContentsConformToTypesKey: ^NS.String
+	@(link_name = "NSFileContentsPboardType")
+	FileContentsPboardType: ^NS.String
+	@(link_name = "NSStringPboardType")
+	StringPboardType: ^NS.String
+	@(link_name = "NSFilenamesPboardType")
+	FilenamesPboardType: ^NS.String
+	@(link_name = "NSTIFFPboardType")
+	TIFFPboardType: ^NS.String
+	@(link_name = "NSRTFPboardType")
+	RTFPboardType: ^NS.String
+	@(link_name = "NSTabularTextPboardType")
+	TabularTextPboardType: ^NS.String
+	@(link_name = "NSFontPboardType")
+	FontPboardType: ^NS.String
+	@(link_name = "NSRulerPboardType")
+	RulerPboardType: ^NS.String
+	@(link_name = "NSColorPboardType")
+	ColorPboardType: ^NS.String
+	@(link_name = "NSRTFDPboardType")
+	RTFDPboardType: ^NS.String
+	@(link_name = "NSHTMLPboardType")
+	HTMLPboardType: ^NS.String
+	@(link_name = "NSURLPboardType")
+	URLPboardType: ^NS.String
+	@(link_name = "NSPDFPboardType")
+	PDFPboardType: ^NS.String
+	@(link_name = "NSMultipleTextSelectionPboardType")
+	MultipleTextSelectionPboardType: ^NS.String
+	@(link_name = "NSPostScriptPboardType")
+	PostScriptPboardType: ^NS.String
+	@(link_name = "NSVCardPboardType")
+	VCardPboardType: ^NS.String
+	@(link_name = "NSInkTextPboardType")
+	InkTextPboardType: ^NS.String
+	@(link_name = "NSFilesPromisePboardType")
+	FilesPromisePboardType: ^NS.String
+	@(link_name = "NSPasteboardTypeFindPanelSearchOptions")
+	PasteboardTypeFindPanelSearchOptions: ^NS.String
+	@(link_name = "NSGeneralPboard")
+	GeneralPboard: ^NS.String
+	@(link_name = "NSFontPboard")
+	FontPboard: ^NS.String
+	@(link_name = "NSRulerPboard")
+	RulerPboard: ^NS.String
+	@(link_name = "NSFindPboard")
+	FindPboard: ^NS.String
+	@(link_name = "NSDragPboard")
+	DragPboard: ^NS.String
+	@(link_name = "NSPICTPboardType")
+	PICTPboardType: ^NS.String
+	@(link_name = "NSNibOwner")
+	NibOwner: ^NS.String
+	@(link_name = "NSNibTopLevelObjects")
+	NibTopLevelObjects: ^NS.String
+	@(link_name = "NSAnimationProgressMarkNotification")
+	AnimationProgressMarkNotification: ^NS.String
+	@(link_name = "NSAnimationProgressMark")
+	AnimationProgressMark: ^NS.String
+	@(link_name = "NSViewAnimationTargetKey")
+	ViewAnimationTargetKey: ^NS.String
+	@(link_name = "NSViewAnimationStartFrameKey")
+	ViewAnimationStartFrameKey: ^NS.String
+	@(link_name = "NSViewAnimationEndFrameKey")
+	ViewAnimationEndFrameKey: ^NS.String
+	@(link_name = "NSViewAnimationEffectKey")
+	ViewAnimationEffectKey: ^NS.String
+	@(link_name = "NSViewAnimationFadeInEffect")
+	ViewAnimationFadeInEffect: ^NS.String
+	@(link_name = "NSViewAnimationFadeOutEffect")
+	ViewAnimationFadeOutEffect: ^NS.String
+	@(link_name = "NSAnimationTriggerOrderIn")
+	AnimationTriggerOrderIn: ^NS.String
+	@(link_name = "NSAnimationTriggerOrderOut")
+	AnimationTriggerOrderOut: ^NS.String
+	@(link_name = "NSAppearanceNameAqua")
+	AppearanceNameAqua: ^NS.String
+	@(link_name = "NSAppearanceNameDarkAqua")
+	AppearanceNameDarkAqua: ^NS.String
+	@(link_name = "NSAppearanceNameLightContent")
+	AppearanceNameLightContent: ^NS.String
+	@(link_name = "NSAppearanceNameVibrantDark")
+	AppearanceNameVibrantDark: ^NS.String
+	@(link_name = "NSAppearanceNameVibrantLight")
+	AppearanceNameVibrantLight: ^NS.String
+	@(link_name = "NSAppearanceNameAccessibilityHighContrastAqua")
+	AppearanceNameAccessibilityHighContrastAqua: ^NS.String
+	@(link_name = "NSAppearanceNameAccessibilityHighContrastDarkAqua")
+	AppearanceNameAccessibilityHighContrastDarkAqua: ^NS.String
+	@(link_name = "NSAppearanceNameAccessibilityHighContrastVibrantLight")
+	AppearanceNameAccessibilityHighContrastVibrantLight: ^NS.String
+	@(link_name = "NSAppearanceNameAccessibilityHighContrastVibrantDark")
+	AppearanceNameAccessibilityHighContrastVibrantDark: ^NS.String
+	@(link_name = "NSFullScreenModeAllScreens")
+	FullScreenModeAllScreens: ^NS.String
+	@(link_name = "NSFullScreenModeSetting")
+	FullScreenModeSetting: ^NS.String
+	@(link_name = "NSFullScreenModeWindowLevel")
+	FullScreenModeWindowLevel: ^NS.String
+	@(link_name = "NSFullScreenModeApplicationPresentationOptions")
+	FullScreenModeApplicationPresentationOptions: ^NS.String
+	@(link_name = "NSDefinitionPresentationTypeKey")
+	DefinitionPresentationTypeKey: ^NS.String
+	@(link_name = "NSDefinitionPresentationTypeOverlay")
+	DefinitionPresentationTypeOverlay: ^NS.String
+	@(link_name = "NSDefinitionPresentationTypeDictionaryApplication")
+	DefinitionPresentationTypeDictionaryApplication: ^NS.String
+	@(link_name = "NSViewFrameDidChangeNotification")
+	ViewFrameDidChangeNotification: ^NS.String
+	@(link_name = "NSViewFocusDidChangeNotification")
+	ViewFocusDidChangeNotification: ^NS.String
+	@(link_name = "NSViewBoundsDidChangeNotification")
+	ViewBoundsDidChangeNotification: ^NS.String
+	@(link_name = "NSViewGlobalFrameDidChangeNotification")
+	ViewGlobalFrameDidChangeNotification: ^NS.String
+	@(link_name = "NSViewDidUpdateTrackingAreasNotification")
+	ViewDidUpdateTrackingAreasNotification: ^NS.String
+	@(link_name = "NSTextDidBeginEditingNotification")
+	TextDidBeginEditingNotification: ^NS.String
+	@(link_name = "NSTextDidEndEditingNotification")
+	TextDidEndEditingNotification: ^NS.String
+	@(link_name = "NSTextDidChangeNotification")
+	TextDidChangeNotification: ^NS.String
+	@(link_name = "NSTextMovementUserInfoKey")
+	TextMovementUserInfoKey: ^NS.String
+	@(link_name = "NSTabColumnTerminatorsAttributeName")
+	TabColumnTerminatorsAttributeName: ^NS.String
+	@(link_name = "NSControlTintDidChangeNotification")
+	ControlTintDidChangeNotification: ^NS.String
+	@(link_name = "NSMenuItemImportFromDeviceIdentifier")
+	MenuItemImportFromDeviceIdentifier: ^NS.String
+	@(link_name = "NSMenuWillSendActionNotification")
+	MenuWillSendActionNotification: ^NS.String
+	@(link_name = "NSMenuDidSendActionNotification")
+	MenuDidSendActionNotification: ^NS.String
+	@(link_name = "NSMenuDidAddItemNotification")
+	MenuDidAddItemNotification: ^NS.String
+	@(link_name = "NSMenuDidRemoveItemNotification")
+	MenuDidRemoveItemNotification: ^NS.String
+	@(link_name = "NSMenuDidChangeItemNotification")
+	MenuDidChangeItemNotification: ^NS.String
+	@(link_name = "NSMenuDidBeginTrackingNotification")
+	MenuDidBeginTrackingNotification: ^NS.String
+	@(link_name = "NSMenuDidEndTrackingNotification")
+	MenuDidEndTrackingNotification: ^NS.String
+	@(link_name = "NSPrintPaperName")
+	PrintPaperName: ^NS.String
+	@(link_name = "NSPrintPaperSize")
+	PrintPaperSize: ^NS.String
+	@(link_name = "NSPrintOrientation")
+	PrintOrientation: ^NS.String
+	@(link_name = "NSPrintScalingFactor")
+	PrintScalingFactor: ^NS.String
+	@(link_name = "NSPrintLeftMargin")
+	PrintLeftMargin: ^NS.String
+	@(link_name = "NSPrintRightMargin")
+	PrintRightMargin: ^NS.String
+	@(link_name = "NSPrintTopMargin")
+	PrintTopMargin: ^NS.String
+	@(link_name = "NSPrintBottomMargin")
+	PrintBottomMargin: ^NS.String
+	@(link_name = "NSPrintHorizontallyCentered")
+	PrintHorizontallyCentered: ^NS.String
+	@(link_name = "NSPrintVerticallyCentered")
+	PrintVerticallyCentered: ^NS.String
+	@(link_name = "NSPrintHorizontalPagination")
+	PrintHorizontalPagination: ^NS.String
+	@(link_name = "NSPrintVerticalPagination")
+	PrintVerticalPagination: ^NS.String
+	@(link_name = "NSPrintPrinter")
+	PrintPrinter: ^NS.String
+	@(link_name = "NSPrintCopies")
+	PrintCopies: ^NS.String
+	@(link_name = "NSPrintAllPages")
+	PrintAllPages: ^NS.String
+	@(link_name = "NSPrintFirstPage")
+	PrintFirstPage: ^NS.String
+	@(link_name = "NSPrintLastPage")
+	PrintLastPage: ^NS.String
+	@(link_name = "NSPrintMustCollate")
+	PrintMustCollate: ^NS.String
+	@(link_name = "NSPrintReversePageOrder")
+	PrintReversePageOrder: ^NS.String
+	@(link_name = "NSPrintJobDisposition")
+	PrintJobDisposition: ^NS.String
+	@(link_name = "NSPrintPagesAcross")
+	PrintPagesAcross: ^NS.String
+	@(link_name = "NSPrintPagesDown")
+	PrintPagesDown: ^NS.String
+	@(link_name = "NSPrintTime")
+	PrintTime: ^NS.String
+	@(link_name = "NSPrintDetailedErrorReporting")
+	PrintDetailedErrorReporting: ^NS.String
+	@(link_name = "NSPrintFaxNumber")
+	PrintFaxNumber: ^NS.String
+	@(link_name = "NSPrintPrinterName")
+	PrintPrinterName: ^NS.String
+	@(link_name = "NSPrintSelectionOnly")
+	PrintSelectionOnly: ^NS.String
+	@(link_name = "NSPrintJobSavingURL")
+	PrintJobSavingURL: ^NS.String
+	@(link_name = "NSPrintJobSavingFileNameExtensionHidden")
+	PrintJobSavingFileNameExtensionHidden: ^NS.String
+	@(link_name = "NSPrintHeaderAndFooter")
+	PrintHeaderAndFooter: ^NS.String
+	@(link_name = "NSPrintSpoolJob")
+	PrintSpoolJob: ^NS.String
+	@(link_name = "NSPrintPreviewJob")
+	PrintPreviewJob: ^NS.String
+	@(link_name = "NSPrintSaveJob")
+	PrintSaveJob: ^NS.String
+	@(link_name = "NSPrintCancelJob")
+	PrintCancelJob: ^NS.String
+	@(link_name = "NSPrintFormName")
+	PrintFormName: ^NS.String
+	@(link_name = "NSPrintJobFeatures")
+	PrintJobFeatures: ^NS.String
+	@(link_name = "NSPrintManualFeed")
+	PrintManualFeed: ^NS.String
+	@(link_name = "NSPrintPagesPerSheet")
+	PrintPagesPerSheet: ^NS.String
+	@(link_name = "NSPrintPaperFeed")
+	PrintPaperFeed: ^NS.String
+	@(link_name = "NSPrintSavePath")
+	PrintSavePath: ^NS.String
+	@(link_name = "NSCoreDataVersionNumber")
+	CoreDataVersionNumber: cffi.double
+	@(link_name = "NSManagedObjectContextWillSaveNotification")
+	ManagedObjectContextWillSaveNotification: ^NS.String
+	@(link_name = "NSManagedObjectContextDidSaveNotification")
+	ManagedObjectContextDidSaveNotification: ^NS.String
+	@(link_name = "NSManagedObjectContextObjectsDidChangeNotification")
+	ManagedObjectContextObjectsDidChangeNotification: ^NS.String
+	@(link_name = "NSManagedObjectContextDidSaveObjectIDsNotification")
+	ManagedObjectContextDidSaveObjectIDsNotification: ^NS.String
+	@(link_name = "NSManagedObjectContextDidMergeChangesObjectIDsNotification")
+	ManagedObjectContextDidMergeChangesObjectIDsNotification: ^NS.String
+	@(link_name = "NSInsertedObjectsKey")
+	InsertedObjectsKey: ^NS.String
+	@(link_name = "NSUpdatedObjectsKey")
+	UpdatedObjectsKey: ^NS.String
+	@(link_name = "NSDeletedObjectsKey")
+	DeletedObjectsKey: ^NS.String
+	@(link_name = "NSRefreshedObjectsKey")
+	RefreshedObjectsKey: ^NS.String
+	@(link_name = "NSInvalidatedObjectsKey")
+	InvalidatedObjectsKey: ^NS.String
+	@(link_name = "NSManagedObjectContextQueryGenerationKey")
+	ManagedObjectContextQueryGenerationKey: ^NS.String
+	@(link_name = "NSInvalidatedAllObjectsKey")
+	InvalidatedAllObjectsKey: ^NS.String
+	@(link_name = "NSInsertedObjectIDsKey")
+	InsertedObjectIDsKey: ^NS.String
+	@(link_name = "NSUpdatedObjectIDsKey")
+	UpdatedObjectIDsKey: ^NS.String
+	@(link_name = "NSDeletedObjectIDsKey")
+	DeletedObjectIDsKey: ^NS.String
+	@(link_name = "NSRefreshedObjectIDsKey")
+	RefreshedObjectIDsKey: ^NS.String
+	@(link_name = "NSInvalidatedObjectIDsKey")
+	InvalidatedObjectIDsKey: ^NS.String
+	@(link_name = "NSErrorMergePolicy")
+	ErrorMergePolicy: id
+	@(link_name = "NSMergeByPropertyStoreTrumpMergePolicy")
+	MergeByPropertyStoreTrumpMergePolicy: id
+	@(link_name = "NSMergeByPropertyObjectTrumpMergePolicy")
+	MergeByPropertyObjectTrumpMergePolicy: id
+	@(link_name = "NSOverwriteMergePolicy")
+	OverwriteMergePolicy: id
+	@(link_name = "NSRollbackMergePolicy")
+	RollbackMergePolicy: id
+	@(link_name = "NSMultipleValuesMarker")
+	MultipleValuesMarker: id
+	@(link_name = "NSNoSelectionMarker")
+	NoSelectionMarker: id
+	@(link_name = "NSNotApplicableMarker")
+	NotApplicableMarker: id
+	@(link_name = "NSObservedObjectKey")
+	ObservedObjectKey: ^NS.String
+	@(link_name = "NSObservedKeyPathKey")
+	ObservedKeyPathKey: ^NS.String
+	@(link_name = "NSOptionsKey")
+	OptionsKey: ^NS.String
+	@(link_name = "NSAlignmentBinding")
+	AlignmentBinding: ^NS.String
+	@(link_name = "NSAlternateImageBinding")
+	AlternateImageBinding: ^NS.String
+	@(link_name = "NSAlternateTitleBinding")
+	AlternateTitleBinding: ^NS.String
+	@(link_name = "NSAnimateBinding")
+	AnimateBinding: ^NS.String
+	@(link_name = "NSAnimationDelayBinding")
+	AnimationDelayBinding: ^NS.String
+	@(link_name = "NSArgumentBinding")
+	ArgumentBinding: ^NS.String
+	@(link_name = "NSAttributedStringBinding")
+	AttributedStringBinding: ^NS.String
+	@(link_name = "NSContentArrayBinding")
+	ContentArrayBinding: ^NS.String
+	@(link_name = "NSContentArrayForMultipleSelectionBinding")
+	ContentArrayForMultipleSelectionBinding: ^NS.String
+	@(link_name = "NSContentBinding")
+	ContentBinding: ^NS.String
+	@(link_name = "NSContentDictionaryBinding")
+	ContentDictionaryBinding: ^NS.String
+	@(link_name = "NSContentHeightBinding")
+	ContentHeightBinding: ^NS.String
+	@(link_name = "NSContentObjectBinding")
+	ContentObjectBinding: ^NS.String
+	@(link_name = "NSContentObjectsBinding")
+	ContentObjectsBinding: ^NS.String
+	@(link_name = "NSContentSetBinding")
+	ContentSetBinding: ^NS.String
+	@(link_name = "NSContentValuesBinding")
+	ContentValuesBinding: ^NS.String
+	@(link_name = "NSContentWidthBinding")
+	ContentWidthBinding: ^NS.String
+	@(link_name = "NSCriticalValueBinding")
+	CriticalValueBinding: ^NS.String
+	@(link_name = "NSDataBinding")
+	DataBinding: ^NS.String
+	@(link_name = "NSDisplayPatternTitleBinding")
+	DisplayPatternTitleBinding: ^NS.String
+	@(link_name = "NSDisplayPatternValueBinding")
+	DisplayPatternValueBinding: ^NS.String
+	@(link_name = "NSDocumentEditedBinding")
+	DocumentEditedBinding: ^NS.String
+	@(link_name = "NSDoubleClickArgumentBinding")
+	DoubleClickArgumentBinding: ^NS.String
+	@(link_name = "NSDoubleClickTargetBinding")
+	DoubleClickTargetBinding: ^NS.String
+	@(link_name = "NSEditableBinding")
+	EditableBinding: ^NS.String
+	@(link_name = "NSEnabledBinding")
+	EnabledBinding: ^NS.String
+	@(link_name = "NSExcludedKeysBinding")
+	ExcludedKeysBinding: ^NS.String
+	@(link_name = "NSFilterPredicateBinding")
+	FilterPredicateBinding: ^NS.String
+	@(link_name = "NSFontBinding")
+	FontBinding: ^NS.String
+	@(link_name = "NSFontBoldBinding")
+	FontBoldBinding: ^NS.String
+	@(link_name = "NSFontFamilyNameBinding")
+	FontFamilyNameBinding: ^NS.String
+	@(link_name = "NSFontItalicBinding")
+	FontItalicBinding: ^NS.String
+	@(link_name = "NSFontNameBinding")
+	FontNameBinding: ^NS.String
+	@(link_name = "NSFontSizeBinding")
+	FontSizeBinding: ^NS.String
+	@(link_name = "NSHeaderTitleBinding")
+	HeaderTitleBinding: ^NS.String
+	@(link_name = "NSHiddenBinding")
+	HiddenBinding: ^NS.String
+	@(link_name = "NSImageBinding")
+	ImageBinding: ^NS.String
+	@(link_name = "NSIncludedKeysBinding")
+	IncludedKeysBinding: ^NS.String
+	@(link_name = "NSInitialKeyBinding")
+	InitialKeyBinding: ^NS.String
+	@(link_name = "NSInitialValueBinding")
+	InitialValueBinding: ^NS.String
+	@(link_name = "NSIsIndeterminateBinding")
+	IsIndeterminateBinding: ^NS.String
+	@(link_name = "NSLabelBinding")
+	LabelBinding: ^NS.String
+	@(link_name = "NSLocalizedKeyDictionaryBinding")
+	LocalizedKeyDictionaryBinding: ^NS.String
+	@(link_name = "NSManagedObjectContextBinding")
+	ManagedObjectContextBinding: ^NS.String
+	@(link_name = "NSMaximumRecentsBinding")
+	MaximumRecentsBinding: ^NS.String
+	@(link_name = "NSMaxValueBinding")
+	MaxValueBinding: ^NS.String
+	@(link_name = "NSMaxWidthBinding")
+	MaxWidthBinding: ^NS.String
+	@(link_name = "NSMinValueBinding")
+	MinValueBinding: ^NS.String
+	@(link_name = "NSMinWidthBinding")
+	MinWidthBinding: ^NS.String
+	@(link_name = "NSMixedStateImageBinding")
+	MixedStateImageBinding: ^NS.String
+	@(link_name = "NSOffStateImageBinding")
+	OffStateImageBinding: ^NS.String
+	@(link_name = "NSOnStateImageBinding")
+	OnStateImageBinding: ^NS.String
+	@(link_name = "NSPositioningRectBinding")
+	PositioningRectBinding: ^NS.String
+	@(link_name = "NSPredicateBinding")
+	PredicateBinding: ^NS.String
+	@(link_name = "NSRecentSearchesBinding")
+	RecentSearchesBinding: ^NS.String
+	@(link_name = "NSRepresentedFilenameBinding")
+	RepresentedFilenameBinding: ^NS.String
+	@(link_name = "NSRowHeightBinding")
+	RowHeightBinding: ^NS.String
+	@(link_name = "NSSelectedIdentifierBinding")
+	SelectedIdentifierBinding: ^NS.String
+	@(link_name = "NSSelectedIndexBinding")
+	SelectedIndexBinding: ^NS.String
+	@(link_name = "NSSelectedLabelBinding")
+	SelectedLabelBinding: ^NS.String
+	@(link_name = "NSSelectedObjectBinding")
+	SelectedObjectBinding: ^NS.String
+	@(link_name = "NSSelectedObjectsBinding")
+	SelectedObjectsBinding: ^NS.String
+	@(link_name = "NSSelectedTagBinding")
+	SelectedTagBinding: ^NS.String
+	@(link_name = "NSSelectedValueBinding")
+	SelectedValueBinding: ^NS.String
+	@(link_name = "NSSelectedValuesBinding")
+	SelectedValuesBinding: ^NS.String
+	@(link_name = "NSSelectionIndexesBinding")
+	SelectionIndexesBinding: ^NS.String
+	@(link_name = "NSSelectionIndexPathsBinding")
+	SelectionIndexPathsBinding: ^NS.String
+	@(link_name = "NSSortDescriptorsBinding")
+	SortDescriptorsBinding: ^NS.String
+	@(link_name = "NSTargetBinding")
+	TargetBinding: ^NS.String
+	@(link_name = "NSTextColorBinding")
+	TextColorBinding: ^NS.String
+	@(link_name = "NSTitleBinding")
+	TitleBinding: ^NS.String
+	@(link_name = "NSToolTipBinding")
+	ToolTipBinding: ^NS.String
+	@(link_name = "NSTransparentBinding")
+	TransparentBinding: ^NS.String
+	@(link_name = "NSValueBinding")
+	ValueBinding: ^NS.String
+	@(link_name = "NSValuePathBinding")
+	ValuePathBinding: ^NS.String
+	@(link_name = "NSValueURLBinding")
+	ValueURLBinding: ^NS.String
+	@(link_name = "NSVisibleBinding")
+	VisibleBinding: ^NS.String
+	@(link_name = "NSWarningValueBinding")
+	WarningValueBinding: ^NS.String
+	@(link_name = "NSWidthBinding")
+	WidthBinding: ^NS.String
+	@(link_name = "NSAllowsEditingMultipleValuesSelectionBindingOption")
+	AllowsEditingMultipleValuesSelectionBindingOption: ^NS.String
+	@(link_name = "NSAllowsNullArgumentBindingOption")
+	AllowsNullArgumentBindingOption: ^NS.String
+	@(link_name = "NSAlwaysPresentsApplicationModalAlertsBindingOption")
+	AlwaysPresentsApplicationModalAlertsBindingOption: ^NS.String
+	@(link_name = "NSConditionallySetsEditableBindingOption")
+	ConditionallySetsEditableBindingOption: ^NS.String
+	@(link_name = "NSConditionallySetsEnabledBindingOption")
+	ConditionallySetsEnabledBindingOption: ^NS.String
+	@(link_name = "NSConditionallySetsHiddenBindingOption")
+	ConditionallySetsHiddenBindingOption: ^NS.String
+	@(link_name = "NSContinuouslyUpdatesValueBindingOption")
+	ContinuouslyUpdatesValueBindingOption: ^NS.String
+	@(link_name = "NSCreatesSortDescriptorBindingOption")
+	CreatesSortDescriptorBindingOption: ^NS.String
+	@(link_name = "NSDeletesObjectsOnRemoveBindingsOption")
+	DeletesObjectsOnRemoveBindingsOption: ^NS.String
+	@(link_name = "NSDisplayNameBindingOption")
+	DisplayNameBindingOption: ^NS.String
+	@(link_name = "NSDisplayPatternBindingOption")
+	DisplayPatternBindingOption: ^NS.String
+	@(link_name = "NSContentPlacementTagBindingOption")
+	ContentPlacementTagBindingOption: ^NS.String
+	@(link_name = "NSHandlesContentAsCompoundValueBindingOption")
+	HandlesContentAsCompoundValueBindingOption: ^NS.String
+	@(link_name = "NSInsertsNullPlaceholderBindingOption")
+	InsertsNullPlaceholderBindingOption: ^NS.String
+	@(link_name = "NSInvokesSeparatelyWithArrayObjectsBindingOption")
+	InvokesSeparatelyWithArrayObjectsBindingOption: ^NS.String
+	@(link_name = "NSMultipleValuesPlaceholderBindingOption")
+	MultipleValuesPlaceholderBindingOption: ^NS.String
+	@(link_name = "NSNoSelectionPlaceholderBindingOption")
+	NoSelectionPlaceholderBindingOption: ^NS.String
+	@(link_name = "NSNotApplicablePlaceholderBindingOption")
+	NotApplicablePlaceholderBindingOption: ^NS.String
+	@(link_name = "NSNullPlaceholderBindingOption")
+	NullPlaceholderBindingOption: ^NS.String
+	@(link_name = "NSRaisesForNotApplicableKeysBindingOption")
+	RaisesForNotApplicableKeysBindingOption: ^NS.String
+	@(link_name = "NSPredicateFormatBindingOption")
+	PredicateFormatBindingOption: ^NS.String
+	@(link_name = "NSSelectorNameBindingOption")
+	SelectorNameBindingOption: ^NS.String
+	@(link_name = "NSSelectsAllWhenSettingContentBindingOption")
+	SelectsAllWhenSettingContentBindingOption: ^NS.String
+	@(link_name = "NSValidatesImmediatelyBindingOption")
+	ValidatesImmediatelyBindingOption: ^NS.String
+	@(link_name = "NSValueTransformerNameBindingOption")
+	ValueTransformerNameBindingOption: ^NS.String
+	@(link_name = "NSValueTransformerBindingOption")
+	ValueTransformerBindingOption: ^NS.String
+	@(link_name = "NSUserActivityDocumentURLKey")
+	UserActivityDocumentURLKey: ^NS.String
+	@(link_name = "NSAppKitVersionNumber")
+	AppKitVersionNumber: AppKitVersion
+	@(link_name = "NSModalPanelRunLoopMode")
+	ModalPanelRunLoopMode: ^NS.String
+	@(link_name = "NSEventTrackingRunLoopMode")
+	EventTrackingRunLoopMode: ^NS.String
+	@(link_name = "NSApp")
+	App: ^Application
+	@(link_name = "NSAboutPanelOptionCredits")
+	AboutPanelOptionCredits: ^NS.String
+	@(link_name = "NSAboutPanelOptionApplicationName")
+	AboutPanelOptionApplicationName: ^NS.String
+	@(link_name = "NSAboutPanelOptionApplicationIcon")
+	AboutPanelOptionApplicationIcon: ^NS.String
+	@(link_name = "NSAboutPanelOptionVersion")
+	AboutPanelOptionVersion: ^NS.String
+	@(link_name = "NSAboutPanelOptionApplicationVersion")
+	AboutPanelOptionApplicationVersion: ^NS.String
+	@(link_name = "NSApplicationDidBecomeActiveNotification")
+	ApplicationDidBecomeActiveNotification: ^NS.String
+	@(link_name = "NSApplicationDidHideNotification")
+	ApplicationDidHideNotification: ^NS.String
+	@(link_name = "NSApplicationDidFinishLaunchingNotification")
+	ApplicationDidFinishLaunchingNotification: ^NS.String
+	@(link_name = "NSApplicationDidResignActiveNotification")
+	ApplicationDidResignActiveNotification: ^NS.String
+	@(link_name = "NSApplicationDidUnhideNotification")
+	ApplicationDidUnhideNotification: ^NS.String
+	@(link_name = "NSApplicationDidUpdateNotification")
+	ApplicationDidUpdateNotification: ^NS.String
+	@(link_name = "NSApplicationWillBecomeActiveNotification")
+	ApplicationWillBecomeActiveNotification: ^NS.String
+	@(link_name = "NSApplicationWillHideNotification")
+	ApplicationWillHideNotification: ^NS.String
+	@(link_name = "NSApplicationWillFinishLaunchingNotification")
+	ApplicationWillFinishLaunchingNotification: ^NS.String
+	@(link_name = "NSApplicationWillResignActiveNotification")
+	ApplicationWillResignActiveNotification: ^NS.String
+	@(link_name = "NSApplicationWillUnhideNotification")
+	ApplicationWillUnhideNotification: ^NS.String
+	@(link_name = "NSApplicationWillUpdateNotification")
+	ApplicationWillUpdateNotification: ^NS.String
+	@(link_name = "NSApplicationWillTerminateNotification")
+	ApplicationWillTerminateNotification: ^NS.String
+	@(link_name = "NSApplicationDidChangeScreenParametersNotification")
+	ApplicationDidChangeScreenParametersNotification: ^NS.String
+	@(link_name = "NSApplicationProtectedDataWillBecomeUnavailableNotification")
+	ApplicationProtectedDataWillBecomeUnavailableNotification: ^NS.String
+	@(link_name = "NSApplicationProtectedDataDidBecomeAvailableNotification")
+	ApplicationProtectedDataDidBecomeAvailableNotification: ^NS.String
+	@(link_name = "NSApplicationShouldBeginSuppressingHighDynamicRangeContentNotification")
+	ApplicationShouldBeginSuppressingHighDynamicRangeContentNotification: ^NS.String
+	@(link_name = "NSApplicationShouldEndSuppressingHighDynamicRangeContentNotification")
+	ApplicationShouldEndSuppressingHighDynamicRangeContentNotification: ^NS.String
+	@(link_name = "NSApplicationLaunchIsDefaultLaunchKey")
+	ApplicationLaunchIsDefaultLaunchKey: ^NS.String
+	@(link_name = "NSApplicationLaunchUserNotificationKey")
+	ApplicationLaunchUserNotificationKey: ^NS.String
+	@(link_name = "NSApplicationLaunchRemoteNotificationKey")
+	ApplicationLaunchRemoteNotificationKey: ^NS.String
+	@(link_name = "NSApplicationDidChangeOcclusionStateNotification")
+	ApplicationDidChangeOcclusionStateNotification: ^NS.String
+	@(link_name = "NSColorListDidChangeNotification")
+	ColorListDidChangeNotification: ^NS.String
+	@(link_name = "NSSystemColorsDidChangeNotification")
+	SystemColorsDidChangeNotification: ^NS.String
+	@(link_name = "NSContextHelpModeDidActivateNotification")
+	ContextHelpModeDidActivateNotification: ^NS.String
+	@(link_name = "NSContextHelpModeDidDeactivateNotification")
+	ContextHelpModeDidDeactivateNotification: ^NS.String
+	@(link_name = "NSControlTextDidBeginEditingNotification")
+	ControlTextDidBeginEditingNotification: ^NS.String
+	@(link_name = "NSControlTextDidEndEditingNotification")
+	ControlTextDidEndEditingNotification: ^NS.String
+	@(link_name = "NSControlTextDidChangeNotification")
+	ControlTextDidChangeNotification: ^NS.String
+	@(link_name = "NSTouchBarItemIdentifierFixedSpaceSmall")
+	TouchBarItemIdentifierFixedSpaceSmall: ^NS.String
+	@(link_name = "NSTouchBarItemIdentifierFixedSpaceLarge")
+	TouchBarItemIdentifierFixedSpaceLarge: ^NS.String
+	@(link_name = "NSTouchBarItemIdentifierFlexibleSpace")
+	TouchBarItemIdentifierFlexibleSpace: ^NS.String
+	@(link_name = "NSTouchBarItemIdentifierOtherItemsProxy")
+	TouchBarItemIdentifierOtherItemsProxy: ^NS.String
+	@(link_name = "NSTouchBarItemIdentifierCandidateList")
+	TouchBarItemIdentifierCandidateList: ^NS.String
+	@(link_name = "NSPopoverCloseReasonKey")
+	PopoverCloseReasonKey: ^NS.String
+	@(link_name = "NSPopoverCloseReasonStandard")
+	PopoverCloseReasonStandard: ^NS.String
+	@(link_name = "NSPopoverCloseReasonDetachToWindow")
+	PopoverCloseReasonDetachToWindow: ^NS.String
+	@(link_name = "NSPopoverWillShowNotification")
+	PopoverWillShowNotification: ^NS.String
+	@(link_name = "NSPopoverDidShowNotification")
+	PopoverDidShowNotification: ^NS.String
+	@(link_name = "NSPopoverWillCloseNotification")
+	PopoverWillCloseNotification: ^NS.String
+	@(link_name = "NSPopoverDidCloseNotification")
+	PopoverDidCloseNotification: ^NS.String
+	@(link_name = "NSCollectionElementKindInterItemGapIndicator")
+	CollectionElementKindInterItemGapIndicator: ^NS.String
+	@(link_name = "NSCollectionElementKindSectionHeader")
+	CollectionElementKindSectionHeader: ^NS.String
+	@(link_name = "NSCollectionElementKindSectionFooter")
+	CollectionElementKindSectionFooter: ^NS.String
+	@(link_name = "NSDirectionalEdgeInsetsZero")
+	DirectionalEdgeInsetsZero: DirectionalEdgeInsets
+	@(link_name = "NSFontFamilyAttribute")
+	FontFamilyAttribute: ^NS.String
+	@(link_name = "NSFontNameAttribute")
+	FontNameAttribute: ^NS.String
+	@(link_name = "NSFontFaceAttribute")
+	FontFaceAttribute: ^NS.String
+	@(link_name = "NSFontSizeAttribute")
+	FontSizeAttribute: ^NS.String
+	@(link_name = "NSFontVisibleNameAttribute")
+	FontVisibleNameAttribute: ^NS.String
+	@(link_name = "NSFontMatrixAttribute")
+	FontMatrixAttribute: ^NS.String
+	@(link_name = "NSFontVariationAttribute")
+	FontVariationAttribute: ^NS.String
+	@(link_name = "NSFontCharacterSetAttribute")
+	FontCharacterSetAttribute: ^NS.String
+	@(link_name = "NSFontCascadeListAttribute")
+	FontCascadeListAttribute: ^NS.String
+	@(link_name = "NSFontTraitsAttribute")
+	FontTraitsAttribute: ^NS.String
+	@(link_name = "NSFontFixedAdvanceAttribute")
+	FontFixedAdvanceAttribute: ^NS.String
+	@(link_name = "NSFontFeatureSettingsAttribute")
+	FontFeatureSettingsAttribute: ^NS.String
+	@(link_name = "NSFontSymbolicTrait")
+	FontSymbolicTrait: ^NS.String
+	@(link_name = "NSFontWeightTrait")
+	FontWeightTrait: ^NS.String
+	@(link_name = "NSFontWidthTrait")
+	FontWidthTrait: ^NS.String
+	@(link_name = "NSFontSlantTrait")
+	FontSlantTrait: ^NS.String
+	@(link_name = "NSFontVariationAxisIdentifierKey")
+	FontVariationAxisIdentifierKey: ^NS.String
+	@(link_name = "NSFontVariationAxisMinimumValueKey")
+	FontVariationAxisMinimumValueKey: ^NS.String
+	@(link_name = "NSFontVariationAxisMaximumValueKey")
+	FontVariationAxisMaximumValueKey: ^NS.String
+	@(link_name = "NSFontVariationAxisDefaultValueKey")
+	FontVariationAxisDefaultValueKey: ^NS.String
+	@(link_name = "NSFontVariationAxisNameKey")
+	FontVariationAxisNameKey: ^NS.String
+	@(link_name = "NSFontFeatureTypeIdentifierKey")
+	FontFeatureTypeIdentifierKey: ^NS.String
+	@(link_name = "NSFontFeatureSelectorIdentifierKey")
+	FontFeatureSelectorIdentifierKey: ^NS.String
+	@(link_name = "NSFontWeightUltraLight")
+	FontWeightUltraLight: FontWeight
+	@(link_name = "NSFontWeightThin")
+	FontWeightThin: FontWeight
+	@(link_name = "NSFontWeightLight")
+	FontWeightLight: FontWeight
+	@(link_name = "NSFontWeightRegular")
+	FontWeightRegular: FontWeight
+	@(link_name = "NSFontWeightMedium")
+	FontWeightMedium: FontWeight
+	@(link_name = "NSFontWeightSemibold")
+	FontWeightSemibold: FontWeight
+	@(link_name = "NSFontWeightBold")
+	FontWeightBold: FontWeight
+	@(link_name = "NSFontWeightHeavy")
+	FontWeightHeavy: FontWeight
+	@(link_name = "NSFontWeightBlack")
+	FontWeightBlack: FontWeight
+	@(link_name = "NSFontWidthCompressed")
+	FontWidthCompressed: FontWidth
+	@(link_name = "NSFontWidthCondensed")
+	FontWidthCondensed: FontWidth
+	@(link_name = "NSFontWidthStandard")
+	FontWidthStandard: FontWidth
+	@(link_name = "NSFontWidthExpanded")
+	FontWidthExpanded: FontWidth
+	@(link_name = "NSFontDescriptorSystemDesignDefault")
+	FontDescriptorSystemDesignDefault: ^NS.String
+	@(link_name = "NSFontDescriptorSystemDesignSerif")
+	FontDescriptorSystemDesignSerif: ^NS.String
+	@(link_name = "NSFontDescriptorSystemDesignMonospaced")
+	FontDescriptorSystemDesignMonospaced: ^NS.String
+	@(link_name = "NSFontDescriptorSystemDesignRounded")
+	FontDescriptorSystemDesignRounded: ^NS.String
+	@(link_name = "NSFontTextStyleLargeTitle")
+	FontTextStyleLargeTitle: ^NS.String
+	@(link_name = "NSFontTextStyleTitle1")
+	FontTextStyleTitle1: ^NS.String
+	@(link_name = "NSFontTextStyleTitle2")
+	FontTextStyleTitle2: ^NS.String
+	@(link_name = "NSFontTextStyleTitle3")
+	FontTextStyleTitle3: ^NS.String
+	@(link_name = "NSFontTextStyleHeadline")
+	FontTextStyleHeadline: ^NS.String
+	@(link_name = "NSFontTextStyleSubheadline")
+	FontTextStyleSubheadline: ^NS.String
+	@(link_name = "NSFontTextStyleBody")
+	FontTextStyleBody: ^NS.String
+	@(link_name = "NSFontTextStyleCallout")
+	FontTextStyleCallout: ^NS.String
+	@(link_name = "NSFontTextStyleFootnote")
+	FontTextStyleFootnote: ^NS.String
+	@(link_name = "NSFontTextStyleCaption1")
+	FontTextStyleCaption1: ^NS.String
+	@(link_name = "NSFontTextStyleCaption2")
+	FontTextStyleCaption2: ^NS.String
+	@(link_name = "NSFontColorAttribute")
+	FontColorAttribute: ^NS.String
+	@(link_name = "NSFontIdentityMatrix")
+	FontIdentityMatrix: ^CG.Float
+	@(link_name = "NSAntialiasThresholdChangedNotification")
+	AntialiasThresholdChangedNotification: ^NS.String
+	@(link_name = "NSFontSetChangedNotification")
+	FontSetChangedNotification: ^NS.String
+	@(link_name = "NSFontCollectionIncludeDisabledFontsOption")
+	FontCollectionIncludeDisabledFontsOption: ^NS.String
+	@(link_name = "NSFontCollectionRemoveDuplicatesOption")
+	FontCollectionRemoveDuplicatesOption: ^NS.String
+	@(link_name = "NSFontCollectionDisallowAutoActivationOption")
+	FontCollectionDisallowAutoActivationOption: ^NS.String
+	@(link_name = "NSFontCollectionDidChangeNotification")
+	FontCollectionDidChangeNotification: ^NS.String
+	@(link_name = "NSFontCollectionActionKey")
+	FontCollectionActionKey: ^NS.String
+	@(link_name = "NSFontCollectionNameKey")
+	FontCollectionNameKey: ^NS.String
+	@(link_name = "NSFontCollectionOldNameKey")
+	FontCollectionOldNameKey: ^NS.String
+	@(link_name = "NSFontCollectionVisibilityKey")
+	FontCollectionVisibilityKey: ^NS.String
+	@(link_name = "NSFontCollectionWasShown")
+	FontCollectionWasShown: ^NS.String
+	@(link_name = "NSFontCollectionWasHidden")
+	FontCollectionWasHidden: ^NS.String
+	@(link_name = "NSFontCollectionWasRenamed")
+	FontCollectionWasRenamed: ^NS.String
+	@(link_name = "NSFontCollectionAllFonts")
+	FontCollectionAllFonts: ^NS.String
+	@(link_name = "NSFontCollectionUser")
+	FontCollectionUser: ^NS.String
+	@(link_name = "NSFontCollectionFavorites")
+	FontCollectionFavorites: ^NS.String
+	@(link_name = "NSFontCollectionRecentlyUsed")
+	FontCollectionRecentlyUsed: ^NS.String
+	@(link_name = "NSWindowDidBecomeKeyNotification")
+	WindowDidBecomeKeyNotification: ^NS.String
+	@(link_name = "NSWindowDidBecomeMainNotification")
+	WindowDidBecomeMainNotification: ^NS.String
+	@(link_name = "NSWindowDidChangeScreenNotification")
+	WindowDidChangeScreenNotification: ^NS.String
+	@(link_name = "NSWindowDidDeminiaturizeNotification")
+	WindowDidDeminiaturizeNotification: ^NS.String
+	@(link_name = "NSWindowDidExposeNotification")
+	WindowDidExposeNotification: ^NS.String
+	@(link_name = "NSWindowDidMiniaturizeNotification")
+	WindowDidMiniaturizeNotification: ^NS.String
+	@(link_name = "NSWindowDidMoveNotification")
+	WindowDidMoveNotification: ^NS.String
+	@(link_name = "NSWindowDidResignKeyNotification")
+	WindowDidResignKeyNotification: ^NS.String
+	@(link_name = "NSWindowDidResignMainNotification")
+	WindowDidResignMainNotification: ^NS.String
+	@(link_name = "NSWindowDidResizeNotification")
+	WindowDidResizeNotification: ^NS.String
+	@(link_name = "NSWindowDidUpdateNotification")
+	WindowDidUpdateNotification: ^NS.String
+	@(link_name = "NSWindowWillCloseNotification")
+	WindowWillCloseNotification: ^NS.String
+	@(link_name = "NSWindowWillMiniaturizeNotification")
+	WindowWillMiniaturizeNotification: ^NS.String
+	@(link_name = "NSWindowWillMoveNotification")
+	WindowWillMoveNotification: ^NS.String
+	@(link_name = "NSWindowWillBeginSheetNotification")
+	WindowWillBeginSheetNotification: ^NS.String
+	@(link_name = "NSWindowDidEndSheetNotification")
+	WindowDidEndSheetNotification: ^NS.String
+	@(link_name = "NSWindowDidChangeBackingPropertiesNotification")
+	WindowDidChangeBackingPropertiesNotification: ^NS.String
+	@(link_name = "NSBackingPropertyOldScaleFactorKey")
+	BackingPropertyOldScaleFactorKey: ^NS.String
+	@(link_name = "NSBackingPropertyOldColorSpaceKey")
+	BackingPropertyOldColorSpaceKey: ^NS.String
+	@(link_name = "NSWindowDidChangeScreenProfileNotification")
+	WindowDidChangeScreenProfileNotification: ^NS.String
+	@(link_name = "NSWindowWillStartLiveResizeNotification")
+	WindowWillStartLiveResizeNotification: ^NS.String
+	@(link_name = "NSWindowDidEndLiveResizeNotification")
+	WindowDidEndLiveResizeNotification: ^NS.String
+	@(link_name = "NSWindowWillEnterFullScreenNotification")
+	WindowWillEnterFullScreenNotification: ^NS.String
+	@(link_name = "NSWindowDidEnterFullScreenNotification")
+	WindowDidEnterFullScreenNotification: ^NS.String
+	@(link_name = "NSWindowWillExitFullScreenNotification")
+	WindowWillExitFullScreenNotification: ^NS.String
+	@(link_name = "NSWindowDidExitFullScreenNotification")
+	WindowDidExitFullScreenNotification: ^NS.String
+	@(link_name = "NSWindowWillEnterVersionBrowserNotification")
+	WindowWillEnterVersionBrowserNotification: ^NS.String
+	@(link_name = "NSWindowDidEnterVersionBrowserNotification")
+	WindowDidEnterVersionBrowserNotification: ^NS.String
+	@(link_name = "NSWindowWillExitVersionBrowserNotification")
+	WindowWillExitVersionBrowserNotification: ^NS.String
+	@(link_name = "NSWindowDidExitVersionBrowserNotification")
+	WindowDidExitVersionBrowserNotification: ^NS.String
+	@(link_name = "NSWindowDidChangeOcclusionStateNotification")
+	WindowDidChangeOcclusionStateNotification: ^NS.String
+	@(link_name = "NSImageRepRegistryDidChangeNotification")
+	ImageRepRegistryDidChangeNotification: ^NS.String
+	@(link_name = "NSImageCompressionMethod")
+	ImageCompressionMethod: ^NS.String
+	@(link_name = "NSImageCompressionFactor")
+	ImageCompressionFactor: ^NS.String
+	@(link_name = "NSImageDitherTransparency")
+	ImageDitherTransparency: ^NS.String
+	@(link_name = "NSImageRGBColorTable")
+	ImageRGBColorTable: ^NS.String
+	@(link_name = "NSImageInterlaced")
+	ImageInterlaced: ^NS.String
+	@(link_name = "NSImageColorSyncProfileData")
+	ImageColorSyncProfileData: ^NS.String
+	@(link_name = "NSImageFrameCount")
+	ImageFrameCount: ^NS.String
+	@(link_name = "NSImageCurrentFrame")
+	ImageCurrentFrame: ^NS.String
+	@(link_name = "NSImageCurrentFrameDuration")
+	ImageCurrentFrameDuration: ^NS.String
+	@(link_name = "NSImageLoopCount")
+	ImageLoopCount: ^NS.String
+	@(link_name = "NSImageGamma")
+	ImageGamma: ^NS.String
+	@(link_name = "NSImageProgressive")
+	ImageProgressive: ^NS.String
+	@(link_name = "NSImageEXIFData")
+	ImageEXIFData: ^NS.String
+	@(link_name = "NSImageIPTCData")
+	ImageIPTCData: ^NS.String
+	@(link_name = "NSImageFallbackBackgroundColor")
+	ImageFallbackBackgroundColor: ^NS.String
+	@(link_name = "NSBrowserColumnConfigurationDidChangeNotification")
+	BrowserColumnConfigurationDidChangeNotification: ^NS.String
+	@(link_name = "NSColorPanelColorDidChangeNotification")
+	ColorPanelColorDidChangeNotification: ^NS.String
+	@(link_name = "NSDraggingImageComponentIconKey")
+	DraggingImageComponentIconKey: ^NS.String
+	@(link_name = "NSDraggingImageComponentLabelKey")
+	DraggingImageComponentLabelKey: ^NS.String
+	@(link_name = "NSViewNoInstrinsicMetric")
+	ViewNoInstrinsicMetric: CG.Float
+	@(link_name = "NSViewNoIntrinsicMetric")
+	ViewNoIntrinsicMetric: CG.Float
+	@(link_name = "NSImageHintCTM")
+	ImageHintCTM: ^NS.String
+	@(link_name = "NSImageHintInterpolation")
+	ImageHintInterpolation: ^NS.String
+	@(link_name = "NSImageHintUserInterfaceLayoutDirection")
+	ImageHintUserInterfaceLayoutDirection: ^NS.String
+	@(link_name = "NSImageNameAddTemplate")
+	ImageNameAddTemplate: ^NS.String
+	@(link_name = "NSImageNameBluetoothTemplate")
+	ImageNameBluetoothTemplate: ^NS.String
+	@(link_name = "NSImageNameBonjour")
+	ImageNameBonjour: ^NS.String
+	@(link_name = "NSImageNameBookmarksTemplate")
+	ImageNameBookmarksTemplate: ^NS.String
+	@(link_name = "NSImageNameCaution")
+	ImageNameCaution: ^NS.String
+	@(link_name = "NSImageNameComputer")
+	ImageNameComputer: ^NS.String
+	@(link_name = "NSImageNameEnterFullScreenTemplate")
+	ImageNameEnterFullScreenTemplate: ^NS.String
+	@(link_name = "NSImageNameExitFullScreenTemplate")
+	ImageNameExitFullScreenTemplate: ^NS.String
+	@(link_name = "NSImageNameFolder")
+	ImageNameFolder: ^NS.String
+	@(link_name = "NSImageNameFolderBurnable")
+	ImageNameFolderBurnable: ^NS.String
+	@(link_name = "NSImageNameFolderSmart")
+	ImageNameFolderSmart: ^NS.String
+	@(link_name = "NSImageNameFollowLinkFreestandingTemplate")
+	ImageNameFollowLinkFreestandingTemplate: ^NS.String
+	@(link_name = "NSImageNameHomeTemplate")
+	ImageNameHomeTemplate: ^NS.String
+	@(link_name = "NSImageNameIChatTheaterTemplate")
+	ImageNameIChatTheaterTemplate: ^NS.String
+	@(link_name = "NSImageNameLockLockedTemplate")
+	ImageNameLockLockedTemplate: ^NS.String
+	@(link_name = "NSImageNameLockUnlockedTemplate")
+	ImageNameLockUnlockedTemplate: ^NS.String
+	@(link_name = "NSImageNameNetwork")
+	ImageNameNetwork: ^NS.String
+	@(link_name = "NSImageNamePathTemplate")
+	ImageNamePathTemplate: ^NS.String
+	@(link_name = "NSImageNameQuickLookTemplate")
+	ImageNameQuickLookTemplate: ^NS.String
+	@(link_name = "NSImageNameRefreshFreestandingTemplate")
+	ImageNameRefreshFreestandingTemplate: ^NS.String
+	@(link_name = "NSImageNameRefreshTemplate")
+	ImageNameRefreshTemplate: ^NS.String
+	@(link_name = "NSImageNameRemoveTemplate")
+	ImageNameRemoveTemplate: ^NS.String
+	@(link_name = "NSImageNameRevealFreestandingTemplate")
+	ImageNameRevealFreestandingTemplate: ^NS.String
+	@(link_name = "NSImageNameShareTemplate")
+	ImageNameShareTemplate: ^NS.String
+	@(link_name = "NSImageNameSlideshowTemplate")
+	ImageNameSlideshowTemplate: ^NS.String
+	@(link_name = "NSImageNameStatusAvailable")
+	ImageNameStatusAvailable: ^NS.String
+	@(link_name = "NSImageNameStatusNone")
+	ImageNameStatusNone: ^NS.String
+	@(link_name = "NSImageNameStatusPartiallyAvailable")
+	ImageNameStatusPartiallyAvailable: ^NS.String
+	@(link_name = "NSImageNameStatusUnavailable")
+	ImageNameStatusUnavailable: ^NS.String
+	@(link_name = "NSImageNameStopProgressFreestandingTemplate")
+	ImageNameStopProgressFreestandingTemplate: ^NS.String
+	@(link_name = "NSImageNameStopProgressTemplate")
+	ImageNameStopProgressTemplate: ^NS.String
+	@(link_name = "NSImageNameTrashEmpty")
+	ImageNameTrashEmpty: ^NS.String
+	@(link_name = "NSImageNameTrashFull")
+	ImageNameTrashFull: ^NS.String
+	@(link_name = "NSImageNameActionTemplate")
+	ImageNameActionTemplate: ^NS.String
+	@(link_name = "NSImageNameSmartBadgeTemplate")
+	ImageNameSmartBadgeTemplate: ^NS.String
+	@(link_name = "NSImageNameIconViewTemplate")
+	ImageNameIconViewTemplate: ^NS.String
+	@(link_name = "NSImageNameListViewTemplate")
+	ImageNameListViewTemplate: ^NS.String
+	@(link_name = "NSImageNameColumnViewTemplate")
+	ImageNameColumnViewTemplate: ^NS.String
+	@(link_name = "NSImageNameFlowViewTemplate")
+	ImageNameFlowViewTemplate: ^NS.String
+	@(link_name = "NSImageNameInvalidDataFreestandingTemplate")
+	ImageNameInvalidDataFreestandingTemplate: ^NS.String
+	@(link_name = "NSImageNameGoForwardTemplate")
+	ImageNameGoForwardTemplate: ^NS.String
+	@(link_name = "NSImageNameGoBackTemplate")
+	ImageNameGoBackTemplate: ^NS.String
+	@(link_name = "NSImageNameGoRightTemplate")
+	ImageNameGoRightTemplate: ^NS.String
+	@(link_name = "NSImageNameGoLeftTemplate")
+	ImageNameGoLeftTemplate: ^NS.String
+	@(link_name = "NSImageNameRightFacingTriangleTemplate")
+	ImageNameRightFacingTriangleTemplate: ^NS.String
+	@(link_name = "NSImageNameLeftFacingTriangleTemplate")
+	ImageNameLeftFacingTriangleTemplate: ^NS.String
+	@(link_name = "NSImageNameDotMac")
+	ImageNameDotMac: ^NS.String
+	@(link_name = "NSImageNameMobileMe")
+	ImageNameMobileMe: ^NS.String
+	@(link_name = "NSImageNameMultipleDocuments")
+	ImageNameMultipleDocuments: ^NS.String
+	@(link_name = "NSImageNameUserAccounts")
+	ImageNameUserAccounts: ^NS.String
+	@(link_name = "NSImageNamePreferencesGeneral")
+	ImageNamePreferencesGeneral: ^NS.String
+	@(link_name = "NSImageNameAdvanced")
+	ImageNameAdvanced: ^NS.String
+	@(link_name = "NSImageNameInfo")
+	ImageNameInfo: ^NS.String
+	@(link_name = "NSImageNameFontPanel")
+	ImageNameFontPanel: ^NS.String
+	@(link_name = "NSImageNameColorPanel")
+	ImageNameColorPanel: ^NS.String
+	@(link_name = "NSImageNameUser")
+	ImageNameUser: ^NS.String
+	@(link_name = "NSImageNameUserGroup")
+	ImageNameUserGroup: ^NS.String
+	@(link_name = "NSImageNameEveryone")
+	ImageNameEveryone: ^NS.String
+	@(link_name = "NSImageNameUserGuest")
+	ImageNameUserGuest: ^NS.String
+	@(link_name = "NSImageNameMenuOnStateTemplate")
+	ImageNameMenuOnStateTemplate: ^NS.String
+	@(link_name = "NSImageNameMenuMixedStateTemplate")
+	ImageNameMenuMixedStateTemplate: ^NS.String
+	@(link_name = "NSImageNameApplicationIcon")
+	ImageNameApplicationIcon: ^NS.String
+	@(link_name = "NSImageNameTouchBarAddDetailTemplate")
+	ImageNameTouchBarAddDetailTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarAddTemplate")
+	ImageNameTouchBarAddTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarAlarmTemplate")
+	ImageNameTouchBarAlarmTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarAudioInputMuteTemplate")
+	ImageNameTouchBarAudioInputMuteTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarAudioInputTemplate")
+	ImageNameTouchBarAudioInputTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarAudioOutputMuteTemplate")
+	ImageNameTouchBarAudioOutputMuteTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarAudioOutputVolumeHighTemplate")
+	ImageNameTouchBarAudioOutputVolumeHighTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarAudioOutputVolumeLowTemplate")
+	ImageNameTouchBarAudioOutputVolumeLowTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarAudioOutputVolumeMediumTemplate")
+	ImageNameTouchBarAudioOutputVolumeMediumTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarAudioOutputVolumeOffTemplate")
+	ImageNameTouchBarAudioOutputVolumeOffTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarBookmarksTemplate")
+	ImageNameTouchBarBookmarksTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarColorPickerFill")
+	ImageNameTouchBarColorPickerFill: ^NS.String
+	@(link_name = "NSImageNameTouchBarColorPickerFont")
+	ImageNameTouchBarColorPickerFont: ^NS.String
+	@(link_name = "NSImageNameTouchBarColorPickerStroke")
+	ImageNameTouchBarColorPickerStroke: ^NS.String
+	@(link_name = "NSImageNameTouchBarCommunicationAudioTemplate")
+	ImageNameTouchBarCommunicationAudioTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarCommunicationVideoTemplate")
+	ImageNameTouchBarCommunicationVideoTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarComposeTemplate")
+	ImageNameTouchBarComposeTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarDeleteTemplate")
+	ImageNameTouchBarDeleteTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarDownloadTemplate")
+	ImageNameTouchBarDownloadTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarEnterFullScreenTemplate")
+	ImageNameTouchBarEnterFullScreenTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarExitFullScreenTemplate")
+	ImageNameTouchBarExitFullScreenTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarFastForwardTemplate")
+	ImageNameTouchBarFastForwardTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarFolderCopyToTemplate")
+	ImageNameTouchBarFolderCopyToTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarFolderMoveToTemplate")
+	ImageNameTouchBarFolderMoveToTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarFolderTemplate")
+	ImageNameTouchBarFolderTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarGetInfoTemplate")
+	ImageNameTouchBarGetInfoTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarGoBackTemplate")
+	ImageNameTouchBarGoBackTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarGoDownTemplate")
+	ImageNameTouchBarGoDownTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarGoForwardTemplate")
+	ImageNameTouchBarGoForwardTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarGoUpTemplate")
+	ImageNameTouchBarGoUpTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarHistoryTemplate")
+	ImageNameTouchBarHistoryTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarIconViewTemplate")
+	ImageNameTouchBarIconViewTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarListViewTemplate")
+	ImageNameTouchBarListViewTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarMailTemplate")
+	ImageNameTouchBarMailTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarNewFolderTemplate")
+	ImageNameTouchBarNewFolderTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarNewMessageTemplate")
+	ImageNameTouchBarNewMessageTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarOpenInBrowserTemplate")
+	ImageNameTouchBarOpenInBrowserTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarPauseTemplate")
+	ImageNameTouchBarPauseTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarPlayPauseTemplate")
+	ImageNameTouchBarPlayPauseTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarPlayTemplate")
+	ImageNameTouchBarPlayTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarQuickLookTemplate")
+	ImageNameTouchBarQuickLookTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarRecordStartTemplate")
+	ImageNameTouchBarRecordStartTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarRecordStopTemplate")
+	ImageNameTouchBarRecordStopTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarRefreshTemplate")
+	ImageNameTouchBarRefreshTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarRemoveTemplate")
+	ImageNameTouchBarRemoveTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarRewindTemplate")
+	ImageNameTouchBarRewindTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarRotateLeftTemplate")
+	ImageNameTouchBarRotateLeftTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarRotateRightTemplate")
+	ImageNameTouchBarRotateRightTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarSearchTemplate")
+	ImageNameTouchBarSearchTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarShareTemplate")
+	ImageNameTouchBarShareTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarSidebarTemplate")
+	ImageNameTouchBarSidebarTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarSkipAhead15SecondsTemplate")
+	ImageNameTouchBarSkipAhead15SecondsTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarSkipAhead30SecondsTemplate")
+	ImageNameTouchBarSkipAhead30SecondsTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarSkipAheadTemplate")
+	ImageNameTouchBarSkipAheadTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarSkipBack15SecondsTemplate")
+	ImageNameTouchBarSkipBack15SecondsTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarSkipBack30SecondsTemplate")
+	ImageNameTouchBarSkipBack30SecondsTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarSkipBackTemplate")
+	ImageNameTouchBarSkipBackTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarSkipToEndTemplate")
+	ImageNameTouchBarSkipToEndTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarSkipToStartTemplate")
+	ImageNameTouchBarSkipToStartTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarSlideshowTemplate")
+	ImageNameTouchBarSlideshowTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarTagIconTemplate")
+	ImageNameTouchBarTagIconTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarTextBoldTemplate")
+	ImageNameTouchBarTextBoldTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarTextBoxTemplate")
+	ImageNameTouchBarTextBoxTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarTextCenterAlignTemplate")
+	ImageNameTouchBarTextCenterAlignTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarTextItalicTemplate")
+	ImageNameTouchBarTextItalicTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarTextJustifiedAlignTemplate")
+	ImageNameTouchBarTextJustifiedAlignTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarTextLeftAlignTemplate")
+	ImageNameTouchBarTextLeftAlignTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarTextListTemplate")
+	ImageNameTouchBarTextListTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarTextRightAlignTemplate")
+	ImageNameTouchBarTextRightAlignTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarTextStrikethroughTemplate")
+	ImageNameTouchBarTextStrikethroughTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarTextUnderlineTemplate")
+	ImageNameTouchBarTextUnderlineTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarUserAddTemplate")
+	ImageNameTouchBarUserAddTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarUserGroupTemplate")
+	ImageNameTouchBarUserGroupTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarUserTemplate")
+	ImageNameTouchBarUserTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarVolumeDownTemplate")
+	ImageNameTouchBarVolumeDownTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarVolumeUpTemplate")
+	ImageNameTouchBarVolumeUpTemplate: ^NS.String
+	@(link_name = "NSImageNameTouchBarPlayheadTemplate")
+	ImageNameTouchBarPlayheadTemplate: ^NS.String
+	@(link_name = "NSSharingServiceNameComposeEmail")
+	SharingServiceNameComposeEmail: ^NS.String
+	@(link_name = "NSSharingServiceNameComposeMessage")
+	SharingServiceNameComposeMessage: ^NS.String
+	@(link_name = "NSSharingServiceNameSendViaAirDrop")
+	SharingServiceNameSendViaAirDrop: ^NS.String
+	@(link_name = "NSSharingServiceNameAddToSafariReadingList")
+	SharingServiceNameAddToSafariReadingList: ^NS.String
+	@(link_name = "NSSharingServiceNameAddToIPhoto")
+	SharingServiceNameAddToIPhoto: ^NS.String
+	@(link_name = "NSSharingServiceNameAddToAperture")
+	SharingServiceNameAddToAperture: ^NS.String
+	@(link_name = "NSSharingServiceNameUseAsDesktopPicture")
+	SharingServiceNameUseAsDesktopPicture: ^NS.String
+	@(link_name = "NSSharingServiceNamePostOnFacebook")
+	SharingServiceNamePostOnFacebook: ^NS.String
+	@(link_name = "NSSharingServiceNamePostOnTwitter")
+	SharingServiceNamePostOnTwitter: ^NS.String
+	@(link_name = "NSSharingServiceNamePostOnSinaWeibo")
+	SharingServiceNamePostOnSinaWeibo: ^NS.String
+	@(link_name = "NSSharingServiceNamePostOnTencentWeibo")
+	SharingServiceNamePostOnTencentWeibo: ^NS.String
+	@(link_name = "NSSharingServiceNamePostOnLinkedIn")
+	SharingServiceNamePostOnLinkedIn: ^NS.String
+	@(link_name = "NSSharingServiceNameUseAsTwitterProfileImage")
+	SharingServiceNameUseAsTwitterProfileImage: ^NS.String
+	@(link_name = "NSSharingServiceNameUseAsFacebookProfileImage")
+	SharingServiceNameUseAsFacebookProfileImage: ^NS.String
+	@(link_name = "NSSharingServiceNameUseAsLinkedInProfileImage")
+	SharingServiceNameUseAsLinkedInProfileImage: ^NS.String
+	@(link_name = "NSSharingServiceNamePostImageOnFlickr")
+	SharingServiceNamePostImageOnFlickr: ^NS.String
+	@(link_name = "NSSharingServiceNamePostVideoOnVimeo")
+	SharingServiceNamePostVideoOnVimeo: ^NS.String
+	@(link_name = "NSSharingServiceNamePostVideoOnYouku")
+	SharingServiceNamePostVideoOnYouku: ^NS.String
+	@(link_name = "NSSharingServiceNamePostVideoOnTudou")
+	SharingServiceNamePostVideoOnTudou: ^NS.String
+	@(link_name = "NSSharingServiceNameCloudSharing")
+	SharingServiceNameCloudSharing: ^NS.String
+	@(link_name = "NSSliderAccessoryWidthDefault")
+	SliderAccessoryWidthDefault: SliderAccessoryWidth
+	@(link_name = "NSSliderAccessoryWidthWide")
+	SliderAccessoryWidthWide: SliderAccessoryWidth
+	@(link_name = "NSVoiceName")
+	VoiceName: ^NS.String
+	@(link_name = "NSVoiceIdentifier")
+	VoiceIdentifier: ^NS.String
+	@(link_name = "NSVoiceAge")
+	VoiceAge: ^NS.String
+	@(link_name = "NSVoiceGender")
+	VoiceGender: ^NS.String
+	@(link_name = "NSVoiceDemoText")
+	VoiceDemoText: ^NS.String
+	@(link_name = "NSVoiceLocaleIdentifier")
+	VoiceLocaleIdentifier: ^NS.String
+	@(link_name = "NSVoiceSupportedCharacters")
+	VoiceSupportedCharacters: ^NS.String
+	@(link_name = "NSVoiceIndividuallySpokenCharacters")
+	VoiceIndividuallySpokenCharacters: ^NS.String
+	@(link_name = "NSSpeechDictionaryLocaleIdentifier")
+	SpeechDictionaryLocaleIdentifier: ^NS.String
+	@(link_name = "NSSpeechDictionaryModificationDate")
+	SpeechDictionaryModificationDate: ^NS.String
+	@(link_name = "NSSpeechDictionaryPronunciations")
+	SpeechDictionaryPronunciations: ^NS.String
+	@(link_name = "NSSpeechDictionaryAbbreviations")
+	SpeechDictionaryAbbreviations: ^NS.String
+	@(link_name = "NSSpeechDictionaryEntrySpelling")
+	SpeechDictionaryEntrySpelling: ^NS.String
+	@(link_name = "NSSpeechDictionaryEntryPhonemes")
+	SpeechDictionaryEntryPhonemes: ^NS.String
+	@(link_name = "NSVoiceGenderNeuter")
+	VoiceGenderNeuter: ^NS.String
+	@(link_name = "NSVoiceGenderMale")
+	VoiceGenderMale: ^NS.String
+	@(link_name = "NSVoiceGenderFemale")
+	VoiceGenderFemale: ^NS.String
+	@(link_name = "NSVoiceGenderNeutral")
+	VoiceGenderNeutral: ^NS.String
+	@(link_name = "NSSpeechStatusProperty")
+	SpeechStatusProperty: ^NS.String
+	@(link_name = "NSSpeechErrorsProperty")
+	SpeechErrorsProperty: ^NS.String
+	@(link_name = "NSSpeechInputModeProperty")
+	SpeechInputModeProperty: ^NS.String
+	@(link_name = "NSSpeechCharacterModeProperty")
+	SpeechCharacterModeProperty: ^NS.String
+	@(link_name = "NSSpeechNumberModeProperty")
+	SpeechNumberModeProperty: ^NS.String
+	@(link_name = "NSSpeechRateProperty")
+	SpeechRateProperty: ^NS.String
+	@(link_name = "NSSpeechPitchBaseProperty")
+	SpeechPitchBaseProperty: ^NS.String
+	@(link_name = "NSSpeechPitchModProperty")
+	SpeechPitchModProperty: ^NS.String
+	@(link_name = "NSSpeechVolumeProperty")
+	SpeechVolumeProperty: ^NS.String
+	@(link_name = "NSSpeechSynthesizerInfoProperty")
+	SpeechSynthesizerInfoProperty: ^NS.String
+	@(link_name = "NSSpeechRecentSyncProperty")
+	SpeechRecentSyncProperty: ^NS.String
+	@(link_name = "NSSpeechPhonemeSymbolsProperty")
+	SpeechPhonemeSymbolsProperty: ^NS.String
+	@(link_name = "NSSpeechCurrentVoiceProperty")
+	SpeechCurrentVoiceProperty: ^NS.String
+	@(link_name = "NSSpeechCommandDelimiterProperty")
+	SpeechCommandDelimiterProperty: ^NS.String
+	@(link_name = "NSSpeechResetProperty")
+	SpeechResetProperty: ^NS.String
+	@(link_name = "NSSpeechOutputToFileURLProperty")
+	SpeechOutputToFileURLProperty: ^NS.String
+	@(link_name = "NSVoiceLanguage")
+	VoiceLanguage: ^NS.String
+	@(link_name = "NSSpeechModeText")
+	SpeechModeText: ^NS.String
+	@(link_name = "NSSpeechModePhoneme")
+	SpeechModePhoneme: ^NS.String
+	@(link_name = "NSSpeechModeNormal")
+	SpeechModeNormal: ^NS.String
+	@(link_name = "NSSpeechModeLiteral")
+	SpeechModeLiteral: ^NS.String
+	@(link_name = "NSSpeechStatusOutputBusy")
+	SpeechStatusOutputBusy: ^NS.String
+	@(link_name = "NSSpeechStatusOutputPaused")
+	SpeechStatusOutputPaused: ^NS.String
+	@(link_name = "NSSpeechStatusNumberOfCharactersLeft")
+	SpeechStatusNumberOfCharactersLeft: ^NS.String
+	@(link_name = "NSSpeechStatusPhonemeCode")
+	SpeechStatusPhonemeCode: ^NS.String
+	@(link_name = "NSSpeechErrorCount")
+	SpeechErrorCount: ^NS.String
+	@(link_name = "NSSpeechErrorOldestCode")
+	SpeechErrorOldestCode: ^NS.String
+	@(link_name = "NSSpeechErrorOldestCharacterOffset")
+	SpeechErrorOldestCharacterOffset: ^NS.String
+	@(link_name = "NSSpeechErrorNewestCode")
+	SpeechErrorNewestCode: ^NS.String
+	@(link_name = "NSSpeechErrorNewestCharacterOffset")
+	SpeechErrorNewestCharacterOffset: ^NS.String
+	@(link_name = "NSSpeechSynthesizerInfoIdentifier")
+	SpeechSynthesizerInfoIdentifier: ^NS.String
+	@(link_name = "NSSpeechSynthesizerInfoVersion")
+	SpeechSynthesizerInfoVersion: ^NS.String
+	@(link_name = "NSSpeechPhonemeInfoOpcode")
+	SpeechPhonemeInfoOpcode: ^NS.String
+	@(link_name = "NSSpeechPhonemeInfoSymbol")
+	SpeechPhonemeInfoSymbol: ^NS.String
+	@(link_name = "NSSpeechPhonemeInfoExample")
+	SpeechPhonemeInfoExample: ^NS.String
+	@(link_name = "NSSpeechPhonemeInfoHiliteStart")
+	SpeechPhonemeInfoHiliteStart: ^NS.String
+	@(link_name = "NSSpeechPhonemeInfoHiliteEnd")
+	SpeechPhonemeInfoHiliteEnd: ^NS.String
+	@(link_name = "NSSpeechCommandPrefix")
+	SpeechCommandPrefix: ^NS.String
+	@(link_name = "NSSpeechCommandSuffix")
+	SpeechCommandSuffix: ^NS.String
+	@(link_name = "NSTextCheckingOrthographyKey")
+	TextCheckingOrthographyKey: ^NS.String
+	@(link_name = "NSTextCheckingQuotesKey")
+	TextCheckingQuotesKey: ^NS.String
+	@(link_name = "NSTextCheckingReplacementsKey")
+	TextCheckingReplacementsKey: ^NS.String
+	@(link_name = "NSTextCheckingReferenceDateKey")
+	TextCheckingReferenceDateKey: ^NS.String
+	@(link_name = "NSTextCheckingReferenceTimeZoneKey")
+	TextCheckingReferenceTimeZoneKey: ^NS.String
+	@(link_name = "NSTextCheckingDocumentURLKey")
+	TextCheckingDocumentURLKey: ^NS.String
+	@(link_name = "NSTextCheckingDocumentTitleKey")
+	TextCheckingDocumentTitleKey: ^NS.String
+	@(link_name = "NSTextCheckingDocumentAuthorKey")
+	TextCheckingDocumentAuthorKey: ^NS.String
+	@(link_name = "NSTextCheckingRegularExpressionsKey")
+	TextCheckingRegularExpressionsKey: ^NS.String
+	@(link_name = "NSTextCheckingSelectedRangeKey")
+	TextCheckingSelectedRangeKey: ^NS.String
+	@(link_name = "NSTextCheckingGenerateInlinePredictionsKey")
+	TextCheckingGenerateInlinePredictionsKey: ^NS.String
+	@(link_name = "NSSpellCheckerDidChangeAutomaticSpellingCorrectionNotification")
+	SpellCheckerDidChangeAutomaticSpellingCorrectionNotification: ^NS.String
+	@(link_name = "NSSpellCheckerDidChangeAutomaticTextReplacementNotification")
+	SpellCheckerDidChangeAutomaticTextReplacementNotification: ^NS.String
+	@(link_name = "NSSpellCheckerDidChangeAutomaticQuoteSubstitutionNotification")
+	SpellCheckerDidChangeAutomaticQuoteSubstitutionNotification: ^NS.String
+	@(link_name = "NSSpellCheckerDidChangeAutomaticDashSubstitutionNotification")
+	SpellCheckerDidChangeAutomaticDashSubstitutionNotification: ^NS.String
+	@(link_name = "NSSpellCheckerDidChangeAutomaticCapitalizationNotification")
+	SpellCheckerDidChangeAutomaticCapitalizationNotification: ^NS.String
+	@(link_name = "NSSpellCheckerDidChangeAutomaticPeriodSubstitutionNotification")
+	SpellCheckerDidChangeAutomaticPeriodSubstitutionNotification: ^NS.String
+	@(link_name = "NSSpellCheckerDidChangeAutomaticTextCompletionNotification")
+	SpellCheckerDidChangeAutomaticTextCompletionNotification: ^NS.String
+	@(link_name = "NSSpellCheckerDidChangeAutomaticInlinePredictionNotification")
+	SpellCheckerDidChangeAutomaticInlinePredictionNotification: ^NS.String
+	@(link_name = "NSSplitViewWillResizeSubviewsNotification")
+	SplitViewWillResizeSubviewsNotification: ^NS.String
+	@(link_name = "NSSplitViewDidResizeSubviewsNotification")
+	SplitViewDidResizeSubviewsNotification: ^NS.String
+	@(link_name = "NSSplitViewItemUnspecifiedDimension")
+	SplitViewItemUnspecifiedDimension: CG.Float
+	@(link_name = "NSSplitViewControllerAutomaticDimension")
+	SplitViewControllerAutomaticDimension: CG.Float
+	@(link_name = "NSPopUpButtonCellWillPopUpNotification")
+	PopUpButtonCellWillPopUpNotification: ^NS.String
+	@(link_name = "NSPopUpButtonWillPopUpNotification")
+	PopUpButtonWillPopUpNotification: ^NS.String
+	@(link_name = "NSPrintOperationExistsException")
+	PrintOperationExistsException: ^NS.String
+	@(link_name = "NSPrintPhotoJobStyleHint")
+	PrintPhotoJobStyleHint: ^NS.String
+	@(link_name = "NSPrintAllPresetsJobStyleHint")
+	PrintAllPresetsJobStyleHint: ^NS.String
+	@(link_name = "NSPrintNoPresetsJobStyleHint")
+	PrintNoPresetsJobStyleHint: ^NS.String
+	@(link_name = "NSPrintPanelAccessorySummaryItemNameKey")
+	PrintPanelAccessorySummaryItemNameKey: ^NS.String
+	@(link_name = "NSPrintPanelAccessorySummaryItemDescriptionKey")
+	PrintPanelAccessorySummaryItemDescriptionKey: ^NS.String
+	@(link_name = "NSScreenColorSpaceDidChangeNotification")
+	ScreenColorSpaceDidChangeNotification: ^NS.String
+	@(link_name = "NSPreferredScrollerStyleDidChangeNotification")
+	PreferredScrollerStyleDidChangeNotification: ^NS.String
+	@(link_name = "NSTextFinderCaseInsensitiveKey")
+	TextFinderCaseInsensitiveKey: ^NS.String
+	@(link_name = "NSTextFinderMatchingTypeKey")
+	TextFinderMatchingTypeKey: ^NS.String
+	@(link_name = "NSScrollViewWillStartLiveMagnifyNotification")
+	ScrollViewWillStartLiveMagnifyNotification: ^NS.String
+	@(link_name = "NSScrollViewDidEndLiveMagnifyNotification")
+	ScrollViewDidEndLiveMagnifyNotification: ^NS.String
+	@(link_name = "NSScrollViewWillStartLiveScrollNotification")
+	ScrollViewWillStartLiveScrollNotification: ^NS.String
+	@(link_name = "NSScrollViewDidLiveScrollNotification")
+	ScrollViewDidLiveScrollNotification: ^NS.String
+	@(link_name = "NSScrollViewDidEndLiveScrollNotification")
+	ScrollViewDidEndLiveScrollNotification: ^NS.String
+	@(link_name = "NSGridViewSizeForContent")
+	GridViewSizeForContent: CG.Float
+	@(link_name = "NSTextContentTypeUsername")
+	TextContentTypeUsername: ^NS.String
+	@(link_name = "NSTextContentTypePassword")
+	TextContentTypePassword: ^NS.String
+	@(link_name = "NSTextContentTypeOneTimeCode")
+	TextContentTypeOneTimeCode: ^NS.String
+	@(link_name = "NSTextContentTypeNewPassword")
+	TextContentTypeNewPassword: ^NS.String
+	@(link_name = "NSTextContentTypeName")
+	TextContentTypeName: ^NS.String
+	@(link_name = "NSTextContentTypeNamePrefix")
+	TextContentTypeNamePrefix: ^NS.String
+	@(link_name = "NSTextContentTypeGivenName")
+	TextContentTypeGivenName: ^NS.String
+	@(link_name = "NSTextContentTypeMiddleName")
+	TextContentTypeMiddleName: ^NS.String
+	@(link_name = "NSTextContentTypeFamilyName")
+	TextContentTypeFamilyName: ^NS.String
+	@(link_name = "NSTextContentTypeNameSuffix")
+	TextContentTypeNameSuffix: ^NS.String
+	@(link_name = "NSTextContentTypeNickname")
+	TextContentTypeNickname: ^NS.String
+	@(link_name = "NSTextContentTypeJobTitle")
+	TextContentTypeJobTitle: ^NS.String
+	@(link_name = "NSTextContentTypeOrganizationName")
+	TextContentTypeOrganizationName: ^NS.String
+	@(link_name = "NSTextContentTypeLocation")
+	TextContentTypeLocation: ^NS.String
+	@(link_name = "NSTextContentTypeFullStreetAddress")
+	TextContentTypeFullStreetAddress: ^NS.String
+	@(link_name = "NSTextContentTypeStreetAddressLine1")
+	TextContentTypeStreetAddressLine1: ^NS.String
+	@(link_name = "NSTextContentTypeStreetAddressLine2")
+	TextContentTypeStreetAddressLine2: ^NS.String
+	@(link_name = "NSTextContentTypeAddressCity")
+	TextContentTypeAddressCity: ^NS.String
+	@(link_name = "NSTextContentTypeAddressState")
+	TextContentTypeAddressState: ^NS.String
+	@(link_name = "NSTextContentTypeAddressCityAndState")
+	TextContentTypeAddressCityAndState: ^NS.String
+	@(link_name = "NSTextContentTypeSublocality")
+	TextContentTypeSublocality: ^NS.String
+	@(link_name = "NSTextContentTypeCountryName")
+	TextContentTypeCountryName: ^NS.String
+	@(link_name = "NSTextContentTypePostalCode")
+	TextContentTypePostalCode: ^NS.String
+	@(link_name = "NSTextContentTypeTelephoneNumber")
+	TextContentTypeTelephoneNumber: ^NS.String
+	@(link_name = "NSTextContentTypeEmailAddress")
+	TextContentTypeEmailAddress: ^NS.String
+	@(link_name = "NSTextContentTypeURL")
+	TextContentTypeURL: ^NS.String
+	@(link_name = "NSTextContentTypeCreditCardNumber")
+	TextContentTypeCreditCardNumber: ^NS.String
+	@(link_name = "NSTextContentTypeCreditCardName")
+	TextContentTypeCreditCardName: ^NS.String
+	@(link_name = "NSTextContentTypeCreditCardGivenName")
+	TextContentTypeCreditCardGivenName: ^NS.String
+	@(link_name = "NSTextContentTypeCreditCardMiddleName")
+	TextContentTypeCreditCardMiddleName: ^NS.String
+	@(link_name = "NSTextContentTypeCreditCardFamilyName")
+	TextContentTypeCreditCardFamilyName: ^NS.String
+	@(link_name = "NSTextContentTypeCreditCardSecurityCode")
+	TextContentTypeCreditCardSecurityCode: ^NS.String
+	@(link_name = "NSTextContentTypeCreditCardExpiration")
+	TextContentTypeCreditCardExpiration: ^NS.String
+	@(link_name = "NSTextContentTypeCreditCardExpirationMonth")
+	TextContentTypeCreditCardExpirationMonth: ^NS.String
+	@(link_name = "NSTextContentTypeCreditCardExpirationYear")
+	TextContentTypeCreditCardExpirationYear: ^NS.String
+	@(link_name = "NSTextContentTypeCreditCardType")
+	TextContentTypeCreditCardType: ^NS.String
+	@(link_name = "NSTextContentTypeShipmentTrackingNumber")
+	TextContentTypeShipmentTrackingNumber: ^NS.String
+	@(link_name = "NSTextContentTypeFlightNumber")
+	TextContentTypeFlightNumber: ^NS.String
+	@(link_name = "NSTextContentTypeDateTime")
+	TextContentTypeDateTime: ^NS.String
+	@(link_name = "NSTextContentTypeBirthdate")
+	TextContentTypeBirthdate: ^NS.String
+	@(link_name = "NSTextContentTypeBirthdateDay")
+	TextContentTypeBirthdateDay: ^NS.String
+	@(link_name = "NSTextContentTypeBirthdateMonth")
+	TextContentTypeBirthdateMonth: ^NS.String
+	@(link_name = "NSTextContentTypeBirthdateYear")
+	TextContentTypeBirthdateYear: ^NS.String
+	@(link_name = "NSFontAttributeName")
+	FontAttributeName: ^NS.String
+	@(link_name = "NSParagraphStyleAttributeName")
+	ParagraphStyleAttributeName: ^NS.String
+	@(link_name = "NSForegroundColorAttributeName")
+	ForegroundColorAttributeName: ^NS.String
+	@(link_name = "NSBackgroundColorAttributeName")
+	BackgroundColorAttributeName: ^NS.String
+	@(link_name = "NSLigatureAttributeName")
+	LigatureAttributeName: ^NS.String
+	@(link_name = "NSKernAttributeName")
+	KernAttributeName: ^NS.String
+	@(link_name = "NSTrackingAttributeName")
+	TrackingAttributeName: ^NS.String
+	@(link_name = "NSStrikethroughStyleAttributeName")
+	StrikethroughStyleAttributeName: ^NS.String
+	@(link_name = "NSUnderlineStyleAttributeName")
+	UnderlineStyleAttributeName: ^NS.String
+	@(link_name = "NSStrokeColorAttributeName")
+	StrokeColorAttributeName: ^NS.String
+	@(link_name = "NSStrokeWidthAttributeName")
+	StrokeWidthAttributeName: ^NS.String
+	@(link_name = "NSShadowAttributeName")
+	ShadowAttributeName: ^NS.String
+	@(link_name = "NSTextEffectAttributeName")
+	TextEffectAttributeName: ^NS.String
+	@(link_name = "NSAttachmentAttributeName")
+	AttachmentAttributeName: ^NS.String
+	@(link_name = "NSLinkAttributeName")
+	LinkAttributeName: ^NS.String
+	@(link_name = "NSBaselineOffsetAttributeName")
+	BaselineOffsetAttributeName: ^NS.String
+	@(link_name = "NSUnderlineColorAttributeName")
+	UnderlineColorAttributeName: ^NS.String
+	@(link_name = "NSStrikethroughColorAttributeName")
+	StrikethroughColorAttributeName: ^NS.String
+	@(link_name = "NSWritingDirectionAttributeName")
+	WritingDirectionAttributeName: ^NS.String
+	@(link_name = "NSTextHighlightStyleAttributeName")
+	TextHighlightStyleAttributeName: ^NS.String
+	@(link_name = "NSTextHighlightColorSchemeAttributeName")
+	TextHighlightColorSchemeAttributeName: ^NS.String
+	@(link_name = "NSAdaptiveImageGlyphAttributeName")
+	AdaptiveImageGlyphAttributeName: ^NS.String
+	@(link_name = "NSWritingToolsExclusionAttributeName")
+	WritingToolsExclusionAttributeName: ^NS.String
+	@(link_name = "NSTextEffectLetterpressStyle")
+	TextEffectLetterpressStyle: ^NS.String
+	@(link_name = "NSTextHighlightStyleDefault")
+	TextHighlightStyleDefault: ^NS.String
+	@(link_name = "NSTextHighlightColorSchemeDefault")
+	TextHighlightColorSchemeDefault: ^NS.String
+	@(link_name = "NSTextHighlightColorSchemePurple")
+	TextHighlightColorSchemePurple: ^NS.String
+	@(link_name = "NSTextHighlightColorSchemePink")
+	TextHighlightColorSchemePink: ^NS.String
+	@(link_name = "NSTextHighlightColorSchemeOrange")
+	TextHighlightColorSchemeOrange: ^NS.String
+	@(link_name = "NSTextHighlightColorSchemeMint")
+	TextHighlightColorSchemeMint: ^NS.String
+	@(link_name = "NSTextHighlightColorSchemeBlue")
+	TextHighlightColorSchemeBlue: ^NS.String
+	@(link_name = "NSPlainTextDocumentType")
+	PlainTextDocumentType: ^NS.String
+	@(link_name = "NSRTFTextDocumentType")
+	RTFTextDocumentType: ^NS.String
+	@(link_name = "NSRTFDTextDocumentType")
+	RTFDTextDocumentType: ^NS.String
+	@(link_name = "NSHTMLTextDocumentType")
+	HTMLTextDocumentType: ^NS.String
+	@(link_name = "NSTextLayoutSectionOrientation")
+	TextLayoutSectionOrientation: ^NS.String
+	@(link_name = "NSTextLayoutSectionRange")
+	TextLayoutSectionRange: ^NS.String
+	@(link_name = "NSDocumentTypeDocumentAttribute")
+	DocumentTypeDocumentAttribute: ^NS.String
+	@(link_name = "NSCharacterEncodingDocumentAttribute")
+	CharacterEncodingDocumentAttribute: ^NS.String
+	@(link_name = "NSDefaultAttributesDocumentAttribute")
+	DefaultAttributesDocumentAttribute: ^NS.String
+	@(link_name = "NSPaperSizeDocumentAttribute")
+	PaperSizeDocumentAttribute: ^NS.String
+	@(link_name = "NSViewSizeDocumentAttribute")
+	ViewSizeDocumentAttribute: ^NS.String
+	@(link_name = "NSViewZoomDocumentAttribute")
+	ViewZoomDocumentAttribute: ^NS.String
+	@(link_name = "NSViewModeDocumentAttribute")
+	ViewModeDocumentAttribute: ^NS.String
+	@(link_name = "NSDefaultFontExcludedDocumentAttribute")
+	DefaultFontExcludedDocumentAttribute: ^NS.String
+	@(link_name = "NSReadOnlyDocumentAttribute")
+	ReadOnlyDocumentAttribute: ^NS.String
+	@(link_name = "NSBackgroundColorDocumentAttribute")
+	BackgroundColorDocumentAttribute: ^NS.String
+	@(link_name = "NSHyphenationFactorDocumentAttribute")
+	HyphenationFactorDocumentAttribute: ^NS.String
+	@(link_name = "NSDefaultTabIntervalDocumentAttribute")
+	DefaultTabIntervalDocumentAttribute: ^NS.String
+	@(link_name = "NSTextLayoutSectionsAttribute")
+	TextLayoutSectionsAttribute: ^NS.String
+	@(link_name = "NSTextScalingDocumentAttribute")
+	TextScalingDocumentAttribute: ^NS.String
+	@(link_name = "NSSourceTextScalingDocumentAttribute")
+	SourceTextScalingDocumentAttribute: ^NS.String
+	@(link_name = "NSCocoaVersionDocumentAttribute")
+	CocoaVersionDocumentAttribute: ^NS.String
+	@(link_name = "NSDocumentTypeDocumentOption")
+	DocumentTypeDocumentOption: ^NS.String
+	@(link_name = "NSDefaultAttributesDocumentOption")
+	DefaultAttributesDocumentOption: ^NS.String
+	@(link_name = "NSCharacterEncodingDocumentOption")
+	CharacterEncodingDocumentOption: ^NS.String
+	@(link_name = "NSTargetTextScalingDocumentOption")
+	TargetTextScalingDocumentOption: ^NS.String
+	@(link_name = "NSSourceTextScalingDocumentOption")
+	SourceTextScalingDocumentOption: ^NS.String
+	@(link_name = "NSTextKit1ListMarkerFormatDocumentOption")
+	TextKit1ListMarkerFormatDocumentOption: ^NS.String
+	@(link_name = "NSCursorAttributeName")
+	CursorAttributeName: ^NS.String
+	@(link_name = "NSToolTipAttributeName")
+	ToolTipAttributeName: ^NS.String
+	@(link_name = "NSMarkedClauseSegmentAttributeName")
+	MarkedClauseSegmentAttributeName: ^NS.String
+	@(link_name = "NSTextAlternativesAttributeName")
+	TextAlternativesAttributeName: ^NS.String
+	@(link_name = "NSSpellingStateAttributeName")
+	SpellingStateAttributeName: ^NS.String
+	@(link_name = "NSSuperscriptAttributeName")
+	SuperscriptAttributeName: ^NS.String
+	@(link_name = "NSGlyphInfoAttributeName")
+	GlyphInfoAttributeName: ^NS.String
+	@(link_name = "NSMacSimpleTextDocumentType")
+	MacSimpleTextDocumentType: ^NS.String
+	@(link_name = "NSDocFormatTextDocumentType")
+	DocFormatTextDocumentType: ^NS.String
+	@(link_name = "NSWordMLTextDocumentType")
+	WordMLTextDocumentType: ^NS.String
+	@(link_name = "NSWebArchiveTextDocumentType")
+	WebArchiveTextDocumentType: ^NS.String
+	@(link_name = "NSOfficeOpenXMLTextDocumentType")
+	OfficeOpenXMLTextDocumentType: ^NS.String
+	@(link_name = "NSOpenDocumentTextDocumentType")
+	OpenDocumentTextDocumentType: ^NS.String
+	@(link_name = "NSConvertedDocumentAttribute")
+	ConvertedDocumentAttribute: ^NS.String
+	@(link_name = "NSFileTypeDocumentAttribute")
+	FileTypeDocumentAttribute: ^NS.String
+	@(link_name = "NSTitleDocumentAttribute")
+	TitleDocumentAttribute: ^NS.String
+	@(link_name = "NSCompanyDocumentAttribute")
+	CompanyDocumentAttribute: ^NS.String
+	@(link_name = "NSCopyrightDocumentAttribute")
+	CopyrightDocumentAttribute: ^NS.String
+	@(link_name = "NSSubjectDocumentAttribute")
+	SubjectDocumentAttribute: ^NS.String
+	@(link_name = "NSAuthorDocumentAttribute")
+	AuthorDocumentAttribute: ^NS.String
+	@(link_name = "NSKeywordsDocumentAttribute")
+	KeywordsDocumentAttribute: ^NS.String
+	@(link_name = "NSCommentDocumentAttribute")
+	CommentDocumentAttribute: ^NS.String
+	@(link_name = "NSEditorDocumentAttribute")
+	EditorDocumentAttribute: ^NS.String
+	@(link_name = "NSCreationTimeDocumentAttribute")
+	CreationTimeDocumentAttribute: ^NS.String
+	@(link_name = "NSModificationTimeDocumentAttribute")
+	ModificationTimeDocumentAttribute: ^NS.String
+	@(link_name = "NSManagerDocumentAttribute")
+	ManagerDocumentAttribute: ^NS.String
+	@(link_name = "NSCategoryDocumentAttribute")
+	CategoryDocumentAttribute: ^NS.String
+	@(link_name = "NSAppearanceDocumentAttribute")
+	AppearanceDocumentAttribute: ^NS.String
+	@(link_name = "NSExcludedElementsDocumentAttribute")
+	ExcludedElementsDocumentAttribute: ^NS.String
+	@(link_name = "NSTextEncodingNameDocumentAttribute")
+	TextEncodingNameDocumentAttribute: ^NS.String
+	@(link_name = "NSPrefixSpacesDocumentAttribute")
+	PrefixSpacesDocumentAttribute: ^NS.String
+	@(link_name = "NSLeftMarginDocumentAttribute")
+	LeftMarginDocumentAttribute: ^NS.String
+	@(link_name = "NSRightMarginDocumentAttribute")
+	RightMarginDocumentAttribute: ^NS.String
+	@(link_name = "NSTopMarginDocumentAttribute")
+	TopMarginDocumentAttribute: ^NS.String
+	@(link_name = "NSBottomMarginDocumentAttribute")
+	BottomMarginDocumentAttribute: ^NS.String
+	@(link_name = "NSTextEncodingNameDocumentOption")
+	TextEncodingNameDocumentOption: ^NS.String
+	@(link_name = "NSBaseURLDocumentOption")
+	BaseURLDocumentOption: ^NS.String
+	@(link_name = "NSTimeoutDocumentOption")
+	TimeoutDocumentOption: ^NS.String
+	@(link_name = "NSWebPreferencesDocumentOption")
+	WebPreferencesDocumentOption: ^NS.String
+	@(link_name = "NSWebResourceLoadDelegateDocumentOption")
+	WebResourceLoadDelegateDocumentOption: ^NS.String
+	@(link_name = "NSTextSizeMultiplierDocumentOption")
+	TextSizeMultiplierDocumentOption: ^NS.String
+	@(link_name = "NSFileTypeDocumentOption")
+	FileTypeDocumentOption: ^NS.String
+	@(link_name = "NSCharacterShapeAttributeName")
+	CharacterShapeAttributeName: ^NS.String
+	@(link_name = "NSUsesScreenFontsDocumentAttribute")
+	UsesScreenFontsDocumentAttribute: ^NS.String
+	@(link_name = "NSObliquenessAttributeName")
+	ObliquenessAttributeName: ^NS.String
+	@(link_name = "NSExpansionAttributeName")
+	ExpansionAttributeName: ^NS.String
+	@(link_name = "NSVerticalGlyphFormAttributeName")
+	VerticalGlyphFormAttributeName: ^NS.String
+	@(link_name = "NSUnderlineStrikethroughMask")
+	UnderlineStrikethroughMask: NS.UInteger
+	@(link_name = "NSUnderlineByWordMask")
+	UnderlineByWordMask: NS.UInteger
+	@(link_name = "NSTextStorageWillProcessEditingNotification")
+	TextStorageWillProcessEditingNotification: ^NS.String
+	@(link_name = "NSTextStorageDidProcessEditingNotification")
+	TextStorageDidProcessEditingNotification: ^NS.String
+	@(link_name = "NSToolbarItemKey")
+	ToolbarItemKey: ^NS.String
+	@(link_name = "NSToolbarNewIndexKey")
+	ToolbarNewIndexKey: ^NS.String
+	@(link_name = "NSToolbarWillAddItemNotification")
+	ToolbarWillAddItemNotification: ^NS.String
+	@(link_name = "NSToolbarDidRemoveItemNotification")
+	ToolbarDidRemoveItemNotification: ^NS.String
+	@(link_name = "NSToolbarSpaceItemIdentifier")
+	ToolbarSpaceItemIdentifier: ^NS.String
+	@(link_name = "NSToolbarFlexibleSpaceItemIdentifier")
+	ToolbarFlexibleSpaceItemIdentifier: ^NS.String
+	@(link_name = "NSToolbarShowColorsItemIdentifier")
+	ToolbarShowColorsItemIdentifier: ^NS.String
+	@(link_name = "NSToolbarShowFontsItemIdentifier")
+	ToolbarShowFontsItemIdentifier: ^NS.String
+	@(link_name = "NSToolbarPrintItemIdentifier")
+	ToolbarPrintItemIdentifier: ^NS.String
+	@(link_name = "NSToolbarToggleSidebarItemIdentifier")
+	ToolbarToggleSidebarItemIdentifier: ^NS.String
+	@(link_name = "NSToolbarToggleInspectorItemIdentifier")
+	ToolbarToggleInspectorItemIdentifier: ^NS.String
+	@(link_name = "NSToolbarCloudSharingItemIdentifier")
+	ToolbarCloudSharingItemIdentifier: ^NS.String
+	@(link_name = "NSToolbarWritingToolsItemIdentifier")
+	ToolbarWritingToolsItemIdentifier: ^NS.String
+	@(link_name = "NSToolbarSidebarTrackingSeparatorItemIdentifier")
+	ToolbarSidebarTrackingSeparatorItemIdentifier: ^NS.String
+	@(link_name = "NSToolbarInspectorTrackingSeparatorItemIdentifier")
+	ToolbarInspectorTrackingSeparatorItemIdentifier: ^NS.String
+	@(link_name = "NSToolbarSeparatorItemIdentifier")
+	ToolbarSeparatorItemIdentifier: ^NS.String
+	@(link_name = "NSToolbarCustomizeToolbarItemIdentifier")
+	ToolbarCustomizeToolbarItemIdentifier: ^NS.String
+	@(link_name = "NSComboBoxWillPopUpNotification")
+	ComboBoxWillPopUpNotification: ^NS.String
+	@(link_name = "NSComboBoxWillDismissNotification")
+	ComboBoxWillDismissNotification: ^NS.String
+	@(link_name = "NSComboBoxSelectionDidChangeNotification")
+	ComboBoxSelectionDidChangeNotification: ^NS.String
+	@(link_name = "NSComboBoxSelectionIsChangingNotification")
+	ComboBoxSelectionIsChangingNotification: ^NS.String
+	@(link_name = "NSAllRomanInputSourcesLocaleIdentifier")
+	AllRomanInputSourcesLocaleIdentifier: ^NS.String
+	@(link_name = "NSTouchBarItemIdentifierCharacterPicker")
+	TouchBarItemIdentifierCharacterPicker: ^NS.String
+	@(link_name = "NSTouchBarItemIdentifierTextColorPicker")
+	TouchBarItemIdentifierTextColorPicker: ^NS.String
+	@(link_name = "NSTouchBarItemIdentifierTextStyle")
+	TouchBarItemIdentifierTextStyle: ^NS.String
+	@(link_name = "NSTouchBarItemIdentifierTextAlignment")
+	TouchBarItemIdentifierTextAlignment: ^NS.String
+	@(link_name = "NSTouchBarItemIdentifierTextList")
+	TouchBarItemIdentifierTextList: ^NS.String
+	@(link_name = "NSTouchBarItemIdentifierTextFormat")
+	TouchBarItemIdentifierTextFormat: ^NS.String
+	@(link_name = "NSTextViewWillChangeNotifyingTextViewNotification")
+	TextViewWillChangeNotifyingTextViewNotification: ^NS.String
+	@(link_name = "NSTextViewDidChangeSelectionNotification")
+	TextViewDidChangeSelectionNotification: ^NS.String
+	@(link_name = "NSTextViewDidChangeTypingAttributesNotification")
+	TextViewDidChangeTypingAttributesNotification: ^NS.String
+	@(link_name = "NSTextViewWillSwitchToNSLayoutManagerNotification")
+	TextViewWillSwitchToNSLayoutManagerNotification: ^NS.String
+	@(link_name = "NSTextViewDidSwitchToNSLayoutManagerNotification")
+	TextViewDidSwitchToNSLayoutManagerNotification: ^NS.String
+	@(link_name = "NSFindPanelSearchOptionsPboardType")
+	FindPanelSearchOptionsPboardType: ^NS.String
+	@(link_name = "NSFindPanelCaseInsensitiveSearch")
+	FindPanelCaseInsensitiveSearch: ^NS.String
+	@(link_name = "NSFindPanelSubstringMatch")
+	FindPanelSubstringMatch: ^NS.String
+	@(link_name = "NSTableViewSelectionDidChangeNotification")
+	TableViewSelectionDidChangeNotification: ^NS.String
+	@(link_name = "NSTableViewColumnDidMoveNotification")
+	TableViewColumnDidMoveNotification: ^NS.String
+	@(link_name = "NSTableViewColumnDidResizeNotification")
+	TableViewColumnDidResizeNotification: ^NS.String
+	@(link_name = "NSTableViewSelectionIsChangingNotification")
+	TableViewSelectionIsChangingNotification: ^NS.String
+	@(link_name = "NSTableViewRowViewKey")
+	TableViewRowViewKey: ^NS.String
+	@(link_name = "NSOutlineViewDisclosureButtonKey")
+	OutlineViewDisclosureButtonKey: ^NS.String
+	@(link_name = "NSOutlineViewShowHideButtonKey")
+	OutlineViewShowHideButtonKey: ^NS.String
+	@(link_name = "NSOutlineViewSelectionDidChangeNotification")
+	OutlineViewSelectionDidChangeNotification: ^NS.String
+	@(link_name = "NSOutlineViewColumnDidMoveNotification")
+	OutlineViewColumnDidMoveNotification: ^NS.String
+	@(link_name = "NSOutlineViewColumnDidResizeNotification")
+	OutlineViewColumnDidResizeNotification: ^NS.String
+	@(link_name = "NSOutlineViewSelectionIsChangingNotification")
+	OutlineViewSelectionIsChangingNotification: ^NS.String
+	@(link_name = "NSOutlineViewItemWillExpandNotification")
+	OutlineViewItemWillExpandNotification: ^NS.String
+	@(link_name = "NSOutlineViewItemDidExpandNotification")
+	OutlineViewItemDidExpandNotification: ^NS.String
+	@(link_name = "NSOutlineViewItemWillCollapseNotification")
+	OutlineViewItemWillCollapseNotification: ^NS.String
+	@(link_name = "NSOutlineViewItemDidCollapseNotification")
+	OutlineViewItemDidCollapseNotification: ^NS.String
+	@(link_name = "NSRulerViewUnitInches")
+	RulerViewUnitInches: ^NS.String
+	@(link_name = "NSRulerViewUnitCentimeters")
+	RulerViewUnitCentimeters: ^NS.String
+	@(link_name = "NSRulerViewUnitPoints")
+	RulerViewUnitPoints: ^NS.String
+	@(link_name = "NSRulerViewUnitPicas")
+	RulerViewUnitPicas: ^NS.String
+	@(link_name = "NSInterfaceStyleDefault")
+	InterfaceStyleDefault: ^NS.String
+	@(link_name = "NSSoundPboardType")
+	SoundPboardType: ^NS.String
+	@(link_name = "NSDrawerWillOpenNotification")
+	DrawerWillOpenNotification: ^NS.String
+	@(link_name = "NSDrawerDidOpenNotification")
+	DrawerDidOpenNotification: ^NS.String
+	@(link_name = "NSDrawerWillCloseNotification")
+	DrawerWillCloseNotification: ^NS.String
+	@(link_name = "NSDrawerDidCloseNotification")
+	DrawerDidCloseNotification: ^NS.String
+	@(link_name = "NSTextListMarkerBox")
+	TextListMarkerBox: ^NS.String
+	@(link_name = "NSTextListMarkerCheck")
+	TextListMarkerCheck: ^NS.String
+	@(link_name = "NSTextListMarkerCircle")
+	TextListMarkerCircle: ^NS.String
+	@(link_name = "NSTextListMarkerDiamond")
+	TextListMarkerDiamond: ^NS.String
+	@(link_name = "NSTextListMarkerDisc")
+	TextListMarkerDisc: ^NS.String
+	@(link_name = "NSTextListMarkerHyphen")
+	TextListMarkerHyphen: ^NS.String
+	@(link_name = "NSTextListMarkerSquare")
+	TextListMarkerSquare: ^NS.String
+	@(link_name = "NSTextListMarkerLowercaseHexadecimal")
+	TextListMarkerLowercaseHexadecimal: ^NS.String
+	@(link_name = "NSTextListMarkerUppercaseHexadecimal")
+	TextListMarkerUppercaseHexadecimal: ^NS.String
+	@(link_name = "NSTextListMarkerOctal")
+	TextListMarkerOctal: ^NS.String
+	@(link_name = "NSTextListMarkerLowercaseAlpha")
+	TextListMarkerLowercaseAlpha: ^NS.String
+	@(link_name = "NSTextListMarkerUppercaseAlpha")
+	TextListMarkerUppercaseAlpha: ^NS.String
+	@(link_name = "NSTextListMarkerLowercaseLatin")
+	TextListMarkerLowercaseLatin: ^NS.String
+	@(link_name = "NSTextListMarkerUppercaseLatin")
+	TextListMarkerUppercaseLatin: ^NS.String
+	@(link_name = "NSTextListMarkerLowercaseRoman")
+	TextListMarkerLowercaseRoman: ^NS.String
+	@(link_name = "NSTextListMarkerUppercaseRoman")
+	TextListMarkerUppercaseRoman: ^NS.String
+	@(link_name = "NSTextListMarkerDecimal")
+	TextListMarkerDecimal: ^NS.String
+	@(link_name = "NSRuleEditorPredicateLeftExpression")
+	RuleEditorPredicateLeftExpression: ^NS.String
+	@(link_name = "NSRuleEditorPredicateRightExpression")
+	RuleEditorPredicateRightExpression: ^NS.String
+	@(link_name = "NSRuleEditorPredicateComparisonModifier")
+	RuleEditorPredicateComparisonModifier: ^NS.String
+	@(link_name = "NSRuleEditorPredicateOptions")
+	RuleEditorPredicateOptions: ^NS.String
+	@(link_name = "NSRuleEditorPredicateOperatorType")
+	RuleEditorPredicateOperatorType: ^NS.String
+	@(link_name = "NSRuleEditorPredicateCustomSelector")
+	RuleEditorPredicateCustomSelector: ^NS.String
+	@(link_name = "NSRuleEditorPredicateCompoundType")
+	RuleEditorPredicateCompoundType: ^NS.String
+	@(link_name = "NSRuleEditorRowsDidChangeNotification")
+	RuleEditorRowsDidChangeNotification: ^NS.String
+	@(link_name = "NSTextInputContextKeyboardSelectionDidChangeNotification")
+	TextInputContextKeyboardSelectionDidChangeNotification: ^NS.String
+	@(link_name = "NSApplicationDidFinishRestoringWindowsNotification")
+	ApplicationDidFinishRestoringWindowsNotification: ^NS.String
+	@(link_name = "NSTextAlternativesSelectedAlternativeStringNotification")
+	TextAlternativesSelectedAlternativeStringNotification: ^NS.String
+	@(link_name = "NSTypeIdentifierDateText")
+	TypeIdentifierDateText: ^NS.String
+	@(link_name = "NSTypeIdentifierAddressText")
+	TypeIdentifierAddressText: ^NS.String
+	@(link_name = "NSTypeIdentifierPhoneNumberText")
+	TypeIdentifierPhoneNumberText: ^NS.String
+	@(link_name = "NSTypeIdentifierTransitInformationText")
+	TypeIdentifierTransitInformationText: ^NS.String
+	@(link_name = "NSTextContentStorageUnsupportedAttributeAddedNotification")
+	TextContentStorageUnsupportedAttributeAddedNotification: ^NS.String
 }
 
-@(default_calling_convention="c")
+@(default_calling_convention = "c")
 foreign lib {
-	@(link_name="NSBestDepth")
+	@(link_name = "NSBestDepth")
 	BestDepth :: proc(colorSpace: ColorSpaceName, bps: NS.Integer, bpp: NS.Integer, planar: bool, exactMatch: ^bool) -> WindowDepth ---
 
-	@(link_name="NSPlanarFromDepth")
+	@(link_name = "NSPlanarFromDepth")
 	PlanarFromDepth :: proc(depth: WindowDepth) -> bool ---
 
-	@(link_name="NSColorSpaceFromDepth")
+	@(link_name = "NSColorSpaceFromDepth")
 	ColorSpaceFromDepth :: proc(depth: WindowDepth) -> ^NS.String ---
 
-	@(link_name="NSBitsPerSampleFromDepth")
+	@(link_name = "NSBitsPerSampleFromDepth")
 	BitsPerSampleFromDepth :: proc(depth: WindowDepth) -> NS.Integer ---
 
-	@(link_name="NSBitsPerPixelFromDepth")
+	@(link_name = "NSBitsPerPixelFromDepth")
 	BitsPerPixelFromDepth :: proc(depth: WindowDepth) -> NS.Integer ---
 
-	@(link_name="NSNumberOfColorComponents")
+	@(link_name = "NSNumberOfColorComponents")
 	NumberOfColorComponents :: proc(colorSpaceName: ColorSpaceName) -> NS.Integer ---
 
-	@(link_name="NSAvailableWindowDepths")
+	@(link_name = "NSAvailableWindowDepths")
 	AvailableWindowDepths :: proc() -> ^WindowDepth ---
 
-	@(link_name="NSRectFill")
+	@(link_name = "NSRectFill")
 	RectFill :: proc(rect: NS.Rect) ---
 
-	@(link_name="NSRectFillList")
+	@(link_name = "NSRectFillList")
 	RectFillList :: proc(rects: ^NS.Rect, count: NS.Integer) ---
 
-	@(link_name="NSRectFillListWithGrays")
+	@(link_name = "NSRectFillListWithGrays")
 	RectFillListWithGrays :: proc(rects: ^NS.Rect, grays: ^CG.Float, num: NS.Integer) ---
 
-	@(link_name="NSRectFillListWithColors")
+	@(link_name = "NSRectFillListWithColors")
 	RectFillListWithColors :: proc(rects: ^NS.Rect, colors: ^^Color, num: NS.Integer) ---
 
-	@(link_name="NSRectFillUsingOperation")
+	@(link_name = "NSRectFillUsingOperation")
 	RectFillUsingOperation :: proc(rect: NS.Rect, op: CompositingOperation) ---
 
-	@(link_name="NSRectFillListUsingOperation")
+	@(link_name = "NSRectFillListUsingOperation")
 	RectFillListUsingOperation :: proc(rects: ^NS.Rect, count: NS.Integer, op: CompositingOperation) ---
 
-	@(link_name="NSRectFillListWithColorsUsingOperation")
+	@(link_name = "NSRectFillListWithColorsUsingOperation")
 	RectFillListWithColorsUsingOperation :: proc(rects: ^NS.Rect, colors: ^^Color, num: NS.Integer, op: CompositingOperation) ---
 
-	@(link_name="NSFrameRect")
+	@(link_name = "NSFrameRect")
 	FrameRect :: proc(rect: NS.Rect) ---
 
-	@(link_name="NSFrameRectWithWidth")
+	@(link_name = "NSFrameRectWithWidth")
 	FrameRectWithWidth :: proc(rect: NS.Rect, frameWidth: CG.Float) ---
 
-	@(link_name="NSFrameRectWithWidthUsingOperation")
+	@(link_name = "NSFrameRectWithWidthUsingOperation")
 	FrameRectWithWidthUsingOperation :: proc(rect: NS.Rect, frameWidth: CG.Float, op: CompositingOperation) ---
 
-	@(link_name="NSRectClip")
+	@(link_name = "NSRectClip")
 	RectClip :: proc(rect: NS.Rect) ---
 
-	@(link_name="NSRectClipList")
+	@(link_name = "NSRectClipList")
 	RectClipList :: proc(rects: ^NS.Rect, count: NS.Integer) ---
 
-	@(link_name="NSDrawTiledRects")
+	@(link_name = "NSDrawTiledRects")
 	DrawTiledRects :: proc(boundsRect: NS.Rect, clipRect: NS.Rect, sides: ^NS.RectEdge, grays: ^CG.Float, count: NS.Integer) -> NS.Rect ---
 
-	@(link_name="NSDrawGrayBezel")
+	@(link_name = "NSDrawGrayBezel")
 	DrawGrayBezel :: proc(rect: NS.Rect, clipRect: NS.Rect) ---
 
-	@(link_name="NSDrawGroove")
+	@(link_name = "NSDrawGroove")
 	DrawGroove :: proc(rect: NS.Rect, clipRect: NS.Rect) ---
 
-	@(link_name="NSDrawWhiteBezel")
+	@(link_name = "NSDrawWhiteBezel")
 	DrawWhiteBezel :: proc(rect: NS.Rect, clipRect: NS.Rect) ---
 
-	@(link_name="NSDrawButton")
+	@(link_name = "NSDrawButton")
 	DrawButton :: proc(rect: NS.Rect, clipRect: NS.Rect) ---
 
-	@(link_name="NSEraseRect")
+	@(link_name = "NSEraseRect")
 	EraseRect :: proc(rect: NS.Rect) ---
 
-	@(link_name="NSReadPixel")
+	@(link_name = "NSReadPixel")
 	ReadPixel :: proc(passedPoint: CG.Point) -> ^Color ---
 
-	@(link_name="NSDrawBitmap")
+	@(link_name = "NSDrawBitmap")
 	DrawBitmap :: proc(rect: NS.Rect, width: NS.Integer, height: NS.Integer, bps: NS.Integer, spp: NS.Integer, bpp: NS.Integer, bpr: NS.Integer, isPlanar: bool, hasAlpha: bool, colorSpaceName: ColorSpaceName, data: ^^cffi.uchar) ---
 
-	@(link_name="NSHighlightRect")
+	@(link_name = "NSHighlightRect")
 	HighlightRect :: proc(rect: NS.Rect) ---
 
-	@(link_name="NSBeep")
+	@(link_name = "NSBeep")
 	Beep :: proc() ---
 
-	@(link_name="NSGetWindowServerMemory")
+	@(link_name = "NSGetWindowServerMemory")
 	GetWindowServerMemory :: proc(_context: NS.Integer, virtualMemory: ^NS.Integer, windowBackingMemory: ^NS.Integer, windowDumpString: ^^NS.String) -> NS.Integer ---
 
-	@(link_name="NSDrawColorTiledRects")
+	@(link_name = "NSDrawColorTiledRects")
 	DrawColorTiledRects :: proc(boundsRect: NS.Rect, clipRect: NS.Rect, sides: ^NS.RectEdge, colors: ^^Color, count: NS.Integer) -> NS.Rect ---
 
-	@(link_name="NSDrawDarkBezel")
+	@(link_name = "NSDrawDarkBezel")
 	DrawDarkBezel :: proc(rect: NS.Rect, clipRect: NS.Rect) ---
 
-	@(link_name="NSDrawLightBezel")
+	@(link_name = "NSDrawLightBezel")
 	DrawLightBezel :: proc(rect: NS.Rect, clipRect: NS.Rect) ---
 
-	@(link_name="NSDottedFrameRect")
+	@(link_name = "NSDottedFrameRect")
 	DottedFrameRect :: proc(rect: NS.Rect) ---
 
-	@(link_name="NSDrawWindowBackground")
+	@(link_name = "NSDrawWindowBackground")
 	DrawWindowBackground :: proc(rect: NS.Rect) ---
 
-	@(link_name="NSSetFocusRingStyle")
+	@(link_name = "NSSetFocusRingStyle")
 	SetFocusRingStyle :: proc(placement: FocusRingPlacement) ---
 
-	@(link_name="NSDisableScreenUpdates")
+	@(link_name = "NSDisableScreenUpdates")
 	DisableScreenUpdates :: proc() ---
 
-	@(link_name="NSEnableScreenUpdates")
+	@(link_name = "NSEnableScreenUpdates")
 	EnableScreenUpdates :: proc() ---
 
-	@(link_name="NSShowAnimationEffect")
+	@(link_name = "NSShowAnimationEffect")
 	ShowAnimationEffect :: proc(animationEffect: AnimationEffect, centerLocation: CG.Point, size: NS.Size, animationDelegate: id, didEndSelector: SEL, contextInfo: rawptr) ---
 
-	@(link_name="NSCountWindows")
+	@(link_name = "NSCountWindows")
 	CountWindows :: proc(count: ^NS.Integer) ---
 
-	@(link_name="NSWindowList")
+	@(link_name = "NSWindowList")
 	WindowList :: proc(size: NS.Integer, list: ^NS.Integer) ---
 
-	@(link_name="NSCountWindowsForContext")
+	@(link_name = "NSCountWindowsForContext")
 	CountWindowsForContext :: proc(_context: NS.Integer, count: ^NS.Integer) ---
 
-	@(link_name="NSWindowListForContext")
+	@(link_name = "NSWindowListForContext")
 	WindowListForContext :: proc(_context: NS.Integer, size: NS.Integer, list: ^NS.Integer) ---
 
-	@(link_name="NSCopyBits")
+	@(link_name = "NSCopyBits")
 	CopyBits :: proc(srcGState: NS.Integer, srcRect: NS.Rect, destPoint: CG.Point) ---
 
-	@(link_name="NSAccessibilityPostNotificationWithUserInfo")
+	@(link_name = "NSAccessibilityPostNotificationWithUserInfo")
 	AccessibilityPostNotificationWithUserInfo :: proc(element: id, notification: AccessibilityNotificationName, userInfo: ^NS.Dictionary) ---
 
-	@(link_name="NSAccessibilityFrameInView")
+	@(link_name = "NSAccessibilityFrameInView")
 	AccessibilityFrameInView :: proc(parentView: ^View, frame: NS.Rect) -> NS.Rect ---
 
-	@(link_name="NSAccessibilityPointInView")
+	@(link_name = "NSAccessibilityPointInView")
 	AccessibilityPointInView :: proc(parentView: ^View, point: CG.Point) -> CG.Point ---
 
-	@(link_name="NSAccessibilitySetMayContainProtectedContent")
+	@(link_name = "NSAccessibilitySetMayContainProtectedContent")
 	AccessibilitySetMayContainProtectedContent :: proc(flag: bool) -> bool ---
 
-	@(link_name="NSAccessibilityRoleDescription")
+	@(link_name = "NSAccessibilityRoleDescription")
 	AccessibilityRoleDescription :: proc(role: AccessibilityRole, subrole: AccessibilitySubrole) -> ^NS.String ---
 
-	@(link_name="NSAccessibilityRoleDescriptionForUIElement")
+	@(link_name = "NSAccessibilityRoleDescriptionForUIElement")
 	AccessibilityRoleDescriptionForUIElement :: proc(element: id) -> ^NS.String ---
 
-	@(link_name="NSAccessibilityActionDescription")
+	@(link_name = "NSAccessibilityActionDescription")
 	AccessibilityActionDescription :: proc(action: AccessibilityActionName) -> ^NS.String ---
 
-	@(link_name="NSAccessibilityRaiseBadArgumentException")
+	@(link_name = "NSAccessibilityRaiseBadArgumentException")
 	AccessibilityRaiseBadArgumentException :: proc(element: id, attribute: AccessibilityAttributeName, value: id) ---
 
-	@(link_name="NSAccessibilityUnignoredAncestor")
+	@(link_name = "NSAccessibilityUnignoredAncestor")
 	AccessibilityUnignoredAncestor :: proc(element: id) -> id ---
 
-	@(link_name="NSAccessibilityUnignoredDescendant")
+	@(link_name = "NSAccessibilityUnignoredDescendant")
 	AccessibilityUnignoredDescendant :: proc(element: id) -> id ---
 
-	@(link_name="NSAccessibilityUnignoredChildren")
+	@(link_name = "NSAccessibilityUnignoredChildren")
 	AccessibilityUnignoredChildren :: proc(originalChildren: ^NS.Array) -> ^NS.Array ---
 
-	@(link_name="NSAccessibilityUnignoredChildrenForOnlyChild")
+	@(link_name = "NSAccessibilityUnignoredChildrenForOnlyChild")
 	AccessibilityUnignoredChildrenForOnlyChild :: proc(originalChild: id) -> ^NS.Array ---
 
-	@(link_name="NSAccessibilityPostNotification")
+	@(link_name = "NSAccessibilityPostNotification")
 	AccessibilityPostNotification :: proc(element: id, notification: AccessibilityNotificationName) ---
 
-	@(link_name="NSCreateFilenamePboardType")
+	@(link_name = "NSCreateFilenamePboardType")
 	CreateFilenamePboardType :: proc(fileType: ^NS.String) -> ^NS.String ---
 
-	@(link_name="NSCreateFileContentsPboardType")
+	@(link_name = "NSCreateFileContentsPboardType")
 	CreateFileContentsPboardType :: proc(fileType: ^NS.String) -> ^NS.String ---
 
-	@(link_name="NSGetFileType")
+	@(link_name = "NSGetFileType")
 	GetFileType :: proc(pboardType: PasteboardType) -> ^NS.String ---
 
-	@(link_name="NSGetFileTypes")
+	@(link_name = "NSGetFileTypes")
 	GetFileTypes :: proc(pboardTypes: ^NS.Array) -> ^NS.Array ---
 
-	@(link_name="NSDrawThreePartImage")
+	@(link_name = "NSDrawThreePartImage")
 	DrawThreePartImage :: proc(frame: NS.Rect, startCap: ^Image, centerFill: ^Image, endCap: ^Image, vertical: bool, op: CompositingOperation, alphaFraction: CG.Float, flipped: bool) ---
 
-	@(link_name="NSDrawNinePartImage")
+	@(link_name = "NSDrawNinePartImage")
 	DrawNinePartImage :: proc(frame: NS.Rect, topLeftCorner: ^Image, topEdgeFill: ^Image, topRightCorner: ^Image, leftEdgeFill: ^Image, centerFill: ^Image, rightEdgeFill: ^Image, bottomLeftCorner: ^Image, bottomEdgeFill: ^Image, bottomRightCorner: ^Image, op: CompositingOperation, alphaFraction: CG.Float, flipped: bool) ---
 
-	@(link_name="NSIsControllerMarker")
+	@(link_name = "NSIsControllerMarker")
 	IsControllerMarker :: proc(object: id) -> bool ---
 
-	@(link_name="NSApplicationMain")
+	@(link_name = "NSApplicationMain")
 	ApplicationMain :: proc(argc: cffi.int, argv: ^cstring) -> cffi.int ---
 
-	@(link_name="NSApplicationLoad")
+	@(link_name = "NSApplicationLoad")
 	ApplicationLoad :: proc() -> bool ---
 
-	@(link_name="NSShowsServicesMenuItem")
+	@(link_name = "NSShowsServicesMenuItem")
 	ShowsServicesMenuItem :: proc(itemName: ^NS.String) -> bool ---
 
-	@(link_name="NSSetShowsServicesMenuItem")
+	@(link_name = "NSSetShowsServicesMenuItem")
 	SetShowsServicesMenuItem :: proc(itemName: ^NS.String, enabled: bool) -> NS.Integer ---
 
-	@(link_name="NSUpdateDynamicServices")
+	@(link_name = "NSUpdateDynamicServices")
 	UpdateDynamicServices :: proc() ---
 
-	@(link_name="NSPerformService")
+	@(link_name = "NSPerformService")
 	PerformService :: proc(itemName: ^NS.String, pboard: ^Pasteboard) -> bool ---
 
-	@(link_name="NSRegisterServicesProvider")
+	@(link_name = "NSRegisterServicesProvider")
 	RegisterServicesProvider :: proc(provider: id, name: ServiceProviderName) ---
 
-	@(link_name="NSUnregisterServicesProvider")
+	@(link_name = "NSUnregisterServicesProvider")
 	UnregisterServicesProvider :: proc(name: ServiceProviderName) ---
 
-	@(link_name="NSConvertGlyphsToPackedGlyphs")
+	@(link_name = "NSConvertGlyphsToPackedGlyphs")
 	ConvertGlyphsToPackedGlyphs :: proc(glBuf: ^Glyph, count: NS.Integer, packing: MultibyteGlyphPacking, packedGlyphs: cstring) -> NS.Integer ---
 
-	@(link_name="NSRunAlertPanelRelativeToWindow")
+	@(link_name = "NSRunAlertPanelRelativeToWindow")
 	RunAlertPanelRelativeToWindow :: proc(title: ^NS.String, msgFormat: ^NS.String, defaultButton: ^NS.String, alternateButton: ^NS.String, otherButton: ^NS.String, docWindow: ^Window, #c_vararg args: ..any) -> NS.Integer ---
 
-	@(link_name="NSRunInformationalAlertPanelRelativeToWindow")
+	@(link_name = "NSRunInformationalAlertPanelRelativeToWindow")
 	RunInformationalAlertPanelRelativeToWindow :: proc(title: ^NS.String, msgFormat: ^NS.String, defaultButton: ^NS.String, alternateButton: ^NS.String, otherButton: ^NS.String, docWindow: ^Window, #c_vararg args: ..any) -> NS.Integer ---
 
-	@(link_name="NSRunCriticalAlertPanelRelativeToWindow")
+	@(link_name = "NSRunCriticalAlertPanelRelativeToWindow")
 	RunCriticalAlertPanelRelativeToWindow :: proc(title: ^NS.String, msgFormat: ^NS.String, defaultButton: ^NS.String, alternateButton: ^NS.String, otherButton: ^NS.String, docWindow: ^Window, #c_vararg args: ..any) -> NS.Integer ---
 
-	@(link_name="NSRunAlertPanel")
+	@(link_name = "NSRunAlertPanel")
 	RunAlertPanel :: proc(title: ^NS.String, msgFormat: ^NS.String, defaultButton: ^NS.String, alternateButton: ^NS.String, otherButton: ^NS.String, #c_vararg args: ..any) -> NS.Integer ---
 
-	@(link_name="NSRunInformationalAlertPanel")
+	@(link_name = "NSRunInformationalAlertPanel")
 	RunInformationalAlertPanel :: proc(title: ^NS.String, msgFormat: ^NS.String, defaultButton: ^NS.String, alternateButton: ^NS.String, otherButton: ^NS.String, #c_vararg args: ..any) -> NS.Integer ---
 
-	@(link_name="NSRunCriticalAlertPanel")
+	@(link_name = "NSRunCriticalAlertPanel")
 	RunCriticalAlertPanel :: proc(title: ^NS.String, msgFormat: ^NS.String, defaultButton: ^NS.String, alternateButton: ^NS.String, otherButton: ^NS.String, #c_vararg args: ..any) -> NS.Integer ---
 
-	@(link_name="NSBeginAlertSheet")
+	@(link_name = "NSBeginAlertSheet")
 	BeginAlertSheet :: proc(title: ^NS.String, defaultButton: ^NS.String, alternateButton: ^NS.String, otherButton: ^NS.String, docWindow: ^Window, modalDelegate: id, didEndSelector: SEL, didDismissSelector: SEL, contextInfo: rawptr, msgFormat: ^NS.String, #c_vararg args: ..any) ---
 
-	@(link_name="NSBeginInformationalAlertSheet")
+	@(link_name = "NSBeginInformationalAlertSheet")
 	BeginInformationalAlertSheet :: proc(title: ^NS.String, defaultButton: ^NS.String, alternateButton: ^NS.String, otherButton: ^NS.String, docWindow: ^Window, modalDelegate: id, didEndSelector: SEL, didDismissSelector: SEL, contextInfo: rawptr, msgFormat: ^NS.String, #c_vararg args: ..any) ---
 
-	@(link_name="NSBeginCriticalAlertSheet")
+	@(link_name = "NSBeginCriticalAlertSheet")
 	BeginCriticalAlertSheet :: proc(title: ^NS.String, defaultButton: ^NS.String, alternateButton: ^NS.String, otherButton: ^NS.String, docWindow: ^Window, modalDelegate: id, didEndSelector: SEL, didDismissSelector: SEL, contextInfo: rawptr, msgFormat: ^NS.String, #c_vararg args: ..any) ---
 
-	@(link_name="NSGetAlertPanel")
+	@(link_name = "NSGetAlertPanel")
 	GetAlertPanel :: proc(title: ^NS.String, msgFormat: ^NS.String, defaultButton: ^NS.String, alternateButton: ^NS.String, otherButton: ^NS.String, #c_vararg args: ..any) -> id ---
 
-	@(link_name="NSGetInformationalAlertPanel")
+	@(link_name = "NSGetInformationalAlertPanel")
 	GetInformationalAlertPanel :: proc(title: ^NS.String, msgFormat: ^NS.String, defaultButton: ^NS.String, alternateButton: ^NS.String, otherButton: ^NS.String, #c_vararg args: ..any) -> id ---
 
-	@(link_name="NSGetCriticalAlertPanel")
+	@(link_name = "NSGetCriticalAlertPanel")
 	GetCriticalAlertPanel :: proc(title: ^NS.String, msgFormat: ^NS.String, defaultButton: ^NS.String, alternateButton: ^NS.String, otherButton: ^NS.String, #c_vararg args: ..any) -> id ---
 
-	@(link_name="NSReleaseAlertPanel")
+	@(link_name = "NSReleaseAlertPanel")
 	ReleaseAlertPanel :: proc(panel: id) ---
 
-	@(link_name="NSInterfaceStyleForKey")
+	@(link_name = "NSInterfaceStyleForKey")
 	InterfaceStyleForKey :: proc(key: ^NS.String, responder: ^Responder) -> InterfaceStyle ---
 
-	@(link_name="NSOpenGLSetOption")
+	@(link_name = "NSOpenGLSetOption")
 	OpenGLSetOption :: proc(pname: OpenGLGlobalOption, param: CA.GLint) ---
 
-	@(link_name="NSOpenGLGetOption")
+	@(link_name = "NSOpenGLGetOption")
 	OpenGLGetOption :: proc(pname: OpenGLGlobalOption, param: ^CA.GLint) ---
 
-	@(link_name="NSOpenGLGetVersion")
+	@(link_name = "NSOpenGLGetVersion")
 	OpenGLGetVersion :: proc(major: ^CA.GLint, minor: ^CA.GLint) ---
 
 }
@@ -2619,7 +4093,7 @@ StoryboardName :: distinct ^NS.String
 
 StoryboardSceneIdentifier :: distinct ^NS.String
 
-StoryboardControllerCreator :: ^Objc_Block(proc "c" ( coder: ^NS.Coder ) -> id)
+StoryboardControllerCreator :: ^Objc_Block(proc "c" (coder: ^NS.Coder) -> id)
 
 StoryboardSegueIdentifier :: distinct ^NS.String
 
@@ -2627,17 +4101,19 @@ CollectionViewSupplementaryElementKind :: distinct ^NS.String
 
 CollectionViewDecorationElementKind :: distinct ^NS.String
 
-CollectionViewCompositionalLayoutSectionProvider :: ^Objc_Block(proc "c" ( section: NS.Integer, _0: ^CollectionLayoutEnvironment ) -> ^CollectionLayoutSection)
+CollectionViewCompositionalLayoutSectionProvider :: ^Objc_Block(proc "c" (section: NS.Integer, _0: ^CollectionLayoutEnvironment) -> ^CollectionLayoutSection)
 
-CollectionLayoutSectionVisibleItemsInvalidationHandler :: ^Objc_Block(proc "c" ( visibleItems: ^NS.Array, contentOffset: CG.Point, layoutEnvironment: ^CollectionLayoutEnvironment ))
+CollectionLayoutSectionVisibleItemsInvalidationHandler :: ^Objc_Block(
+	proc "c" (visibleItems: ^NS.Array, contentOffset: CG.Point, layoutEnvironment: ^CollectionLayoutEnvironment),
+)
 
-CollectionLayoutGroupCustomItemProvider :: ^Objc_Block(proc "c" ( layoutEnvironment: ^CollectionLayoutEnvironment ) -> ^NS.Array)
+CollectionLayoutGroupCustomItemProvider :: ^Objc_Block(proc "c" (layoutEnvironment: ^CollectionLayoutEnvironment) -> ^NS.Array)
 
 CollectionViewTransitionLayoutAnimatedKey :: distinct ^NS.String
 
-CollectionViewDiffableDataSourceItemProvider :: ^Objc_Block(proc "c" ( _0: ^CollectionView, _1: ^NS.IndexPath, _2: ^id ) -> ^CollectionViewItem)
+CollectionViewDiffableDataSourceItemProvider :: ^Objc_Block(proc "c" (_0: ^CollectionView, _1: ^NS.IndexPath, _2: ^id) -> ^CollectionViewItem)
 
-CollectionViewDiffableDataSourceSupplementaryViewProvider :: ^Objc_Block(proc "c" ( _0: ^CollectionView, _1: ^NS.String, _2: ^NS.IndexPath ) -> ^View)
+CollectionViewDiffableDataSourceSupplementaryViewProvider :: ^Objc_Block(proc "c" (_0: ^CollectionView, _1: ^NS.String, _2: ^NS.IndexPath) -> ^View)
 
 FontSymbolicTraits :: distinct cffi.uint32_t
 
@@ -2753,11 +4229,11 @@ PasteboardTypeFindPanelSearchOptionKey :: distinct ^NS.String
 
 TableViewAutosaveName :: distinct ^NS.String
 
-TableViewDiffableDataSourceCellProvider :: ^Objc_Block(proc "c" ( tableView: ^TableView, column: ^TableColumn, row: NS.Integer, itemId: id ) -> ^View)
+TableViewDiffableDataSourceCellProvider :: ^Objc_Block(proc "c" (tableView: ^TableView, column: ^TableColumn, row: NS.Integer, itemId: id) -> ^View)
 
-TableViewDiffableDataSourceRowProvider :: ^Objc_Block(proc "c" ( tableView: ^TableView, row: NS.Integer, identifier: id ) -> ^TableRowView)
+TableViewDiffableDataSourceRowProvider :: ^Objc_Block(proc "c" (tableView: ^TableView, row: NS.Integer, identifier: id) -> ^TableRowView)
 
-TableViewDiffableDataSourceSectionHeaderViewProvider :: ^Objc_Block(proc "c" ( tableView: ^TableView, row: NS.Integer, sectionId: id ) -> ^View)
+TableViewDiffableDataSourceSectionHeaderViewProvider :: ^Objc_Block(proc "c" (tableView: ^TableView, row: NS.Integer, sectionId: id) -> ^View)
 
 RulerViewUnitName :: distinct ^NS.String
 
@@ -2946,9 +4422,9 @@ AccessibilityCustomRotorType :: enum cffi.long {
 
 WorkspaceIconCreationOption :: enum cffi.ulong {
 	ExcludeQuickDrawElementsIconCreationOption = 1,
-	Exclude10_4ElementsIconCreationOption = 2,
+	Exclude10_4ElementsIconCreationOption      = 2,
 }
-WorkspaceIconCreationOptions :: bit_set[WorkspaceIconCreationOption; cffi.ulong]
+WorkspaceIconCreationOptions :: bit_set[WorkspaceIconCreationOption;cffi.ulong]
 
 WorkspaceAuthorizationType :: enum cffi.long {
 	CreateSymbolicLink = 0,
@@ -2970,7 +4446,7 @@ WorkspaceLaunchOption :: enum cffi.ulong {
 	AllowingClassicStartup   = 17,
 	PreferringClassic        = 18,
 }
-WorkspaceLaunchOptions :: bit_set[WorkspaceLaunchOption; cffi.ulong]
+WorkspaceLaunchOptions :: bit_set[WorkspaceLaunchOption;cffi.ulong]
 
 TouchPhaseFlag :: enum cffi.ulong {
 	Began      = 0,
@@ -2979,7 +4455,7 @@ TouchPhaseFlag :: enum cffi.ulong {
 	Ended      = 3,
 	Cancelled  = 4,
 }
-TouchPhase :: bit_set[TouchPhaseFlag; cffi.ulong]
+TouchPhase :: bit_set[TouchPhaseFlag;cffi.ulong]
 TouchPhase_Touching :: TouchPhase{.Began, .Moved, .Stationary}
 TouchPhase_Any :: transmute(TouchPhase)cffi.ulong(0xffffffffffffffff)
 
@@ -2992,7 +4468,7 @@ TouchTypeMaskFlag :: enum cffi.ulong {
 	Direct   = 0,
 	Indirect = 1,
 }
-TouchTypeMask :: bit_set[TouchTypeMaskFlag; cffi.ulong]
+TouchTypeMask :: bit_set[TouchTypeMaskFlag;cffi.ulong]
 
 EventType :: enum cffi.ulong {
 	LeftMouseDown      = 1,
@@ -3068,7 +4544,7 @@ EventMaskFlag :: enum cffi.ulonglong {
 	ChangeMode         = 38,
 	MouseCancelled     = 40,
 }
-EventMask :: bit_set[EventMaskFlag; cffi.ulonglong]
+EventMask :: bit_set[EventMaskFlag;cffi.ulonglong]
 
 EventModifierFlag :: enum cffi.ulong {
 	CapsLock   = 16,
@@ -3080,7 +4556,7 @@ EventModifierFlag :: enum cffi.ulong {
 	Help       = 22,
 	Function   = 23,
 }
-EventModifierFlags :: bit_set[EventModifierFlag; cffi.ulong]
+EventModifierFlags :: bit_set[EventModifierFlag;cffi.ulong]
 
 PointingDeviceType :: enum cffi.ulong {
 	Unknown = 0,
@@ -3094,7 +4570,7 @@ EventButtonMaskFlag :: enum cffi.ulong {
 	PenLowerSide = 1,
 	PenUpperSide = 2,
 }
-EventButtonMask :: bit_set[EventButtonMaskFlag; cffi.ulong]
+EventButtonMask :: bit_set[EventButtonMaskFlag;cffi.ulong]
 
 EventPhaseFlag :: enum cffi.ulong {
 	Began      = 0,
@@ -3104,7 +4580,7 @@ EventPhaseFlag :: enum cffi.ulong {
 	Cancelled  = 4,
 	MayBegin   = 5,
 }
-EventPhase :: bit_set[EventPhaseFlag; cffi.ulong]
+EventPhase :: bit_set[EventPhaseFlag;cffi.ulong]
 EventPhase_None :: EventPhase{}
 
 EventGestureAxis :: enum cffi.long {
@@ -3117,7 +4593,7 @@ EventSwipeTrackingOption :: enum cffi.ulong {
 	LockDirection      = 0,
 	ClampGestureAmount = 1,
 }
-EventSwipeTrackingOptions :: bit_set[EventSwipeTrackingOption; cffi.ulong]
+EventSwipeTrackingOptions :: bit_set[EventSwipeTrackingOption;cffi.ulong]
 
 EventSubtype :: enum cffi.short {
 	WindowExposed          = 0,
@@ -3152,25 +4628,25 @@ PasteboardAccessBehavior :: enum cffi.long {
 PasteboardContentsOption :: enum cffi.ulong {
 	CurrentHostOnly = 0,
 }
-PasteboardContentsOptions :: bit_set[PasteboardContentsOption; cffi.ulong]
+PasteboardContentsOptions :: bit_set[PasteboardContentsOption;cffi.ulong]
 
 PasteboardWritingOption :: enum cffi.ulong {
 	Promised = 9,
 }
-PasteboardWritingOptions :: bit_set[PasteboardWritingOption; cffi.ulong]
+PasteboardWritingOptions :: bit_set[PasteboardWritingOption;cffi.ulong]
 
 PasteboardReadingOption :: enum cffi.ulong {
 	AsString       = 0,
 	AsPropertyList = 1,
 	AsKeyedArchive = 2,
 }
-PasteboardReadingOptions :: bit_set[PasteboardReadingOption; cffi.ulong]
+PasteboardReadingOptions :: bit_set[PasteboardReadingOption;cffi.ulong]
 
 ApplicationActivationOption :: enum cffi.ulong {
 	ActivateAllWindows        = 0,
 	ActivateIgnoringOtherApps = 1,
 }
-ApplicationActivationOptions :: bit_set[ApplicationActivationOption; cffi.ulong]
+ApplicationActivationOptions :: bit_set[ApplicationActivationOption;cffi.ulong]
 
 ApplicationActivationPolicy :: enum cffi.long {
 	Regular    = 0,
@@ -3199,7 +4675,7 @@ DragOperationFlag :: enum cffi.ulong {
 	Move    = 4,
 	Delete  = 5,
 }
-DragOperation :: bit_set[DragOperationFlag; cffi.ulong]
+DragOperation :: bit_set[DragOperationFlag;cffi.ulong]
 DragOperation_None :: DragOperation{}
 DragOperation_Every :: transmute(DragOperation)cffi.ulong(0xffffffffffffffff)
 DragOperation_All_Obsolete :: DragOperation{.Copy, .Link, .Generic, .Private}
@@ -3222,7 +4698,7 @@ DraggingItemEnumerationOption :: enum cffi.ulong {
 	Concurrent               = 0,
 	ClearNonenumeratedImages = 16,
 }
-DraggingItemEnumerationOptions :: bit_set[DraggingItemEnumerationOption; cffi.ulong]
+DraggingItemEnumerationOptions :: bit_set[DraggingItemEnumerationOption;cffi.ulong]
 
 SpringLoadingHighlight :: enum cffi.long {
 	None       = 0,
@@ -3235,7 +4711,7 @@ SpringLoadingOption :: enum cffi.ulong {
 	ContinuousActivation = 1,
 	NoHover              = 3,
 }
-SpringLoadingOptions :: bit_set[SpringLoadingOption; cffi.ulong]
+SpringLoadingOptions :: bit_set[SpringLoadingOption;cffi.ulong]
 
 UserInterfaceLayoutDirection :: enum cffi.long {
 	LeftToRight = 0,
@@ -3255,7 +4731,7 @@ AutoresizingMaskOption :: enum cffi.ulong {
 	ViewHeightSizable = 4,
 	ViewMaxYMargin    = 5,
 }
-AutoresizingMaskOptions :: bit_set[AutoresizingMaskOption; cffi.ulong]
+AutoresizingMaskOptions :: bit_set[AutoresizingMaskOption;cffi.ulong]
 
 BorderType :: enum cffi.ulong {
 	NoBorder     = 0,
@@ -3326,7 +4802,7 @@ LineBreakStrategyFlag :: enum cffi.ulong {
 	PushOut            = 0,
 	HangulWordPriority = 1,
 }
-LineBreakStrategy :: bit_set[LineBreakStrategyFlag; cffi.ulong]
+LineBreakStrategy :: bit_set[LineBreakStrategyFlag;cffi.ulong]
 LineBreakStrategy_None :: LineBreakStrategy{}
 LineBreakStrategy_Standard :: transmute(LineBreakStrategy)cffi.ulong(0xffff)
 
@@ -3391,7 +4867,7 @@ CellStyleMaskFlag :: enum cffi.ulong {
 	ChangeGrayCellMask       = 2,
 	ChangeBackgroundCellMask = 3,
 }
-CellStyleMask :: bit_set[CellStyleMaskFlag; cffi.ulong]
+CellStyleMask :: bit_set[CellStyleMaskFlag;cffi.ulong]
 
 ControlTint :: enum cffi.ulong {
 	DefaultControlTint  = 0,
@@ -3413,7 +4889,7 @@ CellHitResultFlag :: enum cffi.ulong {
 	EditableTextArea = 1,
 	TrackableArea    = 2,
 }
-CellHitResult :: bit_set[CellHitResultFlag; cffi.ulong]
+CellHitResult :: bit_set[CellHitResultFlag;cffi.ulong]
 CellHitResult_None :: CellHitResult{}
 
 BackgroundStyle :: enum cffi.long {
@@ -3442,7 +4918,7 @@ MenuProperty :: enum cffi.ulong {
 	ItemEnabled                  = 4,
 	ItemAccessibilityDescription = 5,
 }
-MenuProperties :: bit_set[MenuProperty; cffi.ulong]
+MenuProperties :: bit_set[MenuProperty;cffi.ulong]
 
 PrinterTableStatus :: enum cffi.ulong {
 	OK       = 0,
@@ -3507,7 +4983,7 @@ ApplicationPresentationOption :: enum cffi.ulong {
 	AutoHideToolbar                 = 11,
 	DisableCursorLocationAssistance = 12,
 }
-ApplicationPresentationOptions :: bit_set[ApplicationPresentationOption; cffi.ulong]
+ApplicationPresentationOptions :: bit_set[ApplicationPresentationOption;cffi.ulong]
 
 ApplicationOcclusionState :: enum cffi.ulong {
 	Visible = 2,
@@ -3516,7 +4992,7 @@ ApplicationOcclusionState :: enum cffi.ulong {
 WindowListOption :: enum cffi.long {
 	OrderedFrontToBack = 0,
 }
-WindowListOptions :: bit_set[WindowListOption; cffi.long]
+WindowListOptions :: bit_set[WindowListOption;cffi.long]
 
 RequestUserAttentionType :: enum cffi.ulong {
 	CriticalRequest      = 0,
@@ -3547,7 +5023,7 @@ RemoteNotificationTypeFlag :: enum cffi.ulong {
 	Sound = 1,
 	Alert = 2,
 }
-RemoteNotificationType :: bit_set[RemoteNotificationTypeFlag; cffi.ulong]
+RemoteNotificationType :: bit_set[RemoteNotificationTypeFlag;cffi.ulong]
 RemoteNotificationType_None :: RemoteNotificationType{}
 
 ColorType :: enum cffi.long {
@@ -3665,7 +5141,7 @@ ViewControllerTransitionOption :: enum cffi.ulong {
 	SlideRight           = 7,
 	AllowUserInteraction = 12,
 }
-ViewControllerTransitionOptions :: bit_set[ViewControllerTransitionOption; cffi.ulong]
+ViewControllerTransitionOptions :: bit_set[ViewControllerTransitionOption;cffi.ulong]
 
 CollectionViewDropOperation :: enum cffi.long {
 	On     = 0,
@@ -3691,7 +5167,7 @@ CollectionViewScrollPositionFlag :: enum cffi.ulong {
 	TrailingEdge          = 7,
 	NearestVerticalEdge   = 8,
 }
-CollectionViewScrollPosition :: bit_set[CollectionViewScrollPositionFlag; cffi.ulong]
+CollectionViewScrollPosition :: bit_set[CollectionViewScrollPositionFlag;cffi.ulong]
 CollectionViewScrollPosition_None :: CollectionViewScrollPosition{}
 
 CollectionElementCategory :: enum cffi.long {
@@ -3720,7 +5196,7 @@ DirectionalRectEdgeFlag :: enum cffi.ulong {
 	Bottom   = 2,
 	Trailing = 3,
 }
-DirectionalRectEdge :: bit_set[DirectionalRectEdgeFlag; cffi.ulong]
+DirectionalRectEdge :: bit_set[DirectionalRectEdgeFlag;cffi.ulong]
 DirectionalRectEdge_None :: DirectionalRectEdge{}
 DirectionalRectEdge_All :: DirectionalRectEdge{.Top, .Leading, .Bottom, .Trailing}
 
@@ -3749,14 +5225,14 @@ HorizontalDirection :: enum cffi.ulong {
 	Left  = 0,
 	Right = 1,
 }
-HorizontalDirections :: bit_set[HorizontalDirection; cffi.ulong]
+HorizontalDirections :: bit_set[HorizontalDirection;cffi.ulong]
 HorizontalDirections_All :: HorizontalDirections{.Left, .Right}
 
 VerticalDirection :: enum cffi.ulong {
 	Up   = 0,
 	Down = 1,
 }
-VerticalDirections :: bit_set[VerticalDirection; cffi.ulong]
+VerticalDirections :: bit_set[VerticalDirection;cffi.ulong]
 VerticalDirections_All :: VerticalDirections{.Up, .Down}
 
 FontDescriptorSymbolicTrait :: enum cffi.uint {
@@ -3775,7 +5251,7 @@ FontDescriptorSymbolicTrait :: enum cffi.uint {
 	_Bit30            = 30,
 	_Bit31            = 31,
 }
-FontDescriptorSymbolicTraits :: bit_set[FontDescriptorSymbolicTrait; cffi.uint]
+FontDescriptorSymbolicTraits :: bit_set[FontDescriptorSymbolicTrait;cffi.uint]
 FontDescriptorSymbolicTraits_ClassMask :: FontDescriptorSymbolicTraits{._Bit28, ._Bit29, ._Bit30, ._Bit31}
 FontDescriptorSymbolicTraits_ClassUnknown :: FontDescriptorSymbolicTraits{}
 FontDescriptorSymbolicTraits_ClassOldStyleSerifs :: FontDescriptorSymbolicTraits{._Bit28}
@@ -3790,9 +5266,9 @@ FontDescriptorSymbolicTraits_ClassScripts :: FontDescriptorSymbolicTraits{._Bit2
 FontDescriptorSymbolicTraits_ClassSymbolic :: FontDescriptorSymbolicTraits{._Bit30, ._Bit31}
 
 FontRenderingMode :: enum cffi.ulong {
-	DefaultRenderingMode             = 0,
-	AntialiasedRenderingMode         = 1,
-	IntegerAdvancementsRenderingMode = 2,
+	DefaultRenderingMode                        = 0,
+	AntialiasedRenderingMode                    = 1,
+	IntegerAdvancementsRenderingMode            = 2,
 	AntialiasedIntegerAdvancementsRenderingMode = 3,
 }
 
@@ -3803,14 +5279,14 @@ MultibyteGlyphPacking :: enum cffi.ulong {
 FontAssetRequestOption :: enum cffi.ulong {
 	UsesStandardUI = 0,
 }
-FontAssetRequestOptions :: bit_set[FontAssetRequestOption; cffi.ulong]
+FontAssetRequestOptions :: bit_set[FontAssetRequestOption;cffi.ulong]
 
 FontCollectionVisibilityFlag :: enum cffi.ulong {
 	Process  = 0,
 	User     = 1,
 	Computer = 2,
 }
-FontCollectionVisibility :: bit_set[FontCollectionVisibilityFlag; cffi.ulong]
+FontCollectionVisibility :: bit_set[FontCollectionVisibilityFlag;cffi.ulong]
 
 FontTraitMaskFlag :: enum cffi.ulong {
 	ItalicFontMask                  = 0,
@@ -3826,12 +5302,12 @@ FontTraitMaskFlag :: enum cffi.ulong {
 	FixedPitchFontMask              = 10,
 	UnitalicFontMask                = 24,
 }
-FontTraitMask :: bit_set[FontTraitMaskFlag; cffi.ulong]
+FontTraitMask :: bit_set[FontTraitMaskFlag;cffi.ulong]
 
 FontCollectionOption :: enum cffi.ulong {
 	ApplicationOnlyMask = 0,
 }
-FontCollectionOptions :: bit_set[FontCollectionOption; cffi.ulong]
+FontCollectionOptions :: bit_set[FontCollectionOption;cffi.ulong]
 
 FontAction :: enum cffi.ulong {
 	NoFontChangeAction    = 0,
@@ -3858,7 +5334,7 @@ WindowStyleMaskFlag :: enum cffi.ulong {
 	NonactivatingPanel     = 7,
 	HUDWindow              = 13,
 }
-WindowStyleMask :: bit_set[WindowStyleMaskFlag; cffi.ulong]
+WindowStyleMask :: bit_set[WindowStyleMaskFlag;cffi.ulong]
 
 WindowSharingType :: enum cffi.ulong {
 	None     = 0,
@@ -3882,7 +5358,7 @@ WindowCollectionBehaviorFlag :: enum cffi.ulong {
 	Auxiliary                 = 17,
 	CanJoinAllApplications    = 18,
 }
-WindowCollectionBehavior :: bit_set[WindowCollectionBehaviorFlag; cffi.ulong]
+WindowCollectionBehavior :: bit_set[WindowCollectionBehaviorFlag;cffi.ulong]
 WindowCollectionBehavior_Default :: WindowCollectionBehavior{}
 
 WindowAnimationBehavior :: enum cffi.long {
@@ -3897,7 +5373,7 @@ WindowNumberListOption :: enum cffi.ulong {
 	AllApplications = 0,
 	AllSpaces       = 4,
 }
-WindowNumberListOptions :: bit_set[WindowNumberListOption; cffi.ulong]
+WindowNumberListOptions :: bit_set[WindowNumberListOption;cffi.ulong]
 
 WindowOcclusionState :: enum cffi.ulong {
 	Visible = 2,
@@ -3966,7 +5442,7 @@ FontPanelModeMaskFlag :: enum cffi.ulong {
 	DocumentColorEffect = 11,
 	ShadowEffect        = 12,
 }
-FontPanelModeMask :: bit_set[FontPanelModeMaskFlag; cffi.ulong]
+FontPanelModeMask :: bit_set[FontPanelModeMaskFlag;cffi.ulong]
 
 MatrixMode :: enum cffi.ulong {
 	RadioModeMatrix     = 0,
@@ -4042,7 +5518,7 @@ BitmapFormatFlag :: enum cffi.ulong {
 	SixteenBitBigEndian      = 10,
 	ThirtyTwoBitBigEndian    = 11,
 }
-BitmapFormat :: bit_set[BitmapFormatFlag; cffi.ulong]
+BitmapFormat :: bit_set[BitmapFormatFlag;cffi.ulong]
 
 BrowserColumnResizingType :: enum cffi.ulong {
 	NoColumnResizing   = 0,
@@ -4077,7 +5553,7 @@ ColorPanelOption :: enum cffi.ulong {
 	WheelModeMask         = 6,
 	CrayonModeMask        = 7,
 }
-ColorPanelOptions :: bit_set[ColorPanelOption; cffi.ulong]
+ColorPanelOptions :: bit_set[ColorPanelOption;cffi.ulong]
 
 ColorWellStyle :: enum cffi.long {
 	Default  = 0,
@@ -4091,7 +5567,7 @@ CursorFrameResizePositionFlag :: enum cffi.ulong {
 	Bottom = 2,
 	Right  = 3,
 }
-CursorFrameResizePosition :: bit_set[CursorFrameResizePositionFlag; cffi.ulong]
+CursorFrameResizePosition :: bit_set[CursorFrameResizePositionFlag;cffi.ulong]
 CursorFrameResizePosition_TopLeft :: CursorFrameResizePosition{.Top, .Left}
 CursorFrameResizePosition_TopRight :: CursorFrameResizePosition{.Top, .Right}
 CursorFrameResizePosition_BottomLeft :: CursorFrameResizePosition{.Left, .Bottom}
@@ -4101,14 +5577,14 @@ CursorFrameResizeDirection :: enum cffi.ulong {
 	Inward  = 0,
 	Outward = 1,
 }
-CursorFrameResizeDirections :: bit_set[CursorFrameResizeDirection; cffi.ulong]
+CursorFrameResizeDirections :: bit_set[CursorFrameResizeDirection;cffi.ulong]
 CursorFrameResizeDirections_All :: CursorFrameResizeDirections{.Inward, .Outward}
 
 GradientDrawingOption :: enum cffi.ulong {
 	DrawsBeforeStartingLocation = 0,
 	DrawsAfterEndingLocation    = 1,
 }
-GradientDrawingOptions :: bit_set[GradientDrawingOption; cffi.ulong]
+GradientDrawingOptions :: bit_set[GradientDrawingOption;cffi.ulong]
 
 GestureRecognizerState :: enum cffi.long {
 	Possible   = 0,
@@ -4163,9 +5639,9 @@ LayoutFormatOption :: enum cffi.ulong {
 	DirectionLeftToRight  = 16,
 	DirectionRightToLeft  = 17,
 }
-LayoutFormatOptions :: bit_set[LayoutFormatOption; cffi.ulong]
+LayoutFormatOptions :: bit_set[LayoutFormatOption;cffi.ulong]
 
-LayoutFormatOptions_DirectionMask :: LayoutFormatOptions { .DirectionLeftToRight, .DirectionRightToLeft, }
+LayoutFormatOptions_DirectionMask :: LayoutFormatOptions{.DirectionLeftToRight, .DirectionRightToLeft}
 
 ImageLoadStatus :: enum cffi.ulong {
 	Completed     = 0,
@@ -4256,7 +5732,7 @@ CloudKitSharingServiceOption :: enum cffi.ulong {
 	AllowReadOnly  = 4,
 	AllowReadWrite = 5,
 }
-CloudKitSharingServiceOptions :: bit_set[CloudKitSharingServiceOption; cffi.ulong]
+CloudKitSharingServiceOptions :: bit_set[CloudKitSharingServiceOption;cffi.ulong]
 
 SpeechBoundary :: enum cffi.ulong {
 	ImmediateBoundary = 0,
@@ -4293,10 +5769,10 @@ SplitViewItemBehavior :: enum cffi.long {
 }
 
 SplitViewItemCollapseBehavior :: enum cffi.long {
-	Default                          = 0,
+	Default                                  = 0,
 	PreferResizingSplitViewWithFixedSiblings = 1,
 	PreferResizingSiblingsWithFixedSplitView = 2,
-	UseConstraints                   = 3,
+	UseConstraints                           = 3,
 }
 
 PageLayoutResult :: enum cffi.long {
@@ -4337,21 +5813,21 @@ PrintPanelOption :: enum cffi.ulong {
 	ShowsPageSetupAccessory = 8,
 	ShowsPreview            = 17,
 }
-PrintPanelOptions :: bit_set[PrintPanelOption; cffi.ulong]
+PrintPanelOptions :: bit_set[PrintPanelOption;cffi.ulong]
 
 PDFPanelOption :: enum cffi.long {
 	ShowsPaperSize          = 2,
 	ShowsOrientation        = 3,
 	RequestsParentDirectory = 24,
 }
-PDFPanelOptions :: bit_set[PDFPanelOption; cffi.long]
+PDFPanelOptions :: bit_set[PDFPanelOption;cffi.long]
 
 MediaLibraryFlag :: enum cffi.ulong {
 	Audio = 0,
 	Image = 1,
 	Movie = 2,
 }
-MediaLibrary :: bit_set[MediaLibraryFlag; cffi.ulong]
+MediaLibrary :: bit_set[MediaLibraryFlag;cffi.ulong]
 
 UsableScrollerParts :: enum cffi.ulong {
 	NoScrollerParts    = 0,
@@ -4536,7 +6012,7 @@ WritingToolsResultOption :: enum cffi.ulong {
 	Table              = 3,
 	PresentationIntent = 4,
 }
-WritingToolsResultOptions :: bit_set[WritingToolsResultOption; cffi.ulong]
+WritingToolsResultOptions :: bit_set[WritingToolsResultOption;cffi.ulong]
 
 TextFieldBezelStyle :: enum cffi.ulong {
 	SquareBezel  = 0,
@@ -4553,7 +6029,7 @@ TextInsertionIndicatorAutomaticModeOption :: enum cffi.long {
 	ShowEffectsView   = 0,
 	ShowWhileTracking = 1,
 }
-TextInsertionIndicatorAutomaticModeOptions :: bit_set[TextInsertionIndicatorAutomaticModeOption; cffi.long]
+TextInsertionIndicatorAutomaticModeOptions :: bit_set[TextInsertionIndicatorAutomaticModeOption;cffi.long]
 
 UnderlineStyle :: enum cffi.long {
 	None              = 0,
@@ -4587,7 +6063,7 @@ TextStorageEditAction :: enum cffi.ulong {
 	EditedAttributes = 0,
 	EditedCharacters = 1,
 }
-TextStorageEditActions :: bit_set[TextStorageEditAction; cffi.ulong]
+TextStorageEditActions :: bit_set[TextStorageEditAction;cffi.ulong]
 
 TextLayoutOrientation :: enum cffi.long {
 	Horizontal = 0,
@@ -4600,7 +6076,7 @@ GlyphPropertyFlag :: enum cffi.long {
 	Elastic          = 2,
 	NonBaseCharacter = 3,
 }
-GlyphProperty :: bit_set[GlyphPropertyFlag; cffi.long]
+GlyphProperty :: bit_set[GlyphPropertyFlag;cffi.long]
 
 ControlCharacterActionFlag :: enum cffi.long {
 	ZeroAdvancement = 0,
@@ -4610,7 +6086,7 @@ ControlCharacterActionFlag :: enum cffi.long {
 	ParagraphBreak  = 4,
 	ContainerBreak  = 5,
 }
-ControlCharacterAction :: bit_set[ControlCharacterActionFlag; cffi.long]
+ControlCharacterAction :: bit_set[ControlCharacterActionFlag;cffi.long]
 
 TypesetterBehavior :: enum cffi.long {
 	LatestBehavior          = -1,
@@ -4664,7 +6140,7 @@ TrackingAreaOption :: enum cffi.ulong {
 	InVisibleRect            = 9,
 	EnabledDuringMouseDrag   = 10,
 }
-TrackingAreaOptions :: bit_set[TrackingAreaOption; cffi.ulong]
+TrackingAreaOptions :: bit_set[TrackingAreaOption;cffi.ulong]
 
 ToolbarDisplayMode :: enum cffi.ulong {
 	Default      = 0,
@@ -4732,12 +6208,12 @@ TableViewDropOperation :: enum cffi.ulong {
 }
 
 TableViewColumnAutoresizingStyle :: enum cffi.ulong {
-	NoColumnAutoresizing             = 0,
-	UniformColumnAutoresizingStyle   = 1,
-	SequentialColumnAutoresizingStyle = 2,
+	NoColumnAutoresizing                     = 0,
+	UniformColumnAutoresizingStyle           = 1,
+	SequentialColumnAutoresizingStyle        = 2,
 	ReverseSequentialColumnAutoresizingStyle = 3,
-	LastColumnOnlyAutoresizingStyle  = 4,
-	FirstColumnOnlyAutoresizingStyle = 5,
+	LastColumnOnlyAutoresizingStyle          = 4,
+	FirstColumnOnlyAutoresizingStyle         = 5,
 }
 
 TableViewGridLineStyleFlag :: enum cffi.ulong {
@@ -4745,7 +6221,7 @@ TableViewGridLineStyleFlag :: enum cffi.ulong {
 	SolidHorizontalGridLineMask  = 1,
 	DashedHorizontalGridLineMask = 3,
 }
-TableViewGridLineStyle :: bit_set[TableViewGridLineStyleFlag; cffi.ulong]
+TableViewGridLineStyle :: bit_set[TableViewGridLineStyleFlag;cffi.ulong]
 TableViewGridLineStyle_None :: TableViewGridLineStyle{}
 
 TableViewRowSizeStyle :: enum cffi.long {
@@ -4789,15 +6265,15 @@ TableViewAnimationOption :: enum cffi.ulong {
 	SlideDown  = 5,
 	SlideRight = 6,
 }
-TableViewAnimationOptions :: bit_set[TableViewAnimationOption; cffi.ulong]
+TableViewAnimationOptions :: bit_set[TableViewAnimationOption;cffi.ulong]
 
-TableViewAnimationOptions_SlideLeft :: TableViewAnimationOptions { .SlideUp, .SlideDown, }
+TableViewAnimationOptions_SlideLeft :: TableViewAnimationOptions{.SlideUp, .SlideDown}
 
 TableColumnResizingOption :: enum cffi.ulong {
 	AutoresizingMask = 0,
 	UserResizingMask = 1,
 }
-TableColumnResizingOptions :: bit_set[TableColumnResizingOption; cffi.ulong]
+TableColumnResizingOptions :: bit_set[TableColumnResizingOption;cffi.ulong]
 
 TableViewRowActionStyle :: enum cffi.long {
 	Regular     = 0,
@@ -4805,15 +6281,15 @@ TableViewRowActionStyle :: enum cffi.long {
 }
 
 StringDrawingOption :: enum cffi.long {
-	UsesLineFragmentOrigin           = 0,
-	UsesFontLeading                  = 1,
-	UsesDeviceMetrics                = 3,
-	TruncatesLastVisibleLine         = 5,
+	UsesLineFragmentOrigin                           = 0,
+	UsesFontLeading                                  = 1,
+	UsesDeviceMetrics                                = 3,
+	TruncatesLastVisibleLine                         = 5,
 	ResolvesNaturalAlignmentWithBaseWritingDirection = 9,
-	DisableScreenFontSubstitution    = 2,
-	OneShot                          = 4,
+	DisableScreenFontSubstitution                    = 2,
+	OneShot                                          = 4,
 }
-StringDrawingOptions :: bit_set[StringDrawingOption; cffi.long]
+StringDrawingOptions :: bit_set[StringDrawingOption;cffi.long]
 
 RulerOrientation :: enum cffi.ulong {
 	HorizontalRuler = 0,
@@ -4899,7 +6375,7 @@ StatusItemBehaviorFlag :: enum cffi.ulong {
 	RemovalAllowed       = 1,
 	TerminationOnRemoval = 2,
 }
-StatusItemBehavior :: bit_set[StatusItemBehaviorFlag; cffi.ulong]
+StatusItemBehavior :: bit_set[StatusItemBehaviorFlag;cffi.ulong]
 
 DrawerState :: enum cffi.ulong {
 	ClosedState  = 0,
@@ -4948,11 +6424,11 @@ ToolbarItemGroupControlRepresentation :: enum cffi.long {
 
 CharacterCollection :: enum cffi.ulong {
 	IdentityMappingCharacterCollection = 0,
-	AdobeCNS1CharacterCollection     = 1,
-	AdobeGB1CharacterCollection      = 2,
-	AdobeJapan1CharacterCollection   = 3,
-	AdobeJapan2CharacterCollection   = 4,
-	AdobeKorea1CharacterCollection   = 5,
+	AdobeCNS1CharacterCollection       = 1,
+	AdobeGB1CharacterCollection        = 2,
+	AdobeJapan1CharacterCollection     = 3,
+	AdobeJapan2CharacterCollection     = 4,
+	AdobeKorea1CharacterCollection     = 5,
 }
 
 TypesetterControlCharacterActionFlag :: enum cffi.ulong {
@@ -4963,12 +6439,12 @@ TypesetterControlCharacterActionFlag :: enum cffi.ulong {
 	ParagraphBreakAction  = 4,
 	ContainerBreakAction  = 5,
 }
-TypesetterControlCharacterAction :: bit_set[TypesetterControlCharacterActionFlag; cffi.ulong]
+TypesetterControlCharacterAction :: bit_set[TypesetterControlCharacterActionFlag;cffi.ulong]
 
 TextListOption :: enum cffi.ulong {
 	PrependEnclosingMarker = 0,
 }
-TextListOptions :: bit_set[TextListOption; cffi.ulong]
+TextListOptions :: bit_set[TextListOption;cffi.ulong]
 
 TextBlockValueType :: enum cffi.ulong {
 	AbsoluteValueType   = 0,
@@ -5017,7 +6493,7 @@ DatePickerElementFlag :: enum cffi.ulong {
 	TimeZone = 4,
 	Era      = 8,
 }
-DatePickerElementFlags :: bit_set[DatePickerElementFlag; cffi.ulong]
+DatePickerElementFlags :: bit_set[DatePickerElementFlag;cffi.ulong]
 
 LevelIndicatorStyle :: enum cffi.ulong {
 	Relevancy          = 0,
@@ -5169,7 +6645,7 @@ TextSelectionNavigationModifierFlag :: enum cffi.ulong {
 	Visual   = 1,
 	Multiple = 2,
 }
-TextSelectionNavigationModifier :: bit_set[TextSelectionNavigationModifierFlag; cffi.ulong]
+TextSelectionNavigationModifier :: bit_set[TextSelectionNavigationModifierFlag;cffi.ulong]
 
 TextSelectionNavigationWritingDirection :: enum cffi.long {
 	LeftToRight = 0,
@@ -5184,7 +6660,7 @@ TextSelectionNavigationLayoutOrientation :: enum cffi.long {
 TextContentManagerEnumerationOption :: enum cffi.ulong {
 	Reverse = 0,
 }
-TextContentManagerEnumerationOptions :: bit_set[TextContentManagerEnumerationOption; cffi.ulong]
+TextContentManagerEnumerationOptions :: bit_set[TextContentManagerEnumerationOption;cffi.ulong]
 
 TextLayoutFragmentEnumerationOption :: enum cffi.ulong {
 	Reverse                  = 0,
@@ -5192,7 +6668,7 @@ TextLayoutFragmentEnumerationOption :: enum cffi.ulong {
 	EnsuresLayout            = 2,
 	EnsuresExtraLineFragment = 3,
 }
-TextLayoutFragmentEnumerationOptions :: bit_set[TextLayoutFragmentEnumerationOption; cffi.ulong]
+TextLayoutFragmentEnumerationOptions :: bit_set[TextLayoutFragmentEnumerationOption;cffi.ulong]
 
 TextLayoutFragmentState :: enum cffi.ulong {
 	None                  = 0,
@@ -5214,7 +6690,7 @@ TextLayoutManagerSegmentOption :: enum cffi.ulong {
 	TailSegmentExtended     = 3,
 	UpstreamAffinity        = 4,
 }
-TextLayoutManagerSegmentOptions :: bit_set[TextLayoutManagerSegmentOption; cffi.ulong]
+TextLayoutManagerSegmentOptions :: bit_set[TextLayoutManagerSegmentOption;cffi.ulong]
 
 WritingToolsCoordinatorTextUpdateReason :: enum cffi.long {
 	Typing   = 0,

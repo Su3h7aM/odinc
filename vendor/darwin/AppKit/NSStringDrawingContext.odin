@@ -5,20 +5,22 @@ package darwin_AppKit
 import CG "core:sys/darwin/CoreGraphics"
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class="NSStringDrawingContext", objc_superclass=NS.Object)
-StringDrawingContext :: struct { using _: NS.Object}
+@(objc_class = "NSStringDrawingContext", objc_superclass = NS.Object)
+StringDrawingContext :: struct {
+	using _: NS.Object,
+}
 
-@(default_calling_convention="c")
+@(default_calling_convention = "c")
 foreign lib {
-	@(objc_type=StringDrawingContext, objc_selector="minimumScaleFactor", objc_name="minimumScaleFactor")
+	@(objc_type = StringDrawingContext, objc_selector = "minimumScaleFactor", objc_name = "minimumScaleFactor")
 	StringDrawingContext_minimumScaleFactor :: proc(self: ^StringDrawingContext) -> CG.Float ---
 
-	@(objc_type=StringDrawingContext, objc_selector="setMinimumScaleFactor:", objc_name="setMinimumScaleFactor")
+	@(objc_type = StringDrawingContext, objc_selector = "setMinimumScaleFactor:", objc_name = "setMinimumScaleFactor")
 	StringDrawingContext_setMinimumScaleFactor :: proc(self: ^StringDrawingContext, minimumScaleFactor: CG.Float) ---
 
-	@(objc_type=StringDrawingContext, objc_selector="actualScaleFactor", objc_name="actualScaleFactor")
+	@(objc_type = StringDrawingContext, objc_selector = "actualScaleFactor", objc_name = "actualScaleFactor")
 	StringDrawingContext_actualScaleFactor :: proc(self: ^StringDrawingContext) -> CG.Float ---
 
-	@(objc_type=StringDrawingContext, objc_selector="totalBounds", objc_name="totalBounds")
+	@(objc_type = StringDrawingContext, objc_selector = "totalBounds", objc_name = "totalBounds")
 	StringDrawingContext_totalBounds :: proc(self: ^StringDrawingContext) -> CG.Rect ---
 }

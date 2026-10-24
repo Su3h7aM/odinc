@@ -6,7 +6,7 @@ import "core:c"
 MeshQueryFcn :: proc "c" (x, y, z: Vec3, triangleIndex: c.int, ctx: rawptr) -> bool
 
 
-@(link_prefix="b3", default_calling_convention="c", require_results)
+@(link_prefix = "b3", default_calling_convention = "c", require_results)
 foreign lib {
 	/**
 	 * @addtogroup tree
@@ -442,8 +442,7 @@ foreign lib {
 	CollideTriangleAndCapsule :: proc(manifold: ^LocalManifold, capacity: c.int, #by_ptr triangleA: [3]Vec3, #by_ptr capsuleB: Capsule, cache: ^SimplexCache) ---
 
 	// Collide a triangle and hull. Normal points from triangle to hull.
-	CollideTriangleAndHull :: proc(manifold: ^LocalManifold, capacity: c.int, v1, v2, v3: Vec3, triangleFlags: c.int,
-					#by_ptr hullB: HullData, cache: ^SATCache, enableSpeculative: bool) ---
+	CollideTriangleAndHull :: proc(manifold: ^LocalManifold, capacity: c.int, v1, v2, v3: Vec3, triangleFlags: c.int, #by_ptr hullB: HullData, cache: ^SATCache, enableSpeculative: bool) ---
 
 	// Collide a triangle and sphere. Normal points from triangle to sphere.
 	CollideTriangleAndSphere :: proc(manifold: ^LocalManifold, capacity: c.int, #by_ptr triangleA: [3]Vec3, #by_ptr sphereB: Sphere) ---

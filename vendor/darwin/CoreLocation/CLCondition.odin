@@ -4,7 +4,7 @@ package darwin_CoreLocation
 
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class="CLCondition", objc_superclass=NS.Object)
+@(objc_class = "CLCondition", objc_superclass = NS.Object)
 Condition :: struct {
 	using _: NS.Object,
 	using _: NS.SecureCoding,
@@ -12,27 +12,27 @@ Condition :: struct {
 }
 
 foreign lib {
-	@(objc_type=Condition, objc_selector="init", objc_name="init")
+	@(objc_type = Condition, objc_selector = "init", objc_name = "init")
 	Condition_init :: proc(self: ^Condition) -> instancetype ---
 
-	@(objc_type=Condition, objc_selector="new", objc_name="new", objc_is_class_method=true)
+	@(objc_type = Condition, objc_selector = "new", objc_name = "new", objc_is_class_method = true)
 	Condition_new :: proc() -> ^Condition ---
 }
 
 
-@(objc_class="CLCircularGeographicCondition", objc_superclass=Condition)
+@(objc_class = "CLCircularGeographicCondition", objc_superclass = Condition)
 CircularGeographicCondition :: struct {
 	using _: Condition,
 	using _: NS.SecureCoding,
 }
 
 foreign lib {
-	@(objc_type=CircularGeographicCondition, objc_selector="initWithCenter:radius:", objc_name="initWithCenter")
+	@(objc_type = CircularGeographicCondition, objc_selector = "initWithCenter:radius:", objc_name = "initWithCenter")
 	CircularGeographicCondition_initWithCenter :: proc(self: ^CircularGeographicCondition, center: LocationCoordinate2D, radius: LocationDistance) -> instancetype ---
 
-	@(objc_type=CircularGeographicCondition, objc_selector="center", objc_name="center")
+	@(objc_type = CircularGeographicCondition, objc_selector = "center", objc_name = "center")
 	CircularGeographicCondition_center :: proc(self: ^CircularGeographicCondition) -> LocationCoordinate2D ---
 
-	@(objc_type=CircularGeographicCondition, objc_selector="radius", objc_name="radius")
+	@(objc_type = CircularGeographicCondition, objc_selector = "radius", objc_name = "radius")
 	CircularGeographicCondition_radius :: proc(self: ^CircularGeographicCondition) -> LocationDistance ---
 }

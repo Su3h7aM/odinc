@@ -4,22 +4,22 @@ package darwin_ModelIO
 
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class="MDLSkeleton", objc_superclass=Object)
+@(objc_class = "MDLSkeleton", objc_superclass = Object)
 Skeleton :: struct {
 	using _: Object,
 	using _: NS.Copying,
 }
 
 foreign lib {
-	@(objc_type=Skeleton, objc_selector="initWithName:jointPaths:", objc_name="initWithName")
+	@(objc_type = Skeleton, objc_selector = "initWithName:jointPaths:", objc_name = "initWithName")
 	Skeleton_initWithName :: proc(self: ^Skeleton, name: ^NS.String, jointPaths: ^NS.Array) -> instancetype ---
 
-	@(objc_type=Skeleton, objc_selector="jointPaths", objc_name="jointPaths")
+	@(objc_type = Skeleton, objc_selector = "jointPaths", objc_name = "jointPaths")
 	Skeleton_jointPaths :: proc(self: ^Skeleton) -> ^NS.Array ---
 
-	@(objc_type=Skeleton, objc_selector="jointBindTransforms", objc_name="jointBindTransforms")
+	@(objc_type = Skeleton, objc_selector = "jointBindTransforms", objc_name = "jointBindTransforms")
 	Skeleton_jointBindTransforms :: proc(self: ^Skeleton) -> ^Matrix4x4Array ---
 
-	@(objc_type=Skeleton, objc_selector="jointRestTransforms", objc_name="jointRestTransforms")
+	@(objc_type = Skeleton, objc_selector = "jointRestTransforms", objc_name = "jointRestTransforms")
 	Skeleton_jointRestTransforms :: proc(self: ^Skeleton) -> ^Matrix4x4Array ---
 }

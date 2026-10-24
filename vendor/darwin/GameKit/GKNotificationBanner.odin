@@ -4,20 +4,21 @@ package darwin_GameKit
 
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class="GKNotificationBanner", objc_superclass=NS.Object)
-NotificationBanner :: struct { using _: NS.Object}
+@(objc_class = "GKNotificationBanner", objc_superclass = NS.Object)
+NotificationBanner :: struct {
+	using _: NS.Object,
+}
 
 foreign lib {
-	@(objc_type=NotificationBanner, objc_selector="showBannerWithTitle:message:completionHandler:", objc_name="showBannerWithTitle_message_completionHandler", objc_is_class_method=true)
+	@(objc_type = NotificationBanner, objc_selector = "showBannerWithTitle:message:completionHandler:", objc_name = "showBannerWithTitle_message_completionHandler", objc_is_class_method = true)
 	NotificationBanner_showBannerWithTitle_message_completionHandler :: proc(title: ^NS.String, message: ^NS.String, completionHandler: ^Objc_Block(proc "c" ())) ---
 
-	@(objc_type=NotificationBanner, objc_selector="showBannerWithTitle:message:duration:completionHandler:", objc_name="showBannerWithTitle_message_duration_completionHandler", objc_is_class_method=true)
+	@(objc_type = NotificationBanner, objc_selector = "showBannerWithTitle:message:duration:completionHandler:", objc_name = "showBannerWithTitle_message_duration_completionHandler", objc_is_class_method = true)
 	NotificationBanner_showBannerWithTitle_message_duration_completionHandler :: proc(title: ^NS.String, message: ^NS.String, duration: NS.TimeInterval, completionHandler: ^Objc_Block(proc "c" ())) ---
 }
 
 
-
-@(objc_type=NotificationBanner, objc_name="showBannerWithTitle", objc_is_class_method=true)
+@(objc_type = NotificationBanner, objc_name = "showBannerWithTitle", objc_is_class_method = true)
 NotificationBanner_showBannerWithTitle :: proc {
 	NotificationBanner_showBannerWithTitle_message_completionHandler,
 	NotificationBanner_showBannerWithTitle_message_duration_completionHandler,

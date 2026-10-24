@@ -5,14 +5,16 @@ package darwin_AppKit
 import "base:intrinsics"
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class="NSValidatedUserInterfaceItem")
-ValidatedUserInterfaceItem :: struct { using _: intrinsics.objc_object}
+@(objc_class = "NSValidatedUserInterfaceItem")
+ValidatedUserInterfaceItem :: struct {
+	using _: intrinsics.objc_object,
+}
 
-@(default_calling_convention="c")
+@(default_calling_convention = "c")
 foreign lib {
-	@(objc_type=ValidatedUserInterfaceItem, objc_selector="action", objc_name="action")
+	@(objc_type = ValidatedUserInterfaceItem, objc_selector = "action", objc_name = "action")
 	ValidatedUserInterfaceItem_action :: proc(self: ^ValidatedUserInterfaceItem) -> SEL ---
 
-	@(objc_type=ValidatedUserInterfaceItem, objc_selector="tag", objc_name="tag")
+	@(objc_type = ValidatedUserInterfaceItem, objc_selector = "tag", objc_name = "tag")
 	ValidatedUserInterfaceItem_tag :: proc(self: ^ValidatedUserInterfaceItem) -> NS.Integer ---
 }

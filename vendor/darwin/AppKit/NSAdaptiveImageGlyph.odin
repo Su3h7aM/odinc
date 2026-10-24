@@ -5,7 +5,7 @@ package darwin_AppKit
 import CT "core:sys/darwin/CoreText"
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class="NSAdaptiveImageGlyph", objc_superclass=NS.Object)
+@(objc_class = "NSAdaptiveImageGlyph", objc_superclass = NS.Object)
 AdaptiveImageGlyph :: struct {
 	using _: NS.Object,
 	using _: NS.Copying,
@@ -13,26 +13,26 @@ AdaptiveImageGlyph :: struct {
 	using _: CT.AdaptiveImageProviding,
 }
 
-@(default_calling_convention="c")
+@(default_calling_convention = "c")
 foreign lib {
-	@(objc_type=AdaptiveImageGlyph, objc_selector="initWithImageContent:", objc_name="initWithImageContent")
+	@(objc_type = AdaptiveImageGlyph, objc_selector = "initWithImageContent:", objc_name = "initWithImageContent")
 	AdaptiveImageGlyph_initWithImageContent :: proc(self: ^AdaptiveImageGlyph, imageContent: ^NS.Data) -> instancetype ---
 
-	@(objc_type=AdaptiveImageGlyph, objc_selector="initWithCoder:", objc_name="initWithCoder")
+	@(objc_type = AdaptiveImageGlyph, objc_selector = "initWithCoder:", objc_name = "initWithCoder")
 	AdaptiveImageGlyph_initWithCoder :: proc(self: ^AdaptiveImageGlyph, coder: ^NS.Coder) -> instancetype ---
 
-	@(objc_type=AdaptiveImageGlyph, objc_selector="init", objc_name="init")
+	@(objc_type = AdaptiveImageGlyph, objc_selector = "init", objc_name = "init")
 	AdaptiveImageGlyph_init :: proc(self: ^AdaptiveImageGlyph) -> instancetype ---
 
-	@(objc_type=AdaptiveImageGlyph, objc_selector="imageContent", objc_name="imageContent")
+	@(objc_type = AdaptiveImageGlyph, objc_selector = "imageContent", objc_name = "imageContent")
 	AdaptiveImageGlyph_imageContent :: proc(self: ^AdaptiveImageGlyph) -> ^NS.Data ---
 
-	@(objc_type=AdaptiveImageGlyph, objc_selector="contentIdentifier", objc_name="contentIdentifier")
+	@(objc_type = AdaptiveImageGlyph, objc_selector = "contentIdentifier", objc_name = "contentIdentifier")
 	AdaptiveImageGlyph_contentIdentifier :: proc(self: ^AdaptiveImageGlyph) -> ^NS.String ---
 
-	@(objc_type=AdaptiveImageGlyph, objc_selector="contentDescription", objc_name="contentDescription")
+	@(objc_type = AdaptiveImageGlyph, objc_selector = "contentDescription", objc_name = "contentDescription")
 	AdaptiveImageGlyph_contentDescription :: proc(self: ^AdaptiveImageGlyph) -> ^NS.String ---
 
-	@(objc_type=AdaptiveImageGlyph, objc_selector="contentType", objc_name="contentType", objc_is_class_method=true)
+	@(objc_type = AdaptiveImageGlyph, objc_selector = "contentType", objc_name = "contentType", objc_is_class_method = true)
 	AdaptiveImageGlyph_contentType :: proc() -> ^UTType ---
 }

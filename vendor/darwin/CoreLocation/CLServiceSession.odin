@@ -5,35 +5,36 @@ package darwin_CoreLocation
 import CF "core:sys/darwin/CoreFoundation"
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class="CLServiceSession", objc_superclass=NS.Object)
-ServiceSession :: struct { using _: NS.Object}
+@(objc_class = "CLServiceSession", objc_superclass = NS.Object)
+ServiceSession :: struct {
+	using _: NS.Object,
+}
 
 foreign lib {
-	@(objc_type=ServiceSession, objc_selector="init", objc_name="init")
+	@(objc_type = ServiceSession, objc_selector = "init", objc_name = "init")
 	ServiceSession_init :: proc(self: ^ServiceSession) -> instancetype ---
 
-	@(objc_type=ServiceSession, objc_selector="new", objc_name="new", objc_is_class_method=true)
+	@(objc_type = ServiceSession, objc_selector = "new", objc_name = "new", objc_is_class_method = true)
 	ServiceSession_new :: proc() -> ^ServiceSession ---
 
-	@(objc_type=ServiceSession, objc_selector="sessionRequiringAuthorization:", objc_name="sessionRequiringAuthorization_", objc_is_class_method=true)
+	@(objc_type = ServiceSession, objc_selector = "sessionRequiringAuthorization:", objc_name = "sessionRequiringAuthorization_", objc_is_class_method = true)
 	ServiceSession_sessionRequiringAuthorization_ :: proc(authorizationRequirement: ServiceSessionAuthorizationRequirement) -> ^ServiceSession ---
 
-	@(objc_type=ServiceSession, objc_selector="sessionRequiringAuthorization:queue:handler:", objc_name="sessionRequiringAuthorization_queue_handler", objc_is_class_method=true)
-	ServiceSession_sessionRequiringAuthorization_queue_handler :: proc(authorizationRequirement: ServiceSessionAuthorizationRequirement, queue: CF.dispatch_queue_t, handler: ^Objc_Block(proc "c" ( diagnostic: ^ServiceSessionDiagnostic ))) -> ^ServiceSession ---
+	@(objc_type = ServiceSession, objc_selector = "sessionRequiringAuthorization:queue:handler:", objc_name = "sessionRequiringAuthorization_queue_handler", objc_is_class_method = true)
+	ServiceSession_sessionRequiringAuthorization_queue_handler :: proc(authorizationRequirement: ServiceSessionAuthorizationRequirement, queue: CF.dispatch_queue_t, handler: ^Objc_Block(proc "c" (diagnostic: ^ServiceSessionDiagnostic))) -> ^ServiceSession ---
 
-	@(objc_type=ServiceSession, objc_selector="sessionRequiringAuthorization:fullAccuracyPurposeKey:", objc_name="sessionRequiringAuthorization_fullAccuracyPurposeKey", objc_is_class_method=true)
+	@(objc_type = ServiceSession, objc_selector = "sessionRequiringAuthorization:fullAccuracyPurposeKey:", objc_name = "sessionRequiringAuthorization_fullAccuracyPurposeKey", objc_is_class_method = true)
 	ServiceSession_sessionRequiringAuthorization_fullAccuracyPurposeKey :: proc(authorizationRequirement: ServiceSessionAuthorizationRequirement, purposeKey: ^NS.String) -> ^ServiceSession ---
 
-	@(objc_type=ServiceSession, objc_selector="sessionRequiringAuthorization:fullAccuracyPurposeKey:queue:handler:", objc_name="sessionRequiringAuthorization_fullAccuracyPurposeKey_queue_handler", objc_is_class_method=true)
-	ServiceSession_sessionRequiringAuthorization_fullAccuracyPurposeKey_queue_handler :: proc(authorizationRequirement: ServiceSessionAuthorizationRequirement, purposeKey: ^NS.String, queue: CF.dispatch_queue_t, handler: ^Objc_Block(proc "c" ( diagnostic: ^ServiceSessionDiagnostic ))) -> ^ServiceSession ---
+	@(objc_type = ServiceSession, objc_selector = "sessionRequiringAuthorization:fullAccuracyPurposeKey:queue:handler:", objc_name = "sessionRequiringAuthorization_fullAccuracyPurposeKey_queue_handler", objc_is_class_method = true)
+	ServiceSession_sessionRequiringAuthorization_fullAccuracyPurposeKey_queue_handler :: proc(authorizationRequirement: ServiceSessionAuthorizationRequirement, purposeKey: ^NS.String, queue: CF.dispatch_queue_t, handler: ^Objc_Block(proc "c" (diagnostic: ^ServiceSessionDiagnostic))) -> ^ServiceSession ---
 
-	@(objc_type=ServiceSession, objc_selector="invalidate", objc_name="invalidate")
+	@(objc_type = ServiceSession, objc_selector = "invalidate", objc_name = "invalidate")
 	ServiceSession_invalidate :: proc(self: ^ServiceSession) ---
 }
 
 
-
-@(objc_type=ServiceSession, objc_name="sessionRequiringAuthorization", objc_is_class_method=true)
+@(objc_type = ServiceSession, objc_name = "sessionRequiringAuthorization", objc_is_class_method = true)
 ServiceSession_sessionRequiringAuthorization :: proc {
 	ServiceSession_sessionRequiringAuthorization_,
 	ServiceSession_sessionRequiringAuthorization_queue_handler,
@@ -42,31 +43,33 @@ ServiceSession_sessionRequiringAuthorization :: proc {
 }
 
 
-@(objc_class="CLServiceSessionDiagnostic", objc_superclass=NS.Object)
-ServiceSessionDiagnostic :: struct { using _: NS.Object}
+@(objc_class = "CLServiceSessionDiagnostic", objc_superclass = NS.Object)
+ServiceSessionDiagnostic :: struct {
+	using _: NS.Object,
+}
 
 foreign lib {
-	@(objc_type=ServiceSessionDiagnostic, objc_selector="authorizationDenied", objc_name="authorizationDenied")
+	@(objc_type = ServiceSessionDiagnostic, objc_selector = "authorizationDenied", objc_name = "authorizationDenied")
 	ServiceSessionDiagnostic_authorizationDenied :: proc(self: ^ServiceSessionDiagnostic) -> bool ---
 
-	@(objc_type=ServiceSessionDiagnostic, objc_selector="authorizationDeniedGlobally", objc_name="authorizationDeniedGlobally")
+	@(objc_type = ServiceSessionDiagnostic, objc_selector = "authorizationDeniedGlobally", objc_name = "authorizationDeniedGlobally")
 	ServiceSessionDiagnostic_authorizationDeniedGlobally :: proc(self: ^ServiceSessionDiagnostic) -> bool ---
 
-	@(objc_type=ServiceSessionDiagnostic, objc_selector="authorizationRestricted", objc_name="authorizationRestricted")
+	@(objc_type = ServiceSessionDiagnostic, objc_selector = "authorizationRestricted", objc_name = "authorizationRestricted")
 	ServiceSessionDiagnostic_authorizationRestricted :: proc(self: ^ServiceSessionDiagnostic) -> bool ---
 
-	@(objc_type=ServiceSessionDiagnostic, objc_selector="insufficientlyInUse", objc_name="insufficientlyInUse")
+	@(objc_type = ServiceSessionDiagnostic, objc_selector = "insufficientlyInUse", objc_name = "insufficientlyInUse")
 	ServiceSessionDiagnostic_insufficientlyInUse :: proc(self: ^ServiceSessionDiagnostic) -> bool ---
 
-	@(objc_type=ServiceSessionDiagnostic, objc_selector="serviceSessionRequired", objc_name="serviceSessionRequired")
+	@(objc_type = ServiceSessionDiagnostic, objc_selector = "serviceSessionRequired", objc_name = "serviceSessionRequired")
 	ServiceSessionDiagnostic_serviceSessionRequired :: proc(self: ^ServiceSessionDiagnostic) -> bool ---
 
-	@(objc_type=ServiceSessionDiagnostic, objc_selector="fullAccuracyDenied", objc_name="fullAccuracyDenied")
+	@(objc_type = ServiceSessionDiagnostic, objc_selector = "fullAccuracyDenied", objc_name = "fullAccuracyDenied")
 	ServiceSessionDiagnostic_fullAccuracyDenied :: proc(self: ^ServiceSessionDiagnostic) -> bool ---
 
-	@(objc_type=ServiceSessionDiagnostic, objc_selector="alwaysAuthorizationDenied", objc_name="alwaysAuthorizationDenied")
+	@(objc_type = ServiceSessionDiagnostic, objc_selector = "alwaysAuthorizationDenied", objc_name = "alwaysAuthorizationDenied")
 	ServiceSessionDiagnostic_alwaysAuthorizationDenied :: proc(self: ^ServiceSessionDiagnostic) -> bool ---
 
-	@(objc_type=ServiceSessionDiagnostic, objc_selector="authorizationRequestInProgress", objc_name="authorizationRequestInProgress")
+	@(objc_type = ServiceSessionDiagnostic, objc_selector = "authorizationRequestInProgress", objc_name = "authorizationRequestInProgress")
 	ServiceSessionDiagnostic_authorizationRequestInProgress :: proc(self: ^ServiceSessionDiagnostic) -> bool ---
 }

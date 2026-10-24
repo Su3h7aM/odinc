@@ -36,18 +36,18 @@ PointInRect :: proc(p: ^Point, r: ^Rect) -> bool {
 }
 
 RectEmpty :: proc(r: ^Rect) -> bool {
-	return bool(r == nil|| r.w <= 0 || r.h <= 0)
+	return bool(r == nil || r.w <= 0 || r.h <= 0)
 }
 
 RectEquals :: proc(a, b: ^Rect) -> bool {
 	return a != nil && b != nil && a^ == b^
 }
 
-@(default_calling_convention="c", link_prefix="SDL_")
+@(default_calling_convention = "c", link_prefix = "SDL_")
 foreign lib {
-	HasIntersection      :: proc(A, B: ^Rect) -> bool ---
-	IntersectRect        :: proc(A, B: ^Rect, result: ^Rect) -> bool ---
-	UnionRect            :: proc(A, B: ^Rect, result: ^Rect) ---
-	EnclosePoints        :: proc(points: [^]Point, count: c.int, clip: ^Rect, result: ^Rect) -> bool ---
+	HasIntersection :: proc(A, B: ^Rect) -> bool ---
+	IntersectRect :: proc(A, B: ^Rect, result: ^Rect) -> bool ---
+	UnionRect :: proc(A, B: ^Rect, result: ^Rect) ---
+	EnclosePoints :: proc(points: [^]Point, count: c.int, clip: ^Rect, result: ^Rect) -> bool ---
 	IntersectRectAndLine :: proc(rect: ^Rect, X1, Y1, X2, Y2: ^c.int) -> bool ---
 }

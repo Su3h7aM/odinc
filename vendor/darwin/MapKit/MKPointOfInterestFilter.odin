@@ -4,7 +4,7 @@ package darwin_MapKit
 
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class="MKPointOfInterestFilter", objc_superclass=NS.Object)
+@(objc_class = "MKPointOfInterestFilter", objc_superclass = NS.Object)
 PointOfInterestFilter :: struct {
 	using _: NS.Object,
 	using _: NS.SecureCoding,
@@ -12,21 +12,21 @@ PointOfInterestFilter :: struct {
 }
 
 foreign lib {
-	@(objc_type=PointOfInterestFilter, objc_selector="initIncludingCategories:", objc_name="initIncludingCategories")
+	@(objc_type = PointOfInterestFilter, objc_selector = "initIncludingCategories:", objc_name = "initIncludingCategories")
 	PointOfInterestFilter_initIncludingCategories :: proc(self: ^PointOfInterestFilter, categories: ^NS.Array) -> instancetype ---
 
-	@(objc_type=PointOfInterestFilter, objc_selector="initExcludingCategories:", objc_name="initExcludingCategories")
+	@(objc_type = PointOfInterestFilter, objc_selector = "initExcludingCategories:", objc_name = "initExcludingCategories")
 	PointOfInterestFilter_initExcludingCategories :: proc(self: ^PointOfInterestFilter, categories: ^NS.Array) -> instancetype ---
 
-	@(objc_type=PointOfInterestFilter, objc_selector="includesCategory:", objc_name="includesCategory")
+	@(objc_type = PointOfInterestFilter, objc_selector = "includesCategory:", objc_name = "includesCategory")
 	PointOfInterestFilter_includesCategory :: proc(self: ^PointOfInterestFilter, category: ^NS.String) -> bool ---
 
-	@(objc_type=PointOfInterestFilter, objc_selector="excludesCategory:", objc_name="excludesCategory")
+	@(objc_type = PointOfInterestFilter, objc_selector = "excludesCategory:", objc_name = "excludesCategory")
 	PointOfInterestFilter_excludesCategory :: proc(self: ^PointOfInterestFilter, category: ^NS.String) -> bool ---
 
-	@(objc_type=PointOfInterestFilter, objc_selector="filterIncludingAllCategories", objc_name="filterIncludingAllCategories", objc_is_class_method=true)
+	@(objc_type = PointOfInterestFilter, objc_selector = "filterIncludingAllCategories", objc_name = "filterIncludingAllCategories", objc_is_class_method = true)
 	PointOfInterestFilter_filterIncludingAllCategories :: proc() -> ^PointOfInterestFilter ---
 
-	@(objc_type=PointOfInterestFilter, objc_selector="filterExcludingAllCategories", objc_name="filterExcludingAllCategories", objc_is_class_method=true)
+	@(objc_type = PointOfInterestFilter, objc_selector = "filterExcludingAllCategories", objc_name = "filterExcludingAllCategories", objc_is_class_method = true)
 	PointOfInterestFilter_filterExcludingAllCategories :: proc() -> ^PointOfInterestFilter ---
 }

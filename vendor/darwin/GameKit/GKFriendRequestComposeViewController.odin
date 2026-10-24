@@ -2,48 +2,52 @@
 #+build darwin
 package darwin_GameKit
 
-import NS "core:sys/darwin/Foundation"
 import "base:intrinsics"
+import NS "core:sys/darwin/Foundation"
 
 when ODIN_PLATFORM_SUBTARGET == .Default {
-	@(objc_class="GKFriendRequestComposeViewController", objc_superclass=UI_ViewController)
+	@(objc_class = "GKFriendRequestComposeViewController", objc_superclass = UI_ViewController)
 	FriendRequestComposeViewController :: struct {
 		using _: UI_ViewController,
 		using _: ViewController,
 	}
 } else when ODIN_PLATFORM_SUBTARGET_IOS {
-	@(objc_class="GKFriendRequestComposeViewController", objc_superclass=UI_NavigationController)
-	FriendRequestComposeViewController :: struct { using _: UI_NavigationController}
+	@(objc_class = "GKFriendRequestComposeViewController", objc_superclass = UI_NavigationController)
+	FriendRequestComposeViewController :: struct {
+		using _: UI_NavigationController,
+	}
 }
 
 foreign lib {
-	@(objc_type=FriendRequestComposeViewController, objc_selector="maxNumberOfRecipients", objc_name="maxNumberOfRecipients", objc_is_class_method=true)
+	@(objc_type = FriendRequestComposeViewController, objc_selector = "maxNumberOfRecipients", objc_name = "maxNumberOfRecipients", objc_is_class_method = true)
 	FriendRequestComposeViewController_maxNumberOfRecipients :: proc() -> NS.UInteger ---
 
-	@(objc_type=FriendRequestComposeViewController, objc_selector="setMessage:", objc_name="setMessage")
+	@(objc_type = FriendRequestComposeViewController, objc_selector = "setMessage:", objc_name = "setMessage")
 	FriendRequestComposeViewController_setMessage :: proc(self: ^FriendRequestComposeViewController, message: ^NS.String) ---
 
-	@(objc_type=FriendRequestComposeViewController, objc_selector="addRecipientPlayers:", objc_name="addRecipientPlayers")
+	@(objc_type = FriendRequestComposeViewController, objc_selector = "addRecipientPlayers:", objc_name = "addRecipientPlayers")
 	FriendRequestComposeViewController_addRecipientPlayers :: proc(self: ^FriendRequestComposeViewController, players: ^NS.Array) ---
 
-	@(objc_type=FriendRequestComposeViewController, objc_selector="addRecipientsWithPlayerIDs:", objc_name="addRecipientsWithPlayerIDs")
+	@(objc_type = FriendRequestComposeViewController, objc_selector = "addRecipientsWithPlayerIDs:", objc_name = "addRecipientsWithPlayerIDs")
 	FriendRequestComposeViewController_addRecipientsWithPlayerIDs :: proc(self: ^FriendRequestComposeViewController, playerIDs: ^NS.Array) ---
 
-	@(objc_type=FriendRequestComposeViewController, objc_selector="addRecipientsWithEmailAddresses:", objc_name="addRecipientsWithEmailAddresses")
+	@(objc_type = FriendRequestComposeViewController, objc_selector = "addRecipientsWithEmailAddresses:", objc_name = "addRecipientsWithEmailAddresses")
 	FriendRequestComposeViewController_addRecipientsWithEmailAddresses :: proc(self: ^FriendRequestComposeViewController, emailAddresses: ^NS.Array) ---
 
-	@(objc_type=FriendRequestComposeViewController, objc_selector="composeViewDelegate", objc_name="composeViewDelegate")
+	@(objc_type = FriendRequestComposeViewController, objc_selector = "composeViewDelegate", objc_name = "composeViewDelegate")
 	FriendRequestComposeViewController_composeViewDelegate :: proc(self: ^FriendRequestComposeViewController) -> ^FriendRequestComposeViewControllerDelegate ---
 
-	@(objc_type=FriendRequestComposeViewController, objc_selector="setComposeViewDelegate:", objc_name="setComposeViewDelegate")
+	@(objc_type = FriendRequestComposeViewController, objc_selector = "setComposeViewDelegate:", objc_name = "setComposeViewDelegate")
 	FriendRequestComposeViewController_setComposeViewDelegate :: proc(self: ^FriendRequestComposeViewController, composeViewDelegate: ^FriendRequestComposeViewControllerDelegate) ---
 }
 
 
-@(objc_class="GKFriendRequestComposeViewControllerDelegate")
-FriendRequestComposeViewControllerDelegate :: struct { using _: intrinsics.objc_object}
+@(objc_class = "GKFriendRequestComposeViewControllerDelegate")
+FriendRequestComposeViewControllerDelegate :: struct {
+	using _: intrinsics.objc_object,
+}
 
 foreign lib {
-	@(objc_type=FriendRequestComposeViewControllerDelegate, objc_selector="friendRequestComposeViewControllerDidFinish:", objc_name="friendRequestComposeViewControllerDidFinish")
+	@(objc_type = FriendRequestComposeViewControllerDelegate, objc_selector = "friendRequestComposeViewControllerDidFinish:", objc_name = "friendRequestComposeViewControllerDidFinish")
 	FriendRequestComposeViewControllerDelegate_friendRequestComposeViewControllerDidFinish :: proc(self: ^FriendRequestComposeViewControllerDelegate, viewController: ^FriendRequestComposeViewController) ---
 }

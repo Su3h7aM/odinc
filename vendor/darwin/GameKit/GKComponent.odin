@@ -4,7 +4,7 @@ package darwin_GameKit
 
 import NS "core:sys/darwin/Foundation"
 
-@(objc_class="GKComponent", objc_superclass=NS.Object)
+@(objc_class = "GKComponent", objc_superclass = NS.Object)
 Component :: struct {
 	using _: NS.Object,
 	using _: NS.Copying,
@@ -12,93 +12,93 @@ Component :: struct {
 }
 
 foreign lib {
-	@(objc_type=Component, objc_selector="updateWithDeltaTime:", objc_name="updateWithDeltaTime")
+	@(objc_type = Component, objc_selector = "updateWithDeltaTime:", objc_name = "updateWithDeltaTime")
 	Component_updateWithDeltaTime :: proc(self: ^Component, seconds: NS.TimeInterval) ---
 
-	@(objc_type=Component, objc_selector="didAddToEntity", objc_name="didAddToEntity")
+	@(objc_type = Component, objc_selector = "didAddToEntity", objc_name = "didAddToEntity")
 	Component_didAddToEntity :: proc(self: ^Component) ---
 
-	@(objc_type=Component, objc_selector="willRemoveFromEntity", objc_name="willRemoveFromEntity")
+	@(objc_type = Component, objc_selector = "willRemoveFromEntity", objc_name = "willRemoveFromEntity")
 	Component_willRemoveFromEntity :: proc(self: ^Component) ---
 
-	@(objc_type=Component, objc_selector="entity", objc_name="entity")
+	@(objc_type = Component, objc_selector = "entity", objc_name = "entity")
 	Component_entity :: proc(self: ^Component) -> ^Entity ---
 }
 
 
-@(objc_class="GKComponentSystem", objc_superclass=NS.Object)
+@(objc_class = "GKComponentSystem", objc_superclass = NS.Object)
 ComponentSystem :: struct {
 	using _: NS.Object,
 	using _: NS.FastEnumeration,
 }
 
 foreign lib {
-	@(objc_type=ComponentSystem, objc_selector="objectAtIndexedSubscript:", objc_name="objectAtIndexedSubscript")
+	@(objc_type = ComponentSystem, objc_selector = "objectAtIndexedSubscript:", objc_name = "objectAtIndexedSubscript")
 	ComponentSystem_objectAtIndexedSubscript :: proc(self: ^ComponentSystem, idx: NS.UInteger) -> id ---
 
-	@(objc_type=ComponentSystem, objc_selector="initWithComponentClass:", objc_name="initWithComponentClass")
+	@(objc_type = ComponentSystem, objc_selector = "initWithComponentClass:", objc_name = "initWithComponentClass")
 	ComponentSystem_initWithComponentClass :: proc(self: ^ComponentSystem, cls: Class) -> instancetype ---
 
-	@(objc_type=ComponentSystem, objc_selector="addComponent:", objc_name="addComponent")
+	@(objc_type = ComponentSystem, objc_selector = "addComponent:", objc_name = "addComponent")
 	ComponentSystem_addComponent :: proc(self: ^ComponentSystem, component: id) ---
 
-	@(objc_type=ComponentSystem, objc_selector="addComponentWithEntity:", objc_name="addComponentWithEntity")
+	@(objc_type = ComponentSystem, objc_selector = "addComponentWithEntity:", objc_name = "addComponentWithEntity")
 	ComponentSystem_addComponentWithEntity :: proc(self: ^ComponentSystem, entity: ^Entity) ---
 
-	@(objc_type=ComponentSystem, objc_selector="removeComponentWithEntity:", objc_name="removeComponentWithEntity")
+	@(objc_type = ComponentSystem, objc_selector = "removeComponentWithEntity:", objc_name = "removeComponentWithEntity")
 	ComponentSystem_removeComponentWithEntity :: proc(self: ^ComponentSystem, entity: ^Entity) ---
 
-	@(objc_type=ComponentSystem, objc_selector="removeComponent:", objc_name="removeComponent")
+	@(objc_type = ComponentSystem, objc_selector = "removeComponent:", objc_name = "removeComponent")
 	ComponentSystem_removeComponent :: proc(self: ^ComponentSystem, component: id) ---
 
-	@(objc_type=ComponentSystem, objc_selector="updateWithDeltaTime:", objc_name="updateWithDeltaTime")
+	@(objc_type = ComponentSystem, objc_selector = "updateWithDeltaTime:", objc_name = "updateWithDeltaTime")
 	ComponentSystem_updateWithDeltaTime :: proc(self: ^ComponentSystem, seconds: NS.TimeInterval) ---
 
-	@(objc_type=ComponentSystem, objc_selector="classForGenericArgumentAtIndex:", objc_name="classForGenericArgumentAtIndex")
+	@(objc_type = ComponentSystem, objc_selector = "classForGenericArgumentAtIndex:", objc_name = "classForGenericArgumentAtIndex")
 	ComponentSystem_classForGenericArgumentAtIndex :: proc(self: ^ComponentSystem, index: NS.UInteger) -> Class ---
 
-	@(objc_type=ComponentSystem, objc_selector="componentClass", objc_name="componentClass")
+	@(objc_type = ComponentSystem, objc_selector = "componentClass", objc_name = "componentClass")
 	ComponentSystem_componentClass :: proc(self: ^ComponentSystem) -> Class ---
 
-	@(objc_type=ComponentSystem, objc_selector="components", objc_name="components")
+	@(objc_type = ComponentSystem, objc_selector = "components", objc_name = "components")
 	ComponentSystem_components :: proc(self: ^ComponentSystem) -> ^NS.Array ---
 }
 
 
-@(objc_class="GKSCNNodeComponent", objc_superclass=Component)
+@(objc_class = "GKSCNNodeComponent", objc_superclass = Component)
 SCNNodeComponent :: struct {
 	using _: Component,
 	using _: AgentDelegate,
 }
 
 foreign lib {
-	@(objc_type=SCNNodeComponent, objc_selector="componentWithNode:", objc_name="componentWithNode", objc_is_class_method=true)
+	@(objc_type = SCNNodeComponent, objc_selector = "componentWithNode:", objc_name = "componentWithNode", objc_is_class_method = true)
 	SCNNodeComponent_componentWithNode :: proc(node: ^SCNNode) -> instancetype ---
 
-	@(objc_type=SCNNodeComponent, objc_selector="initWithNode:", objc_name="initWithNode")
+	@(objc_type = SCNNodeComponent, objc_selector = "initWithNode:", objc_name = "initWithNode")
 	SCNNodeComponent_initWithNode :: proc(self: ^SCNNodeComponent, node: ^SCNNode) -> instancetype ---
 
-	@(objc_type=SCNNodeComponent, objc_selector="node", objc_name="node")
+	@(objc_type = SCNNodeComponent, objc_selector = "node", objc_name = "node")
 	SCNNodeComponent_node :: proc(self: ^SCNNodeComponent) -> ^SCNNode ---
 }
 
 
-@(objc_class="GKSKNodeComponent", objc_superclass=Component)
+@(objc_class = "GKSKNodeComponent", objc_superclass = Component)
 SKNodeComponent :: struct {
 	using _: Component,
 	using _: AgentDelegate,
 }
 
 foreign lib {
-	@(objc_type=SKNodeComponent, objc_selector="componentWithNode:", objc_name="componentWithNode", objc_is_class_method=true)
+	@(objc_type = SKNodeComponent, objc_selector = "componentWithNode:", objc_name = "componentWithNode", objc_is_class_method = true)
 	SKNodeComponent_componentWithNode :: proc(node: ^SKNode) -> instancetype ---
 
-	@(objc_type=SKNodeComponent, objc_selector="initWithNode:", objc_name="initWithNode")
+	@(objc_type = SKNodeComponent, objc_selector = "initWithNode:", objc_name = "initWithNode")
 	SKNodeComponent_initWithNode :: proc(self: ^SKNodeComponent, node: ^SKNode) -> instancetype ---
 
-	@(objc_type=SKNodeComponent, objc_selector="node", objc_name="node")
+	@(objc_type = SKNodeComponent, objc_selector = "node", objc_name = "node")
 	SKNodeComponent_node :: proc(self: ^SKNodeComponent) -> ^SKNode ---
 
-	@(objc_type=SKNodeComponent, objc_selector="setNode:", objc_name="setNode")
+	@(objc_type = SKNodeComponent, objc_selector = "setNode:", objc_name = "setNode")
 	SKNodeComponent_setNode :: proc(self: ^SKNodeComponent, node: ^SKNode) ---
 }

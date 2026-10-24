@@ -7,1133 +7,1126 @@ import cffi "core:c"
 import CF "core:sys/darwin/CoreFoundation"
 import NS "core:sys/darwin/Foundation"
 
-id            :: ^intrinsics.objc_object
-SEL           :: ^intrinsics.objc_selector
-Class         :: ^intrinsics.objc_class
-IMP           :: rawptr
-Protocol      :: distinct id
-instancetype  :: intrinsics.objc_instancetype
+id :: ^intrinsics.objc_object
+SEL :: ^intrinsics.objc_selector
+Class :: ^intrinsics.objc_class
+IMP :: rawptr
+Protocol :: distinct id
+instancetype :: intrinsics.objc_instancetype
 
 @(export)
-foreign import lib {
-	"system:GameController.framework",
-}
+foreign import lib "system:GameController.framework"
 
 
-
-
-
-  CHHapticEngine :: NS.Object
-  IOHIDDeviceRef :: struct {}
-
+CHHapticEngine :: NS.Object
+IOHIDDeviceRef :: struct {}
 
 
 foreign lib {
-	@(link_name="GCPoint2Zero")
+	@(link_name = "GCPoint2Zero")
 	Point2Zero: Point2
 
-	@(link_name="GCProductCategoryDualSense")
+	@(link_name = "GCProductCategoryDualSense")
 	ProductCategoryDualSense: ^NS.String
 
-	@(link_name="GCProductCategoryDualShock4")
+	@(link_name = "GCProductCategoryDualShock4")
 	ProductCategoryDualShock4: ^NS.String
 
-	@(link_name="GCProductCategoryMFi")
+	@(link_name = "GCProductCategoryMFi")
 	ProductCategoryMFi: ^NS.String
 
-	@(link_name="GCProductCategoryXboxOne")
+	@(link_name = "GCProductCategoryXboxOne")
 	ProductCategoryXboxOne: ^NS.String
 
-	@(link_name="GCProductCategoryHID")
+	@(link_name = "GCProductCategoryHID")
 	ProductCategoryHID: ^NS.String
 
-	@(link_name="GCProductCategorySpatialController")
+	@(link_name = "GCProductCategorySpatialController")
 	ProductCategorySpatialController: ^NS.String
 
-	@(link_name="GCProductCategoryArcadeStick")
+	@(link_name = "GCProductCategoryArcadeStick")
 	ProductCategoryArcadeStick: ^NS.String
 
-	@(link_name="GCProductCategorySiriRemote1stGen")
+	@(link_name = "GCProductCategorySiriRemote1stGen")
 	ProductCategorySiriRemote1stGen: ^NS.String
 
-	@(link_name="GCProductCategorySiriRemote2ndGen")
+	@(link_name = "GCProductCategorySiriRemote2ndGen")
 	ProductCategorySiriRemote2ndGen: ^NS.String
 
-	@(link_name="GCProductCategoryControlCenterRemote")
+	@(link_name = "GCProductCategoryControlCenterRemote")
 	ProductCategoryControlCenterRemote: ^NS.String
 
-	@(link_name="GCProductCategoryUniversalElectronicsRemote")
+	@(link_name = "GCProductCategoryUniversalElectronicsRemote")
 	ProductCategoryUniversalElectronicsRemote: ^NS.String
 
-	@(link_name="GCProductCategoryCoalescedRemote")
+	@(link_name = "GCProductCategoryCoalescedRemote")
 	ProductCategoryCoalescedRemote: ^NS.String
 
-	@(link_name="GCProductCategoryMouse")
+	@(link_name = "GCProductCategoryMouse")
 	ProductCategoryMouse: ^NS.String
 
-	@(link_name="GCProductCategoryKeyboard")
+	@(link_name = "GCProductCategoryKeyboard")
 	ProductCategoryKeyboard: ^NS.String
 
-	@(link_name="GCProductCategorySpatialStylus")
+	@(link_name = "GCProductCategorySpatialStylus")
 	ProductCategorySpatialStylus: ^NS.String
 
-	@(link_name="GCInputButtonA")
+	@(link_name = "GCInputButtonA")
 	InputButtonA: ^NS.String
 
-	@(link_name="GCInputButtonB")
+	@(link_name = "GCInputButtonB")
 	InputButtonB: ^NS.String
 
-	@(link_name="GCInputButtonX")
+	@(link_name = "GCInputButtonX")
 	InputButtonX: ^NS.String
 
-	@(link_name="GCInputButtonY")
+	@(link_name = "GCInputButtonY")
 	InputButtonY: ^NS.String
 
-	@(link_name="GCInputDirectionPad")
+	@(link_name = "GCInputDirectionPad")
 	InputDirectionPad: ^NS.String
 
-	@(link_name="GCInputThumbstick")
+	@(link_name = "GCInputThumbstick")
 	InputThumbstick: ^NS.String
 
-	@(link_name="GCInputLeftThumbstick")
+	@(link_name = "GCInputLeftThumbstick")
 	InputLeftThumbstick: ^NS.String
 
-	@(link_name="GCInputRightThumbstick")
+	@(link_name = "GCInputRightThumbstick")
 	InputRightThumbstick: ^NS.String
 
-	@(link_name="GCInputThumbstickButton")
+	@(link_name = "GCInputThumbstickButton")
 	InputThumbstickButton: ^NS.String
 
-	@(link_name="GCInputLeftThumbstickButton")
+	@(link_name = "GCInputLeftThumbstickButton")
 	InputLeftThumbstickButton: ^NS.String
 
-	@(link_name="GCInputRightThumbstickButton")
+	@(link_name = "GCInputRightThumbstickButton")
 	InputRightThumbstickButton: ^NS.String
 
-	@(link_name="GCInputGripButton")
+	@(link_name = "GCInputGripButton")
 	InputGripButton: ^NS.String
 
-	@(link_name="GCInputLeftShoulder")
+	@(link_name = "GCInputLeftShoulder")
 	InputLeftShoulder: ^NS.String
 
-	@(link_name="GCInputRightShoulder")
+	@(link_name = "GCInputRightShoulder")
 	InputRightShoulder: ^NS.String
 
-	@(link_name="GCInputLeftBumper")
+	@(link_name = "GCInputLeftBumper")
 	InputLeftBumper: ^NS.String
 
-	@(link_name="GCInputRightBumper")
+	@(link_name = "GCInputRightBumper")
 	InputRightBumper: ^NS.String
 
-	@(link_name="GCInputTrigger")
+	@(link_name = "GCInputTrigger")
 	InputTrigger: ^NS.String
 
-	@(link_name="GCInputLeftTrigger")
+	@(link_name = "GCInputLeftTrigger")
 	InputLeftTrigger: ^NS.String
 
-	@(link_name="GCInputRightTrigger")
+	@(link_name = "GCInputRightTrigger")
 	InputRightTrigger: ^NS.String
 
-	@(link_name="GCInputLeftSideButton")
+	@(link_name = "GCInputLeftSideButton")
 	InputLeftSideButton: ^NS.String
 
-	@(link_name="GCInputRightSideButton")
+	@(link_name = "GCInputRightSideButton")
 	InputRightSideButton: ^NS.String
 
-	@(link_name="GCInputButtonHome")
+	@(link_name = "GCInputButtonHome")
 	InputButtonHome: ^NS.String
 
-	@(link_name="GCInputButtonMenu")
+	@(link_name = "GCInputButtonMenu")
 	InputButtonMenu: ^NS.String
 
-	@(link_name="GCInputButtonOptions")
+	@(link_name = "GCInputButtonOptions")
 	InputButtonOptions: ^NS.String
 
-	@(link_name="GCInputButtonShare")
+	@(link_name = "GCInputButtonShare")
 	InputButtonShare: ^NS.String
 
-	@(link_name="GCInputXboxPaddleOne")
+	@(link_name = "GCInputXboxPaddleOne")
 	InputXboxPaddleOne: ^NS.String
 
-	@(link_name="GCInputXboxPaddleTwo")
+	@(link_name = "GCInputXboxPaddleTwo")
 	InputXboxPaddleTwo: ^NS.String
 
-	@(link_name="GCInputXboxPaddleThree")
+	@(link_name = "GCInputXboxPaddleThree")
 	InputXboxPaddleThree: ^NS.String
 
-	@(link_name="GCInputXboxPaddleFour")
+	@(link_name = "GCInputXboxPaddleFour")
 	InputXboxPaddleFour: ^NS.String
 
-	@(link_name="GCInputDualShockTouchpadOne")
+	@(link_name = "GCInputDualShockTouchpadOne")
 	InputDualShockTouchpadOne: ^NS.String
 
-	@(link_name="GCInputDualShockTouchpadTwo")
+	@(link_name = "GCInputDualShockTouchpadTwo")
 	InputDualShockTouchpadTwo: ^NS.String
 
-	@(link_name="GCInputDualShockTouchpadButton")
+	@(link_name = "GCInputDualShockTouchpadButton")
 	InputDualShockTouchpadButton: ^NS.String
 
-	@(link_name="GCInputSteeringWheel")
+	@(link_name = "GCInputSteeringWheel")
 	InputSteeringWheel: ^NS.String
 
-	@(link_name="GCInputShifter")
+	@(link_name = "GCInputShifter")
 	InputShifter: ^NS.String
 
-	@(link_name="GCInputPedalAccelerator")
+	@(link_name = "GCInputPedalAccelerator")
 	InputPedalAccelerator: ^NS.String
 
-	@(link_name="GCInputPedalBrake")
+	@(link_name = "GCInputPedalBrake")
 	InputPedalBrake: ^NS.String
 
-	@(link_name="GCInputPedalClutch")
+	@(link_name = "GCInputPedalClutch")
 	InputPedalClutch: ^NS.String
 
-	@(link_name="GCInputLeftPaddle")
+	@(link_name = "GCInputLeftPaddle")
 	InputLeftPaddle: ^NS.String
 
-	@(link_name="GCInputRightPaddle")
+	@(link_name = "GCInputRightPaddle")
 	InputRightPaddle: ^NS.String
 
-	@(link_name="GCInputStylusTip")
+	@(link_name = "GCInputStylusTip")
 	InputStylusTip: ^NS.String
 
-	@(link_name="GCInputStylusPrimaryButton")
+	@(link_name = "GCInputStylusPrimaryButton")
 	InputStylusPrimaryButton: ^NS.String
 
-	@(link_name="GCInputStylusSecondaryButton")
+	@(link_name = "GCInputStylusSecondaryButton")
 	InputStylusSecondaryButton: ^NS.String
 
-	@(link_name="GCCurrentExtendedGamepadSnapshotDataVersion")
+	@(link_name = "GCCurrentExtendedGamepadSnapshotDataVersion")
 	CurrentExtendedGamepadSnapshotDataVersion: ExtendedGamepadSnapshotDataVersion
 
-	@(link_name="GCKeyCodeKeyA")
+	@(link_name = "GCKeyCodeKeyA")
 	KeyCodeKeyA: KeyCode
 
-	@(link_name="GCKeyCodeKeyB")
+	@(link_name = "GCKeyCodeKeyB")
 	KeyCodeKeyB: KeyCode
 
-	@(link_name="GCKeyCodeKeyC")
+	@(link_name = "GCKeyCodeKeyC")
 	KeyCodeKeyC: KeyCode
 
-	@(link_name="GCKeyCodeKeyD")
+	@(link_name = "GCKeyCodeKeyD")
 	KeyCodeKeyD: KeyCode
 
-	@(link_name="GCKeyCodeKeyE")
+	@(link_name = "GCKeyCodeKeyE")
 	KeyCodeKeyE: KeyCode
 
-	@(link_name="GCKeyCodeKeyF")
+	@(link_name = "GCKeyCodeKeyF")
 	KeyCodeKeyF: KeyCode
 
-	@(link_name="GCKeyCodeKeyG")
+	@(link_name = "GCKeyCodeKeyG")
 	KeyCodeKeyG: KeyCode
 
-	@(link_name="GCKeyCodeKeyH")
+	@(link_name = "GCKeyCodeKeyH")
 	KeyCodeKeyH: KeyCode
 
-	@(link_name="GCKeyCodeKeyI")
+	@(link_name = "GCKeyCodeKeyI")
 	KeyCodeKeyI: KeyCode
 
-	@(link_name="GCKeyCodeKeyJ")
+	@(link_name = "GCKeyCodeKeyJ")
 	KeyCodeKeyJ: KeyCode
 
-	@(link_name="GCKeyCodeKeyK")
+	@(link_name = "GCKeyCodeKeyK")
 	KeyCodeKeyK: KeyCode
 
-	@(link_name="GCKeyCodeKeyL")
+	@(link_name = "GCKeyCodeKeyL")
 	KeyCodeKeyL: KeyCode
 
-	@(link_name="GCKeyCodeKeyM")
+	@(link_name = "GCKeyCodeKeyM")
 	KeyCodeKeyM: KeyCode
 
-	@(link_name="GCKeyCodeKeyN")
+	@(link_name = "GCKeyCodeKeyN")
 	KeyCodeKeyN: KeyCode
 
-	@(link_name="GCKeyCodeKeyO")
+	@(link_name = "GCKeyCodeKeyO")
 	KeyCodeKeyO: KeyCode
 
-	@(link_name="GCKeyCodeKeyP")
+	@(link_name = "GCKeyCodeKeyP")
 	KeyCodeKeyP: KeyCode
 
-	@(link_name="GCKeyCodeKeyQ")
+	@(link_name = "GCKeyCodeKeyQ")
 	KeyCodeKeyQ: KeyCode
 
-	@(link_name="GCKeyCodeKeyR")
+	@(link_name = "GCKeyCodeKeyR")
 	KeyCodeKeyR: KeyCode
 
-	@(link_name="GCKeyCodeKeyS")
+	@(link_name = "GCKeyCodeKeyS")
 	KeyCodeKeyS: KeyCode
 
-	@(link_name="GCKeyCodeKeyT")
+	@(link_name = "GCKeyCodeKeyT")
 	KeyCodeKeyT: KeyCode
 
-	@(link_name="GCKeyCodeKeyU")
+	@(link_name = "GCKeyCodeKeyU")
 	KeyCodeKeyU: KeyCode
 
-	@(link_name="GCKeyCodeKeyV")
+	@(link_name = "GCKeyCodeKeyV")
 	KeyCodeKeyV: KeyCode
 
-	@(link_name="GCKeyCodeKeyW")
+	@(link_name = "GCKeyCodeKeyW")
 	KeyCodeKeyW: KeyCode
 
-	@(link_name="GCKeyCodeKeyX")
+	@(link_name = "GCKeyCodeKeyX")
 	KeyCodeKeyX: KeyCode
 
-	@(link_name="GCKeyCodeKeyY")
+	@(link_name = "GCKeyCodeKeyY")
 	KeyCodeKeyY: KeyCode
 
-	@(link_name="GCKeyCodeKeyZ")
+	@(link_name = "GCKeyCodeKeyZ")
 	KeyCodeKeyZ: KeyCode
 
-	@(link_name="GCKeyCodeOne")
+	@(link_name = "GCKeyCodeOne")
 	KeyCodeOne: KeyCode
 
-	@(link_name="GCKeyCodeTwo")
+	@(link_name = "GCKeyCodeTwo")
 	KeyCodeTwo: KeyCode
 
-	@(link_name="GCKeyCodeThree")
+	@(link_name = "GCKeyCodeThree")
 	KeyCodeThree: KeyCode
 
-	@(link_name="GCKeyCodeFour")
+	@(link_name = "GCKeyCodeFour")
 	KeyCodeFour: KeyCode
 
-	@(link_name="GCKeyCodeFive")
+	@(link_name = "GCKeyCodeFive")
 	KeyCodeFive: KeyCode
 
-	@(link_name="GCKeyCodeSix")
+	@(link_name = "GCKeyCodeSix")
 	KeyCodeSix: KeyCode
 
-	@(link_name="GCKeyCodeSeven")
+	@(link_name = "GCKeyCodeSeven")
 	KeyCodeSeven: KeyCode
 
-	@(link_name="GCKeyCodeEight")
+	@(link_name = "GCKeyCodeEight")
 	KeyCodeEight: KeyCode
 
-	@(link_name="GCKeyCodeNine")
+	@(link_name = "GCKeyCodeNine")
 	KeyCodeNine: KeyCode
 
-	@(link_name="GCKeyCodeZero")
+	@(link_name = "GCKeyCodeZero")
 	KeyCodeZero: KeyCode
 
-	@(link_name="GCKeyCodeReturnOrEnter")
+	@(link_name = "GCKeyCodeReturnOrEnter")
 	KeyCodeReturnOrEnter: KeyCode
 
-	@(link_name="GCKeyCodeEscape")
+	@(link_name = "GCKeyCodeEscape")
 	KeyCodeEscape: KeyCode
 
-	@(link_name="GCKeyCodeDeleteOrBackspace")
+	@(link_name = "GCKeyCodeDeleteOrBackspace")
 	KeyCodeDeleteOrBackspace: KeyCode
 
-	@(link_name="GCKeyCodeTab")
+	@(link_name = "GCKeyCodeTab")
 	KeyCodeTab: KeyCode
 
-	@(link_name="GCKeyCodeSpacebar")
+	@(link_name = "GCKeyCodeSpacebar")
 	KeyCodeSpacebar: KeyCode
 
-	@(link_name="GCKeyCodeHyphen")
+	@(link_name = "GCKeyCodeHyphen")
 	KeyCodeHyphen: KeyCode
 
-	@(link_name="GCKeyCodeEqualSign")
+	@(link_name = "GCKeyCodeEqualSign")
 	KeyCodeEqualSign: KeyCode
 
-	@(link_name="GCKeyCodeOpenBracket")
+	@(link_name = "GCKeyCodeOpenBracket")
 	KeyCodeOpenBracket: KeyCode
 
-	@(link_name="GCKeyCodeCloseBracket")
+	@(link_name = "GCKeyCodeCloseBracket")
 	KeyCodeCloseBracket: KeyCode
 
-	@(link_name="GCKeyCodeBackslash")
+	@(link_name = "GCKeyCodeBackslash")
 	KeyCodeBackslash: KeyCode
 
-	@(link_name="GCKeyCodeNonUSPound")
+	@(link_name = "GCKeyCodeNonUSPound")
 	KeyCodeNonUSPound: KeyCode
 
-	@(link_name="GCKeyCodeSemicolon")
+	@(link_name = "GCKeyCodeSemicolon")
 	KeyCodeSemicolon: KeyCode
 
-	@(link_name="GCKeyCodeQuote")
+	@(link_name = "GCKeyCodeQuote")
 	KeyCodeQuote: KeyCode
 
-	@(link_name="GCKeyCodeGraveAccentAndTilde")
+	@(link_name = "GCKeyCodeGraveAccentAndTilde")
 	KeyCodeGraveAccentAndTilde: KeyCode
 
-	@(link_name="GCKeyCodeComma")
+	@(link_name = "GCKeyCodeComma")
 	KeyCodeComma: KeyCode
 
-	@(link_name="GCKeyCodePeriod")
+	@(link_name = "GCKeyCodePeriod")
 	KeyCodePeriod: KeyCode
 
-	@(link_name="GCKeyCodeSlash")
+	@(link_name = "GCKeyCodeSlash")
 	KeyCodeSlash: KeyCode
 
-	@(link_name="GCKeyCodeCapsLock")
+	@(link_name = "GCKeyCodeCapsLock")
 	KeyCodeCapsLock: KeyCode
 
-	@(link_name="GCKeyCodeF1")
+	@(link_name = "GCKeyCodeF1")
 	KeyCodeF1: KeyCode
 
-	@(link_name="GCKeyCodeF2")
+	@(link_name = "GCKeyCodeF2")
 	KeyCodeF2: KeyCode
 
-	@(link_name="GCKeyCodeF3")
+	@(link_name = "GCKeyCodeF3")
 	KeyCodeF3: KeyCode
 
-	@(link_name="GCKeyCodeF4")
+	@(link_name = "GCKeyCodeF4")
 	KeyCodeF4: KeyCode
 
-	@(link_name="GCKeyCodeF5")
+	@(link_name = "GCKeyCodeF5")
 	KeyCodeF5: KeyCode
 
-	@(link_name="GCKeyCodeF6")
+	@(link_name = "GCKeyCodeF6")
 	KeyCodeF6: KeyCode
 
-	@(link_name="GCKeyCodeF7")
+	@(link_name = "GCKeyCodeF7")
 	KeyCodeF7: KeyCode
 
-	@(link_name="GCKeyCodeF8")
+	@(link_name = "GCKeyCodeF8")
 	KeyCodeF8: KeyCode
 
-	@(link_name="GCKeyCodeF9")
+	@(link_name = "GCKeyCodeF9")
 	KeyCodeF9: KeyCode
 
-	@(link_name="GCKeyCodeF10")
+	@(link_name = "GCKeyCodeF10")
 	KeyCodeF10: KeyCode
 
-	@(link_name="GCKeyCodeF11")
+	@(link_name = "GCKeyCodeF11")
 	KeyCodeF11: KeyCode
 
-	@(link_name="GCKeyCodeF12")
+	@(link_name = "GCKeyCodeF12")
 	KeyCodeF12: KeyCode
 
-	@(link_name="GCKeyCodeF13")
+	@(link_name = "GCKeyCodeF13")
 	KeyCodeF13: KeyCode
 
-	@(link_name="GCKeyCodeF14")
+	@(link_name = "GCKeyCodeF14")
 	KeyCodeF14: KeyCode
 
-	@(link_name="GCKeyCodeF15")
+	@(link_name = "GCKeyCodeF15")
 	KeyCodeF15: KeyCode
 
-	@(link_name="GCKeyCodeF16")
+	@(link_name = "GCKeyCodeF16")
 	KeyCodeF16: KeyCode
 
-	@(link_name="GCKeyCodeF17")
+	@(link_name = "GCKeyCodeF17")
 	KeyCodeF17: KeyCode
 
-	@(link_name="GCKeyCodeF18")
+	@(link_name = "GCKeyCodeF18")
 	KeyCodeF18: KeyCode
 
-	@(link_name="GCKeyCodeF19")
+	@(link_name = "GCKeyCodeF19")
 	KeyCodeF19: KeyCode
 
-	@(link_name="GCKeyCodeF20")
+	@(link_name = "GCKeyCodeF20")
 	KeyCodeF20: KeyCode
 
-	@(link_name="GCKeyCodePrintScreen")
+	@(link_name = "GCKeyCodePrintScreen")
 	KeyCodePrintScreen: KeyCode
 
-	@(link_name="GCKeyCodeScrollLock")
+	@(link_name = "GCKeyCodeScrollLock")
 	KeyCodeScrollLock: KeyCode
 
-	@(link_name="GCKeyCodePause")
+	@(link_name = "GCKeyCodePause")
 	KeyCodePause: KeyCode
 
-	@(link_name="GCKeyCodeInsert")
+	@(link_name = "GCKeyCodeInsert")
 	KeyCodeInsert: KeyCode
 
-	@(link_name="GCKeyCodeHome")
+	@(link_name = "GCKeyCodeHome")
 	KeyCodeHome: KeyCode
 
-	@(link_name="GCKeyCodePageUp")
+	@(link_name = "GCKeyCodePageUp")
 	KeyCodePageUp: KeyCode
 
-	@(link_name="GCKeyCodeDeleteForward")
+	@(link_name = "GCKeyCodeDeleteForward")
 	KeyCodeDeleteForward: KeyCode
 
-	@(link_name="GCKeyCodeEnd")
+	@(link_name = "GCKeyCodeEnd")
 	KeyCodeEnd: KeyCode
 
-	@(link_name="GCKeyCodePageDown")
+	@(link_name = "GCKeyCodePageDown")
 	KeyCodePageDown: KeyCode
 
-	@(link_name="GCKeyCodeRightArrow")
+	@(link_name = "GCKeyCodeRightArrow")
 	KeyCodeRightArrow: KeyCode
 
-	@(link_name="GCKeyCodeLeftArrow")
+	@(link_name = "GCKeyCodeLeftArrow")
 	KeyCodeLeftArrow: KeyCode
 
-	@(link_name="GCKeyCodeDownArrow")
+	@(link_name = "GCKeyCodeDownArrow")
 	KeyCodeDownArrow: KeyCode
 
-	@(link_name="GCKeyCodeUpArrow")
+	@(link_name = "GCKeyCodeUpArrow")
 	KeyCodeUpArrow: KeyCode
 
-	@(link_name="GCKeyCodeKeypadNumLock")
+	@(link_name = "GCKeyCodeKeypadNumLock")
 	KeyCodeKeypadNumLock: KeyCode
 
-	@(link_name="GCKeyCodeKeypadSlash")
+	@(link_name = "GCKeyCodeKeypadSlash")
 	KeyCodeKeypadSlash: KeyCode
 
-	@(link_name="GCKeyCodeKeypadAsterisk")
+	@(link_name = "GCKeyCodeKeypadAsterisk")
 	KeyCodeKeypadAsterisk: KeyCode
 
-	@(link_name="GCKeyCodeKeypadHyphen")
+	@(link_name = "GCKeyCodeKeypadHyphen")
 	KeyCodeKeypadHyphen: KeyCode
 
-	@(link_name="GCKeyCodeKeypadPlus")
+	@(link_name = "GCKeyCodeKeypadPlus")
 	KeyCodeKeypadPlus: KeyCode
 
-	@(link_name="GCKeyCodeKeypadEnter")
+	@(link_name = "GCKeyCodeKeypadEnter")
 	KeyCodeKeypadEnter: KeyCode
 
-	@(link_name="GCKeyCodeKeypad1")
+	@(link_name = "GCKeyCodeKeypad1")
 	KeyCodeKeypad1: KeyCode
 
-	@(link_name="GCKeyCodeKeypad2")
+	@(link_name = "GCKeyCodeKeypad2")
 	KeyCodeKeypad2: KeyCode
 
-	@(link_name="GCKeyCodeKeypad3")
+	@(link_name = "GCKeyCodeKeypad3")
 	KeyCodeKeypad3: KeyCode
 
-	@(link_name="GCKeyCodeKeypad4")
+	@(link_name = "GCKeyCodeKeypad4")
 	KeyCodeKeypad4: KeyCode
 
-	@(link_name="GCKeyCodeKeypad5")
+	@(link_name = "GCKeyCodeKeypad5")
 	KeyCodeKeypad5: KeyCode
 
-	@(link_name="GCKeyCodeKeypad6")
+	@(link_name = "GCKeyCodeKeypad6")
 	KeyCodeKeypad6: KeyCode
 
-	@(link_name="GCKeyCodeKeypad7")
+	@(link_name = "GCKeyCodeKeypad7")
 	KeyCodeKeypad7: KeyCode
 
-	@(link_name="GCKeyCodeKeypad8")
+	@(link_name = "GCKeyCodeKeypad8")
 	KeyCodeKeypad8: KeyCode
 
-	@(link_name="GCKeyCodeKeypad9")
+	@(link_name = "GCKeyCodeKeypad9")
 	KeyCodeKeypad9: KeyCode
 
-	@(link_name="GCKeyCodeKeypad0")
+	@(link_name = "GCKeyCodeKeypad0")
 	KeyCodeKeypad0: KeyCode
 
-	@(link_name="GCKeyCodeKeypadPeriod")
+	@(link_name = "GCKeyCodeKeypadPeriod")
 	KeyCodeKeypadPeriod: KeyCode
 
-	@(link_name="GCKeyCodeKeypadEqualSign")
+	@(link_name = "GCKeyCodeKeypadEqualSign")
 	KeyCodeKeypadEqualSign: KeyCode
 
-	@(link_name="GCKeyCodeNonUSBackslash")
+	@(link_name = "GCKeyCodeNonUSBackslash")
 	KeyCodeNonUSBackslash: KeyCode
 
-	@(link_name="GCKeyCodeApplication")
+	@(link_name = "GCKeyCodeApplication")
 	KeyCodeApplication: KeyCode
 
-	@(link_name="GCKeyCodePower")
+	@(link_name = "GCKeyCodePower")
 	KeyCodePower: KeyCode
 
-	@(link_name="GCKeyCodeInternational1")
+	@(link_name = "GCKeyCodeInternational1")
 	KeyCodeInternational1: KeyCode
 
-	@(link_name="GCKeyCodeInternational2")
+	@(link_name = "GCKeyCodeInternational2")
 	KeyCodeInternational2: KeyCode
 
-	@(link_name="GCKeyCodeInternational3")
+	@(link_name = "GCKeyCodeInternational3")
 	KeyCodeInternational3: KeyCode
 
-	@(link_name="GCKeyCodeInternational4")
+	@(link_name = "GCKeyCodeInternational4")
 	KeyCodeInternational4: KeyCode
 
-	@(link_name="GCKeyCodeInternational5")
+	@(link_name = "GCKeyCodeInternational5")
 	KeyCodeInternational5: KeyCode
 
-	@(link_name="GCKeyCodeInternational6")
+	@(link_name = "GCKeyCodeInternational6")
 	KeyCodeInternational6: KeyCode
 
-	@(link_name="GCKeyCodeInternational7")
+	@(link_name = "GCKeyCodeInternational7")
 	KeyCodeInternational7: KeyCode
 
-	@(link_name="GCKeyCodeInternational8")
+	@(link_name = "GCKeyCodeInternational8")
 	KeyCodeInternational8: KeyCode
 
-	@(link_name="GCKeyCodeInternational9")
+	@(link_name = "GCKeyCodeInternational9")
 	KeyCodeInternational9: KeyCode
 
-	@(link_name="GCKeyCodeLANG1")
+	@(link_name = "GCKeyCodeLANG1")
 	KeyCodeLANG1: KeyCode
 
-	@(link_name="GCKeyCodeLANG2")
+	@(link_name = "GCKeyCodeLANG2")
 	KeyCodeLANG2: KeyCode
 
-	@(link_name="GCKeyCodeLANG3")
+	@(link_name = "GCKeyCodeLANG3")
 	KeyCodeLANG3: KeyCode
 
-	@(link_name="GCKeyCodeLANG4")
+	@(link_name = "GCKeyCodeLANG4")
 	KeyCodeLANG4: KeyCode
 
-	@(link_name="GCKeyCodeLANG5")
+	@(link_name = "GCKeyCodeLANG5")
 	KeyCodeLANG5: KeyCode
 
-	@(link_name="GCKeyCodeLANG6")
+	@(link_name = "GCKeyCodeLANG6")
 	KeyCodeLANG6: KeyCode
 
-	@(link_name="GCKeyCodeLANG7")
+	@(link_name = "GCKeyCodeLANG7")
 	KeyCodeLANG7: KeyCode
 
-	@(link_name="GCKeyCodeLANG8")
+	@(link_name = "GCKeyCodeLANG8")
 	KeyCodeLANG8: KeyCode
 
-	@(link_name="GCKeyCodeLANG9")
+	@(link_name = "GCKeyCodeLANG9")
 	KeyCodeLANG9: KeyCode
 
-	@(link_name="GCKeyCodeLeftControl")
+	@(link_name = "GCKeyCodeLeftControl")
 	KeyCodeLeftControl: KeyCode
 
-	@(link_name="GCKeyCodeLeftShift")
+	@(link_name = "GCKeyCodeLeftShift")
 	KeyCodeLeftShift: KeyCode
 
-	@(link_name="GCKeyCodeLeftAlt")
+	@(link_name = "GCKeyCodeLeftAlt")
 	KeyCodeLeftAlt: KeyCode
 
-	@(link_name="GCKeyCodeLeftGUI")
+	@(link_name = "GCKeyCodeLeftGUI")
 	KeyCodeLeftGUI: KeyCode
 
-	@(link_name="GCKeyCodeRightControl")
+	@(link_name = "GCKeyCodeRightControl")
 	KeyCodeRightControl: KeyCode
 
-	@(link_name="GCKeyCodeRightShift")
+	@(link_name = "GCKeyCodeRightShift")
 	KeyCodeRightShift: KeyCode
 
-	@(link_name="GCKeyCodeRightAlt")
+	@(link_name = "GCKeyCodeRightAlt")
 	KeyCodeRightAlt: KeyCode
 
-	@(link_name="GCKeyCodeRightGUI")
+	@(link_name = "GCKeyCodeRightGUI")
 	KeyCodeRightGUI: KeyCode
 
-	@(link_name="GCKeyA")
+	@(link_name = "GCKeyA")
 	KeyA: ^NS.String
 
-	@(link_name="GCKeyB")
+	@(link_name = "GCKeyB")
 	KeyB: ^NS.String
 
-	@(link_name="GCKeyC")
+	@(link_name = "GCKeyC")
 	KeyC: ^NS.String
 
-	@(link_name="GCKeyD")
+	@(link_name = "GCKeyD")
 	KeyD: ^NS.String
 
-	@(link_name="GCKeyE")
+	@(link_name = "GCKeyE")
 	KeyE: ^NS.String
 
-	@(link_name="GCKeyF")
+	@(link_name = "GCKeyF")
 	KeyF: ^NS.String
 
-	@(link_name="GCKeyG")
+	@(link_name = "GCKeyG")
 	KeyG: ^NS.String
 
-	@(link_name="GCKeyH")
+	@(link_name = "GCKeyH")
 	KeyH: ^NS.String
 
-	@(link_name="GCKeyI")
+	@(link_name = "GCKeyI")
 	KeyI: ^NS.String
 
-	@(link_name="GCKeyJ")
+	@(link_name = "GCKeyJ")
 	KeyJ: ^NS.String
 
-	@(link_name="GCKeyK")
+	@(link_name = "GCKeyK")
 	KeyK: ^NS.String
 
-	@(link_name="GCKeyL")
+	@(link_name = "GCKeyL")
 	KeyL: ^NS.String
 
-	@(link_name="GCKeyM")
+	@(link_name = "GCKeyM")
 	KeyM: ^NS.String
 
-	@(link_name="GCKeyN")
+	@(link_name = "GCKeyN")
 	KeyN: ^NS.String
 
-	@(link_name="GCKeyO")
+	@(link_name = "GCKeyO")
 	KeyO: ^NS.String
 
-	@(link_name="GCKeyP")
+	@(link_name = "GCKeyP")
 	KeyP: ^NS.String
 
-	@(link_name="GCKeyQ")
+	@(link_name = "GCKeyQ")
 	KeyQ: ^NS.String
 
-	@(link_name="GCKeyR")
+	@(link_name = "GCKeyR")
 	KeyR: ^NS.String
 
-	@(link_name="GCKeyS")
+	@(link_name = "GCKeyS")
 	KeyS: ^NS.String
 
-	@(link_name="GCKeyT")
+	@(link_name = "GCKeyT")
 	KeyT: ^NS.String
 
-	@(link_name="GCKeyU")
+	@(link_name = "GCKeyU")
 	KeyU: ^NS.String
 
-	@(link_name="GCKeyV")
+	@(link_name = "GCKeyV")
 	KeyV: ^NS.String
 
-	@(link_name="GCKeyW")
+	@(link_name = "GCKeyW")
 	KeyW: ^NS.String
 
-	@(link_name="GCKeyX")
+	@(link_name = "GCKeyX")
 	KeyX: ^NS.String
 
-	@(link_name="GCKeyY")
+	@(link_name = "GCKeyY")
 	KeyY: ^NS.String
 
-	@(link_name="GCKeyZ")
+	@(link_name = "GCKeyZ")
 	KeyZ: ^NS.String
 
-	@(link_name="GCKeyOne")
+	@(link_name = "GCKeyOne")
 	KeyOne: ^NS.String
 
-	@(link_name="GCKeyTwo")
+	@(link_name = "GCKeyTwo")
 	KeyTwo: ^NS.String
 
-	@(link_name="GCKeyThree")
+	@(link_name = "GCKeyThree")
 	KeyThree: ^NS.String
 
-	@(link_name="GCKeyFour")
+	@(link_name = "GCKeyFour")
 	KeyFour: ^NS.String
 
-	@(link_name="GCKeyFive")
+	@(link_name = "GCKeyFive")
 	KeyFive: ^NS.String
 
-	@(link_name="GCKeySix")
+	@(link_name = "GCKeySix")
 	KeySix: ^NS.String
 
-	@(link_name="GCKeySeven")
+	@(link_name = "GCKeySeven")
 	KeySeven: ^NS.String
 
-	@(link_name="GCKeyEight")
+	@(link_name = "GCKeyEight")
 	KeyEight: ^NS.String
 
-	@(link_name="GCKeyNine")
+	@(link_name = "GCKeyNine")
 	KeyNine: ^NS.String
 
-	@(link_name="GCKeyZero")
+	@(link_name = "GCKeyZero")
 	KeyZero: ^NS.String
 
-	@(link_name="GCKeyReturnOrEnter")
+	@(link_name = "GCKeyReturnOrEnter")
 	KeyReturnOrEnter: ^NS.String
 
-	@(link_name="GCKeyEscape")
+	@(link_name = "GCKeyEscape")
 	KeyEscape: ^NS.String
 
-	@(link_name="GCKeyDeleteOrBackspace")
+	@(link_name = "GCKeyDeleteOrBackspace")
 	KeyDeleteOrBackspace: ^NS.String
 
-	@(link_name="GCKeyTab")
+	@(link_name = "GCKeyTab")
 	KeyTab: ^NS.String
 
-	@(link_name="GCKeySpacebar")
+	@(link_name = "GCKeySpacebar")
 	KeySpacebar: ^NS.String
 
-	@(link_name="GCKeyHyphen")
+	@(link_name = "GCKeyHyphen")
 	KeyHyphen: ^NS.String
 
-	@(link_name="GCKeyEqualSign")
+	@(link_name = "GCKeyEqualSign")
 	KeyEqualSign: ^NS.String
 
-	@(link_name="GCKeyOpenBracket")
+	@(link_name = "GCKeyOpenBracket")
 	KeyOpenBracket: ^NS.String
 
-	@(link_name="GCKeyCloseBracket")
+	@(link_name = "GCKeyCloseBracket")
 	KeyCloseBracket: ^NS.String
 
-	@(link_name="GCKeyBackslash")
+	@(link_name = "GCKeyBackslash")
 	KeyBackslash: ^NS.String
 
-	@(link_name="GCKeyNonUSPound")
+	@(link_name = "GCKeyNonUSPound")
 	KeyNonUSPound: ^NS.String
 
-	@(link_name="GCKeySemicolon")
+	@(link_name = "GCKeySemicolon")
 	KeySemicolon: ^NS.String
 
-	@(link_name="GCKeyQuote")
+	@(link_name = "GCKeyQuote")
 	KeyQuote: ^NS.String
 
-	@(link_name="GCKeyGraveAccentAndTilde")
+	@(link_name = "GCKeyGraveAccentAndTilde")
 	KeyGraveAccentAndTilde: ^NS.String
 
-	@(link_name="GCKeyComma")
+	@(link_name = "GCKeyComma")
 	KeyComma: ^NS.String
 
-	@(link_name="GCKeyPeriod")
+	@(link_name = "GCKeyPeriod")
 	KeyPeriod: ^NS.String
 
-	@(link_name="GCKeySlash")
+	@(link_name = "GCKeySlash")
 	KeySlash: ^NS.String
 
-	@(link_name="GCKeyCapsLock")
+	@(link_name = "GCKeyCapsLock")
 	KeyCapsLock: ^NS.String
 
-	@(link_name="GCKeyF1")
+	@(link_name = "GCKeyF1")
 	KeyF1: ^NS.String
 
-	@(link_name="GCKeyF2")
+	@(link_name = "GCKeyF2")
 	KeyF2: ^NS.String
 
-	@(link_name="GCKeyF3")
+	@(link_name = "GCKeyF3")
 	KeyF3: ^NS.String
 
-	@(link_name="GCKeyF4")
+	@(link_name = "GCKeyF4")
 	KeyF4: ^NS.String
 
-	@(link_name="GCKeyF5")
+	@(link_name = "GCKeyF5")
 	KeyF5: ^NS.String
 
-	@(link_name="GCKeyF6")
+	@(link_name = "GCKeyF6")
 	KeyF6: ^NS.String
 
-	@(link_name="GCKeyF7")
+	@(link_name = "GCKeyF7")
 	KeyF7: ^NS.String
 
-	@(link_name="GCKeyF8")
+	@(link_name = "GCKeyF8")
 	KeyF8: ^NS.String
 
-	@(link_name="GCKeyF9")
+	@(link_name = "GCKeyF9")
 	KeyF9: ^NS.String
 
-	@(link_name="GCKeyF10")
+	@(link_name = "GCKeyF10")
 	KeyF10: ^NS.String
 
-	@(link_name="GCKeyF11")
+	@(link_name = "GCKeyF11")
 	KeyF11: ^NS.String
 
-	@(link_name="GCKeyF12")
+	@(link_name = "GCKeyF12")
 	KeyF12: ^NS.String
 
-	@(link_name="GCKeyF13")
+	@(link_name = "GCKeyF13")
 	KeyF13: ^NS.String
 
-	@(link_name="GCKeyF14")
+	@(link_name = "GCKeyF14")
 	KeyF14: ^NS.String
 
-	@(link_name="GCKeyF15")
+	@(link_name = "GCKeyF15")
 	KeyF15: ^NS.String
 
-	@(link_name="GCKeyF16")
+	@(link_name = "GCKeyF16")
 	KeyF16: ^NS.String
 
-	@(link_name="GCKeyF17")
+	@(link_name = "GCKeyF17")
 	KeyF17: ^NS.String
 
-	@(link_name="GCKeyF18")
+	@(link_name = "GCKeyF18")
 	KeyF18: ^NS.String
 
-	@(link_name="GCKeyF19")
+	@(link_name = "GCKeyF19")
 	KeyF19: ^NS.String
 
-	@(link_name="GCKeyF20")
+	@(link_name = "GCKeyF20")
 	KeyF20: ^NS.String
 
-	@(link_name="GCKeyPrintScreen")
+	@(link_name = "GCKeyPrintScreen")
 	KeyPrintScreen: ^NS.String
 
-	@(link_name="GCKeyScrollLock")
+	@(link_name = "GCKeyScrollLock")
 	KeyScrollLock: ^NS.String
 
-	@(link_name="GCKeyPause")
+	@(link_name = "GCKeyPause")
 	KeyPause: ^NS.String
 
-	@(link_name="GCKeyInsert")
+	@(link_name = "GCKeyInsert")
 	KeyInsert: ^NS.String
 
-	@(link_name="GCKeyHome")
+	@(link_name = "GCKeyHome")
 	KeyHome: ^NS.String
 
-	@(link_name="GCKeyPageUp")
+	@(link_name = "GCKeyPageUp")
 	KeyPageUp: ^NS.String
 
-	@(link_name="GCKeyDeleteForward")
+	@(link_name = "GCKeyDeleteForward")
 	KeyDeleteForward: ^NS.String
 
-	@(link_name="GCKeyEnd")
+	@(link_name = "GCKeyEnd")
 	KeyEnd: ^NS.String
 
-	@(link_name="GCKeyPageDown")
+	@(link_name = "GCKeyPageDown")
 	KeyPageDown: ^NS.String
 
-	@(link_name="GCKeyRightArrow")
+	@(link_name = "GCKeyRightArrow")
 	KeyRightArrow: ^NS.String
 
-	@(link_name="GCKeyLeftArrow")
+	@(link_name = "GCKeyLeftArrow")
 	KeyLeftArrow: ^NS.String
 
-	@(link_name="GCKeyDownArrow")
+	@(link_name = "GCKeyDownArrow")
 	KeyDownArrow: ^NS.String
 
-	@(link_name="GCKeyUpArrow")
+	@(link_name = "GCKeyUpArrow")
 	KeyUpArrow: ^NS.String
 
-	@(link_name="GCKeyKeypadNumLock")
+	@(link_name = "GCKeyKeypadNumLock")
 	KeyKeypadNumLock: ^NS.String
 
-	@(link_name="GCKeyKeypadSlash")
+	@(link_name = "GCKeyKeypadSlash")
 	KeyKeypadSlash: ^NS.String
 
-	@(link_name="GCKeyKeypadAsterisk")
+	@(link_name = "GCKeyKeypadAsterisk")
 	KeyKeypadAsterisk: ^NS.String
 
-	@(link_name="GCKeyKeypadHyphen")
+	@(link_name = "GCKeyKeypadHyphen")
 	KeyKeypadHyphen: ^NS.String
 
-	@(link_name="GCKeyKeypadPlus")
+	@(link_name = "GCKeyKeypadPlus")
 	KeyKeypadPlus: ^NS.String
 
-	@(link_name="GCKeyKeypadEnter")
+	@(link_name = "GCKeyKeypadEnter")
 	KeyKeypadEnter: ^NS.String
 
-	@(link_name="GCKeyKeypad1")
+	@(link_name = "GCKeyKeypad1")
 	KeyKeypad1: ^NS.String
 
-	@(link_name="GCKeyKeypad2")
+	@(link_name = "GCKeyKeypad2")
 	KeyKeypad2: ^NS.String
 
-	@(link_name="GCKeyKeypad3")
+	@(link_name = "GCKeyKeypad3")
 	KeyKeypad3: ^NS.String
 
-	@(link_name="GCKeyKeypad4")
+	@(link_name = "GCKeyKeypad4")
 	KeyKeypad4: ^NS.String
 
-	@(link_name="GCKeyKeypad5")
+	@(link_name = "GCKeyKeypad5")
 	KeyKeypad5: ^NS.String
 
-	@(link_name="GCKeyKeypad6")
+	@(link_name = "GCKeyKeypad6")
 	KeyKeypad6: ^NS.String
 
-	@(link_name="GCKeyKeypad7")
+	@(link_name = "GCKeyKeypad7")
 	KeyKeypad7: ^NS.String
 
-	@(link_name="GCKeyKeypad8")
+	@(link_name = "GCKeyKeypad8")
 	KeyKeypad8: ^NS.String
 
-	@(link_name="GCKeyKeypad9")
+	@(link_name = "GCKeyKeypad9")
 	KeyKeypad9: ^NS.String
 
-	@(link_name="GCKeyKeypad0")
+	@(link_name = "GCKeyKeypad0")
 	KeyKeypad0: ^NS.String
 
-	@(link_name="GCKeyKeypadPeriod")
+	@(link_name = "GCKeyKeypadPeriod")
 	KeyKeypadPeriod: ^NS.String
 
-	@(link_name="GCKeyKeypadEqualSign")
+	@(link_name = "GCKeyKeypadEqualSign")
 	KeyKeypadEqualSign: ^NS.String
 
-	@(link_name="GCKeyNonUSBackslash")
+	@(link_name = "GCKeyNonUSBackslash")
 	KeyNonUSBackslash: ^NS.String
 
-	@(link_name="GCKeyApplication")
+	@(link_name = "GCKeyApplication")
 	KeyApplication: ^NS.String
 
-	@(link_name="GCKeyPower")
+	@(link_name = "GCKeyPower")
 	KeyPower: ^NS.String
 
-	@(link_name="GCKeyInternational1")
+	@(link_name = "GCKeyInternational1")
 	KeyInternational1: ^NS.String
 
-	@(link_name="GCKeyInternational2")
+	@(link_name = "GCKeyInternational2")
 	KeyInternational2: ^NS.String
 
-	@(link_name="GCKeyInternational3")
+	@(link_name = "GCKeyInternational3")
 	KeyInternational3: ^NS.String
 
-	@(link_name="GCKeyInternational4")
+	@(link_name = "GCKeyInternational4")
 	KeyInternational4: ^NS.String
 
-	@(link_name="GCKeyInternational5")
+	@(link_name = "GCKeyInternational5")
 	KeyInternational5: ^NS.String
 
-	@(link_name="GCKeyInternational6")
+	@(link_name = "GCKeyInternational6")
 	KeyInternational6: ^NS.String
 
-	@(link_name="GCKeyInternational7")
+	@(link_name = "GCKeyInternational7")
 	KeyInternational7: ^NS.String
 
-	@(link_name="GCKeyInternational8")
+	@(link_name = "GCKeyInternational8")
 	KeyInternational8: ^NS.String
 
-	@(link_name="GCKeyInternational9")
+	@(link_name = "GCKeyInternational9")
 	KeyInternational9: ^NS.String
 
-	@(link_name="GCKeyLANG1")
+	@(link_name = "GCKeyLANG1")
 	KeyLANG1: ^NS.String
 
-	@(link_name="GCKeyLANG2")
+	@(link_name = "GCKeyLANG2")
 	KeyLANG2: ^NS.String
 
-	@(link_name="GCKeyLANG3")
+	@(link_name = "GCKeyLANG3")
 	KeyLANG3: ^NS.String
 
-	@(link_name="GCKeyLANG4")
+	@(link_name = "GCKeyLANG4")
 	KeyLANG4: ^NS.String
 
-	@(link_name="GCKeyLANG5")
+	@(link_name = "GCKeyLANG5")
 	KeyLANG5: ^NS.String
 
-	@(link_name="GCKeyLANG6")
+	@(link_name = "GCKeyLANG6")
 	KeyLANG6: ^NS.String
 
-	@(link_name="GCKeyLANG7")
+	@(link_name = "GCKeyLANG7")
 	KeyLANG7: ^NS.String
 
-	@(link_name="GCKeyLANG8")
+	@(link_name = "GCKeyLANG8")
 	KeyLANG8: ^NS.String
 
-	@(link_name="GCKeyLANG9")
+	@(link_name = "GCKeyLANG9")
 	KeyLANG9: ^NS.String
 
-	@(link_name="GCKeyLeftControl")
+	@(link_name = "GCKeyLeftControl")
 	KeyLeftControl: ^NS.String
 
-	@(link_name="GCKeyLeftShift")
+	@(link_name = "GCKeyLeftShift")
 	KeyLeftShift: ^NS.String
 
-	@(link_name="GCKeyLeftAlt")
+	@(link_name = "GCKeyLeftAlt")
 	KeyLeftAlt: ^NS.String
 
-	@(link_name="GCKeyLeftGUI")
+	@(link_name = "GCKeyLeftGUI")
 	KeyLeftGUI: ^NS.String
 
-	@(link_name="GCKeyRightControl")
+	@(link_name = "GCKeyRightControl")
 	KeyRightControl: ^NS.String
 
-	@(link_name="GCKeyRightShift")
+	@(link_name = "GCKeyRightShift")
 	KeyRightShift: ^NS.String
 
-	@(link_name="GCKeyRightAlt")
+	@(link_name = "GCKeyRightAlt")
 	KeyRightAlt: ^NS.String
 
-	@(link_name="GCKeyRightGUI")
+	@(link_name = "GCKeyRightGUI")
 	KeyRightGUI: ^NS.String
 
-	@(link_name="GCInputMicroGamepadDpad")
+	@(link_name = "GCInputMicroGamepadDpad")
 	InputMicroGamepadDpad: ^NS.String
 
-	@(link_name="GCInputMicroGamepadButtonA")
+	@(link_name = "GCInputMicroGamepadButtonA")
 	InputMicroGamepadButtonA: ^NS.String
 
-	@(link_name="GCInputMicroGamepadButtonX")
+	@(link_name = "GCInputMicroGamepadButtonX")
 	InputMicroGamepadButtonX: ^NS.String
 
-	@(link_name="GCInputMicroGamepadButtonMenu")
+	@(link_name = "GCInputMicroGamepadButtonMenu")
 	InputMicroGamepadButtonMenu: ^NS.String
 
-	@(link_name="GCCurrentMicroGamepadSnapshotDataVersion")
+	@(link_name = "GCCurrentMicroGamepadSnapshotDataVersion")
 	CurrentMicroGamepadSnapshotDataVersion: MicroGamepadSnapshotDataVersion
 
-	@(link_name="GCInputDirectionalDpad")
+	@(link_name = "GCInputDirectionalDpad")
 	InputDirectionalDpad: ^NS.String
 
-	@(link_name="GCInputDirectionalTouchSurfaceButton")
+	@(link_name = "GCInputDirectionalTouchSurfaceButton")
 	InputDirectionalTouchSurfaceButton: ^NS.String
 
-	@(link_name="GCInputDirectionalCardinalDpad")
+	@(link_name = "GCInputDirectionalCardinalDpad")
 	InputDirectionalCardinalDpad: ^NS.String
 
-	@(link_name="GCInputDirectionalCenterButton")
+	@(link_name = "GCInputDirectionalCenterButton")
 	InputDirectionalCenterButton: ^NS.String
 
-	@(link_name="GCControllerDidConnectNotification")
+	@(link_name = "GCControllerDidConnectNotification")
 	ControllerDidConnectNotification: ^NS.String
 
-	@(link_name="GCControllerDidDisconnectNotification")
+	@(link_name = "GCControllerDidDisconnectNotification")
 	ControllerDidDisconnectNotification: ^NS.String
 
-	@(link_name="GCControllerDidBecomeCurrentNotification")
+	@(link_name = "GCControllerDidBecomeCurrentNotification")
 	ControllerDidBecomeCurrentNotification: ^NS.String
 
-	@(link_name="GCControllerDidStopBeingCurrentNotification")
+	@(link_name = "GCControllerDidStopBeingCurrentNotification")
 	ControllerDidStopBeingCurrentNotification: ^NS.String
 
-	@(link_name="GCControllerUserCustomizationsDidChangeNotification")
+	@(link_name = "GCControllerUserCustomizationsDidChangeNotification")
 	ControllerUserCustomizationsDidChangeNotification: ^NS.String
 
-	@(link_name="GCStylusDidConnectNotification")
+	@(link_name = "GCStylusDidConnectNotification")
 	StylusDidConnectNotification: ^NS.String
 
-	@(link_name="GCStylusDidDisconnectNotification")
+	@(link_name = "GCStylusDidDisconnectNotification")
 	StylusDidDisconnectNotification: ^NS.String
 
-	@(link_name="GCKeyboardDidConnectNotification")
+	@(link_name = "GCKeyboardDidConnectNotification")
 	KeyboardDidConnectNotification: ^NS.String
 
-	@(link_name="GCKeyboardDidDisconnectNotification")
+	@(link_name = "GCKeyboardDidDisconnectNotification")
 	KeyboardDidDisconnectNotification: ^NS.String
 
-	@(link_name="GCMouseDidConnectNotification")
+	@(link_name = "GCMouseDidConnectNotification")
 	MouseDidConnectNotification: ^NS.String
 
-	@(link_name="GCMouseDidDisconnectNotification")
+	@(link_name = "GCMouseDidDisconnectNotification")
 	MouseDidDisconnectNotification: ^NS.String
 
-	@(link_name="GCMouseDidBecomeCurrentNotification")
+	@(link_name = "GCMouseDidBecomeCurrentNotification")
 	MouseDidBecomeCurrentNotification: ^NS.String
 
-	@(link_name="GCMouseDidStopBeingCurrentNotification")
+	@(link_name = "GCMouseDidStopBeingCurrentNotification")
 	MouseDidStopBeingCurrentNotification: ^NS.String
 
-	@(link_name="GCRacingWheelDidConnectNotification")
+	@(link_name = "GCRacingWheelDidConnectNotification")
 	RacingWheelDidConnectNotification: ^NS.String
 
-	@(link_name="GCRacingWheelDidDisconnectNotification")
+	@(link_name = "GCRacingWheelDidDisconnectNotification")
 	RacingWheelDidDisconnectNotification: ^NS.String
 
-	@(link_name="GCHapticsLocalityDefault")
+	@(link_name = "GCHapticsLocalityDefault")
 	HapticsLocalityDefault: ^NS.String
 
-	@(link_name="GCHapticsLocalityAll")
+	@(link_name = "GCHapticsLocalityAll")
 	HapticsLocalityAll: ^NS.String
 
-	@(link_name="GCHapticsLocalityHandles")
+	@(link_name = "GCHapticsLocalityHandles")
 	HapticsLocalityHandles: ^NS.String
 
-	@(link_name="GCHapticsLocalityLeftHandle")
+	@(link_name = "GCHapticsLocalityLeftHandle")
 	HapticsLocalityLeftHandle: ^NS.String
 
-	@(link_name="GCHapticsLocalityRightHandle")
+	@(link_name = "GCHapticsLocalityRightHandle")
 	HapticsLocalityRightHandle: ^NS.String
 
-	@(link_name="GCHapticsLocalityTriggers")
+	@(link_name = "GCHapticsLocalityTriggers")
 	HapticsLocalityTriggers: ^NS.String
 
-	@(link_name="GCHapticsLocalityLeftTrigger")
+	@(link_name = "GCHapticsLocalityLeftTrigger")
 	HapticsLocalityLeftTrigger: ^NS.String
 
-	@(link_name="GCHapticsLocalityRightTrigger")
+	@(link_name = "GCHapticsLocalityRightTrigger")
 	HapticsLocalityRightTrigger: ^NS.String
 
-	@(link_name="GCHapticDurationInfinite")
+	@(link_name = "GCHapticDurationInfinite")
 	HapticDurationInfinite: cffi.float
 
-	@(link_name="GCInputBackLeftButton")
+	@(link_name = "GCInputBackLeftButton")
 	InputBackLeftButton :: proc(position: NS.Integer) -> ^NS.String ---
 
-	@(link_name="GCInputBackRightButton")
+	@(link_name = "GCInputBackRightButton")
 	InputBackRightButton :: proc(position: NS.Integer) -> ^NS.String ---
 
-	@(link_name="GCInputArcadeButtonName")
+	@(link_name = "GCInputArcadeButtonName")
 	InputArcadeButtonName :: proc(row: NS.Integer, column: NS.Integer) -> ^NS.String ---
 
-	@(link_name="GCGamepadSnapShotDataV100FromNSData")
+	@(link_name = "GCGamepadSnapShotDataV100FromNSData")
 	GamepadSnapShotDataV100FromNSData :: proc(snapshotData: ^GamepadSnapShotDataV100, data: ^NS.Data) -> bool ---
 
-	@(link_name="GCExtendedGamepadSnapshotDataFromNSData")
+	@(link_name = "GCExtendedGamepadSnapshotDataFromNSData")
 	ExtendedGamepadSnapshotDataFromNSData :: proc(snapshotData: ^ExtendedGamepadSnapshotData, data: ^NS.Data) -> bool ---
 
-	@(link_name="GCExtendedGamepadSnapShotDataV100FromNSData")
+	@(link_name = "GCExtendedGamepadSnapShotDataV100FromNSData")
 	ExtendedGamepadSnapShotDataV100FromNSData :: proc(snapshotData: ^ExtendedGamepadSnapShotDataV100, data: ^NS.Data) -> bool ---
 
-	@(link_name="GCMicroGamepadSnapshotDataFromNSData")
+	@(link_name = "GCMicroGamepadSnapshotDataFromNSData")
 	MicroGamepadSnapshotDataFromNSData :: proc(snapshotData: ^MicroGamepadSnapshotData, data: ^NS.Data) -> bool ---
 
-	@(link_name="GCMicroGamepadSnapShotDataV100FromNSData")
+	@(link_name = "GCMicroGamepadSnapShotDataV100FromNSData")
 	MicroGamepadSnapShotDataV100FromNSData :: proc(snapshotData: ^MicroGamepadSnapShotDataV100, data: ^NS.Data) -> bool ---
 }
-
 
 
 DualSenseAdaptiveTriggerDiscretePositionCount :: 10
@@ -1142,18 +1135,20 @@ InputButtonName :: distinct ^NS.String
 InputAxisName :: distinct ^NS.String
 InputSwitchName :: distinct ^NS.String
 InputDirectionPadName :: distinct ^NS.String
-ControllerAxisValueChangedHandler :: ^Objc_Block(proc "c" ( axis: ^ControllerAxisInput, value: cffi.float ))
-ControllerButtonValueChangedHandler :: ^Objc_Block(proc "c" ( button: ^ControllerButtonInput, value: cffi.float, pressed: bool ))
-ControllerButtonTouchedChangedHandler :: ^Objc_Block(proc "c" ( button: ^ControllerButtonInput, value: cffi.float, pressed: bool, touched: bool ))
-ControllerDirectionPadValueChangedHandler :: ^Objc_Block(proc "c" ( dpad: ^ControllerDirectionPad, xValue: cffi.float, yValue: cffi.float ))
-ControllerTouchpadHandler :: ^Objc_Block(proc "c" ( touchpad: ^ControllerTouchpad, xValue: cffi.float, yValue: cffi.float, buttonValue: cffi.float, buttonPressed: bool ))
-MotionValueChangedHandler :: ^Objc_Block(proc "c" ( motion: ^Motion ))
-GamepadValueChangedHandler :: ^Objc_Block(proc "c" ( gamepad: ^Gamepad, element: ^ControllerElement ))
-ExtendedGamepadValueChangedHandler :: ^Objc_Block(proc "c" ( gamepad: ^ExtendedGamepad, element: ^ControllerElement ))
+ControllerAxisValueChangedHandler :: ^Objc_Block(proc "c" (axis: ^ControllerAxisInput, value: cffi.float))
+ControllerButtonValueChangedHandler :: ^Objc_Block(proc "c" (button: ^ControllerButtonInput, value: cffi.float, pressed: bool))
+ControllerButtonTouchedChangedHandler :: ^Objc_Block(proc "c" (button: ^ControllerButtonInput, value: cffi.float, pressed: bool, touched: bool))
+ControllerDirectionPadValueChangedHandler :: ^Objc_Block(proc "c" (dpad: ^ControllerDirectionPad, xValue: cffi.float, yValue: cffi.float))
+ControllerTouchpadHandler :: ^Objc_Block(
+	proc "c" (touchpad: ^ControllerTouchpad, xValue: cffi.float, yValue: cffi.float, buttonValue: cffi.float, buttonPressed: bool),
+)
+MotionValueChangedHandler :: ^Objc_Block(proc "c" (motion: ^Motion))
+GamepadValueChangedHandler :: ^Objc_Block(proc "c" (gamepad: ^Gamepad, element: ^ControllerElement))
+ExtendedGamepadValueChangedHandler :: ^Objc_Block(proc "c" (gamepad: ^ExtendedGamepad, element: ^ControllerElement))
 KeyCode :: distinct CF.Index
-KeyboardValueChangedHandler :: ^Objc_Block(proc "c" ( keyboard: ^KeyboardInput, key: ^ControllerButtonInput, keyCode: KeyCode, pressed: bool ))
-MouseMoved :: ^Objc_Block(proc "c" ( mouse: ^MouseInput, deltaX: cffi.float, deltaY: cffi.float ))
-MicroGamepadValueChangedHandler :: ^Objc_Block(proc "c" ( gamepad: ^MicroGamepad, element: ^ControllerElement ))
+KeyboardValueChangedHandler :: ^Objc_Block(proc "c" (keyboard: ^KeyboardInput, key: ^ControllerButtonInput, keyCode: KeyCode, pressed: bool))
+MouseMoved :: ^Objc_Block(proc "c" (mouse: ^MouseInput, deltaX: cffi.float, deltaY: cffi.float))
+MicroGamepadValueChangedHandler :: ^Objc_Block(proc "c" (gamepad: ^MicroGamepad, element: ^ControllerElement))
 HapticsLocality :: distinct ^NS.String
 
 DevicePhysicalInputElementChange :: enum cffi.long {
@@ -1168,7 +1163,7 @@ PhysicalInputSourceDirectionFlag :: enum cffi.ulong {
 	Down  = 2,
 	Left  = 3,
 }
-PhysicalInputSourceDirection :: bit_set[PhysicalInputSourceDirectionFlag; cffi.ulong]
+PhysicalInputSourceDirection :: bit_set[PhysicalInputSourceDirectionFlag;cffi.ulong]
 PhysicalInputSourceDirection_NotApplicable :: PhysicalInputSourceDirection{}
 
 DeviceBatteryState :: enum cffi.long {
@@ -1234,7 +1229,7 @@ when ODIN_PLATFORM_SUBTARGET_IOS {
 		Gamepad = 0,
 		Stylus  = 1,
 	}
-	UIEventTypes :: bit_set[UIEventType; cffi.ulong]
+	UIEventTypes :: bit_set[UIEventType;cffi.ulong]
 	UIEventTypes_None :: UIEventTypes{}
 }
 

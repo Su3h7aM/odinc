@@ -50,11 +50,11 @@ Queue :: distinct rawptr
 	QueueDestroy() destroys the queue and frees its storage.
  */
 
-@(default_calling_convention="c", link_prefix="Pm_")
+@(default_calling_convention = "c", link_prefix = "Pm_")
 foreign lib {
-	QueueCreate  :: proc(num_msgs: c.long, bytes_per_msg: i32) -> Queue ---
+	QueueCreate :: proc(num_msgs: c.long, bytes_per_msg: i32) -> Queue ---
 	QueueDestroy :: proc(queue: Queue) -> Error ---
-	
+
 	/* 
 		Dequeue() removes one item from the queue, copying it into msg.
 		Returns 1 if successful, and 0 if the queue is empty.
@@ -64,15 +64,15 @@ foreign lib {
 		overflow report. This protocol ensures that the reader will be 
 		notified when data is lost due to overflow.
 	 */
-	Dequeue      :: proc(queue: Queue, msg: rawptr) -> Error ---
-	
+	Dequeue :: proc(queue: Queue, msg: rawptr) -> Error ---
+
 	/*
 		Enqueue() inserts one item into the queue, copying it from msg.
 		Returns .NoError if successful and .BufferOverflow if the queue was 
 		already full. If .BufferOverflow is returned, the overflow flag is set.
 	 */
-	Enqueue      :: proc(queue: Queue, msg: rawptr) -> Error ---
-	
+	Enqueue :: proc(queue: Queue, msg: rawptr) -> Error ---
+
 	/*
 	    QueueFull() returns non-zero if the queue is full
 	    QueueEmpty() returns non-zero if the queue is empty
@@ -86,9 +86,9 @@ foreign lib {
 	    Error conditions: QueueFull() returns .BadPtr if queue is nil.
 	    QueueEmpty() returns false if queue is nil.
 	 */
-	QueueFull    :: proc(queue: Queue) -> b32 ---
-	QueueEmpty   :: proc(queue: Queue) -> b32 ---
-	
+	QueueFull :: proc(queue: Queue) -> b32 ---
+	QueueEmpty :: proc(queue: Queue) -> b32 ---
+
 	/*
 		QueuePeek() returns a pointer to the item at the head of the queue,
 		or NULL if the queue is empty. The item is not removed from the queue.
@@ -110,8 +110,8 @@ foreign lib {
 		Note that QueuePeek() is not a fast check, so if possible, you 
 		might as well just call Dequeue() and accept the data if it is there.
 	 */
-	QueuePeek    :: proc(queue: Queue) -> rawptr ---
-	
+	QueuePeek :: proc(queue: Queue) -> rawptr ---
+
 	/*
 		SetOverflow() allows the writer (enqueuer) to signal an overflow
 		condition to the reader (dequeuer). E.g. when transfering data from 
@@ -121,5 +121,5 @@ foreign lib {
 		is NULL, returns .BufferOverflow if buffer is already in an overflow
 		state, returns .NoError if successfully set overflow state.
 	 */
-	SetOverflow  :: proc(queue: Queue) -> Error ---
+	SetOverflow :: proc(queue: Queue) -> Error ---
 }
