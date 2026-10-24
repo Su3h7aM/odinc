@@ -103,24 +103,35 @@ advance_rune :: proc(tokenizer: ^Tokenizer) {
 			tokenizer.current_line += 1
 		}
 		tokenizer.current_offset = tokenizer.next_offset
-		next_rune, width := decode_source_rune(tokenizer.source[tokenizer.next_offset:])
-		tokenizer.next_offset += u32(width)
-		tokenizer.current_rune = next_rune
-
-		switch {
-		case next_rune == 0:
-			push_error(tokenizer, .Nul_Byte, tokenizer.current_offset)
-		case next_rune == utf8.RUNE_ERROR && width == 1:
-			push_error(tokenizer, .Illegal_Utf8, tokenizer.current_offset)
-		case next_rune == utf8.RUNE_BOM && tokenizer.current_offset > 0:
-			push_error(tokenizer, .Illegal_Bom, tokenizer.current_offset)
+		if byte_value := tokenizer.source[tokenizer.next_offset]; byte_value != 0 && byte_value < utf8.RUNE_SELF {
+			tokenizer.next_offset += 1
+			tokenizer.current_rune = rune(byte_value)
+			return
 		}
+		advance_decoded_rune(tokenizer)
 	} else {
 		if tokenizer.current_rune == '\n' {
 			tokenizer.current_line += 1
 		}
 		tokenizer.current_offset = u32(len(tokenizer.source))
 		tokenizer.current_rune = utf8.RUNE_EOF
+	}
+}
+
+// Decodes a multi-byte rune or a NUL, and reports the lexical errors of the rune just read.
+@(private)
+advance_decoded_rune :: proc(tokenizer: ^Tokenizer) {
+	next_rune, width := decode_source_rune(tokenizer.source[tokenizer.next_offset:])
+	tokenizer.next_offset += u32(width)
+	tokenizer.current_rune = next_rune
+
+	switch {
+	case next_rune == 0:
+		push_error(tokenizer, .Nul_Byte, tokenizer.current_offset)
+	case next_rune == utf8.RUNE_ERROR && width == 1:
+		push_error(tokenizer, .Illegal_Utf8, tokenizer.current_offset)
+	case next_rune == utf8.RUNE_BOM && tokenizer.current_offset > 0:
+		push_error(tokenizer, .Illegal_Bom, tokenizer.current_offset)
 	}
 }
 
@@ -553,7 +564,15 @@ apply_semicolon :: proc(tokenizer: ^Tokenizer, kind: Token_Kind, start: u32) {
 @(private)
 scan_identifier :: proc(tokenizer: ^Tokenizer) -> Token_Kind {
 	start := tokenizer.current_offset
-	for is_letter(tokenizer.current_rune) || is_digit(tokenizer.current_rune) {
+	for {
+		character := tokenizer.current_rune
+		if character < utf8.RUNE_SELF {
+			is_ascii_identifier :=
+				character == '_' || ('a' <= character && character <= 'z') || ('A' <= character && character <= 'Z') || ('0' <= character && character <= '9')
+			if !is_ascii_identifier { break }
+		} else if !unicode.is_letter(character) && !unicode.is_digit(character) {
+			break
+		}
 		advance_rune(tokenizer)
 	}
 	if kind, ok := keyword_kind(tokenizer.source[start:tokenizer.current_offset]); ok {

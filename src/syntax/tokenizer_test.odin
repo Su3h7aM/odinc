@@ -61,6 +61,23 @@ test_token_spans :: proc(test: ^testing.T) {
 }
 
 @(test)
+test_non_ascii_identifier_spans :: proc(test: ^testing.T) {
+	source := as_bytes("na\u00efve if x")
+	tokens: [dynamic]Token
+	defer delete(tokens)
+	scan_all(source, &tokens)
+
+	testing.expect_value(test, len(tokens), 5)
+	if len(tokens) < 3 { return }
+	testing.expect_value(test, token_text(source, tokens[0]), "na\u00efve")
+	testing.expect_value(test, tokens[0].end, u32(6))
+	testing.expect_value(test, tokens[1].kind, Token_Kind.If)
+	testing.expect_value(test, token_text(source, tokens[1]), "if")
+	testing.expect_value(test, token_text(source, tokens[2]), "x")
+	testing.expect_value(test, tokens[2].start, u32(10))
+}
+
+@(test)
 test_semicolon_insertion :: proc(test: ^testing.T) {
 	cases := []struct {
 		source: string,
