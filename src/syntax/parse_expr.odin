@@ -8,15 +8,14 @@ parse_expr :: proc(p: ^Parser, lhs: bool) -> Node_Index {
 }
 
 parse_expr_list :: proc(p: ^Parser, lhs: bool) -> Node_Range {
-	list := make([dynamic]Node_Index, 0, 4, p.allocator)
-	defer delete(list)
+	mark := node_list_mark(p)
 	for {
-		push(p, &list, parse_expr(p, lhs))
+		node_list_push(p, parse_expr(p, lhs))
 		if !allow_token(p, .Comma) {
 			break
 		}
 	}
-	return ast_add_list(p.ast, list[:])
+	return node_list_end(p, mark)
 }
 
 parse_unary_expr :: proc(p: ^Parser, lhs: bool) -> Node_Index {

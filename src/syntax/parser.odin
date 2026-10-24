@@ -101,6 +101,8 @@ Parser :: struct {
 	curr:             Token,
 	errors:           [dynamic]Parse_Error,
 	lex_errors:       [dynamic]Error,
+	// Shared stack for building node lists; each list is popped back to its mark when it is added to the AST.
+	node_scratch:     [dynamic]Node_Index,
 	expr_level:       int,
 	proc_depth:       int,
 	allow_range:      bool,
@@ -118,6 +120,7 @@ parser_init :: proc(p: ^Parser, ast: ^Ast, source: []byte, allocator := context.
 	p.allocator = allocator
 	p.errors = make([dynamic]Parse_Error, allocator)
 	p.lex_errors = make([dynamic]Error, allocator)
+	p.node_scratch = make([dynamic]Node_Index, 0, 256, allocator)
 	p.tokenizer = init(source, &p.lex_errors, nil)
 	p.curr = next(&p.tokenizer)
 }
@@ -125,7 +128,24 @@ parser_init :: proc(p: ^Parser, ast: ^Ast, source: []byte, allocator := context.
 parser_destroy :: proc(p: ^Parser) {
 	delete(p.errors)
 	delete(p.lex_errors)
+	delete(p.node_scratch)
 	p^ = {}
+}
+
+node_list_mark :: proc(p: ^Parser) -> int {
+	return len(p.node_scratch)
+}
+
+node_list_push :: proc(p: ^Parser, node: Node_Index) {
+	if _, err := append(&p.node_scratch, node); err != nil {
+		report(p, .Out_Of_Memory, p.curr.start)
+	}
+}
+
+node_list_end :: proc(p: ^Parser, mark: int) -> Node_Range {
+	range := ast_add_list(p.ast, p.node_scratch[mark:])
+	resize(&p.node_scratch, mark)
+	return range
 }
 
 report :: proc(p: ^Parser, kind: Parse_Error_Kind, offset: u32, expected := Token_Kind.Invalid) {

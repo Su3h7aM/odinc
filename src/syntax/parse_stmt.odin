@@ -103,15 +103,14 @@ expect_semicolon :: proc(p: ^Parser, node: Node_Index) -> bool {
 }
 
 parse_stmt_list :: proc(p: ^Parser) -> Node_Range {
-	stmts := make([dynamic]Node_Index, 0, 8, p.allocator)
-	defer delete(stmts)
+	mark := node_list_mark(p)
 	for p.curr.kind != .Case && p.curr.kind != .Close_Brace && p.curr.kind != .EOF {
 		enforce_tab_indentation(p)
 		stmt := parse_stmt(p)
 		if p.ast.nodes[stmt].kind == .Empty_Stmt {
 			continue
 		}
-		push(p, &stmts, stmt)
+		node_list_push(p, stmt)
 		if p.ast.nodes[stmt].kind == .Expr_Stmt {
 			expr := node_payload(p.ast, stmt, Expr_Stmt).expr
 			if p.ast.nodes[expr].kind == .Proc_Lit {
@@ -119,7 +118,7 @@ parse_stmt_list :: proc(p: ^Parser) -> Node_Range {
 			}
 		}
 	}
-	return ast_add_list(p.ast, stmts[:])
+	return node_list_end(p, mark)
 }
 
 parse_block_stmt :: proc(p: ^Parser, is_when: bool) -> Node_Index {

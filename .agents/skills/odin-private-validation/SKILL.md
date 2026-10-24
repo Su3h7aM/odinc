@@ -7,6 +7,8 @@ description: Build the private bootstrap compiler, run the private self-check, t
 
 Never run `mise run build`, `selfhost`, `build-nabla` or `test-upstream`. Use the private binary below.
 
+The fork `/home/su3h7am/Projects/Odin` is used here only as the bootstrap builder (step 1). It is not a behavioural reference. Behaviour is checked with the official compiler (`odin-probe-upstream`). Step 4 builds the self-hosted binary `/tmp/fx/build/odinc2`, which is what probes should use from then on (`/tmp/fx/odinc-self`, a copy).
+
 ## 1. Bootstrap the private compiler
 
 ```
