@@ -15,14 +15,14 @@ CALLEE_SAVED_ORDER :: [?]Gpr{.RBX, .R12, .R13, .R14, .R15}
 // are relative to `rbp`; below the saved `rbp` come the pushed callee-saved registers,
 // the `Slot` objects in index order, the spill slots, and the outgoing argument area at `rsp`.
 Frame_Layout :: struct {
-	saved:                  [len(CALLEE_SAVED_ORDER)]Gpr,
-	saved_count:            int,
-	slot_offsets:           []i32,
-	spill_start:            i32,
-	frame_bytes:            u32,
-	// restores_stack_pointer says the epilogue must move rsp back to the saved-register base, because
-	// the frame size is nonzero or the body moves rsp.
-	restores_stack_pointer: bool,
+	saved:                       [len(CALLEE_SAVED_ORDER)]Gpr,
+	saved_count:                 int,
+	slot_offsets:                []i32,
+	spill_start:                 i32,
+	frame_bytes:                 u32,
+	// restores_from_frame_pointer says the body moves rsp (Stack_Alloc), so the epilogue derives the saved-register
+	// base from rbp; otherwise the epilogue adds back frame_bytes.
+	restores_from_frame_pointer: bool,
 }
 
 frame_layout :: proc(function: ^Machine_Function, result: ^regalloc.Result, allocator: mem.Allocator) -> (layout: Frame_Layout, err: Emit_Error) {
@@ -45,7 +45,7 @@ frame_layout :: proc(function: ^Machine_Function, result: ^regalloc.Result, allo
 	cursor += SPILL_SLOT_BYTES * result.spill_slot_count
 	total := align_up(cursor + function.outgoing_bytes, 16)
 	layout.frame_bytes = total - u32(8 * layout.saved_count)
-	layout.restores_stack_pointer = layout.frame_bytes > 0 || moves_stack_pointer(function)
+	layout.restores_from_frame_pointer = moves_stack_pointer(function)
 	return layout, nil
 }
 
@@ -72,13 +72,15 @@ emit_prologue :: proc(instructions: ^[dynamic]x86.Instruction, layout: Frame_Lay
 }
 
 emit_epilogue :: proc(instructions: ^[dynamic]x86.Instruction, layout: Frame_Layout) -> runtime.Allocator_Error {
-	if layout.restores_stack_pointer {
+	if layout.restores_from_frame_pointer {
 		if layout.saved_count > 0 {
 			restore := x86.mem_base_disp(x86.RBP, -i32(8 * layout.saved_count))
 			append(instructions, x86.inst_r_m(.LEA, x86.RSP, restore, 8)) or_return
 		} else {
 			append(instructions, x86.inst_r_r(.MOV, x86.RSP, x86.RBP)) or_return
 		}
+	} else if layout.frame_bytes > 0 {
+		append(instructions, x86.inst_r_i(.ADD, x86.RSP, i64(layout.frame_bytes), 4)) or_return
 	}
 	for index := layout.saved_count - 1; index >= 0; index -= 1 {
 		append(instructions, x86.inst_r(.POP, x86.gpr64_from_num(u8(layout.saved[index])))) or_return
