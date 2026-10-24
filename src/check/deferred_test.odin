@@ -378,3 +378,48 @@ main :: proc() {
 		testing.expect_value(t, diagnostic.reason, reasons[index])
 	}
 }
+
+@(test)
+require_flag_follows_constant_bool :: proc(t: ^testing.T) {
+	fixture, ok := deferred_fixture_collect(
+		t,
+		`package sample
+TRUE_FLAG :: true
+FALSE_FLAG :: false
+@(require) bare :: proc() {}
+@(require = true) literal_true :: proc() {}
+@(require = TRUE_FLAG) constant_true :: proc() {}
+@(require = false) literal_false :: proc() {}
+@(require = FALSE_FLAG) constant_false :: proc() {}
+`,
+	)
+	if !ok { return }
+	defer deferred_fixture_destroy(fixture)
+	defer free(fixture, context.allocator)
+	if !deferred_fixture_resolve(t, fixture) { return }
+	if !testing.expect_value(t, len(fixture.checker.diagnostics), 0) { return }
+	required := [?]string{"bare", "literal_true", "constant_true"}
+	for name in required {
+		id := deferred_entity(t, fixture, name)
+		testing.expectf(t, id != 0 && .Required in entity_get(&fixture.scopes, id).flags, "%s must carry .Required", name)
+	}
+	unrequired := [?]string{"literal_false", "constant_false"}
+	for name in unrequired {
+		id := deferred_entity(t, fixture, name)
+		testing.expectf(t, id != 0 && .Required not_in entity_get(&fixture.scopes, id).flags, "%s must not carry .Required", name)
+	}
+}
+
+@(test)
+require_rejects_non_bool_value :: proc(t: ^testing.T) {
+	fixture, ok := deferred_fixture_collect(t, `package sample
+@(require = 1) answer :: proc() {}
+`)
+	if !ok { return }
+	defer deferred_fixture_destroy(fixture)
+	defer free(fixture, context.allocator)
+	if !deferred_fixture_resolve(t, fixture) { return }
+	if !testing.expect_value(t, len(fixture.checker.diagnostics), 1) { return }
+	diagnostic := fixture.checker.diagnostics[0]
+	testing.expect(t, diagnostic.kind == .Atomic && diagnostic.reason == "Expected a boolean value for 'require'")
+}

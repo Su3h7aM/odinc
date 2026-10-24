@@ -626,7 +626,7 @@ collect_attributes :: proc(
 			case "export":
 				flags += {.Export}
 			case "require":
-				flags += {.Required}
+				if value == 0 { flags += {.Required} }
 			case "rodata":
 				flags += {.Rodata}
 			case "deferred",

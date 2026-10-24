@@ -130,6 +130,18 @@ check_atomic_attributes :: proc(
 					break
 				}
 				if flag { entity_get(scopes, id).flags += {.Disabled} }
+			case "require":
+				if value == 0 { break }
+				required := check_expression(checker, view, scope, value) or_return
+				if required.state == .Invalid { break }
+				flag, is_flag := false, false
+				if required.mode == .Constant &&
+				   required.constant != 0 { flag, is_flag = constant_pool_get(checker.constants, required.constant).value.(bool) }
+				if !is_flag {
+					atomic_report(checker, declaration.file, element, "Expected a boolean value for 'require'") or_return
+					break
+				}
+				if flag { entity_get(scopes, id).flags += {.Required} }
 			case "futex_parameter":
 				text, found := attribute_string_value(checker, view, scope, value) or_return
 				if found {
