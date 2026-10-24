@@ -82,7 +82,7 @@ entity_target_features :: proc(checker: ^Expression_Checker, id: Entity_Id) -> (
 		}
 	}
 	require = procedure_attribute_text(checker, entity^, "require_target_feature") or_return
-	enable = procedure_attribute_text(checker, entity^, "enable_target_feature") or_return
+	enable = procedure_attribute_text(checker, entity_get(checker.type_checker.resolver.scopes, id)^, "enable_target_feature") or_return
 	return require, enable, nil
 }
 
@@ -169,9 +169,9 @@ target_feature_superset :: proc(held, wanted: string) -> (missing: string, ok: b
 @(private = "package")
 check_procedure_target_features :: proc(checker: ^Expression_Checker, scope: Scope_Id, id: Entity_Id) -> (require, enable: string, err: Resolve_Error) {
 	scopes := checker.type_checker.resolver.scopes
+	require_text := procedure_attribute_text(checker, entity_get(scopes, id)^, "require_target_feature") or_return
+	enable_text := procedure_attribute_text(checker, entity_get(scopes, id)^, "enable_target_feature") or_return
 	entity := entity_get(scopes, id)
-	require_text := procedure_attribute_text(checker, entity^, "require_target_feature") or_return
-	enable_text := procedure_attribute_text(checker, entity^, "enable_target_feature") or_return
 	view := expression_file_view(checker, entity.declaration.file) or_return
 	if require_text != "" && enable_text != "" {
 		expression_failure(

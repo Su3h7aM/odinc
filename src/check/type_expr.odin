@@ -251,6 +251,7 @@ type_declaration :: proc(checker: ^Type_Checker, id: Entity_Id) -> (handled, val
 	definition := value
 	alias_handled, alias_valid := declare_generic_record_alias(checker, id, file_id, file, scope, definition) or_return
 	if alias_handled { return true, alias_valid, nil }
+	entity = entity_get(scopes, id)
 	helper_wrapped := false
 	for file.ast.nodes[definition].kind == .Helper_Type {
 		helper_wrapped = true
