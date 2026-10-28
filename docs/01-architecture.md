@@ -28,6 +28,21 @@ syntax → check → lower → ir → sched → regalloc → amd64 → elf → l
 
 The declared target baseline defaults to x86-64-v1: only x87, CX8, CMOV, MMX, FXSR, SSE and SSE2 are assumed present. `--mcpu` raises it to x86-64-v2, -v3 or -v4.
 
+## Target boundary
+
+The current target is Linux x86-64. Target-specific code lives in:
+
+- `src/amd64` — instruction selection, System V ABI and frame emission
+- `src/types/abi_*` — eightbyte classification and the call/return plan
+- `src/driver/target_*.odin` — OS/arch constants for this target
+- OS-specific runtime files under `base/runtime/` (`*_linux*`, `*_unix*`)
+
+`src/driver/target.odin` selects source files by OS/arch build tags. ABI constants for Linux x86-64 are in `src/driver/target_linux_amd64.odin`: `LINUX_AMD64_DYNAMIC_INTERPRETER`, `LINUX_AMD64_MULTIARCH_LIB_PATTERN`, `LINUX_AMD64_TCB_SIZE`.
+
+Known debt this cycle, not the final design: package `link` cannot import `driver`, so `DEFAULT_INTERPRETER` in `src/link/dynamic.odin` duplicates `LINUX_AMD64_DYNAMIC_INTERPRETER`. Callers in `driver` pass the driver constant. A later cycle should give the linker that path without a second definition.
+
+New target-specific constants or syscall layouts anywhere else are rejected in review. `mise run check` runs `scripts/check-target` (grep + allowlist) over `src/`.
+
 ## Rules
 
 - Deterministic output: the same input produces a byte-identical image, so no timestamps and no pointer-order dependence.

@@ -174,7 +174,7 @@ dynamic_linker_command_flag :: proc(t: ^testing.T) {
 		defer delete(defaults.options.defines)
 		defer delete(defaults.collections)
 		testing.expect_value(t, default_error, "")
-		testing.expect_value(t, defaults.dynamic_linker, "/lib64/ld-linux-x86-64.so.2")
+		testing.expect_value(t, defaults.dynamic_linker, LINUX_AMD64_DYNAMIC_INTERPRETER)
 		for arguments in ([][]string{{"source.odin", "--dynamic-linker", "/lib/ld-musl-x86_64.so.1"}, {"--dynamic-linker=/lib/ld-musl-x86_64.so.1", "source.odin"}}) {
 			command, error := parse_command_arguments(name, arguments)
 			defer delete(command.options.defines)

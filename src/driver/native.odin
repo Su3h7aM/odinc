@@ -71,10 +71,6 @@ Build_Error :: union {
 @(private = "file")
 STARTUP_SLOT_COUNT :: 3
 
-// Linux x86-64 thread control block: the self pointer at the thread pointer (x86-64 TLS ABI) and the stack guard at 0x28, where compiled code reads it (glibc and musl agree on that offset).
-@(private = "file")
-TCB_SIZE :: 48
-
 @(private = "file")
 STARTUP_SLOT_NAMES := [STARTUP_SLOT_COUNT]string{"runtime.argc", "runtime.argv", "runtime.envp"}
 
@@ -89,7 +85,7 @@ build_file :: proc(
 	defines: map[string]string = nil,
 	level: types.X86_Level = .V1,
 	parse_options: syntax.Parse_Options = {},
-	interpreter: string = link.DEFAULT_INTERPRETER,
+	interpreter: string = LINUX_AMD64_DYNAMIC_INTERPRETER,
 	check_options: check.Check_Options = {},
 	max_error_count: int = 36,
 ) -> (
@@ -218,7 +214,7 @@ build_image :: proc(
 	allocator: runtime.Allocator,
 	thread_count: int,
 	foreign_files: Foreign_Files,
-	interpreter: string = link.DEFAULT_INTERPRETER,
+	interpreter: string = LINUX_AMD64_DYNAMIC_INTERPRETER,
 ) -> (
 	image: []byte,
 	err: Build_Error,
@@ -477,8 +473,8 @@ build_startup_atoms :: proc(layout: Symbol_Layout, table: ^Native_Symbol_Table, 
 	table.atoms[startup_atom + 1] = link.Atom {
 		section = .Tcb,
 		align   = 8,
-		bytes   = make([]byte, TCB_SIZE, scratch_allocator) or_return,
-		size    = TCB_SIZE,
+		bytes   = make([]byte, LINUX_AMD64_TCB_SIZE, scratch_allocator) or_return,
+		size    = LINUX_AMD64_TCB_SIZE,
 		relocs  = thread_pointer_relocs,
 	}
 

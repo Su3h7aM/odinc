@@ -6,7 +6,6 @@ import "core:io"
 import "core:strings"
 import "oc:check"
 import "oc:ir"
-import "oc:link"
 import "oc:lower"
 import "oc:syntax"
 import "oc:types"
@@ -28,7 +27,7 @@ build_tests :: proc(
 	allocator: runtime.Allocator,
 	options: Test_Options,
 	collections: []Collection = nil,
-	interpreter: string = link.DEFAULT_INTERPRETER,
+	interpreter: string = LINUX_AMD64_DYNAMIC_INTERPRETER,
 ) -> (
 	image: []byte,
 	err: Build_Error,

@@ -21,7 +21,7 @@ Every task is judged against these. A change that breaks one needs an owner deci
 
 ## 2. Where we are
 
-Measured in `docs/benchmarks.md` (2026-10-20, Ryzen 7 5700X). Compiler B is the fork, C is `odinc`.
+Source: `docs/benchmarks.md`, snapshot 2026-10-20, machine Ryzen 7 5700X. Compiler B is the fork, C is `odinc`. Live numbers after that date are in that file; the table below is the 2026-10-20 snapshot.
 
 | Measure | odinc | Official (fork) |
 |---|---|---|
@@ -39,8 +39,8 @@ Verified state of the pipeline (checked 2026-10-22):
 - Pure nodes are hash-consed through one entry point, `interned_node` (`src/ir/intern.odin:13`). Nothing folds: `binary`, `compare`, `unary`, `convert` and `select` only canonicalize operand order and intern (`src/ir/builder.odin`).
 - `load` and `store` go through `add_node` and are never shared (`src/ir/builder.odin`), so two reads of `s.len` with no store between are two nodes.
 - The scheduler places each floating node at the common dominator of its uses and nothing else (`use_common_block` in `src/sched/order.odin`). There is no early placement, so a loop-invariant pure value used in a loop body is computed in the body.
-- Cold blocks are laid out last (`order` in `src/sched/order.odin`), but nothing in `lower` sets `.Cold`. The only setter is a print test.
-- Bounds checks lower to an unsigned compare and a branch to a bare trap (`lower_check` in `src/lower/lower_bounds.odin`). See section 4.
+- Cold blocks are laid out last (`order` in `src/sched/order.odin`). `lower_bounds_check` marks the failing arm `.Cold` (commit `4f289b0`).
+- Bounds checks call the runtime handler from that cold arm, then `Unreachable` (`lower_bounds_check` in `src/lower/lower_bounds.odin:18`, commit `4f289b0`). See section 4.1.
 - Index addresses with stride 1, 2, 4 or 8 use one `LEA`; any other stride emits `MOV`, `IMUL`, `LEA` (`select_memory.odin`, `.Ptr_Index`).
 - `#force_inline` is parsed and checked but `lower` never reads it. There is no inliner.
 - Register allocation is a hole-aware linear scan without interval splitting (`src/regalloc/linear_scan.odin`).
@@ -86,11 +86,9 @@ The lesson for us is about shape: a second code path that mirrors another backen
 
 These come before any optimization because they are behavior differences or owed validation.
 
-### 4.1 Bounds-check failures are silent
+### 4.1 Bounds-check failures call the runtime handler (done, `4f289b0`)
 
-The official compiler calls `runtime.bounds_check_error_contextless` (or `_with_context`) on every enabled check (`lb_emit_bounds_check`, `llvm_backend_general.cpp:1270`). On failure the runtime prints `file(line:column) Index i is out of range 0..<n` and then traps (`base/runtime/error_checks.odin:27`). We branch to a bare `Trap` (`lower_check`, `src/lower/lower_bounds.odin:9`). The exit status matches (SIGILL), but stderr does not. Slice expressions use the same `lower_check`. Matrix index checks and the other `emit_trap` sites (`lower_call.odin:424`, `lower_operator.odin:880`) need the same review.
-
-Our own archived design already said what to do (`docs/archive/02-ir-design.md`, the bounds section): compare inline, and on the failing edge call the runtime handler in a block marked `.Cold`, then `Unreachable`. That fixes parity, gives the scheduler its first real cold blocks, and matches what bbodi measured as the fast shape. One task, S to M effort, in `src/lower/lower_bounds.odin` plus whatever builder call creates a cold arm.
+Fixed in commit `4f289b0`. `lower_bounds_check` (`src/lower/lower_bounds.odin:18`) branches to a `.Cold` arm that calls the runtime handler (`runtime.bounds_check_error_contextless` or `_with_context`) and then `Unreachable`. That matches the official compiler: on failure the runtime prints `file(line:column) Index i is out of range 0..<n` and traps (`base/runtime/error_checks.odin:27`). Slice expressions use the same path. Matrix index checks and the other `emit_trap` sites (`lower_call.odin:424`, `lower_operator.odin:880`) were not part of that commit.
 
 ### 4.2 Validation owed
 

@@ -1,5 +1,7 @@
 # Compiler optimization gaps, back half
 
+Status: bounds-check failures call the runtime handler from a `.Cold` block (commit `4f289b0`, 2026-10); passages below that describe a bare trap are stale.
+
 This note compares Simple chapters 14–25 with the compiler in this repository. Simple is a useful set of optimization examples, not an architecture to copy. Our architecture remains the pipeline in `docs/01-architecture.md`, with Sea of Nodes IR and a one-memory-chain representation. The reported performance gap is 4–22x slower than the official compiler at `-o:speed`; that number is supplied as a premise for this analysis, not measured here. The other reported symptoms are bounds-check traps on slice accesses, indexed addresses with `imul`, no inlining, and no packed floating-point operations.
 
 ## Numeric types, ranges, and bounds checks

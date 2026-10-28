@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+# Helper for scripts/bench: inspect one odinc-produced image and optionally run it.
+# Usage: bench_observe <name> <binary> <report> [--no-run]
+# Writes the report and prints: linkage INTERP DT_NEEDED UND exit verdict
+# Verdict is fail for a dynamic or non-running base/core fixture.
+set -euo pipefail
+
+name="${1:?}"
+bin="${2:?}"
+report="${3:?}"
+run=1
+if [[ "${4:-}" == --no-run ]]; then
+	run=0
+fi
+
+find_llvm_readelf() {
+	local p
+	p="$(command -v llvm-readelf 2>/dev/null || true)"
+	if [[ -n "$p" ]]; then
+		printf '%s' "$p"
+		return
+	fi
+	for p in /data/.local/bin/llvm-readelf /usr/bin/llvm-readelf; do
+		if [[ -x "$p" ]]; then
+			printf '%s' "$p"
+			return
+		fi
+	done
+	printf 'error: llvm-readelf is required (not GNU readelf)\n' >&2
+	exit 1
+}
+
+reade="$(find_llvm_readelf)"
+hdr="$("$reade" --file-header --program-headers "$bin")"
+dyn="$("$reade" --dynamic "$bin" 2>/dev/null || true)"
+needed="$(printf '%s\n' "$dyn" | awk '/\(NEEDED\)/ { gsub(/.*\[/, ""); gsub(/\].*/, ""); print }' | paste -sd, -)"
+[[ -n "$needed" ]] || needed="-"
+if printf '%s\n' "$hdr" | grep -q '[[:space:]]INTERP[[:space:]]'; then
+	interp=yes
+else
+	interp=no
+fi
+undef="$("$reade" --dyn-syms "$bin" 2>/dev/null | awk '$5 == "GLOBAL" && $7 == "UND" { print $NF }' | paste -sd, -)"
+[[ -n "$undef" ]] || undef="-"
+if [[ "$interp" == yes || "$needed" != - ]]; then
+	linkage=dynamic
+else
+	linkage=static
+fi
+if command -v file >/dev/null 2>&1; then
+	file_out="$(file -b "$bin")"
+else
+	file_out="file unavailable; llvm-readelf: ${linkage}ally linked"
+fi
+
+exit_code="-"
+if ((run)); then
+	set +e
+	"$bin" >/dev/null 2>&1
+	exit_code=$?
+	set -e
+fi
+
+base_core=0
+case "$name" in
+	empty | hello_fmt | count_loop | sieve) base_core=1 ;;
+esac
+verdict=ok
+if [[ "$linkage" == dynamic ]]; then
+	if ((base_core)); then
+		verdict=fail
+	else
+		verdict=managed
+	fi
+fi
+if ((base_core)) && ((run)) && [[ "$exit_code" != 0 ]]; then
+	verdict=fail
+fi
+
+{
+	printf 'file: %s\n' "$file_out"
+	printf 'linkage: %s\n' "$linkage"
+	printf 'PT_INTERP: %s\n' "$interp"
+	printf 'DT_NEEDED: %s\n' "$needed"
+	printf 'UND: %s\n' "$undef"
+	printf 'exit: %s\n' "$exit_code"
+	printf 'verdict: %s\n' "$verdict"
+} >"$report"
+
+printf '%s %s %s %s %s %s\n' "$linkage" "$interp" "$needed" "$undef" "$exit_code" "$verdict"
+
+if [[ "$verdict" == fail ]]; then
+	printf 'error: %s verdict=fail (linkage=%s DT_NEEDED=%s exit=%s); not a GNU-free baseline\n' "$name" "$linkage" "$needed" "$exit_code" >&2
+	exit 1
+fi

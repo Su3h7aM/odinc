@@ -3,8 +3,8 @@ package link
 import "core:mem"
 import "oc:elf"
 
-// Default Linux x86-64 PT_INTERP path. The gABI leaves it implementation-defined;
-// --dynamic-linker selects the loader compatible with the foreign shared libraries.
+// Known debt this cycle, not the final layout: package link cannot import
+// driver, so this string duplicates driver.LINUX_AMD64_DYNAMIC_INTERPRETER.
 DEFAULT_INTERPRETER :: "/lib64/ld-linux-x86-64.so.2"
 
 Fixups :: struct {

@@ -39,9 +39,6 @@ Probe: `len` and `cap` on a matrix are rejected.
 
 Probe: `#force_no_inline` is the accepted directive in this Odin version. `@(no_inline)` is rejected as an unknown attribute.
 
-*** End Patch
-Probe: `#force_no_inline` is the accepted directive in this Odin version. `@(no_inline)` is rejected as an unknown attribute.
-
 ## 3. Element and dimension rules
 
 Element types accepted: integer, float, complex. Probes: `matrix[2,2]bool` rejected; `matrix[2,2]quaternion128` rejected; `matrix[2,2]complex64` accepted.
@@ -139,7 +136,6 @@ Source reading (`check_builtin.cpp`): `transpose` 5166, `hadamard_product` 5297,
 
 Not probed yet: `conj`, `outer_product` result type, `transpose` of an array, `hadamard_product` typing.
 
-*** End Patch
 ## 7. Lowering and ABI
 
 Lowering strategy (stage M3 onward): the scalar loop form first. Each element is computed by an explicit loop over `k`, ascending, with `acc = acc + a * b` and no FMA contraction. SIMD and LLVM vector forms are a later stage, and they must keep the same `k`-ascending order.

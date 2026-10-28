@@ -7,10 +7,6 @@ import "core:strings"
 import "oc:check"
 import "oc:link"
 
-// Multiarch directories are named after the target triplet (`/usr/lib/<arch>-<os>-<abi>`, Multiarch layout), which no spec fixes.
-@(private = "file")
-MULTIARCH_LIBRARY_PATTERN :: "/usr/lib/x86_64-linux-*"
-
 Foreign_Library_Failed :: struct {
 	path:   string,
 	reason: string,
@@ -266,7 +262,7 @@ linker_script_paths :: proc(data: []byte, script_path: string) -> (members: []Sc
 system_library_directories :: proc() -> (directories: [dynamic]string, err: runtime.Allocator_Error) {
 	directories = make([dynamic]string, context.temp_allocator) or_return
 	append(&directories, "/usr/local/lib") or_return
-	multiarch, _ := filepath.glob(MULTIARCH_LIBRARY_PATTERN, context.temp_allocator)
+	multiarch, _ := filepath.glob(LINUX_AMD64_MULTIARCH_LIB_PATTERN, context.temp_allocator)
 	append(&directories, ..multiarch) or_return
 	append(&directories, "/usr/lib64", "/usr/lib", "/lib", "/lib64") or_return
 	return directories, nil

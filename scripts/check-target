@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+#MISE description="Fail if target-specific constants appear outside the allowlist"
+# Grep + allowlist for T6. Keep the pattern list short; a noisy guard gets disabled.
+# Does not source _lib.sh: this check is text-only and must run without ODIN_BIN.
+#
+# Allowed files match docs/01-architecture.md "Target boundary":
+#   src/amd64/**
+#   src/types/abi_*
+#   src/types/doc.odin          # package overview cites the System V plan
+#   src/types/tools/**          # abi_matrix compares the System V plan
+#   src/driver/target_*.odin
+#   src/link/dynamic.odin       # DEFAULT_INTERPRETER; package link cannot import driver
+#   src/link/archive.odin       # System V ar symbol index, not the AMD64 ABI
+#   src/lower/lower_c_varargs.odin  # existing va_list layout
+#
+# Patterns:
+#   /lib64/ld-linux
+#   /usr/lib/x86_64-linux
+#   System V
+# Generic x86_64 is not grepped: it matches --mcpu names and test linker paths.
+set -euo pipefail
+
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+if [[ "${1:-}" != "" ]]; then
+	PROJECT_ROOT="$(cd "$1" && pwd)"
+fi
+ROOT="$PROJECT_ROOT/src"
+
+allowed() {
+	local rel="${1#"$PROJECT_ROOT/"}"
+	case "$rel" in
+		src/amd64/*) return 0 ;;
+		src/types/abi_*) return 0 ;;
+		src/types/doc.odin) return 0 ;;
+		src/types/tools/*) return 0 ;;
+		src/driver/target_*.odin) return 0 ;;
+		src/link/dynamic.odin) return 0 ;;
+		src/link/archive.odin) return 0 ;;
+		src/lower/lower_c_varargs.odin) return 0 ;;
+	esac
+	return 1
+}
+
+hits=()
+while IFS= read -r line; do
+	[[ -z "$line" ]] && continue
+	file="${line%%:*}"
+	if allowed "$file"; then
+		continue
+	fi
+	hits+=("$line")
+done < <(grep -RIn --include='*.odin' \
+	-e '/lib64/ld-linux' \
+	-e '/usr/lib/x86_64-linux' \
+	-e 'System V' \
+	"$ROOT" || true)
+
+if ((${#hits[@]})); then
+	printf 'check-target: forbidden target string outside the allowlist:\n'
+	printf '  %s\n' "${hits[@]}"
+	exit 1
+fi
+
+echo "check-target: ok"

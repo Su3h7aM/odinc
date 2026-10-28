@@ -1,5 +1,7 @@
 # Sea-of-Nodes gap analysis: external references
 
+Status: bounds-check failures call the runtime handler from a `.Cold` block (commit `4f289b0`, 2026-10); passages below that describe a bare trap are stale.
+
 This file compares how other compilers solve the six gaps we measured: the bounds-check trap before every slice access, imul addressing per access, no inlining, no packed FP, no peephole fixpoint, and no SCCP, loop-invariant hoisting or alias classes. The run-time figure of 4-22x slower than the official `-o:speed` build comes from the owner's measurements. I did not re-measure it.
 
 Every claim has a URL or a local path. Where I could not check a claim directly, I mark it "unverified". Effort labels (S, M, L) are my estimates for this codebase. They are not measured.

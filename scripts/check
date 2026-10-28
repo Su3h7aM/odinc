@@ -5,6 +5,9 @@
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
+step "check-target"
+"$PROJECT_ROOT/scripts/check-target"
+
 flags=(-vet -strict-style -vet-tabs -disallow-do -warnings-as-errors -no-entry-point "$COLLECTION")
 
 target="${usage_package:-${1:-}}"

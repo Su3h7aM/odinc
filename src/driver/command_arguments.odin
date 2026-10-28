@@ -7,7 +7,6 @@ import "core:path/filepath"
 import "core:strconv"
 import "core:strings"
 import "oc:check"
-import "oc:link"
 import "oc:syntax"
 import "oc:types"
 
@@ -261,7 +260,7 @@ parse_command_arguments :: proc(name: string, args: []string, allocator := conte
 		max_error_count = 36,
 		thread_count    = max(os.get_processor_core_count(), 1),
 		mcpu            = "x86_64_v1",
-		dynamic_linker  = link.DEFAULT_INTERPRETER,
+		dynamic_linker  = LINUX_AMD64_DYNAMIC_INTERPRETER,
 	}
 	defer delete(model.collection)
 	defer delete(model.define)

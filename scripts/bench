@@ -1,0 +1,204 @@
+#!/usr/bin/env bash
+#MISE description="Measure odinc compile wall, peak RSS and binary size"
+set -euo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
+
+odinc="$PROJECT_ROOT/build/odinc"
+outdir="$PROJECT_ROOT/build/bench"
+rss_bin="$outdir/rss"
+n_runs=5
+max_runs=21
+
+mkdir -p "$outdir"
+step "build odinc"
+"$PROJECT_ROOT/scripts/build"
+acquire_binary_lock
+
+step "build rss helper"
+"$ODIN" build "$PROJECT_ROOT/scripts/bench_rss.odin" -file -out:"$rss_bin" || die "failed to build scripts/bench_rss.odin"
+
+median_of() {
+	local -n _src=$1
+	local sorted n mid
+	mapfile -t sorted < <(printf '%s\n' "${_src[@]}" | sort -n)
+	n=${#sorted[@]}
+	((n > 0)) || return 1
+	mid=$((n / 2))
+	if ((n % 2)); then
+		printf '%s' "${sorted[mid]}"
+	else
+		awk -v a="${sorted[mid - 1]}" -v b="${sorted[mid]}" 'BEGIN { print (a + b) / 2 }'
+	fi
+}
+
+min_of() {
+	local -n _src=$1
+	printf '%s\n' "${_src[@]}" | sort -n | head -n1
+}
+
+max_of() {
+	local -n _src=$1
+	printf '%s\n' "${_src[@]}" | sort -n | tail -n1
+}
+
+seconds_to_ms() {
+	awk -v s="$1" 'BEGIN { printf "%.1f", s * 1000 }'
+}
+
+variance_high() {
+	local med="$1" minv="$2" maxv="$3"
+	awk -v med="$med" -v minv="$minv" -v maxv="$maxv" 'BEGIN {
+		if (med + 0 == 0) exit 1
+		exit !((maxv - minv) / med > 0.05)
+	}'
+}
+
+# Prints: wall_med_s wall_min_s wall_max_s rss_med_kb rss_min_kb rss_max_kb
+parse_hyperfine_json() {
+	perl -MJSON::PP -e '
+		my $d = decode_json(do { local $/; open my $fh, "<", $ARGV[0] or die $!; <$fh> });
+		my $r = $d->{results}[0] or die "no hyperfine results in $ARGV[0]";
+		my (@t, @m);
+		if ($r->{measurements}) {
+			for my $row (@{$r->{measurements}}) {
+				push @t, $row->{time_wall_clock}{value};
+				push @m, $row->{memory_peak_resident}{value} / 1024;
+			}
+		} elsif ($r->{times}) {
+			@t = @{$r->{times}};
+		}
+		@t = sort { $a <=> $b } @t;
+		@m = sort { $a <=> $b } @m;
+		die "no hyperfine times in $ARGV[0]" unless @t;
+		sub med {
+			my @x = @_;
+			my $n = @x;
+			return $n % 2 ? $x[$n >> 1] : ($x[$n/2 - 1] + $x[$n/2]) / 2;
+		}
+		my $rss_med = @m ? med(@m) : 0;
+		my $rss_min = @m ? $m[0] : 0;
+		my $rss_max = @m ? $m[-1] : 0;
+		printf "%.9f %.9f %.9f %.0f %.0f %.0f\n", med(@t), $t[0], $t[-1], $rss_med, $rss_min, $rss_max;
+	' "$1"
+}
+
+compile_cmd() {
+	local src="$1" out="$2"
+	printf '%s build %s --output %s %s' "$odinc" "$src" "$out" "$COLLECTION"
+}
+
+measure_hyperfine() {
+	local name="$1" src="$2" out="$3" runs="$4"
+	local json="$outdir/${name}.wall.json"
+	local cmd hyperfine
+	cmd="$(compile_cmd "$src" "$out")"
+	hyperfine="$(command -v hyperfine || true)"
+	[[ -n "$hyperfine" ]] || return 1
+	"$hyperfine" --shell=bash --warmup 1 --runs "$runs" --export-json "$json" --style none -- "$cmd" \
+		|| die "hyperfine failed for $name"
+	parse_hyperfine_json "$json" || die "failed to parse $json"
+}
+
+measure_fallback() {
+	local name="$1" src="$2" out="$3" runs="$4"
+	local -a walls=() samples=()
+	local i start end rss_file
+	rss_file="$outdir/${name}.rss.txt"
+	for ((i = 0; i < runs; i++)); do
+		start=$(date +%s%N)
+		"$rss_bin" "$rss_file" "$odinc" build "$src" --output "$out" "$COLLECTION" \
+			|| die "rss run failed: $src"
+		end=$(date +%s%N)
+		walls+=("$(awk -v s="$start" -v e="$end" 'BEGIN { print (e - s) / 1e9 }')")
+		samples+=("$(cat "$rss_file")")
+	done
+	printf '%s %s %s %s %s %s' \
+		"$(median_of walls)" "$(min_of walls)" "$(max_of walls)" \
+		"$(median_of samples)" "$(min_of samples)" "$(max_of samples)"
+	printf '%s\n' "${samples[@]}" >"$outdir/${name}.rss.tsv"
+}
+
+compile_once() {
+	local src="$1" out="$2"
+	"$odinc" build "$src" --output "$out" "$COLLECTION" || die "compile failed: $src"
+	stat -c '%s' "$out"
+}
+
+# Sets inspect_* from the observe helper. A fail verdict still writes the report.
+observe_binary() {
+	local name="$1" bin="$2"
+	local report="$outdir/${name}.elf.txt"
+	local extra=() line
+	if [[ "$name" == odinc2 ]]; then
+		extra+=(--no-run)
+	fi
+	set +e
+	line="$("$PROJECT_ROOT/scripts/bench_observe" "$name" "$bin" "$report" "${extra[@]}")"
+	inspect_status=$?
+	set -e
+	read -r inspect_linkage inspect_interp inspect_needed inspect_undef inspect_exit inspect_verdict <<<"$line"
+	inspect_file="$(awk -F': ' '/^file:/{print substr($0,7); exit}' "$report")"
+}
+
+declare -a names=(empty hello_fmt demo odinc2 count_loop sieve)
+declare -a sources=(
+	"$PROJECT_ROOT/bench/empty"
+	"$PROJECT_ROOT/bench/hello_fmt"
+	"$PROJECT_ROOT/examples/demo"
+	"$PROJECT_ROOT/src/odinc"
+	"$PROJECT_ROOT/bench/count_loop"
+	"$PROJECT_ROOT/bench/sieve"
+)
+
+printf 'fixture\twall_med_s\twall_min_s\twall_max_s\trss_med_kb\trss_min_kb\trss_max_kb\tsize_bytes\truns\tlinkage\tINTERP\tDT_NEEDED\tUND\texit\tverdict\n' >"$outdir/results.tsv"
+
+echo
+printf '%-12s %12s %12s %12s %12s %12s %12s %12s %5s %8s %s\n' \
+	fixture wall_med_ms wall_min_ms wall_max_ms rss_med_kb rss_min_kb rss_max_kb size_bytes runs linkage needed
+
+for idx in "${!names[@]}"; do
+	name="${names[idx]}"
+	src="${sources[idx]}"
+	out="$outdir/${name}.bin"
+	step "bench $name"
+	size="$(compile_once "$src" "$out")"
+	observe_binary "$name" "$out"
+	wall_med=-; wall_min=-; wall_max=-; rss_med=-; rss_min=-; rss_max=-; runs=0
+	if [[ "$inspect_verdict" != ok ]]; then
+		echo "$name verdict=$inspect_verdict; skipping wall/RSS (not a GNU-free baseline)"
+	else
+		runs="$n_runs"
+		while :; do
+			metrics=""
+			metrics="$(measure_hyperfine "$name" "$src" "$out" "$runs")" || metrics="$(measure_fallback "$name" "$src" "$out" "$runs")"
+			read -r wall_med wall_min wall_max rss_med rss_min rss_max <<<"$metrics"
+			if variance_high "$wall_med" "$wall_min" "$wall_max" && ((runs + 5 <= max_runs)); then
+				runs=$((runs + 5))
+				echo "variance above 5% for $name; increasing to $runs runs"
+				continue
+			fi
+			break
+		done
+	fi
+	printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+		"$name" "$wall_med" "$wall_min" "$wall_max" "$rss_med" "$rss_min" "$rss_max" "$size" "$runs" \
+		"$inspect_linkage" "$inspect_interp" "$inspect_needed" "$inspect_undef" "$inspect_exit" "$inspect_verdict" >>"$outdir/results.tsv"
+	printf '%-12s %12s %12s %12s %12s %12s %12s %12s %5s %8s %s %s\n' \
+		"$name" \
+		"$(seconds_to_ms "$wall_med")" \
+		"$(seconds_to_ms "$wall_min")" \
+		"$(seconds_to_ms "$wall_max")" \
+		"$rss_med" "$rss_min" "$rss_max" "$size" "$runs" \
+		"$inspect_linkage" "$inspect_needed" "$inspect_verdict"
+done
+failed_verdict=0
+while IFS=$'\t' read -r name _ _ _ _ _ _ _ _ _ _ _ _ _ verdict; do
+	[[ "$name" == fixture ]] && continue
+	[[ "$verdict" == fail ]] && failed_verdict=1
+done <"$outdir/results.tsv"
+if ((failed_verdict)); then
+	die "one or more base/core fixtures are dynamic or did not run; results.tsv verdict=fail; wait for T0"
+fi
+
+echo
+echo "raw results: $outdir/results.tsv"
