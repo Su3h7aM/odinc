@@ -204,6 +204,8 @@ TMP_MAX      :: libc.TMP_MAX
 
 EOF :: libc.EOF
 
-stderr := libc.stderr
-stdin  := libc.stdin
-stdout := libc.stdout
+when ODIN_OS != .Linux || !ODIN_NO_CRT {
+	stderr := libc.stderr
+	stdin  := libc.stdin
+	stdout := libc.stdout
+}

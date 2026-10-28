@@ -63,6 +63,8 @@ load_foreign_files :: proc(
 	program: ^check.Checked_Program,
 	required_symbols: []check.Symbol_Id,
 	odin_root: string,
+	target_os: check.Target_Os,
+	managed_libc: bool,
 	allocator: runtime.Allocator,
 ) -> (
 	foreign_files: Foreign_Files,
@@ -89,7 +91,12 @@ load_foreign_files :: proc(
 		library, is_library := entity.data.(check.Library_Data)
 		if !is_library || !required_libraries[index] { continue }
 		for library_path in library.paths {
-			if library_is_external(library_path, odin_root) { has_external_library = true }
+			if library_is_external(library_path, odin_root) {
+				if target_os == .Linux && !managed_libc {
+					return foreign_files, Foreign_Library_Failed{path = library_path.name, reason = "requires managed profile but session uses no-crt"}
+				}
+				has_external_library = true
+			}
 			file_path := library_path.name
 			needed := library_path.name
 			if library_path.system {

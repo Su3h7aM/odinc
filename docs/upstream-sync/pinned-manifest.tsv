@@ -135,8 +135,8 @@ core/sys/posix/signal_linux.odin	b4384e515d01579267378bf896447d5a2063369b
 core/sys/posix/signal.odin	3e1e6a50c01c21d0768973f4ae418411a3480586
 core/sys/posix/spawn_linux.odin	d56cfd38f37f78e51aef1f673342f865005dd26e
 core/sys/posix/spawn.odin	4d7d6ba81782fa7c85e2c058b9d433ccf5477196
-core/sys/posix/stdio_libc.odin	a04ec97706aaf715fccb8d7d382225def99aa24a
-core/sys/posix/stdio_linux.odin	b086db8f43721daba89b8a3d44b6af45ed494964
+core/sys/posix/stdio_libc.odin	46dbbc8e651e67a62e26cc63f917abd08497149c
+core/sys/posix/stdio_linux.odin	3154c2a672680d76c60ca0fdb0d8646f5cc71bc3
 core/sys/posix/stdio.odin	0a594437b7b1f170446cf9dd0e4414176b7a07a5
 core/sys/posix/stdlib_integer_linux.odin	7369957019484a2eff7243d9781464982e727d3a
 core/sys/posix/stdlib_libc_arith.odin	1eedec8cbce15fa0575956ecf4c4d88643752775

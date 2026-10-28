@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+#MISE description="Validate no-crt and external-library CLI profiles"
+set -euo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
+readelf_tool="${LLVM_READELF:-llvm-readelf}"
+command -v "$readelf_tool" >/dev/null || die "llvm-readelf is required"
+compiler="$PROJECT_ROOT/build/odinc"
+[[ -x "$compiler" ]] || die "run mise run build first"
+work="$(mktemp -d)"
+trap 'rm -rf "$work"' EXIT
+failed=0
+while read -r case_name expected profile; do
+	printf -v expected '%b' "$expected"
+	binary="$work/$case_name"
+	if ! "$compiler" build "$PROJECT_ROOT/tests/profile/$case_name" --output "$binary"; then
+		printf '%s: build failed\n' "$case_name" >&2; failed=1; continue
+	fi
+	if ! output="$("$binary")" || [[ "$output" != "$expected" ]]; then
+		printf '%s: unexpected output: %s\n' "$case_name" "$output" >&2; failed=1
+	fi
+	program_headers="$($readelf_tool -l "$binary")"
+	dynamic_section="$($readelf_tool -d "$binary")"
+	if [[ "$profile" == static ]]; then
+		if [[ "$program_headers" == *INTERP* || "$dynamic_section" == *NEEDED* ]]; then
+			printf '%s: unexpected dynamic linkage\n' "$case_name" >&2; failed=1
+		fi
+	else
+		if [[ "$program_headers" != *INTERP* || "$dynamic_section" != *libc.so.6* ]]; then
+			printf '%s: missing managed linkage\n' "$case_name" >&2; failed=1
+		fi
+	fi
+done <<'CASES'
+managed 5\nMANAGED managed
+unused NO_CRT static
+alias NO_CRT static
+dead NO_CRT static
+global 5\nMANAGED managed
+demoted 5\nMANAGED managed
+CASES
+if mise run selfhost; then
+	for binary in "$PROJECT_ROOT/build/odinc2" "$PROJECT_ROOT/build/odinc3"; do
+		program_headers="$($readelf_tool -l "$binary")"
+		dynamic_section="$($readelf_tool -d "$binary")"
+		if [[ "$program_headers" == *INTERP* || "$dynamic_section" == *NEEDED* ]]; then
+			printf '%s: unexpected dynamic linkage\n' "$binary" >&2; failed=1
+		fi
+	done
+else
+	printf 'selfhost: build failed\n' >&2; failed=1
+fi
+exit "$failed"

@@ -190,7 +190,44 @@ check_program_profile :: proc(
 // A used library outside the shipped base/ and core/ trees (system, vendor, or user file) is a real libc bridge.
 @(private = "file")
 session_uses_external_library :: proc(session: ^Session) -> bool {
-	return any_external_library_used(session, library_entities(session, context.temp_allocator))
+	if !any_external_library_declared(session, library_entities(session, context.temp_allocator)) { return false }
+	entities := session.scopes.entities[:]
+	reachable := make([]bool, len(entities), context.temp_allocator)
+	if len(reachable) > 0 { reachable[0] = true }
+	entry := check.scope_lookup_current(&session.scopes, session.main_scope, "main")
+	if entry != 0 { reachable[entry] = true }
+	for entity, index in entities {
+		if entity.kind != .Procedure { continue }
+		if .Test in entity.flags || .Required in entity.flags { reachable[index] = true }
+		for attribute in entity.attributes {
+			if attribute.name == "init" || attribute.name == "fini" { reachable[index] = true }
+		}
+	}
+	heads := make([]int, len(entities), context.temp_allocator)
+	next := make([]int, len(session.checker.profile_calls), context.temp_allocator)
+	for edge, index in session.checker.profile_calls {
+		if int(edge.from) >= len(heads) || int(edge.to) >= len(heads) { continue }
+		next[index] = heads[edge.from]
+		heads[edge.from] = index + 1
+	}
+	work := make([dynamic]check.Entity_Id, context.temp_allocator)
+	for root, index in reachable { if root { append(&work, check.Entity_Id(index)) } }
+	for len(work) > 0 {
+		current := pop(&work)
+		for link := heads[current]; link != 0; link = next[link - 1] {
+			target := session.checker.profile_calls[link - 1].to
+			if !reachable[target] {
+				reachable[target] = true
+				append(&work, target)
+			}
+		}
+	}
+	for use in session.checker.foreign_uses {
+		if int(use.procedure) >= len(reachable) || !reachable[use.procedure] { continue }
+		library := check.entity_get(&session.scopes, use.library).data.(check.Library_Data)
+		for path in library.paths { if library_is_external(path, session.build.root) { return true } }
+	}
+	return false
 }
 
 @(private = "file")
@@ -203,11 +240,10 @@ library_entities :: proc(session: ^Session, allocator: runtime.Allocator) -> []c
 }
 
 @(private = "file")
-any_external_library_used :: proc(session: ^Session, libraries: []check.Entity_Id) -> bool {
+any_external_library_declared :: proc(session: ^Session, libraries: []check.Entity_Id) -> bool {
 	root := session.build.root
 	for id in libraries {
 		library := check.entity_get(&session.scopes, id).data.(check.Library_Data)
-		if !library.used { continue }
 		for library_path in library.paths {
 			if library_is_external(library_path, root) { return true }
 		}
@@ -335,13 +371,10 @@ check_session :: proc(
 	}
 
 	if check.check_library_paths(&session.checker) != nil { return .Allocation_Failed }
-	libraries: []check.Entity_Id
-	if session.stop_at_external { libraries = library_entities(session, context.temp_allocator) }
 	for declaration in session.collection.declarations {
 		if check.declaration_is_lazy(&session.checker, declaration.entity) { continue }
 		if check.declaration_is_library_lazy(&session.checker, declaration.entity) { continue }
 		if _, resolve_error := check.resolve_entity(&session.resolver, declaration.entity); resolve_error != nil { return .Check_Failed }
-		if session.stop_at_external && any_external_library_used(session, libraries) { return .External_Library_Used }
 	}
 	directives_valid, directive_error := check.check_package_directives(&session.checker)
 	if check.resolve_runtime_roots(&session.checker) != nil { return .Check_Failed }

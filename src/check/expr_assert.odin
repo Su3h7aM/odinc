@@ -35,6 +35,10 @@ expression_assert :: proc(
 		}
 	}
 	value, is_bool := constant_pool_get(checker.constants, condition.constant).value.(bool)
-	if !is_bool || !value { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
+	if !is_bool { return expression_failure(checker, view, scope, node, .Invalid_Operand) }
+	if !value {
+		_, failure := expression_failure(checker, view, scope, node, .Invalid_Operand)
+		if failure != nil { return {}, failure }
+	}
 	return condition, nil
 }

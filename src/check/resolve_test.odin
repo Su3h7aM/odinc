@@ -17,6 +17,35 @@ Resolver_Test_Data :: struct {
 }
 
 @(test)
+foreign_library_is_used_only_by_reference :: proc(t: ^testing.T) {
+	store: Scope_Store
+	if !testing.expect_value(t, scope_store_init(&store, context.allocator), nil) { return }
+	defer scope_store_destroy(&store)
+	scope, scope_error := scope_create(&store, 0, .Package)
+	if !testing.expect_value(t, scope_error, nil) { return }
+	library, library_error := entity_create(&store, Entity{name = "lib", kind = .Library_Name, scope = scope, data = Library_Data{}})
+	foreign_entity, foreign_error := entity_create(&store, Entity{name = "call", kind = .Procedure, scope = scope, flags = {.Foreign}, foreign_library = "lib"})
+	owner, owner_error := entity_create(&store, Entity{name = "main", kind = .Procedure, scope = scope})
+	if !testing.expect(t, library_error == nil && foreign_error == nil && owner_error == nil) { return }
+	_, insert_error := scope_insert(&store, scope, library)
+	if !testing.expect_value(t, insert_error, nil) { return }
+	resolver: Resolver
+	resolver_init(&resolver, &store, test_foreign_declaration, nil, context.allocator)
+	defer resolver_destroy(&resolver)
+	state, err := resolve_entity(&resolver, foreign_entity)
+	testing.expect(t, state == .Resolved && err == nil && !entity_get(&store, library).data.(Library_Data).used)
+	append(&resolver.stack, owner)
+	state, err = resolve_dependency(&resolver, Dependency{entity = foreign_entity, kind = .Name})
+	_ = pop(&resolver.stack)
+	testing.expect(t, state == .Resolved && err == nil && entity_get(&store, library).data.(Library_Data).used)
+}
+
+@(private = "file")
+test_foreign_declaration :: proc(resolver: ^Resolver, id: Entity_Id, user_data: rawptr) -> (valid: bool, err: Resolve_Error) {
+	return true, nil
+}
+
+@(test)
 resolution_is_lazy_and_poisoned_cycles_do_not_repeat :: proc(t: ^testing.T) {
 	source := transmute([]byte)string(
 		`package sample

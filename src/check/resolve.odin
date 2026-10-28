@@ -147,11 +147,6 @@ resolve_entity_signature :: proc(resolver: ^Resolver, id: Entity_Id, need: Resol
 		return .Invalid, callback_err
 	}
 	entity.state = .Resolved
-	if library := resolver_foreign_library(resolver, entity); library != 0 {
-		library_entity := entity_get(resolver.scopes, library)
-		data := &library_entity.data.(Library_Data)
-		data.used = true
-	}
 	return .Resolved, nil
 }
 
@@ -227,6 +222,14 @@ resolve_dependency :: proc(resolver: ^Resolver, dependency: Dependency, need := 
 		entity_get(resolver.scopes, owner).dependencies = dependencies[:]
 	}
 	state, err = resolve_entity(resolver, dependency.entity, need)
+	if err == nil && state == .Resolved {
+		entity := entity_get(resolver.scopes, dependency.entity)
+		if library := resolver_foreign_library(resolver, entity); library != 0 {
+			library_entity := entity_get(resolver.scopes, library)
+			data := &library_entity.data.(Library_Data)
+			data.used = true
+		}
+	}
 	if err != nil || state == .Invalid { resolver_poison(resolver, owner) }
 	return
 }

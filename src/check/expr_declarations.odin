@@ -193,6 +193,14 @@ expression_boolean_evaluator :: proc(
 // Type declarations are attempted first so aliases and constant-dependent layouts use one resolver.
 expression_declaration :: proc(resolver: ^Resolver, id: Entity_Id, user_data: rawptr) -> (valid: bool, err: Resolve_Error) {
 	checker := cast(^Expression_Checker)user_data
+	previous_procedure := checker.current_procedure
+	previous_global_initializer := checker.in_global_initializer
+	checker.current_procedure = 0
+	checker.in_global_initializer = false
+	defer {
+		checker.current_procedure = previous_procedure
+		checker.in_global_initializer = previous_global_initializer
+	}
 	resolver.check_body = expression_procedure_body_declaration
 	intrinsic_entity := entity_get(resolver.scopes, id)
 	intrinsic_declaration := intrinsic_entity.kind == .Builtin
@@ -250,7 +258,17 @@ expression_declaration :: proc(resolver: ^Resolver, id: Entity_Id, user_data: ra
 	}
 	info: Expression_Info
 	if declaration.value.node != 0 {
+		if entity.kind == .Variable {
+			if variable, ok := entity.data.(Variable_Data); ok {
+				checker.in_global_initializer = variable.storage == .Global
+			}
+		} else if entity.kind == .Constant && !scope_inside_body(resolver.scopes, entity.scope) {
+			file := checker.type_checker.files[declaration.value.file]
+			value := type_unparen(file, declaration.value.node)
+			checker.in_global_initializer = file.ast.nodes[value].kind == .Comp_Lit
+		}
 		info = expression_check_initializer(checker, view, entity.scope, declaration.value.node, target) or_return
+		checker.in_global_initializer = false
 		if info.state == .Invalid { return false, nil }
 		if entity.kind == .Constant && info.mode == .Builtin {
 			binding := entity_get(resolver.scopes, id)
@@ -356,6 +374,9 @@ expression_demotable_global :: proc(
 expression_procedure_body_declaration :: proc(resolver: ^Resolver, id: Entity_Id, user_data: rawptr) -> (valid: bool, err: Resolve_Error) {
 	checker := cast(^Expression_Checker)user_data
 	declaration := checker.type_checker.declarations[id]
+	outer_procedure := checker.current_procedure
+	checker.current_procedure = id
+	defer checker.current_procedure = outer_procedure
 	outer_instance := checker.active_instance
 	checker.active_instance = entity_get(resolver.scopes, id).data.(Procedure_Data).instance
 	defer checker.active_instance = outer_instance

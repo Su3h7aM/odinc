@@ -157,6 +157,9 @@ expression_call :: proc(
 	}
 	results := make([]types.Type_Id, len(descriptor.results), allocator) or_return
 	copy(results, descriptor.results)
+	if checker.current_procedure != 0 {
+		append(&checker.profile_calls, Call_Edge{checker.current_procedure, callee.entity}) or_return
+	}
 	plan := Plan_Id(len(checker.plans))
 	append(
 		&checker.plans,

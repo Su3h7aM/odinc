@@ -89,7 +89,15 @@ main :: proc() {
 	puts_count := 0
 	for extern in module.externs { if extern.name == "puts" { puts_count += 1 } }
 	testing.expect_value(t, puts_count, 1)
-	files, library_error := load_foreign_files(&session.program, required, odin_root, context.allocator)
+	rejected, rejected_error := load_foreign_files(&session.program, required, odin_root, .Linux, false, context.allocator)
+	defer foreign_files_destroy(&rejected)
+	if failure, ok := rejected_error.(Foreign_Library_Failed); testing.expect(t, ok) {
+		testing.expect_value(t, failure.reason, "requires managed profile but session uses no-crt")
+	}
+	non_linux, non_linux_error := load_foreign_files(&session.program, required, odin_root, .Darwin, false, context.allocator)
+	defer foreign_files_destroy(&non_linux)
+	testing.expect_value(t, non_linux_error, nil)
+	files, library_error := load_foreign_files(&session.program, required, odin_root, session.build.os, session.managed_libc, context.allocator)
 	defer foreign_files_destroy(&files)
 	testing.expect_value(t, library_error, nil)
 }

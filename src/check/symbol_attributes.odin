@@ -69,6 +69,7 @@ symbol_linkage :: proc(checker: ^Expression_Checker, entity: Entity) -> (linkage
 			return .Link_Once, nil
 		}
 	}
+	if .Export in entity.flags { return .Strong, nil }
 	if .Private_Package in entity.flags || .Private_File in entity.flags { return .Internal, nil }
 	return .Strong, nil
 }

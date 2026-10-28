@@ -82,6 +82,16 @@ View_Key :: struct {
 	instance: Instance_Id,
 }
 
+Foreign_Use :: struct {
+	procedure: Entity_Id,
+	library: Entity_Id,
+	source: Source_Span,
+}
+
+Call_Edge :: struct {
+	from, to: Entity_Id,
+}
+
 Expression_Checker :: struct {
 	options:              Check_Options,
 	type_checker:         ^Type_Checker,
@@ -116,6 +126,10 @@ Expression_Checker :: struct {
 	defers:               [dynamic]Defer_Registration,
 	defer_depth:          int,
 	active_instance:      Instance_Id,
+	current_procedure:    Entity_Id,
+	in_global_initializer: bool,
+	foreign_uses:         [dynamic]Foreign_Use,
+	profile_calls:        [dynamic]Call_Edge,
 	procedure_infos:      [dynamic]Procedure_Info_Entry,
 	procedure_info_index: map[Procedure_Info_Origin]types.Procedure_Info_Id,
 	view_lookup:          map[View_Key]View_Id,
@@ -175,6 +189,8 @@ expression_checker_init :: proc(
 	checker.control.allocator = allocator
 	checker.invalid_rows.allocator = allocator
 	checker.deferred_sites.allocator = allocator
+	checker.foreign_uses.allocator = allocator
+	checker.profile_calls.allocator = allocator
 	checker.stored_rows.allocator = allocator
 	checker.defers.allocator = allocator
 	checker.symbols.allocator, checker.entity_symbols.allocator, checker.procedures.allocator = allocator, allocator, allocator
@@ -218,6 +234,8 @@ expression_checker_destroy :: proc(checker: ^Expression_Checker) {
 	delete(checker.defers)
 	delete(checker.invalid_rows)
 	delete(checker.deferred_sites)
+	delete(checker.foreign_uses)
+	delete(checker.profile_calls)
 	delete(checker.stored_rows)
 	delete(checker.procedure_infos)
 	delete(checker.procedure_info_index)
@@ -849,6 +867,19 @@ expression_entity_info :: proc(
 	target := entity_get(resolver.scopes, entity).alias
 	if target == 0 { target = entity }
 	binding := entity_get(resolver.scopes, target)
+	profile_context := checker.current_procedure != 0 || checker.in_global_initializer
+	if profile_context && binding.kind == .Procedure {
+		append(&checker.profile_calls, Call_Edge{checker.current_procedure, target}) or_return
+	}
+	if library := resolver_foreign_library(resolver, binding); library != 0 {
+		if profile_context {
+			span := checker.type_checker.files[file].ast.nodes[node]
+			append(&checker.foreign_uses, Foreign_Use{checker.current_procedure, library, {file, span.start, span.end}}) or_return
+		}
+		library_entity := entity_get(resolver.scopes, library)
+		data := &library_entity.data.(Library_Data)
+		data.used = true
+	}
 	if binding.type == types.TYPE_POISON { return expression_poison(scope), nil }
 	if binding.type == types.TYPE_NONE && (binding.kind == .Variable || binding.kind == .Constant) {
 		return expression_failure(checker, view, scope, node, .Missing_Type, binding.name)

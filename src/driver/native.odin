@@ -139,7 +139,7 @@ build_file :: proc(
 	}
 	entry_name, entry_error := strings.clone(main_symbol_name(session), virtual.arena_allocator(&module.arena))
 	if entry_error != nil { return nil, entry_error }
-	foreign_files, foreign_err := load_foreign_files(&session.program, required_symbols, session.build.root, allocator)
+	foreign_files, foreign_err := load_foreign_files(&session.program, required_symbols, session.build.root, session.build.os, session.managed_libc, allocator)
 	if foreign_err != nil {
 		write_build_error(log, foreign_err)
 		return nil, foreign_err

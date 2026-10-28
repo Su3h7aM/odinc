@@ -59,3 +59,24 @@ remove :: proc "c" (path: cstring) -> c.int {
 		return -1
 	}
 }
+
+// Without the C runtime the standard streams are descriptor records. FILE stays
+// libc's opaque type: a call to a libc-bound stream procedure makes the program
+// managed, and the streams are then libc's.
+when ODIN_NO_CRT {
+	@(private)
+	_Descriptor_Stream :: struct {
+		fd: linux.Fd,
+	}
+
+	@(private)
+	_stdin_stream := _Descriptor_Stream{fd = 0}
+	@(private)
+	_stdout_stream := _Descriptor_Stream{fd = 1}
+	@(private)
+	_stderr_stream := _Descriptor_Stream{fd = 2}
+
+	stdin  := cast(^FILE)&_stdin_stream
+	stdout := cast(^FILE)&_stdout_stream
+	stderr := cast(^FILE)&_stderr_stream
+}
