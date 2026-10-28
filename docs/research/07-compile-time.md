@@ -124,3 +124,23 @@ Hypothesis updates:
 - `base/runtime` costs 106 ms in every program, including `empty`. That is 37% of the `empty` build and is not caused by `fmt`.
 
 Open for T2d: confirm whether the unicode predicates are checked because `core:fmt` reaches them, or because the checker resolves their whole package. Track whether the `base/runtime` fixed cost is avoidable, since it is paid by every program.
+
+## T2b follow-up: what the fixed and unused costs are
+
+Method: the instrumented copy with switches that skip, in the declaration loop of `check_session`, library constants, library `@(rodata)` variables, and procedure-group declarations. Three runs per mode. Measurement only; the switches are not in the repository.
+
+Findings:
+
+- `import "core:unicode"` with no use still costs about 140 ms over `empty`. The checker resolves every package-level constant and `@(rodata)` table of an imported library package, and evaluates their big-integer values. The unused import runs 105 ms of unicode checking, the same as the used `is_upper` case.
+- Library procedure bodies are lazy (checked only when named), except those whose body text contains `#assert` or `#panic`. Ignoring that rule changes nothing in `base/runtime`, so it is not the cause of its fixed cost.
+- `base/runtime` costs about 110 ms in every program. Most of that is procedure-group declarations (`make`, `append`, and similar), which are not lazy in the declaration loop, and the bodies they reach. Making groups lazy alone removes about 35 ms of the 110 ms.
+- The residual 80 ms in `base/runtime` is bodies reached by reference from runtime roots (the runtime helper set and `__init_context`) and from their callees, mostly math, memory copy and set, and decoding. Not isolated per root.
+
+Results (mean of two runs, milliseconds, timed build):
+
+| Mode | `empty` | `hello_fmt` | `unused_unicode` | `base/runtime` in `empty` |
+| --- | ---: | ---: | ---: | ---: |
+| none | 278.3 | 1149.5 | 435.8 | 109.0 |
+| constants, `@(rodata)` variables, procedure groups skipped | 245.9 | 878.9 | 323.6 | 79.6 |
+
+The `hello_fmt` output is unchanged (`hello`, exit 0). Skipping these declarations would also skip their diagnostics in unreferenced library code. That is a semantic choice that needs a decision before implementation: the library-body rule already accepts that trade-off for procedure bodies.
