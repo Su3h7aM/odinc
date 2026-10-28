@@ -78,3 +78,49 @@ Items 1 and 2 cover 63% of the delta, and most of the check time is outside the 
 - Timers and the tracking allocator add about 5% to the timed run.
 - Nested timers are excluded by construction: load includes parse, so parse is subtracted from load.
 - Peak resident memory of `odinc2` (about 696 MB, reported by the T1 baseline) was not measured in this report. It belongs to the next cycle.
+
+## T2b: per-package and per-declaration breakdown inside check
+
+Method: exclusive time and allocation counts per package and per declaration, for each declaration resolved by the driver and each procedure body checked. Frames are nested, so a frame's time excludes its children. Big-integer interning time and calls are attributed to the innermost frame. Same instrumentation approach as T2, applied to the same checker code. The instrumented copy is outside the repository.
+
+Coverage: the frames of `hello_fmt` account for 461 ms of the 387 ms that `check resolve` adds over `empty`, after the fixed cost of `base/runtime` (106 ms, present in both programs) is removed. The 25 ms difference is measurement scope: frames do not cover the phase work outside declaration resolution and body checks.
+
+Package deltas (`hello_fmt` minus `empty`), exclusive:
+
+| Package | Time (ms) | Share of fmt-added frame time | Allocations | Allocated (MB) | Big-int interning (ms, calls) |
+| --- | ---: | ---: | ---: | ---: | --- |
+| core/unicode | 96.9 | 26.8% | 537 | 14.1 | 31.9 ms, 28,332 calls |
+| core/sys/linux | 55.6 | 15.4% | 3,545 | 1.7 | 3.2 ms, 4,404 calls |
+| core/math | 50.3 | 13.9% | 1,914 | 2.2 | 1.0 ms, 1,511 calls |
+| core/os | 33.8 | 9.3% | 1,522 | 21.8 | 1.0 ms, 1,111 calls |
+| core/fmt | 28.8 | 8.0% | 1,071 | 2.7 | 1.2 ms, 1,786 calls |
+| core/strconv | 19.7 | 5.4% | 270 | 2.5 | 4.8 ms, 3,545 calls |
+| core/strings | 12.4 | 3.4% | 612 | 0.5 | |
+| core/reflect | 10.1 | 2.8% | 584 | 1.2 | |
+| core/sync | 7.5 | 2.1% | 498 | 0.3 | |
+| core/io | 7.2 | 2.0% | 152 | 6.4 | 0.4 ms, 287 calls |
+
+The ten largest packages account for 89% of the fmt-added frame time (sum of deltas: 362 ms). Frame-attributed allocations add 12,759 allocations and 55.3 MB; the remaining 34,404 allocations and 61.4 MB of the T2 totals come from parse, load, analysis and lowering, outside the frames.
+
+Largest declarations (exclusive, delta over `empty`):
+
+1. `core:strconv._POWER_OF_FIVE_128`: 11.8 ms, 2.4 MB allocated. A constant table.
+2. `core:unicode.to_upper`: 11.4 ms.
+3. `core:unicode.to_lower`: 8.6 ms.
+4. `core:unicode.is_hangul_syllable_lvt`: 8.2 ms.
+5. `core:unicode.is_emoji_extended_pictographic`: 7.5 ms.
+6. `core:unicode.is_upper`: 6.7 ms.
+7. `core:os.make_directory_temp`: 5.7 ms, 12.6 MB allocated.
+8. `core:unicode.is_lower`: 5.5 ms.
+9. `core:unicode.is_grapheme_extend`: 4.3 ms.
+10. `core:unicode.is_control`: 4.3 ms.
+
+Most of the top declarations are in `core:unicode`. They are predicates and range tables, and the table constants account for part of their cost.
+
+Hypothesis updates:
+
+- H1 (checking `core:fmt` costs most of the time). The measured cost is spread across packages, and `core:unicode` is the largest single one, at 27%. `core:fmt` itself is 8%. No single package accounts for the majority, so the claim is not confirmed as stated.
+- H5 (`big.Int` constants dominate). Overall still refuted: interning is 46.4 ms, about 5% of the fmt delta. It is concentrated: 32 ms and 28,332 of the 45,310 calls are in `core:unicode`, so the constant tables of `core:unicode` are the place to look, but they are not the whole cost of that package.
+- `base/runtime` costs 106 ms in every program, including `empty`. That is 37% of the `empty` build and is not caused by `fmt`.
+
+Open for T2d: confirm whether the unicode predicates are checked because `core:fmt` reaches them, or because the checker resolves their whole package. Track whether the `base/runtime` fixed cost is avoidable, since it is paid by every program.
